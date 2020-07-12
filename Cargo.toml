@@ -1,0 +1,19 @@
+[package]
+name = "weebview"
+version = "0.1.0"
+authors = ["Ngo Iok Ui <wusyong9104@gmail.com>"]
+edition = "2018"
+license = "Apache-2.0/MIT"
+description = "A tiny webview library to build modern cross-platform GUIs."
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+javascriptcore-rs-sys = "0.2"
+gtk-sys = "0.9"
+glib-sys = "0.9"
+gobject-sys = "0.9"
+webkit2gtk-sys = { version = "0.10", features = ["v2_8"] }
+gdk-sys = "0.9"
+libc = "0.2"
