@@ -3,7 +3,7 @@ use glib_sys::*;
 use gobject_sys::g_signal_connect_data;
 use gtk_sys::*;
 use javascriptcore_sys::*;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int, c_void};
@@ -155,12 +155,7 @@ pub unsafe extern "C" fn webview_set_size(
             } else {
                 GDK_HINT_MAX_SIZE
             };
-            gtk_window_set_geometry_hints(
-                (*webview).window as *mut _,
-                ptr::null_mut(),
-                &mut g,
-                h,
-            );
+            gtk_window_set_geometry_hints((*webview).window as *mut _, ptr::null_mut(), &mut g, h);
         }
     }
 }
@@ -220,9 +215,8 @@ pub unsafe extern "C" fn webview_dispatch(
         0
     }
 
-    let data = Box::into_raw(Box::new(DispatchArg{fn_, webview, arg}));
+    let data = Box::into_raw(Box::new(DispatchArg { fn_, webview, arg }));
     g_idle_add_full(G_PRIORITY_HIGH_IDLE, Some(cb), data as *mut _, None);
-
 }
 
 #[no_mangle]
@@ -280,7 +274,9 @@ pub unsafe extern "C" fn on_message(
     s.set_len(n - 1);
     let mut c = 0;
     loop {
-        if s[c] == 0 { break; }
+        if s[c] == 0 {
+            break;
+        }
         c += 1;
     }
     let _ = s.split_off(c);
