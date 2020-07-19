@@ -1,9 +1,18 @@
 use weebview::*;
+use winit::{
+    event::{Event, WindowEvent, StartCause},
+    event_loop::{ControlFlow, EventLoop},
+    window::Window,
+};
+use winit::platform::windows::WindowExtWindows;
 
 pub fn main() {
-    let w = new().unwrap();
-    unsafe {navigate(w, "https://www.google.com");}
-    run(w);
+    let weeb = Weebview::new();
+    weeb.navigate("https://www.google.com");
+    weeb.run();
+    // let w = new().unwrap();
+    // unsafe {navigate(w, "https://www.google.com");}
+    // run(w);
 }
 
 // use std::ffi::CString;
