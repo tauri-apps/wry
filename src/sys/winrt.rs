@@ -46,9 +46,7 @@ impl WebView {
             }))?;
             unsafe {
                 CoWaitForMultipleHandles(
-                    COWAIT_DISPATCH_WINDOW_MESSAGES
-                        | COWAIT_DISPATCH_CALLS
-                        | COWAIT_INPUTAVAILABLE,
+                    COWAIT_DISPATCH_WINDOW_MESSAGES | COWAIT_DISPATCH_CALLS | COWAIT_INPUTAVAILABLE,
                     INFINITE,
                     1,
                     &mut hs,
@@ -60,11 +58,13 @@ impl WebView {
         let webview = op.get_results()?;
         webview.settings()?.set_is_script_notify_allowed(true)?;
         webview.set_is_visible(true)?;
-        webview.script_notify(TypedEventHandler::new(|_, args: &WebViewControlScriptNotifyEventArgs| {
-            let s = args.value()?.to_string();
-            // TODO call binds
-            Ok(())
-        }))?;
+        webview.script_notify(TypedEventHandler::new(
+            |_, args: &WebViewControlScriptNotifyEventArgs| {
+                let s = args.value()?.to_string();
+                // TODO call binds
+                Ok(())
+            },
+        ))?;
         let w = webview.clone();
         webview.navigation_starting(TypedEventHandler::new(move |_, _| {
             w.add_initialize_script(winrt::HString::new())?;
@@ -73,7 +73,7 @@ impl WebView {
         // TODO init
         let w = WebView(webview);
         w.resize(window as *mut _);
-        
+
         Ok(w)
     }
 
@@ -88,26 +88,28 @@ impl WebView {
         // }
     }
 
-    pub fn resize(&self, wnd: HWND) { unsafe {
-        if wnd.is_null() {
-            return;
-        }
-        let mut r = RECT {
-            left: 0,
-            top: 0,
-            right: 0,
-            bottom: 0,
-        };
-        GetClientRect(wnd, &mut r);
-        let r = Rect {
-            x: r.left as f32,
-            y: r.top as f32,
-            width: (r.right - r.left) as f32,
-            height: (r.bottom - r.top) as f32,
-        };
+    pub fn resize(&self, wnd: HWND) {
+        unsafe {
+            if wnd.is_null() {
+                return;
+            }
+            let mut r = RECT {
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+            };
+            GetClientRect(wnd, &mut r);
+            let r = Rect {
+                x: r.left as f32,
+                y: r.top as f32,
+                width: (r.right - r.left) as f32,
+                height: (r.bottom - r.top) as f32,
+            };
 
-        self.0.set_bounds(r).unwrap();
-    }}
+            self.0.set_bounds(r).unwrap();
+        }
+    }
 }
 
 // pub type BindFn = extern "C" fn(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32;

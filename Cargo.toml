@@ -9,23 +9,23 @@ readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[build-dependencies]
+[target.'cfg(target_os = "windows")'.build-dependencies]
 winrt = "0.7"
 
 [dependencies]
-winit = "0.21"
 libc = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-[target.'cfg(linux)'.dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
 javascriptcore-rs-sys = "0.2"
-gtk-sys = "0.9"
-glib-sys = "0.9"
-gobject-sys = "0.9"
-webkit2gtk-sys = { version = "0.10", features = ["v2_8"] }
-gdk-sys = "0.9"
+gtk-sys = "0.10"
+glib-sys = "0.10"
+gobject-sys = "0.10"
+webkit2gtk-sys = { version = "0.12", features = ["v2_8"] }
+gdk-sys = "0.10"
 
 [target.'cfg(windows)'.dependencies]
+winit = "0.21"
 winapi = { version = "0.3", features = ["combaseapi", "libloaderapi", "minwindef", "roapi", "synchapi", "winbase", "windef", "winnt", "winuser"] }
 winrt = "0.7"

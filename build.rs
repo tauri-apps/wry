@@ -1,3 +1,4 @@
+#[cfg(target_os = "windows")]
 winrt::build!(
     dependencies
         os
@@ -8,5 +9,6 @@ winrt::build!(
 );
 
 fn main() {
+    #[cfg(target_os = "windows")]
     build();
 }

@@ -1,3 +1,5 @@
+use crate::Error;
+
 use gdk_sys::{GdkGeometry, GDK_HINT_MAX_SIZE, GDK_HINT_MIN_SIZE};
 use glib_sys::*;
 use gobject_sys::g_signal_connect_data;
@@ -10,16 +12,89 @@ use std::os::raw::{c_char, c_int, c_void};
 use std::ptr;
 use webkit2gtk_sys::*;
 
+#[derive(Clone)]
+pub struct WebView(*mut RawWebview);
+unsafe impl Send for WebView {}
+unsafe impl Sync for WebView {}
+
+impl WebView {
+    pub fn new(debug: bool) -> Result<Self, Error> {
+        unsafe {
+            let w = webview_create(debug);
+            match w.is_null() {
+                true => Err(Error::InitError),
+                false => Ok(WebView(w)),
+            }
+        }
+    }
+
+    pub fn navigate(&self, url: &str) -> Result<(), Error> {
+        unsafe{webview_navigate(self.0, CString::new(url)?.as_ptr());}
+        Ok(())
+    }
+
+    pub fn init(&self, js: &str) -> Result<(), Error> {
+        //TODO lock
+        unsafe{webview_init(self.0, CString::new(js)?.as_ptr());}
+        Ok(())
+    }
+
+    pub fn eval(&self, js: &str) -> Result<(), Error> {
+        //TODO lock
+        unsafe{webview_eval(self.0, CString::new(js)?.as_ptr());}
+        Ok(())
+    }
+
+    pub fn bind<F>(&mut self, name: &str, f: F) -> Result<(), Error>
+    where
+        F: FnMut(i8, &str) -> i32,
+    {
+        let webview = self.0;
+        let c_name = CString::new(name).expect("No null bytes in parameter name");
+        let closure = Box::into_raw(Box::new(f));
+        extern "C" fn callback<F>(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32
+        where
+            F: FnMut(i8, &str) -> i32,
+        {
+            let seq = unsafe { *seq };
+            let req = unsafe {
+                CStr::from_ptr(req)
+                    .to_str()
+                    .expect("No null bytes in parameter req")
+            };
+            let mut f: Box<F> = unsafe { Box::from_raw(arg as *mut F) };
+            let result = (*f)(seq, req);
+            std::mem::forget(f);
+
+            result
+            
+        }
+        unsafe {
+            webview_bind(
+                webview,
+                c_name.as_ptr(),
+                callback::<F>,
+                closure as *mut _,
+            )
+        }
+        Ok(())
+    }
+
+    pub fn run(self) {
+        unsafe { webview_run(self.0); }
+    }
+}
+
 pub const WEBVIEW_HINT_NONE: c_int = 0;
 pub const WEBVIEW_HINT_MIN: c_int = 1;
 pub const WEBVIEW_HINT_MAX: c_int = 2;
 pub const WEBVIEW_HINT_FIXED: c_int = 3;
 
 pub type BindFn = extern "C" fn(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32;
-pub type DispatchFn = extern "C" fn(webview: *mut Weebview, arg: *mut c_void);
+pub type DispatchFn = extern "C" fn(webview: *mut RawWebview, arg: *mut c_void);
 
 #[repr(C)]
-pub struct Weebview {
+pub struct RawWebview {
     debug: bool,
     window: *mut GtkWidget,
     webview: *mut GtkWidget,
@@ -27,10 +102,10 @@ pub struct Weebview {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn webview_create(debug: bool, window: *mut GtkWidget) -> *mut Weebview {
-    let w = Box::into_raw(Box::new(Weebview {
+pub unsafe extern "C" fn webview_create(debug: bool) -> *mut RawWebview {
+    let w = Box::into_raw(Box::new(RawWebview {
         debug,
-        window,
+        window: ptr::null_mut(),
         webview: ptr::null_mut(),
         callbacks: HashMap::new(),
     }));
@@ -39,10 +114,7 @@ pub unsafe extern "C" fn webview_create(debug: bool, window: *mut GtkWidget) -> 
         return ptr::null_mut();
     }
 
-    let window = match (*w).window {
-        w if w.is_null() => gtk_window_new(GTK_WINDOW_TOPLEVEL),
-        _ => (*w).window,
-    };
+    let window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     (*w).window = window;
 
     g_signal_connect_data(
@@ -100,28 +172,28 @@ pub unsafe extern "C" fn webview_create(debug: bool, window: *mut GtkWidget) -> 
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn webview_destroy(webview: *mut Weebview) {
+pub unsafe extern "C" fn webview_destroy(webview: *mut RawWebview) {
     let _ = Box::from_raw(webview);
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn webview_run(_webview: *mut Weebview) {
+pub unsafe extern "C" fn webview_run(_webview: *mut RawWebview) {
     gtk_main();
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn webview_terminate(_webview: *mut Weebview) {
+pub unsafe extern "C" fn webview_terminate(_webview: *mut RawWebview) {
     gtk_main_quit();
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn webview_set_title(webview: *mut Weebview, title: *const c_char) {
+pub unsafe extern "C" fn webview_set_title(webview: *mut RawWebview, title: *const c_char) {
     gtk_window_set_title((*webview).window as *mut _, title);
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn webview_set_size(
-    webview: *mut Weebview,
+    webview: *mut RawWebview,
     width: c_int,
     height: c_int,
     hint: c_int,
@@ -161,17 +233,17 @@ pub unsafe extern "C" fn webview_set_size(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn webview_get_window(webview: *mut Weebview) -> *mut GtkWidget {
+pub unsafe extern "C" fn webview_get_window(webview: *mut RawWebview) -> *mut GtkWidget {
     (*webview).window
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn webview_navigate(webview: *mut Weebview, url: *const c_char) {
+pub unsafe extern "C" fn webview_navigate(webview: *mut RawWebview, url: *const c_char) {
     webkit_web_view_load_uri((*webview).webview as *mut _, url);
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn webview_init(webview: *mut Weebview, js: *const c_char) {
+pub unsafe extern "C" fn webview_init(webview: *mut RawWebview, js: *const c_char) {
     webkit_user_content_manager_add_script(
         webkit_web_view_get_user_content_manager((*webview).webview as *mut _),
         webkit_user_script_new(
@@ -185,7 +257,7 @@ pub unsafe extern "C" fn webview_init(webview: *mut Weebview, js: *const c_char)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn webview_eval(webview: *mut Weebview, js: *const c_char) {
+pub unsafe extern "C" fn webview_eval(webview: *mut RawWebview, js: *const c_char) {
     webkit_web_view_run_javascript(
         (*webview).webview as *mut _,
         js,
@@ -197,14 +269,14 @@ pub unsafe extern "C" fn webview_eval(webview: *mut Weebview, js: *const c_char)
 
 #[no_mangle]
 pub unsafe extern "C" fn webview_dispatch(
-    webview: *mut Weebview,
+    webview: *mut RawWebview,
     fn_: DispatchFn,
     arg: *mut c_void,
 ) {
     #[repr(C)]
     struct DispatchArg {
         fn_: DispatchFn,
-        webview: *mut Weebview,
+        webview: *mut RawWebview,
         arg: *mut c_void,
     }
 
@@ -221,7 +293,7 @@ pub unsafe extern "C" fn webview_dispatch(
 
 #[no_mangle]
 pub unsafe extern "C" fn webview_bind(
-    webview: *mut Weebview,
+    webview: *mut RawWebview,
     name: *const c_char,
     fn_: BindFn,
     arg: *mut c_void,
@@ -264,7 +336,7 @@ pub unsafe extern "C" fn on_message(
         params: serde_json::Value,
     }
 
-    let webview: *mut Weebview = arg as *mut _;
+    let webview: *mut RawWebview = arg as *mut _;
     let ctx = webkit_javascript_result_get_global_context(r);
     let value = webkit_javascript_result_get_value(r);
     let js = JSValueToStringCopy(ctx, value, ptr::null_mut());
