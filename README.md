@@ -1,3 +1,5 @@
 # Weebview
 
-![](weebview.jpg)
+Webview implementation in Rust.
+
+![](weebview.png)
