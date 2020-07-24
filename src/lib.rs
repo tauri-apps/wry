@@ -31,26 +31,6 @@ use std::fmt;
 
 //     pub fn run(self) {
 //         self.0.run();
-//         // let window = self.window;
-//         // let webview = self.webview;
-//         // self.events.run(move |event, _, control_flow| {
-//         //     *control_flow = ControlFlow::Wait;
-
-//         //     match event {
-//         //         Event::NewEvents(StartCause::Init) => {}
-//         //         Event::WindowEvent {
-//         //             event: WindowEvent::CloseRequested,
-//         //             ..
-//         //         } => *control_flow = ControlFlow::Exit,
-//         //         Event::WindowEvent {
-//         //             event: WindowEvent::Resized(_),
-//         //             ..
-//         //         } => {
-//         //             //webview.resize(window.hwnd() as *mut _);
-//         //         }
-//         //         _ => (),
-//         //     }
-//         // });
 //     }
 // }
 
@@ -62,6 +42,8 @@ pub enum Error {
     NulError(std::ffi::NulError),
     #[cfg(target_os = "windows")]
     WinrtError(winrt::Error),
+    #[cfg(not(target_os = "linux"))]
+    OsError(winit::error::OsError),
 }
 
 impl fmt::Display for Error {
@@ -71,6 +53,8 @@ impl fmt::Display for Error {
             Error::NulError(e) => e.fmt(f),
             #[cfg(target_os = "windows")]
             Error::WinrtError(e) => format!("{:?}", e).fmt(f),
+            #[cfg(not(target_os = "linux"))]
+            Error::OsError(e) => e.fmt(f),
         }
     }
 }
@@ -90,14 +74,8 @@ impl From<std::ffi::NulError> for Error {
     }
 }
 
-
-// use winit::{
-//     event::{Event, StartCause, WindowEvent},
-//     event_loop::{ControlFlow, EventLoop},
-//     window::Window,
-// };
-//use winit::platform::windows::WindowExtWindows;
-
-
-
-
+impl From<winit::error::OsError> for Error {
+    fn from(error: winit::error::OsError) -> Self {
+        Error::OsError(error)
+    }
+}

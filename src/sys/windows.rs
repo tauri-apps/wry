@@ -22,18 +22,30 @@ use winapi::{
     },
     winrt::roapi::{RoInitialize, RO_INIT_SINGLETHREADED},
 };
+use winit::{
+    event::{Event, StartCause, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    platform::windows::WindowExtWindows,
+    window::Window,
+};
 
 use windows::foundation::*;
 use windows::web::ui::interop::*;
 use windows::web::ui::*;
 use winrt::HString;
 
-pub struct WebView(WebViewControl);
+pub struct WebView{
+    events: EventLoop<()>,
+    window: Window,
+    webview: WebViewControl,
+}
 
 impl WebView {
-    pub fn new(window: *mut c_void) -> Result<Self, Error> {
+    pub fn new(debug: bool) -> Result<Self, Error> {
+        let events = EventLoop::new();
+        let window = Window::new(&events)?;
         let op = WebViewControlProcess::new()?
-            .create_web_view_control_async(window as i64, Rect::default())?;
+            .create_web_view_control_async(window.hwnd() as i64, Rect::default())?;
 
         if op.status()? != AsyncStatus::Completed {
             let h = unsafe { CreateEventW(null_mut(), 0i32, 0i32, null()) };
@@ -61,24 +73,25 @@ impl WebView {
         webview.script_notify(TypedEventHandler::new(
             |_, args: &WebViewControlScriptNotifyEventArgs| {
                 let s = args.value()?.to_string();
-                // TODO call binds
+                dbg!(s);
+                // TODO call on message
                 Ok(())
             },
         ))?;
-        let w = webview.clone();
-        webview.navigation_starting(TypedEventHandler::new(move |_, _| {
-            w.add_initialize_script(winrt::HString::new())?;
-            Ok(())
-        }))?;
-        // TODO init
-        let w = WebView(webview);
-        w.resize(window as *mut _);
+        
+        let w = WebView {
+            events,
+            window,
+            webview,
+        };
+        resize(&w.webview, w.window.hwnd() as *mut _);
 
         Ok(w)
     }
 
-    pub fn navigate(&self, url: &str) {
-        self.0.navigate(Uri::create_uri(url).unwrap());
+    pub fn navigate(&self, url: &str) -> Result<(), Error> {
+        self.webview.navigate(Uri::create_uri(url)?)?;
+        Ok(())
         // std::string html = html_from_uri(url);
         // if (html != "") {
         //   m_webview.NavigateToString(winrt::to_hstring(html));
@@ -88,27 +101,63 @@ impl WebView {
         // }
     }
 
-    pub fn resize(&self, wnd: HWND) {
-        unsafe {
-            if wnd.is_null() {
-                return;
-            }
-            let mut r = RECT {
-                left: 0,
-                top: 0,
-                right: 0,
-                bottom: 0,
-            };
-            GetClientRect(wnd, &mut r);
-            let r = Rect {
-                x: r.left as f32,
-                y: r.top as f32,
-                width: (r.right - r.left) as f32,
-                height: (r.bottom - r.top) as f32,
-            };
+    pub fn init(&self, js: &str) -> Result<(), Error> {
+        let script = String::from("(function(){") + js + "})();";
+        self.webview.add_initialize_script(script)?;
+        Ok(())
+    }
 
-            self.0.set_bounds(r).unwrap();
+    pub fn eval(&self, js: &str) -> Result<(), Error> {
+        //self.webview.invoke_script_async("name", vec![HString::from(js)].into_iter())?;
+        Ok(())
+    }
+
+    pub fn run(self) {
+        let window = self.window;
+        let webview = self.webview;
+        self.events.run(move |event, _, control_flow| {
+            *control_flow = ControlFlow::Wait;
+
+            match event {
+                Event::NewEvents(StartCause::Init) => {}
+                Event::WindowEvent {
+                    event: WindowEvent::CloseRequested,
+                    ..
+                } => *control_flow = ControlFlow::Exit,
+                Event::WindowEvent {
+                    event: WindowEvent::Resized(_),
+                    ..
+                } => {
+                    resize(&webview, window.hwnd() as *mut _);
+                }
+                _ => (),
+            }
+        });
+    }
+
+    
+}
+
+fn resize(webview: &WebViewControl, wnd: HWND) {
+    unsafe {
+        if wnd.is_null() {
+            return;
         }
+        let mut r = RECT {
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: 0,
+        };
+        GetClientRect(wnd, &mut r);
+        let r = Rect {
+            x: r.left as f32,
+            y: r.top as f32,
+            width: (r.right - r.left) as f32,
+            height: (r.bottom - r.top) as f32,
+        };
+
+        webview.set_bounds(r).unwrap();
     }
 }
 

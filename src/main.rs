@@ -16,15 +16,15 @@ use std::ptr;
 
 fn main() -> Result<(), Box<dyn std::error::Error>>{
     let mut webview = WebView::new(true)?;
-    webview.navigate("https://www.google.com")?;
     webview.init("window.x = 42")?;
-    let w = webview.clone();
-    webview.bind("xxx", |_seq, _req| {
-        match w.eval("console.log('The anwser is ' + window.x);").is_ok() {
-            true => 0,
-            false => 1,
-        }
-    })?;
+    webview.navigate("https://www.google.com")?;
+    // let w = webview.clone();
+    // webview.bind("xxx", |_seq, _req| {
+    //     match w.eval("console.log('The anwser is ' + window.x);").is_ok() {
+    //         true => 0,
+    //         false => 1,
+    //     }
+    // })?;
     webview.run();
     Ok(())
     // unsafe {
