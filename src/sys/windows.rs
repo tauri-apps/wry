@@ -1,11 +1,10 @@
-include!(concat!(env!("OUT_DIR"), "/winrt.rs"));
-
 use crate::Error;
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::mem::size_of;
 use std::os::raw::{c_char, c_void};
+use std::ffi::{CStr, CString};
 use std::os::windows::ffi::OsStrExt;
 use std::ptr::{null, null_mut};
 
@@ -29,15 +28,28 @@ use winit::{
     window::Window,
 };
 
+winrt::import!(
+    dependencies
+        os
+    types
+        windows::foundation::*
+        windows::web::ui::*
+        windows::web::ui::interop::*
+);
+
 use windows::foundation::*;
+use windows::foundation::collections::*;
 use windows::web::ui::interop::*;
 use windows::web::ui::*;
 use winrt::HString;
+
+pub type BindFn = extern "C" fn(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32;
 
 pub struct WebView{
     events: EventLoop<()>,
     window: Window,
     webview: WebViewControl,
+    callbacks: HashMap<CString, (BindFn, *mut c_void)>,
 }
 
 impl WebView {
@@ -79,11 +91,14 @@ impl WebView {
             },
         ))?;
         
+        
         let w = WebView {
             events,
             window,
             webview,
+            callbacks: HashMap::new(),
         };
+        w.init("window.external.invoke = s => window.external.notify(s)");
         resize(&w.webview, w.window.hwnd() as *mut _);
 
         Ok(w)
@@ -108,7 +123,60 @@ impl WebView {
     }
 
     pub fn eval(&self, js: &str) -> Result<(), Error> {
-        //self.webview.invoke_script_async("name", vec![HString::from(js)].into_iter())?;
+        let x = IVector::<HString>::default();
+        let _ = x.append(HString::from(js));
+        //let x: IIterable<HString> = x.into();
+        self.webview.invoke_script_async("name", x)?;
+        Ok(())
+    }
+
+    pub fn bind<F>(&mut self, name: &str, f: F) -> Result<(), Error>
+    where
+        F: FnMut(i8, &str) -> i32,
+    {
+        let c_name = CString::new(name).expect("No null bytes in parameter name");
+        let closure = Box::into_raw(Box::new(f));
+        extern "C" fn callback<F>(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32
+        where
+            F: FnMut(i8, &str) -> i32,
+        {
+            let seq = unsafe { *seq };
+            let req = unsafe {
+                CStr::from_ptr(req)
+                    .to_str()
+                    .expect("No null bytes in parameter req")
+            };
+            let mut f: Box<F> = unsafe { Box::from_raw(arg as *mut F) };
+            let result = (*f)(seq, req);
+            std::mem::forget(f);
+
+            result
+            
+        }
+        let name = unsafe { CStr::from_ptr(c_name.as_ptr()).to_owned() };
+        let js = format!(
+            r#"var name = {:?};
+                var RPC = window._rpc = (window._rpc || {{nextSeq: 1}});
+                window[name] = function() {{
+                var seq = RPC.nextSeq++;
+                var promise = new Promise(function(resolve, reject) {{
+                    RPC[seq] = {{
+                    resolve: resolve,
+                    reject: reject,
+                    }};
+                }});
+                window.external.invoke(JSON.stringify({{
+                    id: seq,
+                    method: name,
+                    params: Array.prototype.slice.call(arguments),
+                }}));
+                return promise;
+                }}
+            "#,
+            name
+        );
+        self.webview.add_initialize_script(js)?;
+        self.callbacks.insert(name, (callback::<F>, closure as _));
         Ok(())
     }
 

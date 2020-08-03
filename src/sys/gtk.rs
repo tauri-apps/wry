@@ -317,7 +317,7 @@ pub unsafe extern "C" fn webview_bind(
       }}));
       return promise;
     }}
-}})()"#,
+}})())"#,
         name
     );
     webview_init(webview, CString::new(js).unwrap().as_ptr());

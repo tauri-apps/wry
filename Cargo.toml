@@ -7,11 +7,6 @@ license = "Apache-2.0/MIT"
 description = "A tiny webview library to build modern cross-platform GUIs."
 readme = "README.md"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[target.'cfg(target_os = "windows")'.build-dependencies]
-winrt = "0.7"
-
 [dependencies]
 libc = "0.2"
 serde = { version = "1.0", features = ["derive"] }
