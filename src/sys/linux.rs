@@ -1,5 +1,3 @@
-use crate::Error;
-
 use gdk_sys::{GdkGeometry, GDK_HINT_MAX_SIZE, GDK_HINT_MIN_SIZE};
 use glib_sys::*;
 use gobject_sys::g_signal_connect_data;
@@ -12,86 +10,10 @@ use std::os::raw::{c_char, c_int, c_void};
 use std::ptr;
 use webkit2gtk_sys::*;
 
-#[derive(Clone)]
-pub struct WebView(*mut RawWebview);
-unsafe impl Send for WebView {}
-unsafe impl Sync for WebView {}
-
-impl WebView {
-    pub fn new(debug: bool) -> Result<Self, Error> {
-        unsafe {
-            let w = webview_create(debug);
-            match w.is_null() {
-                true => Err(Error::InitError),
-                false => Ok(WebView(w)),
-            }
-        }
-    }
-
-    pub fn navigate(&self, url: &str) -> Result<(), Error> {
-        unsafe{webview_navigate(self.0, CString::new(url)?.as_ptr());}
-        Ok(())
-    }
-
-    pub fn init(&self, js: &str) -> Result<(), Error> {
-        //TODO lock
-        unsafe{webview_init(self.0, CString::new(js)?.as_ptr());}
-        Ok(())
-    }
-
-    pub fn eval(&self, js: &str) -> Result<(), Error> {
-        //TODO lock
-        unsafe{webview_eval(self.0, CString::new(js)?.as_ptr());}
-        Ok(())
-    }
-
-    pub fn bind<F>(&mut self, name: &str, f: F) -> Result<(), Error>
-    where
-        F: FnMut(i8, &str) -> i32,
-    {
-        let webview = self.0;
-        let c_name = CString::new(name).expect("No null bytes in parameter name");
-        let closure = Box::into_raw(Box::new(f));
-        extern "C" fn callback<F>(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32
-        where
-            F: FnMut(i8, &str) -> i32,
-        {
-            let seq = unsafe { *seq };
-            let req = unsafe {
-                CStr::from_ptr(req)
-                    .to_str()
-                    .expect("No null bytes in parameter req")
-            };
-            let mut f: Box<F> = unsafe { Box::from_raw(arg as *mut F) };
-            let result = (*f)(seq, req);
-            std::mem::forget(f);
-
-            result
-            
-        }
-        unsafe {
-            webview_bind(
-                webview,
-                c_name.as_ptr(),
-                callback::<F>,
-                closure as *mut _,
-            )
-        }
-        Ok(())
-    }
-
-    pub fn run(self) {
-        unsafe { webview_run(self.0); }
-    }
-}
-
 pub const WEBVIEW_HINT_NONE: c_int = 0;
 pub const WEBVIEW_HINT_MIN: c_int = 1;
 pub const WEBVIEW_HINT_MAX: c_int = 2;
 pub const WEBVIEW_HINT_FIXED: c_int = 3;
-
-pub type BindFn = extern "C" fn(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32;
-pub type DispatchFn = extern "C" fn(webview: *mut RawWebview, arg: *mut c_void);
 
 #[repr(C)]
 pub struct RawWebview {
@@ -144,7 +66,6 @@ pub unsafe extern "C" fn webview_create(debug: bool) -> *mut RawWebview {
         0,
     );
 
-    // TODO
     webkit_web_view_run_javascript(
         webview as *mut _,
         CStr::from_bytes_with_nul_unchecked(b"window.external={invoke:function(x){window.webkit.messageHandlers.external.postMessage(x);}}\0").as_ptr(),
@@ -267,29 +188,7 @@ pub unsafe extern "C" fn webview_eval(webview: *mut RawWebview, js: *const c_cha
     );
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn webview_dispatch(
-    webview: *mut RawWebview,
-    fn_: DispatchFn,
-    arg: *mut c_void,
-) {
-    #[repr(C)]
-    struct DispatchArg {
-        fn_: DispatchFn,
-        webview: *mut RawWebview,
-        arg: *mut c_void,
-    }
-
-    unsafe extern "C" fn cb(data: *mut c_void) -> i32 {
-        let data: Box<DispatchArg> = Box::from_raw(data as *mut _);
-
-        (data.fn_)(data.webview, data.arg);
-        0
-    }
-
-    let data = Box::into_raw(Box::new(DispatchArg { fn_, webview, arg }));
-    g_idle_add_full(G_PRIORITY_HIGH_IDLE, Some(cb), data as *mut _, None);
-}
+pub type BindFn = extern "C" fn(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32;
 
 #[no_mangle]
 pub unsafe extern "C" fn webview_bind(
@@ -317,7 +216,7 @@ pub unsafe extern "C" fn webview_bind(
       }}));
       return promise;
     }}
-}})())"#,
+}}())"#,
         name
     );
     webview_init(webview, CString::new(js).unwrap().as_ptr());

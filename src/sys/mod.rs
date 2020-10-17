@@ -1,9 +1,9 @@
 #[cfg(target_os = "linux")]
-mod gtk;
+mod linux;
 #[cfg(target_os = "linux")]
-pub use gtk::*;
+pub use linux::*;
 
-#[cfg(target_os = "windows")]
-pub mod windows;
-#[cfg(target_os = "windows")]
-pub use windows::*;
+// #[cfg(target_os = "windows")]
+// pub mod windows;
+// #[cfg(target_os = "windows")]
+// pub use windows::*;

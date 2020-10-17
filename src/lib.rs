@@ -4,38 +4,6 @@ pub use crate::sys::*;
 
 use std::fmt;
 
-// pub struct Weebview<'a>(WebView<'a>);
-
-// impl<'a> Weebview<'a> {
-//     pub fn new() -> Result<Self, Error> {
-//         Ok(Self(WebView::new(true)?))
-//     }
-
-//     pub fn navigate(&self, url: &str) -> Result<(), Error> {
-//         self.0.navigate(url)
-//     }
-
-//     pub fn init(&self, js: &str) -> Result<(), Error> {
-//         self.0.init(js)
-//     }
-
-//     pub fn eval(&self, js: &str) -> Result<(), Error> {
-//         self.0.eval(js)
-//     }
-
-//     pub fn bind<F>(&mut self, name: &'a str, fn_: F) -> Result<(), Error>
-//         where F: Fn(usize, serde_json::Value) -> usize + 'static
-//     {
-//         self.0.bind(name, fn_)
-//     }
-
-//     pub fn run(self) {
-//         self.0.run();
-//     }
-// }
-
-
-
 #[derive(Debug)]
 pub enum Error {
     InitError,
@@ -74,8 +42,8 @@ impl From<std::ffi::NulError> for Error {
     }
 }
 
-impl From<winit::error::OsError> for Error {
-    fn from(error: winit::error::OsError) -> Self {
-        Error::OsError(error)
-    }
-}
+// impl From<winit::error::OsError> for Error {
+//     fn from(error: winit::error::OsError) -> Self {
+//         Error::OsError(error)
+//     }
+// }
