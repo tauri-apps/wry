@@ -1,5 +1,4 @@
-use weebview::*;
-
+use yametekudastop::*;
 
 // use winit::{
 //     event::{Event, StartCause, WindowEvent},
@@ -11,13 +10,12 @@ use std::ffi::CString;
 use std::os::raw::{c_char, c_void};
 use std::ptr;
 
-
 //use winit::platform::windows::WindowExtWindows;
 
-fn main() -> Result<(), Box<dyn std::error::Error>>{
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // let mut webview = WebView::new(true)?;
     // webview.init("window.x = 42")?;
-    
+
     // //let w = webview.clone();
     // webview.bind("xxx", |_seq, _req| {
     //     // match w.eval("console.log('The anwser is ' + window.x);").is_ok() {
@@ -44,9 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         );
         webview_navigate(
             data,
-            CString::new("https://www.google.com/")
-                .unwrap()
-                .as_ptr(),
+            CString::new("https://www.google.com/").unwrap().as_ptr(),
         );
         webview_run(data);
     }

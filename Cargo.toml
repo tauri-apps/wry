@@ -1,10 +1,10 @@
 [package]
-name = "weebview"
-version = "0.1.0"
+name = "yametekudastop"
+version = "0.0.1"
 authors = ["Ngo Iok Ui <wusyong9104@gmail.com>"]
 edition = "2018"
 license = "Apache-2.0/MIT"
-description = "A tiny webview library to build modern cross-platform GUIs."
+description = "(WIP) A tiny webview library to build modern cross-platform GUIs."
 readme = "README.md"
 
 [dependencies]

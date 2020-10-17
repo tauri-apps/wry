@@ -1,14 +1,16 @@
 use gdk_sys::{GdkGeometry, GDK_HINT_MAX_SIZE, GDK_HINT_MIN_SIZE};
-use glib_sys::*;
+use glib_sys::{gpointer, GFALSE};
 use gobject_sys::g_signal_connect_data;
 use gtk_sys::*;
 use javascriptcore_sys::*;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::ffi::{CStr, CString};
-use std::os::raw::{c_char, c_int, c_void};
-use std::ptr;
 use webkit2gtk_sys::*;
+
+use std::{
+    collections::HashMap,
+    ffi::{CStr, CString},
+    os::raw::{c_char, c_int, c_void},
+    ptr,
+};
 
 pub const WEBVIEW_HINT_NONE: c_int = 0;
 pub const WEBVIEW_HINT_MIN: c_int = 1;
