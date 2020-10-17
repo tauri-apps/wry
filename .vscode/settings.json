@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "functional": "cpp",
+        "type_traits": "cpp",
+        "xmemory": "cpp",
+        "ios": "cpp"
+    }
+}

@@ -2,4 +2,4 @@
 
 Webview implementation in Rust.
 
-![](weebview.jpg)
+![](weebview.png)
