@@ -45,8 +45,9 @@ impl From<std::ffi::NulError> for Error {
     }
 }
 
-// impl From<winit::error::OsError> for Error {
-//     fn from(error: winit::error::OsError) -> Self {
-//         Error::OsError(error)
-//     }
-// }
+#[cfg(target_os = "windows")]
+impl From<winit::error::OsError> for Error {
+    fn from(error: winit::error::OsError) -> Self {
+        Error::OsError(error)
+    }
+}

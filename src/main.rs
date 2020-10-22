@@ -16,7 +16,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // let mut webview = WebView::new(true)?;
     // webview.init("window.x = 42")?;
 
-    // //let w = webview.clone();
     // webview.bind("xxx", |_seq, _req| {
     //     // match w.eval("console.log('The anwser is ' + window.x);").is_ok() {
     //     //     true => 0,
@@ -27,26 +26,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // })?;
     // webview.navigate("https://www.google.com")?;
     // webview.run();
-    // Ok(())
-    unsafe {
-        let data = webview_create(true);
-        webview_set_title(data, CString::new("AYAYA").unwrap().as_ptr());
-        webview_set_size(data, 1024, 768, 0);
-        webview_init(data, CString::new("window.x = 42").unwrap().as_ptr());
-        //webview_dispatch(data, dispatch, ptr::null_mut());
-        webview_bind(
-            data,
-            CString::new("UwU").unwrap().as_ptr(),
-            bind,
-            ptr::null_mut(),
-        );
-        webview_navigate(
-            data,
-            CString::new("https://www.google.com/").unwrap().as_ptr(),
-        );
-        webview_run(data);
-    }
     Ok(())
+
+    // unsafe {
+    //     let data = webview_create(true);
+    //     webview_set_title(data, CString::new("AYAYA").unwrap().as_ptr());
+    //     webview_set_size(data, 1024, 768, 0);
+    //     webview_init(data, CString::new("window.x = 42").unwrap().as_ptr());
+    //     //webview_dispatch(data, dispatch, ptr::null_mut());
+    //     webview_bind(
+    //         data,
+    //         CString::new("UwU").unwrap().as_ptr(),
+    //         bind,
+    //         ptr::null_mut(),
+    //     );
+    //     webview_navigate(
+    //         data,
+    //         CString::new("https://www.google.com/").unwrap().as_ptr(),
+    //     );
+    //     webview_run(data);
+    // }
+    // Ok(())
 }
 
 #[no_mangle]

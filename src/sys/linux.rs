@@ -156,11 +156,6 @@ pub unsafe extern "C" fn webview_set_size(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn webview_get_window(webview: *mut RawWebview) -> *mut GtkWidget {
-    (*webview).window
-}
-
-#[no_mangle]
 pub unsafe extern "C" fn webview_navigate(webview: *mut RawWebview, url: *const c_char) {
     webkit_web_view_load_uri((*webview).webview as *mut _, url);
 }
@@ -225,7 +220,7 @@ pub unsafe extern "C" fn webview_bind(
     (*webview).callbacks.insert(name, (fn_, arg));
 }
 
-pub unsafe extern "C" fn on_message(
+unsafe extern "C" fn on_message(
     _m: *mut WebKitUserContentManager,
     r: *mut WebKitJavascriptResult,
     arg: gpointer,
