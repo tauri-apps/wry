@@ -13,19 +13,21 @@ use std::ptr;
 //use winit::platform::windows::WindowExtWindows;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // let mut webview = WebView::new(true)?;
-    // webview.init("window.x = 42")?;
+    unsafe {
+    let webview = RawWebView::new(true)?;
+    RawWebView::init(webview, "window.x = 42")?;
 
-    // webview.bind("xxx", |_seq, _req| {
-    //     // match w.eval("console.log('The anwser is ' + window.x);").is_ok() {
-    //     //     true => 0,
-    //     //     false => 1,
-    //     // }
-    //     println!("Hello");
-    //     0
-    // })?;
-    // webview.navigate("https://www.google.com")?;
-    // webview.run();
+    RawWebView::bind(webview, "xxx", |_seq, _req| {
+        // match webview.eval("console.log('The anwser is ' + window.x);").is_ok() {
+        //     true => 0,
+        //     false => 1,
+        // }
+        println!("Hello");
+        0
+    })?;
+    RawWebView::navigate(webview, "https://www.google.com")?;
+    RawWebView::run(webview);
+    }
     Ok(())
 
     // unsafe {

@@ -45,46 +45,49 @@ use winrt::HString;
 
 pub type BindFn = extern "C" fn(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32;
 
-pub struct WebView{
+pub struct RawWebView{
     events: EventLoop<()>,
     window: Window,
     webview: WebViewControl,
     callbacks: HashMap<CString, (BindFn, *mut c_void)>,
 }
 
-impl WebView {
-    pub fn new(_debug: bool) -> Result<Self, Error> {
+impl RawWebView {
+    pub unsafe fn new(_debug: bool) -> Result<*mut RawWebView, Error> {
         let events = EventLoop::new();
         let window = Window::new(&events)?;
         let op = WebViewControlProcess::new()?
             .create_web_view_control_async(window.hwnd() as i64, Rect::default())?;
 
         if op.status()? != AsyncStatus::Completed {
-            let h = unsafe { CreateEventW(null_mut(), 0i32, 0i32, null()) };
+            let h = CreateEventW(null_mut(), 0i32, 0i32, null());
             let mut hs = h.clone();
             op.set_completed(AsyncOperationCompletedHandler::new(move |_, _| {
-                unsafe {
-                    SetEvent(h);
-                }
+                SetEvent(h);
                 Ok(())
             }))?;
-            unsafe {
-                CoWaitForMultipleHandles(
-                    COWAIT_DISPATCH_WINDOW_MESSAGES | COWAIT_DISPATCH_CALLS | COWAIT_INPUTAVAILABLE,
-                    INFINITE,
-                    1,
-                    &mut hs,
-                    &mut 0u32,
-                );
-            }
+
+            CoWaitForMultipleHandles(
+                COWAIT_DISPATCH_WINDOW_MESSAGES | COWAIT_DISPATCH_CALLS | COWAIT_INPUTAVAILABLE,
+                INFINITE,
+                1,
+                &mut hs,
+                &mut 0u32,
+            );
         }
 
         let webview = op.get_results()?;
         webview.settings()?.set_is_script_notify_allowed(true)?;
         webview.set_is_visible(true)?;
 
+        let w = Box::into_raw(Box::new(RawWebView {
+            events,
+            window,
+            webview,
+            callbacks: HashMap::new(),
+        }));
         
-        webview.script_notify(TypedEventHandler::new(
+        (*w).webview.script_notify(TypedEventHandler::new(
             |_, args: &WebViewControlScriptNotifyEventArgs| {
                 let s = args.value()?.to_string();
                 dbg!(s);
@@ -92,22 +95,15 @@ impl WebView {
                 Ok(())
             },
         ))?;
-        
-        
-        let w = WebView {
-            events,
-            window,
-            webview,
-            callbacks: HashMap::new(),
-        };
-        w.init("window.external.invoke = s => window.external.notify(s)")?;
-        resize(&w.webview, w.window.hwnd() as *mut _);
+
+        RawWebView::init(w, "window.external.invoke = s => window.external.notify(s)")?;
+        resize(&(*w).webview, (*w).window.hwnd() as *mut _);
 
         Ok(w)
     }
 
-    pub fn navigate(&self, url: &str) -> Result<(), Error> {
-        self.webview.navigate(Uri::create_uri(url)?)?;
+    pub unsafe fn navigate(webview: *mut RawWebView, url: &str) -> Result<(), Error> {
+        (*webview).webview.navigate(Uri::create_uri(url)?)?;
         Ok(())
         // std::string html = html_from_uri(url);
         // if (html != "") {
@@ -118,21 +114,20 @@ impl WebView {
         // }
     }
 
-    pub fn init(&self, js: &str) -> Result<(), Error> {
+    pub unsafe fn init(webview: *mut RawWebView, js: &str) -> Result<(), Error> {
         let script = String::from("(function(){") + js + "})();";
-        self.webview.add_initialize_script(script)?;
+        (*webview).webview.add_initialize_script(script)?;
         Ok(())
     }
 
-    pub fn eval(&self, js: &str) -> Result<(), Error> {
+    pub unsafe fn eval(webview: *mut RawWebView, js: &str) -> Result<(), Error> {
         let x = IVector::<HString>::default();
         let _ = x.append(HString::from(js));
-        //let x: IIterable<HString> = x.into();
-        self.webview.invoke_script_async("name", x)?;
+        (*webview).webview.invoke_script_async("name", x)?;
         Ok(())
     }
 
-    pub fn bind<F>(&mut self, name: &str, f: F) -> Result<(), Error>
+    pub unsafe fn bind<F>(webview: *mut RawWebView, name: &str, f: F) -> Result<(), Error>
     where
         F: FnMut(i8, &str) -> i32,
     {
@@ -155,7 +150,7 @@ impl WebView {
             result
             
         }
-        let name = unsafe { CStr::from_ptr(c_name.as_ptr()).to_owned() };
+        let name = CStr::from_ptr(c_name.as_ptr()).to_owned();
         let js = format!(
             r#"var name = {:?};
                 var RPC = window._rpc = (window._rpc || {{nextSeq: 1}});
@@ -177,15 +172,16 @@ impl WebView {
             "#,
             name
         );
-        self.webview.add_initialize_script(js)?;
-        self.callbacks.insert(name, (callback::<F>, closure as _));
+        (*webview).webview.add_initialize_script(js)?;
+        (*webview).callbacks.insert(name, (callback::<F>, closure as _));
         Ok(())
     }
 
-    pub fn run(self) {
-        let window = self.window;
-        let webview = self.webview;
-        self.events.run(move |event, _, control_flow| {
+    pub unsafe fn run(webview: *mut RawWebView) {
+        let w = Box::from_raw(webview);
+        let window = w.window;
+        let webview = w.webview;
+        w.events.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
 
             match event {
