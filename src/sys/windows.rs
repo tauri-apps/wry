@@ -107,9 +107,8 @@ impl RawWebView {
                 let mut hashmap = CALLBACKS.lock().unwrap();
                 let f = hashmap.get_mut(&v.method).unwrap();
                 let status = f(v.id, v.params);
-                let x = IVector::<HString>::default();
 
-                let js = match status {
+                let _js = match status {
                     0 => {
                         format!(
                             r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
@@ -123,8 +122,8 @@ impl RawWebView {
                         )
                     }
                 };
-                // TODO send back execution result
-                // x.append(HString::from(js));
+                // TODO waiting for https://github.com/microsoft/winrt-rs/issues/81
+                // let x = IVector::<HString>::default();
                 // wv.invoke_script_async("eval", x)?;
                 Ok(())
             },
@@ -137,15 +136,9 @@ impl RawWebView {
     }
 
     pub unsafe fn navigate(webview: *mut RawWebView, url: &str) -> Result<(), Error> {
+        // TODO NavigateToString
         (*webview).webview.navigate(Uri::create_uri(url)?)?;
         Ok(())
-        // std::string html = html_from_uri(url);
-        // if (html != "") {
-        //   m_webview.NavigateToString(winrt::to_hstring(html));
-        // } else {
-        //   Uri uri(winrt::to_hstring(url));
-        //   m_webview.Navigate(uri);
-        // }
     }
 
     pub unsafe fn init(webview: *mut RawWebView, js: &str) -> Result<(), Error> {
@@ -155,6 +148,7 @@ impl RawWebView {
     }
 
     pub unsafe fn eval(webview: *mut RawWebView, js: &str) -> Result<(), Error> {
+        // TODO waiting for https://github.com/microsoft/winrt-rs/issues/81
         let x = IVector::<HString>::default();
         let _ = x.append(HString::from(js));
         (*webview).webview.invoke_script_async("name", x)?;
