@@ -7,7 +7,10 @@ use std::os::raw::{c_char, c_void};
 use std::ffi::{CStr, CString};
 use std::os::windows::ffi::OsStrExt;
 use std::ptr::{null, null_mut};
+use std::sync::Mutex;
+use std::marker::{Sync, Send};
 
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use winapi::{
     shared::{minwindef::*, windef::*},
@@ -43,13 +46,24 @@ use windows::web::ui::interop::*;
 use windows::web::ui::*;
 use winrt::HString;
 
+static CALLBACKS: Lazy<Mutex<HashMap<String, Box<dyn FnMut(i8, Vec<String>) -> i32 + Sync + Send>>>> = Lazy::new(|| {
+    let m = HashMap::new();
+    Mutex::new(m)
+});
+
 pub type BindFn = extern "C" fn(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32;
+
+#[derive(Debug, Serialize, Deserialize)]
+struct RPC {
+    id: i8,
+    method: String,
+    params: Vec<String>,
+}
 
 pub struct RawWebView{
     events: EventLoop<()>,
     window: Window,
     webview: WebViewControl,
-    callbacks: HashMap<CString, (BindFn, *mut c_void)>,
 }
 
 impl RawWebView {
@@ -84,14 +98,34 @@ impl RawWebView {
             events,
             window,
             webview,
-            callbacks: HashMap::new(),
         }));
-        
+
         (*w).webview.script_notify(TypedEventHandler::new(
-            |_, args: &WebViewControlScriptNotifyEventArgs| {
+            |wv: &IWebViewControl, args: &WebViewControlScriptNotifyEventArgs| {
                 let s = args.value()?.to_string();
-                dbg!(s);
-                // TODO call on message
+                let v: RPC = serde_json::from_str(&s).unwrap();
+                let mut hashmap = CALLBACKS.lock().unwrap();
+                let f = hashmap.get_mut(&v.method).unwrap();
+                let status = f(v.id, v.params);
+                let x = IVector::<HString>::default();
+
+                let js = match status {
+                    0 => {
+                        format!(
+                            r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
+                            v.id, v.id
+                        )
+                    }
+                    _ => {
+                        format!(
+                            r#"window._rpc[{}].reject("RPC call fail"); window._rpc[{}] = undefined"#,
+                            v.id, v.id
+                        )
+                    }
+                };
+                // TODO send back execution result
+                // x.append(HString::from(js));
+                // wv.invoke_script_async("eval", x)?;
                 Ok(())
             },
         ))?;
@@ -129,28 +163,8 @@ impl RawWebView {
 
     pub unsafe fn bind<F>(webview: *mut RawWebView, name: &str, f: F) -> Result<(), Error>
     where
-        F: FnMut(i8, &str) -> i32,
+        F: FnMut(i8, Vec<String>) -> i32 + Sync + Send + 'static,
     {
-        let c_name = CString::new(name).expect("No null bytes in parameter name");
-        let closure = Box::into_raw(Box::new(f));
-        extern "C" fn callback<F>(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32
-        where
-            F: FnMut(i8, &str) -> i32,
-        {
-            let seq = unsafe { *seq };
-            let req = unsafe {
-                CStr::from_ptr(req)
-                    .to_str()
-                    .expect("No null bytes in parameter req")
-            };
-            let mut f: Box<F> = unsafe { Box::from_raw(arg as *mut F) };
-            let result = (*f)(seq, req);
-            std::mem::forget(f);
-
-            result
-            
-        }
-        let name = CStr::from_ptr(c_name.as_ptr()).to_owned();
         let js = format!(
             r#"var name = {:?};
                 var RPC = window._rpc = (window._rpc || {{nextSeq: 1}});
@@ -173,7 +187,7 @@ impl RawWebView {
             name
         );
         (*webview).webview.add_initialize_script(js)?;
-        (*webview).callbacks.insert(name, (callback::<F>, closure as _));
+        CALLBACKS.lock().unwrap().insert(name.to_string(), Box::new(f));
         Ok(())
     }
 
