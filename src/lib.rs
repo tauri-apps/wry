@@ -1,5 +1,8 @@
 #[macro_use]
 extern crate serde;
+#[cfg(target_os = "macos")]
+#[macro_use]
+extern crate objc;
 
 mod sys;
 
@@ -13,7 +16,7 @@ pub enum Error {
     NulError(std::ffi::NulError),
     #[cfg(target_os = "windows")]
     WinrtError(winrt::Error),
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "windows")]
     OsError(winit::error::OsError),
 }
 
@@ -24,7 +27,7 @@ impl fmt::Display for Error {
             Error::NulError(e) => e.fmt(f),
             #[cfg(target_os = "windows")]
             Error::WinrtError(e) => format!("{:?}", e).fmt(f),
-            #[cfg(not(target_os = "linux"))]
+            #[cfg(target_os = "windows")]
             Error::OsError(e) => e.fmt(f),
         }
     }

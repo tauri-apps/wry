@@ -1,4 +1,4 @@
-/*
+*
  * MIT License
  *
  * Copyright (c) 2017 Serge Zaitsev
@@ -469,9 +469,10 @@ public:
     gtk_container_add(GTK_CONTAINER(m_window), GTK_WIDGET(m_webview));
     gtk_widget_grab_focus(GTK_WIDGET(m_webview));
 
+    WebKitSettings *settings =
+        webkit_web_view_get_settings(WEBKIT_WEB_VIEW(m_webview));
+    webkit_settings_set_javascript_can_access_clipboard(settings, true);
     if (debug) {
-      WebKitSettings *settings =
-          webkit_web_view_get_settings(WEBKIT_WEB_VIEW(m_webview));
       webkit_settings_set_enable_write_console_messages_to_stdout(settings,
                                                                   true);
       webkit_settings_set_enable_developer_extras(settings, true);
@@ -552,7 +553,6 @@ using browser_engine = gtk_webkit_engine;
 // ====================================================================
 //
 
-#define OBJC_OLD_DISPATCH_PROTOTYPES 1
 #include <CoreGraphics/CoreGraphics.h>
 #include <objc/objc-runtime.h>
 
@@ -573,19 +573,22 @@ namespace webview {
 id operator"" _cls(const char *s, std::size_t) { return (id)objc_getClass(s); }
 SEL operator"" _sel(const char *s, std::size_t) { return sel_registerName(s); }
 id operator"" _str(const char *s, std::size_t) {
-  return objc_msgSend("NSString"_cls, "stringWithUTF8String:"_sel, s);
+  return ((id(*)(id, SEL, const char *))objc_msgSend)(
+      "NSString"_cls, "stringWithUTF8String:"_sel, s);
 }
 
 class cocoa_wkwebview_engine {
 public:
   cocoa_wkwebview_engine(bool debug, void *window) {
     // Application
-    id app = objc_msgSend("NSApplication"_cls, "sharedApplication"_sel);
-    objc_msgSend(app, "setActivationPolicy:"_sel,
-                 NSApplicationActivationPolicyRegular);
+    id app = ((id(*)(id, SEL))objc_msgSend)("NSApplication"_cls,
+                                            "sharedApplication"_sel);
+    ((void (*)(id, SEL, long))objc_msgSend)(
+        app, "setActivationPolicy:"_sel, NSApplicationActivationPolicyRegular);
 
     // Delegate
-    auto cls = objc_allocateClassPair((Class) "NSResponder"_cls, "AppDelegate", 0);
+    auto cls =
+        objc_allocateClassPair((Class) "NSResponder"_cls, "AppDelegate", 0);
     class_addProtocol(cls, objc_getProtocol("NSTouchBarProvider"));
     class_addMethod(cls, "applicationShouldTerminateAfterLastWindowClosed:"_sel,
                     (IMP)(+[](id, SEL, id) -> BOOL { return 1; }), "c@:@");
@@ -595,41 +598,82 @@ public:
                           (cocoa_wkwebview_engine *)objc_getAssociatedObject(
                               self, "webview");
                       assert(w);
-                      w->on_message((const char *)objc_msgSend(
-                          objc_msgSend(msg, "body"_sel), "UTF8String"_sel));
+                      w->on_message(((const char *(*)(id, SEL))objc_msgSend)(
+                          ((id(*)(id, SEL))objc_msgSend)(msg, "body"_sel),
+                          "UTF8String"_sel));
                     }),
                     "v@:@@");
     objc_registerClassPair(cls);
 
-    auto delegate = objc_msgSend((id)cls, "new"_sel);
+    auto delegate = ((id(*)(id, SEL))objc_msgSend)((id)cls, "new"_sel);
     objc_setAssociatedObject(delegate, "webview", (id)this,
                              OBJC_ASSOCIATION_ASSIGN);
-    objc_msgSend(app, sel_registerName("setDelegate:"), delegate);
+    ((void (*)(id, SEL, id))objc_msgSend)(app, sel_registerName("setDelegate:"),
+                                          delegate);
 
     // Main window
     if (window == nullptr) {
-      m_window = objc_msgSend("NSWindow"_cls, "alloc"_sel);
-      m_window = objc_msgSend(
-          m_window, "initWithContentRect:styleMask:backing:defer:"_sel,
-          CGRectMake(0, 0, 0, 0), 0, NSBackingStoreBuffered, 0);
+      m_window = ((id(*)(id, SEL))objc_msgSend)("NSWindow"_cls, "alloc"_sel);
+      m_window =
+          ((id(*)(id, SEL, CGRect, int, unsigned long, int))objc_msgSend)(
+              m_window, "initWithContentRect:styleMask:backing:defer:"_sel,
+              CGRectMake(0, 0, 0, 0), 0, NSBackingStoreBuffered, 0);
     } else {
       m_window = (id)window;
     }
 
     // Webview
-    auto config = objc_msgSend("WKWebViewConfiguration"_cls, "new"_sel);
-    m_manager = objc_msgSend(config, "userContentController"_sel);
-    m_webview = objc_msgSend("WKWebView"_cls, "alloc"_sel);
+    auto config =
+        ((id(*)(id, SEL))objc_msgSend)("WKWebViewConfiguration"_cls, "new"_sel);
+    m_manager =
+        ((id(*)(id, SEL))objc_msgSend)(config, "userContentController"_sel);
+    m_webview = ((id(*)(id, SEL))objc_msgSend)("WKWebView"_cls, "alloc"_sel);
+
     if (debug) {
-      objc_msgSend(objc_msgSend(config, "preferences"_sel),
-                   "setValue:forKey:"_sel,
-                   objc_msgSend("NSNumber"_cls, "numberWithBool:"_sel, 1),
-                   "developerExtrasEnabled"_str);
+      // Equivalent Obj-C:
+      // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
+      ((id(*)(id, SEL, id, id))objc_msgSend)(
+          ((id(*)(id, SEL))objc_msgSend)(config, "preferences"_sel),
+          "setValue:forKey:"_sel,
+          ((id(*)(id, SEL, BOOL))objc_msgSend)("NSNumber"_cls,
+                                               "numberWithBool:"_sel, 1),
+          "developerExtrasEnabled"_str);
     }
-    objc_msgSend(m_webview, "initWithFrame:configuration:"_sel,
-                 CGRectMake(0, 0, 0, 0), config);
-    objc_msgSend(m_manager, "addScriptMessageHandler:name:"_sel, delegate,
-                 "external"_str);
+
+    // Equivalent Obj-C:
+    // [[config preferences] setValue:@YES forKey:@"fullScreenEnabled"];
+    ((id(*)(id, SEL, id, id))objc_msgSend)(
+        ((id(*)(id, SEL))objc_msgSend)(config, "preferences"_sel),
+        "setValue:forKey:"_sel,
+        ((id(*)(id, SEL, BOOL))objc_msgSend)("NSNumber"_cls,
+                                             "numberWithBool:"_sel, 1),
+        "fullScreenEnabled"_str);
+
+    // Equivalent Obj-C:
+    // [[config preferences] setValue:@YES forKey:@"javaScriptCanAccessClipboard"];
+    ((id(*)(id, SEL, id, id))objc_msgSend)(
+        ((id(*)(id, SEL))objc_msgSend)(config, "preferences"_sel),
+        "setValue:forKey:"_sel,
+        ((id(*)(id, SEL, BOOL))objc_msgSend)("NSNumber"_cls,
+                                             "numberWithBool:"_sel, 1),
+        "javaScriptCanAccessClipboard"_str);
+
+    // Equivalent Obj-C:
+    // [[config preferences] setValue:@YES forKey:@"DOMPasteAllowed"];
+    ((id(*)(id, SEL, id, id))objc_msgSend)(
+        ((id(*)(id, SEL))objc_msgSend)(config, "preferences"_sel),
+        "setValue:forKey:"_sel,
+        ((id(*)(id, SEL, BOOL))objc_msgSend)("NSNumber"_cls,
+                                             "numberWithBool:"_sel, 1),
+        "DOMPasteAllowed"_str);
+
+    ((void (*)(id, SEL, CGRect, id))objc_msgSend)(
+        m_webview, "initWithFrame:configuration:"_sel, CGRectMake(0, 0, 0, 0),
+        config);
+    ((void (*)(id, SEL, id, id))objc_msgSend)(
+        m_manager, "addScriptMessageHandler:name:"_sel, delegate,
+        "external"_str);
+
     init(R"script(
                       window.external = {
                         invoke: function(s) {
@@ -637,19 +681,26 @@ public:
                         },
                       };
                      )script");
-    objc_msgSend(m_window, "setContentView:"_sel, m_webview);
-    objc_msgSend(m_window, "makeKeyAndOrderFront:"_sel, nullptr);
+    ((void (*)(id, SEL, id))objc_msgSend)(m_window, "setContentView:"_sel,
+                                          m_webview);
+    ((void (*)(id, SEL, id))objc_msgSend)(m_window, "makeKeyAndOrderFront:"_sel,
+                                          nullptr);
   }
   ~cocoa_wkwebview_engine() { close(); }
   void *window() { return (void *)m_window; }
   void terminate() {
     close();
-    objc_msgSend("NSApp"_cls, "terminate:"_sel, nullptr);
+    ((void (*)(id, SEL, id))objc_msgSend)("NSApp"_cls, "terminate:"_sel,
+                                          nullptr);
   }
   void run() {
-    id app = objc_msgSend("NSApplication"_cls, "sharedApplication"_sel);
-    dispatch([&]() { objc_msgSend(app, "activateIgnoringOtherApps:"_sel, 1); });
-    objc_msgSend(app, "run"_sel);
+    id app = ((id(*)(id, SEL))objc_msgSend)("NSApplication"_cls,
+                                            "sharedApplication"_sel);
+    dispatch([&]() {
+      ((void (*)(id, SEL, BOOL))objc_msgSend)(
+          app, "activateIgnoringOtherApps:"_sel, 1);
+    });
+    ((void (*)(id, SEL))objc_msgSend)(app, "run"_sel);
   }
   void dispatch(std::function<void()> f) {
     dispatch_async_f(dispatch_get_main_queue(), new dispatch_fn_t(f),
@@ -660,9 +711,10 @@ public:
                      }));
   }
   void set_title(const std::string title) {
-    objc_msgSend(m_window, "setTitle:"_sel,
-                 objc_msgSend("NSString"_cls, "stringWithUTF8String:"_sel,
-                              title.c_str()));
+    ((void (*)(id, SEL, id))objc_msgSend)(
+        m_window, "setTitle:"_sel,
+        ((id(*)(id, SEL, const char *))objc_msgSend)(
+            "NSString"_cls, "stringWithUTF8String:"_sel, title.c_str()));
   }
   void set_size(int width, int height, int hints) {
     auto style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
@@ -670,46 +722,55 @@ public:
     if (hints != WEBVIEW_HINT_FIXED) {
       style = style | NSWindowStyleMaskResizable;
     }
-    objc_msgSend(m_window, "setStyleMask:"_sel, style);
+    ((void (*)(id, SEL, unsigned long))objc_msgSend)(
+        m_window, "setStyleMask:"_sel, style);
 
     if (hints == WEBVIEW_HINT_MIN) {
-      objc_msgSend(m_window, "setContentMinSize:"_sel,
-                   CGSizeMake(width, height));
+      ((void (*)(id, SEL, CGSize))objc_msgSend)(
+          m_window, "setContentMinSize:"_sel, CGSizeMake(width, height));
     } else if (hints == WEBVIEW_HINT_MAX) {
-      objc_msgSend(m_window, "setContentMaxSize:"_sel,
-                   CGSizeMake(width, height));
+      ((void (*)(id, SEL, CGSize))objc_msgSend)(
+          m_window, "setContentMaxSize:"_sel, CGSizeMake(width, height));
     } else {
-      objc_msgSend(m_window, "setFrame:display:animate:"_sel,
-                   CGRectMake(0, 0, width, height), 1, 0);
+      ((void (*)(id, SEL, CGRect, BOOL, BOOL))objc_msgSend)(
+          m_window, "setFrame:display:animate:"_sel,
+          CGRectMake(0, 0, width, height), 1, 0);
     }
   }
   void navigate(const std::string url) {
-    auto nsurl = objc_msgSend(
+    auto nsurl = ((id(*)(id, SEL, id))objc_msgSend)(
         "NSURL"_cls, "URLWithString:"_sel,
-        objc_msgSend("NSString"_cls, "stringWithUTF8String:"_sel, url.c_str()));
-    objc_msgSend(
+        ((id(*)(id, SEL, const char *))objc_msgSend)(
+            "NSString"_cls, "stringWithUTF8String:"_sel, url.c_str()));
+
+    ((void (*)(id, SEL, id))objc_msgSend)(
         m_webview, "loadRequest:"_sel,
-        objc_msgSend("NSURLRequest"_cls, "requestWithURL:"_sel, nsurl));
+        ((id(*)(id, SEL, id))objc_msgSend)("NSURLRequest"_cls,
+                                           "requestWithURL:"_sel, nsurl));
   }
   void init(const std::string js) {
-    objc_msgSend(
+    // Equivalent Obj-C:
+    // [m_manager addUserScript:[[WKUserScript alloc] initWithSource:[NSString stringWithUTF8String:js.c_str()] injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]]
+    ((void (*)(id, SEL, id))objc_msgSend)(
         m_manager, "addUserScript:"_sel,
-        objc_msgSend(objc_msgSend("WKUserScript"_cls, "alloc"_sel),
-                     "initWithSource:injectionTime:forMainFrameOnly:"_sel,
-                     objc_msgSend("NSString"_cls, "stringWithUTF8String:"_sel,
-                                  js.c_str()),
-                     WKUserScriptInjectionTimeAtDocumentStart, 1));
+        ((id(*)(id, SEL, id, long, BOOL))objc_msgSend)(
+            ((id(*)(id, SEL))objc_msgSend)("WKUserScript"_cls, "alloc"_sel),
+            "initWithSource:injectionTime:forMainFrameOnly:"_sel,
+            ((id(*)(id, SEL, const char *))objc_msgSend)(
+                "NSString"_cls, "stringWithUTF8String:"_sel, js.c_str()),
+            WKUserScriptInjectionTimeAtDocumentStart, 1));
   }
   void eval(const std::string js) {
-    objc_msgSend(
+    ((void (*)(id, SEL, id, id))objc_msgSend)(
         m_webview, "evaluateJavaScript:completionHandler:"_sel,
-        objc_msgSend("NSString"_cls, "stringWithUTF8String:"_sel, js.c_str()),
+        ((id(*)(id, SEL, const char *))objc_msgSend)(
+            "NSString"_cls, "stringWithUTF8String:"_sel, js.c_str()),
         nullptr);
   }
 
 private:
   virtual void on_message(const std::string msg) = 0;
-  void close() { objc_msgSend(m_window, "close"_sel); }
+  void close() { ((void (*)(id, SEL))objc_msgSend)(m_window, "close"_sel); }
   id m_window;
   id m_webview;
   id m_manager;
@@ -731,10 +792,10 @@ using browser_engine = cocoa_wkwebview_engine;
 //
 
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <stdlib.h>
 #include <Shlwapi.h>
 #include <codecvt>
+#include <stdlib.h>
+#include <windows.h>
 
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "Shlwapi.lib")
@@ -851,20 +912,22 @@ public:
 
     char currentExePath[MAX_PATH];
     GetModuleFileNameA(NULL, currentExePath, MAX_PATH);
-    char* currentExeName = PathFindFileNameA(currentExePath);
+    char *currentExeName = PathFindFileNameA(currentExePath);
 
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> wideCharConverter;
-    std::wstring userDataFolder = wideCharConverter.from_bytes(std::getenv("APPDATA"));
+    std::wstring userDataFolder =
+        wideCharConverter.from_bytes(std::getenv("APPDATA"));
     std::wstring currentExeNameW = wideCharConverter.from_bytes(currentExeName);
 
     HRESULT res = CreateCoreWebView2EnvironmentWithOptions(
         nullptr, (userDataFolder + L"/" + currentExeNameW).c_str(), nullptr,
-        new webview2_com_handler(wnd, cb, [&](ICoreWebView2Controller *controller) {
-          m_controller = controller;
-          m_controller->get_CoreWebView2(&m_webview);
-          m_webview->AddRef();
-          flag.clear();
-        }));
+        new webview2_com_handler(wnd, cb,
+                                 [&](ICoreWebView2Controller *controller) {
+                                   m_controller = controller;
+                                   m_controller->get_CoreWebView2(&m_webview);
+                                   m_webview->AddRef();
+                                   flag.clear();
+                                 }));
     if (res != S_OK) {
       CoUninitialize();
       return false;
@@ -918,42 +981,59 @@ private:
 
   class webview2_com_handler
       : public ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler,
-        public ICoreWebView2CreateCoreWebView2ControllerCompletedHandler,        
-        public ICoreWebView2WebMessageReceivedEventHandler {
-    using webview2_com_handler_cb_t = std::function<void(ICoreWebView2Controller *)>;
+        public ICoreWebView2CreateCoreWebView2ControllerCompletedHandler,
+        public ICoreWebView2WebMessageReceivedEventHandler,
+        public ICoreWebView2PermissionRequestedEventHandler {
+    using webview2_com_handler_cb_t =
+        std::function<void(ICoreWebView2Controller *)>;
 
   public:
-    webview2_com_handler(HWND hwnd, msg_cb_t msgCb, webview2_com_handler_cb_t cb)
+    webview2_com_handler(HWND hwnd, msg_cb_t msgCb,
+                         webview2_com_handler_cb_t cb)
         : m_window(hwnd), m_msgCb(msgCb), m_cb(cb) {}
     ULONG STDMETHODCALLTYPE AddRef() { return 1; }
     ULONG STDMETHODCALLTYPE Release() { return 1; }
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, LPVOID *ppv) {
       return S_OK;
     }
-    HRESULT STDMETHODCALLTYPE Invoke(HRESULT res, ICoreWebView2Environment *env) {
+    HRESULT STDMETHODCALLTYPE Invoke(HRESULT res,
+                                     ICoreWebView2Environment *env) {
       env->CreateCoreWebView2Controller(m_window, this);
       return S_OK;
     }
-    HRESULT STDMETHODCALLTYPE Invoke(HRESULT res, ICoreWebView2Controller *controller) {
+    HRESULT STDMETHODCALLTYPE Invoke(HRESULT res,
+                                     ICoreWebView2Controller *controller) {
       controller->AddRef();
 
       ICoreWebView2 *webview;
       ::EventRegistrationToken token;
       controller->get_CoreWebView2(&webview);
       webview->add_WebMessageReceived(this, &token);
+      webview->add_PermissionRequested(this, &token);
 
       m_cb(controller);
       return S_OK;
     }
-    HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2* sender, ICoreWebView2WebMessageReceivedEventArgs* args) {
+    HRESULT STDMETHODCALLTYPE Invoke(
+        ICoreWebView2 *sender, ICoreWebView2WebMessageReceivedEventArgs *args) {
       LPWSTR message;
       args->TryGetWebMessageAsString(&message);
 
       std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> wideCharConverter;
       m_msgCb(wideCharConverter.to_bytes(message));
       sender->PostWebMessageAsString(message);
-      
+
       CoTaskMemFree(message);
+      return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE
+    Invoke(ICoreWebView2 *sender,
+           ICoreWebView2PermissionRequestedEventArgs *args) {
+      COREWEBVIEW2_PERMISSION_KIND kind;
+      args->get_PermissionKind(&kind);
+      if (kind == COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ) {
+        args->put_State(COREWEBVIEW2_PERMISSION_STATE_ALLOW);
+      }
       return S_OK;
     }
 
@@ -969,11 +1049,9 @@ public:
   win32_edge_engine(bool debug, void *window) {
     if (window == nullptr) {
       HINSTANCE hInstance = GetModuleHandle(nullptr);
-      HICON icon = (HICON) LoadImage(
-        hInstance, IDI_APPLICATION, IMAGE_ICON,
-        GetSystemMetrics(SM_CXSMICON), 
-        GetSystemMetrics(SM_CYSMICON), 
-        LR_DEFAULTCOLOR);
+      HICON icon = (HICON)LoadImage(
+          hInstance, IDI_APPLICATION, IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
+          GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
 
       WNDCLASSEX wc;
       ZeroMemory(&wc, sizeof(WNDCLASSEX));
@@ -1101,8 +1179,8 @@ private:
   virtual void on_message(const std::string msg) = 0;
 
   HWND m_window;
-  POINT m_minsz = POINT { 0, 0 };
-  POINT m_maxsz = POINT { 0, 0 };
+  POINT m_minsz = POINT{0, 0};
+  POINT m_maxsz = POINT{0, 0};
   DWORD m_main_thread = GetCurrentThreadId();
   std::unique_ptr<webview::browser> m_browser =
       std::make_unique<webview::edge_chromium>();
@@ -1141,12 +1219,13 @@ public:
   using sync_binding_ctx_t = std::pair<webview *, sync_binding_t>;
 
   void bind(const std::string name, sync_binding_t fn) {
-    bind(name,
-         [](std::string seq, std::string req, void *arg) {
-           auto pair = static_cast<sync_binding_ctx_t *>(arg);
-           pair->first->resolve(seq, 0, pair->second(req));
-         },
-         new sync_binding_ctx_t(this, fn));
+    bind(
+        name,
+        [](std::string seq, std::string req, void *arg) {
+          auto pair = static_cast<sync_binding_ctx_t *>(arg);
+          pair->first->resolve(seq, 0, pair->second(req));
+        },
+        new sync_binding_ctx_t(this, fn));
   }
 
   void bind(const std::string name, binding_t f, void *arg) {
@@ -1265,3 +1344,4 @@ WEBVIEW_API void webview_return(webview_t w, const char *seq, int status,
 #endif /* WEBVIEW_HEADER */
 
 #endif /* WEBVIEW_H */
+

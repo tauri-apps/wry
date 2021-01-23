@@ -4,6 +4,9 @@ use std::os::raw::{c_char, c_void};
 use std::ptr;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let window = InnerWindow::new();
+    window.run();
+    /*
     unsafe {
     let webview = RawWebView::new(true)?;
     RawWebView::init(webview, "window.x = 42")?;
@@ -18,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     })?;
     RawWebView::navigate(webview, "https://www.google.com")?;
     RawWebView::run(webview);
-    }
+    }*/
 
     // unsafe {
     //     let data = RawWebView::new(true);
