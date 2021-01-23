@@ -15,7 +15,7 @@ pub enum Error {
     InitError,
     NulError(std::ffi::NulError),
     #[cfg(target_os = "windows")]
-    WinrtError(winrt::Error),
+    WinrtError(windows::Error),
     #[cfg(target_os = "windows")]
     OsError(winit::error::OsError),
 }
@@ -36,8 +36,8 @@ impl fmt::Display for Error {
 impl std::error::Error for Error {}
 
 #[cfg(target_os = "windows")]
-impl From<winrt::Error> for Error {
-    fn from(error: winrt::Error) -> Self {
+impl From<windows::Error> for Error {
+    fn from(error: windows::Error) -> Self {
         Error::WinrtError(error)
     }
 }

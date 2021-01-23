@@ -9,6 +9,6 @@ mod macos;
 pub use macos::*;
 
 #[cfg(target_os = "windows")]
-pub mod windows;
+pub mod win;
 #[cfg(target_os = "windows")]
-pub use windows::*;
+pub use win::*;

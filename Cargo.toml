@@ -22,9 +22,13 @@ webkit2gtk-sys = { version = "0.12", features = ["v2_8"] }
 gdk-sys = "0.10"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-winit = "0.23"
+winit = "0.24"
 winapi = { version = "0.3", features = ["combaseapi", "libloaderapi", "minwindef", "roapi", "synchapi", "winbase", "windef", "winnt", "winuser"] }
-winrt = "0.7"
+#winrt = "0.7"
+windows = "0.2.1"
+
+[target.'cfg(target_os = "windows")'.build-dependencies]
+windows = "0.2.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24"

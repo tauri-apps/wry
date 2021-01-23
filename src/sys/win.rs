@@ -31,20 +31,15 @@ use winit::{
     window::Window,
 };
 
-winrt::import!(
-    dependencies
-        os
-    types
-        windows::foundation::*
-        windows::web::ui::*
-        windows::web::ui::interop::*
-);
+mod bindings {
+    ::windows::include_bindings!();
+}
 
-use windows::foundation::*;
-use windows::foundation::collections::*;
-use windows::web::ui::interop::*;
-use windows::web::ui::*;
-use winrt::HString;
+use bindings::windows::foundation::*;
+use bindings::windows::foundation::collections::*;
+use bindings::windows::web::ui::interop::*;
+use bindings::windows::web::ui::*;
+use windows::HString;
 
 static CALLBACKS: Lazy<Mutex<HashMap<String, Box<dyn FnMut(i8, Vec<String>) -> i32 + Sync + Send>>>> = Lazy::new(|| {
     let m = HashMap::new();
@@ -60,47 +55,45 @@ struct RPC {
     params: Vec<String>,
 }
 
-pub struct RawWebView{
-    events: EventLoop<()>,
+pub struct InnerWindow {
+    events: Option<EventLoop<()>>,
     window: Window,
     webview: WebViewControl,
 }
 
-impl RawWebView {
-    pub unsafe fn new(_debug: bool) -> Result<*mut RawWebView, Error> {
+impl InnerWindow {
+    pub fn new() -> Result<Self, Error> {
         let events = EventLoop::new();
         let window = Window::new(&events)?;
+
+        // Webview
         let op = WebViewControlProcess::new()?
             .create_web_view_control_async(window.hwnd() as i64, Rect::default())?;
 
-        if op.status()? != AsyncStatus::Completed {
-            let h = CreateEventW(null_mut(), 0i32, 0i32, null());
-            let mut hs = h.clone();
-            op.set_completed(AsyncOperationCompletedHandler::new(move |_, _| {
-                SetEvent(h);
-                Ok(())
-            }))?;
+        unsafe {
+            if op.status()? != AsyncStatus::Completed {
+                let h = CreateEventW(null_mut(), 0i32, 0i32, null());
+                let mut hs = h.clone();
+                op.set_completed(AsyncOperationCompletedHandler::new(move |_, _| {
+                    SetEvent(h);
+                    Ok(())
+                }))?;
 
-            CoWaitForMultipleHandles(
-                COWAIT_DISPATCH_WINDOW_MESSAGES | COWAIT_DISPATCH_CALLS | COWAIT_INPUTAVAILABLE,
-                INFINITE,
-                1,
-                &mut hs,
-                &mut 0u32,
-            );
+                CoWaitForMultipleHandles(
+                    COWAIT_DISPATCH_WINDOW_MESSAGES | COWAIT_DISPATCH_CALLS | COWAIT_INPUTAVAILABLE,
+                    INFINITE,
+                    1,
+                    &mut hs,
+                    &mut 0u32,
+                );
+            }
         }
 
         let webview = op.get_results()?;
         webview.settings()?.set_is_script_notify_allowed(true)?;
         webview.set_is_visible(true)?;
-
-        let w = Box::into_raw(Box::new(RawWebView {
-            events,
-            window,
-            webview,
-        }));
-
-        (*w).webview.script_notify(TypedEventHandler::new(
+        /*
+        webview.script_notify(TypedEventHandler::new(
             |wv: &IWebViewControl, args: &WebViewControlScriptNotifyEventArgs| {
                 let s = args.value()?.to_string();
                 let v: RPC = serde_json::from_str(&s).unwrap();
@@ -128,26 +121,28 @@ impl RawWebView {
                 Ok(())
             },
         ))?;
+        */
+        // TODO NavigateToString/url as parameter
+        webview.navigate(Uri::create_uri("https://google.com")?)?;
 
-        RawWebView::init(w, "window.external.invoke = s => window.external.notify(s)")?;
-        resize(&(*w).webview, (*w).window.hwnd() as *mut _);
+        let w = InnerWindow {
+            events: Some(events),
+            window,
+            webview,
+        };
+        w.init("window.external.invoke = s => window.external.notify(s)")?;
+        w.resize();
 
         Ok(w)
     }
 
-    pub unsafe fn navigate(webview: *mut RawWebView, url: &str) -> Result<(), Error> {
-        // TODO NavigateToString
-        (*webview).webview.navigate(Uri::create_uri(url)?)?;
-        Ok(())
-    }
-
-    pub unsafe fn init(webview: *mut RawWebView, js: &str) -> Result<(), Error> {
+    pub fn init(&self, js: &str) -> Result<(), Error> {
         let script = String::from("(function(){") + js + "})();";
-        (*webview).webview.add_initialize_script(script)?;
+        self.webview.add_initialize_script(script)?;
         Ok(())
     }
-
-    pub unsafe fn eval(webview: *mut RawWebView, js: &str) -> Result<(), Error> {
+/*
+    pub unsafe fn eval(webview: *mut InnerWindow, js: &str) -> Result<(), Error> {
         // TODO waiting for https://github.com/microsoft/winrt-rs/issues/81
         let x = IVector::<HString>::default();
         let _ = x.append(HString::from(js));
@@ -155,7 +150,7 @@ impl RawWebView {
         Ok(())
     }
 
-    pub unsafe fn bind<F>(webview: *mut RawWebView, name: &str, f: F) -> Result<(), Error>
+    pub unsafe fn bind<F>(webview: *mut InnerWindow, name: &str, f: F) -> Result<(), Error>
     where
         F: FnMut(i8, Vec<String>) -> i32 + Sync + Send + 'static,
     {
@@ -184,53 +179,51 @@ impl RawWebView {
         CALLBACKS.lock().unwrap().insert(name.to_string(), Box::new(f));
         Ok(())
     }
+*/
+    pub fn run(mut self) {
+        if let Some(events) = self.events.take() {
+            events.run(move |event, _, control_flow| {
+                *control_flow = ControlFlow::Wait;
 
-    pub unsafe fn run(webview: *mut RawWebView) {
-        let w = Box::from_raw(webview);
-        let window = w.window;
-        let webview = w.webview;
-        w.events.run(move |event, _, control_flow| {
-            *control_flow = ControlFlow::Wait;
-
-            match event {
-                Event::NewEvents(StartCause::Init) => {}
-                Event::WindowEvent {
-                    event: WindowEvent::CloseRequested,
-                    ..
-                } => *control_flow = ControlFlow::Exit,
-                Event::WindowEvent {
-                    event: WindowEvent::Resized(_),
-                    ..
-                } => {
-                    resize(&webview, window.hwnd() as *mut _);
+                match event {
+                    Event::NewEvents(StartCause::Init) => {}
+                    Event::WindowEvent {
+                        event: WindowEvent::CloseRequested,
+                        ..
+                    } => *control_flow = ControlFlow::Exit,
+                    Event::WindowEvent {
+                        event: WindowEvent::Resized(_),
+                        ..
+                    } => {
+                        self.resize();
+                    }
+                    _ => (),
                 }
-                _ => (),
-            }
-        });
+            });
+        }
     }
 
-    
-}
+    fn resize(&self) {
+        let wnd = self.window.hwnd() as HWND;
+        unsafe {
+            if wnd.is_null() {
+                return;
+            }
+            let mut r = RECT {
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+            };
+            GetClientRect(wnd, &mut r);
+            let r = Rect {
+                x: r.left as f32,
+                y: r.top as f32,
+                width: (r.right - r.left) as f32,
+                height: (r.bottom - r.top) as f32,
+            };
 
-fn resize(webview: &WebViewControl, wnd: HWND) {
-    unsafe {
-        if wnd.is_null() {
-            return;
+            self.webview.set_bounds(r).unwrap();
         }
-        let mut r = RECT {
-            left: 0,
-            top: 0,
-            right: 0,
-            bottom: 0,
-        };
-        GetClientRect(wnd, &mut r);
-        let r = Rect {
-            x: r.left as f32,
-            y: r.top as f32,
-            width: (r.right - r.left) as f32,
-            height: (r.bottom - r.top) as f32,
-        };
-
-        webview.set_bounds(r).unwrap();
     }
 }

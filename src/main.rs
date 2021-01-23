@@ -4,7 +4,7 @@ use std::os::raw::{c_char, c_void};
 use std::ptr;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let window = InnerWindow::new();
+    let window = InnerWindow::new()?;
     window.run();
     /*
     unsafe {
