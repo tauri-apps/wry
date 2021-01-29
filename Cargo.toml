@@ -28,6 +28,7 @@ winapi = { version = "0.3", features = ["combaseapi", "libloaderapi", "minwindef
 windows = "0.2.1"
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
+cc = "1"
 windows = "0.2.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]

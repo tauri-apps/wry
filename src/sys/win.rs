@@ -35,11 +35,10 @@ mod bindings {
     ::windows::include_bindings!();
 }
 
-use bindings::windows::foundation::*;
 use bindings::windows::foundation::collections::*;
+use bindings::windows::foundation::*;
 use bindings::windows::web::ui::interop::*;
-use bindings::windows::web::ui::*;
-use windows::HString;
+use windows::{HString, Abi};
 
 static CALLBACKS: Lazy<Mutex<HashMap<String, Box<dyn FnMut(i8, Vec<String>) -> i32 + Sync + Send>>>> = Lazy::new(|| {
     let m = HashMap::new();
@@ -123,6 +122,11 @@ impl InnerWindow {
         ))?;
         */
         // TODO NavigateToString/url as parameter
+        let h = CString::new("window.x = 42").unwrap();
+        let x = unsafe { crate::ivector(h.as_ptr()) };
+        let x: IVector<HString> = unsafe { IVector::from_abi(x).unwrap() };
+        dbg!(&x.get_at(0));
+        webview.invoke_script_async("eval", x)?;
         webview.navigate(Uri::create_uri("https://google.com")?)?;
 
         let w = InnerWindow {

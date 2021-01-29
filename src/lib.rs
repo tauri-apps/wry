@@ -9,6 +9,13 @@ mod sys;
 pub use crate::sys::*;
 
 use std::fmt;
+use std::ffi::c_void;
+use std::os::raw::c_char;
+
+#[cfg(target_os = "windows")]
+extern {
+    fn ivector(js: *const c_char) -> *mut c_void;
+}
 
 #[derive(Debug)]
 pub enum Error {
