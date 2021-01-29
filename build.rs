@@ -4,7 +4,8 @@ fn main() {
         windows::build!(
             windows::foundation::collections::*
             windows::foundation::{AsyncStatus, Rect, Uri}
-            windows::web::ui::interop::{WebViewControl, WebViewControlProcess, }
+            windows::web::ui::{IWebViewControl, WebViewControlScriptNotifyEventArgs }
+            windows::web::ui::interop::{WebViewControl, WebViewControlProcess }
         );
 
         let mut build = cc::Build::new();

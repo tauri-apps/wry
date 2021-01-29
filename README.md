@@ -1,5 +1,4 @@
-# Weebview
+# WRY (Webview Rendering liberY)
 
 Webview implementation in Rust.
 
-![](weebview.png)

@@ -37,15 +37,14 @@ mod bindings {
 
 use bindings::windows::foundation::collections::*;
 use bindings::windows::foundation::*;
+use bindings::windows::web::ui::*;
 use bindings::windows::web::ui::interop::*;
-use windows::{HString, Abi};
+use windows::{HString, Abi, RuntimeType};
 
 static CALLBACKS: Lazy<Mutex<HashMap<String, Box<dyn FnMut(i8, Vec<String>) -> i32 + Sync + Send>>>> = Lazy::new(|| {
     let m = HashMap::new();
     Mutex::new(m)
 });
-
-pub type BindFn = extern "C" fn(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct RPC {
@@ -56,7 +55,7 @@ struct RPC {
 
 pub struct InnerWindow {
     events: Option<EventLoop<()>>,
-    window: Window,
+    pub window: Window,
     webview: WebViewControl,
 }
 
@@ -91,70 +90,89 @@ impl InnerWindow {
         let webview = op.get_results()?;
         webview.settings()?.set_is_script_notify_allowed(true)?;
         webview.set_is_visible(true)?;
-        /*
-        webview.script_notify(TypedEventHandler::new(
-            |wv: &IWebViewControl, args: &WebViewControlScriptNotifyEventArgs| {
-                let s = args.value()?.to_string();
-                let v: RPC = serde_json::from_str(&s).unwrap();
-                let mut hashmap = CALLBACKS.lock().unwrap();
-                let f = hashmap.get_mut(&v.method).unwrap();
-                let status = f(v.id, v.params);
 
-                let _js = match status {
-                    0 => {
-                        format!(
-                            r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
-                            v.id, v.id
-                        )
+        webview.script_notify(TypedEventHandler::new(
+            |wv: &<IWebViewControl as RuntimeType>::DefaultType, args: &<WebViewControlScriptNotifyEventArgs as RuntimeType>::DefaultType| {
+                if let Some(wv) = wv {
+                    if let Some(args) = args {
+                        let s = args.value()?.to_string();
+                        let v: RPC = serde_json::from_str(&s).unwrap();
+                        let mut hashmap = CALLBACKS.lock().unwrap();
+                        let f = hashmap.get_mut(&v.method).unwrap();
+                        let status = f(v.id, v.params);
+
+                        let js = match status {
+                            0 => {
+                                format!(
+                                    r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
+                                    v.id, v.id
+                                )
+                            }
+                            _ => {
+                                format!(
+                                    r#"window._rpc[{}].reject("RPC call fail"); window._rpc[{}] = undefined"#,
+                                    v.id, v.id
+                                )
+                            }
+                        };
+                        let cstring = CString::new(js).unwrap();
+                        let x: IVector<HString> = unsafe { IVector::from_abi(crate::ivector(cstring.as_ptr()))? };
+                        wv.invoke_script_async("eval", x)?;
                     }
-                    _ => {
-                        format!(
-                            r#"window._rpc[{}].reject("RPC call fail"); window._rpc[{}] = undefined"#,
-                            v.id, v.id
-                        )
-                    }
-                };
-                // TODO waiting for https://github.com/microsoft/winrt-rs/issues/81
-                // let x = IVector::<HString>::default();
-                // wv.invoke_script_async("eval", x)?;
+                }
+
                 Ok(())
             },
         ))?;
-        */
-        // TODO NavigateToString/url as parameter
-        let h = CString::new("window.x = 42").unwrap();
-        let x = unsafe { crate::ivector(h.as_ptr()) };
-        let x: IVector<HString> = unsafe { IVector::from_abi(x).unwrap() };
-        dbg!(&x.get_at(0));
-        webview.invoke_script_async("eval", x)?;
-        webview.navigate(Uri::create_uri("https://google.com")?)?;
 
         let w = InnerWindow {
             events: Some(events),
             window,
             webview,
         };
+
+        // TODO NavigateToString/url as parameter
+        w.webview.navigate(Uri::create_uri("https://google.com")?)?;
+
         w.init("window.external.invoke = s => window.external.notify(s)")?;
         w.resize();
+
+        w.init("window.x = 42")?;
+        w.eval("window.x")?;
+        w.bind("xxx", |seq, req| {
+            println!("The seq is: {}", seq);
+            println!("The req is: {:?}", req);
+            0
+        })?;
+
+
 
         Ok(w)
     }
 
     pub fn init(&self, js: &str) -> Result<(), Error> {
         let script = String::from("(function(){") + js + "})();";
+        //let s = HString::from(js);
+        // self.webview.navigation_starting(TypedEventHandler::new(
+        //     |wv: &<IWebViewControl as RuntimeType>::DefaultType, _| {
+        //         if let Some(wv) = wv {
+        //             wv.add_initialize_script(script)?;
+        //         }
+        //         Ok(())
+        //     }
+        // ));
         self.webview.add_initialize_script(script)?;
         Ok(())
     }
-/*
-    pub unsafe fn eval(webview: *mut InnerWindow, js: &str) -> Result<(), Error> {
-        // TODO waiting for https://github.com/microsoft/winrt-rs/issues/81
-        let x = IVector::<HString>::default();
-        let _ = x.append(HString::from(js));
-        (*webview).webview.invoke_script_async("name", x)?;
+
+    pub fn eval(&self, js: &str) -> Result<(), Error> {
+        let cstring = CString::new(js)?;
+        let x: IVector<HString> = unsafe { IVector::from_abi(crate::ivector(cstring.as_ptr()))? };
+        self.webview.invoke_script_async("eval", x)?;
         Ok(())
     }
 
-    pub unsafe fn bind<F>(webview: *mut InnerWindow, name: &str, f: F) -> Result<(), Error>
+    pub fn bind<F>(&self, name: &str, f: F) -> Result<(), Error>
     where
         F: FnMut(i8, Vec<String>) -> i32 + Sync + Send + 'static,
     {
@@ -179,11 +197,11 @@ impl InnerWindow {
             "#,
             name
         );
-        (*webview).webview.add_initialize_script(js)?;
+        self.webview.add_initialize_script(js)?;
         CALLBACKS.lock().unwrap().insert(name.to_string(), Box::new(f));
         Ok(())
     }
-*/
+
     pub fn run(mut self) {
         if let Some(events) = self.events.take() {
             events.run(move |event, _, control_flow| {
