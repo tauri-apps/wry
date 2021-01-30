@@ -108,12 +108,7 @@ impl RawWebView {
         Ok(())
     }
 
-    pub unsafe fn set_size(
-        webview: *mut RawWebView,
-        width: c_int,
-        height: c_int,
-        hint: c_int,
-    ) {
+    pub unsafe fn set_size(webview: *mut RawWebView, width: c_int, height: c_int, hint: c_int) {
         match hint {
             WEBVIEW_HINT_FIXED => {
                 gtk_window_set_resizable((*webview).window as *mut _, 0);
@@ -143,7 +138,12 @@ impl RawWebView {
                 } else {
                     GDK_HINT_MAX_SIZE
                 };
-                gtk_window_set_geometry_hints((*webview).window as *mut _, ptr::null_mut(), &mut g, h);
+                gtk_window_set_geometry_hints(
+                    (*webview).window as *mut _,
+                    ptr::null_mut(),
+                    &mut g,
+                    h,
+                );
             }
         }
     }

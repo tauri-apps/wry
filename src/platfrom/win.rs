@@ -1,29 +1,19 @@
+#[allow(dead_code)]
+mod bindings {
+    ::windows::include_bindings!();
+}
+
 use crate::Error;
 
-use std::collections::HashMap;
-use std::ffi::OsStr;
-use std::mem::size_of;
-use std::os::raw::{c_char, c_void};
-use std::ffi::{CStr, CString};
-use std::os::windows::ffi::OsStrExt;
-use std::ptr::{null, null_mut};
-use std::sync::Mutex;
-use std::marker::{Sync, Send};
+use std::{
+    collections::HashMap,
+    ffi::CString,
+    marker::{Send, Sync},
+    ptr::{null, null_mut},
+    sync::Mutex,
+};
 
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
-use winapi::{
-    shared::{minwindef::*, windef::*},
-    um::{
-        combaseapi::*,
-        libloaderapi::*,
-        synchapi::{CreateEventW, SetEvent},
-        winbase::INFINITE,
-        winnt::LPCWSTR,
-        winuser::*,
-    },
-    winrt::roapi::{RoInitialize, RO_INIT_SINGLETHREADED},
-};
 use winit::{
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -31,17 +21,18 @@ use winit::{
     window::Window,
 };
 
-mod bindings {
-    ::windows::include_bindings!();
-}
+use bindings::windows::{
+    foundation::collections::*,
+    foundation::*,
+    web::ui::interop::*,
+    web::ui::*,
+    win32::{com::*, display_devices::*, system_services::*, windows_and_messaging::*},
+};
+use windows::{Abi, HString, RuntimeType, BOOL};
 
-use bindings::windows::foundation::collections::*;
-use bindings::windows::foundation::*;
-use bindings::windows::web::ui::*;
-use bindings::windows::web::ui::interop::*;
-use windows::{HString, Abi, RuntimeType};
-
-static CALLBACKS: Lazy<Mutex<HashMap<String, Box<dyn FnMut(i8, Vec<String>) -> i32 + Sync + Send>>>> = Lazy::new(|| {
+static CALLBACKS: Lazy<
+    Mutex<HashMap<String, Box<dyn FnMut(i8, Vec<String>) -> i32 + Sync + Send>>>,
+> = Lazy::new(|| {
     let m = HashMap::new();
     Mutex::new(m)
 });
@@ -68,21 +59,23 @@ impl InnerWindow {
         let op = WebViewControlProcess::new()?
             .create_web_view_control_async(window.hwnd() as i64, Rect::default())?;
 
-        unsafe {
-            if op.status()? != AsyncStatus::Completed {
-                let h = CreateEventW(null_mut(), 0i32, 0i32, null());
-                let mut hs = h.clone();
-                op.set_completed(AsyncOperationCompletedHandler::new(move |_, _| {
+        if op.status()? != AsyncStatus::Completed {
+            // Safety: System API is unsafe
+            let h = unsafe { CreateEventA(null_mut(), BOOL(0), BOOL(0), null()) };
+            let mut hs = h.clone();
+            op.set_completed(AsyncOperationCompletedHandler::new(move |_, _| {
+                // Safety: System API is unsafe
+                unsafe {
                     SetEvent(h);
-                    Ok(())
-                }))?;
+                }
+                Ok(())
+            }))?;
 
+            // Safety: System API is unsafe
+            unsafe {
                 CoWaitForMultipleHandles(
-                    COWAIT_DISPATCH_WINDOW_MESSAGES | COWAIT_DISPATCH_CALLS | COWAIT_INPUTAVAILABLE,
-                    INFINITE,
-                    1,
-                    &mut hs,
-                    &mut 0u32,
+                    28, //COWAIT_DISPATCH_WINDOW_MESSAGES | COWAIT_DISPATCH_CALLS | COWAIT_INPUTAVAILABLE
+                    INFINITE, 1, &mut hs.0, &mut 0u32,
                 );
             }
         }
@@ -116,6 +109,7 @@ impl InnerWindow {
                             }
                         };
                         let cstring = CString::new(js).unwrap();
+                        // Safety: Create IVector from Winrt/C++
                         let x: IVector<HString> = unsafe { IVector::from_abi(crate::ivector(cstring.as_ptr()))? };
                         wv.invoke_script_async("eval", x)?;
                     }
@@ -145,28 +139,18 @@ impl InnerWindow {
             0
         })?;
 
-
-
         Ok(w)
     }
 
     pub fn init(&self, js: &str) -> Result<(), Error> {
         let script = String::from("(function(){") + js + "})();";
-        //let s = HString::from(js);
-        // self.webview.navigation_starting(TypedEventHandler::new(
-        //     |wv: &<IWebViewControl as RuntimeType>::DefaultType, _| {
-        //         if let Some(wv) = wv {
-        //             wv.add_initialize_script(script)?;
-        //         }
-        //         Ok(())
-        //     }
-        // ));
         self.webview.add_initialize_script(script)?;
         Ok(())
     }
 
     pub fn eval(&self, js: &str) -> Result<(), Error> {
         let cstring = CString::new(js)?;
+        // Safety: Create IVector from Winrt/C++
         let x: IVector<HString> = unsafe { IVector::from_abi(crate::ivector(cstring.as_ptr()))? };
         self.webview.invoke_script_async("eval", x)?;
         Ok(())
@@ -198,7 +182,10 @@ impl InnerWindow {
             name
         );
         self.webview.add_initialize_script(js)?;
-        CALLBACKS.lock().unwrap().insert(name.to_string(), Box::new(f));
+        CALLBACKS
+            .lock()
+            .unwrap()
+            .insert(name.to_string(), Box::new(f));
         Ok(())
     }
 
@@ -226,26 +213,28 @@ impl InnerWindow {
     }
 
     fn resize(&self) {
-        let wnd = self.window.hwnd() as HWND;
-        unsafe {
-            if wnd.is_null() {
-                return;
-            }
-            let mut r = RECT {
-                left: 0,
-                top: 0,
-                right: 0,
-                bottom: 0,
-            };
-            GetClientRect(wnd, &mut r);
-            let r = Rect {
-                x: r.left as f32,
-                y: r.top as f32,
-                width: (r.right - r.left) as f32,
-                height: (r.bottom - r.top) as f32,
-            };
+        let wnd = HWND(self.window.hwnd() as isize);
 
-            self.webview.set_bounds(r).unwrap();
+        if wnd.0 == 0 {
+            return;
         }
+        let mut r = RECT {
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: 0,
+        };
+        // Safety: System API is unsafe
+        unsafe {
+            GetClientRect(wnd, &mut r);
+        }
+        let r = Rect {
+            x: r.left as f32,
+            y: r.top as f32,
+            width: (r.right - r.left) as f32,
+            height: (r.bottom - r.top) as f32,
+        };
+
+        self.webview.set_bounds(r).unwrap();
     }
 }

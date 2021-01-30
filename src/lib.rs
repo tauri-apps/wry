@@ -4,16 +4,16 @@ extern crate serde;
 #[macro_use]
 extern crate objc;
 
-mod sys;
+mod platfrom;
 
-pub use crate::sys::*;
+pub use crate::platfrom::*;
 
-use std::fmt;
 use std::ffi::c_void;
+use std::fmt;
 use std::os::raw::c_char;
 
 #[cfg(target_os = "windows")]
-extern {
+extern "C" {
     fn ivector(js: *const c_char) -> *mut c_void;
 }
 

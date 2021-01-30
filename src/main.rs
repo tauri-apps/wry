@@ -1,11 +1,10 @@
 use wry::*;
 
 use std::os::raw::{c_char, c_void};
-use std::ptr;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let webview = InnerWindow::new()?;
-    webview.window.set_cursor_grab(true);
+    webview.window.set_cursor_grab(true)?;
     webview.run();
 
     /*

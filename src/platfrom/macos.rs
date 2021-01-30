@@ -3,10 +3,10 @@ use crate::Error;
 use std::ffi::CString;
 
 use cocoa::appkit::{NSApplicationActivationPolicyRegular, NSBackingStoreBuffered};
-use core_graphics::geometry::{CGPoint, CGSize, CGRect};
+use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use objc::{
     declare::ClassDecl,
-    runtime::{BOOL, Protocol, Object, Sel, YES},
+    runtime::{Object, Protocol, Sel, BOOL, YES},
 };
 
 type id = *mut Object;
@@ -25,25 +25,33 @@ pub struct InnerWindow {
 // init, navigate, init, eval, bind, run
 impl InnerWindow {
     pub fn new() -> Self {
-        extern fn yes(_: &Object, _: Sel, _: id) -> BOOL { YES }
+        extern "C" fn yes(_: &Object, _: Sel, _: id) -> BOOL {
+            YES
+        }
 
         let window = unsafe {
             // Application
             let nsapplication = class!(NSApplication);
             let app: id = msg_send![nsapplication, sharedApplication];
-            let _: () = msg_send![app, setActivationPolicy:NSApplicationActivationPolicyRegular];
-        
+            let _: () = msg_send![
+                app,
+                setActivationPolicy: NSApplicationActivationPolicyRegular
+            ];
+
             // Delegate
             let mut cls = ClassDecl::new("AppDelegate", class!(NSResponder)).unwrap();
             cls.add_protocol(Protocol::get("NSTouchBarProvider").unwrap());
-            cls.add_method(sel!(applicationShouldTerminateAfterLastWindowClosed:), yes as extern fn(&Object, Sel, id) -> BOOL);
+            cls.add_method(
+                sel!(applicationShouldTerminateAfterLastWindowClosed:),
+                yes as extern "C" fn(&Object, Sel, id) -> BOOL,
+            );
             // TODO bind/on_message/getAssociateObject
             //cls.add_method(sel!(userContentController:didReceiveScriptMessage:), yes as extern fn(&Object, Sel, id) -> BOOL);
             let cls = cls.register();
 
             let delegate: id = msg_send![cls, new];
             //TODO setAssociateObject
-            let _: () = msg_send![app, setDelegate:delegate];
+            let _: () = msg_send![app, setDelegate: delegate];
 
             // Window
             let nswindow = class!(NSWindow);
@@ -59,21 +67,21 @@ impl InnerWindow {
             let webview: id = msg_send![wkwebview, alloc];
 
             // TODO debug/preference
-            
+
             // TODO init
-            
+
             let _: () = msg_send![webview, initWithFrame:rect configuration:config];
             //let _: () = msg_send![manager, addScriptMessageHandler:delegate name:0];
 
-            let _: () = msg_send![window, setContentView:webview];
+            let _: () = msg_send![window, setContentView: webview];
             let _: () = msg_send![window, makeKeyAndOrderFront:0];
 
             let nsurl = class!(NSURL);
             let s = get_nsstring("https://google.com");
-            let url: id = msg_send![nsurl, URLWithString:s];
+            let url: id = msg_send![nsurl, URLWithString: s];
             let nsurlrequest = class!(NSURLRequest);
-            let request: id = msg_send![nsurlrequest, requestWithURL:url];
-            let _: () = msg_send![webview, loadRequest:request];
+            let request: id = msg_send![nsurlrequest, requestWithURL: url];
+            let _: () = msg_send![webview, loadRequest: request];
             window
         };
 
