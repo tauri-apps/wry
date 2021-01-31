@@ -1,18 +1,19 @@
 use wry::*;
 
 fn main() -> Result<()> {
-    let webview = WebView::new()?;
+    let webview = WebViewBuilder::new()?;
 
-    webview.init("window.x = 42")?;
-    webview.bind("xxx", |seq, req| {
-        println!("The seq is: {}", seq);
-        println!("The req is: {:?}", req);
-        0
-    })?;
-    // TODO navigation order on windows
-    webview.navigate("https://www.google.com")?;
+    let webview = webview
+        .init("window.x = 42")?
+        .bind("xxx", |seq, req| {
+            println!("The seq is: {}", seq);
+            println!("The req is: {:?}", req);
+            0
+        })?
+        .url("https://www.google.com")
+        .build()?;
+
     webview.eval("console.log('The anwser is ' + window.x);")?;
-
     webview.run();
 
     /*

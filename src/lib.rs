@@ -21,6 +21,45 @@ use winit::{
     window::Window,
 };
 
+pub struct WebViewBuilder {
+    inner: WebView,
+    url: Option<String>,
+}
+
+impl WebViewBuilder {
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            inner: WebView::new()?,
+            url: None,
+        })
+    }
+
+    pub fn init(self, js: &str) -> Result<Self> {
+        self.inner.webview.init(js)?;
+        Ok(self)
+    }
+
+    pub fn bind<F>(self, name: &str, f: F) -> Result<Self>
+    where
+        F: FnMut(i8, Vec<String>) -> i32 + Sync + Send + 'static,
+    {
+        self.inner.webview.bind(name, f)?;
+        Ok(self)
+    }
+
+    pub fn url(mut self, url: &str) -> Self {
+        self.url = Some(url.to_string());
+        self
+    }
+
+    pub fn build(self) -> Result<WebView> {
+        if let Some(url) = self.url {
+            self.inner.webview.navigate(&url)?;
+        }
+        Ok(self.inner)
+    }
+}
+
 pub struct WebView {
     events: Option<EventLoop<()>>,
     window: Window,
@@ -39,23 +78,8 @@ impl WebView {
         })
     }
 
-    pub fn init(&self, js: &str) -> Result<()> {
-        self.webview.init(js)
-    }
-
     pub fn eval(&self, js: &str) -> Result<()> {
         self.webview.eval(js)
-    }
-
-    pub fn navigate(&self, url: &str) -> Result<()> {
-        self.webview.navigate(url)
-    }
-
-    pub fn bind<F>(&self, name: &str, f: F) -> Result<()>
-    where
-        F: FnMut(i8, Vec<String>) -> i32 + Sync + Send + 'static,
-    {
-        self.webview.bind(name, f)
     }
 
     pub fn window(&self) -> &Window {
