@@ -3,22 +3,15 @@ mod bindings {
     ::windows::include_bindings!();
 }
 
-use crate::Error;
+use crate::Result;
 
 use std::{
     collections::HashMap,
     ffi::CString,
     marker::{Send, Sync},
+    os::raw::c_void,
     ptr::{null, null_mut},
     sync::Mutex,
-};
-
-use once_cell::sync::Lazy;
-use winit::{
-    event::{Event, StartCause, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    platform::windows::WindowExtWindows,
-    window::Window,
 };
 
 use bindings::windows::{
@@ -28,6 +21,7 @@ use bindings::windows::{
     web::ui::*,
     win32::{com::*, display_devices::*, system_services::*, windows_and_messaging::*},
 };
+use once_cell::sync::Lazy;
 use windows::{Abi, HString, RuntimeType, BOOL};
 
 static CALLBACKS: Lazy<
@@ -44,20 +38,15 @@ struct RPC {
     params: Vec<String>,
 }
 
-pub struct InnerWindow {
-    events: Option<EventLoop<()>>,
-    pub window: Window,
+pub struct InnerWebView {
     webview: WebViewControl,
 }
 
-impl InnerWindow {
-    pub fn new() -> Result<Self, Error> {
-        let events = EventLoop::new();
-        let window = Window::new(&events)?;
-
+impl InnerWebView {
+    pub fn new(hwnd: *mut c_void) -> Result<Self> {
         // Webview
         let op = WebViewControlProcess::new()?
-            .create_web_view_control_async(window.hwnd() as i64, Rect::default())?;
+            .create_web_view_control_async(hwnd as i64, Rect::default())?;
 
         if op.status()? != AsyncStatus::Completed {
             // Safety: System API is unsafe
@@ -119,36 +108,21 @@ impl InnerWindow {
             },
         ))?;
 
-        let w = InnerWindow {
-            events: Some(events),
-            window,
-            webview,
-        };
-
-        // TODO NavigateToString/url as parameter
-        w.webview.navigate(Uri::create_uri("https://google.com")?)?;
+        let w = InnerWebView { webview };
 
         w.init("window.external.invoke = s => window.external.notify(s)")?;
-        w.resize();
-
-        w.init("window.x = 42")?;
-        w.eval("window.x")?;
-        w.bind("xxx", |seq, req| {
-            println!("The seq is: {}", seq);
-            println!("The req is: {:?}", req);
-            0
-        })?;
+        w.resize(hwnd);
 
         Ok(w)
     }
 
-    pub fn init(&self, js: &str) -> Result<(), Error> {
+    pub fn init(&self, js: &str) -> Result<()> {
         let script = String::from("(function(){") + js + "})();";
         self.webview.add_initialize_script(script)?;
         Ok(())
     }
 
-    pub fn eval(&self, js: &str) -> Result<(), Error> {
+    pub fn eval(&self, js: &str) -> Result<()> {
         let cstring = CString::new(js)?;
         // Safety: Create IVector from Winrt/C++
         let x: IVector<HString> = unsafe { IVector::from_abi(crate::ivector(cstring.as_ptr()))? };
@@ -156,7 +130,12 @@ impl InnerWindow {
         Ok(())
     }
 
-    pub fn bind<F>(&self, name: &str, f: F) -> Result<(), Error>
+    pub fn navigate(&self, url: &str) -> Result<()> {
+        // TODO NavigateToString/url as parameter
+        Ok(self.webview.navigate(Uri::create_uri(url)?)?)
+    }
+
+    pub fn bind<F>(&self, name: &str, f: F) -> Result<()>
     where
         F: FnMut(i8, Vec<String>) -> i32 + Sync + Send + 'static,
     {
@@ -189,31 +168,8 @@ impl InnerWindow {
         Ok(())
     }
 
-    pub fn run(mut self) {
-        if let Some(events) = self.events.take() {
-            events.run(move |event, _, control_flow| {
-                *control_flow = ControlFlow::Wait;
-
-                match event {
-                    Event::NewEvents(StartCause::Init) => {}
-                    Event::WindowEvent {
-                        event: WindowEvent::CloseRequested,
-                        ..
-                    } => *control_flow = ControlFlow::Exit,
-                    Event::WindowEvent {
-                        event: WindowEvent::Resized(_),
-                        ..
-                    } => {
-                        self.resize();
-                    }
-                    _ => (),
-                }
-            });
-        }
-    }
-
-    fn resize(&self) {
-        let wnd = HWND(self.window.hwnd() as isize);
+    pub fn resize(&self, hwnd: *mut c_void) {
+        let wnd = HWND(hwnd as isize);
 
         if wnd.0 == 0 {
             return;

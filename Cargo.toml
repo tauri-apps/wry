@@ -1,6 +1,6 @@
 [package]
 name = "wry"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Ngo Iok Ui <wusyong9104@gmail.com>"]
 edition = "2018"
 license = "Apache-2.0/MIT"

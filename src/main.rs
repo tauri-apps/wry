@@ -1,10 +1,18 @@
 use wry::*;
 
-use std::os::raw::{c_char, c_void};
+fn main() -> Result<()> {
+    let webview = WebView::new()?;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let webview = InnerWindow::new()?;
-    webview.window.set_cursor_grab(true)?;
+    webview.init("window.x = 42")?;
+    webview.bind("xxx", |seq, req| {
+        println!("The seq is: {}", seq);
+        println!("The req is: {:?}", req);
+        0
+    })?;
+    // TODO navigation order on windows
+    webview.navigate("https://www.google.com")?;
+    webview.eval("console.log('The anwser is ' + window.x);")?;
+
     webview.run();
 
     /*
@@ -44,10 +52,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[no_mangle]
-extern "C" fn bind(seq: *const c_char, _req: *const c_char, _arg: *mut c_void) -> i32 {
-    unsafe {
-        println!("{}", *seq);
-    }
-    0i32
-}
+// #[no_mangle]
+// extern "C" fn bind(seq: *const c_char, _req: *const c_char, _arg: *mut c_void) -> i32 {
+//     unsafe {
+//         println!("{}", *seq);
+//     }
+//     0i32
+// }

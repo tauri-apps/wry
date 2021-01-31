@@ -4,18 +4,96 @@ extern crate serde;
 #[macro_use]
 extern crate objc;
 
-mod platfrom;
+pub use winit::*;
 
-pub use crate::platfrom::*;
+mod platform;
+
+use crate::platform::*;
 
 use std::ffi::c_void;
 use std::fmt;
 use std::os::raw::c_char;
 
+use winit::{
+    event::{Event, StartCause, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    platform::windows::WindowExtWindows,
+    window::Window,
+};
+
+pub struct WebView {
+    events: Option<EventLoop<()>>,
+    window: Window,
+    webview: InnerWebView,
+}
+
+impl WebView {
+    pub fn new() -> Result<Self> {
+        let events = EventLoop::new();
+        let window = Window::new(&events)?;
+        let webview = InnerWebView::new(window.hwnd())?;
+        Ok(Self {
+            events: Some(events),
+            window,
+            webview,
+        })
+    }
+
+    pub fn init(&self, js: &str) -> Result<()> {
+        self.webview.init(js)
+    }
+
+    pub fn eval(&self, js: &str) -> Result<()> {
+        self.webview.eval(js)
+    }
+
+    pub fn navigate(&self, url: &str) -> Result<()> {
+        self.webview.navigate(url)
+    }
+
+    pub fn bind<F>(&self, name: &str, f: F) -> Result<()>
+    where
+        F: FnMut(i8, Vec<String>) -> i32 + Sync + Send + 'static,
+    {
+        self.webview.bind(name, f)
+    }
+
+    pub fn window(&self) -> &Window {
+        &self.window
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn run(mut self) -> Result<()> {
+        if let Some(events) = self.events.take() {
+            events.run(move |event, _, control_flow| {
+                *control_flow = ControlFlow::Wait;
+
+                match event {
+                    Event::NewEvents(StartCause::Init) => {}
+                    Event::WindowEvent {
+                        event: WindowEvent::CloseRequested,
+                        ..
+                    } => *control_flow = ControlFlow::Exit,
+                    Event::WindowEvent {
+                        event: WindowEvent::Resized(_),
+                        ..
+                    } => {
+                        self.webview.resize(self.window.hwnd());
+                    }
+                    _ => (),
+                }
+            });
+        }
+        Ok(())
+    }
+}
+
 #[cfg(target_os = "windows")]
 extern "C" {
     fn ivector(js: *const c_char) -> *mut c_void;
 }
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
