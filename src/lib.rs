@@ -107,7 +107,9 @@ impl WebView {
                     Event::WindowEvent {
                         event: WindowEvent::Resized(_),
                         ..
-                    } => {}
+                    } => {
+                        self.webview.eval("console.log('The anwser is ' + window.x);").unwrap();
+                    }
                     _ => (),
                 }
             });
@@ -130,9 +132,7 @@ impl WebView {
                     Event::WindowEvent {
                         event: WindowEvent::Resized(_),
                         ..
-                    } => {
-                        self.webview.resize(self.window.hwnd());
-                    }
+                    } => {}
                     _ => (),
                 }
             });
