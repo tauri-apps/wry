@@ -1,15 +1,10 @@
-use crate::Error;
+use crate::Result;
 
-use std::ffi::CString;
+use std::ffi::{c_void, CString};
 
-use cocoa::appkit::{NSApplicationActivationPolicyRegular, NSBackingStoreBuffered};
+use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
+use cocoa::base::id;
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
-use objc::{
-    declare::ClassDecl,
-    runtime::{Object, Protocol, Sel, BOOL, YES},
-};
-
-type id = *mut Object;
 
 unsafe fn get_nsstring(s: &str) -> id {
     let s = CString::new(s).unwrap();
@@ -17,48 +12,13 @@ unsafe fn get_nsstring(s: &str) -> id {
     msg_send![nsstring, stringWithUTF8String:s.as_ptr()]
 }
 
-pub struct InnerWindow {
-    window: id,
-    webview: bool,
+pub struct InnerWebView {
+    webview: id,
 }
 
-// init, navigate, init, eval, bind, run
-impl InnerWindow {
-    pub fn new() -> Self {
-        extern "C" fn yes(_: &Object, _: Sel, _: id) -> BOOL {
-            YES
-        }
-
-        let window = unsafe {
-            // Application
-            let nsapplication = class!(NSApplication);
-            let app: id = msg_send![nsapplication, sharedApplication];
-            let _: () = msg_send![
-                app,
-                setActivationPolicy: NSApplicationActivationPolicyRegular
-            ];
-
-            // Delegate
-            let mut cls = ClassDecl::new("AppDelegate", class!(NSResponder)).unwrap();
-            cls.add_protocol(Protocol::get("NSTouchBarProvider").unwrap());
-            cls.add_method(
-                sel!(applicationShouldTerminateAfterLastWindowClosed:),
-                yes as extern "C" fn(&Object, Sel, id) -> BOOL,
-            );
-            // TODO bind/on_message/getAssociateObject
-            //cls.add_method(sel!(userContentController:didReceiveScriptMessage:), yes as extern fn(&Object, Sel, id) -> BOOL);
-            let cls = cls.register();
-
-            let delegate: id = msg_send![cls, new];
-            //TODO setAssociateObject
-            let _: () = msg_send![app, setDelegate: delegate];
-
-            // Window
-            let nswindow = class!(NSWindow);
-            let window: id = msg_send![nswindow, alloc];
-            let rect = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(800., 600.));
-            let window: id = msg_send![window, initWithContentRect:rect styleMask:0 backing:NSBackingStoreBuffered defer:0];
-
+impl InnerWebView {
+    pub fn new(view: *mut c_void) -> Result<Self> {
+        unsafe {
             // Webview
             let wkwebviewconfig = class!(WKWebViewConfiguration);
             let config: id = msg_send![wkwebviewconfig, new];
@@ -66,37 +26,43 @@ impl InnerWindow {
             let wkwebview = class!(WKWebView);
             let webview: id = msg_send![wkwebview, alloc];
 
-            // TODO debug/preference
+            // TODO webview config
 
-            // TODO init
-
+            let rect = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(800., 600.));
             let _: () = msg_send![webview, initWithFrame:rect configuration:config];
-            //let _: () = msg_send![manager, addScriptMessageHandler:delegate name:0];
+            webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
 
-            let _: () = msg_send![window, setContentView: webview];
-            let _: () = msg_send![window, makeKeyAndOrderFront:0];
+            let view = view as id;
+            view.addSubview_(webview);
 
-            let nsurl = class!(NSURL);
-            let s = get_nsstring("https://google.com");
-            let url: id = msg_send![nsurl, URLWithString: s];
-            let nsurlrequest = class!(NSURLRequest);
-            let request: id = msg_send![nsurlrequest, requestWithURL: url];
-            let _: () = msg_send![webview, loadRequest: request];
-            window
-        };
-
-        Self {
-            window,
-            webview: false,
+            Ok(Self { webview })
         }
     }
 
-    pub fn run(&self) {
+    pub fn init(&self, js: &str) -> Result<()> {
+        todo!()
+    }
+
+    pub fn eval(&self, js: &str) -> Result<()> {
+        todo!()
+    }
+
+    pub fn navigate(&self, url: &str) -> Result<()> {
         unsafe {
-            let nsapplication = class!(NSApplication);
-            let app: id = msg_send![nsapplication, sharedApplication];
-            let _: () = msg_send![app, run];
-            let _: () = msg_send![app, activateIgmoringOtherApps];
+            let nsurl = class!(NSURL);
+            let s = get_nsstring(url);
+            let url: id = msg_send![nsurl, URLWithString: s];
+            let nsurlrequest = class!(NSURLRequest);
+            let request: id = msg_send![nsurlrequest, requestWithURL: url];
+            let _: () = msg_send![self.webview, loadRequest: request];
         }
+        Ok(())
+    }
+
+    pub fn bind<F>(&self, name: &str, f: F) -> Result<()>
+    where
+        F: FnMut(i8, Vec<String>) -> i32 + Sync + Send + 'static,
+    {
+        todo!()
     }
 }

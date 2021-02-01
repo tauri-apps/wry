@@ -14,10 +14,13 @@ use std::ffi::c_void;
 use std::fmt;
 use std::os::raw::c_char;
 
+#[cfg(target_os = "macos")]
+use winit::platform::macos::WindowExtMacOS;
+#[cfg(target_os = "windows")]
+use winit::platform::windows::WindowExtWindows;
 use winit::{
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    platform::windows::WindowExtWindows,
     window::Window,
 };
 
@@ -70,7 +73,10 @@ impl WebView {
     pub fn new() -> Result<Self> {
         let events = EventLoop::new();
         let window = Window::new(&events)?;
+        #[cfg(target_os = "windows")]
         let webview = InnerWebView::new(window.hwnd())?;
+        #[cfg(target_os = "macos")]
+        let webview = InnerWebView::new(window.ns_view())?;
         Ok(Self {
             events: Some(events),
             window,
@@ -84,6 +90,29 @@ impl WebView {
 
     pub fn window(&self) -> &Window {
         &self.window
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn run(mut self) -> Result<()> {
+        if let Some(events) = self.events.take() {
+            events.run(move |event, _, control_flow| {
+                *control_flow = ControlFlow::Wait;
+
+                match event {
+                    Event::NewEvents(StartCause::Init) => {}
+                    Event::WindowEvent {
+                        event: WindowEvent::CloseRequested,
+                        ..
+                    } => *control_flow = ControlFlow::Exit,
+                    Event::WindowEvent {
+                        event: WindowEvent::Resized(_),
+                        ..
+                    } => {}
+                    _ => (),
+                }
+            });
+        }
+        Ok(())
     }
 
     #[cfg(target_os = "windows")]
@@ -125,7 +154,6 @@ pub enum Error {
     NulError(std::ffi::NulError),
     #[cfg(target_os = "windows")]
     WinrtError(windows::Error),
-    #[cfg(target_os = "windows")]
     OsError(winit::error::OsError),
 }
 
@@ -136,7 +164,6 @@ impl fmt::Display for Error {
             Error::NulError(e) => e.fmt(f),
             #[cfg(target_os = "windows")]
             Error::WinrtError(e) => format!("{:?}", e).fmt(f),
-            #[cfg(target_os = "windows")]
             Error::OsError(e) => e.fmt(f),
         }
     }
@@ -157,7 +184,6 @@ impl From<std::ffi::NulError> for Error {
     }
 }
 
-#[cfg(target_os = "windows")]
 impl From<winit::error::OsError> for Error {
     fn from(error: winit::error::OsError) -> Self {
         Error::OsError(error)

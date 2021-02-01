@@ -4,17 +4,19 @@ fn main() -> Result<()> {
     let webview = WebViewBuilder::new()?;
 
     let webview = webview
+        /*
         .init("window.x = 42")?
         .bind("xxx", |seq, req| {
             println!("The seq is: {}", seq);
             println!("The req is: {:?}", req);
             0
         })?
+        */
         .url("https://www.google.com")
         .build()?;
 
-    webview.eval("console.log('The anwser is ' + window.x);")?;
-    webview.run();
+    //webview.eval("console.log('The anwser is ' + window.x);")?;
+    webview.run()?;
 
     /*
     unsafe {
