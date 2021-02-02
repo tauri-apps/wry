@@ -10,9 +10,7 @@ mod platform;
 
 use crate::platform::*;
 
-use std::ffi::c_void;
 use std::fmt;
-use std::os::raw::c_char;
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::WindowExtMacOS;
@@ -141,11 +139,6 @@ impl WebView {
         }
         Ok(())
     }
-}
-
-#[cfg(target_os = "windows")]
-extern "C" {
-    fn ivector(js: *const c_char) -> *mut c_void;
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

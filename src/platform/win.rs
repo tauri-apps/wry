@@ -4,14 +4,13 @@ mod bindings {
 }
 
 use crate::Result;
+use crate::platform::{CALLBACKS, RPC};
 
 use std::{
-    collections::HashMap,
     ffi::CString,
     marker::{Send, Sync},
-    os::raw::c_void,
+    os::raw::{c_void, c_char},
     ptr::{null, null_mut},
-    sync::Mutex,
 };
 
 use bindings::windows::{
@@ -21,21 +20,11 @@ use bindings::windows::{
     web::ui::*,
     win32::{com::*, display_devices::*, system_services::*, windows_and_messaging::*},
 };
-use once_cell::sync::Lazy;
 use windows::{Abi, HString, RuntimeType, BOOL};
 
-static CALLBACKS: Lazy<
-    Mutex<HashMap<String, Box<dyn FnMut(i8, Vec<String>) -> i32 + Sync + Send>>>,
-> = Lazy::new(|| {
-    let m = HashMap::new();
-    Mutex::new(m)
-});
-
-#[derive(Debug, Serialize, Deserialize)]
-struct RPC {
-    id: i8,
-    method: String,
-    params: Vec<String>,
+#[cfg(target_os = "windows")]
+extern "C" {
+    fn ivector(js: *const c_char) -> *mut c_void;
 }
 
 pub struct InnerWebView {
@@ -99,7 +88,7 @@ impl InnerWebView {
                         };
                         let cstring = CString::new(js).unwrap();
                         // Safety: Create IVector from Winrt/C++
-                        let x: IVector<HString> = unsafe { IVector::from_abi(crate::ivector(cstring.as_ptr()))? };
+                        let x: IVector<HString> = unsafe { IVector::from_abi(ivector(cstring.as_ptr()))? };
                         wv.invoke_script_async("eval", x)?;
                     }
                 }
@@ -125,7 +114,7 @@ impl InnerWebView {
     pub fn eval(&self, js: &str) -> Result<()> {
         let cstring = CString::new(js)?;
         // Safety: Create IVector from Winrt/C++
-        let x: IVector<HString> = unsafe { IVector::from_abi(crate::ivector(cstring.as_ptr()))? };
+        let x: IVector<HString> = unsafe { IVector::from_abi(ivector(cstring.as_ptr()))? };
         self.webview.invoke_script_async("eval", x)?;
         Ok(())
     }

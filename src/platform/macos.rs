@@ -1,11 +1,10 @@
 use crate::Result;
+use crate::platform::{CALLBACKS, RPC};
 
 use std::{
-    collections::HashMap,
     ffi::{c_void, CStr, CString},
     os::raw::c_char,
     ptr::null,
-    sync::Mutex,
 };
 
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
@@ -16,21 +15,6 @@ use objc::{
     declare::ClassDecl,
     runtime::{Object, Sel},
 };
-use once_cell::sync::Lazy;
-
-static CALLBACKS: Lazy<
-    Mutex<HashMap<String, Box<dyn FnMut(i8, Vec<String>) -> i32 + Sync + Send>>>,
-> = Lazy::new(|| {
-    let m = HashMap::new();
-    Mutex::new(m)
-});
-
-#[derive(Debug, Serialize, Deserialize)]
-struct RPC {
-    id: i8,
-    method: String,
-    params: Vec<String>,
-}
 
 unsafe fn get_nsstring(s: &str) -> id {
     let s = CString::new(s).unwrap();
