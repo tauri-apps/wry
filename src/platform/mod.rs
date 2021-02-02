@@ -13,10 +13,7 @@ mod win;
 #[cfg(target_os = "windows")]
 pub use win::*;
 
-use std::{
-    collections::HashMap,
-    sync::Mutex,
-};
+use std::{collections::HashMap, sync::Mutex};
 
 use once_cell::sync::Lazy;
 

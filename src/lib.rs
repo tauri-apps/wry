@@ -16,11 +16,7 @@ use std::fmt;
 use winit::platform::macos::WindowExtMacOS;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
-use winit::{
-    event::{Event, StartCause, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::Window,
-};
+use winit::window::Window;
 
 const DEBUG: bool = true;
 
@@ -30,9 +26,9 @@ pub struct WebViewBuilder {
 }
 
 impl WebViewBuilder {
-    pub fn new() -> Result<Self> {
+    pub fn new(window: Window) -> Result<Self> {
         Ok(Self {
-            inner: WebView::new()?,
+            inner: WebView::new(window)?,
             url: None,
         })
     }
@@ -40,6 +36,10 @@ impl WebViewBuilder {
     pub fn init(self, js: &str) -> Result<Self> {
         self.inner.webview.init(js)?;
         Ok(self)
+    }
+
+    pub fn eval_handler(&self) -> EvalHandler {
+        EvalHandler(self.inner.webview.clone())
     }
 
     pub fn bind<F>(self, name: &str, f: F) -> Result<Self>
@@ -64,24 +64,17 @@ impl WebViewBuilder {
 }
 
 pub struct WebView {
-    events: Option<EventLoop<()>>,
     window: Window,
     webview: InnerWebView,
 }
 
 impl WebView {
-    pub fn new() -> Result<Self> {
-        let events = EventLoop::new();
-        let window = Window::new(&events)?;
+    pub fn new(window: Window) -> Result<Self> {
         #[cfg(target_os = "windows")]
         let webview = InnerWebView::new(window.hwnd())?;
         #[cfg(target_os = "macos")]
         let webview = InnerWebView::new(window.ns_view(), DEBUG)?;
-        Ok(Self {
-            events: Some(events),
-            window,
-            webview,
-        })
+        Ok(Self { window, webview })
     }
 
     pub fn eval(&self, js: &str) -> Result<()> {
@@ -92,52 +85,14 @@ impl WebView {
         &self.window
     }
 
-    #[cfg(target_os = "macos")]
-    pub fn run(mut self) -> Result<()> {
-        if let Some(events) = self.events.take() {
-            events.run(move |event, _, control_flow| {
-                *control_flow = ControlFlow::Wait;
+    // TODO resize
+}
 
-                match event {
-                    Event::NewEvents(StartCause::Init) => {}
-                    Event::WindowEvent {
-                        event: WindowEvent::CloseRequested,
-                        ..
-                    } => *control_flow = ControlFlow::Exit,
-                    Event::WindowEvent {
-                        event: WindowEvent::Resized(_),
-                        ..
-                    } => {}
-                    _ => (),
-                }
-            });
-        }
-        Ok(())
-    }
+pub struct EvalHandler(InnerWebView);
 
-    #[cfg(target_os = "windows")]
-    pub fn run(mut self) -> Result<()> {
-        if let Some(events) = self.events.take() {
-            events.run(move |event, _, control_flow| {
-                *control_flow = ControlFlow::Wait;
-
-                match event {
-                    Event::NewEvents(StartCause::Init) => {}
-                    Event::WindowEvent {
-                        event: WindowEvent::CloseRequested,
-                        ..
-                    } => *control_flow = ControlFlow::Exit,
-                    Event::WindowEvent {
-                        event: WindowEvent::Resized(_),
-                        ..
-                    } => {
-                        self.webview.resize(self.window.hwnd());
-                    }
-                    _ => (),
-                }
-            });
-        }
-        Ok(())
+impl EvalHandler {
+    pub fn eval(&self, js: &str) -> Result<()> {
+        self.0.eval(js)
     }
 }
 

@@ -1,20 +1,44 @@
-use wry::*;
+use wry::{
+    event::{Event, StartCause, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::Window,
+    Result, WebViewBuilder,
+};
 
 fn main() -> Result<()> {
-    let webview = WebViewBuilder::new()?;
+    let events = EventLoop::new();
+    let window = Window::new(&events)?;
+    let webview = WebViewBuilder::new(window)?;
 
+    let w = webview.eval_handler();
     let webview = webview
         .init("window.x = 42")?
-        .bind("xxx", |seq, req| {
+        .bind("xxx", move |seq, req| {
             println!("The seq is: {}", seq);
             println!("The req is: {:?}", req);
+            w.eval("console.log('The anwser is ' + window.x);").unwrap();
             0
         })?
         .url("https://www.google.com")
         .build()?;
 
     webview.eval("console.log('The anwser is ' + window.x);")?;
-    webview.run()?;
+    events.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Wait;
+
+        match event {
+            Event::NewEvents(StartCause::Init) => {}
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => *control_flow = ControlFlow::Exit,
+            Event::WindowEvent {
+                event: WindowEvent::Resized(_),
+                ..
+            } => {}
+            _ => (),
+        }
+    });
 
     /*
     unsafe {

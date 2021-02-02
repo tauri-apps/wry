@@ -3,13 +3,13 @@ mod bindings {
     ::windows::include_bindings!();
 }
 
-use crate::Result;
 use crate::platform::{CALLBACKS, RPC};
+use crate::Result;
 
 use std::{
     ffi::CString,
     marker::{Send, Sync},
-    os::raw::{c_void, c_char},
+    os::raw::{c_char, c_void},
     ptr::{null, null_mut},
 };
 
@@ -27,6 +27,7 @@ extern "C" {
     fn ivector(js: *const c_char) -> *mut c_void;
 }
 
+#[derive(Clone)]
 pub struct InnerWebView {
     webview: WebViewControl,
 }
@@ -183,3 +184,6 @@ impl InnerWebView {
         self.webview.set_bounds(r).unwrap();
     }
 }
+
+unsafe impl Send for InnerWebView {}
+unsafe impl Sync for InnerWebView {}

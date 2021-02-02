@@ -1,5 +1,5 @@
-use crate::Result;
 use crate::platform::{CALLBACKS, RPC};
+use crate::Result;
 
 use std::{
     ffi::{c_void, CStr, CString},
@@ -22,6 +22,7 @@ unsafe fn get_nsstring(s: &str) -> id {
     msg_send![nsstring, stringWithUTF8String:s.as_ptr()]
 }
 
+#[derive(Clone)]
 pub struct InnerWebView {
     webview: id,
     manager: id,
@@ -192,3 +193,6 @@ impl InnerWebView {
         Ok(())
     }
 }
+
+unsafe impl Send for InnerWebView {}
+unsafe impl Sync for InnerWebView {}
