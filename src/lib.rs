@@ -24,6 +24,8 @@ use winit::{
     window::Window,
 };
 
+const DEBUG: bool = true;
+
 pub struct WebViewBuilder {
     inner: WebView,
     url: Option<String>,
@@ -76,7 +78,7 @@ impl WebView {
         #[cfg(target_os = "windows")]
         let webview = InnerWebView::new(window.hwnd())?;
         #[cfg(target_os = "macos")]
-        let webview = InnerWebView::new(window.ns_view())?;
+        let webview = InnerWebView::new(window.ns_view(), DEBUG)?;
         Ok(Self {
             events: Some(events),
             window,
@@ -107,9 +109,7 @@ impl WebView {
                     Event::WindowEvent {
                         event: WindowEvent::Resized(_),
                         ..
-                    } => {
-                        self.webview.eval("console.log('The anwser is ' + window.x);").unwrap();
-                    }
+                    } => {}
                     _ => (),
                 }
             });
@@ -132,7 +132,9 @@ impl WebView {
                     Event::WindowEvent {
                         event: WindowEvent::Resized(_),
                         ..
-                    } => {}
+                    } => {
+                        self.webview.resize(self.window.hwnd());
+                    }
                     _ => (),
                 }
             });
