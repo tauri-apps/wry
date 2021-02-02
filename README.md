@@ -6,3 +6,6 @@ Platform support:
 - [x] Windows
 - [x] macOS
 - [ ] Linux
+
+# License
+MIT
