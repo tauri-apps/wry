@@ -1,8 +1,8 @@
-# WRY (Webview Rendering liberY)
+# WRY (Webview Rendering librarY)
 
-Webview implementation in Rust.
+Tiny cross-platfrom WebView library in Rust.
 
 Platform support:
 - [x] Windows
-- [ ] macOS
+- [x] macOS
 - [ ] Linux
