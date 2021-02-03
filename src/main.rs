@@ -10,22 +10,27 @@ fn main() -> Result<()> {
     let window = Window::new(&events)?;
     let webview = WebViewBuilder::new(window)?;
 
-    let w = webview.eval_handler();
-    let webview = webview
+    let w = webview.eval_sender();
+    let mut webview = webview
         .init("window.x = 42")?
         .bind("xxx", move |seq, req| {
             println!("The seq is: {}", seq);
             println!("The req is: {:?}", req);
-            w.eval("console.log('The anwser is ' + window.x);").unwrap();
+            w.send("console.log('The anwser is ' + window.x);").unwrap();
             0
         })?
         .url("https://www.google.com")
         .build()?;
 
-    webview.eval("console.log('The anwser is ' + window.x);")?;
+    let w = webview.eval_sender();
+    std::thread::spawn(move || {
+        w.send("console.log('The anwser is ' + window.x);").unwrap();
+    });
+
     events.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
+        webview.dispatch().unwrap();
         match event {
             Event::NewEvents(StartCause::Init) => {}
             Event::WindowEvent {
@@ -74,7 +79,6 @@ fn main() -> Result<()> {
     //     )?;
     //     RawWebView::run(data);
     // }
-    Ok(())
 }
 
 // #[no_mangle]

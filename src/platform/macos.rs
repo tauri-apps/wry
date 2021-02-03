@@ -162,7 +162,7 @@ impl InnerWebView {
 
     pub fn bind<F>(&self, name: &str, f: F) -> Result<()>
     where
-        F: FnMut(i8, Vec<String>) -> i32 + Sync + Send + 'static,
+        F: FnMut(i8, Vec<String>) -> i32 + Send + 'static,
     {
         let js = format!(
             r#"var name = {:?};

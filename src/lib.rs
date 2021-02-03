@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate serde;
+#[macro_use]
+extern crate thiserror;
 #[cfg(target_os = "macos")]
 #[macro_use]
 extern crate objc;
@@ -11,6 +13,9 @@ mod platform;
 use crate::platform::*;
 
 use std::fmt;
+use std::sync::mpsc::{channel, Receiver, SendError, Sender};
+
+//use thiserror::Error;
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::WindowExtMacOS;
@@ -38,13 +43,13 @@ impl WebViewBuilder {
         Ok(self)
     }
 
-    pub fn eval_handler(&self) -> EvalHandler {
-        EvalHandler(self.inner.webview.clone())
+    pub fn eval_sender(&self) -> EvalSender {
+        EvalSender(self.inner.tx.clone())
     }
 
     pub fn bind<F>(self, name: &str, f: F) -> Result<Self>
     where
-        F: FnMut(i8, Vec<String>) -> i32 + Sync + Send + 'static,
+        F: FnMut(i8, Vec<String>) -> i32 + Send + 'static,
     {
         self.inner.webview.bind(name, f)?;
         Ok(self)
@@ -66,6 +71,8 @@ impl WebViewBuilder {
 pub struct WebView {
     window: Window,
     webview: InnerWebView,
+    tx: Sender<String>,
+    rx: Receiver<String>,
 }
 
 impl WebView {
@@ -74,68 +81,66 @@ impl WebView {
         let webview = InnerWebView::new(window.hwnd())?;
         #[cfg(target_os = "macos")]
         let webview = InnerWebView::new(window.ns_view(), DEBUG)?;
-        Ok(Self { window, webview })
+        let (tx, rx) = channel();
+        Ok(Self {
+            window,
+            webview,
+            tx,
+            rx,
+        })
     }
 
-    pub fn eval(&self, js: &str) -> Result<()> {
-        self.webview.eval(js)
+    pub fn eval(&mut self, js: &str) -> Result<()> {
+        self.tx.send(js.to_string())?;
+        Ok(())
+    }
+
+    pub fn eval_sender(&self) -> EvalSender {
+        EvalSender(self.tx.clone())
     }
 
     pub fn window(&self) -> &Window {
         &self.window
     }
 
+    pub fn dispatch(&mut self) -> Result<()> {
+        while let Ok(js) = self.rx.try_recv() {
+            self.webview.eval(&js)?;
+        }
+
+        Ok(())
+    }
+
     // TODO resize
 }
 
-pub struct EvalHandler(InnerWebView);
+pub struct EvalSender(Sender<String>);
 
-impl EvalHandler {
-    pub fn eval(&self, js: &str) -> Result<()> {
-        self.0.eval(js)
+impl EvalSender {
+    pub fn send(&self, js: &str) -> Result<()> {
+        self.0.send(js.to_string())?;
+        Ok(())
     }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum Error {
-    InitError,
-    NulError(std::ffi::NulError),
+    #[error(transparent)]
+    NulError(#[from] std::ffi::NulError),
+    #[error(transparent)]
+    OsError(#[from] winit::error::OsError),
+    #[error(transparent)]
+    SenderError(#[from] SendError<String>),
     #[cfg(target_os = "windows")]
+    #[error("Windows error: {0:?}")]
     WinrtError(windows::Error),
-    OsError(winit::error::OsError),
 }
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::InitError => "Fail to initialize instance".fmt(f),
-            Error::NulError(e) => e.fmt(f),
-            #[cfg(target_os = "windows")]
-            Error::WinrtError(e) => format!("{:?}", e).fmt(f),
-            Error::OsError(e) => e.fmt(f),
-        }
-    }
-}
-
-impl std::error::Error for Error {}
 
 #[cfg(target_os = "windows")]
 impl From<windows::Error> for Error {
     fn from(error: windows::Error) -> Self {
         Error::WinrtError(error)
-    }
-}
-
-impl From<std::ffi::NulError> for Error {
-    fn from(error: std::ffi::NulError) -> Self {
-        Error::NulError(error)
-    }
-}
-
-impl From<winit::error::OsError> for Error {
-    fn from(error: winit::error::OsError) -> Self {
-        Error::OsError(error)
     }
 }
