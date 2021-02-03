@@ -12,7 +12,7 @@ mod platform;
 
 use crate::platform::*;
 
-use std::fmt;
+use std::cell::RefCell;
 use std::sync::mpsc::{channel, Receiver, SendError, Sender};
 
 //use thiserror::Error;
@@ -68,11 +68,12 @@ impl WebViewBuilder {
     }
 }
 
+thread_local!(static EVAL: RefCell<Option<Receiver<String>>> = RefCell::new(None));
+
 pub struct WebView {
     window: Window,
     webview: InnerWebView,
     tx: Sender<String>,
-    rx: Receiver<String>,
 }
 
 impl WebView {
@@ -82,11 +83,13 @@ impl WebView {
         #[cfg(target_os = "macos")]
         let webview = InnerWebView::new(window.ns_view(), DEBUG)?;
         let (tx, rx) = channel();
+        EVAL.with(|e| {
+            *e.borrow_mut() = Some(rx);
+        });
         Ok(Self {
             window,
             webview,
             tx,
-            rx,
         })
     }
 
@@ -104,9 +107,17 @@ impl WebView {
     }
 
     pub fn dispatch(&mut self) -> Result<()> {
-        while let Ok(js) = self.rx.try_recv() {
-            self.webview.eval(&js)?;
-        }
+        EVAL.with(|e| -> Result<()> {
+            let e = &*e.borrow();
+            if let Some(rx) = e {
+                while let Ok(js) = rx.try_recv() {
+                    self.webview.eval(&js)?;
+                }
+            } else {
+                return Err(Error::EvalError);
+            }
+            Ok(())
+        })?;
 
         Ok(())
     }
@@ -127,6 +138,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[error("Script is not evaluated on the same thread with its webview!")]
+    EvalError,
     #[error(transparent)]
     NulError(#[from] std::ffi::NulError),
     #[error(transparent)]
