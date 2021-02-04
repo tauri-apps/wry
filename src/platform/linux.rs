@@ -1,51 +1,66 @@
+use crate::platform::{CALLBACKS, RPC};
 use crate::{Error, Result};
+
+use std::rc::Rc;
 
 use gio::Cancellable;
 use gtk::{ContainerExt, WidgetExt, Window};
-use webkit2gtk::UserContentManager;
 use webkit2gtk::{
-    SettingsExt, UserContentInjectedFrames, UserContentManagerExt, UserScript,
+    SettingsExt, UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
     UserScriptInjectionTime, WebView, WebViewExt,
 };
 
 pub struct InnerWebView {
-    webview: WebView,
+    webview: Rc<WebView>,
 }
 
 impl InnerWebView {
     pub fn new(window: &Window, debug: bool) -> Self {
         // Initialize webview widget
         let manager = UserContentManager::new();
-        let webview = WebView::with_user_content_manager(&manager);
+        let webview = Rc::new(WebView::with_user_content_manager(&manager));
 
-        /*
-        webkit_user_content_manager_register_script_message_handler(
-            m, // manager
-            CStr::from_bytes_with_nul_unchecked(b"external\0").as_ptr(),
-        );
-        g_signal_connect_data(
-            m as *mut _,
-            CStr::from_bytes_with_nul_unchecked(b"script-message-received::external\0").as_ptr(),
-            Some(std::mem::transmute(on_message as *const ())),
-            w as *mut _,
-            None,
-            0,
-        );
+        let wv = Rc::clone(&webview);
+        manager.register_script_message_handler("external");
+        manager.connect_script_message_received(move |_m, msg| {
+            if let Some(js) = msg.get_value() {
+                if let Some(context) = msg.get_global_context() {
+                    if let Some(js) = js.to_string(&context) {
+                        let v: RPC = serde_json::from_str(&js).unwrap();
+                        let mut hashmap = CALLBACKS.lock().unwrap();
+                        let f = hashmap.get_mut(&v.method).unwrap();
+                        let status = f(v.id, v.params);
 
-        webkit_web_view_run_javascript(
-            webview as *mut _,
-            CStr::from_bytes_with_nul_unchecked(b"window.external={invoke:function(x){window.webkit.messageHandlers.external.postMessage(x);}}\0").as_ptr(),
-            ptr::null_mut(),
-            None,
-            ptr::null_mut(),
-        );
-        */
+                        let js = match status {
+                            0 => {
+                                format!(
+                                    r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
+                                    v.id, v.id
+                                )
+                            }
+                            _ => {
+                                format!(
+                                    r#"window._rpc[{}].reject("RPC call fail"); window._rpc[{}] = undefined"#,
+                                    v.id, v.id
+                                )
+                            }
+                        };
 
-        window.add(&webview);
+                        let cancellable: Option<&Cancellable> = None;
+                        wv.run_javascript(&js, cancellable, |_| ());
+                    }
+                }
+            }
+        });
+
+        let cancellable: Option<&Cancellable> = None;
+        webview.run_javascript("window.external={invoke:function(x){window.webkit.messageHandlers.external.postMessage(x);}}", cancellable, |_| ());
+
+        window.add(&*webview);
         webview.grab_focus();
 
         // Enable webgl and canvas features.
-        if let Some(settings) = WebViewExt::get_settings(&webview) {
+        if let Some(settings) = WebViewExt::get_settings(&*webview) {
             settings.set_enable_webgl(true);
             settings.set_enable_accelerated_2d_canvas(true);
             settings.set_javascript_can_access_clipboard(true);
@@ -92,95 +107,32 @@ impl InnerWebView {
     where
         F: FnMut(i8, Vec<String>) -> i32 + Send + 'static,
     {
-        todo!()
-    }
-}
-
-/*
-pub type BindFn = extern "C" fn(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32;
-impl RawWebView {
-    pub unsafe fn bind(
-        webview: *mut RawWebView,
-        name: &str,
-        fn_: BindFn,
-        arg: *mut c_void,
-    ) -> Result<(), Error> {
-        let name = CString::new(name)?;
         let js = format!(
-            r#"(function() {{ var name = {:?};
-    var RPC = window._rpc = (window._rpc || {{nextSeq: 1}});
-    window[name] = function() {{
-      var seq = RPC.nextSeq++;
-      var promise = new Promise(function(resolve, reject) {{
-        RPC[seq] = {{
-          resolve: resolve,
-          reject: reject,
-        }};
-    }});
-      window.external.invoke(JSON.stringify({{
-        id: seq,
-        method: name,
-        params: Array.prototype.slice.call(arguments),
-      }}));
-      return promise;
-    }}
-}}())"#,
+            r#"var name = {:?};
+                var RPC = window._rpc = (window._rpc || {{nextSeq: 1}});
+                window[name] = function() {{
+                var seq = RPC.nextSeq++;
+                var promise = new Promise(function(resolve, reject) {{
+                    RPC[seq] = {{
+                    resolve: resolve,
+                    reject: reject,
+                    }};
+                }});
+                window.external.invoke(JSON.stringify({{
+                    id: seq,
+                    method: name,
+                    params: Array.prototype.slice.call(arguments),
+                }}));
+                return promise;
+                }}
+            "#,
             name
         );
-        RawWebView::init(webview, &js)?;
-        (*webview).callbacks.insert(name, (fn_, arg));
+        self.init(&js)?;
+        CALLBACKS
+            .lock()
+            .unwrap()
+            .insert(name.to_string(), Box::new(f));
         Ok(())
     }
 }
-unsafe extern "C" fn on_message(
-    _m: *mut WebKitUserContentManager,
-    r: *mut WebKitJavascriptResult,
-    arg: gpointer,
-) {
-    #[derive(Serialize, Deserialize)]
-    struct RPC {
-        id: i8,
-        method: CString,
-        params: serde_json::Value,
-    }
-
-    let webview: *mut RawWebView = arg as *mut _;
-    let ctx = webkit_javascript_result_get_global_context(r);
-    let value = webkit_javascript_result_get_value(r);
-    let js = JSValueToStringCopy(ctx, value, ptr::null_mut());
-    let n = JSStringGetMaximumUTF8CStringSize(js);
-    let mut s = Vec::<u8>::with_capacity(n);
-    JSStringGetUTF8CString(js, s.as_mut_ptr() as _, n);
-    s.set_len(n - 1);
-    let mut c = 0;
-    loop {
-        if s[c] == 0 {
-            break;
-        }
-        c += 1;
-    }
-    let _ = s.split_off(c);
-    let v: RPC = serde_json::from_str(std::str::from_utf8(&s).unwrap()).unwrap();
-    let req = CString::new(serde_json::to_string(&v.params).unwrap()).unwrap();
-    if let Some((f, arg)) = (*webview).callbacks.get(&v.method) {
-        let status = (*f)(&v.id, req.as_ptr(), *arg);
-        match status {
-            0 => {
-                let js = format!(
-                    r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
-                    v.id, v.id
-                );
-                RawWebView::eval(webview, &js).expect("This should be valid CString");
-            }
-            _ => {
-                let js = format!(
-                    r#"window._rpc[{}].reject("RPC call fail"); window._rpc[{}] = undefined"#,
-                    v.id, v.id
-                );
-                RawWebView::eval(webview, &js).expect("This should be valid CString");
-            }
-        }
-    }
-
-    JSStringRelease(js);
-}*/

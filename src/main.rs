@@ -1,11 +1,11 @@
-#[cfg(target_os = "linux")]
-use wry::platform::{Window, WindowType};
 #[cfg(not(target_os = "linux"))]
 use wry::platform::{
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::Window,
 };
+#[cfg(target_os = "linux")]
+use wry::platform::{Window, WindowType};
 use wry::{Result, WebViewBuilder};
 
 #[cfg(target_os = "linux")]
@@ -14,8 +14,15 @@ fn main() -> Result<()> {
     let window = Window::new(WindowType::Toplevel);
 
     let webview = WebViewBuilder::new(window)?;
-    let webview = webview
+    let w = webview.eval_sender();
+    let mut webview = webview
         .init("window.x = 42")?
+        .bind("xxx", move |seq, req| {
+            println!("The seq is: {}", seq);
+            println!("The req is: {:?}", req);
+            w.send("console.log('The anwser is ' + window.x);").unwrap();
+            0
+        })?
         .url("https://www.google.com")
         .build()?;
 
@@ -24,8 +31,10 @@ fn main() -> Result<()> {
         w.send("console.log('The anwser is ' + window.x);").unwrap();
     });
 
-    gtk::main();
-    Ok(())
+    loop {
+        webview.dispatch()?;
+        gtk::main_iteration();
+    }
 }
 
 #[cfg(not(target_os = "linux"))]

@@ -47,6 +47,7 @@ impl WebViewBuilder {
         EvalSender(self.inner.tx.clone())
     }
 
+    // TODO implement bind here
     pub fn bind<F>(self, name: &str, f: F) -> Result<Self>
     where
         F: FnMut(i8, Vec<String>) -> i32 + Send + 'static,
