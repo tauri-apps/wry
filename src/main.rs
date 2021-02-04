@@ -74,7 +74,9 @@ fn main() -> Result<()> {
             Event::WindowEvent {
                 event: WindowEvent::Resized(_),
                 ..
-            } => {}
+            } => {
+                webview.resize();
+            }
             _ => {
                 webview.evaluate().unwrap();
             }

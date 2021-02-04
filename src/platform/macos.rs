@@ -159,39 +159,6 @@ impl InnerWebView {
         }
         Ok(())
     }
-
-    pub fn bind<F>(&self, name: &str, f: F) -> Result<()>
-    where
-        F: FnMut(i8, Vec<String>) -> i32 + Send + 'static,
-    {
-        let js = format!(
-            r#"var name = {:?};
-                var RPC = window._rpc = (window._rpc || {{nextSeq: 1}});
-                window[name] = function() {{
-                var seq = RPC.nextSeq++;
-                var promise = new Promise(function(resolve, reject) {{
-                    RPC[seq] = {{
-                    resolve: resolve,
-                    reject: reject,
-                    }};
-                }});
-                window.external.invoke(JSON.stringify({{
-                    id: seq,
-                    method: name,
-                    params: Array.prototype.slice.call(arguments),
-                }}));
-                return promise;
-                }}
-            "#,
-            name
-        );
-        self.init(&js)?;
-        CALLBACKS
-            .lock()
-            .unwrap()
-            .insert(name.to_string(), Box::new(f));
-        Ok(())
-    }
 }
 
 unsafe impl Send for InnerWebView {}

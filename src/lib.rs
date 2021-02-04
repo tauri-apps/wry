@@ -8,7 +8,7 @@ extern crate objc;
 
 pub mod platform;
 
-use crate::platform::InnerWebView;
+use crate::platform::{InnerWebView, CALLBACKS};
 
 use std::cell::RefCell;
 use std::sync::mpsc::{channel, Receiver, SendError, Sender};
@@ -49,7 +49,32 @@ impl WebViewBuilder {
     where
         F: FnMut(i8, Vec<String>) -> i32 + Send + 'static,
     {
-        self.inner.webview.bind(name, f)?;
+        let js = format!(
+            r#"var name = {:?};
+                var RPC = window._rpc = (window._rpc || {{nextSeq: 1}});
+                window[name] = function() {{
+                var seq = RPC.nextSeq++;
+                var promise = new Promise(function(resolve, reject) {{
+                    RPC[seq] = {{
+                    resolve: resolve,
+                    reject: reject,
+                    }};
+                }});
+                window.external.invoke(JSON.stringify({{
+                    id: seq,
+                    method: name,
+                    params: Array.prototype.slice.call(arguments),
+                }}));
+                return promise;
+                }}
+            "#,
+            name
+        );
+        self.inner.webview.init(&js)?;
+        CALLBACKS
+            .lock()
+            .unwrap()
+            .insert(name.to_string(), Box::new(f));
         Ok(self)
     }
 
@@ -122,7 +147,10 @@ impl WebView {
         Ok(())
     }
 
-    // TODO resize
+    pub fn resize(&self) {
+        #[cfg(target_os = "windows")]
+        self.webview.resize(self.window.hwnd());
+    }
 }
 
 pub struct DispatchSender(Sender<String>);

@@ -22,7 +22,7 @@ use std::{collections::HashMap, sync::Mutex};
 
 use once_cell::sync::Lazy;
 
-static CALLBACKS: Lazy<
+pub(crate) static CALLBACKS: Lazy<
     Mutex<HashMap<String, std::boxed::Box<dyn FnMut(i8, Vec<String>) -> i32 + Send>>>,
 > = Lazy::new(|| {
     let m = HashMap::new();
