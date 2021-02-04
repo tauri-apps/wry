@@ -6,21 +6,21 @@ extern crate thiserror;
 #[macro_use]
 extern crate objc;
 
-pub use winit::*;
+pub mod platform;
 
-mod platform;
-
-use crate::platform::*;
+use crate::platform::InnerWebView;
 
 use std::cell::RefCell;
 use std::sync::mpsc::{channel, Receiver, SendError, Sender};
 
 //use thiserror::Error;
-
+#[cfg(target_os = "linux")]
+use gtk::Window;
 #[cfg(target_os = "macos")]
 use winit::platform::macos::WindowExtMacOS;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
+#[cfg(not(target_os = "linux"))]
 use winit::window::Window;
 
 const DEBUG: bool = true;
@@ -82,6 +82,8 @@ impl WebView {
         let webview = InnerWebView::new(window.hwnd())?;
         #[cfg(target_os = "macos")]
         let webview = InnerWebView::new(window.ns_view(), DEBUG)?;
+        #[cfg(target_os = "linux")]
+        let webview = InnerWebView::new(&window, DEBUG);
         let (tx, rx) = channel();
         EVAL.with(|e| {
             *e.borrow_mut() = Some(rx);
@@ -138,10 +140,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[error("Failed to initialize the script")]
+    InitScriptError,
     #[error("Script is not evaluated on the same thread with its webview!")]
     EvalError,
     #[error(transparent)]
     NulError(#[from] std::ffi::NulError),
+    #[cfg(not(target_os = "linux"))]
     #[error(transparent)]
     OsError(#[from] winit::error::OsError),
     #[error(transparent)]

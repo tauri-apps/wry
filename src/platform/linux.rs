@@ -1,65 +1,26 @@
-use crate::Error;
+use crate::{Error, Result};
 
-use gdk_sys::{GdkGeometry, GDK_HINT_MAX_SIZE, GDK_HINT_MIN_SIZE};
-use glib_sys::{gpointer, GFALSE};
-use gobject_sys::g_signal_connect_data;
-use gtk_sys::*;
-use javascriptcore_sys::*;
-use webkit2gtk_sys::*;
-
-use std::{
-    collections::HashMap,
-    ffi::{CStr, CString},
-    os::raw::{c_char, c_int, c_void},
-    ptr,
+use gio::Cancellable;
+use gtk::{ContainerExt, WidgetExt, Window};
+use webkit2gtk::UserContentManager;
+use webkit2gtk::{
+    SettingsExt, UserContentInjectedFrames, UserContentManagerExt, UserScript,
+    UserScriptInjectionTime, WebView, WebViewExt,
 };
 
-pub type BindFn = extern "C" fn(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32;
-
-pub const WEBVIEW_HINT_NONE: c_int = 0;
-pub const WEBVIEW_HINT_MIN: c_int = 1;
-pub const WEBVIEW_HINT_MAX: c_int = 2;
-pub const WEBVIEW_HINT_FIXED: c_int = 3;
-
-pub struct RawWebView {
-    debug: bool,
-    window: *mut GtkWidget,
-    webview: *mut GtkWidget,
-    callbacks: HashMap<CString, (BindFn, *mut c_void)>,
+pub struct InnerWebView {
+    webview: WebView,
 }
 
-impl RawWebView {
-    pub unsafe fn new(debug: bool) -> *mut RawWebView {
-        let w = Box::into_raw(Box::new(RawWebView {
-            debug,
-            window: ptr::null_mut(),
-            webview: ptr::null_mut(),
-            callbacks: HashMap::new(),
-        }));
-
-        if gtk_init_check(ptr::null_mut(), ptr::null_mut()) == GFALSE {
-            return ptr::null_mut();
-        }
-
-        let window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-        (*w).window = window;
-
-        g_signal_connect_data(
-            window as *mut _,
-            CStr::from_bytes_with_nul_unchecked(b"destroy\0").as_ptr(),
-            Some(gtk_main_quit),
-            w as *mut _,
-            None,
-            0,
-        );
-
+impl InnerWebView {
+    pub fn new(window: &Window, debug: bool) -> Self {
         // Initialize webview widget
-        let m = webkit_user_content_manager_new();
-        let webview = webkit_web_view_new_with_user_content_manager(m);
-        (*w).webview = webview;
+        let manager = UserContentManager::new();
+        let webview = WebView::with_user_content_manager(&manager);
 
+        /*
         webkit_user_content_manager_register_script_message_handler(
-            m,
+            m, // manager
             CStr::from_bytes_with_nul_unchecked(b"external\0").as_ptr(),
         );
         g_signal_connect_data(
@@ -78,109 +39,66 @@ impl RawWebView {
             None,
             ptr::null_mut(),
         );
+        */
 
-        gtk_container_add(window as *mut _, webview);
-        gtk_widget_grab_focus(webview);
+        window.add(&webview);
+        webview.grab_focus();
 
-        let settings = webkit_web_view_get_settings(webview as *mut _);
         // Enable webgl and canvas features.
-        webkit_settings_set_enable_webgl(settings, 1);
-        webkit_settings_set_enable_accelerated_2d_canvas(settings, 1);
-        webkit_settings_set_javascript_can_access_clipboard(settings, 1);
-        if debug {
-            webkit_settings_set_enable_write_console_messages_to_stdout(settings, 1);
-            webkit_settings_set_enable_developer_extras(settings, 1);
-        }
+        if let Some(settings) = WebViewExt::get_settings(&webview) {
+            settings.set_enable_webgl(true);
+            settings.set_enable_accelerated_2d_canvas(true);
+            settings.set_javascript_can_access_clipboard(true);
 
-        gtk_widget_show_all(window);
-
-        w
-    }
-
-    pub unsafe fn run(webview: *mut RawWebView) {
-        let _ = Box::from_raw(webview);
-        gtk_main();
-    }
-
-    pub unsafe fn set_title(webview: *mut RawWebView, title: &str) -> Result<(), Error> {
-        let title = CString::new(title)?;
-        gtk_window_set_title((*webview).window as *mut _, title.as_ptr());
-        Ok(())
-    }
-
-    pub unsafe fn set_size(webview: *mut RawWebView, width: c_int, height: c_int, hint: c_int) {
-        match hint {
-            WEBVIEW_HINT_FIXED => {
-                gtk_window_set_resizable((*webview).window as *mut _, 0);
-                gtk_widget_set_size_request((*webview).window, width, height);
-            }
-            WEBVIEW_HINT_NONE => {
-                gtk_window_set_resizable((*webview).window as *mut _, 1);
-                gtk_window_resize((*webview).window as *mut _, width, height);
-            }
-            hint => {
-                gtk_window_set_resizable((*webview).window as *mut _, 1);
-                let mut g = GdkGeometry {
-                    min_width: width,
-                    min_height: height,
-                    max_width: width,
-                    max_height: height,
-                    base_width: Default::default(),
-                    base_height: Default::default(),
-                    width_inc: Default::default(),
-                    height_inc: Default::default(),
-                    min_aspect: Default::default(),
-                    max_aspect: Default::default(),
-                    win_gravity: Default::default(),
-                };
-                let h = if hint == WEBVIEW_HINT_MIN {
-                    GDK_HINT_MIN_SIZE
-                } else {
-                    GDK_HINT_MAX_SIZE
-                };
-                gtk_window_set_geometry_hints(
-                    (*webview).window as *mut _,
-                    ptr::null_mut(),
-                    &mut g,
-                    h,
-                );
+            if debug {
+                settings.set_enable_write_console_messages_to_stdout(true);
+                settings.set_enable_developer_extras(true);
             }
         }
+
+        window.show_all();
+
+        Self { webview }
     }
 
-    pub unsafe fn navigate(webview: *mut RawWebView, url: &str) -> Result<(), Error> {
-        let url = CString::new(url)?;
-        webkit_web_view_load_uri((*webview).webview as *mut _, url.as_ptr());
+    pub fn init(&self, js: &str) -> Result<()> {
+        if let Some(manager) = self.webview.get_user_content_manager() {
+            let script = UserScript::new(
+                js,
+                UserContentInjectedFrames::TopFrame,
+                UserScriptInjectionTime::Start,
+                &[],
+                &[],
+            );
+            manager.add_script(&script);
+        } else {
+            return Err(Error::InitScriptError);
+        }
         Ok(())
     }
 
-    pub unsafe fn init(webview: *mut RawWebView, js: &str) -> Result<(), Error> {
-        let js = CString::new(js)?;
-        webkit_user_content_manager_add_script(
-            webkit_web_view_get_user_content_manager((*webview).webview as *mut _),
-            webkit_user_script_new(
-                js.as_ptr(),
-                WEBKIT_USER_CONTENT_INJECT_TOP_FRAME,
-                WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START,
-                ptr::null(),
-                ptr::null(),
-            ),
-        );
+    pub fn eval(&self, js: &str) -> Result<()> {
+        let cancellable: Option<&Cancellable> = None;
+        self.webview.run_javascript(js, cancellable, |_| ());
         Ok(())
     }
 
-    pub unsafe fn eval(webview: *mut RawWebView, js: &str) -> Result<(), Error> {
-        let js = CString::new(js)?;
-        webkit_web_view_run_javascript(
-            (*webview).webview as *mut _,
-            js.as_ptr(),
-            ptr::null_mut(),
-            None,
-            ptr::null_mut(),
-        );
+    pub fn navigate(&self, url: &str) -> Result<()> {
+        self.webview.load_uri(url);
         Ok(())
     }
 
+    pub fn bind<F>(&self, name: &str, f: F) -> Result<()>
+    where
+        F: FnMut(i8, Vec<String>) -> i32 + Send + 'static,
+    {
+        todo!()
+    }
+}
+
+/*
+pub type BindFn = extern "C" fn(seq: *const c_char, req: *const c_char, arg: *mut c_void) -> i32;
+impl RawWebView {
     pub unsafe fn bind(
         webview: *mut RawWebView,
         name: &str,
@@ -265,4 +183,4 @@ unsafe extern "C" fn on_message(
     }
 
     JSStringRelease(js);
-}
+}*/

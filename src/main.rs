@@ -1,10 +1,34 @@
-use wry::{
+#[cfg(target_os = "linux")]
+use wry::platform::{Window, WindowType};
+#[cfg(not(target_os = "linux"))]
+use wry::platform::{
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::Window,
-    Result, WebViewBuilder,
 };
+use wry::{Result, WebViewBuilder};
 
+#[cfg(target_os = "linux")]
+fn main() -> Result<()> {
+    gtk::init().unwrap();
+    let window = Window::new(WindowType::Toplevel);
+
+    let webview = WebViewBuilder::new(window)?;
+    let webview = webview
+        .init("window.x = 42")?
+        .url("https://www.google.com")
+        .build()?;
+
+    let w = webview.eval_sender();
+    std::thread::spawn(move || {
+        w.send("console.log('The anwser is ' + window.x);").unwrap();
+    });
+
+    gtk::main();
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
 fn main() -> Result<()> {
     let events = EventLoop::new();
     let window = Window::new(&events)?;
@@ -44,47 +68,4 @@ fn main() -> Result<()> {
             _ => (),
         }
     });
-
-    /*
-    unsafe {
-    let webview = RawWebView::new(true)?;
-    RawWebView::init(webview, "window.x = 42")?;
-    //RawWebView::eval(webview, "window.x")?;
-    RawWebView::bind(webview, "xxx", |_seq, _req| {
-        // match webview.eval("console.log('The anwser is ' + window.x);").is_ok() {
-        //     true => 0,
-        //     false => 1,
-        // }
-        println!("Hello");
-        0
-    })?;
-    RawWebView::navigate(webview, "https://www.google.com")?;
-    RawWebView::run(webview);
-    }*/
-
-    // unsafe {
-    //     let data = RawWebView::new(true);
-    //     RawWebView::set_title(data, "AYAYA")?;
-    //     RawWebView::set_size(data, 1024, 768, 0);
-    //     RawWebView::init(data, "window.x = 42")?;
-    //     RawWebView::bind(
-    //         data,
-    //         "UwU",
-    //         bind,
-    //         ptr::null_mut(),
-    //     )?;
-    //     RawWebView::navigate(
-    //         data,
-    //         "https://www.google.com/",
-    //     )?;
-    //     RawWebView::run(data);
-    // }
 }
-
-// #[no_mangle]
-// extern "C" fn bind(seq: *const c_char, _req: *const c_char, _arg: *mut c_void) -> i32 {
-//     unsafe {
-//         println!("{}", *seq);
-//     }
-//     0i32
-// }

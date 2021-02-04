@@ -22,6 +22,7 @@ unsafe fn get_nsstring(s: &str) -> id {
     msg_send![nsstring, stringWithUTF8String:s.as_ptr()]
 }
 
+// TODO Remove clone trait
 #[derive(Clone)]
 pub struct InnerWebView {
     webview: id,
@@ -194,5 +195,6 @@ impl InnerWebView {
     }
 }
 
+// TODO Remove these as well
 unsafe impl Send for InnerWebView {}
 unsafe impl Sync for InnerWebView {}
