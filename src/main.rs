@@ -23,7 +23,7 @@ fn main() -> Result<()> {
             w.send("console.log('The anwser is ' + window.x);").unwrap();
             0
         })?
-        .load_url(
+        .load_html(
             r#"data:text/html,
             <!doctype html>
             <html>
@@ -64,7 +64,7 @@ fn main() -> Result<()> {
             w.send("console.log('The anwser is ' + window.x);").unwrap();
             0
         })?
-        .load_url(
+        .load_html(
             r#"data:text/html,
             <!doctype html>
             <html>

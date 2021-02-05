@@ -24,16 +24,21 @@ use winit::window::Window;
 
 const DEBUG: bool = true;
 
+enum Content {
+    URL(Url),
+    HTML(Url),
+}
+
 pub struct WebViewBuilder {
     inner: WebView,
-    url: Option<Url>,
+    content: Option<Content>,
 }
 
 impl WebViewBuilder {
     pub fn new(window: Window) -> Result<Self> {
         Ok(Self {
             inner: WebView::new(window)?,
-            url: None,
+            content: None,
         })
     }
 
@@ -81,7 +86,7 @@ impl WebViewBuilder {
     }
 
     pub fn load_url(mut self, url: &str) -> Result<Self> {
-        self.url = Some(Url::parse(url)?);
+        self.content = Some(Content::URL(Url::parse(url)?));
         Ok(self)
     }
 
@@ -90,23 +95,15 @@ impl WebViewBuilder {
             Ok(url) => url,
             Err(_) => Url::parse(&format!("data:text/html,{}", html))?,
         };
-        self.url = Some(url);
+        self.content = Some(Content::HTML(url));
         Ok(self)
     }
 
     pub fn build(self) -> Result<WebView> {
-        if let Some(url) = self.url {
-            #[cfg(target_os = "windows")]
-            {
-                if url.cannot_be_a_base() {
-                    self.inner.webview.navigate_to_string(url.as_str())?;
-                } else {
-                    self.inner.webview.navigate(url.as_str())?;
-                }
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                self.inner.webview.navigate(url.as_str())?;
+        if let Some(url) = self.content {
+            match url {
+                Content::HTML(url) => self.inner.webview.navigate_to_string(url.as_str())?,
+                Content::URL(url) => self.inner.webview.navigate(url.as_str())?,
             }
         }
         Ok(self.inner)

@@ -159,6 +159,17 @@ impl InnerWebView {
         }
         Ok(())
     }
+
+    pub fn navigate_to_string(&self, url: &str) -> Result<()> {
+        unsafe {
+            let nsurl = class!(NSURL);
+            let html = get_nsstring(url);
+            let s = get_nsstring("");
+            let url: id = msg_send![nsurl, URLWithString: s];
+            let _: () = msg_send![self.webview, loadHTMLString:html baseURL:url];
+        }
+        Ok(())
+    }
 }
 
 unsafe impl Send for InnerWebView {}

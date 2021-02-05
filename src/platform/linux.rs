@@ -102,6 +102,11 @@ impl InnerWebView {
         self.webview.load_uri(url);
         Ok(())
     }
+
+    pub fn navigate_to_string(&self, url: &str) -> Result<()> {
+        self.webview.load_uri(url);
+        Ok(())
+    }
 }
 
 unsafe impl Send for InnerWebView {}
