@@ -13,6 +13,8 @@ use crate::platform::{InnerWebView, CALLBACKS};
 use std::cell::RefCell;
 use std::sync::mpsc::{channel, Receiver, SendError, Sender};
 
+use url::{ParseError, Url};
+
 #[cfg(target_os = "linux")]
 use gtk::Window;
 #[cfg(target_os = "windows")]
@@ -24,7 +26,7 @@ const DEBUG: bool = true;
 
 pub struct WebViewBuilder {
     inner: WebView,
-    url: Option<String>,
+    url: Option<Url>,
 }
 
 impl WebViewBuilder {
@@ -78,14 +80,23 @@ impl WebViewBuilder {
         Ok(self)
     }
 
-    pub fn url(mut self, url: &str) -> Self {
-        self.url = Some(url.to_string());
-        self
+    pub fn load_url(mut self, url: &str) -> Result<Self> {
+        self.url = Some(Url::parse(url)?);
+        Ok(self)
+    }
+
+    pub fn load_html(mut self, html: &str) -> Result<Self> {
+        let url = match Url::parse(html) {
+            Ok(url) => url,
+            Err(_) => Url::parse(&format!("data:text/html,{}", html))?,
+        };
+        self.url = Some(url);
+        Ok(self)
     }
 
     pub fn build(self) -> Result<WebView> {
         if let Some(url) = self.url {
-            self.inner.webview.navigate(&url)?;
+            self.inner.webview.navigate(url.as_str())?;
         }
         Ok(self.inner)
     }
@@ -166,10 +177,10 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("Failed to initialize the script")]
-    InitScriptError,
     #[error("Script is not evaluated on the same thread with its webview!")]
     EvalError,
+    #[error("Failed to initialize the script")]
+    InitScriptError,
     #[error(transparent)]
     NulError(#[from] std::ffi::NulError),
     #[cfg(not(target_os = "linux"))]
@@ -177,6 +188,8 @@ pub enum Error {
     OsError(#[from] winit::error::OsError),
     #[error(transparent)]
     SenderError(#[from] SendError<String>),
+    #[error(transparent)]
+    UrlError(#[from] ParseError),
     #[cfg(target_os = "windows")]
     #[error("Windows error: {0:?}")]
     WinrtError(windows::Error),
