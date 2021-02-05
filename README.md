@@ -21,10 +21,16 @@ All platforms uses [winit](https://github.com/rust-windowing/winit) to build the
 
 Unlike other platforms, [gtk-rs](https://gtk-rs.org/) is used to build the window instead of winit. Because wry needs [WebKitGTK](https://webkitgtk.org/) and winit provides lower level of interface like x11 or wayland. Please make sure WebKitGTK is installed. If not, run the following command:
 
-- Arch:
+#### Arch Linux / Manjaro:
 
 ```bash
 sudo pacman -S webkit2gtk
+```
+
+#### Debian / Ubuntu:
+
+```bash
+sudo apt install libwebkit2gtk-4.0-dev
 ```
 
 ### macOS
