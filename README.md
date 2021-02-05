@@ -4,7 +4,7 @@ Cross-platfrom WebView rendering library in Rust that supports all major desktop
 
 ```toml
 [dependencies]
-wry = "0.2.0"
+wry = "0.3.0"
 ```
 
 ## Overview
