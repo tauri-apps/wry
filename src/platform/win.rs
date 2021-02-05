@@ -120,8 +120,11 @@ impl InnerWebView {
     }
 
     pub fn navigate(&self, url: &str) -> Result<()> {
-        // TODO NavigateToString/url as parameter
         Ok(self.webview.navigate(Uri::create_uri(url)?)?)
+    }
+
+    pub fn navigate_to_string(&self, url: &str) -> Result<()> {
+        Ok(self.webview.navigate_to_string(url)?)
     }
 
     pub fn resize(&self, hwnd: *mut c_void) {

@@ -64,7 +64,18 @@ fn main() -> Result<()> {
             w.send("console.log('The anwser is ' + window.x);").unwrap();
             0
         })?
-        .url("https://www.google.com")?
+        .load_url(
+            r#"data:text/html,
+            <!doctype html>
+            <html>
+                <body>hello</body>
+                <script>
+                    window.onload = function() {
+                      document.body.innerText = `hello, ${navigator.userAgent}`;
+                    };
+                </script>
+            </html>"#,
+        )?
         .build()?;
 
     let w = webview.dispatch_sender();

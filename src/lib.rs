@@ -96,7 +96,18 @@ impl WebViewBuilder {
 
     pub fn build(self) -> Result<WebView> {
         if let Some(url) = self.url {
-            self.inner.webview.navigate(url.as_str())?;
+            #[cfg(target_os = "windows")]
+            {
+                if url.cannot_be_a_base() {
+                    self.inner.webview.navigate_to_string(url.as_str())?;
+                } else {
+                    self.inner.webview.navigate(url.as_str())?;
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                self.inner.webview.navigate(url.as_str())?;
+            }
         }
         Ok(self.inner)
     }
