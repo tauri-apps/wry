@@ -33,7 +33,7 @@ fn main() -> Result<()> {
     });
 
     loop {
-        webview.eval()?;
+        webview.evaluate()?;
         gtk::main_iteration();
     }
 }
