@@ -13,11 +13,8 @@ use crate::platform::InnerWebView;
 use std::cell::RefCell;
 use std::sync::mpsc::{channel, Receiver, SendError, Sender};
 
-//use thiserror::Error;
 #[cfg(target_os = "linux")]
 use gtk::Window;
-#[cfg(target_os = "macos")]
-use winit::platform::macos::WindowExtMacOS;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
@@ -43,8 +40,8 @@ impl WebViewBuilder {
         Ok(self)
     }
 
-    pub fn eval_sender(&self) -> EvalSender {
-        EvalSender(self.inner.tx.clone())
+    pub fn dispatch_sender(&self) -> DispatchSender {
+        DispatchSender(self.inner.tx.clone())
     }
 
     // TODO implement bind here
@@ -82,7 +79,7 @@ impl WebView {
         #[cfg(target_os = "windows")]
         let webview = InnerWebView::new(window.hwnd())?;
         #[cfg(target_os = "macos")]
-        let webview = InnerWebView::new(window.ns_view(), DEBUG)?;
+        let webview = InnerWebView::new(&window, DEBUG)?;
         #[cfg(target_os = "linux")]
         let webview = InnerWebView::new(&window, DEBUG);
         let (tx, rx) = channel();
@@ -96,20 +93,20 @@ impl WebView {
         })
     }
 
-    pub fn eval(&mut self, js: &str) -> Result<()> {
+    pub fn dispatch(&mut self, js: &str) -> Result<()> {
         self.tx.send(js.to_string())?;
         Ok(())
     }
 
-    pub fn eval_sender(&self) -> EvalSender {
-        EvalSender(self.tx.clone())
+    pub fn dispatch_sender(&self) -> DispatchSender {
+        DispatchSender(self.tx.clone())
     }
 
     pub fn window(&self) -> &Window {
         &self.window
     }
 
-    pub fn dispatch(&mut self) -> Result<()> {
+    pub fn evaluate(&mut self) -> Result<()> {
         EVAL.with(|e| -> Result<()> {
             let e = &*e.borrow();
             if let Some(rx) = e {
@@ -128,9 +125,9 @@ impl WebView {
     // TODO resize
 }
 
-pub struct EvalSender(Sender<String>);
+pub struct DispatchSender(Sender<String>);
 
-impl EvalSender {
+impl DispatchSender {
     pub fn send(&self, js: &str) -> Result<()> {
         self.0.send(js.to_string())?;
         Ok(())

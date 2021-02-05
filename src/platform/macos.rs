@@ -15,6 +15,7 @@ use objc::{
     declare::ClassDecl,
     runtime::{Object, Sel},
 };
+use winit::{platform::macos::WindowExtMacOS, window::Window};
 
 unsafe fn get_nsstring(s: &str) -> id {
     let s = CString::new(s).unwrap();
@@ -22,15 +23,13 @@ unsafe fn get_nsstring(s: &str) -> id {
     msg_send![nsstring, stringWithUTF8String:s.as_ptr()]
 }
 
-// TODO Remove clone trait
-#[derive(Clone)]
 pub struct InnerWebView {
     webview: id,
     manager: id,
 }
 
 impl InnerWebView {
-    pub fn new(view: *mut c_void, debug: bool) -> Result<Self> {
+    pub fn new(window: &Window, debug: bool) -> Result<Self> {
         extern "C" fn did_receive(_: &Object, _: Sel, _: id, msg: id) {
             unsafe {
                 let body: id = msg_send![msg, body];
@@ -94,8 +93,8 @@ impl InnerWebView {
             let dom = get_nsstring("DOMPasteAllowed");
             let _: id = msg_send![preference, setValue:number forKey:dom];
 
-            // TODO resize with window size
-            let rect = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(800., 600.));
+            let size = window.inner_size().to_logical(2.);
+            let rect = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(size.width, size.height));
             let _: () = msg_send![webview, initWithFrame:rect configuration:config];
             webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
 
@@ -120,7 +119,7 @@ impl InnerWebView {
                     };",
             )?;
 
-            let view = view as id;
+            let view = window.ns_view() as id;
             view.addSubview_(webview);
 
             Ok(w)
@@ -195,6 +194,5 @@ impl InnerWebView {
     }
 }
 
-// TODO Remove these as well
 unsafe impl Send for InnerWebView {}
 unsafe impl Sync for InnerWebView {}

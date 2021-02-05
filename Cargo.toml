@@ -7,12 +7,12 @@ license = "Apache-2.0/MIT"
 description = "Cross-platform WebView rendering library"
 readme = "README.md"
 repository = "https://github.com/tauri-apps/wry"
-documentation = "https://docs.rs/winit"
+documentation = "https://docs.rs/wry"
 categories = ["gui"]
 
 [package.metadata.docs.rs]
 default-target = "x86_64-unknown-linux-gnu"
-targets = ["i686-pc-windows-msvc", "x86_64-pc-windows-msvc", "i686-unknown-linux-gnu", "x86_64-unknown-linux-gnu", "x86_64-apple-darwin"]
+targets = ["x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu", "x86_64-apple-darwin"]
 
 [dependencies]
 libc = "0.2"

@@ -27,7 +27,6 @@ extern "C" {
     fn ivector(js: *const c_char) -> *mut c_void;
 }
 
-#[derive(Clone)]
 pub struct InnerWebView {
     webview: WebViewControl,
 }

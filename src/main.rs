@@ -14,7 +14,7 @@ fn main() -> Result<()> {
     let window = Window::new(WindowType::Toplevel);
 
     let webview = WebViewBuilder::new(window)?;
-    let w = webview.eval_sender();
+    let w = webview.dispatch_sender();
     let mut webview = webview
         .init("window.x = 42")?
         .bind("xxx", move |seq, req| {
@@ -26,13 +26,14 @@ fn main() -> Result<()> {
         .url("https://www.google.com")
         .build()?;
 
-    let w = webview.eval_sender();
+    let w = webview.dispatch_sender();
     std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::new(1, 0));
         w.send("console.log('The anwser is ' + window.x);").unwrap();
     });
 
     loop {
-        webview.dispatch()?;
+        webview.eval()?;
         gtk::main_iteration();
     }
 }
@@ -43,7 +44,7 @@ fn main() -> Result<()> {
     let window = Window::new(&events)?;
     let webview = WebViewBuilder::new(window)?;
 
-    let w = webview.eval_sender();
+    let w = webview.dispatch_sender();
     let mut webview = webview
         .init("window.x = 42")?
         .bind("xxx", move |seq, req| {
@@ -55,15 +56,15 @@ fn main() -> Result<()> {
         .url("https://www.google.com")
         .build()?;
 
-    let w = webview.eval_sender();
+    let w = webview.dispatch_sender();
     std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::new(1, 0));
         w.send("console.log('The anwser is ' + window.x);").unwrap();
     });
 
     events.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        webview.dispatch().unwrap();
         match event {
             Event::NewEvents(StartCause::Init) => {}
             Event::WindowEvent {
@@ -74,7 +75,9 @@ fn main() -> Result<()> {
                 event: WindowEvent::Resized(_),
                 ..
             } => {}
-            _ => (),
+            _ => {
+                webview.evaluate().unwrap();
+            }
         }
     });
 }
