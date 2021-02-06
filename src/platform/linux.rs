@@ -4,21 +4,27 @@ use crate::{Error, Result};
 use std::rc::Rc;
 
 use gio::Cancellable;
+use glib::Bytes;
 use gtk::{ContainerExt, WidgetExt, Window};
 use webkit2gtk::{
-    SettingsExt, UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
-    UserScriptInjectionTime, WebView, WebViewExt,
+    SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
+    UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime, WebContext,
+    WebContextExt, WebView, WebViewExt, WebViewExtManual,
 };
 
 pub struct InnerWebView {
     webview: Rc<WebView>,
+    context: WebContext,
 }
 
 impl InnerWebView {
     pub fn new(window: &Window, debug: bool) -> Self {
         // Initialize webview widget
         let manager = UserContentManager::new();
-        let webview = Rc::new(WebView::with_user_content_manager(&manager));
+        let context = WebContext::new();
+        let webview = Rc::new(WebView::new_with_context_and_user_content_manager(
+            &context, &manager,
+        ));
 
         let wv = Rc::clone(&webview);
         manager.register_script_message_handler("external");
@@ -73,7 +79,36 @@ impl InnerWebView {
 
         window.show_all();
 
-        Self { webview }
+        Self { webview, context }
+    }
+
+    pub fn register_buffer_protocol<F: 'static + Fn(&str) -> Vec<u8>>(
+        &self,
+        protocol: String,
+        handler: F,
+    ) -> Result<()> {
+        self.context
+            .get_security_manager()
+            .unwrap()
+            .register_uri_scheme_as_secure(&protocol);
+        self.context
+            .register_uri_scheme(&protocol.clone(), move |request| {
+                let file_path = request
+                    .get_uri()
+                    .unwrap()
+                    .as_str()
+                    .replace(format!("{}://", protocol).as_str(), "")
+                    // Somehow other assets get index.html in their path
+                    .replace("index.html/", "");
+                let mime = mime_guess::from_path(&file_path)
+                    .first()
+                    .unwrap()
+                    .to_string();
+                let buffer = handler(&file_path);
+                let input = gio::MemoryInputStream::from_bytes(&Bytes::from(&buffer));
+                request.finish(&input, buffer.len() as i64, Some(&mime))
+            });
+        Ok(())
     }
 
     pub fn init(&self, js: &str) -> Result<()> {

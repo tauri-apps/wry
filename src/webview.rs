@@ -141,6 +141,14 @@ impl WebView {
         &self.window
     }
 
+    pub fn register_buffer_protocol<F: 'static + Fn(&str) -> Vec<u8>>(
+        &self,
+        protocol: String,
+        handler: F,
+    ) -> Result<()> {
+        self.webview.register_buffer_protocol(protocol, handler)
+    }
+
     pub fn evaluate(&mut self) -> Result<()> {
         EVAL.with(|e| -> Result<()> {
             let e = &*e.borrow();
