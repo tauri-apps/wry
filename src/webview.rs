@@ -38,14 +38,27 @@ impl WebViewBuilder {
         Ok(self)
     }
 
+    pub(crate) fn init_with_self(&self, js: &str) -> Result<()> {
+        self.inner.webview.init(js)?;
+        Ok(())
+    }
+
     pub fn dispatch_sender(&self) -> Dispatcher {
         Dispatcher(self.inner.tx.clone())
     }
 
-    // TODO implement bind here
+    // TODO rename
     pub fn bind<F>(self, name: &str, f: F) -> Result<Self>
     where
-        F: FnMut(i8, Vec<String>) -> i32 + Send + 'static,
+        F: FnMut(i32, Vec<String>) -> i32 + Send + 'static,
+    {
+        self.bind_with_self(name, f)?;
+        Ok(self)
+    }
+
+    pub(crate) fn bind_with_self<F>(&self, name: &str, f: F) -> Result<()>
+    where
+        F: FnMut(i32, Vec<String>) -> i32 + Send + 'static,
     {
         let js = format!(
             r#"var name = {:?};
@@ -73,7 +86,7 @@ impl WebViewBuilder {
             .lock()
             .unwrap()
             .insert(name.to_string(), Box::new(f));
-        Ok(self)
+        Ok(())
     }
 
     pub fn load_url(mut self, url: &str) -> Result<Self> {

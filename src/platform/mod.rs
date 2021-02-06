@@ -23,7 +23,7 @@ use std::{collections::HashMap, sync::Mutex};
 use once_cell::sync::Lazy;
 
 pub(crate) static CALLBACKS: Lazy<
-    Mutex<HashMap<String, std::boxed::Box<dyn FnMut(i8, Vec<String>) -> i32 + Send>>>,
+    Mutex<HashMap<String, std::boxed::Box<dyn FnMut(i32, Vec<String>) -> i32 + Send>>>,
 > = Lazy::new(|| {
     let m = HashMap::new();
     Mutex::new(m)
@@ -31,7 +31,7 @@ pub(crate) static CALLBACKS: Lazy<
 
 #[derive(Debug, Serialize, Deserialize)]
 struct RPC {
-    id: i8,
+    id: i32,
     method: String,
     params: Vec<String>,
 }

@@ -49,59 +49,42 @@ fn main() -> Result<()> {
     }
 }
 
+use wry::{Application, Callback, WebViewAttributes};
+
 #[cfg(not(target_os = "linux"))]
 fn main() -> Result<()> {
-    let events = EventLoop::new();
-    let window = Window::new(&events)?;
-    let webview = WebViewBuilder::new(window)?;
-
-    let w = webview.dispatch_sender();
-    let mut webview = webview
-        .init("window.x = 42")?
-        .bind("xxx", move |seq, req| {
-            println!("The seq is: {}", seq);
-            println!("The req is: {:?}", req);
-            w.send("console.log('The anwser is ' + window.x);").unwrap();
-            0
-        })?
-        .load_html(
-            r#"data:text/html,
-            <!doctype html>
-            <html>
-                <body>hello</body>
-                <script>
-                    window.onload = function() {
-                      document.body.innerText = `hello, ${navigator.userAgent}`;
-                    };
-                </script>
-            </html>"#,
-        )?
-        .build()?;
-
-    let w = webview.dispatch_sender();
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::new(1, 0));
-        w.send("console.log('The anwser is ' + window.x);").unwrap();
-    });
-
-    events.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Wait;
-
-        match event {
-            Event::NewEvents(StartCause::Init) => {}
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => *control_flow = ControlFlow::Exit,
-            Event::WindowEvent {
-                event: WindowEvent::Resized(_),
-                ..
-            } => {
-                webview.resize();
-            }
-            _ => {
-                webview.evaluate().unwrap();
-            }
-        }
-    });
+    let window1 = WebViewAttributes {
+        url: Some("https://www.google.com".to_string()),
+        initialization_script: vec![String::from("window.x = 42")],
+        bind: vec![Callback {
+            name: "xxx".to_string(),
+            function: Box::new(|seq, req| {
+                println!("The seq is: {}", seq);
+                println!("The req is: {:?}", req);
+                0
+            }),
+            evaluation_script: Some("console.log('The anwser is ' + window.x);".to_string()),
+        }],
+        ..Default::default()
+    };
+    let window2 = WebViewAttributes {
+        title: "window 2".to_string(),
+        url: Some("https://www.google.com".to_string()),
+        initialization_script: vec![String::from("window.x = 24")],
+        bind: vec![Callback {
+            name: "xxx".to_string(),
+            function: Box::new(|seq, req| {
+                println!("The seq is: {}", seq);
+                println!("The req is: {:?}", req);
+                0
+            }),
+            evaluation_script: Some("console.log('The anwser is ' + window.x);".to_string()),
+        }],
+        ..Default::default()
+    };
+    let mut app = Application::new();
+    app.add_webview(window1)?;
+    app.add_webview(window2)?;
+    app.run();
+    Ok(())
 }

@@ -99,13 +99,17 @@ impl InnerWebView {
             webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
 
             // Message handler
-            let mut cls = ClassDecl::new("WebViewDelegate", class!(NSObject)).unwrap();
-            //cls.add_protocol(Protocol::get("WKScriptMessageHandler").unwrap());
-            cls.add_method(
-                sel!(userContentController:didReceiveScriptMessage:),
-                did_receive as extern "C" fn(&Object, Sel, id, id),
-            );
-            let cls = cls.register();
+            let cls = ClassDecl::new("WebViewDelegate", class!(NSObject));
+            let cls = match cls {
+                Some(mut cls) => {
+                    cls.add_method(
+                        sel!(userContentController:didReceiveScriptMessage:),
+                        did_receive as extern "C" fn(&Object, Sel, id, id),
+                    );
+                    cls.register()
+                }
+                None => class!(WebViewDelegate),
+            };
             let handler: id = msg_send![cls, new];
             let external = get_nsstring("external");
             let _: () = msg_send![manager, addScriptMessageHandler:handler name:external];
