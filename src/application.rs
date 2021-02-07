@@ -7,14 +7,9 @@ use winit::{
 
 use std::collections::HashMap;
 
-pub struct Callback {
-    pub name: String,
-    pub function: Box<dyn FnMut(i32, Vec<String>) -> i32 + Send>,
-    pub evaluation_script: Option<String>,
-}
-
 // TODO complete fields on WindowAttribute
 /// Attributes to use when creating a webview window.
+#[derive(Debug, Clone)]
 pub struct WebViewAttributes {
     /// Whether the window is resizable or not.
     ///
@@ -55,8 +50,6 @@ pub struct WebViewAttributes {
     pub url: Option<String>,
 
     pub initialization_script: Vec<String>,
-
-    pub bind: Vec<Callback>,
 }
 
 impl Default for WebViewAttributes {
@@ -72,7 +65,6 @@ impl Default for WebViewAttributes {
             always_on_top: false,
             url: None,
             initialization_script: Vec::default(),
-            bind: Vec::default(),
         }
     }
 }
@@ -105,31 +97,27 @@ impl Application {
         }
     }
 
-    pub fn add_webview(&mut self, attributes: WebViewAttributes) -> Result<()> {
+    pub fn create_webview(&self, attributes: WebViewAttributes) -> Result<WebViewBuilder> {
         let window_attributes = WindowAttributes::from(&attributes);
         let mut window = WindowBuilder::new();
         window.window = window_attributes;
 
-        let webview = WebViewBuilder::new(window.build(&self.event_loop)?)?;
+        let window = window.build(&self.event_loop)?;
+        let mut webview = WebViewBuilder::new(window)?;
         for js in attributes.initialization_script {
-            webview.init_with_self(&js)?;
+            webview = webview.initialize_script(&js)?;
         }
-        let webview = match attributes.url {
+        webview = match attributes.url {
             Some(url) => webview.load_url(&url)?,
             None => webview,
         };
-        let dispatcher = webview.dispatch_sender();
-        for f in attributes.bind {
-            webview.bind_with_self(&f.name, f.function)?;
-            if let Some(script) = f.evaluation_script {
-                dispatcher.send(&script)?;
-            }
-        }
-        let webview = webview.build()?;
 
+        Ok(webview)
+    }
+
+    pub fn add_webview(&mut self, webview: WebView) {
         let id = webview.window().id();
         self.webviews.insert(id, webview);
-        Ok(())
     }
 
     pub fn run(self) {
@@ -137,27 +125,23 @@ impl Application {
         self.event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
 
+            for (_, w) in windows.iter() {
+                w.evaluate_script().unwrap();
+            }
             match event {
-                Event::WindowEvent { event, window_id } => {
-                    match event {
-                        WindowEvent::CloseRequested => {
-                            // This drops the window, causing it to close.
-                            windows.remove(&window_id);
+                Event::WindowEvent { event, window_id } => match event {
+                    WindowEvent::CloseRequested => {
+                        windows.remove(&window_id);
 
-                            if windows.is_empty() {
-                                *control_flow = ControlFlow::Exit;
-                            }
-                        }
-                        WindowEvent::Resized(_) => {
-                            windows[&window_id].resize();
-                        }
-                        _ => {
-                            if let Some(w) = windows.get_mut(&window_id) {
-                                w.evaluate().unwrap();
-                            }
+                        if windows.is_empty() {
+                            *control_flow = ControlFlow::Exit;
                         }
                     }
-                }
+                    WindowEvent::Resized(_) => {
+                        windows[&window_id].resize();
+                    }
+                    _ => {}
+                },
                 _ => (),
             }
         });

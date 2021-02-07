@@ -1,7 +1,6 @@
 use crate::platform::{InnerWebView, CALLBACKS};
-use crate::{Error, Result};
+use crate::Result;
 
-use std::cell::RefCell;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
 use url::Url;
@@ -15,48 +14,30 @@ use winit::window::Window;
 
 const DEBUG: bool = true;
 
-enum Content {
-    URL(Url),
-    HTML(Url),
-}
-
 pub struct WebViewBuilder {
     inner: WebView,
-    content: Option<Content>,
+    url: Option<Url>,
 }
 
 impl WebViewBuilder {
     pub fn new(window: Window) -> Result<Self> {
         Ok(Self {
             inner: WebView::new(window)?,
-            content: None,
+            url: None,
         })
     }
 
-    pub fn init(self, js: &str) -> Result<Self> {
+    pub fn initialize_script(self, js: &str) -> Result<Self> {
         self.inner.webview.init(js)?;
         Ok(self)
     }
 
-    pub(crate) fn init_with_self(&self, js: &str) -> Result<()> {
-        self.inner.webview.init(js)?;
-        Ok(())
-    }
-
-    pub fn dispatch_sender(&self) -> Dispatcher {
+    pub fn dispatcher(&self) -> Dispatcher {
         Dispatcher(self.inner.tx.clone())
     }
 
     // TODO rename
-    pub fn bind<F>(self, name: &str, f: F) -> Result<Self>
-    where
-        F: FnMut(i32, Vec<String>) -> i32 + Send + 'static,
-    {
-        self.bind_with_self(name, f)?;
-        Ok(self)
-    }
-
-    pub(crate) fn bind_with_self<F>(&self, name: &str, f: F) -> Result<()>
+    pub fn add_callback<F>(self, name: &str, f: F) -> Result<Self>
     where
         F: FnMut(i32, Vec<String>) -> i32 + Send + 'static,
     {
@@ -86,40 +67,31 @@ impl WebViewBuilder {
             .lock()
             .unwrap()
             .insert(name.to_string(), Box::new(f));
-        Ok(())
-    }
-
-    pub fn load_url(mut self, url: &str) -> Result<Self> {
-        self.content = Some(Content::URL(Url::parse(url)?));
         Ok(self)
     }
 
-    pub fn load_html(mut self, html: &str) -> Result<Self> {
-        let url = match Url::parse(html) {
-            Ok(url) => url,
-            Err(_) => Url::parse(&format!("data:text/html,{}", html))?,
-        };
-        self.content = Some(Content::HTML(url));
+    pub fn load_url(mut self, url: &str) -> Result<Self> {
+        self.url = Some(Url::parse(url)?);
         Ok(self)
     }
 
     pub fn build(self) -> Result<WebView> {
-        if let Some(url) = self.content {
-            match url {
-                Content::HTML(url) => self.inner.webview.navigate_to_string(url.as_str())?,
-                Content::URL(url) => self.inner.webview.navigate(url.as_str())?,
+        if let Some(url) = self.url {
+            if url.cannot_be_a_base() {
+                self.inner.webview.navigate_to_string(url.as_str())?;
+            } else {
+                self.inner.webview.navigate(url.as_str())?;
             }
         }
         Ok(self.inner)
     }
 }
 
-thread_local!(static EVAL: RefCell<Option<Receiver<String>>> = RefCell::new(None));
-
 pub struct WebView {
     window: Window,
     webview: InnerWebView,
     tx: Sender<String>,
+    rx: Receiver<String>,
 }
 
 impl WebView {
@@ -131,22 +103,20 @@ impl WebView {
         #[cfg(target_os = "linux")]
         let webview = InnerWebView::new(&window, DEBUG);
         let (tx, rx) = channel();
-        EVAL.with(|e| {
-            *e.borrow_mut() = Some(rx);
-        });
         Ok(Self {
             window,
             webview,
             tx,
+            rx,
         })
     }
 
-    pub fn dispatch(&mut self, js: &str) -> Result<()> {
+    pub fn dispatch_script(&mut self, js: &str) -> Result<()> {
         self.tx.send(js.to_string())?;
         Ok(())
     }
 
-    pub fn dispatch_sender(&self) -> Dispatcher {
+    pub fn dispatcher(&self) -> Dispatcher {
         Dispatcher(self.tx.clone())
     }
 
@@ -154,18 +124,10 @@ impl WebView {
         &self.window
     }
 
-    pub fn evaluate(&mut self) -> Result<()> {
-        EVAL.with(|e| -> Result<()> {
-            let e = &*e.borrow();
-            if let Some(rx) = e {
-                while let Ok(js) = rx.try_recv() {
-                    self.webview.eval(&js)?;
-                }
-            } else {
-                return Err(Error::EvalError);
-            }
-            Ok(())
-        })?;
+    pub fn evaluate_script(&self) -> Result<()> {
+        while let Ok(js) = self.rx.try_recv() {
+            self.webview.eval(&js)?;
+        }
 
         Ok(())
     }
@@ -176,6 +138,7 @@ impl WebView {
     }
 }
 
+#[derive(Clone)]
 pub struct Dispatcher(Sender<String>);
 
 impl Dispatcher {

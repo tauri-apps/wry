@@ -10,7 +10,7 @@ pub mod application;
 pub mod platform;
 pub mod webview;
 
-pub use application::{Application, Callback, WebViewAttributes};
+pub use application::{Application, WebViewAttributes};
 pub use webview::{Dispatcher, WebView, WebViewBuilder};
 
 use std::sync::mpsc::SendError;
@@ -21,8 +21,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("Script is not evaluated on the same thread with its webview!")]
-    EvalError,
     #[error("Failed to initialize the script")]
     InitScriptError,
     #[error(transparent)]
