@@ -1,6 +1,6 @@
 use crate::{
-    AppWindowAttributes, ApplicationExt, Callback, Result, WebView, WebViewAttributes,
-    WebViewBuilder, WindowExt,
+    AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Message, Result, WebView,
+    WebViewAttributes, WebViewBuilder, WindowExt,
 };
 use winit::{
     event::{Event, WindowEvent},
@@ -8,7 +8,10 @@ use winit::{
     window::{Window, WindowAttributes, WindowBuilder, WindowId},
 };
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 pub struct WinitWindow(Window);
 
@@ -19,17 +22,42 @@ impl WindowExt<'_> for WinitWindow {
     }
 }
 
-pub struct Application {
-    webviews: HashMap<WindowId, WebView>,
-    event_loop: EventLoop<()>,
+type EventLoopProxy<I, T> = Arc<Mutex<winit::event_loop::EventLoopProxy<Message<I, T>>>>;
+
+pub struct AppDispatcher<I: 'static, T: Clone + 'static> {
+    proxy: EventLoopProxy<I, T>,
 }
 
-impl ApplicationExt<'_> for Application {
+impl<I, T: Clone> ApplicationDispatcher<I, T> for AppDispatcher<I, T> {
+    fn dispatch_message(&self, message: Message<I, T>) -> Result<()> {
+        self.proxy
+            .lock()
+            .unwrap()
+            .send_event(message)
+            .unwrap_or_else(|_| panic!("failed to dispatch message to event loop"));
+        Ok(())
+    }
+}
+
+pub struct Application<T: Clone + 'static> {
+    webviews: HashMap<WindowId, WebView>,
+    event_loop: EventLoop<Message<WindowId, T>>,
+    event_loop_proxy: EventLoopProxy<WindowId, T>,
+    message_handler: Option<Box<dyn FnMut(T)>>,
+}
+
+impl<T: Clone> ApplicationExt<'_, T> for Application<T> {
     type Window = WinitWindow;
+    type Dispatcher = AppDispatcher<WindowId, T>;
+
     fn new() -> Result<Self> {
+        let event_loop = EventLoop::<Message<WindowId, T>>::with_user_event();
+        let proxy = event_loop.create_proxy();
         Ok(Self {
             webviews: HashMap::new(),
-            event_loop: EventLoop::new(),
+            event_loop,
+            event_loop_proxy: Arc::new(Mutex::new(proxy)),
+            message_handler: None,
         })
     }
 
@@ -67,8 +95,19 @@ impl ApplicationExt<'_> for Application {
         Ok(())
     }
 
+    fn set_message_handler<F: FnMut(T) + 'static>(&mut self, handler: F) {
+        self.message_handler.replace(Box::new(handler));
+    }
+
+    fn dispatcher(&self) -> Self::Dispatcher {
+        AppDispatcher {
+            proxy: self.event_loop_proxy.clone(),
+        }
+    }
+
     fn run(self) {
         let mut windows = self.webviews;
+        let mut message_handler = self.message_handler;
         self.event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
 
@@ -88,6 +127,18 @@ impl ApplicationExt<'_> for Application {
                         windows[&window_id].resize();
                     }
                     _ => {}
+                },
+                Event::UserEvent(message) => match message {
+                    Message::Script(id, script) => {
+                        if let Some(webview) = windows.get(&id) {
+                            webview.dispatcher().dispatch_script(&script).unwrap();
+                        }
+                    }
+                    Message::Custom(message) => {
+                        if let Some(ref mut handler) = message_handler {
+                            handler(message);
+                        }
+                    }
                 },
                 _ => (),
             }
