@@ -6,7 +6,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use url::Url;
 
 #[cfg(target_os = "linux")]
-use gtk::Window;
+use gtk::ApplicationWindow as Window;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]

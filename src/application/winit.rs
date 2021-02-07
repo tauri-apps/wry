@@ -90,11 +90,11 @@ pub struct Application {
 }
 
 impl Application {
-    pub fn new() -> Self {
-        Self {
+    pub fn new() -> Result<Self> {
+        Ok(Self {
             webviews: HashMap::new(),
             event_loop: EventLoop::new(),
-        }
+        })
     }
 
     pub fn create_webview(&self, attributes: WebViewAttributes) -> Result<WebViewBuilder> {

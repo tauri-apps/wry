@@ -4,7 +4,7 @@ use crate::{Error, Result};
 use std::rc::Rc;
 
 use gio::Cancellable;
-use gtk::{ContainerExt, WidgetExt, Window};
+use gtk::{ApplicationWindow as Window, ContainerExt, WidgetExt};
 use webkit2gtk::{
     SettingsExt, UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
     UserScriptInjectionTime, WebView, WebViewExt,

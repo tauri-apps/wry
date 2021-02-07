@@ -21,6 +21,12 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[cfg(target_os = "linux")]
+    #[error(transparent)]
+    GlibError(#[from] glib::Error),
+    #[cfg(target_os = "linux")]
+    #[error(transparent)]
+    GlibBoolError(#[from] glib::BoolError),
     #[error("Failed to initialize the script")]
     InitScriptError,
     #[error(transparent)]
