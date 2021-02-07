@@ -9,7 +9,28 @@ wry = "0.4.0"
 
 ## Overview
 
-TODO
+Wry connects the web engine on each platform and provides easy to use and unified interface to render WebView. It uses
+[winit] on most platforms and [gtk-rs] on Linux for windows creation.
+
+[winit]: https://crates.io/crates/winit
+[gtk-rs]: https://crates.io/crates/gtk
+
+## Usage
+
+The minimum example looks like following:
+
+```rust
+use wry::{Application, Result};
+
+fn main() -> Result<()> {
+    let mut app = Application::new()?;
+    app.create_window(Default::default(), None)?;
+    app.run();
+    Ok(())
+}
+```
+
+For more information, please read the documentation below.
 
 ## [Documentation](https://docs.rs/wry)
 
