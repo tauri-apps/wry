@@ -14,7 +14,7 @@ use std::{
 use gio::{ApplicationExt as GioApplicationExt, Cancellable};
 use gtk::{Application as GtkApp, ApplicationWindow, ApplicationWindowExt};
 
-pub struct Application<T: Clone> {
+pub struct Application<T> {
     webviews: HashMap<u32, WebView>,
     app: GtkApp,
     event_loop_proxy: EventLoopProxy<u32, T>,
@@ -23,6 +23,7 @@ pub struct Application<T: Clone> {
 }
 
 pub struct GtkWindow(ApplicationWindow);
+pub type WindowId = u32;
 
 impl WindowExt<'_> for GtkWindow {
     type Id = u32;
@@ -31,23 +32,29 @@ impl WindowExt<'_> for GtkWindow {
     }
 }
 
-#[derive(Clone)]
-struct EventLoopProxy<I, T: Clone>(Arc<Mutex<Sender<Message<I, T>>>>);
+struct EventLoopProxy<I, T>(Arc<Mutex<Sender<Message<I, T>>>>);
 
-pub struct AppDispatcher<I, T: Clone> {
-    proxy: EventLoopProxy<I, T>,
+impl<I, T> Clone for EventLoopProxy<I, T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
 }
 
-impl<I, T: Clone> ApplicationDispatcher<I, T> for AppDispatcher<I, T> {
-    fn dispatch_message(&self, message: Message<I, T>) -> Result<()> {
+#[derive(Clone)]
+pub struct AppDispatcher<T> {
+    proxy: EventLoopProxy<u32, T>,
+}
+
+impl<T> ApplicationDispatcher<u32, T> for AppDispatcher<T> {
+    fn dispatch_message(&self, message: Message<u32, T>) -> Result<()> {
         self.proxy.0.lock().unwrap().send(message).unwrap();
         Ok(())
     }
 }
 
-impl<T: Clone> ApplicationExt<'_, T> for Application<T> {
+impl<T> ApplicationExt<'_, T> for Application<T> {
     type Window = GtkWindow;
-    type Dispatcher = AppDispatcher<u32, T>;
+    type Dispatcher = AppDispatcher<T>;
 
     fn new() -> Result<Self> {
         let app = GtkApp::new(None, Default::default())?;

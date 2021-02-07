@@ -14,6 +14,7 @@ use std::{
 };
 
 pub struct WinitWindow(Window);
+pub use winit::window::WindowId;
 
 impl WindowExt<'_> for WinitWindow {
     type Id = WindowId;
@@ -24,11 +25,12 @@ impl WindowExt<'_> for WinitWindow {
 
 type EventLoopProxy<I, T> = Arc<Mutex<winit::event_loop::EventLoopProxy<Message<I, T>>>>;
 
-pub struct AppDispatcher<I: 'static, T: Clone + 'static> {
-    proxy: EventLoopProxy<I, T>,
+#[derive(Clone)]
+pub struct AppDispatcher<T: 'static> {
+    proxy: EventLoopProxy<WindowId, T>,
 }
 
-impl<I, T: Clone> ApplicationDispatcher<I, T> for AppDispatcher<I, T> {
+impl<T> ApplicationDispatcher<WindowId, T> for AppDispatcher<T> {
     fn dispatch_message(&self, message: Message<I, T>) -> Result<()> {
         self.proxy
             .lock()
@@ -39,14 +41,14 @@ impl<I, T: Clone> ApplicationDispatcher<I, T> for AppDispatcher<I, T> {
     }
 }
 
-pub struct Application<T: Clone + 'static> {
+pub struct Application<T: 'static> {
     webviews: HashMap<WindowId, WebView>,
     event_loop: EventLoop<Message<WindowId, T>>,
     event_loop_proxy: EventLoopProxy<WindowId, T>,
     message_handler: Option<Box<dyn FnMut(T)>>,
 }
 
-impl<T: Clone> ApplicationExt<'_, T> for Application<T> {
+impl<T> ApplicationExt<'_, T> for Application<T> {
     type Window = WinitWindow;
     type Dispatcher = AppDispatcher<WindowId, T>;
 

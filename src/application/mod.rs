@@ -7,6 +7,12 @@ mod gtkrs;
 #[cfg(target_os = "linux")]
 pub use gtkrs::*;
 
+#[cfg(target_os = "linux")]
+pub use gtkrs::GtkWindow as Window;
+
+#[cfg(not(target_os = "linux"))]
+pub use gtkrs::WinitWindow as Window;
+
 use crate::{Dispatcher, Result};
 
 #[cfg(not(target_os = "linux"))]
@@ -126,7 +132,7 @@ pub trait ApplicationExt<'a, T>: Sized {
     fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window>;
     fn create_webview(
         &mut self,
-        indow: Self::Window,
+        window: Self::Window,
         attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<()>;
