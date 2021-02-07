@@ -11,7 +11,7 @@ pub use gtkrs::*;
 pub use gtkrs::GtkWindow as Window;
 
 #[cfg(not(target_os = "linux"))]
-pub use gtkrs::WinitWindow as Window;
+pub use general::WinitWindow as Window;
 
 use crate::{Dispatcher, Result};
 

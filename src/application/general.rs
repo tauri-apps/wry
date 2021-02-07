@@ -5,8 +5,9 @@ use crate::{
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowAttributes, WindowBuilder, WindowId},
+    window::{Window, WindowAttributes, WindowBuilder},
 };
+pub use winit::window::WindowId;
 
 use std::{
     collections::HashMap,
@@ -14,7 +15,6 @@ use std::{
 };
 
 pub struct WinitWindow(Window);
-pub use winit::window::WindowId;
 
 impl WindowExt<'_> for WinitWindow {
     type Id = WindowId;
@@ -31,7 +31,7 @@ pub struct AppDispatcher<T: 'static> {
 }
 
 impl<T> ApplicationDispatcher<WindowId, T> for AppDispatcher<T> {
-    fn dispatch_message(&self, message: Message<I, T>) -> Result<()> {
+    fn dispatch_message(&self, message: Message<WindowId, T>) -> Result<()> {
         self.proxy
             .lock()
             .unwrap()
@@ -50,7 +50,7 @@ pub struct Application<T: 'static> {
 
 impl<T> ApplicationExt<'_, T> for Application<T> {
     type Window = WinitWindow;
-    type Dispatcher = AppDispatcher<WindowId, T>;
+    type Dispatcher = AppDispatcher<T>;
 
     fn new() -> Result<Self> {
         let event_loop = EventLoop::<Message<WindowId, T>>::with_user_event();
