@@ -1,4 +1,4 @@
-use crate::{Dispatcher, Result, WebView, WebViewBuilder};
+use crate::{Callback, Result, WebView, WebViewAttributes, WebViewBuilder};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -6,88 +6,6 @@ use winit::{
 };
 
 use std::collections::HashMap;
-
-pub struct Callback {
-    pub name: String,
-    pub function: Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,
-}
-
-// TODO complete fields on WindowAttribute
-/// Attributes to use when creating a webview window.
-#[derive(Debug, Clone)]
-pub struct WebViewAttributes {
-    /// Whether the window is resizable or not.
-    ///
-    /// The default is `true`.
-    pub resizable: bool,
-
-    /// The title of the window in the title bar.
-    ///
-    /// The default is `"wry"`.
-    pub title: String,
-
-    /// Whether the window should be maximized upon creation.
-    ///
-    /// The default is `false`.
-    pub maximized: bool,
-
-    /// Whether the window should be immediately visible upon creation.
-    ///
-    /// The default is `true`.
-    pub visible: bool,
-
-    /// Whether the the window should be transparent. If this is true, writing colors
-    /// with alpha values different than `1.0` will produce a transparent window.
-    ///
-    /// The default is `false`.
-    pub transparent: bool,
-
-    /// Whether the window should have borders and bars.
-    ///
-    /// The default is `true`.
-    pub decorations: bool,
-
-    /// Whether the window should always be on top of other windows.
-    ///
-    /// The default is `false`.
-    pub always_on_top: bool,
-
-    pub url: Option<String>,
-
-    pub initialization_script: Vec<String>,
-}
-
-impl Default for WebViewAttributes {
-    #[inline]
-    fn default() -> WebViewAttributes {
-        WebViewAttributes {
-            resizable: true,
-            title: "wry".to_owned(),
-            maximized: false,
-            visible: true,
-            transparent: false,
-            decorations: true,
-            always_on_top: false,
-            url: None,
-            initialization_script: Vec::default(),
-        }
-    }
-}
-
-impl From<&WebViewAttributes> for WindowAttributes {
-    fn from(w: &WebViewAttributes) -> Self {
-        Self {
-            resizable: w.resizable,
-            title: w.title.clone(),
-            maximized: w.maximized,
-            visible: w.visible,
-            transparent: w.transparent,
-            decorations: w.decorations,
-            always_on_top: w.always_on_top,
-            ..Default::default()
-        }
-    }
-}
 
 pub struct Application {
     webviews: HashMap<WindowId, WebView>,
@@ -102,11 +20,11 @@ impl Application {
         })
     }
 
-    pub fn create_webview(
-        &self,
+    pub fn create_window(
+        &mut self,
         attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
-    ) -> Result<WebViewBuilder> {
+    ) -> Result<()> {
         let window_attributes = WindowAttributes::from(&attributes);
         let mut window = WindowBuilder::new();
         window.window = window_attributes;
@@ -126,12 +44,10 @@ impl Application {
             None => webview,
         };
 
-        Ok(webview)
-    }
-
-    pub fn add_webview(&mut self, webview: WebView) {
-        let id = webview.window().id();
+        let webview = webview.build()?;
+        let id = webview.window().get_id();
         self.webviews.insert(id, webview);
+        Ok(())
     }
 
     pub fn run(self) {

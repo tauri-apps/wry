@@ -25,11 +25,9 @@ fn main() -> Result<()> {
     };
 
     let mut app = Application::new()?;
-    let webview1 = app.create_webview(window1, Some(vec![callback]))?;
-    let webview2 = app.create_webview(window2, None)?;
+    app.create_window(window1, Some(vec![callback]))?;
+    app.create_window(window2, None)?;
 
-    app.add_webview(webview1.build()?);
-    app.add_webview(webview2.build()?);
     app.run();
     Ok(())
 }
