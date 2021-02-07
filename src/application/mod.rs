@@ -9,6 +9,8 @@ pub use gtkrs::*;
 
 use crate::Dispatcher;
 
+use winit::window::WindowAttributes;
+
 pub struct Callback {
     pub name: String,
     pub function: Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,

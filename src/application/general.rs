@@ -45,7 +45,7 @@ impl Application {
         };
 
         let webview = webview.build()?;
-        let id = webview.window().get_id();
+        let id = webview.window().id();
         self.webviews.insert(id, webview);
         Ok(())
     }
