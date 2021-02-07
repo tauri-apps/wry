@@ -13,7 +13,7 @@ use std::collections::HashMap;
 pub struct WinitWindow(winit::Window);
 
 impl WindowExt<'_> for WinitWindow {
-    type Id = winit::WindowId;
+    type Id = winit::window::WindowId;
     fn id(&self) -> Self::Id {
         self.0.id()
     }
@@ -41,7 +41,7 @@ impl ApplicationExt<'_> for Application {
         Ok(WinitWindow(window))
     }
 
-    fn create_window(
+    fn create_webview(
         &mut self,
         window: Self::Window,
         attributes: WebViewAttributes,

@@ -12,8 +12,6 @@ use crate::{Dispatcher, Result};
 #[cfg(not(target_os = "linux"))]
 use winit::window::WindowAttributes;
 
-use serde::{Deserialize, Serialize};
-
 pub struct Callback {
     pub name: String,
     pub function: Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,
@@ -123,6 +121,6 @@ pub trait ApplicationExt<'a>: Sized {
 }
 
 pub trait WindowExt<'a> {
-    type Id: Serialize + Deserialize<'a>;
+    type Id;
     fn id(&self) -> Self::Id;
 }

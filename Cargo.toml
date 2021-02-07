@@ -30,7 +30,7 @@ glib = "0.10"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = "0.2"
-winit = { version = "0.24", features = ["serde"] }
+winit = "0.24"
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 cc = "1"
@@ -40,4 +40,5 @@ windows = "0.2.1"
 cocoa = "0.24"
 core-graphics = "0.22"
 objc = "0.2"
-winit = { version = "0.24", features = ["serde"] }
+winit = "0.24"
+
