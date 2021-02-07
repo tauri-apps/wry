@@ -9,6 +9,7 @@ pub use gtkrs::*;
 
 use crate::Dispatcher;
 
+#[cfg(not(target_os = "linux"))]
 use winit::window::WindowAttributes;
 
 pub struct Callback {

@@ -143,7 +143,7 @@ impl WebView {
 pub struct Dispatcher(Sender<String>);
 
 impl Dispatcher {
-    pub fn send(&self, js: &str) -> Result<()> {
+    pub fn dispatch_script(&self, js: &str) -> Result<()> {
         self.0.send(js.to_string())?;
         Ok(())
     }
