@@ -5,15 +5,15 @@ use crate::{
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{WindowAttributes, WindowBuilder, WindowId},
+    window::{WindowAttributes, WindowBuilder, Window, WindowId},
 };
 
 use std::collections::HashMap;
 
-pub struct WinitWindow(winit::Window);
+pub struct WinitWindow(Window);
 
 impl WindowExt<'_> for WinitWindow {
-    type Id = winit::window::WindowId;
+    type Id = WindowId;
     fn id(&self) -> Self::Id {
         self.0.id()
     }
