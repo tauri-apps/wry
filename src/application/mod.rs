@@ -1,7 +1,7 @@
 #[cfg(not(target_os = "linux"))]
-mod winit;
+mod general;
 #[cfg(not(target_os = "linux"))]
-pub use winit::*;
+pub use general::*;
 #[cfg(target_os = "linux")]
 mod gtkrs;
 #[cfg(target_os = "linux")]
