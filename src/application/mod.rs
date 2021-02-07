@@ -7,7 +7,7 @@ mod gtkrs;
 #[cfg(target_os = "linux")]
 pub use gtkrs::*;
 
-use crate::Dispatcher;
+use crate::{Dispatcher, Result};
 
 #[cfg(not(target_os = "linux"))]
 use winit::window::WindowAttributes;
@@ -18,9 +18,9 @@ pub struct Callback {
 }
 
 // TODO complete fields on WindowAttribute
-/// Attributes to use when creating a webview window.
+/// Attributes to use when creating a window.
 #[derive(Debug, Clone)]
-pub struct WebViewAttributes {
+pub struct AppWindowAttributes {
     /// Whether the window is resizable or not.
     ///
     /// The default is `true`.
@@ -56,16 +56,12 @@ pub struct WebViewAttributes {
     ///
     /// The default is `false`.
     pub always_on_top: bool,
-
-    pub url: Option<String>,
-
-    pub initialization_script: Vec<String>,
 }
 
-impl Default for WebViewAttributes {
+impl Default for AppWindowAttributes {
     #[inline]
-    fn default() -> WebViewAttributes {
-        WebViewAttributes {
+    fn default() -> Self {
+        Self {
             resizable: true,
             title: "wry".to_owned(),
             maximized: false,
@@ -73,15 +69,13 @@ impl Default for WebViewAttributes {
             transparent: false,
             decorations: true,
             always_on_top: false,
-            url: None,
-            initialization_script: Vec::default(),
         }
     }
 }
 
 #[cfg(not(target_os = "linux"))]
-impl From<&WebViewAttributes> for WindowAttributes {
-    fn from(w: &WebViewAttributes) -> Self {
+impl From<&AppWindowAttributes> for WindowAttributes {
+    fn from(w: &AppWindowAttributes) -> Self {
         Self {
             resizable: w.resizable,
             title: w.title.clone(),
@@ -93,4 +87,40 @@ impl From<&WebViewAttributes> for WindowAttributes {
             ..Default::default()
         }
     }
+}
+
+/// Attributes to use when creating a window.
+#[derive(Debug, Clone)]
+pub struct WebViewAttributes {
+    pub url: Option<String>,
+    pub initialization_script: Vec<String>,
+}
+
+impl Default for WebViewAttributes {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            url: None,
+            initialization_script: Vec::default(),
+        }
+    }
+}
+
+pub trait ApplicationExt<'a>: Sized {
+    type Window: WindowExt<'a>;
+
+    fn new() -> Result<Self>;
+    fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window>;
+    fn create_webview(
+        &mut self,
+        indow: Self::Window,
+        attributes: WebViewAttributes,
+        callbacks: Option<Vec<Callback>>,
+    ) -> Result<()>;
+    fn run(self);
+}
+
+pub trait WindowExt<'a> {
+    type Id;
+    fn id(&self) -> Self::Id;
 }

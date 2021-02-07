@@ -1,8 +1,11 @@
-use crate::{Callback, Result, WebView, WebViewAttributes, WebViewBuilder};
+use crate::{
+    AppWindowAttributes, ApplicationExt, Callback, Result, WebView, WebViewAttributes,
+    WebViewBuilder, WindowExt,
+};
 
 use std::collections::HashMap;
 
-use gio::{ApplicationExt, Cancellable};
+use gio::{ApplicationExt as GioApplicationExt, Cancellable};
 use gtk::{Application as GtkApp, ApplicationWindow, ApplicationWindowExt};
 
 pub struct Application {
@@ -10,8 +13,19 @@ pub struct Application {
     app: GtkApp,
 }
 
-impl Application {
-    pub fn new() -> Result<Self> {
+pub struct GtkWindow(ApplicationWindow);
+
+impl WindowExt<'_> for GtkWindow {
+    type Id = u32;
+    fn id(&self) -> Self::Id {
+        self.0.get_id()
+    }
+}
+
+impl ApplicationExt<'_> for Application {
+    type Window = GtkWindow;
+
+    fn new() -> Result<Self> {
         let app = GtkApp::new(None, Default::default())?;
         let cancellable: Option<&Cancellable> = None;
         app.register(cancellable)?;
@@ -22,15 +36,19 @@ impl Application {
         })
     }
 
-    pub fn create_window(
+    fn create_window(&self, _attributes: AppWindowAttributes) -> Result<Self::Window> {
+        //TODO window config
+        let window = ApplicationWindow::new(&self.app);
+        Ok(GtkWindow(window))
+    }
+
+    fn create_webview(
         &mut self,
+        window: Self::Window,
         attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<()> {
-        //TODO window config
-        let window = ApplicationWindow::new(&self.app);
-
-        let mut webview = WebViewBuilder::new(window)?;
+        let mut webview = WebViewBuilder::new(window.0)?;
         for js in attributes.initialization_script {
             webview = webview.initialize_script(&js)?;
         }
@@ -51,7 +69,7 @@ impl Application {
         Ok(())
     }
 
-    pub fn run(self) {
+    fn run(self) {
         loop {
             for (_, w) in self.webviews.iter() {
                 let _ = w.evaluate_script();

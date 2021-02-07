@@ -1,16 +1,14 @@
 use wry::Result;
-use wry::{Application, Callback, WebViewAttributes};
+use wry::{AppWindowAttributes, Application, ApplicationExt, Callback, WebViewAttributes};
 
 fn main() -> Result<()> {
-    let window1 = WebViewAttributes {
+    let webview1_attributes = WebViewAttributes {
         url: Some("https://www.google.com".to_string()),
         initialization_script: vec![String::from("window.x = 42")],
-        ..Default::default()
     };
-    let window2 = WebViewAttributes {
-        title: "window 2".to_string(),
+    let webview2_attributes = WebViewAttributes {
+        url: Some("https://www.google.com".to_string()),
         initialization_script: vec![String::from("window.x = 24")],
-        ..window1.clone()
     };
     let callback = Callback {
         name: "xxx".to_owned(),
@@ -25,8 +23,10 @@ fn main() -> Result<()> {
     };
 
     let mut app = Application::new()?;
-    app.create_window(window1, Some(vec![callback]))?;
-    app.create_window(window2, None)?;
+    let window1 = app.create_window(AppWindowAttributes::default())?;
+    let window2 = app.create_window(AppWindowAttributes::default())?;
+    app.create_webview(window1, webview1_attributes, Some(vec![callback]))?;
+    app.create_webview(window2, webview2_attributes, None)?;
 
     app.run();
     Ok(())

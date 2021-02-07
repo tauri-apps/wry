@@ -83,7 +83,9 @@ mod application;
 pub mod platform;
 mod webview;
 
-pub use application::{Application, Callback, WebViewAttributes};
+pub use application::{
+    AppWindowAttributes, Application, ApplicationExt, Callback, WebViewAttributes, WindowExt,
+};
 pub use webview::{Dispatcher, WebView, WebViewBuilder};
 
 use std::sync::mpsc::SendError;

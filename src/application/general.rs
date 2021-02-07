@@ -1,36 +1,53 @@
-use crate::{Callback, Result, WebView, WebViewAttributes, WebViewBuilder};
+use crate::{
+    AppWindowAttributes, ApplicationExt, Callback, Result, WebView, WebViewAttributes,
+    WebViewBuilder, WindowExt,
+};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{WindowAttributes, WindowBuilder, WindowId},
+    window::{WindowAttributes, WindowBuilder, Window, WindowId},
 };
 
 use std::collections::HashMap;
+
+pub struct WinitWindow(Window);
+
+impl WindowExt<'_> for WinitWindow {
+    type Id = WindowId;
+    fn id(&self) -> Self::Id {
+        self.0.id()
+    }
+}
 
 pub struct Application {
     webviews: HashMap<WindowId, WebView>,
     event_loop: EventLoop<()>,
 }
 
-impl Application {
-    pub fn new() -> Result<Self> {
+impl ApplicationExt<'_> for Application {
+    type Window = WinitWindow;
+    fn new() -> Result<Self> {
         Ok(Self {
             webviews: HashMap::new(),
             event_loop: EventLoop::new(),
         })
     }
 
-    pub fn create_window(
+    fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window> {
+        let mut window_builder = WindowBuilder::new();
+        let window_attributes = WindowAttributes::from(&attributes);
+        window_builder.window = window_attributes;
+        let window = window_builder.build(&self.event_loop)?;
+        Ok(WinitWindow(window))
+    }
+
+    fn create_webview(
         &mut self,
+        window: Self::Window,
         attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<()> {
-        let window_attributes = WindowAttributes::from(&attributes);
-        let mut window = WindowBuilder::new();
-        window.window = window_attributes;
-
-        let window = window.build(&self.event_loop)?;
-        let mut webview = WebViewBuilder::new(window)?;
+        let mut webview = WebViewBuilder::new(window.0)?;
         for js in attributes.initialization_script {
             webview = webview.initialize_script(&js)?;
         }
@@ -50,7 +67,7 @@ impl Application {
         Ok(())
     }
 
-    pub fn run(self) {
+    fn run(self) {
         let mut windows = self.webviews;
         self.event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
