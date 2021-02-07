@@ -1,16 +1,25 @@
 use crate::{
-    AppWindowAttributes, ApplicationExt, Callback, Result, WebView, WebViewAttributes,
-    WebViewBuilder, WindowExt,
+    AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Message, Result, WebView,
+    WebViewAttributes, WebViewBuilder, WindowExt,
 };
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Arc, Mutex,
+    },
+};
 
 use gio::{ApplicationExt as GioApplicationExt, Cancellable};
 use gtk::{Application as GtkApp, ApplicationWindow, ApplicationWindowExt};
 
-pub struct Application {
+pub struct Application<T: Clone> {
     webviews: HashMap<u32, WebView>,
     app: GtkApp,
+    event_loop_proxy: EventLoopProxy<u32, T>,
+    event_loop_proxy_rx: Receiver<Message<u32, T>>,
+    message_handler: Option<Box<dyn FnMut(T)>>,
 }
 
 pub struct GtkWindow(ApplicationWindow);
@@ -22,17 +31,38 @@ impl WindowExt<'_> for GtkWindow {
     }
 }
 
-impl ApplicationExt<'_> for Application {
+#[derive(Clone)]
+struct EventLoopProxy<I, T: Clone>(Arc<Mutex<Sender<Message<I, T>>>>);
+
+pub struct AppDispatcher<I, T: Clone> {
+    proxy: EventLoopProxy<I, T>,
+}
+
+impl<I, T: Clone> ApplicationDispatcher<I, T> for AppDispatcher<I, T> {
+    fn dispatch_message(&self, message: Message<I, T>) -> Result<()> {
+        self.proxy.0.lock().unwrap().send(message).unwrap();
+        Ok(())
+    }
+}
+
+impl<T: Clone> ApplicationExt<'_, T> for Application<T> {
     type Window = GtkWindow;
+    type Dispatcher = AppDispatcher<u32, T>;
 
     fn new() -> Result<Self> {
         let app = GtkApp::new(None, Default::default())?;
         let cancellable: Option<&Cancellable> = None;
         app.register(cancellable)?;
         app.activate();
+
+        let (event_loop_proxy_tx, event_loop_proxy_rx) = channel();
+
         Ok(Self {
             webviews: HashMap::new(),
             app,
+            event_loop_proxy: EventLoopProxy(Arc::new(Mutex::new(event_loop_proxy_tx))),
+            event_loop_proxy_rx,
+            message_handler: None,
         })
     }
 
@@ -69,10 +99,34 @@ impl ApplicationExt<'_> for Application {
         Ok(())
     }
 
-    fn run(self) {
+    fn set_message_handler<F: FnMut(T) + 'static>(&mut self, handler: F) {
+        self.message_handler.replace(Box::new(handler));
+    }
+
+    fn dispatcher(&self) -> Self::Dispatcher {
+        AppDispatcher {
+            proxy: self.event_loop_proxy.clone(),
+        }
+    }
+
+    fn run(mut self) {
         loop {
             for (_, w) in self.webviews.iter() {
                 let _ = w.evaluate_script();
+            }
+            while let Ok(message) = self.event_loop_proxy_rx.try_recv() {
+                match message {
+                    Message::Script(id, script) => {
+                        if let Some(webview) = self.webviews.get(&id) {
+                            webview.dispatcher().dispatch_script(&script).unwrap();
+                        }
+                    }
+                    Message::Custom(message) => {
+                        if let Some(ref mut handler) = self.message_handler {
+                            handler(message);
+                        }
+                    }
+                }
             }
             gtk::main_iteration();
         }

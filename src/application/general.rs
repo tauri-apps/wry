@@ -5,7 +5,7 @@ use crate::{
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{WindowAttributes, WindowBuilder, Window, WindowId},
+    window::{Window, WindowAttributes, WindowBuilder, WindowId},
 };
 
 use std::collections::HashMap;
