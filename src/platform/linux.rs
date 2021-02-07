@@ -28,8 +28,8 @@ impl InnerWebView {
                     if let Some(js) = js.to_string(&context) {
                         let v: RPC = serde_json::from_str(&js).unwrap();
                         let mut hashmap = CALLBACKS.lock().unwrap();
-                        let f = hashmap.get_mut(&v.method).unwrap();
-                        let status = f(v.id, v.params);
+                        let (f, d) = hashmap.get_mut(&v.method).unwrap();
+                        let status = f(d, v.id, v.params);
 
                         let js = match status {
                             0 => {

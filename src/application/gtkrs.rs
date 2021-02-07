@@ -5,6 +5,11 @@ use std::collections::HashMap;
 use gio::{ApplicationExt, Cancellable};
 use gtk::{Application as GtkApp, ApplicationWindow, ApplicationWindowExt};
 
+pub struct Callback {
+    pub name: String,
+    pub function: Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,
+}
+
 // TODO complete fields on WindowAttribute
 /// Attributes to use when creating a webview window.
 #[derive(Debug, Clone)]
@@ -84,13 +89,22 @@ impl Application {
         })
     }
 
-    pub fn create_webview(&self, attributes: WebViewAttributes) -> Result<WebViewBuilder> {
+    pub fn create_webview(
+        &self,
+        attributes: WebViewAttributes,
+        callbacks: Option<Vec<Callback>>,
+    ) -> Result<WebViewBuilder> {
         //TODO window config
         let window = ApplicationWindow::new(&self.app);
 
         let mut webview = WebViewBuilder::new(window)?;
         for js in attributes.initialization_script {
             webview = webview.initialize_script(&js)?;
+        }
+        if let Some(cbs) = callbacks {
+            for Callback { name, function } in cbs {
+                webview = webview.add_callback(&name, function)?;
+            }
         }
         webview = match attributes.url {
             Some(url) => webview.load_url(&url)?,

@@ -1,5 +1,5 @@
 use wry::Result;
-use wry::{Application, WebViewAttributes};
+use wry::{Application, Callback, WebViewAttributes};
 
 fn main() -> Result<()> {
     let window1 = WebViewAttributes {
@@ -12,17 +12,21 @@ fn main() -> Result<()> {
         initialization_script: vec![String::from("window.x = 24")],
         ..window1.clone()
     };
+    let callback = Callback {
+        name: "xxx".to_owned(),
+        function: Box::new(|dispatcher, seq, req| {
+            println!("The seq is: {}", seq);
+            println!("The req is: {:?}", req);
+            dispatcher
+                .send("console.log('The anwser is ' + window.x);")
+                .unwrap();
+            0
+        }),
+    };
 
     let mut app = Application::new()?;
-    let mut webview1 = app.create_webview(window1)?;
-    let w = webview1.dispatcher();
-    webview1 = webview1.add_callback("xxx", move |seq, req| {
-        println!("The seq is: {}", seq);
-        println!("The req is: {:?}", req);
-        w.send("console.log('The anwser is ' + window.x);").unwrap();
-        0
-    })?;
-    let webview2 = app.create_webview(window2)?;
+    let webview1 = app.create_webview(window1, Some(vec![callback]))?;
+    let webview2 = app.create_webview(window2, None)?;
 
     app.add_webview(webview1.build()?);
     app.add_webview(webview2.build()?);

@@ -1,4 +1,4 @@
-use crate::{Result, WebView, WebViewBuilder};
+use crate::{Dispatcher, Result, WebView, WebViewBuilder};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -6,6 +6,11 @@ use winit::{
 };
 
 use std::collections::HashMap;
+
+pub struct Callback {
+    pub name: String,
+    pub function: Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,
+}
 
 // TODO complete fields on WindowAttribute
 /// Attributes to use when creating a webview window.
@@ -97,7 +102,11 @@ impl Application {
         })
     }
 
-    pub fn create_webview(&self, attributes: WebViewAttributes) -> Result<WebViewBuilder> {
+    pub fn create_webview(
+        &self,
+        attributes: WebViewAttributes,
+        callbacks: Option<Vec<Callback>>,
+    ) -> Result<WebViewBuilder> {
         let window_attributes = WindowAttributes::from(&attributes);
         let mut window = WindowBuilder::new();
         window.window = window_attributes;
@@ -106,6 +115,11 @@ impl Application {
         let mut webview = WebViewBuilder::new(window)?;
         for js in attributes.initialization_script {
             webview = webview.initialize_script(&js)?;
+        }
+        if let Some(cbs) = callbacks {
+            for Callback { name, function } in cbs {
+                webview = webview.add_callback(&name, function)?;
+            }
         }
         webview = match attributes.url {
             Some(url) => webview.load_url(&url)?,

@@ -39,7 +39,7 @@ impl WebViewBuilder {
     // TODO rename
     pub fn add_callback<F>(self, name: &str, f: F) -> Result<Self>
     where
-        F: FnMut(i32, Vec<String>) -> i32 + Send + 'static,
+        F: FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send + 'static,
     {
         let js = format!(
             r#"var name = {:?};
@@ -63,10 +63,11 @@ impl WebViewBuilder {
             name
         );
         self.inner.webview.init(&js)?;
+        let dispatcher = self.dispatcher();
         CALLBACKS
             .lock()
             .unwrap()
-            .insert(name.to_string(), Box::new(f));
+            .insert(name.to_string(), (Box::new(f), dispatcher));
         Ok(self)
     }
 

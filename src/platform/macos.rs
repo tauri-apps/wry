@@ -37,8 +37,8 @@ impl InnerWebView {
                 let s = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
                 let v: RPC = serde_json::from_str(&s).unwrap();
                 let mut hashmap = CALLBACKS.lock().unwrap();
-                let f = hashmap.get_mut(&v.method).unwrap();
-                let status = f(v.id, v.params);
+                let (f, d) = hashmap.get_mut(&v.method).unwrap();
+                let status = f(d, v.id, v.params);
 
                 let js = match status {
                     0 => {
