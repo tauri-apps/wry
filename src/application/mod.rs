@@ -7,6 +7,12 @@ mod gtkrs;
 #[cfg(target_os = "linux")]
 pub use gtkrs::*;
 
+#[cfg(target_os = "linux")]
+pub use gtkrs::GtkWindow as Window;
+
+#[cfg(not(target_os = "linux"))]
+pub use general::WinitWindow as Window;
+
 use crate::{Dispatcher, Result};
 
 #[cfg(not(target_os = "linux"))]
@@ -106,17 +112,32 @@ impl Default for WebViewAttributes {
     }
 }
 
-pub trait ApplicationExt<'a>: Sized {
+pub enum Message<I, T> {
+    Script(I, String),
+    Custom(T),
+}
+
+pub trait ApplicationDispatcher<I, T> {
+    fn dispatch_message(&self, message: Message<I, T>) -> Result<()>;
+}
+
+pub trait ApplicationExt<'a, T>: Sized {
     type Window: WindowExt<'a>;
+    type Dispatcher: ApplicationDispatcher<
+        <<Self as ApplicationExt<'a, T>>::Window as WindowExt<'a>>::Id,
+        T,
+    >;
 
     fn new() -> Result<Self>;
     fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window>;
     fn create_webview(
         &mut self,
-        indow: Self::Window,
+        window: Self::Window,
         attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<()>;
+    fn set_message_handler<F: FnMut(T) + 'static>(&mut self, handler: F);
+    fn dispatcher(&self) -> Self::Dispatcher;
     fn run(self);
 }
 
