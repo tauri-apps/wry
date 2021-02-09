@@ -76,14 +76,34 @@ pub struct AppWindowAttributes {
     /// The default is 600.0
     pub height: f64,
 
+    /// The minimum width of the window
+    ///
+    /// The default is None.
+    pub min_width: Option<f64>,
+
+    /// The minimum height of the window
+    ///
+    /// The default is None.
+    pub min_height: Option<f64>,
+
+    /// The maximum width of the window
+    ///
+    /// The default is None.
+    pub max_width: Option<f64>,
+
+    /// The maximum height of the window
+    ///
+    /// The default is None.
+    pub max_height: Option<f64>,
+
     /// The horizontal position of the window's top left cornet
     ///
-    /// The default is None
+    /// The default is None.
     pub x: Option<f64>,
 
     /// The vertical position of the window's top left cornet
     ///
-    /// The default is None
+    /// The default is None.
     pub y: Option<f64>,
 }
 
@@ -100,6 +120,10 @@ impl Default for AppWindowAttributes {
             always_on_top: false,
             width: 800.0,
             height: 600.0,
+            min_width: None,
+            min_height: None,
+            max_width: None,
+            max_height: None,
             x: None,
             y: None,
         }
@@ -109,6 +133,24 @@ impl Default for AppWindowAttributes {
 #[cfg(not(target_os = "linux"))]
 impl From<&AppWindowAttributes> for WindowAttributes {
     fn from(w: &AppWindowAttributes) -> Self {
+        let min_inner_size = if w.min_width.is_some() && w.min_height.is_some() {
+            Some(Size::from(LogicalSize::new(
+                w.min_width.unwrap(),
+                w.min_height.unwrap(),
+            )))
+        } else {
+            None
+        };
+
+        let max_inner_size = if w.max_width.is_some() && w.max_height.is_some() {
+            Some(Size::from(LogicalSize::new(
+                w.max_width.unwrap(),
+                w.max_height.unwrap(),
+            )))
+        } else {
+            None
+        };
+
         Self {
             resizable: w.resizable,
             title: w.title.clone(),
@@ -118,6 +160,8 @@ impl From<&AppWindowAttributes> for WindowAttributes {
             decorations: w.decorations,
             always_on_top: w.always_on_top,
             inner_size: Some(Size::from(LogicalSize::new(w.width, w.height))),
+            min_inner_size,
+            max_inner_size,
             ..Default::default()
         }
     }
