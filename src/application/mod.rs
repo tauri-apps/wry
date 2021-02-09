@@ -16,7 +16,10 @@ pub use general::WinitWindow as Window;
 use crate::{Dispatcher, Result};
 
 #[cfg(not(target_os = "linux"))]
-use winit::window::WindowAttributes;
+use winit::{
+    dpi::{LogicalSize, Size},
+    window::WindowAttributes,
+};
 
 pub struct Callback {
     pub name: String,
@@ -62,6 +65,26 @@ pub struct AppWindowAttributes {
     ///
     /// The default is `false`.
     pub always_on_top: bool,
+
+    /// The width of the window
+    ///
+    /// The default is 800.0
+    pub width: f64,
+
+    /// The height of the window
+    ///
+    /// The default is 600.0
+    pub height: f64,
+
+    /// The horizontal position of the window's top left cornet
+    ///
+    /// The default is 100.0
+    pub x: f64,
+
+    /// The vertical position of the window's top left cornet
+    ///
+    /// The default is 100.0
+    pub y: f64,
 }
 
 impl Default for AppWindowAttributes {
@@ -75,6 +98,10 @@ impl Default for AppWindowAttributes {
             transparent: false,
             decorations: true,
             always_on_top: false,
+            width: 800.0,
+            height: 600.0,
+            x: 100.0,
+            y: 100.0,
         }
     }
 }
@@ -90,6 +117,7 @@ impl From<&AppWindowAttributes> for WindowAttributes {
             transparent: w.transparent,
             decorations: w.decorations,
             always_on_top: w.always_on_top,
+            inner_size: Some(Size::from(LogicalSize::new(w.width, w.height))),
             ..Default::default()
         }
     }

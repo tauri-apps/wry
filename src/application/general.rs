@@ -3,6 +3,7 @@ use crate::{
     WebViewAttributes, WebViewBuilder, WindowExt,
 };
 use winit::{
+    dpi::LogicalPosition,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowAttributes, WindowBuilder},
@@ -68,6 +69,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         let window_attributes = WindowAttributes::from(&attributes);
         window_builder.window = window_attributes;
         let window = window_builder.build(&self.event_loop)?;
+        window.set_outer_position(LogicalPosition::new(attributes.x, attributes.y));
         Ok(WinitWindow(window))
     }
 
