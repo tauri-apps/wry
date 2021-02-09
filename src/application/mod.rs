@@ -78,13 +78,13 @@ pub struct AppWindowAttributes {
 
     /// The horizontal position of the window's top left cornet
     ///
-    /// The default is 100.0
-    pub x: f64,
+    /// The default is None
+    pub x: Option<f64>,
 
     /// The vertical position of the window's top left cornet
     ///
-    /// The default is 100.0
-    pub y: f64,
+    /// The default is None
+    pub y: Option<f64>,
 }
 
 impl Default for AppWindowAttributes {
@@ -100,8 +100,8 @@ impl Default for AppWindowAttributes {
             always_on_top: false,
             width: 800.0,
             height: 600.0,
-            x: 100.0,
-            y: 100.0,
+            x: None,
+            y: None,
         }
     }
 }
