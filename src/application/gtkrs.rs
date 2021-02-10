@@ -12,7 +12,9 @@ use std::{
 };
 
 use gio::{ApplicationExt as GioApplicationExt, Cancellable};
-use gtk::{Application as GtkApp, ApplicationWindow, ApplicationWindowExt};
+use gtk::{
+    Application as GtkApp, ApplicationWindow, ApplicationWindowExt, GtkWindowExt, WidgetExt,
+};
 
 pub struct Application<T> {
     webviews: HashMap<u32, WebView>,
@@ -73,9 +75,20 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         })
     }
 
-    fn create_window(&self, _attributes: AppWindowAttributes) -> Result<Self::Window> {
-        //TODO window config
+    fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window> {
+        //TODO window config (missing transparent, always_on_top, mix/max height/width, x/y position)
         let window = ApplicationWindow::new(&self.app);
+
+        window.set_resizable(attributes.resizable);
+        window.set_title(&attributes.title);
+        if attributes.maximized {
+            window.maximize();
+        }
+        window.set_visible(attributes.visible);
+        window.set_decorated(attributes.decorations);
+        window.set_property_default_width(attributes.width as i32);
+        window.set_property_default_height(attributes.height as i32);
+
         Ok(GtkWindow(window))
     }
 
