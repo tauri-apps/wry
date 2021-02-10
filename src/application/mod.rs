@@ -96,12 +96,12 @@ pub struct AppWindowAttributes {
     /// The default is None.
     pub max_height: Option<f64>,
 
-    /// The horizontal position of the window's top left cornet
+    /// The horizontal position of the window's top left corner
     ///
     /// The default is None.
     pub x: Option<f64>,
 
-    /// The vertical position of the window's top left cornet
+    /// The vertical position of the window's top left corner
     ///
     /// The default is None.
     pub y: Option<f64>,
