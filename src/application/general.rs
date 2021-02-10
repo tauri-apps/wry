@@ -69,11 +69,9 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         let window_attributes = WindowAttributes::from(&attributes);
         window_builder.window = window_attributes;
         let window = window_builder.build(&self.event_loop)?;
-        if attributes.x.is_some() && attributes.y.is_some() {
-            window.set_outer_position(LogicalPosition::new(
-                attributes.x.unwrap(),
-                attributes.y.unwrap(),
-            ));
+        match (attributes.x, attributes.y) {
+            (Some(x), Some(y)) => window.set_outer_position(LogicalPosition::new(x, y)),
+            _ => {}
         }
         Ok(WinitWindow(window))
     }

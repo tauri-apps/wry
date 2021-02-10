@@ -18,7 +18,7 @@ use crate::{Dispatcher, Result};
 #[cfg(not(target_os = "linux"))]
 use winit::{
     dpi::{LogicalSize, Size},
-    window::WindowAttributes,
+    window::{Fullscreen, WindowAttributes},
 };
 
 pub struct Callback {
@@ -105,6 +105,11 @@ pub struct AppWindowAttributes {
     ///
     /// The default is None.
     pub y: Option<f64>,
+
+    /// Whether to start the window in fullscreen or not.
+    ///
+    /// The default is false.
+    pub fullscreen: bool,
 }
 
 impl Default for AppWindowAttributes {
@@ -126,6 +131,7 @@ impl Default for AppWindowAttributes {
             max_height: None,
             x: None,
             y: None,
+            fullscreen: false,
         }
     }
 }
@@ -133,20 +139,22 @@ impl Default for AppWindowAttributes {
 #[cfg(not(target_os = "linux"))]
 impl From<&AppWindowAttributes> for WindowAttributes {
     fn from(w: &AppWindowAttributes) -> Self {
-        let min_inner_size = if w.min_width.is_some() && w.min_height.is_some() {
-            Some(Size::from(LogicalSize::new(
-                w.min_width.unwrap(),
-                w.min_height.unwrap(),
-            )))
-        } else {
-            None
+        let min_inner_size = match (w.min_width, w.min_height) {
+            (Some(min_width), Some(min_height)) => {
+                Some(Size::from(LogicalSize::new(min_width, min_height)))
+            }
+            _ => None,
         };
 
-        let max_inner_size = if w.max_width.is_some() && w.max_height.is_some() {
-            Some(Size::from(LogicalSize::new(
-                w.max_width.unwrap(),
-                w.max_height.unwrap(),
-            )))
+        let max_inner_size = match (w.max_width, w.max_height) {
+            (Some(max_width), Some(max_height)) => {
+                Some(Size::from(LogicalSize::new(max_width, max_height)))
+            }
+            _ => None,
+        };
+
+        let fullscreen = if w.fullscreen {
+            Some(Fullscreen::Borderless(None))
         } else {
             None
         };
@@ -162,6 +170,7 @@ impl From<&AppWindowAttributes> for WindowAttributes {
             inner_size: Some(Size::from(LogicalSize::new(w.width, w.height))),
             min_inner_size,
             max_inner_size,
+            fullscreen,
             ..Default::default()
         }
     }
