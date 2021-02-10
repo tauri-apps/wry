@@ -18,7 +18,7 @@ use crate::{Dispatcher, Result};
 #[cfg(not(target_os = "linux"))]
 use winit::{
     dpi::{LogicalSize, Size},
-    window::WindowAttributes,
+    window::{Fullscreen, WindowAttributes},
 };
 
 pub struct Callback {
@@ -105,6 +105,11 @@ pub struct AppWindowAttributes {
     ///
     /// The default is None.
     pub y: Option<f64>,
+
+    /// Whether to start the window in fullscreen or not.
+    ///
+    /// The default is false.
+    pub fullscreen: bool,
 }
 
 impl Default for AppWindowAttributes {
@@ -126,6 +131,7 @@ impl Default for AppWindowAttributes {
             max_height: None,
             x: None,
             y: None,
+            fullscreen: false,
         }
     }
 }
@@ -151,6 +157,12 @@ impl From<&AppWindowAttributes> for WindowAttributes {
             None
         };
 
+        let fullscreen = if w.fullscreen {
+            Some(Fullscreen::Borderless(None))
+        } else {
+            None
+        };
+
         Self {
             resizable: w.resizable,
             title: w.title.clone(),
@@ -162,6 +174,7 @@ impl From<&AppWindowAttributes> for WindowAttributes {
             inner_size: Some(Size::from(LogicalSize::new(w.width, w.height))),
             min_inner_size,
             max_inner_size,
+            fullscreen,
             ..Default::default()
         }
     }
