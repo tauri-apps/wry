@@ -76,8 +76,38 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
     }
 
     fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window> {
-        //TODO window config (missing transparent, mix/max height/width, x/y position)
+        //TODO window config (missing transparent)
         let window = ApplicationWindow::new(&self.app);
+
+        window.set_default_size(attributes.width as i32, attributes.height as i32);
+
+        window.set_geometry_hints::<ApplicationWindow>(
+            None,
+            Some(&gdk::Geometry {
+                min_width: attributes.min_width.unwrap_or_default() as i32,
+                min_height: attributes.min_height.unwrap_or_default() as i32,
+                max_width: attributes.max_width.unwrap_or_default() as i32,
+                max_height: attributes.max_height.unwrap_or_default() as i32,
+                base_width: 0,
+                base_height: 0,
+                width_inc: 0,
+                height_inc: 0,
+                min_aspect: 0f64,
+                max_aspect: 0f64,
+                win_gravity: gdk::Gravity::Center,
+            }),
+            gdk::WindowHints::POS
+                | (if attributes.min_width.is_some() || attributes.min_height.is_some() {
+                    gdk::WindowHints::MIN_SIZE
+                } else {
+                    gdk::WindowHints::empty()
+                })
+                | (if attributes.max_width.is_some() || attributes.max_height.is_some() {
+                    gdk::WindowHints::MAX_SIZE
+                } else {
+                    gdk::WindowHints::empty()
+                }),
+        );
 
         window.set_resizable(attributes.resizable);
         window.set_title(&attributes.title);
@@ -87,8 +117,6 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         window.set_visible(attributes.visible);
         window.set_decorated(attributes.decorations);
         window.set_keep_above(attributes.always_on_top);
-        window.set_property_default_width(attributes.width as i32);
-        window.set_property_default_height(attributes.height as i32);
 
         Ok(GtkWindow(window))
     }
