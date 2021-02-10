@@ -139,22 +139,18 @@ impl Default for AppWindowAttributes {
 #[cfg(not(target_os = "linux"))]
 impl From<&AppWindowAttributes> for WindowAttributes {
     fn from(w: &AppWindowAttributes) -> Self {
-        let min_inner_size = if w.min_width.is_some() && w.min_height.is_some() {
-            Some(Size::from(LogicalSize::new(
-                w.min_width.unwrap(),
-                w.min_height.unwrap(),
-            )))
-        } else {
-            None
+        let min_inner_size = match (w.min_width, w.min_height) {
+            (Some(min_width), Some(min_height)) => {
+                Some(Size::from(LogicalSize::new(min_width, min_height)))
+            }
+            _ => None,
         };
 
-        let max_inner_size = if w.max_width.is_some() && w.max_height.is_some() {
-            Some(Size::from(LogicalSize::new(
-                w.max_width.unwrap(),
-                w.max_height.unwrap(),
-            )))
-        } else {
-            None
+        let max_inner_size = match (w.max_width, w.max_height) {
+            (Some(max_width), Some(max_height)) => {
+                Some(Size::from(LogicalSize::new(max_width, max_height)))
+            }
+            _ => None,
         };
 
         let fullscreen = if w.fullscreen {
