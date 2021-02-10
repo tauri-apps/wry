@@ -76,7 +76,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
     }
 
     fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window> {
-        //TODO window config (missing transparent, always_on_top, mix/max height/width, x/y position)
+        //TODO window config (missing transparent, mix/max height/width, x/y position)
         let window = ApplicationWindow::new(&self.app);
 
         window.set_resizable(attributes.resizable);
@@ -86,6 +86,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         }
         window.set_visible(attributes.visible);
         window.set_decorated(attributes.decorations);
+        window.set_keep_above(attributes.always_on_top);
         window.set_property_default_width(attributes.width as i32);
         window.set_property_default_height(attributes.height as i32);
 
