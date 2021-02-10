@@ -96,17 +96,15 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                 max_aspect: 0f64,
                 win_gravity: gdk::Gravity::Center,
             }),
-            gdk::WindowHints::POS
-                | (if attributes.min_width.is_some() || attributes.min_height.is_some() {
-                    gdk::WindowHints::MIN_SIZE
-                } else {
-                    gdk::WindowHints::empty()
-                })
-                | (if attributes.max_width.is_some() || attributes.max_height.is_some() {
-                    gdk::WindowHints::MAX_SIZE
-                } else {
-                    gdk::WindowHints::empty()
-                }),
+            (if attributes.min_width.is_some() || attributes.min_height.is_some() {
+                gdk::WindowHints::MIN_SIZE
+            } else {
+                gdk::WindowHints::empty()
+            }) | (if attributes.max_width.is_some() || attributes.max_height.is_some() {
+                gdk::WindowHints::MAX_SIZE
+            } else {
+                gdk::WindowHints::empty()
+            }),
         );
 
         window.set_resizable(attributes.resizable);
