@@ -79,8 +79,6 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         //TODO window config (missing transparent)
         let window = ApplicationWindow::new(&self.app);
 
-        window.set_default_size(attributes.width as i32, attributes.height as i32);
-
         window.set_geometry_hints::<ApplicationWindow>(
             None,
             Some(&gdk::Geometry {
@@ -106,6 +104,12 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                 gdk::WindowHints::empty()
             }),
         );
+
+        if attributes.resizable {
+            window.set_default_size(attributes.width as i32, attributes.height as i32);
+        } else {
+            window.set_size_request(attributes.width as i32, attributes.height as i32);
+        }
 
         window.set_resizable(attributes.resizable);
         window.set_title(&attributes.title);
