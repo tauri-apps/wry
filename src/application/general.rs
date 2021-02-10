@@ -2,12 +2,13 @@ use crate::{
     AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Message, Result, WebView,
     WebViewAttributes, WebViewBuilder, WindowExt,
 };
+pub use winit::window::WindowId;
 use winit::{
+    dpi::LogicalPosition,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowAttributes, WindowBuilder},
 };
-pub use winit::window::WindowId;
 
 use std::{
     collections::HashMap,
@@ -68,6 +69,10 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         let window_attributes = WindowAttributes::from(&attributes);
         window_builder.window = window_attributes;
         let window = window_builder.build(&self.event_loop)?;
+        match (attributes.x, attributes.y) {
+            (Some(x), Some(y)) => window.set_outer_position(LogicalPosition::new(x, y)),
+            _ => {}
+        }
         Ok(WinitWindow(window))
     }
 

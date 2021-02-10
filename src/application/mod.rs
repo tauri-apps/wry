@@ -16,7 +16,10 @@ pub use general::WinitWindow as Window;
 use crate::{Dispatcher, Result};
 
 #[cfg(not(target_os = "linux"))]
-use winit::window::WindowAttributes;
+use winit::{
+    dpi::{LogicalSize, Size},
+    window::{Fullscreen, WindowAttributes},
+};
 
 pub struct Callback {
     pub name: String,
@@ -62,6 +65,51 @@ pub struct AppWindowAttributes {
     ///
     /// The default is `false`.
     pub always_on_top: bool,
+
+    /// The width of the window
+    ///
+    /// The default is 800.0
+    pub width: f64,
+
+    /// The height of the window
+    ///
+    /// The default is 600.0
+    pub height: f64,
+
+    /// The minimum width of the window
+    ///
+    /// The default is None.
+    pub min_width: Option<f64>,
+
+    /// The minimum height of the window
+    ///
+    /// The default is None.
+    pub min_height: Option<f64>,
+
+    /// The maximum width of the window
+    ///
+    /// The default is None.
+    pub max_width: Option<f64>,
+
+    /// The maximum height of the window
+    ///
+    /// The default is None.
+    pub max_height: Option<f64>,
+
+    /// The horizontal position of the window's top left cornet
+    ///
+    /// The default is None.
+    pub x: Option<f64>,
+
+    /// The vertical position of the window's top left cornet
+    ///
+    /// The default is None.
+    pub y: Option<f64>,
+
+    /// Whether to start the window in fullscreen or not.
+    ///
+    /// The default is false.
+    pub fullscreen: bool,
 }
 
 impl Default for AppWindowAttributes {
@@ -75,6 +123,15 @@ impl Default for AppWindowAttributes {
             transparent: false,
             decorations: true,
             always_on_top: false,
+            width: 800.0,
+            height: 600.0,
+            min_width: None,
+            min_height: None,
+            max_width: None,
+            max_height: None,
+            x: None,
+            y: None,
+            fullscreen: false,
         }
     }
 }
@@ -82,6 +139,26 @@ impl Default for AppWindowAttributes {
 #[cfg(not(target_os = "linux"))]
 impl From<&AppWindowAttributes> for WindowAttributes {
     fn from(w: &AppWindowAttributes) -> Self {
+        let min_inner_size = match (w.min_width, w.min_height) {
+            (Some(min_width), Some(min_height)) => {
+                Some(Size::from(LogicalSize::new(min_width, min_height)))
+            }
+            _ => None,
+        };
+
+        let max_inner_size = match (w.max_width, w.max_height) {
+            (Some(max_width), Some(max_height)) => {
+                Some(Size::from(LogicalSize::new(max_width, max_height)))
+            }
+            _ => None,
+        };
+
+        let fullscreen = if w.fullscreen {
+            Some(Fullscreen::Borderless(None))
+        } else {
+            None
+        };
+
         Self {
             resizable: w.resizable,
             title: w.title.clone(),
@@ -90,6 +167,10 @@ impl From<&AppWindowAttributes> for WindowAttributes {
             transparent: w.transparent,
             decorations: w.decorations,
             always_on_top: w.always_on_top,
+            inner_size: Some(Size::from(LogicalSize::new(w.width, w.height))),
+            min_inner_size,
+            max_inner_size,
+            fullscreen,
             ..Default::default()
         }
     }
