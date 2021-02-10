@@ -71,7 +71,9 @@ impl InnerWebView {
             }
         }
 
-        window.show_all();
+        if window.get_visible() {
+            window.show_all();
+        }
 
         Self { webview }
     }
