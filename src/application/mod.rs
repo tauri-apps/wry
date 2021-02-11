@@ -29,6 +29,12 @@ pub struct Callback {
     pub function: Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,
 }
 
+#[derive(Debug, Clone)]
+pub enum Icon {
+    File(PathBuf),
+    Raw(Vec<u8>),
+}
+
 // TODO complete fields on WindowAttribute
 /// Attributes to use when creating a window.
 #[derive(Debug, Clone)]
@@ -117,7 +123,7 @@ pub struct AppWindowAttributes {
     /// The PathBuf to the window icon.
     ///
     /// The default is None,
-    pub icon: Option<PathBuf>,
+    pub icon: Option<Icon>,
 }
 
 impl Default for AppWindowAttributes {

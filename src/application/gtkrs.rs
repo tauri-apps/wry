@@ -125,7 +125,10 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             window.fullscreen();
         }
         if let Some(icon) = attributes.icon {
-            let _ = window.set_icon_from_file(icon.as_path());
+            match icon {
+                Icon::File(path) => window.set_icon_from_file(path.as_path()),
+                Icon::Raw(bytes) => {}
+            }
         }
 
         Ok(GtkWindow(window))

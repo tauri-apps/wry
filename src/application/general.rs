@@ -1,13 +1,13 @@
 use crate::{
-    AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Message, Result, WebView,
-    WebViewAttributes, WebViewBuilder, WindowExt,
+    AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Icon, Message, Result,
+    WebView, WebViewAttributes, WebViewBuilder, WindowExt,
 };
 pub use winit::window::WindowId;
 use winit::{
     dpi::LogicalPosition,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Icon, Window, WindowAttributes, WindowBuilder},
+    window::{Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
 };
 
 use std::{
@@ -74,9 +74,13 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             (Some(x), Some(y)) => window.set_outer_position(LogicalPosition::new(x, y)),
             _ => {}
         }
-        match attributes.icon {
-            Some(icon) => window.set_window_icon(Some(load_icon(icon.as_path()))),
-            _ => {}
+        if let Some(icon) = attributes.icon {
+            match icon {
+                Icon::File(pathbuf) => {
+                    window.set_window_icon(Some(load_icon_from_path(pathbuf.as_path())));
+                }
+                Icon::Raw(bytes) => {}
+            }
         }
 
         Ok(WinitWindow(window))
@@ -158,8 +162,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         });
     }
 }
-
-fn load_icon(path: &Path) -> Icon {
+fn load_icon_from_path(path: &Path) -> WinitIcon {
     let (icon_rgba, icon_width, icon_height) = {
         let image = image::open(path)
             .expect("Failed to open icon path")
@@ -168,5 +171,5 @@ fn load_icon(path: &Path) -> Icon {
         let rgba = image.into_raw();
         (rgba, width, height)
     };
-    Icon::from_rgba(icon_rgba, icon_width, icon_height).expect("Failed to open icon")
+    WinitIcon::from_rgba(icon_rgba, icon_width, icon_height).expect("Failed to open icon")
 }
