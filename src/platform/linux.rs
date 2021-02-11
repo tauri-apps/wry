@@ -1,10 +1,10 @@
 use crate::platform::{CALLBACKS, RPC};
-use crate::{Error, Result};
+use crate::{Dispatcher, Error, Result};
 
 use std::rc::Rc;
 
 use gio::Cancellable;
-use gtk::{ApplicationWindow as Window, ContainerExt, WidgetExt};
+use gtk::{ApplicationWindow as Window, ApplicationWindowExt, ContainerExt, WidgetExt};
 use webkit2gtk::{
     SettingsExt, UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
     UserScriptInjectionTime, WebView, WebViewExt,
@@ -12,6 +12,7 @@ use webkit2gtk::{
 
 pub struct InnerWebView {
     webview: Rc<WebView>,
+    window_id: i64,
 }
 
 impl InnerWebView {
@@ -22,13 +23,14 @@ impl InnerWebView {
 
         let wv = Rc::clone(&webview);
         manager.register_script_message_handler("external");
+        let window_id = window.get_id() as i64;
         manager.connect_script_message_received(move |_m, msg| {
             if let Some(js) = msg.get_value() {
                 if let Some(context) = msg.get_global_context() {
                     if let Some(js) = js.to_string(&context) {
                         let v: RPC = serde_json::from_str(&js).unwrap();
                         let mut hashmap = CALLBACKS.lock().unwrap();
-                        let (f, d) = hashmap.get_mut(&v.method).unwrap();
+                        let (f, d) = hashmap.get_mut(&(window_id, v.method)).unwrap();
                         let status = f(d, v.id, v.params);
 
                         let js = match status {
@@ -75,7 +77,10 @@ impl InnerWebView {
             window.show_all();
         }
 
-        Self { webview }
+        Self {
+            webview,
+            window_id: window.get_id() as i64,
+        }
     }
 
     pub fn init(&self, js: &str) -> Result<()> {
@@ -92,6 +97,16 @@ impl InnerWebView {
             return Err(Error::InitScriptError);
         }
         Ok(())
+    }
+
+    pub fn add_callback<F>(&self, name: &str, f: F, dispatcher: Dispatcher)
+    where
+        F: FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send + 'static,
+    {
+        CALLBACKS.lock().unwrap().insert(
+            (self.window_id, name.to_string()),
+            (Box::new(f), dispatcher),
+        );
     }
 
     pub fn eval(&self, js: &str) -> Result<()> {

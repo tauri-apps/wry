@@ -1,4 +1,4 @@
-use crate::platform::{InnerWebView, CALLBACKS};
+use crate::platform::InnerWebView;
 use crate::Result;
 
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -82,10 +82,7 @@ impl WebViewBuilder {
         );
         self.inner.webview.init(&js)?;
         let dispatcher = self.dispatcher();
-        CALLBACKS
-            .lock()
-            .unwrap()
-            .insert(name.to_string(), (Box::new(f), dispatcher));
+        self.inner.webview.add_callback(name, f, dispatcher);
         Ok(self)
     }
 
