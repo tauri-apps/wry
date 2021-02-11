@@ -1,7 +1,7 @@
 use wry::Result;
 use wry::{
     AppWindowAttributes, Application, ApplicationDispatcher, ApplicationExt, Callback, Message,
-    WebViewAttributes, WindowExt, WindowMessage,
+    WebViewAttributes, WindowExt,
 };
 
 fn main() -> Result<()> {
@@ -49,10 +49,7 @@ fn main() -> Result<()> {
             .unwrap();
 
         dispatcher
-            .dispatch_message(Message::Window(
-                window1_id,
-                WindowMessage::SetTitle("new title".to_string()),
-            ))
+            .set_window_title(window1_id, "new title")
             .unwrap();
     });
 

@@ -205,6 +205,9 @@ pub enum Message<I, T> {
 
 pub trait ApplicationDispatcher<I, T> {
     fn dispatch_message(&self, message: Message<I, T>) -> Result<()>;
+    fn set_window_title<S: Into<String>>(&self, id: I, title: S) -> Result<()> {
+        self.dispatch_message(Message::Window(id, WindowMessage::SetTitle(title.into())))
+    }
 }
 
 pub trait ApplicationExt<'a, T>: Sized {
