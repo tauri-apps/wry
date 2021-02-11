@@ -137,7 +137,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                 },
                 Event::UserEvent(message) => match message {
                     Message::Webview(id, webview_message) => {
-                        if let Some(webview) = self.webviews.get_mut(&id) {
+                        if let Some(webview) = windows.get_mut(&id) {
                             match webview_message {
                                 WebviewMessage::EvalScript(script) => {
                                     let _ = webview.dispatch_script(&script);
@@ -146,7 +146,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                         }
                     }
                     Message::Window(id, window_message) => {
-                        if let Some(webview) = self.webviews.get(&id) {
+                        if let Some(webview) = windows.get(&id) {
                             let window = webview.window();
                             match window_message {
                                 WindowMessage::SetTitle(title) => window.set_title(&title),
