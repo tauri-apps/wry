@@ -83,7 +83,7 @@ impl InnerWebView {
 
         let window_id = hwnd as i64;
         webview.script_notify(TypedEventHandler::new(
-            |wv: &<IWebViewControl as RuntimeType>::DefaultType, args: &<WebViewControlScriptNotifyEventArgs as RuntimeType>::DefaultType| {
+            move |wv: &<IWebViewControl as RuntimeType>::DefaultType, args: &<WebViewControlScriptNotifyEventArgs as RuntimeType>::DefaultType| {
                 if let Some(wv) = wv {
                     if let Some(args) = args {
                         let s = args.value()?.to_string();
