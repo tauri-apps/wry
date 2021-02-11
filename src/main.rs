@@ -37,20 +37,17 @@ fn main() -> Result<()> {
     });
 
     let dispatcher = app.dispatcher();
+    let window1_dispatcher = app.window_dispatcher(window1_id);
+    let webview1_dispatcher = app.webview_dispatcher(window1_id);
 
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));
         dispatcher.dispatch_message(Message::Custom(())).unwrap();
-        dispatcher
-            .eval_script(
-                window1_id,
-                "console.log('dispatched message worked')".to_string(),
-            )
+        webview1_dispatcher
+            .eval_script("console.log('dispatched message worked')".to_string())
             .unwrap();
 
-        dispatcher
-            .set_window_title(window1_id, "new title")
-            .unwrap();
+        window1_dispatcher.set_window_title("new title").unwrap();
     });
 
     app.run();

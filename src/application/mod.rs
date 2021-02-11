@@ -1,5 +1,6 @@
 #[cfg(not(target_os = "linux"))]
 mod general;
+
 #[cfg(not(target_os = "linux"))]
 pub use general::*;
 #[cfg(target_os = "linux")]
@@ -14,6 +15,8 @@ pub use gtkrs::GtkWindow as Window;
 pub use general::WinitWindow as Window;
 
 use crate::{Dispatcher, Result};
+
+use std::marker::PhantomData;
 
 #[cfg(not(target_os = "linux"))]
 use winit::{
@@ -209,17 +212,33 @@ pub enum Message<I, T> {
 
 pub trait ApplicationDispatcher<I, T> {
     fn dispatch_message(&self, message: Message<I, T>) -> Result<()>;
+}
 
-    fn eval_script<S: Into<String>>(&self, window_id: I, script: S) -> Result<()> {
-        self.dispatch_message(Message::Webview(
-            window_id,
+pub struct WebviewDispatcher<I, T, D>(D, I, PhantomData<T>);
+
+impl<I: Copy, T, D: ApplicationDispatcher<I, T>> WebviewDispatcher<I, T, D> {
+    fn new(dispatcher: D, window_id: I) -> Self {
+        Self(dispatcher, window_id, PhantomData)
+    }
+
+    pub fn eval_script<S: Into<String>>(&self, script: S) -> Result<()> {
+        self.0.dispatch_message(Message::Webview(
+            self.1,
             WebviewMessage::EvalScript(script.into()),
         ))
     }
+}
 
-    fn set_window_title<S: Into<String>>(&self, window_id: I, title: S) -> Result<()> {
-        self.dispatch_message(Message::Window(
-            window_id,
+pub struct WindowDispatcher<I, T, D>(D, I, PhantomData<T>);
+
+impl<I: Copy, T, D: ApplicationDispatcher<I, T>> WindowDispatcher<I, T, D> {
+    fn new(dispatcher: D, window_id: I) -> Self {
+        Self(dispatcher, window_id, PhantomData)
+    }
+
+    pub fn set_window_title<S: Into<String>>(&self, title: S) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
             WindowMessage::SetTitle(title.into()),
         ))
     }
@@ -233,7 +252,9 @@ pub trait ApplicationExt<'a, T>: Sized {
     >;
 
     fn new() -> Result<Self>;
+
     fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window>;
+
     fn create_webview(
         &mut self,
         window: Self::Window,
@@ -241,11 +262,35 @@ pub trait ApplicationExt<'a, T>: Sized {
         callbacks: Option<Vec<Callback>>,
     ) -> Result<()>;
     fn set_message_handler<F: FnMut(T) + 'static>(&mut self, handler: F);
+
     fn dispatcher(&self) -> Self::Dispatcher;
+
+    fn window_dispatcher(
+        &self,
+        window_id: <<Self as ApplicationExt<'a, T>>::Window as WindowExt<'a>>::Id,
+    ) -> WindowDispatcher<
+        <<Self as ApplicationExt<'a, T>>::Window as WindowExt<'a>>::Id,
+        T,
+        Self::Dispatcher,
+    > {
+        WindowDispatcher::new(self.dispatcher(), window_id)
+    }
+
+    fn webview_dispatcher(
+        &self,
+        window_id: <<Self as ApplicationExt<'a, T>>::Window as WindowExt<'a>>::Id,
+    ) -> WebviewDispatcher<
+        <<Self as ApplicationExt<'a, T>>::Window as WindowExt<'a>>::Id,
+        T,
+        Self::Dispatcher,
+    > {
+        WebviewDispatcher::new(self.dispatcher(), window_id)
+    }
+
     fn run(self);
 }
 
 pub trait WindowExt<'a> {
-    type Id;
+    type Id: Copy;
     fn id(&self) -> Self::Id;
 }
