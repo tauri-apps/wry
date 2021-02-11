@@ -5,6 +5,7 @@ use crate::{
 
 use std::{
     collections::HashMap,
+    path::Path,
     sync::{
         mpsc::{channel, Receiver, Sender},
         Arc, Mutex,
@@ -122,6 +123,9 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         window.set_keep_above(attributes.always_on_top);
         if attributes.fullscreen {
             window.fullscreen();
+        }
+        if let Some(icon) = attributes.icon {
+            let _ = window.set_icon_from_file(icon.as_path());
         }
 
         Ok(GtkWindow(window))

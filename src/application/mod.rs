@@ -1,5 +1,8 @@
 #[cfg(not(target_os = "linux"))]
 mod general;
+
+use std::path::PathBuf;
+
 #[cfg(not(target_os = "linux"))]
 pub use general::*;
 #[cfg(target_os = "linux")]
@@ -110,6 +113,11 @@ pub struct AppWindowAttributes {
     ///
     /// The default is false.
     pub fullscreen: bool,
+
+    /// The PathBuf to the window icon.
+    ///
+    /// The default is None,
+    pub icon: Option<PathBuf>,
 }
 
 impl Default for AppWindowAttributes {
@@ -132,6 +140,7 @@ impl Default for AppWindowAttributes {
             x: None,
             y: None,
             fullscreen: false,
+            icon: None,
         }
     }
 }

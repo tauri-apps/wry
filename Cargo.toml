@@ -32,6 +32,7 @@ glib = "0.10"
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = "0.2"
 winit = "0.24"
+image = "0.23.13"
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 cc = "1"
@@ -42,4 +43,5 @@ cocoa = "0.24"
 core-graphics = "0.22"
 objc = "0.2"
 winit = "0.24"
+image = "0.23.13"
 

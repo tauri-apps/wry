@@ -7,11 +7,12 @@ use winit::{
     dpi::LogicalPosition,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowAttributes, WindowBuilder},
+    window::{Icon, Window, WindowAttributes, WindowBuilder},
 };
 
 use std::{
     collections::HashMap,
+    path::Path,
     sync::{Arc, Mutex},
 };
 
@@ -73,6 +74,11 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             (Some(x), Some(y)) => window.set_outer_position(LogicalPosition::new(x, y)),
             _ => {}
         }
+        match attributes.icon {
+            Some(icon) => window.set_window_icon(Some(load_icon(icon.as_path()))),
+            _ => {}
+        }
+
         Ok(WinitWindow(window))
     }
 
@@ -151,4 +157,16 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             }
         });
     }
+}
+
+fn load_icon(path: &Path) -> Icon {
+    let (icon_rgba, icon_width, icon_height) = {
+        let image = image::open(path)
+            .expect("Failed to open icon path")
+            .into_rgba8();
+        let (width, height) = image.dimensions();
+        let rgba = image.into_raw();
+        (rgba, width, height)
+    };
+    Icon::from_rgba(icon_rgba, icon_width, icon_height).expect("Failed to open icon")
 }
