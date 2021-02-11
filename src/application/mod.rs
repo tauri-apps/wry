@@ -120,7 +120,7 @@ pub struct AppWindowAttributes {
     /// The default is false.
     pub fullscreen: bool,
 
-    /// The PathBuf to the window icon.
+    /// The window icon.
     ///
     /// The default is None,
     pub icon: Option<Icon>,
