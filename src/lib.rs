@@ -60,13 +60,6 @@
 //! module re-exports [winit] for you to build the window across all platforms except Linux. We still
 //! need Gtk's library to build the WebView, so it's [gtk-rs] on Linux.
 //!
-//! [`Application`]: crate::Application
-//! [`Application::create_window`]: crate::Application::create_window
-//! [`Application::run`]: crate::Application::run
-//! [`WebViewAttributes`]: crate::WebViewAttributes
-//! [`Callback`]: crate::Callback
-//! [`WebViewBuilder`]: crate::WebViewBuilder
-//! [platform]: crate::platform
 //! [winit]: https://crates.io/crates/winit
 //! [gtk-rs]: https://crates.io/crates/gtk
 //!
@@ -93,8 +86,10 @@ use std::sync::mpsc::SendError;
 
 use url::ParseError;
 
+/// Convinient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Errors returned by wry.
 #[derive(Error, Debug)]
 pub enum Error {
     #[cfg(target_os = "linux")]

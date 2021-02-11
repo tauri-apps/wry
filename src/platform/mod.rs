@@ -1,3 +1,5 @@
+//! Re-export module that provides window creation and event handling based on each platform.
+
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
