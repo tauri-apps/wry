@@ -1,12 +1,12 @@
-use crate::platform::RPC;
+use crate::platform::{CALLBACKS, RPC};
 use crate::{Dispatcher, Result};
 
 use std::{
-    collections::HashMap,
+    collections::hash_map::DefaultHasher,
     ffi::{c_void, CStr, CString},
+    hash::{Hash, Hasher},
     os::raw::c_char,
     ptr::null,
-    sync::Mutex,
 };
 
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
@@ -17,26 +17,10 @@ use objc::{
     declare::ClassDecl,
     runtime::{Object, Sel},
 };
-use once_cell::sync::Lazy;
 use winit::{
     platform::macos::WindowExtMacOS,
     window::{Window, WindowId},
 };
-
-static CALLBACKS: Lazy<
-    Mutex<
-        HashMap<
-            (WindowId, String),
-            (
-                std::boxed::Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,
-                Dispatcher,
-            ),
-        >,
-    >,
-> = Lazy::new(|| {
-    let m = HashMap::new();
-    Mutex::new(m)
-});
 
 unsafe fn get_nsstring(s: &str) -> id {
     let s = CString::new(s).unwrap();
@@ -52,6 +36,10 @@ pub struct InnerWebView {
 
 impl InnerWebView {
     pub fn new(window: &Window, debug: bool) -> Result<Self> {
+        let mut hasher = DefaultHasher::new();
+        window.id().hash(&mut hasher);
+        let window_id = hasher.finish() as i64;
+
         extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
             unsafe {
                 let window_id = *this.get_ivar("_window_id");
@@ -125,7 +113,7 @@ impl InnerWebView {
             let cls = ClassDecl::new("WebViewDelegate", class!(NSObject));
             let cls = match cls {
                 Some(mut cls) => {
-                    decl.add_ivar::<WindowId>("_window_id");
+                    cls.add_ivar::<WindowId>("_window_id");
                     cls.add_method(
                         sel!(userContentController:didReceiveScriptMessage:),
                         did_receive as extern "C" fn(&Object, Sel, id, id),
@@ -135,13 +123,14 @@ impl InnerWebView {
                 None => class!(WebViewDelegate),
             };
             let handler: id = msg_send![cls, new];
+            handler.set_ivar("_window_id", window_id);
             let external = get_nsstring("external");
             let _: () = msg_send![manager, addScriptMessageHandler:handler name:external];
 
             let w = Self {
                 webview,
                 manager,
-                window_id: window.id(),
+                window_id,
             };
             w.init(
                 "window.external = {

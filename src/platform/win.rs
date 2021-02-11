@@ -3,16 +3,14 @@ mod bindings {
     ::windows::include_bindings!();
 }
 
-use crate::platform::RPC;
+use crate::platform::{CALLBACKS, RPC};
 use crate::{Dispatcher, Result};
 
 use std::{
-    collections::HashMap,
     ffi::CString,
     marker::{Send, Sync},
     os::raw::{c_char, c_void},
     ptr::{null, null_mut},
-    sync::Mutex,
 };
 
 use bindings::windows::{
@@ -22,23 +20,7 @@ use bindings::windows::{
     web::ui::*,
     win32::{com::*, display_devices::*, system_services::*, windows_and_messaging::*},
 };
-use once_cell::sync::Lazy;
 use windows::{Abi, HString, RuntimeType, BOOL};
-
-static CALLBACKS: Lazy<
-    Mutex<
-        HashMap<
-            (i64, String),
-            (
-                std::boxed::Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,
-                Dispatcher,
-            ),
-        >,
-    >,
-> = Lazy::new(|| {
-    let m = HashMap::new();
-    Mutex::new(m)
-});
 
 #[cfg(target_os = "windows")]
 extern "C" {

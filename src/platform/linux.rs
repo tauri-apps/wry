@@ -1,11 +1,10 @@
-use crate::platform::RPC;
+use crate::platform::{CALLBACKS, RPC};
 use crate::{Dispatcher, Error, Result};
 
-use std::{collections::HashMap, rc::Rc, sync::Mutex};
+use std::rc::Rc;
 
 use gio::Cancellable;
 use gtk::{ApplicationWindow as Window, ApplicationWindowExt, ContainerExt, WidgetExt};
-use once_cell::sync::Lazy;
 use webkit2gtk::{
     SettingsExt, UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
     UserScriptInjectionTime, WebView, WebViewExt,
@@ -13,23 +12,8 @@ use webkit2gtk::{
 
 pub struct InnerWebView {
     webview: Rc<WebView>,
-    window_id: u32,
+    window_id: i64,
 }
-
-static CALLBACKS: Lazy<
-    Mutex<
-        HashMap<
-            (u32, String),
-            (
-                std::boxed::Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,
-                Dispatcher,
-            ),
-        >,
-    >,
-> = Lazy::new(|| {
-    let m = HashMap::new();
-    Mutex::new(m)
-});
 
 impl InnerWebView {
     pub fn new(window: &Window, debug: bool) -> Self {
@@ -39,7 +23,7 @@ impl InnerWebView {
 
         let wv = Rc::clone(&webview);
         manager.register_script_message_handler("external");
-        let window_id = window.get_id();
+        let window_id = window.get_id() as i64;
         manager.connect_script_message_received(move |_m, msg| {
             if let Some(js) = msg.get_value() {
                 if let Some(context) = msg.get_global_context() {
@@ -95,7 +79,7 @@ impl InnerWebView {
 
         Self {
             webview,
-            window_id: window.get_id(),
+            window_id: window.get_id() as i64,
         }
     }
 
