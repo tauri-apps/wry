@@ -1,7 +1,7 @@
 #[cfg(not(target_os = "linux"))]
 mod general;
 
-use std::path::PathBuf;
+use std::{fs::read, path::Path};
 
 #[cfg(not(target_os = "linux"))]
 pub use general::*;
@@ -30,9 +30,16 @@ pub struct Callback {
 }
 
 #[derive(Debug, Clone)]
-pub enum Icon {
-    File(PathBuf),
-    Raw(Vec<u8>),
+pub struct Icon(pub(crate) Vec<u8>);
+
+impl Icon {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        Ok(Self(read(path)?))
+    }
+
+    pub fn from_bytes<B: Into<Vec<u8>>>(bytes: B) -> Result<Self> {
+        Ok(Self(bytes.into()))
+    }
 }
 
 // TODO complete fields on WindowAttribute

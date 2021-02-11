@@ -1,6 +1,6 @@
 use crate::{
-    AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Icon, Message, Result,
-    WebView, WebViewAttributes, WebViewBuilder, WindowExt,
+    AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Message, Result, WebView,
+    WebViewAttributes, WebViewBuilder, WindowExt,
 };
 
 use std::{
@@ -124,12 +124,18 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             window.fullscreen();
         }
         if let Some(icon) = attributes.icon {
-            match icon {
-                Icon::File(path) => {
-                    let _ = window.set_icon_from_file(path.as_path());
-                }
-                Icon::Raw(bytes) => {}
-            }
+            let image = image::load_from_memory(&icon.0)?.into_rgba8();
+            let (width, height) = image.dimensions();
+            let pixbuf = gdk_pixbuf::Pixbuf::from_mut_slice(
+                image.into_raw(),
+                gdk_pixbuf::Colorspace::Rgb,
+                true,
+                8,
+                width as i32,
+                height as i32,
+                1,
+            );
+            window.set_icon(Some(&pixbuf));
         }
 
         Ok(GtkWindow(window))

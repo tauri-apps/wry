@@ -112,6 +112,10 @@ pub enum Error {
     #[cfg(target_os = "windows")]
     #[error("Windows error: {0:?}")]
     WinrtError(windows::Error),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("image error: {0}")]
+    Image(#[from] image::ImageError),
 }
 
 #[cfg(target_os = "windows")]

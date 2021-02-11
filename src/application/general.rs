@@ -74,7 +74,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             _ => {}
         }
         if let Some(icon) = attributes.icon {
-            window.set_window_icon(Some(load_icon(icon)));
+            window.set_window_icon(Some(load_icon(icon)?));
         }
 
         Ok(WinitWindow(window))
@@ -156,16 +156,11 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         });
     }
 }
-fn load_icon(icon: Icon) -> WinitIcon {
-    let image = match icon {
-        Icon::File(path) => image::open(path)
-            .expect("Failed to load icon path")
-            .into_rgba8(),
-        Icon::Raw(bytes) => image::load_from_memory(&bytes)
-            .expect("Failed to load icon from memory")
-            .into_rgba8(),
-    };
+
+fn load_icon(icon: Icon) -> crate::Result<WinitIcon> {
+    let image = image::load_from_memory(&icon.0)?.into_rgba8();
     let (width, height) = image.dimensions();
     let rgba = image.into_raw();
-    WinitIcon::from_rgba(rgba, width, height).expect("Failed to open icon")
+    let icon = WinitIcon::from_rgba(rgba, width, height)?;
+    Ok(icon)
 }

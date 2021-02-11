@@ -21,18 +21,19 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.2"
+image = "0.23"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = { version = "0.11", features = ["v2_8"] }
 gio = "0.9"
 gtk = "0.9"
 gdk = "0.13"
+gdk-pixbuf = "0.9"
 glib = "0.10"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = "0.2"
 winit = "0.24"
-image = "0.23.13"
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 cc = "1"
@@ -43,5 +44,3 @@ cocoa = "0.24"
 core-graphics = "0.22"
 objc = "0.2"
 winit = "0.24"
-image = "0.23.13"
-
