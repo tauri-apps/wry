@@ -13,7 +13,8 @@ use std::{
 
 use gio::{ApplicationExt as GioApplicationExt, Cancellable};
 use gtk::{
-    Application as GtkApp, ApplicationWindow, ApplicationWindowExt, GtkWindowExt, WidgetExt,
+    Application as GtkApp, ApplicationWindow, ApplicationWindowExt, GtkWindowExt, Inhibit,
+    WidgetExt,
 };
 
 pub struct Application<T> {
@@ -161,14 +162,39 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
     }
 
     fn run(mut self) {
-        loop {
-            for (_, w) in self.webviews.iter() {
-                let _ = w.evaluate_script();
+        let shared_webviews = Arc::new(Mutex::new(self.webviews));
+        let shared_webviews_ = shared_webviews.clone();
+
+        {
+            let webviews = shared_webviews.lock().unwrap();
+            for (id, w) in webviews.iter() {
+                let shared_webviews_ = shared_webviews_.clone();
+                let id_ = *id;
+                w.window().connect_delete_event(move |_window, _event| {
+                    shared_webviews_.lock().unwrap().remove(&id_);
+                    Inhibit(false)
+                });
             }
+        }
+
+        loop {
+            {
+                let webviews = shared_webviews.lock().unwrap();
+
+                if webviews.is_empty() {
+                    break;
+                }
+
+                for (_, w) in webviews.iter() {
+                    let _ = w.evaluate_script();
+                }
+            }
+
             while let Ok(message) = self.event_loop_proxy_rx.try_recv() {
                 match message {
                     Message::Script(id, script) => {
-                        if let Some(webview) = self.webviews.get(&id) {
+                        let webviews = shared_webviews.lock().unwrap();
+                        if let Some(webview) = webviews.get(&id) {
                             webview.dispatcher().dispatch_script(&script).unwrap();
                         }
                     }
