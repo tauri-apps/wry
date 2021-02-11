@@ -13,7 +13,8 @@ use std::{
 
 use gio::{ApplicationExt as GioApplicationExt, Cancellable};
 use gtk::{
-    Application as GtkApp, ApplicationWindow, ApplicationWindowExt, GtkWindowExt, WidgetExt,
+    Application as GtkApp, ApplicationWindow, ApplicationWindowExt, GtkWindowExt, Inhibit,
+    WidgetExt,
 };
 
 pub struct Application<T> {
@@ -161,14 +162,38 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
     }
 
     fn run(mut self) {
-        loop {
-            for (_, w) in self.webviews.iter() {
-                let _ = w.evaluate_script();
+        let shared_webviews = Arc::new(Mutex::new(self.webviews));
+        let shared_webviews_ = shared_webviews.clone();
+
+        {
+            let webviews = shared_webviews.lock().unwrap();
+            for (id, w) in webviews.iter() {
+                let shared_webviews_ = shared_webviews_.clone();
+                let id_ = *id;
+                w.window().connect_delete_event(move |_window, _event| {
+                    shared_webviews_.lock().unwrap().remove(&id_);
+                    Inhibit(false)
+                });
             }
+        }
+
+        loop {
+            {
+                let webviews = shared_webviews.lock().unwrap();
+
+                if webviews.is_empty() {
+                    break;
+                }
+
+                for (_, w) in webviews.iter() {
+                    let _ = w.evaluate_script();
+                }
+            }
+
             while let Ok(message) = self.event_loop_proxy_rx.try_recv() {
                 match message {
                     Message::Webview(id, webview_message) => {
-                        if let Some(webview) = self.webviews.get_mut(&id) {
+                        if let Some(webview) = shared_webviews.lock().unwrap().get_mut(&id) {
                             match webview_message {
                                 WebviewMessage::EvalScript(script) => {
                                     let _ = webview.dispatch_script(&script);
@@ -177,7 +202,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                         }
                     }
                     Message::Window(id, window_message) => {
-                        if let Some(webview) = self.webviews.get(&id) {
+                        if let Some(webview) = shared_webviews.lock().unwrap().get(&id) {
                             let window = webview.window();
                             match window_message {
                                 WindowMessage::SetTitle(title) => window.set_title(&title),
