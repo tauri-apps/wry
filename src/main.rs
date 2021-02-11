@@ -42,10 +42,10 @@ fn main() -> Result<()> {
         std::thread::sleep(std::time::Duration::from_secs(3));
         dispatcher.dispatch_message(Message::Custom(())).unwrap();
         dispatcher
-            .dispatch_message(Message::Script(
+            .eval_script(
                 window1_id,
                 "console.log('dispatched message worked')".to_string(),
-            ))
+            )
             .unwrap();
 
         dispatcher

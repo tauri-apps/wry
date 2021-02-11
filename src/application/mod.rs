@@ -197,16 +197,31 @@ pub enum WindowMessage {
     SetTitle(String),
 }
 
+pub enum WebviewMessage {
+    EvalScript(String),
+}
+
 pub enum Message<I, T> {
-    Script(I, String),
+    Webview(I, WebviewMessage),
     Window(I, WindowMessage),
     Custom(T),
 }
 
 pub trait ApplicationDispatcher<I, T> {
     fn dispatch_message(&self, message: Message<I, T>) -> Result<()>;
-    fn set_window_title<S: Into<String>>(&self, id: I, title: S) -> Result<()> {
-        self.dispatch_message(Message::Window(id, WindowMessage::SetTitle(title.into())))
+
+    fn eval_script<S: Into<String>>(&self, window_id: I, script: S) -> Result<()> {
+        self.dispatch_message(Message::Webview(
+            window_id,
+            WebviewMessage::EvalScript(script.into()),
+        ))
+    }
+
+    fn set_window_title<S: Into<String>>(&self, window_id: I, title: S) -> Result<()> {
+        self.dispatch_message(Message::Window(
+            window_id,
+            WindowMessage::SetTitle(title.into()),
+        ))
     }
 }
 

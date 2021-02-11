@@ -1,6 +1,6 @@
 use crate::{
     AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Message, Result, WebView,
-    WebViewAttributes, WebViewBuilder, WindowExt, WindowMessage,
+    WebViewAttributes, WebViewBuilder, WebviewMessage, WindowExt, WindowMessage,
 };
 
 use std::{
@@ -167,9 +167,13 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             }
             while let Ok(message) = self.event_loop_proxy_rx.try_recv() {
                 match message {
-                    Message::Script(id, script) => {
-                        if let Some(webview) = self.webviews.get(&id) {
-                            webview.dispatcher().dispatch_script(&script).unwrap();
+                    Message::Webview(id, webview_message) => {
+                        if let Some(webview) = self.webviews.get_mut(&id) {
+                            match webview_message {
+                                WebviewMessage::EvalScript(script) => {
+                                    let _ = webview.dispatch_script(&script);
+                                }
+                            }
                         }
                     }
                     Message::Window(id, window_message) => {
