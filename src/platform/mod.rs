@@ -20,27 +20,6 @@ pub use gtk::*;
 #[cfg(not(target_os = "linux"))]
 pub use winit::*;
 
-use crate::Dispatcher;
-
-use std::{collections::HashMap, sync::Mutex};
-
-use once_cell::sync::Lazy;
-
-pub(crate) static CALLBACKS: Lazy<
-    Mutex<
-        HashMap<
-            String,
-            (
-                std::boxed::Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,
-                Dispatcher,
-            ),
-        >,
-    >,
-> = Lazy::new(|| {
-    let m = HashMap::new();
-    Mutex::new(m)
-});
-
 #[derive(Debug, Serialize, Deserialize)]
 struct RPC {
     id: i32,
