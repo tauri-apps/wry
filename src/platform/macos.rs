@@ -1,4 +1,4 @@
-use crate::platform::{CALLBACKS, RPC};
+use crate::platform::RPC;
 use crate::{Dispatcher, Result};
 
 use std::{
@@ -52,9 +52,9 @@ pub struct InnerWebView {
 
 impl InnerWebView {
     pub fn new(window: &Window, debug: bool) -> Result<Self> {
-        let window_id = window.id();
-        extern "C" fn did_receive(_: &Object, _: Sel, _: id, msg: id) {
+        extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
             unsafe {
+                let window_id = *this.get_ivar("_window_id");
                 let body: id = msg_send![msg, body];
                 let utf8: *const c_char = msg_send![body, UTF8String];
                 let s = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
@@ -125,6 +125,7 @@ impl InnerWebView {
             let cls = ClassDecl::new("WebViewDelegate", class!(NSObject));
             let cls = match cls {
                 Some(mut cls) => {
+                    decl.add_ivar::<WindowId>("_window_id");
                     cls.add_method(
                         sel!(userContentController:didReceiveScriptMessage:),
                         did_receive as extern "C" fn(&Object, Sel, id, id),

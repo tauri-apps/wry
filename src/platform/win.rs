@@ -3,8 +3,8 @@ mod bindings {
     ::windows::include_bindings!();
 }
 
-use crate::platform::{CALLBACKS, RPC};
-use crate::Result;
+use crate::platform::RPC;
+use crate::{Dispatcher, Result};
 
 use std::{
     collections::HashMap,
