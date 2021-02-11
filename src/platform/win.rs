@@ -4,7 +4,7 @@ mod bindings {
 }
 
 use crate::platform::{CALLBACKS, RPC};
-use crate::Result;
+use crate::{Dispatcher, Result};
 
 use std::{
     ffi::CString,
@@ -29,6 +29,7 @@ extern "C" {
 
 pub struct InnerWebView {
     webview: WebViewControl,
+    window_id: i64,
 }
 
 impl InnerWebView {
@@ -62,14 +63,15 @@ impl InnerWebView {
         webview.settings()?.set_is_script_notify_allowed(true)?;
         webview.set_is_visible(true)?;
 
+        let window_id = hwnd as i64;
         webview.script_notify(TypedEventHandler::new(
-            |wv: &<IWebViewControl as RuntimeType>::DefaultType, args: &<WebViewControlScriptNotifyEventArgs as RuntimeType>::DefaultType| {
+            move |wv: &<IWebViewControl as RuntimeType>::DefaultType, args: &<WebViewControlScriptNotifyEventArgs as RuntimeType>::DefaultType| {
                 if let Some(wv) = wv {
                     if let Some(args) = args {
                         let s = args.value()?.to_string();
                         let v: RPC = serde_json::from_str(&s).unwrap();
                         let mut hashmap = CALLBACKS.lock().unwrap();
-                        let (f, d) = hashmap.get_mut(&v.method).unwrap();
+                        let (f, d) = hashmap.get_mut(&(window_id, v.method)).unwrap();
                         let status = f(d, v.id, v.params);
 
                         let js = match status {
@@ -97,7 +99,10 @@ impl InnerWebView {
             },
         ))?;
 
-        let w = InnerWebView { webview };
+        let w = InnerWebView {
+            webview,
+            window_id: hwnd as i64,
+        };
 
         w.init("window.external.invoke = s => window.external.notify(s)")?;
         w.resize(hwnd);
@@ -109,6 +114,16 @@ impl InnerWebView {
         let script = String::from("(function(){") + js + "})();";
         self.webview.add_initialize_script(script)?;
         Ok(())
+    }
+
+    pub fn add_callback<F>(&self, name: &str, f: F, dispatcher: Dispatcher)
+    where
+        F: FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send + 'static,
+    {
+        CALLBACKS.lock().unwrap().insert(
+            (self.window_id, name.to_string()),
+            (Box::new(f), dispatcher),
+        );
     }
 
     pub fn eval(&self, js: &str) -> Result<()> {

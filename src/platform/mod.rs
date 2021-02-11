@@ -1,3 +1,5 @@
+//! Re-export module that provides window creation and event handling based on each platform.
+
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
@@ -19,7 +21,6 @@ pub use gtk::*;
 pub use winit::*;
 
 use crate::Dispatcher;
-
 use std::{collections::HashMap, sync::Mutex};
 
 use once_cell::sync::Lazy;
@@ -27,7 +28,7 @@ use once_cell::sync::Lazy;
 pub(crate) static CALLBACKS: Lazy<
     Mutex<
         HashMap<
-            String,
+            (i64, String),
             (
                 std::boxed::Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,
                 Dispatcher,

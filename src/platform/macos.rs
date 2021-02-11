@@ -1,8 +1,10 @@
 use crate::platform::{CALLBACKS, RPC};
-use crate::Result;
+use crate::{Dispatcher, Result};
 
 use std::{
+    collections::hash_map::DefaultHasher,
     ffi::{c_void, CStr, CString},
+    hash::{Hash, Hasher},
     os::raw::c_char,
     ptr::null,
 };
@@ -26,18 +28,24 @@ unsafe fn get_nsstring(s: &str) -> id {
 pub struct InnerWebView {
     webview: id,
     manager: id,
+    window_id: i64,
 }
 
 impl InnerWebView {
     pub fn new(window: &Window, debug: bool) -> Result<Self> {
-        extern "C" fn did_receive(_: &Object, _: Sel, _: id, msg: id) {
+        let mut hasher = DefaultHasher::new();
+        window.id().hash(&mut hasher);
+        let window_id = hasher.finish() as i64;
+
+        extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
             unsafe {
+                let window_id = *this.get_ivar("_window_id");
                 let body: id = msg_send![msg, body];
                 let utf8: *const c_char = msg_send![body, UTF8String];
                 let s = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
                 let v: RPC = serde_json::from_str(&s).unwrap();
                 let mut hashmap = CALLBACKS.lock().unwrap();
-                let (f, d) = hashmap.get_mut(&v.method).unwrap();
+                let (f, d) = hashmap.get_mut(&(window_id, v.method)).unwrap();
                 let status = f(d, v.id, v.params);
 
                 let js = match status {
@@ -102,6 +110,7 @@ impl InnerWebView {
             let cls = ClassDecl::new("WebViewDelegate", class!(NSObject));
             let cls = match cls {
                 Some(mut cls) => {
+                    cls.add_ivar::<i64>("_window_id");
                     cls.add_method(
                         sel!(userContentController:didReceiveScriptMessage:),
                         did_receive as extern "C" fn(&Object, Sel, id, id),
@@ -111,10 +120,15 @@ impl InnerWebView {
                 None => class!(WebViewDelegate),
             };
             let handler: id = msg_send![cls, new];
+            handler.as_mut().unwrap().set_ivar("_window_id", window_id);
             let external = get_nsstring("external");
             let _: () = msg_send![manager, addScriptMessageHandler:handler name:external];
 
-            let w = Self { webview, manager };
+            let w = Self {
+                webview,
+                manager,
+                window_id,
+            };
             w.init(
                 "window.external = {
                       invoke: function(s) {
@@ -142,6 +156,16 @@ impl InnerWebView {
             let _: () = msg_send![self.manager, addUserScript: script];
         }
         Ok(())
+    }
+
+    pub fn add_callback<F>(&self, name: &str, f: F, dispatcher: Dispatcher)
+    where
+        F: FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send + 'static,
+    {
+        CALLBACKS.lock().unwrap().insert(
+            (self.window_id, name.to_string()),
+            (Box::new(f), dispatcher),
+        );
     }
 
     pub fn eval(&self, js: &str) -> Result<()> {
