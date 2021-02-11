@@ -1,11 +1,10 @@
 use crate::{
-    AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Message, Result, WebView,
-    WebViewAttributes, WebViewBuilder, WindowExt,
+    AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Icon, Message, Result,
+    WebView, WebViewAttributes, WebViewBuilder, WindowExt,
 };
 
 use std::{
     collections::HashMap,
-    path::Path,
     sync::{
         mpsc::{channel, Receiver, Sender},
         Arc, Mutex,
@@ -126,7 +125,9 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         }
         if let Some(icon) = attributes.icon {
             match icon {
-                Icon::File(path) => window.set_icon_from_file(path.as_path()),
+                Icon::File(path) => {
+                    let _ = window.set_icon_from_file(path.as_path());
+                }
                 Icon::Raw(bytes) => {}
             }
         }
