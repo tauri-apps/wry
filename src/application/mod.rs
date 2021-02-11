@@ -193,8 +193,13 @@ impl Default for WebViewAttributes {
     }
 }
 
+pub enum WindowMessage {
+    SetTitle(String),
+}
+
 pub enum Message<I, T> {
     Script(I, String),
+    Window(I, WindowMessage),
     Custom(T),
 }
 

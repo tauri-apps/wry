@@ -141,6 +141,14 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                             webview.dispatcher().dispatch_script(&script).unwrap();
                         }
                     }
+                    Message::Window(id, window_message) => {
+                        if let Some(webview) = self.webviews.get(&id) {
+                            let window = webview.window();
+                            match window_message {
+                                WindowMessage::SetTitle(title) => window.set_title(&title),
+                            }
+                        }
+                    }
                     Message::Custom(message) => {
                         if let Some(ref mut handler) = message_handler {
                             handler(message);

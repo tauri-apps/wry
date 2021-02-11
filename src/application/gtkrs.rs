@@ -1,6 +1,6 @@
 use crate::{
     AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Message, Result, WebView,
-    WebViewAttributes, WebViewBuilder, WindowExt,
+    WebViewAttributes, WebViewBuilder, WindowExt, WindowMessage,
 };
 
 use std::{
@@ -170,6 +170,14 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                     Message::Script(id, script) => {
                         if let Some(webview) = self.webviews.get(&id) {
                             webview.dispatcher().dispatch_script(&script).unwrap();
+                        }
+                    }
+                    Message::Window(id, window_message) => {
+                        if let Some(webview) = self.webviews.get(&id) {
+                            let window = webview.window();
+                            match window_message {
+                                WindowMessage::SetTitle(title) => window.set_title(&title),
+                            }
                         }
                     }
                     Message::Custom(message) => {

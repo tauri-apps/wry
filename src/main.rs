@@ -1,7 +1,7 @@
 use wry::Result;
 use wry::{
     AppWindowAttributes, Application, ApplicationDispatcher, ApplicationExt, Callback, Message,
-    WebViewAttributes, WindowExt,
+    WebViewAttributes, WindowExt, WindowMessage,
 };
 
 fn main() -> Result<()> {
@@ -37,6 +37,7 @@ fn main() -> Result<()> {
     });
 
     let dispatcher = app.dispatcher();
+
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));
         dispatcher.dispatch_message(Message::Custom(())).unwrap();
@@ -44,6 +45,13 @@ fn main() -> Result<()> {
             .dispatch_message(Message::Script(
                 window1_id,
                 "console.log('dispatched message worked')".to_string(),
+            ))
+            .unwrap();
+
+        dispatcher
+            .dispatch_message(Message::Window(
+                window1_id,
+                WindowMessage::SetTitle("new title".to_string()),
             ))
             .unwrap();
     });
