@@ -17,10 +17,7 @@ use objc::{
     declare::ClassDecl,
     runtime::{Object, Sel},
 };
-use winit::{
-    platform::macos::WindowExtMacOS,
-    window::{Window, WindowId},
-};
+use winit::{platform::macos::WindowExtMacOS, window::Window};
 
 unsafe fn get_nsstring(s: &str) -> id {
     let s = CString::new(s).unwrap();
@@ -31,7 +28,7 @@ unsafe fn get_nsstring(s: &str) -> id {
 pub struct InnerWebView {
     webview: id,
     manager: id,
-    window_id: WindowId,
+    window_id: i64,
 }
 
 impl InnerWebView {
@@ -113,7 +110,7 @@ impl InnerWebView {
             let cls = ClassDecl::new("WebViewDelegate", class!(NSObject));
             let cls = match cls {
                 Some(mut cls) => {
-                    cls.add_ivar::<WindowId>("_window_id");
+                    cls.add_ivar::<i64>("_window_id");
                     cls.add_method(
                         sel!(userContentController:didReceiveScriptMessage:),
                         did_receive as extern "C" fn(&Object, Sel, id, id),
@@ -123,7 +120,7 @@ impl InnerWebView {
                 None => class!(WebViewDelegate),
             };
             let handler: id = msg_send![cls, new];
-            handler.set_ivar("_window_id", window_id);
+            handler.as_mut().unwrap().set_ivar("_window_id", window_id);
             let external = get_nsstring("external");
             let _: () = msg_send![manager, addScriptMessageHandler:handler name:external];
 
