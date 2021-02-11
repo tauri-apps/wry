@@ -12,7 +12,6 @@ use winit::{
 
 use std::{
     collections::HashMap,
-    path::Path,
     sync::{Arc, Mutex},
 };
 
@@ -75,12 +74,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             _ => {}
         }
         if let Some(icon) = attributes.icon {
-            match icon {
-                Icon::File(pathbuf) => {
-                    window.set_window_icon(Some(load_icon_from_path(pathbuf.as_path())));
-                }
-                Icon::Raw(bytes) => {}
-            }
+            window.set_window_icon(Some(load_icon(icon)));
         }
 
         Ok(WinitWindow(window))
@@ -162,14 +156,16 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         });
     }
 }
-fn load_icon_from_path(path: &Path) -> WinitIcon {
-    let (icon_rgba, icon_width, icon_height) = {
-        let image = image::open(path)
-            .expect("Failed to open icon path")
-            .into_rgba8();
-        let (width, height) = image.dimensions();
-        let rgba = image.into_raw();
-        (rgba, width, height)
+fn load_icon(icon: Icon) -> WinitIcon {
+    let image = match icon {
+        Icon::File(path) => image::open(path)
+            .expect("Failed to load icon path")
+            .into_rgba8(),
+        Icon::Raw(bytes) => image::load_from_memory(&bytes)
+            .expect("Failed to load icon from memory")
+            .into_rgba8(),
     };
-    WinitIcon::from_rgba(icon_rgba, icon_width, icon_height).expect("Failed to open icon")
+    let (width, height) = image.dimensions();
+    let rgba = image.into_raw();
+    WinitIcon::from_rgba(rgba, width, height).expect("Failed to open icon")
 }
