@@ -120,6 +120,9 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         window.set_visible(attributes.visible);
         window.set_decorated(attributes.decorations);
         window.set_keep_above(attributes.always_on_top);
+        if attributes.fullscreen {
+            window.fullscreen();
+        }
 
         Ok(GtkWindow(window))
     }
