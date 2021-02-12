@@ -20,12 +20,6 @@ use crate::{Dispatcher, Result};
 
 use std::marker::PhantomData;
 
-#[cfg(not(target_os = "linux"))]
-use winit::{
-    dpi::{LogicalSize, Size},
-    window::{Fullscreen, WindowAttributes},
-};
-
 pub struct Callback {
     pub name: String,
     pub function: Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,
@@ -160,46 +154,6 @@ impl Default for AppWindowAttributes {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
-impl From<&AppWindowAttributes> for WindowAttributes {
-    fn from(w: &AppWindowAttributes) -> Self {
-        let min_inner_size = match (w.min_width, w.min_height) {
-            (Some(min_width), Some(min_height)) => {
-                Some(Size::from(LogicalSize::new(min_width, min_height)))
-            }
-            _ => None,
-        };
-
-        let max_inner_size = match (w.max_width, w.max_height) {
-            (Some(max_width), Some(max_height)) => {
-                Some(Size::from(LogicalSize::new(max_width, max_height)))
-            }
-            _ => None,
-        };
-
-        let fullscreen = if w.fullscreen {
-            Some(Fullscreen::Borderless(None))
-        } else {
-            None
-        };
-
-        Self {
-            resizable: w.resizable,
-            title: w.title.clone(),
-            maximized: w.maximized,
-            visible: w.visible,
-            transparent: w.transparent,
-            decorations: w.decorations,
-            always_on_top: w.always_on_top,
-            inner_size: Some(Size::from(LogicalSize::new(w.width, w.height))),
-            min_inner_size,
-            max_inner_size,
-            fullscreen,
-            ..Default::default()
-        }
-    }
-}
-
 /// Attributes to use when creating a window.
 #[derive(Debug, Clone)]
 pub struct WebViewAttributes {
@@ -235,7 +189,7 @@ pub enum WindowMessage {
     SetMaxSize { max_width: f64, max_height: f64 },
     SetX(f64),
     SetY(f64),
-    SetLocation { x: f64, y: f64 },
+    SetPosition { x: f64, y: f64 },
     SetFullscreen(bool),
     SetIcon(Icon),
 }
@@ -276,11 +230,128 @@ impl<I: Copy, T, D: ApplicationDispatcher<I, T>> WindowDispatcher<I, T, D> {
         Self(dispatcher, window_id, PhantomData)
     }
 
-    pub fn set_window_title<S: Into<String>>(&self, title: S) -> Result<()> {
+    pub fn set_resizable(&self, resizable: bool) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetResizable(resizable),
+        ))
+    }
+
+    pub fn set_title<S: Into<String>>(&self, title: S) -> Result<()> {
         self.0.dispatch_message(Message::Window(
             self.1,
             WindowMessage::SetTitle(title.into()),
         ))
+    }
+
+    pub fn maximize(&self) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::Maximize))
+    }
+
+    pub fn minimize(&self) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::Minimize))
+    }
+
+    pub fn unminimize(&self) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::Unminimize))
+    }
+
+    pub fn show(&self) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::Show))
+    }
+
+    pub fn hide(&self) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::Hide))
+    }
+
+    pub fn set_transparent(&self, resizable: bool) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetResizable(resizable),
+        ))
+    }
+
+    pub fn set_decorations(&self, decorations: bool) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetResizable(decorations),
+        ))
+    }
+
+    pub fn set_always_on_top(&self, always_on_top: bool) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetAlwaysOnTop(always_on_top),
+        ))
+    }
+
+    pub fn set_width(&self, width: f64) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::SetWidth(width)))
+    }
+
+    pub fn set_height(&self, height: f64) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::SetHeight(height)))
+    }
+
+    pub fn resize(&self, width: f64, height: f64) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::Resize { width, height },
+        ))
+    }
+
+    pub fn set_min_size(&self, min_width: f64, min_height: f64) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetMinSize {
+                min_width,
+                min_height,
+            },
+        ))
+    }
+
+    pub fn set_max_size(&self, max_width: f64, max_height: f64) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetMaxSize {
+                max_width,
+                max_height,
+            },
+        ))
+    }
+
+    pub fn set_x(&self, x: f64) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::SetX(x)))
+    }
+
+    pub fn set_y(&self, y: f64) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::SetY(y)))
+    }
+
+    pub fn set_position(&self, x: f64, y: f64) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::SetPosition { x, y }))
+    }
+
+    pub fn set_fullscreen(&self, fullscreen: bool) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetFullscreen(fullscreen),
+        ))
+    }
+
+    pub fn set_icon(&self, icon: Icon) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::SetIcon(icon)))
     }
 }
 

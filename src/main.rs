@@ -47,7 +47,7 @@ fn main() -> Result<()> {
             .eval_script("console.log('dispatched message worked')".to_string())
             .unwrap();
 
-        window1_dispatcher.set_window_title("new title").unwrap();
+        window1_dispatcher.set_title("new title").unwrap();
     });
 
     app.run();

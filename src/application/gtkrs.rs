@@ -55,7 +55,7 @@ impl<T> ApplicationDispatcher<u32, T> for AppDispatcher<T> {
     }
 }
 
-fn get_icon(icon: Icon) -> Result<gdk_pixbuf::Pixbuf> {
+fn load_icon(icon: Icon) -> Result<gdk_pixbuf::Pixbuf> {
     let image = image::load_from_memory(&icon.0)?.into_rgba8();
     let (width, height) = image.dimensions();
     let row_stride = image.sample_layout().height_stride;
@@ -139,7 +139,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             window.fullscreen();
         }
         if let Some(icon) = attributes.icon {
-            window.set_icon(Some(&get_icon(icon)?));
+            window.set_icon(Some(&load_icon(icon)?));
         }
 
         Ok(GtkWindow(window))
@@ -313,7 +313,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                                 WindowMessage::SetY(_y) => {
                                     // TODO
                                 }
-                                WindowMessage::SetLocation { x: _, y: _ } => {
+                                WindowMessage::SetPosition { x: _, y: _ } => {
                                     // TODO
                                 }
                                 WindowMessage::SetFullscreen(fullscreen) => {
@@ -324,7 +324,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                                     }
                                 }
                                 WindowMessage::SetIcon(icon) => {
-                                    if let Ok(icon) = get_icon(icon) {
+                                    if let Ok(icon) = load_icon(icon) {
                                         window.set_icon(Some(&icon));
                                     }
                                 }

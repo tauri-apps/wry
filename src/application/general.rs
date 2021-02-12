@@ -4,10 +4,10 @@ use crate::{
 };
 pub use winit::window::WindowId;
 use winit::{
-    dpi::LogicalPosition,
+    dpi::{LogicalPosition, LogicalSize},
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
+    window::{Fullscreen, Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
 };
 
 use std::{
@@ -39,6 +39,45 @@ impl<T> ApplicationDispatcher<WindowId, T> for AppDispatcher<T> {
             .send_event(message)
             .unwrap_or_else(|_| panic!("failed to dispatch message to event loop"));
         Ok(())
+    }
+}
+
+impl From<&AppWindowAttributes> for WindowAttributes {
+    fn from(w: &AppWindowAttributes) -> Self {
+        let min_inner_size = match (w.min_width, w.min_height) {
+            (Some(min_width), Some(min_height)) => {
+                Some(LogicalSize::new(min_width, min_height).into())
+            }
+            _ => None,
+        };
+
+        let max_inner_size = match (w.max_width, w.max_height) {
+            (Some(max_width), Some(max_height)) => {
+                Some(LogicalSize::new(max_width, max_height).into())
+            }
+            _ => None,
+        };
+
+        let fullscreen = if w.fullscreen {
+            Some(Fullscreen::Borderless(None))
+        } else {
+            None
+        };
+
+        Self {
+            resizable: w.resizable,
+            title: w.title.clone(),
+            maximized: w.maximized,
+            visible: w.visible,
+            transparent: w.transparent,
+            decorations: w.decorations,
+            always_on_top: w.always_on_top,
+            inner_size: Some(LogicalSize::new(w.width, w.height).into()),
+            min_inner_size,
+            max_inner_size,
+            fullscreen,
+            ..Default::default()
+        }
     }
 }
 
@@ -153,8 +192,86 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                         if let Some(webview) = windows.get(&id) {
                             let window = webview.window();
                             match window_message {
+                                WindowMessage::SetResizable(resizable) => {
+                                    window.set_resizable(resizable)
+                                }
                                 WindowMessage::SetTitle(title) => window.set_title(&title),
-                                _ => {}
+                                WindowMessage::Maximize => window.set_maximized(true),
+                                WindowMessage::Minimize => window.set_minimized(true),
+                                WindowMessage::Unminimize => window.set_minimized(false),
+                                WindowMessage::Show => window.set_visible(true),
+                                WindowMessage::Hide => window.set_visible(false),
+                                WindowMessage::SetTransparent(_transparent) => {
+                                    // TODO
+                                }
+                                WindowMessage::SetDecorations(decorations) => {
+                                    window.set_decorations(decorations)
+                                }
+                                WindowMessage::SetAlwaysOnTop(always_on_top) => {
+                                    window.set_always_on_top(always_on_top)
+                                }
+                                WindowMessage::SetWidth(width) => {
+                                    let mut size =
+                                        window.inner_size().to_logical(window.scale_factor());
+                                    size.width = width;
+                                    window.set_inner_size(size);
+                                }
+                                WindowMessage::SetHeight(height) => {
+                                    let mut size =
+                                        window.inner_size().to_logical(window.scale_factor());
+                                    size.height = height;
+                                    window.set_inner_size(size);
+                                }
+                                WindowMessage::Resize { width, height } => {
+                                    window.set_inner_size(LogicalSize::new(width, height));
+                                }
+                                WindowMessage::SetMinSize {
+                                    min_width,
+                                    min_height,
+                                } => {
+                                    window.set_min_inner_size(Some(LogicalSize::new(
+                                        min_width, min_height,
+                                    )));
+                                }
+                                WindowMessage::SetMaxSize {
+                                    max_width,
+                                    max_height,
+                                } => {
+                                    window.set_max_inner_size(Some(LogicalSize::new(
+                                        max_width, max_height,
+                                    )));
+                                }
+                                WindowMessage::SetX(x) => {
+                                    if let Ok(outer_position) = window.outer_position() {
+                                        let mut outer_position =
+                                            outer_position.to_logical(window.scale_factor());
+                                        outer_position.x = x;
+                                        window.set_outer_position(outer_position);
+                                    }
+                                }
+                                WindowMessage::SetY(y) => {
+                                    if let Ok(outer_position) = window.outer_position() {
+                                        let mut outer_position =
+                                            outer_position.to_logical(window.scale_factor());
+                                        outer_position.y = y;
+                                        window.set_outer_position(outer_position);
+                                    }
+                                }
+                                WindowMessage::SetPosition { x, y } => {
+                                    window.set_outer_position(LogicalPosition::new(x, y))
+                                }
+                                WindowMessage::SetFullscreen(fullscreen) => {
+                                    if fullscreen {
+                                        window.set_fullscreen(Some(Fullscreen::Borderless(None)))
+                                    } else {
+                                        window.set_fullscreen(None)
+                                    }
+                                }
+                                WindowMessage::SetIcon(icon) => {
+                                    if let Ok(icon) = load_icon(icon) {
+                                        window.set_window_icon(Some(icon));
+                                    }
+                                }
                             }
                         }
                     }
