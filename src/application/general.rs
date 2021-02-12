@@ -1,13 +1,13 @@
 use crate::{
-    AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Message, Result, WebView,
-    WebViewAttributes, WebViewBuilder, WindowExt,
+    AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Icon, Message, Result,
+    WebView, WebViewAttributes, WebViewBuilder, WindowExt,
 };
 pub use winit::window::WindowId;
 use winit::{
     dpi::LogicalPosition,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowAttributes, WindowBuilder},
+    window::{Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
 };
 
 use std::{
@@ -73,6 +73,10 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             (Some(x), Some(y)) => window.set_outer_position(LogicalPosition::new(x, y)),
             _ => {}
         }
+        if let Some(icon) = attributes.icon {
+            window.set_window_icon(Some(load_icon(icon)?));
+        }
+
         Ok(WinitWindow(window))
     }
 
@@ -151,4 +155,12 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             }
         });
     }
+}
+
+fn load_icon(icon: Icon) -> crate::Result<WinitIcon> {
+    let image = image::load_from_memory(&icon.0)?.into_rgba8();
+    let (width, height) = image.dimensions();
+    let rgba = image.into_raw();
+    let icon = WinitIcon::from_rgba(rgba, width, height)?;
+    Ok(icon)
 }

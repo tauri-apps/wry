@@ -78,9 +78,12 @@ mod webview;
 
 pub use application::{
     AppDispatcher, AppWindowAttributes, Application, ApplicationDispatcher, ApplicationExt,
-    Callback, Message, WebViewAttributes, Window, WindowExt, WindowId,
+    Callback, Icon, Message, WebViewAttributes, Window, WindowExt, WindowId,
 };
 pub use webview::{Dispatcher, WebView, WebViewBuilder};
+
+#[cfg(not(target_os = "linux"))]
+use winit::window::BadIcon;
 
 use std::sync::mpsc::SendError;
 
@@ -112,6 +115,13 @@ pub enum Error {
     #[cfg(target_os = "windows")]
     #[error("Windows error: {0:?}")]
     WinrtError(windows::Error),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("image error: {0}")]
+    Image(#[from] image::ImageError),
+    #[cfg(not(target_os = "linux"))]
+    #[error("Icon error: {0}")]
+    Icon(#[from] BadIcon),
 }
 
 #[cfg(target_os = "windows")]
