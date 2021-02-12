@@ -3,7 +3,7 @@ mod bindings {
     ::windows::include_bindings!();
 }
 
-use crate::platform::{CALLBACKS, RPC};
+use crate::platform::{CALLBACKS, RPC, win::windows::{foundation::IAsyncOperation, storage::streams::{IInputStream, IInputStreamReference}}};
 use crate::Result;
 
 use std::{
@@ -12,15 +12,19 @@ use std::{
     os::raw::{c_char, c_void},
     ptr::{null, null_mut},
 };
-
+use bindings::windows;
+// use bindings::windows::*;
+// use bindings::windows::web::*;
 use bindings::windows::{
     foundation::collections::*,
     foundation::*,
     web::ui::interop::*,
     web::ui::*,
     win32::{com::*, display_devices::*, system_services::*, windows_and_messaging::*},
+    storage::streams::{FileRandomAccessStream},
+    storage::{FileAccessMode, StorageFile}
 };
-use windows::{Abi, HString, RuntimeType, BOOL};
+use ::windows::{Abi, HString, RuntimeType, BOOL, implement, Param,};
 
 #[cfg(target_os = "windows")]
 extern "C" {
@@ -29,6 +33,30 @@ extern "C" {
 
 pub struct InnerWebView {
     webview: WebViewControl,
+}
+
+#[implement(windows::foundation::IAsyncOperation)]
+struct Other(String);
+impl Other {
+    fn get(&self) {
+        self.0
+    }
+}
+#[implement(windows::web::IUriToStreamResolver)]
+struct MyResolver();
+
+impl MyResolver {
+            pub fn uri_to_stream_async<'a, T0__: Into<Param<'a, Uri>>>(
+                &self,
+                uri: T0__
+            ) -> Result<IAsyncOperation<IInputStream>> {
+                // let mut input: FileInputStream = {};
+                let mut file: IInputStream = FileRandomAccessStream::open_async("test.html", FileAccessMode(0)).unwrap().into();
+                let mut input: IInputStreamReference = IInputStreamReference::from(file.into());
+
+                Ok(input.open_sequential_read_async().unwrap())
+                // Ok(IAsyncOperation(file))
+    }
 }
 
 impl InnerWebView {
@@ -108,6 +136,18 @@ impl InnerWebView {
     pub fn init(&self, js: &str) -> Result<()> {
         let script = String::from("(function(){") + js + "})();";
         self.webview.add_initialize_script(script)?;
+        Ok(())
+    }
+
+    pub fn register_buffer_protocol<F: 'static + Fn(&str) -> Vec<u8>>(&self, protocol: String, handler: F) -> Result<()> {
+        // self.webview.uri_to_stream_async();
+        // let test = IUriToStreamResolver::new();
+        self.webview.web_resource_requested(TypedEventHandler::new(|arg, arg2| {
+            // let mut res = HttpResponseMessage::new();
+            // res.set_content();
+            println!("{:?}", arg2);
+            Ok(())
+        }));
         Ok(())
     }
 

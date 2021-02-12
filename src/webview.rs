@@ -33,6 +33,14 @@ impl WebViewBuilder {
         })
     }
 
+    pub fn register_buffer_protocol<F: 'static + Fn(&str) -> Vec<u8>>(
+        &self,
+        protocol: String,
+        handler: F,
+    ) -> Result<()> {
+        self.inner.webview.register_buffer_protocol(protocol, handler)
+    }
+
     pub fn init(self, js: &str) -> Result<Self> {
         self.inner.webview.init(js)?;
         Ok(self)

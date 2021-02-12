@@ -9,15 +9,17 @@ fn main() {
 #[cfg(target_os = "windows")]
 fn main() {
     windows::build!(
-        windows::foundation::collections::*
-        windows::foundation::{AsyncStatus, Rect, Uri}
-        windows::web::ui::{IWebViewControl, WebViewControlScriptNotifyEventArgs }
-        windows::web::ui::interop::{WebViewControl, WebViewControlProcess }
-        windows::win32::com::CoWaitForMultipleHandles
-        windows::win32::display_devices::RECT
-        windows::win32::system_services::{CreateEventA, SetEvent, INFINITE}
-        windows::win32::windows_and_messaging::{GetClientRect, HWND}
-        windows::win32::winrt::RoInitialize
+        windows::foundation::collections::*,
+        windows::foundation::{AsyncStatus, Rect, Uri },
+        windows::web::ui::{IWebViewControl, WebViewControlScriptNotifyEventArgs },
+        windows::web::ui::interop::{WebViewControl, WebViewControlProcess },
+        windows::web::*,
+        windows::storage::streams::*,
+        windows::win32::com::CoWaitForMultipleHandles,
+        windows::win32::display_devices::RECT,
+        windows::win32::system_services::{CreateEventA, SetEvent, INFINITE},
+        windows::win32::windows_and_messaging::{GetClientRect, HWND},
+        windows::win32::winrt::RoInitialize,
     );
 
     let mut build = cc::Build::new();
