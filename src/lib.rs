@@ -81,6 +81,8 @@ pub use application::{
     Callback, Icon, Message, WebViewAttributes, Window, WindowExt, WindowId,
 };
 pub use webview::{Dispatcher, WebView, WebViewBuilder};
+
+#[cfg(not(target_os = "linux"))]
 use winit::window::BadIcon;
 
 use std::sync::mpsc::SendError;
@@ -117,6 +119,7 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("image error: {0}")]
     Image(#[from] image::ImageError),
+    #[cfg(not(target_os = "linux"))]
     #[error("Icon error: {0}")]
     Icon(#[from] BadIcon),
 }
