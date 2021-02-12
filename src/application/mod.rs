@@ -175,6 +175,7 @@ pub enum WindowMessage {
     SetResizable(bool),
     SetTitle(String),
     Maximize,
+    Unmaximize,
     Minimize,
     Unminimize,
     Show,
@@ -247,6 +248,10 @@ impl<I: Copy, T, D: ApplicationDispatcher<I, T>> WindowDispatcher<I, T, D> {
     pub fn maximize(&self) -> Result<()> {
         self.0
             .dispatch_message(Message::Window(self.1, WindowMessage::Maximize))
+    }
+    pub fn unmaximize(&self) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::Unmaximize))
     }
 
     pub fn minimize(&self) -> Result<()> {
