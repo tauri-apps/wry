@@ -1,6 +1,8 @@
 #[cfg(not(target_os = "linux"))]
 mod general;
 
+use std::{fs::read, path::Path};
+
 #[cfg(not(target_os = "linux"))]
 pub use general::*;
 #[cfg(target_os = "linux")]
@@ -27,6 +29,19 @@ use winit::{
 pub struct Callback {
     pub name: String,
     pub function: Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Icon(pub(crate) Vec<u8>);
+
+impl Icon {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        Ok(Self(read(path)?))
+    }
+
+    pub fn from_bytes<B: Into<Vec<u8>>>(bytes: B) -> Result<Self> {
+        Ok(Self(bytes.into()))
+    }
 }
 
 // TODO complete fields on WindowAttribute
@@ -113,6 +128,11 @@ pub struct AppWindowAttributes {
     ///
     /// The default is false.
     pub fullscreen: bool,
+
+    /// The window icon.
+    ///
+    /// The default is None,
+    pub icon: Option<Icon>,
 }
 
 impl Default for AppWindowAttributes {
@@ -135,6 +155,7 @@ impl Default for AppWindowAttributes {
             x: None,
             y: None,
             fullscreen: false,
+            icon: None,
         }
     }
 }

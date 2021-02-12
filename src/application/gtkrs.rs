@@ -120,6 +120,24 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         window.set_visible(attributes.visible);
         window.set_decorated(attributes.decorations);
         window.set_keep_above(attributes.always_on_top);
+        if attributes.fullscreen {
+            window.fullscreen();
+        }
+        if let Some(icon) = attributes.icon {
+            let image = image::load_from_memory(&icon.0)?.into_rgba8();
+            let (width, height) = image.dimensions();
+            let row_stride = image.sample_layout().height_stride;
+            let pixbuf = gdk_pixbuf::Pixbuf::from_mut_slice(
+                image.into_raw(),
+                gdk_pixbuf::Colorspace::Rgb,
+                true,
+                8,
+                width as i32,
+                height as i32,
+                row_stride as i32,
+            );
+            window.set_icon(Some(&pixbuf));
+        }
 
         Ok(GtkWindow(window))
     }
