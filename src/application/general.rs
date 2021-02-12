@@ -197,6 +197,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                                 }
                                 WindowMessage::SetTitle(title) => window.set_title(&title),
                                 WindowMessage::Maximize => window.set_maximized(true),
+                                WindowMessage::Unmaximize => window.set_maximized(false),
                                 WindowMessage::Minimize => window.set_minimized(true),
                                 WindowMessage::Unminimize => window.set_minimized(false),
                                 WindowMessage::Show => window.set_visible(true),

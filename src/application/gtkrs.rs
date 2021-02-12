@@ -233,6 +233,9 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                                 WindowMessage::Maximize => {
                                     window.maximize();
                                 }
+                                WindowMessage::Unmaximize => {
+                                    window.unmaximize();
+                                }
                                 WindowMessage::Minimize => {
                                     window.iconify();
                                 }
