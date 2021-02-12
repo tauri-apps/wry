@@ -18,11 +18,7 @@ pub use general::WinitWindow as Window;
 
 use crate::{Dispatcher, Result};
 
-#[cfg(not(target_os = "linux"))]
-use winit::{
-    dpi::{LogicalSize, Size},
-    window::{Fullscreen, WindowAttributes},
-};
+use std::marker::PhantomData;
 
 pub struct Callback {
     pub name: String,
@@ -158,46 +154,6 @@ impl Default for AppWindowAttributes {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
-impl From<&AppWindowAttributes> for WindowAttributes {
-    fn from(w: &AppWindowAttributes) -> Self {
-        let min_inner_size = match (w.min_width, w.min_height) {
-            (Some(min_width), Some(min_height)) => {
-                Some(Size::from(LogicalSize::new(min_width, min_height)))
-            }
-            _ => None,
-        };
-
-        let max_inner_size = match (w.max_width, w.max_height) {
-            (Some(max_width), Some(max_height)) => {
-                Some(Size::from(LogicalSize::new(max_width, max_height)))
-            }
-            _ => None,
-        };
-
-        let fullscreen = if w.fullscreen {
-            Some(Fullscreen::Borderless(None))
-        } else {
-            None
-        };
-
-        Self {
-            resizable: w.resizable,
-            title: w.title.clone(),
-            maximized: w.maximized,
-            visible: w.visible,
-            transparent: w.transparent,
-            decorations: w.decorations,
-            always_on_top: w.always_on_top,
-            inner_size: Some(Size::from(LogicalSize::new(w.width, w.height))),
-            min_inner_size,
-            max_inner_size,
-            fullscreen,
-            ..Default::default()
-        }
-    }
-}
-
 /// Attributes to use when creating a window.
 #[derive(Debug, Clone)]
 pub struct WebViewAttributes {
@@ -215,13 +171,188 @@ impl Default for WebViewAttributes {
     }
 }
 
+pub enum WindowMessage {
+    SetResizable(bool),
+    SetTitle(String),
+    Maximize,
+    Minimize,
+    Unminimize,
+    Show,
+    Hide,
+    SetTransparent(bool),
+    SetDecorations(bool),
+    SetAlwaysOnTop(bool),
+    SetWidth(f64),
+    SetHeight(f64),
+    Resize { width: f64, height: f64 },
+    SetMinSize { min_width: f64, min_height: f64 },
+    SetMaxSize { max_width: f64, max_height: f64 },
+    SetX(f64),
+    SetY(f64),
+    SetPosition { x: f64, y: f64 },
+    SetFullscreen(bool),
+    SetIcon(Icon),
+}
+
+pub enum WebviewMessage {
+    EvalScript(String),
+}
+
 pub enum Message<I, T> {
-    Script(I, String),
+    Webview(I, WebviewMessage),
+    Window(I, WindowMessage),
     Custom(T),
 }
 
 pub trait ApplicationDispatcher<I, T> {
     fn dispatch_message(&self, message: Message<I, T>) -> Result<()>;
+}
+
+pub struct WebviewDispatcher<I, T, D>(D, I, PhantomData<T>);
+
+impl<I: Copy, T, D: ApplicationDispatcher<I, T>> WebviewDispatcher<I, T, D> {
+    fn new(dispatcher: D, window_id: I) -> Self {
+        Self(dispatcher, window_id, PhantomData)
+    }
+
+    pub fn eval_script<S: Into<String>>(&self, script: S) -> Result<()> {
+        self.0.dispatch_message(Message::Webview(
+            self.1,
+            WebviewMessage::EvalScript(script.into()),
+        ))
+    }
+}
+
+pub struct WindowDispatcher<I, T, D>(D, I, PhantomData<T>);
+
+impl<I: Copy, T, D: ApplicationDispatcher<I, T>> WindowDispatcher<I, T, D> {
+    fn new(dispatcher: D, window_id: I) -> Self {
+        Self(dispatcher, window_id, PhantomData)
+    }
+
+    pub fn set_resizable(&self, resizable: bool) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetResizable(resizable),
+        ))
+    }
+
+    pub fn set_title<S: Into<String>>(&self, title: S) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetTitle(title.into()),
+        ))
+    }
+
+    pub fn maximize(&self) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::Maximize))
+    }
+
+    pub fn minimize(&self) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::Minimize))
+    }
+
+    pub fn unminimize(&self) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::Unminimize))
+    }
+
+    pub fn show(&self) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::Show))
+    }
+
+    pub fn hide(&self) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::Hide))
+    }
+
+    pub fn set_transparent(&self, resizable: bool) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetResizable(resizable),
+        ))
+    }
+
+    pub fn set_decorations(&self, decorations: bool) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetResizable(decorations),
+        ))
+    }
+
+    pub fn set_always_on_top(&self, always_on_top: bool) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetAlwaysOnTop(always_on_top),
+        ))
+    }
+
+    pub fn set_width(&self, width: f64) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::SetWidth(width)))
+    }
+
+    pub fn set_height(&self, height: f64) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::SetHeight(height)))
+    }
+
+    pub fn resize(&self, width: f64, height: f64) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::Resize { width, height },
+        ))
+    }
+
+    pub fn set_min_size(&self, min_width: f64, min_height: f64) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetMinSize {
+                min_width,
+                min_height,
+            },
+        ))
+    }
+
+    pub fn set_max_size(&self, max_width: f64, max_height: f64) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetMaxSize {
+                max_width,
+                max_height,
+            },
+        ))
+    }
+
+    pub fn set_x(&self, x: f64) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::SetX(x)))
+    }
+
+    pub fn set_y(&self, y: f64) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::SetY(y)))
+    }
+
+    pub fn set_position(&self, x: f64, y: f64) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::SetPosition { x, y }))
+    }
+
+    pub fn set_fullscreen(&self, fullscreen: bool) -> Result<()> {
+        self.0.dispatch_message(Message::Window(
+            self.1,
+            WindowMessage::SetFullscreen(fullscreen),
+        ))
+    }
+
+    pub fn set_icon(&self, icon: Icon) -> Result<()> {
+        self.0
+            .dispatch_message(Message::Window(self.1, WindowMessage::SetIcon(icon)))
+    }
 }
 
 pub trait ApplicationExt<'a, T>: Sized {
@@ -232,7 +363,9 @@ pub trait ApplicationExt<'a, T>: Sized {
     >;
 
     fn new() -> Result<Self>;
+
     fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window>;
+
     fn create_webview(
         &mut self,
         window: Self::Window,
@@ -240,11 +373,35 @@ pub trait ApplicationExt<'a, T>: Sized {
         callbacks: Option<Vec<Callback>>,
     ) -> Result<()>;
     fn set_message_handler<F: FnMut(T) + 'static>(&mut self, handler: F);
+
     fn dispatcher(&self) -> Self::Dispatcher;
+
+    fn window_dispatcher(
+        &self,
+        window_id: <<Self as ApplicationExt<'a, T>>::Window as WindowExt<'a>>::Id,
+    ) -> WindowDispatcher<
+        <<Self as ApplicationExt<'a, T>>::Window as WindowExt<'a>>::Id,
+        T,
+        Self::Dispatcher,
+    > {
+        WindowDispatcher::new(self.dispatcher(), window_id)
+    }
+
+    fn webview_dispatcher(
+        &self,
+        window_id: <<Self as ApplicationExt<'a, T>>::Window as WindowExt<'a>>::Id,
+    ) -> WebviewDispatcher<
+        <<Self as ApplicationExt<'a, T>>::Window as WindowExt<'a>>::Id,
+        T,
+        Self::Dispatcher,
+    > {
+        WebviewDispatcher::new(self.dispatcher(), window_id)
+    }
+
     fn run(self);
 }
 
 pub trait WindowExt<'a> {
-    type Id;
+    type Id: Copy;
     fn id(&self) -> Self::Id;
 }
