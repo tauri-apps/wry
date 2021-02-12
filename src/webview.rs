@@ -129,7 +129,7 @@ impl WebView {
         #[cfg(target_os = "macos")]
         let webview = InnerWebView::new(&window, DEBUG)?;
         #[cfg(target_os = "linux")]
-        let webview = InnerWebView::new(&window, DEBUG);
+        let webview = InnerWebView::new(&window, DEBUG)?;
         let (tx, rx) = channel();
         Ok(Self {
             window,

@@ -16,7 +16,7 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-    pub fn new(window: &Window, debug: bool) -> Self {
+    pub fn new(window: &Window, debug: bool) -> Result<Self> {
         // Initialize webview widget
         let manager = UserContentManager::new();
         let webview = Rc::new(WebView::with_user_content_manager(&manager));
@@ -55,9 +55,6 @@ impl InnerWebView {
             }
         });
 
-        let cancellable: Option<&Cancellable> = None;
-        webview.run_javascript("window.external={invoke:function(x){window.webkit.messageHandlers.external.postMessage(x);}}", cancellable, |_| ());
-
         window.add(&*webview);
         webview.grab_focus();
 
@@ -77,10 +74,14 @@ impl InnerWebView {
             window.show_all();
         }
 
-        Self {
+        let w = Self {
             webview,
             window_id: window.get_id() as i64,
-        }
+        };
+
+        w.init("window.external={invoke:function(x){window.webkit.messageHandlers.external.postMessage(x);}}")?;
+
+        Ok(w)
     }
 
     pub fn init(&self, js: &str) -> Result<()> {
