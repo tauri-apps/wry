@@ -1,6 +1,6 @@
 use crate::{
-    AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Message, Result, WebView,
-    WebViewAttributes, WebViewBuilder, WebviewMessage, WindowExt, WindowMessage,
+    AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Icon, Message, Result,
+    WebView, WebViewAttributes, WebViewBuilder, WebviewMessage, WindowExt, WindowMessage,
 };
 
 use std::{
@@ -55,6 +55,21 @@ impl<T> ApplicationDispatcher<u32, T> for AppDispatcher<T> {
     }
 }
 
+fn get_icon(icon: Icon) -> Result<gdk_pixbuf::Pixbuf> {
+    let image = image::load_from_memory(&icon.0)?.into_rgba8();
+    let (width, height) = image.dimensions();
+    let row_stride = image.sample_layout().height_stride;
+    Ok(gdk_pixbuf::Pixbuf::from_mut_slice(
+        image.into_raw(),
+        gdk_pixbuf::Colorspace::Rgb,
+        true,
+        8,
+        width as i32,
+        height as i32,
+        row_stride as i32,
+    ))
+}
+
 impl<T> ApplicationExt<'_, T> for Application<T> {
     type Window = GtkWindow;
     type Dispatcher = AppDispatcher<T>;
@@ -77,7 +92,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
     }
 
     fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window> {
-        //TODO window config (missing transparent)
+        //TODO window config (missing transparent, x, y)
         let window = ApplicationWindow::new(&self.app);
 
         window.set_geometry_hints::<ApplicationWindow>(
@@ -124,19 +139,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             window.fullscreen();
         }
         if let Some(icon) = attributes.icon {
-            let image = image::load_from_memory(&icon.0)?.into_rgba8();
-            let (width, height) = image.dimensions();
-            let row_stride = image.sample_layout().height_stride;
-            let pixbuf = gdk_pixbuf::Pixbuf::from_mut_slice(
-                image.into_raw(),
-                gdk_pixbuf::Colorspace::Rgb,
-                true,
-                8,
-                width as i32,
-                height as i32,
-                row_stride as i32,
-            );
-            window.set_icon(Some(&pixbuf));
+            window.set_icon(Some(&get_icon(icon)?));
         }
 
         Ok(GtkWindow(window))
@@ -223,7 +226,108 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                         if let Some(webview) = shared_webviews.lock().unwrap().get(&id) {
                             let window = webview.window();
                             match window_message {
+                                WindowMessage::SetResizable(resizable) => {
+                                    window.set_resizable(resizable);
+                                }
                                 WindowMessage::SetTitle(title) => window.set_title(&title),
+                                WindowMessage::Maximize => {
+                                    window.maximize();
+                                }
+                                WindowMessage::Minimize => {
+                                    window.iconify();
+                                }
+                                WindowMessage::Unminimize => {
+                                    window.deiconify();
+                                }
+                                WindowMessage::Show => {
+                                    window.show();
+                                }
+                                WindowMessage::Hide => {
+                                    window.hide();
+                                }
+                                WindowMessage::SetTransparent(_transparent) => {
+                                    // TODO
+                                }
+                                WindowMessage::SetDecorations(decorations) => {
+                                    window.set_decorated(decorations);
+                                }
+                                WindowMessage::SetAlwaysOnTop(always_on_top) => {
+                                    window.set_keep_above(always_on_top);
+                                }
+                                WindowMessage::SetWidth(width) => {
+                                    window.resize(width as i32, window.get_size().1);
+                                }
+                                WindowMessage::SetHeight(height) => {
+                                    window.resize(window.get_size().0, height as i32);
+                                }
+                                WindowMessage::Resize { width, height } => {
+                                    window.resize(width as i32, height as i32);
+                                }
+                                WindowMessage::SetMinSize {
+                                    min_width,
+                                    min_height,
+                                } => {
+                                    window.set_geometry_hints::<ApplicationWindow>(
+                                        None,
+                                        Some(&gdk::Geometry {
+                                            min_width: min_width as i32,
+                                            min_height: min_height as i32,
+                                            max_width: 0,
+                                            max_height: 0,
+                                            base_width: 0,
+                                            base_height: 0,
+                                            width_inc: 0,
+                                            height_inc: 0,
+                                            min_aspect: 0f64,
+                                            max_aspect: 0f64,
+                                            win_gravity: gdk::Gravity::Center,
+                                        }),
+                                        gdk::WindowHints::MIN_SIZE,
+                                    );
+                                }
+                                WindowMessage::SetMaxSize {
+                                    max_width,
+                                    max_height,
+                                } => {
+                                    window.set_geometry_hints::<ApplicationWindow>(
+                                        None,
+                                        Some(&gdk::Geometry {
+                                            min_width: 0,
+                                            min_height: 0,
+                                            max_width: max_width as i32,
+                                            max_height: max_height as i32,
+                                            base_width: 0,
+                                            base_height: 0,
+                                            width_inc: 0,
+                                            height_inc: 0,
+                                            min_aspect: 0f64,
+                                            max_aspect: 0f64,
+                                            win_gravity: gdk::Gravity::Center,
+                                        }),
+                                        gdk::WindowHints::MAX_SIZE,
+                                    );
+                                }
+                                WindowMessage::SetX(_x) => {
+                                    // TODO
+                                }
+                                WindowMessage::SetY(_y) => {
+                                    // TODO
+                                }
+                                WindowMessage::SetLocation { x: _, y: _ } => {
+                                    // TODO
+                                }
+                                WindowMessage::SetFullscreen(fullscreen) => {
+                                    if fullscreen {
+                                        window.fullscreen();
+                                    } else {
+                                        window.unfullscreen();
+                                    }
+                                }
+                                WindowMessage::SetIcon(icon) => {
+                                    if let Ok(icon) = get_icon(icon) {
+                                        window.set_icon(Some(&icon));
+                                    }
+                                }
                             }
                         }
                     }

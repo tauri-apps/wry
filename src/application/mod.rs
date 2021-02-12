@@ -218,7 +218,26 @@ impl Default for WebViewAttributes {
 }
 
 pub enum WindowMessage {
+    SetResizable(bool),
     SetTitle(String),
+    Maximize,
+    Minimize,
+    Unminimize,
+    Show,
+    Hide,
+    SetTransparent(bool),
+    SetDecorations(bool),
+    SetAlwaysOnTop(bool),
+    SetWidth(f64),
+    SetHeight(f64),
+    Resize { width: f64, height: f64 },
+    SetMinSize { min_width: f64, min_height: f64 },
+    SetMaxSize { max_width: f64, max_height: f64 },
+    SetX(f64),
+    SetY(f64),
+    SetLocation { x: f64, y: f64 },
+    SetFullscreen(bool),
+    SetIcon(Icon),
 }
 
 pub enum WebviewMessage {

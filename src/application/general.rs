@@ -154,6 +154,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                             let window = webview.window();
                             match window_message {
                                 WindowMessage::SetTitle(title) => window.set_title(&title),
+                                _ => {}
                             }
                         }
                     }
