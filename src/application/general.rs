@@ -324,6 +324,6 @@ fn skip_taskbar(window: &Window) {
     }
 }
 #[cfg(target_os = "macos")]
-fn skip_taskbar(window: &Window, _hidden_parent: &Window) {
+fn skip_taskbar(window: &Window) {
     // TODO
 }
