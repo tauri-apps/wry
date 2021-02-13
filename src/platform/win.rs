@@ -33,7 +33,7 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-    pub fn new(hwnd: *mut c_void, _debug: bool) -> Result<Self> {
+    pub fn new(hwnd: *mut c_void) -> Result<Self> {
         // Webview
         let op = WebViewControlProcess::new()?
             .create_web_view_control_async(hwnd as i64, Rect::default())?;
