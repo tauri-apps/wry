@@ -20,15 +20,27 @@ const DEBUG: bool = true;
 /// scripts for those who prefer to control fine grained window creation and event handling.
 /// [`WebViewBuilder`] privides ability to setup initialization before web engine starts.
 pub struct WebViewBuilder {
-    inner: WebView,
+    tx: Sender<String>,
+    rx: Receiver<String>,
+    initialization_scripts: Vec<String>,
+    callbacks: Vec<(
+        String,
+        Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,
+    )>,
+    window: Window,
     url: Option<Url>,
 }
 
 impl WebViewBuilder {
     /// Create [`WebViewBuilder`] from provided [`Window`].
     pub fn new(window: Window) -> Result<Self> {
+        let (tx, rx) = channel();
         Ok(Self {
-            inner: WebView::new(window)?,
+            tx,
+            rx,
+            initialization_scripts: vec![],
+            callbacks: vec![],
+            window,
             url: None,
         })
     }
@@ -36,8 +48,8 @@ impl WebViewBuilder {
     /// Initialize javascript code when loading new pages. Everytime webview load a new page, this
     /// initialization code will be executed. It is guaranteed that code is executed before
     /// `window.onload`.
-    pub fn initialize_script(self, js: &str) -> Result<Self> {
-        self.inner.webview.init(js)?;
+    pub fn initialize_script(mut self, js: &str) -> Result<Self> {
+        self.initialization_scripts.push(js.to_string());
         Ok(self)
     }
 
@@ -45,7 +57,7 @@ impl WebViewBuilder {
     /// safe because it must be run on the main thread who creates it. [`Dispatcher`] can let you
     /// send the scripts from other threads.
     pub fn dispatcher(&self) -> Dispatcher {
-        Dispatcher(self.inner.tx.clone())
+        Dispatcher(self.tx.clone())
     }
 
     /// Add a callback function to the WebView. The callback takse a dispatcher, a sequence number,
@@ -55,7 +67,7 @@ impl WebViewBuilder {
     /// how many times has this callback been called. Arguments passed from callers is a vector of
     /// serde values for you to decide how to handle them. IF you need to evaluate any code on
     /// javascript side, you can use the dispatcher to send them.
-    pub fn add_callback<F>(self, name: &str, f: F) -> Result<Self>
+    pub fn add_callback<F>(mut self, name: &str, f: F) -> Result<Self>
     where
         F: FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send + 'static,
     {
@@ -80,9 +92,8 @@ impl WebViewBuilder {
             "#,
             name
         );
-        self.inner.webview.init(&js)?;
-        let dispatcher = self.dispatcher();
-        self.inner.webview.add_callback(name, f, dispatcher);
+        self.initialization_scripts.push(js);
+        self.callbacks.push((name.to_string(), Box::new(f)));
         Ok(self)
     }
 
@@ -95,14 +106,32 @@ impl WebViewBuilder {
 
     /// Consume the builder and create the [`WebView`].
     pub fn build(self) -> Result<WebView> {
+        let inner = InnerWebView::new(&self.window, DEBUG)?;
+        let webview = WebView {
+            window: self.window,
+            webview: inner,
+            tx: self.tx,
+            rx: self.rx,
+        };
+
+        for js in self.initialization_scripts {
+            webview.webview.init(&js)?;
+        }
+
+        for cb in self.callbacks {
+            webview
+                .webview
+                .add_callback(&cb.0, cb.1, webview.dispatcher());
+        }
+
         if let Some(url) = self.url {
             if url.cannot_be_a_base() {
-                self.inner.webview.navigate_to_string(url.as_str())?;
+                webview.webview.navigate_to_string(url.as_str())?;
             } else {
-                self.inner.webview.navigate(url.as_str())?;
+                webview.webview.navigate(url.as_str())?;
             }
         }
-        Ok(self.inner)
+        Ok(webview)
     }
 }
 
