@@ -10,6 +10,15 @@ use winit::{
     window::{Fullscreen, Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
 };
 
+#[cfg(target_os = "windows")]
+use winit::platform::windows::WindowExtWindows;
+#[cfg(target_os = "windows")]
+mod bindings {
+    ::windows::include_bindings!();
+}
+#[cfg(target_os = "windows")]
+use bindings::windows::win32::{system_services::*, windows_and_messaging::*};
+
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -114,6 +123,10 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         }
         if let Some(icon) = attributes.icon {
             window.set_window_icon(Some(load_icon(icon)?));
+        }
+
+        if attributes.skip_taskbar {
+            skip_taskbar(&window);
         }
 
         Ok(WinitWindow(window))
@@ -294,4 +307,15 @@ fn load_icon(icon: Icon) -> crate::Result<WinitIcon> {
     let rgba = image.into_raw();
     let icon = WinitIcon::from_rgba(rgba, width, height)?;
     Ok(icon)
+}
+
+#[cfg(target_os = "windows")]
+fn skip_taskbar(window: &Window) {
+    unsafe {
+        SetWindowLongA(HWND(window.hwnd() as isize), GWL_EXSTYLE, WS_EX_TOOLWINDOW);
+    }
+}
+#[cfg(target_os = "macos")]
+fn skip_taskbar(window: &Window) {
+    // TODO
 }
