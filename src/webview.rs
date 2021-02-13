@@ -106,10 +106,15 @@ impl WebViewBuilder {
 
     /// Consume the builder and create the [`WebView`].
     pub fn build(self) -> Result<WebView> {
-        let inner = InnerWebView::new(&self.window, DEBUG)?;
+        #[cfg(target_os = "windows")]
+        let webview = InnerWebView::new(self.window.hwnd())?;
+        #[cfg(target_os = "macos")]
+        let webview = InnerWebView::new(&self.window, DEBUG)?;
+        #[cfg(target_os = "linux")]
+        let webview = InnerWebView::new(&self.window, DEBUG)?;
         let webview = WebView {
             window: self.window,
-            webview: inner,
+            webview,
             tx: self.tx,
             rx: self.rx,
         };
@@ -153,6 +158,11 @@ impl WebView {
     /// abilities to initialize scripts, add callbacks, and many more before starting WebView. To
     /// benefit from above features, create a [`WebViewBuilder`] instead.
     pub fn new(window: Window) -> Result<Self> {
+        #[cfg(target_os = "windows")]
+        let webview = InnerWebView::new(window.hwnd())?;
+        #[cfg(target_os = "macos")]
+        let webview = InnerWebView::new(&window, DEBUG)?;
+        #[cfg(target_os = "linux")]
         let webview = InnerWebView::new(&window, DEBUG)?;
         let (tx, rx) = channel();
         Ok(Self {
