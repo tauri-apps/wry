@@ -2,6 +2,8 @@ use crate::{
     AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Icon, Message, Result,
     WebView, WebViewAttributes, WebViewBuilder, WebviewMessage, WindowExt, WindowMessage,
 };
+#[cfg(target_os = "macos")]
+use winit::platform::macos::{ActivationPolicy, WindowExtMacOS};
 pub use winit::window::WindowId;
 use winit::{
     dpi::{LogicalPosition, LogicalSize},
@@ -118,6 +120,10 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
 
     fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window> {
         let mut window_builder = WindowBuilder::new();
+        #[cfg(target_os = "macos")]
+        if attributes.skip_taskbar {
+            window_builder.with_activation_policy(ActivationPolicy::Accessory);
+        }
         let window_attributes = WindowAttributes::from(&attributes);
         window_builder.window = window_attributes;
         let window = window_builder.build(&self.event_loop)?;
@@ -322,8 +328,4 @@ fn skip_taskbar(window: &Window) {
     unsafe {
         SkipTaskbar(HWND(window.hwnd() as isize));
     }
-}
-#[cfg(target_os = "macos")]
-fn skip_taskbar(window: &Window) {
-    // TODO
 }
