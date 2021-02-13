@@ -4,10 +4,7 @@ mod bindings {
 }
 
 use crate::platform::{
-    win::windows::{
-        foundation::IAsyncOperation,
-        storage::streams::{IInputStream},
-    },
+    win::windows::{foundation::IAsyncOperation, storage::streams::IInputStream},
     CALLBACKS, RPC,
 };
 use crate::Result;
@@ -25,7 +22,7 @@ use ::windows::{implement, Abi, HString, Param, RuntimeType, BOOL};
 use bindings::windows::{
     foundation::collections::*,
     foundation::*,
-    storage::{StorageFile},
+    storage::StorageFile,
     web::ui::interop::*,
     web::ui::*,
     win32::{com::*, display_devices::*, system_services::*, windows_and_messaging::*},
@@ -41,23 +38,24 @@ pub struct InnerWebView {
 }
 
 #[implement(windows::web::IUriToStreamResolver)]
-#[derive(Clone)]
-struct CustomResolver();
+#[derive(Debug)]
+struct CustomResolver(String);
 
 impl CustomResolver {
     pub fn uri_to_stream_async<'a, T0__: Into<Param<'a, Uri>>>(
         &self,
         uri: T0__,
     ) -> windows::Result<IAsyncOperation<IInputStream>> {
-        StorageFile::get_file_from_path_async("index.html")?
+        // TODO right now it only serves one file :(
+        StorageFile::get_file_from_path_async(self.0.as_str())?
             .get()?
             .open_sequential_read_async()
     }
 }
 
-impl<'a> Into<windows::Param<'a,windows::web::IUriToStreamResolver >> for CustomResolver {
-    fn into(self) -> windows::Param<'a,windows::web::IUriToStreamResolver > {
-        ::windows::Param::Owned(::std::convert::Into::into(::std::clone::Clone::clone(&self)))
+impl<'a> Into<windows::Param<'a, windows::web::IUriToStreamResolver>> for CustomResolver {
+    fn into(self) -> windows::Param<'a, windows::web::IUriToStreamResolver> {
+        ::windows::Param::Owned(self.into())
     }
 }
 
@@ -157,9 +155,10 @@ impl InnerWebView {
         Ok(())
     }
 
-    pub fn navigate(&self, url: &str) -> Result<()> {
-        let res = CustomResolver();
-        Ok(self.webview.navigate_to_local_stream_uri(Uri::create_uri(url)?, res)?)
+    pub fn navigate_to_custom_uri(&self, identifier: &str, path: &str) -> Result<()> {
+        let res = CustomResolver(std::env::current_dir().unwrap().join(path).to_string_lossy().to_string());
+        let uri = self.webview.build_local_stream_uri(identifier, path)?;
+        Ok(self.webview.navigate_to_local_stream_uri(uri, res)?)
     }
 
     pub fn navigate_to_string(&self, url: &str) -> Result<()> {

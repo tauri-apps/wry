@@ -18,6 +18,7 @@ const DEBUG: bool = true;
 enum Content {
     URL(Url),
     HTML(Url),
+    CustomUri(String, String),
 }
 
 pub struct WebViewBuilder {
@@ -38,7 +39,9 @@ impl WebViewBuilder {
         protocol: String,
         handler: F,
     ) -> Result<()> {
-        self.inner.webview.register_buffer_protocol(protocol, handler)
+        self.inner
+            .webview
+            .register_buffer_protocol(protocol, handler)
     }
 
     pub fn init(self, js: &str) -> Result<Self> {
@@ -89,6 +92,11 @@ impl WebViewBuilder {
         Ok(self)
     }
 
+    pub fn load_custom_uri(mut self, identifier: &str, path: &str) -> Self {
+        self.content = Some(Content::CustomUri(identifier.to_string(), path.to_string()));
+        self
+    }
+
     pub fn load_html(mut self, html: &str) -> Result<Self> {
         let url = match Url::parse(html) {
             Ok(url) => url,
@@ -102,7 +110,10 @@ impl WebViewBuilder {
         if let Some(url) = self.content {
             match url {
                 Content::HTML(url) => self.inner.webview.navigate_to_string(url.as_str())?,
-                Content::URL(url) => self.inner.webview.navigate(url.as_str())?,
+                Content::URL(url) => todo!(),
+                Content::CustomUri(id, path) => {
+                    self.inner.webview.navigate_to_custom_uri(&id, &path)?
+                }
             }
         }
         Ok(self.inner)
