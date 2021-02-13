@@ -122,7 +122,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         let mut window_builder = WindowBuilder::new();
         #[cfg(target_os = "macos")]
         if attributes.skip_taskbar {
-            window_builder.with_activation_policy(ActivationPolicy::Accessory);
+            window_builder = window_builder.with_activation_policy(ActivationPolicy::Accessory);
         }
         let window_attributes = WindowAttributes::from(&attributes);
         window_builder.window = window_attributes;
