@@ -127,11 +127,11 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
     ) -> Result<()> {
         let mut webview = WebViewBuilder::new(window.0)?;
         for js in attributes.initialization_script {
-            webview = webview.initialize_script(&js)?;
+            webview = webview.initialize_script(&js);
         }
         if let Some(cbs) = callbacks {
             for Callback { name, function } in cbs {
-                webview = webview.add_callback(&name, function)?;
+                webview = webview.add_callback(&name, function);
             }
         }
         webview = match attributes.url {

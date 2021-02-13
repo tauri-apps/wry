@@ -48,9 +48,9 @@ impl WebViewBuilder {
     /// Initialize javascript code when loading new pages. Everytime webview load a new page, this
     /// initialization code will be executed. It is guaranteed that code is executed before
     /// `window.onload`.
-    pub fn initialize_script(mut self, js: &str) -> Result<Self> {
+    pub fn initialize_script(mut self, js: &str) -> Self {
         self.initialization_scripts.push(js.to_string());
-        Ok(self)
+        self
     }
 
     /// Create a [`Dispatcher`] to send evaluation scripts to the WebView. [`WebView`] is not thread
@@ -67,7 +67,7 @@ impl WebViewBuilder {
     /// how many times has this callback been called. Arguments passed from callers is a vector of
     /// serde values for you to decide how to handle them. IF you need to evaluate any code on
     /// javascript side, you can use the dispatcher to send them.
-    pub fn add_callback<F>(mut self, name: &str, f: F) -> Result<Self>
+    pub fn add_callback<F>(mut self, name: &str, f: F) -> Self
     where
         F: FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send + 'static,
     {
@@ -94,7 +94,7 @@ impl WebViewBuilder {
         );
         self.initialization_scripts.push(js);
         self.callbacks.push((name.to_string(), Box::new(f)));
-        Ok(self)
+        self
     }
 
     /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the
