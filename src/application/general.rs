@@ -3,7 +3,7 @@ use crate::{
     WebView, WebViewAttributes, WebViewBuilder, WebviewMessage, WindowExt, WindowMessage,
 };
 #[cfg(target_os = "macos")]
-use winit::platform::macos::{ActivationPolicy, WindowExtMacOS};
+use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};
 pub use winit::window::WindowId;
 use winit::{
     dpi::{LogicalPosition, LogicalSize},
@@ -134,7 +134,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         if let Some(icon) = attributes.icon {
             window.set_window_icon(Some(load_icon(icon)?));
         }
-
+        #[cfg(target_os = "windows")]
         if attributes.skip_taskbar {
             skip_taskbar(&window);
         }
