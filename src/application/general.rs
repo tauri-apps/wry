@@ -11,13 +11,17 @@ use winit::{
 };
 
 #[cfg(target_os = "windows")]
+use libc::c_void;
+#[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
+
+#[allow(dead_code)]
 #[cfg(target_os = "windows")]
 mod bindings {
     ::windows::include_bindings!();
 }
 #[cfg(target_os = "windows")]
-use bindings::windows::win32::{system_services::*, windows_and_messaging::*};
+use bindings::windows::win32::windows_and_messaging::*;
 
 use std::{
     collections::HashMap,
@@ -308,14 +312,18 @@ fn load_icon(icon: Icon) -> crate::Result<WinitIcon> {
     let icon = WinitIcon::from_rgba(rgba, width, height)?;
     Ok(icon)
 }
+#[cfg(target_os = "windows")]
+extern "C" {
+    fn SkipTaskbar(window: HWND) -> c_void;
+}
 
 #[cfg(target_os = "windows")]
 fn skip_taskbar(window: &Window) {
     unsafe {
-        SetWindowLongA(HWND(window.hwnd() as isize), GWL_EXSTYLE, WS_EX_TOOLWINDOW);
+        SkipTaskbar(HWND(window.hwnd() as isize));
     }
 }
 #[cfg(target_os = "macos")]
-fn skip_taskbar(window: &Window) {
+fn skip_taskbar(window: &Window, _hidden_parent: &Window) {
     // TODO
 }
