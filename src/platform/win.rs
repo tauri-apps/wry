@@ -42,10 +42,11 @@ pub struct InnerWebView {
 struct CustomResolver(String);
 
 impl CustomResolver {
-    pub fn uri_to_stream_async<'a, T0__: Into<Param<'a, Uri>>>(
+    pub fn uri_to_stream_async(
         &self,
-        uri: T0__,
+        uri: &Option<Uri>,
     ) -> windows::Result<IAsyncOperation<IInputStream>> {
+        dbg!(uri);
         // TODO right now it only serves one file :(
         StorageFile::get_file_from_path_async(self.0.as_str())?
             .get()?
