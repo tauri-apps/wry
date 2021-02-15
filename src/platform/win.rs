@@ -8,7 +8,7 @@ use crate::{Dispatcher, Result};
 
 use std::{
     ffi::CString,
-    marker::{Send, Sync},
+    marker::Send,
     os::raw::{c_char, c_void},
     ptr::{null, null_mut},
 };
@@ -168,6 +168,3 @@ impl InnerWebView {
         self.webview.set_bounds(r).unwrap();
     }
 }
-
-unsafe impl Send for InnerWebView {}
-unsafe impl Sync for InnerWebView {}

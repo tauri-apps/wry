@@ -126,6 +126,3 @@ impl InnerWebView {
         Ok(())
     }
 }
-
-unsafe impl Send for InnerWebView {}
-unsafe impl Sync for InnerWebView {}
