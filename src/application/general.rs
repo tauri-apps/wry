@@ -181,7 +181,6 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
     fn new() -> Result<Self> {
         let event_loop = EventLoop::<Message<WindowId, T>>::with_user_event();
         let proxy = event_loop.create_proxy();
-        let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
         Ok(Self {
             webviews: HashMap::new(),
             event_loop,
@@ -211,7 +210,6 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
     }
 
     fn dispatcher(&self) -> Self::Dispatcher {
-        let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
         AppDispatcher {
             proxy: self.event_loop_proxy.clone(),
         }
