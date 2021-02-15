@@ -1,7 +1,7 @@
 #[cfg(not(target_os = "linux"))]
 mod general;
 
-use std::{fs::read, path::Path};
+use std::{fs::read, path::Path, sync::mpsc::Sender};
 
 #[cfg(not(target_os = "linux"))]
 pub use general::*;
@@ -205,14 +205,30 @@ pub enum WebviewMessage {
     EvalScript(String),
 }
 
+pub enum AppMessage {
+    NewWindow(
+        AppWindowAttributes,
+        WebViewAttributes,
+        Option<Vec<Callback>>,
+        Sender<WindowId>,
+    ),
+}
+
 pub enum Message<I, T> {
     Webview(I, WebviewMessage),
     Window(I, WindowMessage),
+    App(AppMessage),
     Custom(T),
 }
 
 pub trait ApplicationDispatcher<I, T> {
     fn dispatch_message(&self, message: Message<I, T>) -> Result<()>;
+    fn add_window(
+        &self,
+        window_attrs: AppWindowAttributes,
+        webview_attrs: WebViewAttributes,
+        callbacks: Option<Vec<Callback>>,
+    ) -> Result<WindowId>;
 }
 
 pub struct WebviewDispatcher<I, T, D>(D, I, PhantomData<T>);
