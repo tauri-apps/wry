@@ -101,7 +101,7 @@ impl InnerWebView {
             let dom = get_nsstring("DOMPasteAllowed");
             let _: id = msg_send![preference, setValue:number forKey:dom];
 
-            let size = window.inner_size().to_logical(2.);
+            let size = window.inner_size().to_logical(window.scale_factor());
             let rect = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(size.width, size.height));
             let _: () = msg_send![webview, initWithFrame:rect configuration:config];
             webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
