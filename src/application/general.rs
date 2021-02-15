@@ -2,6 +2,8 @@ use crate::{
     AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Icon, Message, Result,
     WebView, WebViewAttributes, WebViewBuilder, WebviewMessage, WindowExt, WindowMessage,
 };
+#[cfg(target_os = "macos")]
+use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};
 pub use winit::window::WindowId;
 use winit::{
     dpi::{LogicalPosition, LogicalSize},
@@ -9,6 +11,19 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Fullscreen, Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
 };
+
+#[cfg(target_os = "windows")]
+use libc::c_void;
+#[cfg(target_os = "windows")]
+use winit::platform::windows::WindowExtWindows;
+
+#[allow(dead_code)]
+#[cfg(target_os = "windows")]
+mod bindings {
+    ::windows::include_bindings!();
+}
+#[cfg(target_os = "windows")]
+use bindings::windows::win32::windows_and_messaging::*;
 
 use std::{
     collections::HashMap,
@@ -105,6 +120,10 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
 
     fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window> {
         let mut window_builder = WindowBuilder::new();
+        #[cfg(target_os = "macos")]
+        if attributes.skip_taskbar {
+            window_builder = window_builder.with_activation_policy(ActivationPolicy::Accessory);
+        }
         let window_attributes = WindowAttributes::from(&attributes);
         window_builder.window = window_attributes;
         let window = window_builder.build(&self.event_loop)?;
@@ -114,6 +133,10 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         }
         if let Some(icon) = attributes.icon {
             window.set_window_icon(Some(load_icon(icon)?));
+        }
+        #[cfg(target_os = "windows")]
+        if attributes.skip_taskbar {
+            skip_taskbar(&window);
         }
 
         Ok(WinitWindow(window))
@@ -294,4 +317,15 @@ fn load_icon(icon: Icon) -> crate::Result<WinitIcon> {
     let rgba = image.into_raw();
     let icon = WinitIcon::from_rgba(rgba, width, height)?;
     Ok(icon)
+}
+#[cfg(target_os = "windows")]
+extern "C" {
+    fn SkipTaskbar(window: HWND) -> c_void;
+}
+
+#[cfg(target_os = "windows")]
+fn skip_taskbar(window: &Window) {
+    unsafe {
+        SkipTaskbar(HWND(window.hwnd() as isize));
+    }
 }

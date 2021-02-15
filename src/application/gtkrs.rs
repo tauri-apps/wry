@@ -127,6 +127,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             window.set_size_request(attributes.width as i32, attributes.height as i32);
         }
 
+        window.set_skip_taskbar_hint(attributes.skip_taskbar);
         window.set_resizable(attributes.resizable);
         window.set_title(&attributes.title);
         if attributes.maximized {

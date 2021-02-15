@@ -127,6 +127,11 @@ pub struct AppWindowAttributes {
     ///
     /// The default is None,
     pub icon: Option<Icon>,
+
+    /// Whether to hide the window icon in the taskbar/dock
+    ///
+    /// The default is false
+    pub skip_taskbar: bool,
 }
 
 impl Default for AppWindowAttributes {
@@ -150,6 +155,7 @@ impl Default for AppWindowAttributes {
             y: None,
             fullscreen: false,
             icon: None,
+            skip_taskbar: false,
         }
     }
 }
