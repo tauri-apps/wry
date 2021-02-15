@@ -1,6 +1,7 @@
 use crate::{
-    AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Icon, Message, Result,
-    WebView, WebViewAttributes, WebViewBuilder, WebviewMessage, WindowExt, WindowMessage,
+    AppMessage, AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Icon,
+    Message, Result, WebView, WebViewAttributes, WebViewBuilder, WebviewMessage, WindowExt,
+    WindowMessage,
 };
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};
@@ -8,7 +9,7 @@ pub use winit::window::WindowId;
 use winit::{
     dpi::{LogicalPosition, LogicalSize},
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
     window::{Fullscreen, Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
 };
 
@@ -27,7 +28,10 @@ use bindings::windows::win32::windows_and_messaging::*;
 
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Arc, Mutex,
+    },
 };
 
 pub struct WinitWindow(Window);
@@ -54,6 +58,22 @@ impl<T> ApplicationDispatcher<WindowId, T> for AppDispatcher<T> {
             .send_event(message)
             .unwrap_or_else(|_| panic!("failed to dispatch message to event loop"));
         Ok(())
+    }
+
+    fn add_window(
+        &self,
+        window_attrs: AppWindowAttributes,
+        webview_attrs: WebViewAttributes,
+        callbacks: Option<Vec<Callback>>,
+    ) -> Result<WindowId> {
+        let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
+        self.dispatch_message(Message::App(AppMessage::NewWindow(
+            window_attrs,
+            webview_attrs,
+            callbacks,
+            sender,
+        )))?;
+        Ok(receiver.recv().unwrap())
     }
 }
 
@@ -96,6 +116,57 @@ impl From<&AppWindowAttributes> for WindowAttributes {
     }
 }
 
+fn _create_window<T>(
+    event_loop: &EventLoopWindowTarget<Message<WindowId, T>>,
+    attributes: AppWindowAttributes,
+) -> Result<Window> {
+    let mut window_builder = WindowBuilder::new();
+    #[cfg(target_os = "macos")]
+    if attributes.skip_taskbar {
+        window_builder = window_builder.with_activation_policy(ActivationPolicy::Accessory);
+    }
+    let window_attributes = WindowAttributes::from(&attributes);
+    window_builder.window = window_attributes;
+    let window = window_builder.build(event_loop)?;
+    match (attributes.x, attributes.y) {
+        (Some(x), Some(y)) => window.set_outer_position(LogicalPosition::new(x, y)),
+        _ => {}
+    }
+    if let Some(icon) = attributes.icon {
+        window.set_window_icon(Some(load_icon(icon)?));
+    }
+
+    #[cfg(target_os = "windows")]
+    if attributes.skip_taskbar {
+        skip_taskbar(&window);
+    }
+
+    Ok(window)
+}
+
+fn _create_webview(
+    window: Window,
+    attributes: WebViewAttributes,
+    callbacks: Option<Vec<Callback>>,
+) -> Result<WebView> {
+    let mut webview = WebViewBuilder::new(window)?;
+    for js in attributes.initialization_script {
+        webview = webview.initialize_script(&js);
+    }
+    if let Some(cbs) = callbacks {
+        for Callback { name, function } in cbs {
+            webview = webview.add_callback(&name, function);
+        }
+    }
+    webview = match attributes.url {
+        Some(url) => webview.load_url(&url)?,
+        None => webview,
+    };
+
+    let webview = webview.build()?;
+    Ok(webview)
+}
+
 pub struct Application<T: 'static> {
     webviews: HashMap<WindowId, WebView>,
     event_loop: EventLoop<Message<WindowId, T>>,
@@ -119,27 +190,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
     }
 
     fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window> {
-        let mut window_builder = WindowBuilder::new();
-        #[cfg(target_os = "macos")]
-        if attributes.skip_taskbar {
-            window_builder = window_builder.with_activation_policy(ActivationPolicy::Accessory);
-        }
-        let window_attributes = WindowAttributes::from(&attributes);
-        window_builder.window = window_attributes;
-        let window = window_builder.build(&self.event_loop)?;
-        match (attributes.x, attributes.y) {
-            (Some(x), Some(y)) => window.set_outer_position(LogicalPosition::new(x, y)),
-            _ => {}
-        }
-        if let Some(icon) = attributes.icon {
-            window.set_window_icon(Some(load_icon(icon)?));
-        }
-        #[cfg(target_os = "windows")]
-        if attributes.skip_taskbar {
-            skip_taskbar(&window);
-        }
-
-        Ok(WinitWindow(window))
+        Ok(WinitWindow(_create_window(&self.event_loop, attributes)?))
     }
 
     fn create_webview(
@@ -148,21 +199,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<()> {
-        let mut webview = WebViewBuilder::new(window.0)?;
-        for js in attributes.initialization_script {
-            webview = webview.initialize_script(&js);
-        }
-        if let Some(cbs) = callbacks {
-            for Callback { name, function } in cbs {
-                webview = webview.add_callback(&name, function);
-            }
-        }
-        webview = match attributes.url {
-            Some(url) => webview.load_url(&url)?,
-            None => webview,
-        };
-
-        let webview = webview.build()?;
+        let webview = _create_webview(window.0, attributes, callbacks)?;
         let id = webview.window().id();
         self.webviews.insert(id, webview);
         Ok(())
@@ -181,7 +218,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
     fn run(self) {
         let mut windows = self.webviews;
         let mut message_handler = self.message_handler;
-        self.event_loop.run(move |event, _, control_flow| {
+        self.event_loop.run(move |event, event_loop, control_flow| {
             *control_flow = ControlFlow::Wait;
 
             for (_, w) in windows.iter() {
@@ -202,6 +239,16 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                     _ => {}
                 },
                 Event::UserEvent(message) => match message {
+                    Message::App(message) => match message {
+                        AppMessage::NewWindow(window_attrs, webview_attrs, callbacks, sender) => {
+                            let window = _create_window(&event_loop, window_attrs).unwrap();
+                            sender.send(window.id()).unwrap();
+                            let webview =
+                                _create_webview(window, webview_attrs, callbacks).unwrap();
+                            let id = webview.window().id();
+                            windows.insert(id, webview);
+                        }
+                    },
                     Message::Webview(id, webview_message) => {
                         if let Some(webview) = windows.get_mut(&id) {
                             match webview_message {

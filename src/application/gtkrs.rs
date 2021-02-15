@@ -1,6 +1,7 @@
 use crate::{
-    AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Icon, Message, Result,
-    WebView, WebViewAttributes, WebViewBuilder, WebviewMessage, WindowExt, WindowMessage,
+    AppMessage, AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Icon,
+    Message, Result, WebView, WebViewAttributes, WebViewBuilder, WebviewMessage, WindowExt,
+    WindowMessage,
 };
 
 use std::{
@@ -53,6 +54,22 @@ impl<T> ApplicationDispatcher<u32, T> for AppDispatcher<T> {
         self.proxy.0.lock().unwrap().send(message).unwrap();
         Ok(())
     }
+
+    fn add_window(
+        &self,
+        window_attrs: AppWindowAttributes,
+        webview_attrs: WebViewAttributes,
+        callbacks: Option<Vec<Callback>>,
+    ) -> Result<WindowId> {
+        let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
+        self.dispatch_message(Message::App(AppMessage::NewWindow(
+            window_attrs,
+            webview_attrs,
+            callbacks,
+            sender,
+        )))?;
+        Ok(receiver.recv().unwrap())
+    }
 }
 
 fn load_icon(icon: Icon) -> Result<gdk_pixbuf::Pixbuf> {
@@ -69,7 +86,82 @@ fn load_icon(icon: Icon) -> Result<gdk_pixbuf::Pixbuf> {
         row_stride as i32,
     ))
 }
+fn _create_window(app: &GtkApp, attributes: AppWindowAttributes) -> Result<ApplicationWindow> {
+    //TODO window config (missing transparent, x, y)
+    let window = ApplicationWindow::new(app);
 
+    window.set_geometry_hints::<ApplicationWindow>(
+        None,
+        Some(&gdk::Geometry {
+            min_width: attributes.min_width.unwrap_or_default() as i32,
+            min_height: attributes.min_height.unwrap_or_default() as i32,
+            max_width: attributes.max_width.unwrap_or_default() as i32,
+            max_height: attributes.max_height.unwrap_or_default() as i32,
+            base_width: 0,
+            base_height: 0,
+            width_inc: 0,
+            height_inc: 0,
+            min_aspect: 0f64,
+            max_aspect: 0f64,
+            win_gravity: gdk::Gravity::Center,
+        }),
+        (if attributes.min_width.is_some() || attributes.min_height.is_some() {
+            gdk::WindowHints::MIN_SIZE
+        } else {
+            gdk::WindowHints::empty()
+        }) | (if attributes.max_width.is_some() || attributes.max_height.is_some() {
+            gdk::WindowHints::MAX_SIZE
+        } else {
+            gdk::WindowHints::empty()
+        }),
+    );
+
+    if attributes.resizable {
+        window.set_default_size(attributes.width as i32, attributes.height as i32);
+    } else {
+        window.set_size_request(attributes.width as i32, attributes.height as i32);
+    }
+
+    window.set_skip_taskbar_hint(attributes.skip_taskbar);
+    window.set_resizable(attributes.resizable);
+    window.set_title(&attributes.title);
+    if attributes.maximized {
+        window.maximize();
+    }
+    window.set_visible(attributes.visible);
+    window.set_decorated(attributes.decorations);
+    window.set_keep_above(attributes.always_on_top);
+    if attributes.fullscreen {
+        window.fullscreen();
+    }
+    if let Some(icon) = attributes.icon {
+        window.set_icon(Some(&load_icon(icon)?));
+    }
+
+    Ok(window)
+}
+fn _create_webview(
+    window: ApplicationWindow,
+    attributes: WebViewAttributes,
+    callbacks: Option<Vec<Callback>>,
+) -> Result<WebView> {
+    let mut webview = WebViewBuilder::new(window)?;
+    for js in attributes.initialization_script {
+        webview = webview.initialize_script(&js);
+    }
+    if let Some(cbs) = callbacks {
+        for Callback { name, function } in cbs {
+            webview = webview.add_callback(&name, function);
+        }
+    }
+    webview = match attributes.url {
+        Some(url) => webview.load_url(&url)?,
+        None => webview,
+    };
+
+    let webview = webview.build()?;
+    Ok(webview)
+}
 impl<T> ApplicationExt<'_, T> for Application<T> {
     type Window = GtkWindow;
     type Dispatcher = AppDispatcher<T>;
@@ -92,58 +184,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
     }
 
     fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window> {
-        //TODO window config (missing transparent, x, y)
-        let window = ApplicationWindow::new(&self.app);
-
-        window.set_geometry_hints::<ApplicationWindow>(
-            None,
-            Some(&gdk::Geometry {
-                min_width: attributes.min_width.unwrap_or_default() as i32,
-                min_height: attributes.min_height.unwrap_or_default() as i32,
-                max_width: attributes.max_width.unwrap_or_default() as i32,
-                max_height: attributes.max_height.unwrap_or_default() as i32,
-                base_width: 0,
-                base_height: 0,
-                width_inc: 0,
-                height_inc: 0,
-                min_aspect: 0f64,
-                max_aspect: 0f64,
-                win_gravity: gdk::Gravity::Center,
-            }),
-            (if attributes.min_width.is_some() || attributes.min_height.is_some() {
-                gdk::WindowHints::MIN_SIZE
-            } else {
-                gdk::WindowHints::empty()
-            }) | (if attributes.max_width.is_some() || attributes.max_height.is_some() {
-                gdk::WindowHints::MAX_SIZE
-            } else {
-                gdk::WindowHints::empty()
-            }),
-        );
-
-        if attributes.resizable {
-            window.set_default_size(attributes.width as i32, attributes.height as i32);
-        } else {
-            window.set_size_request(attributes.width as i32, attributes.height as i32);
-        }
-
-        window.set_skip_taskbar_hint(attributes.skip_taskbar);
-        window.set_resizable(attributes.resizable);
-        window.set_title(&attributes.title);
-        if attributes.maximized {
-            window.maximize();
-        }
-        window.set_visible(attributes.visible);
-        window.set_decorated(attributes.decorations);
-        window.set_keep_above(attributes.always_on_top);
-        if attributes.fullscreen {
-            window.fullscreen();
-        }
-        if let Some(icon) = attributes.icon {
-            window.set_icon(Some(&load_icon(icon)?));
-        }
-
-        Ok(GtkWindow(window))
+        Ok(GtkWindow(_create_window(&self.app, attributes)?))
     }
 
     fn create_webview(
@@ -152,21 +193,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<()> {
-        let mut webview = WebViewBuilder::new(window.0)?;
-        for js in attributes.initialization_script {
-            webview = webview.initialize_script(&js);
-        }
-        if let Some(cbs) = callbacks {
-            for Callback { name, function } in cbs {
-                webview = webview.add_callback(&name, function);
-            }
-        }
-        webview = match attributes.url {
-            Some(url) => webview.load_url(&url)?,
-            None => webview,
-        };
-
-        let webview = webview.build()?;
+        let webview = _create_webview(window.0, attributes, callbacks)?;
         let id = webview.window().get_id();
         self.webviews.insert(id, webview);
 
@@ -214,6 +241,24 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
 
             while let Ok(message) = self.event_loop_proxy_rx.try_recv() {
                 match message {
+                    Message::App(message) => match message {
+                        AppMessage::NewWindow(window_attrs, webview_attrs, callbacks, sender) => {
+                            let window = _create_window(&self.app, window_attrs).unwrap();
+                            sender.send(window.get_id()).unwrap();
+                            let webview =
+                                _create_webview(window, webview_attrs, callbacks).unwrap();
+                            let id = webview.window().get_id();
+                            let shared_webviews_ = shared_webviews_.clone();
+                            webview
+                                .window()
+                                .connect_delete_event(move |_window, _event| {
+                                    shared_webviews_.lock().unwrap().remove(&id);
+                                    Inhibit(false)
+                                });
+                            let mut webviews = shared_webviews.lock().unwrap();
+                            webviews.insert(id, webview);
+                        }
+                    },
                     Message::Webview(id, webview_message) => {
                         if let Some(webview) = shared_webviews.lock().unwrap().get_mut(&id) {
                             match webview_message {

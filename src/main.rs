@@ -48,6 +48,21 @@ fn main() -> Result<()> {
             .unwrap();
 
         window1_dispatcher.set_title("new title").unwrap();
+
+        let window_id = dispatcher
+            .add_window(
+                AppWindowAttributes {
+                    title: "NEW WINDOW".into(),
+                    ..Default::default()
+                },
+                WebViewAttributes {
+                    url: Some("https://www.google.com".to_string()),
+                    ..Default::default()
+                },
+                None,
+            )
+            .unwrap();
+        println!("{:?}", window_id);
     });
 
     app.run();
