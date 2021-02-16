@@ -1,17 +1,18 @@
 use wry::Result;
 use wry::{
-    AppWindowAttributes, Application, ApplicationDispatcher, ApplicationExt, Callback, Message,
-    WebViewAttributes,
+    Application, ApplicationDispatcher, ApplicationExt, Callback, Message, WebViewAttributes,
 };
 
 fn main() -> Result<()> {
     let webview1_attributes = WebViewAttributes {
         url: Some("https://www.google.com".to_string()),
-        initialization_script: vec![String::from("window.x = 42")],
+        initialization_scripts: vec![String::from("window.x = 42")],
+        ..Default::default()
     };
     let webview2_attributes = WebViewAttributes {
         url: Some("https://www.google.com".to_string()),
-        initialization_script: vec![String::from("window.x = 24")],
+        initialization_scripts: vec![String::from("window.x = 24")],
+        ..Default::default()
     };
     let callback = Callback {
         name: "xxx".to_owned(),
@@ -26,12 +27,8 @@ fn main() -> Result<()> {
     };
 
     let mut app = Application::<()>::new()?;
-    let window1_id = app.create_webview(
-        AppWindowAttributes::default(),
-        webview1_attributes,
-        Some(vec![callback]),
-    )?;
-    app.create_webview(AppWindowAttributes::default(), webview2_attributes, None)?;
+    let window1_id = app.create_webview(webview1_attributes, Some(vec![callback]))?;
+    app.create_webview(webview2_attributes, None)?;
 
     app.set_message_handler(|_| {
         println!("got custom message");
@@ -52,11 +49,8 @@ fn main() -> Result<()> {
 
         let window_id = dispatcher
             .add_window(
-                AppWindowAttributes {
-                    title: "NEW WINDOW".into(),
-                    ..Default::default()
-                },
                 WebViewAttributes {
+                    title: "NEW WINDOW".into(),
                     url: Some("https://www.google.com".to_string()),
                     ..Default::default()
                 },

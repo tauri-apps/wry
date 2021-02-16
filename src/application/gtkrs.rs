@@ -1,6 +1,7 @@
 use crate::{
-    AppMessage, AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Icon,
-    Message, Result, WebView, WebViewAttributes, WebViewBuilder, WebviewMessage, WindowMessage,
+    application::{AppWebViewAttributes, AppWindowAttributes},
+    AppMessage, ApplicationDispatcher, ApplicationExt, Callback, Icon, Message, Result, WebView,
+    WebViewAttributes, WebViewBuilder, WebviewMessage, WindowMessage,
 };
 
 use std::{
@@ -48,16 +49,12 @@ impl<T> ApplicationDispatcher<u32, T> for AppDispatcher<T> {
 
     fn add_window(
         &self,
-        window_attrs: AppWindowAttributes,
-        webview_attrs: WebViewAttributes,
+        attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<WindowId> {
         let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
         self.dispatch_message(Message::App(AppMessage::NewWindow(
-            window_attrs,
-            webview_attrs,
-            callbacks,
-            sender,
+            attributes, callbacks, sender,
         )))?;
         Ok(receiver.recv().unwrap())
     }
@@ -133,11 +130,11 @@ fn _create_window(app: &GtkApp, attributes: AppWindowAttributes) -> Result<Appli
 }
 fn _create_webview(
     window: ApplicationWindow,
-    attributes: WebViewAttributes,
+    attributes: AppWebViewAttributes,
     callbacks: Option<Vec<Callback>>,
 ) -> Result<WebView> {
     let mut webview = WebViewBuilder::new(window)?;
-    for js in attributes.initialization_script {
+    for js in attributes.initialization_scripts {
         webview = webview.initialize_script(&js);
     }
     if let Some(cbs) = callbacks {
@@ -176,12 +173,12 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
 
     fn create_webview(
         &mut self,
-        window_attributes: AppWindowAttributes,
-        webview_attributes: WebViewAttributes,
+        attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<Self::Id> {
-        let window = _create_window(&self.app, window_attributes)?;
-        let webview = _create_webview(window, webview_attributes, callbacks)?;
+        let (window_attrs, webview_attrs) = attributes.split();
+        let window = _create_window(&self.app, window_attrs)?;
+        let webview = _create_webview(window, webview_attrs, callbacks)?;
         let id = webview.window().get_id();
         self.webviews.insert(id, webview);
 
@@ -230,7 +227,8 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             while let Ok(message) = self.event_loop_proxy_rx.try_recv() {
                 match message {
                     Message::App(message) => match message {
-                        AppMessage::NewWindow(window_attrs, webview_attrs, callbacks, sender) => {
+                        AppMessage::NewWindow(attributes, callbacks, sender) => {
+                            let (window_attrs, webview_attrs) = attributes.split();
                             let window = _create_window(&self.app, window_attrs).unwrap();
                             sender.send(window.get_id()).unwrap();
                             let webview =

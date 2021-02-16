@@ -32,10 +32,8 @@ impl Icon {
     }
 }
 
-// TODO complete fields on WindowAttribute
 /// Attributes to use when creating a window.
-#[derive(Debug, Clone)]
-pub struct AppWindowAttributes {
+pub struct WebViewAttributes {
     /// Whether the window is resizable or not.
     ///
     /// The default is `true`.
@@ -126,9 +124,43 @@ pub struct AppWindowAttributes {
     ///
     /// The default is false
     pub skip_taskbar: bool,
+
+    pub url: Option<String>,
+    pub initialization_scripts: Vec<String>,
 }
 
-impl Default for AppWindowAttributes {
+impl WebViewAttributes {
+    fn split(self) -> (AppWindowAttributes, AppWebViewAttributes) {
+        (
+            AppWindowAttributes {
+                resizable: self.resizable,
+                title: self.title,
+                maximized: self.maximized,
+                visible: self.visible,
+                transparent: self.transparent,
+                decorations: self.decorations,
+                always_on_top: self.always_on_top,
+                width: self.width,
+                height: self.height,
+                min_width: self.min_width,
+                min_height: self.min_height,
+                max_width: self.max_width,
+                max_height: self.max_height,
+                x: self.x,
+                y: self.y,
+                fullscreen: self.fullscreen,
+                icon: self.icon,
+                skip_taskbar: self.skip_taskbar,
+            },
+            AppWebViewAttributes {
+                url: self.url,
+                initialization_scripts: self.initialization_scripts,
+            },
+        )
+    }
+}
+
+impl Default for WebViewAttributes {
     #[inline]
     fn default() -> Self {
         Self {
@@ -150,25 +182,36 @@ impl Default for AppWindowAttributes {
             fullscreen: false,
             icon: None,
             skip_taskbar: false,
-        }
-    }
-}
-
-/// Attributes to use when creating a window.
-#[derive(Debug, Clone)]
-pub struct WebViewAttributes {
-    pub url: Option<String>,
-    pub initialization_script: Vec<String>,
-}
-
-impl Default for WebViewAttributes {
-    #[inline]
-    fn default() -> Self {
-        Self {
             url: None,
-            initialization_script: Vec::default(),
+            initialization_scripts: vec![],
         }
     }
+}
+
+struct AppWindowAttributes {
+    pub resizable: bool,
+    pub title: String,
+    pub maximized: bool,
+    pub visible: bool,
+    pub transparent: bool,
+    pub decorations: bool,
+    pub always_on_top: bool,
+    pub width: f64,
+    pub height: f64,
+    pub min_width: Option<f64>,
+    pub min_height: Option<f64>,
+    pub max_width: Option<f64>,
+    pub max_height: Option<f64>,
+    pub x: Option<f64>,
+    pub y: Option<f64>,
+    pub fullscreen: bool,
+    pub icon: Option<Icon>,
+    pub skip_taskbar: bool,
+}
+
+struct AppWebViewAttributes {
+    pub url: Option<String>,
+    pub initialization_scripts: Vec<String>,
 }
 
 pub enum WindowMessage {
@@ -200,12 +243,7 @@ pub enum WebviewMessage {
 }
 
 pub enum AppMessage {
-    NewWindow(
-        AppWindowAttributes,
-        WebViewAttributes,
-        Option<Vec<Callback>>,
-        Sender<WindowId>,
-    ),
+    NewWindow(WebViewAttributes, Option<Vec<Callback>>, Sender<WindowId>),
 }
 
 pub enum Message<I, T> {
@@ -219,8 +257,7 @@ pub trait ApplicationDispatcher<I, T> {
     fn dispatch_message(&self, message: Message<I, T>) -> Result<()>;
     fn add_window(
         &self,
-        window_attrs: AppWindowAttributes,
-        webview_attrs: WebViewAttributes,
+        attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<WindowId>;
 }
@@ -384,8 +421,7 @@ pub trait ApplicationExt<'a, T>: Sized {
 
     fn create_webview(
         &mut self,
-        window_attribures: AppWindowAttributes,
-        webview_attributes: WebViewAttributes,
+        attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<Self::Id>;
     fn set_message_handler<F: FnMut(T) + 'static>(&mut self, handler: F);
