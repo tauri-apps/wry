@@ -101,57 +101,6 @@ impl From<&AppWindowAttributes> for WindowAttributes {
     }
 }
 
-fn _create_window<T>(
-    event_loop: &EventLoopWindowTarget<Message<T>>,
-    attributes: AppWindowAttributes,
-) -> Result<Window> {
-    let mut window_builder = WindowBuilder::new();
-    #[cfg(target_os = "macos")]
-    if attributes.skip_taskbar {
-        window_builder = window_builder.with_activation_policy(ActivationPolicy::Accessory);
-    }
-    let window_attributes = WindowAttributes::from(&attributes);
-    window_builder.window = window_attributes;
-    let window = window_builder.build(event_loop)?;
-    match (attributes.x, attributes.y) {
-        (Some(x), Some(y)) => window.set_outer_position(LogicalPosition::new(x, y)),
-        _ => {}
-    }
-    if let Some(icon) = attributes.icon {
-        window.set_window_icon(Some(load_icon(icon)?));
-    }
-
-    #[cfg(target_os = "windows")]
-    if attributes.skip_taskbar {
-        skip_taskbar(&window);
-    }
-
-    Ok(window)
-}
-
-fn _create_webview(
-    window: Window,
-    attributes: AppWebViewAttributes,
-    callbacks: Option<Vec<Callback>>,
-) -> Result<WebView> {
-    let mut webview = WebViewBuilder::new(window)?;
-    for js in attributes.initialization_scripts {
-        webview = webview.initialize_script(&js);
-    }
-    if let Some(cbs) = callbacks {
-        for Callback { name, function } in cbs {
-            webview = webview.add_callback(&name, function);
-        }
-    }
-    webview = match attributes.url {
-        Some(url) => webview.load_url(&url)?,
-        None => webview,
-    };
-
-    let webview = webview.build()?;
-    Ok(webview)
-}
-
 pub struct Application<T: 'static> {
     webviews: HashMap<WindowId, WebView>,
     event_loop: EventLoop<Message<T>>,
@@ -355,4 +304,55 @@ fn skip_taskbar(window: &Window) {
     unsafe {
         SkipTaskbar(HWND(window.hwnd() as isize));
     }
+}
+
+fn _create_window<T>(
+    event_loop: &EventLoopWindowTarget<Message<T>>,
+    attributes: AppWindowAttributes,
+) -> Result<Window> {
+    let mut window_builder = WindowBuilder::new();
+    #[cfg(target_os = "macos")]
+    if attributes.skip_taskbar {
+        window_builder = window_builder.with_activation_policy(ActivationPolicy::Accessory);
+    }
+    let window_attributes = WindowAttributes::from(&attributes);
+    window_builder.window = window_attributes;
+    let window = window_builder.build(event_loop)?;
+    match (attributes.x, attributes.y) {
+        (Some(x), Some(y)) => window.set_outer_position(LogicalPosition::new(x, y)),
+        _ => {}
+    }
+    if let Some(icon) = attributes.icon {
+        window.set_window_icon(Some(load_icon(icon)?));
+    }
+
+    #[cfg(target_os = "windows")]
+    if attributes.skip_taskbar {
+        skip_taskbar(&window);
+    }
+
+    Ok(window)
+}
+
+fn _create_webview(
+    window: Window,
+    attributes: AppWebViewAttributes,
+    callbacks: Option<Vec<Callback>>,
+) -> Result<WebView> {
+    let mut webview = WebViewBuilder::new(window)?;
+    for js in attributes.initialization_scripts {
+        webview = webview.initialize_script(&js);
+    }
+    if let Some(cbs) = callbacks {
+        for Callback { name, function } in cbs {
+            webview = webview.add_callback(&name, function);
+        }
+    }
+    webview = match attributes.url {
+        Some(url) => webview.load_url(&url)?,
+        None => webview,
+    };
+
+    let webview = webview.build()?;
+    Ok(webview)
 }

@@ -20,14 +20,6 @@ use gtk::{
 
 pub type WindowId = u32;
 
-pub struct Application<T> {
-    webviews: HashMap<u32, WebView>,
-    app: GtkApp,
-    event_loop_proxy: EventLoopProxy<T>,
-    event_loop_proxy_rx: Receiver<Message<T>>,
-    message_handler: Option<Box<dyn FnMut(T)>>,
-}
-
 struct EventLoopProxy<T>(Arc<Mutex<Sender<Message<T>>>>);
 
 impl<T> Clone for EventLoopProxy<T> {
@@ -58,97 +50,14 @@ impl<T> ApplicationDispatcher<T> for AppDispatcher<T> {
     }
 }
 
-fn load_icon(icon: Icon) -> Result<gdk_pixbuf::Pixbuf> {
-    let image = image::load_from_memory(&icon.0)?.into_rgba8();
-    let (width, height) = image.dimensions();
-    let row_stride = image.sample_layout().height_stride;
-    Ok(gdk_pixbuf::Pixbuf::from_mut_slice(
-        image.into_raw(),
-        gdk_pixbuf::Colorspace::Rgb,
-        true,
-        8,
-        width as i32,
-        height as i32,
-        row_stride as i32,
-    ))
+pub struct Application<T> {
+    webviews: HashMap<u32, WebView>,
+    app: GtkApp,
+    event_loop_proxy: EventLoopProxy<T>,
+    event_loop_proxy_rx: Receiver<Message<T>>,
+    message_handler: Option<Box<dyn FnMut(T)>>,
 }
 
-fn _create_window(app: &GtkApp, attributes: AppWindowAttributes) -> Result<ApplicationWindow> {
-    //TODO window config (missing transparent, x, y)
-    let window = ApplicationWindow::new(app);
-
-    window.set_geometry_hints::<ApplicationWindow>(
-        None,
-        Some(&gdk::Geometry {
-            min_width: attributes.min_width.unwrap_or_default() as i32,
-            min_height: attributes.min_height.unwrap_or_default() as i32,
-            max_width: attributes.max_width.unwrap_or_default() as i32,
-            max_height: attributes.max_height.unwrap_or_default() as i32,
-            base_width: 0,
-            base_height: 0,
-            width_inc: 0,
-            height_inc: 0,
-            min_aspect: 0f64,
-            max_aspect: 0f64,
-            win_gravity: gdk::Gravity::Center,
-        }),
-        (if attributes.min_width.is_some() || attributes.min_height.is_some() {
-            gdk::WindowHints::MIN_SIZE
-        } else {
-            gdk::WindowHints::empty()
-        }) | (if attributes.max_width.is_some() || attributes.max_height.is_some() {
-            gdk::WindowHints::MAX_SIZE
-        } else {
-            gdk::WindowHints::empty()
-        }),
-    );
-
-    if attributes.resizable {
-        window.set_default_size(attributes.width as i32, attributes.height as i32);
-    } else {
-        window.set_size_request(attributes.width as i32, attributes.height as i32);
-    }
-
-    window.set_skip_taskbar_hint(attributes.skip_taskbar);
-    window.set_resizable(attributes.resizable);
-    window.set_title(&attributes.title);
-    if attributes.maximized {
-        window.maximize();
-    }
-    window.set_visible(attributes.visible);
-    window.set_decorated(attributes.decorations);
-    window.set_keep_above(attributes.always_on_top);
-    if attributes.fullscreen {
-        window.fullscreen();
-    }
-    if let Some(icon) = attributes.icon {
-        window.set_icon(Some(&load_icon(icon)?));
-    }
-
-    Ok(window)
-}
-fn _create_webview(
-    window: ApplicationWindow,
-    attributes: AppWebViewAttributes,
-    callbacks: Option<Vec<Callback>>,
-) -> Result<WebView> {
-    let mut webview = WebViewBuilder::new(window)?;
-    for js in attributes.initialization_scripts {
-        webview = webview.initialize_script(&js);
-    }
-    if let Some(cbs) = callbacks {
-        for Callback { name, function } in cbs {
-            webview = webview.add_callback(&name, function);
-        }
-    }
-    webview = match attributes.url {
-        Some(url) => webview.load_url(&url)?,
-        None => webview,
-    };
-
-    let webview = webview.build()?;
-    Ok(webview)
-}
 impl<T> ApplicationExt<'_, T> for Application<T> {
     type Id = u32;
     type Dispatcher = AppDispatcher<T>;
@@ -372,4 +281,97 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             gtk::main_iteration();
         }
     }
+}
+
+fn load_icon(icon: Icon) -> Result<gdk_pixbuf::Pixbuf> {
+    let image = image::load_from_memory(&icon.0)?.into_rgba8();
+    let (width, height) = image.dimensions();
+    let row_stride = image.sample_layout().height_stride;
+    Ok(gdk_pixbuf::Pixbuf::from_mut_slice(
+        image.into_raw(),
+        gdk_pixbuf::Colorspace::Rgb,
+        true,
+        8,
+        width as i32,
+        height as i32,
+        row_stride as i32,
+    ))
+}
+
+fn _create_window(app: &GtkApp, attributes: AppWindowAttributes) -> Result<ApplicationWindow> {
+    //TODO window config (missing transparent, x, y)
+    let window = ApplicationWindow::new(app);
+
+    window.set_geometry_hints::<ApplicationWindow>(
+        None,
+        Some(&gdk::Geometry {
+            min_width: attributes.min_width.unwrap_or_default() as i32,
+            min_height: attributes.min_height.unwrap_or_default() as i32,
+            max_width: attributes.max_width.unwrap_or_default() as i32,
+            max_height: attributes.max_height.unwrap_or_default() as i32,
+            base_width: 0,
+            base_height: 0,
+            width_inc: 0,
+            height_inc: 0,
+            min_aspect: 0f64,
+            max_aspect: 0f64,
+            win_gravity: gdk::Gravity::Center,
+        }),
+        (if attributes.min_width.is_some() || attributes.min_height.is_some() {
+            gdk::WindowHints::MIN_SIZE
+        } else {
+            gdk::WindowHints::empty()
+        }) | (if attributes.max_width.is_some() || attributes.max_height.is_some() {
+            gdk::WindowHints::MAX_SIZE
+        } else {
+            gdk::WindowHints::empty()
+        }),
+    );
+
+    if attributes.resizable {
+        window.set_default_size(attributes.width as i32, attributes.height as i32);
+    } else {
+        window.set_size_request(attributes.width as i32, attributes.height as i32);
+    }
+
+    window.set_skip_taskbar_hint(attributes.skip_taskbar);
+    window.set_resizable(attributes.resizable);
+    window.set_title(&attributes.title);
+    if attributes.maximized {
+        window.maximize();
+    }
+    window.set_visible(attributes.visible);
+    window.set_decorated(attributes.decorations);
+    window.set_keep_above(attributes.always_on_top);
+    if attributes.fullscreen {
+        window.fullscreen();
+    }
+    if let Some(icon) = attributes.icon {
+        window.set_icon(Some(&load_icon(icon)?));
+    }
+
+    Ok(window)
+}
+
+fn _create_webview(
+    window: ApplicationWindow,
+    attributes: AppWebViewAttributes,
+    callbacks: Option<Vec<Callback>>,
+) -> Result<WebView> {
+    let mut webview = WebViewBuilder::new(window)?;
+    for js in attributes.initialization_scripts {
+        webview = webview.initialize_script(&js);
+    }
+    if let Some(cbs) = callbacks {
+        for Callback { name, function } in cbs {
+            webview = webview.add_callback(&name, function);
+        }
+    }
+    webview = match attributes.url {
+        Some(url) => webview.load_url(&url)?,
+        None => webview,
+    };
+
+    let webview = webview.build()?;
+    Ok(webview)
 }
