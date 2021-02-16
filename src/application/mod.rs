@@ -244,15 +244,15 @@ pub enum WebviewMessage {
     EvalScript(String),
 }
 
-pub enum Message<I, T> {
-    Webview(I, WebviewMessage),
-    Window(I, WindowMessage),
+pub enum Message<T> {
+    Webview(WindowId, WebviewMessage),
+    Window(WindowId, WindowMessage),
     NewWindow(WebViewAttributes, Option<Vec<Callback>>, Sender<WindowId>),
     Custom(T),
 }
 
-pub trait ApplicationDispatcher<I, T> {
-    fn dispatch_message(&self, message: Message<I, T>) -> Result<()>;
+pub trait ApplicationDispatcher<T> {
+    fn dispatch_message(&self, message: Message<T>) -> Result<()>;
     fn add_window(
         &self,
         attributes: WebViewAttributes,
@@ -260,10 +260,10 @@ pub trait ApplicationDispatcher<I, T> {
     ) -> Result<WindowId>;
 }
 
-pub struct WebviewDispatcher<I, T, D>(D, I, PhantomData<T>);
+pub struct WebviewDispatcher<T, D>(D, WindowId, PhantomData<T>);
 
-impl<I: Copy, T, D: ApplicationDispatcher<I, T>> WebviewDispatcher<I, T, D> {
-    fn new(dispatcher: D, window_id: I) -> Self {
+impl<T, D: ApplicationDispatcher<T>> WebviewDispatcher<T, D> {
+    fn new(dispatcher: D, window_id: WindowId) -> Self {
         Self(dispatcher, window_id, PhantomData)
     }
 
@@ -275,10 +275,10 @@ impl<I: Copy, T, D: ApplicationDispatcher<I, T>> WebviewDispatcher<I, T, D> {
     }
 }
 
-pub struct WindowDispatcher<I, T, D>(D, I, PhantomData<T>);
+pub struct WindowDispatcher<T, D>(D, WindowId, PhantomData<T>);
 
-impl<I: Copy, T, D: ApplicationDispatcher<I, T>> WindowDispatcher<I, T, D> {
-    fn new(dispatcher: D, window_id: I) -> Self {
+impl<T, D: ApplicationDispatcher<T>> WindowDispatcher<T, D> {
+    fn new(dispatcher: D, window_id: WindowId) -> Self {
         Self(dispatcher, window_id, PhantomData)
     }
 
@@ -441,14 +441,14 @@ impl Application {
     pub fn window_dispatcher(
         &self,
         window_id: WindowId,
-    ) -> WindowDispatcher<WindowId, (), AppDispatcher<()>> {
+    ) -> WindowDispatcher<(), AppDispatcher<()>> {
         WindowDispatcher::new(self.dispatcher(), window_id)
     }
 
     pub fn webview_dispatcher(
         &self,
         window_id: WindowId,
-    ) -> WebviewDispatcher<WindowId, (), AppDispatcher<()>> {
+    ) -> WebviewDispatcher<(), AppDispatcher<()>> {
         WebviewDispatcher::new(self.dispatcher(), window_id)
     }
 
@@ -458,7 +458,7 @@ impl Application {
 }
 
 trait ApplicationExt<'a, T>: Sized {
-    type Dispatcher: ApplicationDispatcher<Self::Id, T>;
+    type Dispatcher: ApplicationDispatcher<T>;
     type Id: Copy;
 
     fn new() -> Result<Self>;

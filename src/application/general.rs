@@ -1,6 +1,6 @@
 use crate::{
     application::{AppWebViewAttributes, AppWindowAttributes, ApplicationExt},
-    AppMessage, ApplicationDispatcher, Callback, Icon, Message, Result, WebView, WebViewAttributes,
+    ApplicationDispatcher, Callback, Icon, Message, Result, WebView, WebViewAttributes,
     WebViewBuilder, WebviewMessage, WindowMessage,
 };
 #[cfg(target_os = "macos")]
@@ -34,15 +34,15 @@ use std::{
     },
 };
 
-type EventLoopProxy<I, T> = Arc<Mutex<winit::event_loop::EventLoopProxy<Message<I, T>>>>;
+type EventLoopProxy<T> = Arc<Mutex<winit::event_loop::EventLoopProxy<Message<T>>>>;
 
 #[derive(Clone)]
 pub struct AppDispatcher<T: 'static> {
-    proxy: EventLoopProxy<WindowId, T>,
+    proxy: EventLoopProxy<T>,
 }
 
-impl<T> ApplicationDispatcher<WindowId, T> for AppDispatcher<T> {
-    fn dispatch_message(&self, message: Message<WindowId, T>) -> Result<()> {
+impl<T> ApplicationDispatcher<T> for AppDispatcher<T> {
+    fn dispatch_message(&self, message: Message<T>) -> Result<()> {
         self.proxy
             .lock()
             .unwrap()
@@ -102,7 +102,7 @@ impl From<&AppWindowAttributes> for WindowAttributes {
 }
 
 fn _create_window<T>(
-    event_loop: &EventLoopWindowTarget<Message<WindowId, T>>,
+    event_loop: &EventLoopWindowTarget<Message<T>>,
     attributes: AppWindowAttributes,
 ) -> Result<Window> {
     let mut window_builder = WindowBuilder::new();
@@ -154,8 +154,8 @@ fn _create_webview(
 
 pub struct Application<T: 'static> {
     webviews: HashMap<WindowId, WebView>,
-    event_loop: EventLoop<Message<WindowId, T>>,
-    event_loop_proxy: EventLoopProxy<WindowId, T>,
+    event_loop: EventLoop<Message<T>>,
+    event_loop_proxy: EventLoopProxy<T>,
     message_handler: Option<Box<dyn FnMut(T)>>,
 }
 
@@ -164,7 +164,7 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
     type Dispatcher = AppDispatcher<T>;
 
     fn new() -> Result<Self> {
-        let event_loop = EventLoop::<Message<WindowId, T>>::with_user_event();
+        let event_loop = EventLoop::<Message<T>>::with_user_event();
         let proxy = event_loop.create_proxy();
         Ok(Self {
             webviews: HashMap::new(),
