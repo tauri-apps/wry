@@ -57,9 +57,7 @@ impl<T> ApplicationDispatcher<WindowId, T> for AppDispatcher<T> {
         callbacks: Option<Vec<Callback>>,
     ) -> Result<WindowId> {
         let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
-        self.dispatch_message(Message::App(AppMessage::NewWindow(
-            attributes, callbacks, sender,
-        )))?;
+        self.dispatch_message(Message::NewWindow(attributes, callbacks, sender))?;
         Ok(receiver.recv().unwrap())
     }
 }
@@ -223,17 +221,14 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                     _ => {}
                 },
                 Event::UserEvent(message) => match message {
-                    Message::App(message) => match message {
-                        AppMessage::NewWindow(attributes, callbacks, sender) => {
-                            let (window_attrs, webview_attrs) = attributes.split();
-                            let window = _create_window(&event_loop, window_attrs).unwrap();
-                            sender.send(window.id()).unwrap();
-                            let webview =
-                                _create_webview(window, webview_attrs, callbacks).unwrap();
-                            let id = webview.window().id();
-                            windows.insert(id, webview);
-                        }
-                    },
+                    Message::NewWindow(attributes, callbacks, sender) => {
+                        let (window_attrs, webview_attrs) = attributes.split();
+                        let window = _create_window(&event_loop, window_attrs).unwrap();
+                        sender.send(window.id()).unwrap();
+                        let webview = _create_webview(window, webview_attrs, callbacks).unwrap();
+                        let id = webview.window().id();
+                        windows.insert(id, webview);
+                    }
                     Message::Webview(id, webview_message) => {
                         if let Some(webview) = windows.get_mut(&id) {
                             match webview_message {

@@ -1,6 +1,6 @@
 use crate::{
     application::{AppWebViewAttributes, AppWindowAttributes, ApplicationExt},
-    AppMessage, ApplicationDispatcher, Callback, Icon, Message, Result, WebView, WebViewAttributes,
+    ApplicationDispatcher, Callback, Icon, Message, Result, WebView, WebViewAttributes,
     WebViewBuilder, WebviewMessage, WindowMessage,
 };
 
@@ -53,9 +53,7 @@ impl<T> ApplicationDispatcher<u32, T> for AppDispatcher<T> {
         callbacks: Option<Vec<Callback>>,
     ) -> Result<WindowId> {
         let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
-        self.dispatch_message(Message::App(AppMessage::NewWindow(
-            attributes, callbacks, sender,
-        )))?;
+        self.dispatch_message(Message::NewWindow(attributes, callbacks, sender))?;
         Ok(receiver.recv().unwrap())
     }
 }
@@ -74,6 +72,7 @@ fn load_icon(icon: Icon) -> Result<gdk_pixbuf::Pixbuf> {
         row_stride as i32,
     ))
 }
+
 fn _create_window(app: &GtkApp, attributes: AppWindowAttributes) -> Result<ApplicationWindow> {
     //TODO window config (missing transparent, x, y)
     let window = ApplicationWindow::new(app);
@@ -226,25 +225,22 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
 
             while let Ok(message) = self.event_loop_proxy_rx.try_recv() {
                 match message {
-                    Message::App(message) => match message {
-                        AppMessage::NewWindow(attributes, callbacks, sender) => {
-                            let (window_attrs, webview_attrs) = attributes.split();
-                            let window = _create_window(&self.app, window_attrs).unwrap();
-                            sender.send(window.get_id()).unwrap();
-                            let webview =
-                                _create_webview(window, webview_attrs, callbacks).unwrap();
-                            let id = webview.window().get_id();
-                            let shared_webviews_ = shared_webviews_.clone();
-                            webview
-                                .window()
-                                .connect_delete_event(move |_window, _event| {
-                                    shared_webviews_.lock().unwrap().remove(&id);
-                                    Inhibit(false)
-                                });
-                            let mut webviews = shared_webviews.lock().unwrap();
-                            webviews.insert(id, webview);
-                        }
-                    },
+                    Message::NewWindow(attributes, callbacks, sender) => {
+                        let (window_attrs, webview_attrs) = attributes.split();
+                        let window = _create_window(&self.app, window_attrs).unwrap();
+                        sender.send(window.get_id()).unwrap();
+                        let webview = _create_webview(window, webview_attrs, callbacks).unwrap();
+                        let id = webview.window().get_id();
+                        let shared_webviews_ = shared_webviews_.clone();
+                        webview
+                            .window()
+                            .connect_delete_event(move |_window, _event| {
+                                shared_webviews_.lock().unwrap().remove(&id);
+                                Inhibit(false)
+                            });
+                        let mut webviews = shared_webviews.lock().unwrap();
+                        webviews.insert(id, webview);
+                    }
                     Message::Webview(id, webview_message) => {
                         if let Some(webview) = shared_webviews.lock().unwrap().get_mut(&id) {
                             match webview_message {

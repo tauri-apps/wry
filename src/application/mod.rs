@@ -244,14 +244,10 @@ pub enum WebviewMessage {
     EvalScript(String),
 }
 
-pub enum AppMessage {
-    NewWindow(WebViewAttributes, Option<Vec<Callback>>, Sender<WindowId>),
-}
-
 pub enum Message<I, T> {
     Webview(I, WebviewMessage),
     Window(I, WindowMessage),
-    App(AppMessage),
+    NewWindow(WebViewAttributes, Option<Vec<Callback>>, Sender<WindowId>),
     Custom(T),
 }
 
