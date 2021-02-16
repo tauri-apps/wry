@@ -34,15 +34,15 @@ use std::{
     },
 };
 
-type EventLoopProxy<T> = Arc<Mutex<winit::event_loop::EventLoopProxy<Message<T>>>>;
+type EventLoopProxy = Arc<Mutex<winit::event_loop::EventLoopProxy<Message>>>;
 
 #[derive(Clone)]
-pub struct AppDispatcher<T: 'static> {
-    proxy: EventLoopProxy<T>,
+pub struct AppDispatcher {
+    proxy: EventLoopProxy,
 }
 
-impl<T> ApplicationDispatcher<T> for AppDispatcher<T> {
-    fn dispatch_message(&self, message: Message<T>) -> Result<()> {
+impl ApplicationDispatcher for AppDispatcher {
+    fn dispatch_message(&self, message: Message) -> Result<()> {
         self.proxy
             .lock()
             .unwrap()
@@ -101,25 +101,23 @@ impl From<&AppWindowAttributes> for WindowAttributes {
     }
 }
 
-pub struct Application<T: 'static> {
+pub struct Application {
     webviews: HashMap<WindowId, WebView>,
-    event_loop: EventLoop<Message<T>>,
-    event_loop_proxy: EventLoopProxy<T>,
-    message_handler: Option<Box<dyn FnMut(T)>>,
+    event_loop: EventLoop<Message>,
+    event_loop_proxy: EventLoopProxy,
 }
 
-impl<T> ApplicationExt<'_, T> for Application<T> {
+impl ApplicationExt for Application {
     type Id = WindowId;
-    type Dispatcher = AppDispatcher<T>;
+    type Dispatcher = AppDispatcher;
 
     fn new() -> Result<Self> {
-        let event_loop = EventLoop::<Message<T>>::with_user_event();
+        let event_loop = EventLoop::<Message>::with_user_event();
         let proxy = event_loop.create_proxy();
         Ok(Self {
             webviews: HashMap::new(),
             event_loop,
             event_loop_proxy: Arc::new(Mutex::new(proxy)),
-            message_handler: None,
         })
     }
 
@@ -136,10 +134,6 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         Ok(id)
     }
 
-    fn set_message_handler<F: FnMut(T) + 'static>(&mut self, handler: F) {
-        self.message_handler.replace(Box::new(handler));
-    }
-
     fn dispatcher(&self) -> Self::Dispatcher {
         AppDispatcher {
             proxy: self.event_loop_proxy.clone(),
@@ -148,7 +142,6 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
 
     fn run(self) {
         let mut windows = self.webviews;
-        let mut message_handler = self.message_handler;
         self.event_loop.run(move |event, event_loop, control_flow| {
             *control_flow = ControlFlow::Wait;
 
@@ -275,11 +268,6 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                             }
                         }
                     }
-                    Message::Custom(message) => {
-                        if let Some(ref mut handler) = message_handler {
-                            handler(message);
-                        }
-                    }
                 },
                 _ => (),
             }
@@ -306,8 +294,8 @@ fn skip_taskbar(window: &Window) {
     }
 }
 
-fn _create_window<T>(
-    event_loop: &EventLoopWindowTarget<Message<T>>,
+fn _create_window(
+    event_loop: &EventLoopWindowTarget<Message>,
     attributes: AppWindowAttributes,
 ) -> Result<Window> {
     let mut window_builder = WindowBuilder::new();
