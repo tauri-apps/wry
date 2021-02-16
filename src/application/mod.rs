@@ -7,7 +7,7 @@ pub use general::{AppDispatcher, WindowId};
 #[cfg(target_os = "linux")]
 mod gtkrs;
 #[cfg(target_os = "linux")]
-use gtk::Application as InnerApplication;
+use gtkrs::Application as InnerApplication;
 #[cfg(target_os = "linux")]
 pub use gtkrs::{AppDispatcher, WindowId};
 
