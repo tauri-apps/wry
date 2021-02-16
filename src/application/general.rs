@@ -334,9 +334,13 @@ fn _create_webview(
     }
     if let Some(cbs) = callbacks {
         for Callback { name, mut function } in cbs {
-            let window_dispatcher = WindowDispatcher::new(dispatcher.clone(), window_id);
+            let dispatcher = dispatcher.clone();
             webview = webview.add_callback(&name, move |_, seq, req| {
-                function(&window_dispatcher, seq, req)
+                function(
+                    WindowDispatcher::new(dispatcher.clone(), window_id),
+                    seq,
+                    req,
+                )
             });
         }
     }

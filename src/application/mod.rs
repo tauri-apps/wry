@@ -17,7 +17,7 @@ use std::{fs::read, path::Path, sync::mpsc::Sender};
 
 pub struct Callback {
     pub name: String,
-    pub function: Box<dyn FnMut(&WindowDispatcher, i32, Vec<String>) -> i32 + Send>,
+    pub function: Box<dyn FnMut(WindowDispatcher, i32, Vec<String>) -> i32 + Send>,
 }
 
 #[derive(Debug, Clone)]
