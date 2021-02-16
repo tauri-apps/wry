@@ -1,18 +1,19 @@
 #[cfg(not(target_os = "linux"))]
 mod general;
-
-use std::{fs::read, path::Path, sync::mpsc::Sender};
-
 #[cfg(not(target_os = "linux"))]
-pub use general::*;
+use general::Application as InnerApplication;
+#[cfg(not(target_os = "linux"))]
+pub use general::{AppDispatcher, WindowId};
 #[cfg(target_os = "linux")]
 mod gtkrs;
 #[cfg(target_os = "linux")]
-pub use gtkrs::*;
+use gtk::Application as InnerApplication;
+#[cfg(target_os = "linux")]
+pub use gtkrs::{AppDispatcher, WindowId};
 
 use crate::{Dispatcher, Result};
 
-use std::marker::PhantomData;
+use std::{fs::read, marker::PhantomData, path::Path, sync::mpsc::Sender};
 
 pub struct Callback {
     pub name: String,
@@ -33,6 +34,7 @@ impl Icon {
 }
 
 /// Attributes to use when creating a window.
+#[derive(Debug, Clone)]
 pub struct WebViewAttributes {
     /// Whether the window is resizable or not.
     ///
@@ -413,7 +415,53 @@ impl<I: Copy, T, D: ApplicationDispatcher<I, T>> WindowDispatcher<I, T, D> {
     }
 }
 
-pub trait ApplicationExt<'a, T>: Sized {
+pub struct Application {
+    inner: InnerApplication<()>,
+}
+
+impl Application {
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            inner: InnerApplication::new()?,
+        })
+    }
+
+    pub fn create_webview(
+        &mut self,
+        attributes: WebViewAttributes,
+        callbacks: Option<Vec<Callback>>,
+    ) -> Result<WindowId> {
+        self.inner.create_webview(attributes, callbacks)
+    }
+
+    pub fn set_message_handler<F: FnMut(()) + 'static>(&mut self, handler: F) {
+        self.inner.set_message_handler(handler)
+    }
+
+    pub fn dispatcher(&self) -> AppDispatcher<()> {
+        self.inner.dispatcher()
+    }
+
+    pub fn window_dispatcher(
+        &self,
+        window_id: WindowId,
+    ) -> WindowDispatcher<WindowId, (), AppDispatcher<()>> {
+        WindowDispatcher::new(self.dispatcher(), window_id)
+    }
+
+    pub fn webview_dispatcher(
+        &self,
+        window_id: WindowId,
+    ) -> WebviewDispatcher<WindowId, (), AppDispatcher<()>> {
+        WebviewDispatcher::new(self.dispatcher(), window_id)
+    }
+
+    pub fn run(self) {
+        self.inner.run()
+    }
+}
+
+trait ApplicationExt<'a, T>: Sized {
     type Dispatcher: ApplicationDispatcher<Self::Id, T>;
     type Id: Copy;
 
@@ -427,20 +475,6 @@ pub trait ApplicationExt<'a, T>: Sized {
     fn set_message_handler<F: FnMut(T) + 'static>(&mut self, handler: F);
 
     fn dispatcher(&self) -> Self::Dispatcher;
-
-    fn window_dispatcher(
-        &self,
-        window_id: Self::Id,
-    ) -> WindowDispatcher<Self::Id, T, Self::Dispatcher> {
-        WindowDispatcher::new(self.dispatcher(), window_id)
-    }
-
-    fn webview_dispatcher(
-        &self,
-        window_id: Self::Id,
-    ) -> WebviewDispatcher<Self::Id, T, Self::Dispatcher> {
-        WebviewDispatcher::new(self.dispatcher(), window_id)
-    }
 
     fn run(self);
 }

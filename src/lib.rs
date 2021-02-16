@@ -77,8 +77,8 @@ pub mod platform;
 mod webview;
 
 pub use application::{
-    AppDispatcher, AppMessage, Application, ApplicationDispatcher, ApplicationExt, Callback, Icon,
-    Message, WebViewAttributes, WebviewMessage, WindowId, WindowMessage,
+    AppDispatcher, AppMessage, Application, ApplicationDispatcher, Callback, Icon, Message,
+    WebViewAttributes, WebviewMessage, WindowId, WindowMessage,
 };
 pub use webview::{Dispatcher, WebView, WebViewBuilder};
 

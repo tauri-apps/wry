@@ -1,7 +1,7 @@
 use crate::{
-    application::{AppWebViewAttributes, AppWindowAttributes},
-    AppMessage, ApplicationDispatcher, ApplicationExt, Callback, Icon, Message, Result, WebView,
-    WebViewAttributes, WebViewBuilder, WebviewMessage, WindowMessage,
+    application::{AppWebViewAttributes, AppWindowAttributes, ApplicationExt},
+    AppMessage, ApplicationDispatcher, Callback, Icon, Message, Result, WebView, WebViewAttributes,
+    WebViewBuilder, WebviewMessage, WindowMessage,
 };
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};

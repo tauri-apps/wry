@@ -1,7 +1,5 @@
 use wry::Result;
-use wry::{
-    Application, ApplicationDispatcher, ApplicationExt, Callback, Message, WebViewAttributes,
-};
+use wry::{Application, ApplicationDispatcher, Callback, Message, WebViewAttributes};
 
 fn main() -> Result<()> {
     let webview1_attributes = WebViewAttributes {
@@ -26,7 +24,7 @@ fn main() -> Result<()> {
         }),
     };
 
-    let mut app = Application::<()>::new()?;
+    let mut app = Application::new()?;
     let window1_id = app.create_webview(webview1_attributes, Some(vec![callback]))?;
     app.create_webview(webview2_attributes, None)?;
 
