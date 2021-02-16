@@ -56,7 +56,7 @@ impl ApplicationDispatcher for AppDispatcher {
         attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<WindowId> {
-        let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
+        let (sender, receiver) = channel();
         self.dispatch_message(Message::NewWindow(attributes, callbacks, sender))?;
         Ok(receiver.recv().unwrap())
     }

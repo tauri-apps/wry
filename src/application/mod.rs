@@ -259,101 +259,107 @@ pub trait ApplicationDispatcher {
     ) -> Result<WindowId>;
 }
 
-pub struct WindowDispatcher<D>(D, WindowId);
+pub struct WindowDispatcher {
+    proxy: AppDispatcher,
+    id: WindowId,
+}
 
-impl<D: ApplicationDispatcher> WindowDispatcher<D> {
-    fn new(dispatcher: D, window_id: WindowId) -> Self {
-        Self(dispatcher, window_id)
+impl WindowDispatcher {
+    fn new(dispatcher: AppDispatcher, window_id: WindowId) -> Self {
+        Self {
+            proxy: dispatcher,
+            id: window_id,
+        }
     }
 
     pub fn id(&self) -> WindowId {
-        self.1
+        self.id
     }
 
     pub fn set_resizable(&self, resizable: bool) -> Result<()> {
-        self.0.dispatch_message(Message::Window(
-            self.1,
+        self.proxy.dispatch_message(Message::Window(
+            self.id,
             WindowMessage::SetResizable(resizable),
         ))
     }
 
     pub fn set_title<S: Into<String>>(&self, title: S) -> Result<()> {
-        self.0.dispatch_message(Message::Window(
-            self.1,
+        self.proxy.dispatch_message(Message::Window(
+            self.id,
             WindowMessage::SetTitle(title.into()),
         ))
     }
 
     pub fn maximize(&self) -> Result<()> {
-        self.0
-            .dispatch_message(Message::Window(self.1, WindowMessage::Maximize))
+        self.proxy
+            .dispatch_message(Message::Window(self.id, WindowMessage::Maximize))
     }
     pub fn unmaximize(&self) -> Result<()> {
-        self.0
-            .dispatch_message(Message::Window(self.1, WindowMessage::Unmaximize))
+        self.proxy
+            .dispatch_message(Message::Window(self.id, WindowMessage::Unmaximize))
     }
 
     pub fn minimize(&self) -> Result<()> {
-        self.0
-            .dispatch_message(Message::Window(self.1, WindowMessage::Minimize))
+        self.proxy
+            .dispatch_message(Message::Window(self.id, WindowMessage::Minimize))
     }
 
     pub fn unminimize(&self) -> Result<()> {
-        self.0
-            .dispatch_message(Message::Window(self.1, WindowMessage::Unminimize))
+        self.proxy
+            .dispatch_message(Message::Window(self.id, WindowMessage::Unminimize))
     }
 
     pub fn show(&self) -> Result<()> {
-        self.0
-            .dispatch_message(Message::Window(self.1, WindowMessage::Show))
+        self.proxy
+            .dispatch_message(Message::Window(self.id, WindowMessage::Show))
     }
 
     pub fn hide(&self) -> Result<()> {
-        self.0
-            .dispatch_message(Message::Window(self.1, WindowMessage::Hide))
+        self.proxy
+            .dispatch_message(Message::Window(self.id, WindowMessage::Hide))
     }
 
     pub fn set_transparent(&self, resizable: bool) -> Result<()> {
-        self.0.dispatch_message(Message::Window(
-            self.1,
+        self.proxy.dispatch_message(Message::Window(
+            self.id,
             WindowMessage::SetResizable(resizable),
         ))
     }
 
     pub fn set_decorations(&self, decorations: bool) -> Result<()> {
-        self.0.dispatch_message(Message::Window(
-            self.1,
+        self.proxy.dispatch_message(Message::Window(
+            self.id,
             WindowMessage::SetResizable(decorations),
         ))
     }
 
     pub fn set_always_on_top(&self, always_on_top: bool) -> Result<()> {
-        self.0.dispatch_message(Message::Window(
-            self.1,
+        self.proxy.dispatch_message(Message::Window(
+            self.id,
             WindowMessage::SetAlwaysOnTop(always_on_top),
         ))
     }
 
     pub fn set_width(&self, width: f64) -> Result<()> {
-        self.0
-            .dispatch_message(Message::Window(self.1, WindowMessage::SetWidth(width)))
+        self.proxy
+            .dispatch_message(Message::Window(self.id, WindowMessage::SetWidth(width)))
     }
 
     pub fn set_height(&self, height: f64) -> Result<()> {
-        self.0
-            .dispatch_message(Message::Window(self.1, WindowMessage::SetHeight(height)))
+        self.proxy
+            .dispatch_message(Message::Window(self.id, WindowMessage::SetHeight(height)))
     }
 
     pub fn resize(&self, width: f64, height: f64) -> Result<()> {
-        self.0.dispatch_message(Message::Window(
-            self.1,
+        self.proxy.dispatch_message(Message::Window(
+            self.id,
             WindowMessage::Resize { width, height },
         ))
     }
 
     pub fn set_min_size(&self, min_width: f64, min_height: f64) -> Result<()> {
-        self.0.dispatch_message(Message::Window(
-            self.1,
+        self.proxy.dispatch_message(Message::Window(
+            self.id,
             WindowMessage::SetMinSize {
                 min_width,
                 min_height,
@@ -362,8 +368,8 @@ impl<D: ApplicationDispatcher> WindowDispatcher<D> {
     }
 
     pub fn set_max_size(&self, max_width: f64, max_height: f64) -> Result<()> {
-        self.0.dispatch_message(Message::Window(
-            self.1,
+        self.proxy.dispatch_message(Message::Window(
+            self.id,
             WindowMessage::SetMaxSize {
                 max_width,
                 max_height,
@@ -372,35 +378,37 @@ impl<D: ApplicationDispatcher> WindowDispatcher<D> {
     }
 
     pub fn set_x(&self, x: f64) -> Result<()> {
-        self.0
-            .dispatch_message(Message::Window(self.1, WindowMessage::SetX(x)))
+        self.proxy
+            .dispatch_message(Message::Window(self.id, WindowMessage::SetX(x)))
     }
 
     pub fn set_y(&self, y: f64) -> Result<()> {
-        self.0
-            .dispatch_message(Message::Window(self.1, WindowMessage::SetY(y)))
+        self.proxy
+            .dispatch_message(Message::Window(self.id, WindowMessage::SetY(y)))
     }
 
     pub fn set_position(&self, x: f64, y: f64) -> Result<()> {
-        self.0
-            .dispatch_message(Message::Window(self.1, WindowMessage::SetPosition { x, y }))
+        self.proxy.dispatch_message(Message::Window(
+            self.id,
+            WindowMessage::SetPosition { x, y },
+        ))
     }
 
     pub fn set_fullscreen(&self, fullscreen: bool) -> Result<()> {
-        self.0.dispatch_message(Message::Window(
-            self.1,
+        self.proxy.dispatch_message(Message::Window(
+            self.id,
             WindowMessage::SetFullscreen(fullscreen),
         ))
     }
 
     pub fn set_icon(&self, icon: Icon) -> Result<()> {
-        self.0
-            .dispatch_message(Message::Window(self.1, WindowMessage::SetIcon(icon)))
+        self.proxy
+            .dispatch_message(Message::Window(self.id, WindowMessage::SetIcon(icon)))
     }
 
     pub fn eval_script<S: Into<String>>(&self, script: S) -> Result<()> {
-        self.0.dispatch_message(Message::Webview(
-            self.1,
+        self.proxy.dispatch_message(Message::Webview(
+            self.id,
             WebviewMessage::EvalScript(script.into()),
         ))
     }
@@ -421,7 +429,7 @@ impl Application {
         &mut self,
         attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
-    ) -> Result<WindowDispatcher<AppDispatcher>> {
+    ) -> Result<WindowDispatcher> {
         let id = self.inner.create_webview(attributes, callbacks)?;
         Ok(self.window_dispatcher(id))
     }
@@ -430,7 +438,7 @@ impl Application {
         self.inner.dispatcher()
     }
 
-    pub fn window_dispatcher(&self, window_id: WindowId) -> WindowDispatcher<AppDispatcher> {
+    pub fn window_dispatcher(&self, window_id: WindowId) -> WindowDispatcher {
         WindowDispatcher::new(self.dispatcher(), window_id)
     }
 
