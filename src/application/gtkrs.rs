@@ -20,21 +20,21 @@ use gtk::{
 
 pub type WindowId = u32;
 
-struct EventLoopProxy<T>(Arc<Mutex<Sender<Message<T>>>>);
+struct EventLoopProxy(Arc<Mutex<Sender<Message>>>);
 
-impl<T> Clone for EventLoopProxy<T> {
+impl Clone for EventLoopProxy {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
 #[derive(Clone)]
-pub struct AppDispatcher<T> {
-    proxy: EventLoopProxy<T>,
+pub struct AppDispatcher {
+    proxy: EventLoopProxy,
 }
 
-impl<T> ApplicationDispatcher<T> for AppDispatcher<T> {
-    fn dispatch_message(&self, message: Message<T>) -> Result<()> {
+impl ApplicationDispatcher for AppDispatcher {
+    fn dispatch_message(&self, message: Message) -> Result<()> {
         self.proxy.0.lock().unwrap().send(message).unwrap();
         Ok(())
     }
@@ -50,17 +50,16 @@ impl<T> ApplicationDispatcher<T> for AppDispatcher<T> {
     }
 }
 
-pub struct Application<T> {
+pub struct Application {
     webviews: HashMap<u32, WebView>,
     app: GtkApp,
-    event_loop_proxy: EventLoopProxy<T>,
-    event_loop_proxy_rx: Receiver<Message<T>>,
-    message_handler: Option<Box<dyn FnMut(T)>>,
+    event_loop_proxy: EventLoopProxy,
+    event_loop_proxy_rx: Receiver<Message>,
 }
 
-impl<T> ApplicationExt<'_, T> for Application<T> {
+impl ApplicationExt for Application {
     type Id = u32;
-    type Dispatcher = AppDispatcher<T>;
+    type Dispatcher = AppDispatcher;
 
     fn new() -> Result<Self> {
         let app = GtkApp::new(None, Default::default())?;
@@ -75,7 +74,6 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
             app,
             event_loop_proxy: EventLoopProxy(Arc::new(Mutex::new(event_loop_proxy_tx))),
             event_loop_proxy_rx,
-            message_handler: None,
         })
     }
 
@@ -93,17 +91,13 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         Ok(id)
     }
 
-    fn set_message_handler<F: FnMut(T) + 'static>(&mut self, handler: F) {
-        self.message_handler.replace(Box::new(handler));
-    }
-
     fn dispatcher(&self) -> Self::Dispatcher {
         AppDispatcher {
             proxy: self.event_loop_proxy.clone(),
         }
     }
 
-    fn run(mut self) {
+    fn run(self) {
         let shared_webviews = Arc::new(Mutex::new(self.webviews));
         let shared_webviews_ = shared_webviews.clone();
 
@@ -269,11 +263,6 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
                                     }
                                 }
                             }
-                        }
-                    }
-                    Message::Custom(message) => {
-                        if let Some(ref mut handler) = self.message_handler {
-                            handler(message);
                         }
                     }
                 }

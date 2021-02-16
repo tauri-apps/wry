@@ -13,7 +13,7 @@ pub use gtkrs::{AppDispatcher, WindowId};
 
 use crate::{Dispatcher, Result};
 
-use std::{fs::read, marker::PhantomData, path::Path, sync::mpsc::Sender};
+use std::{fs::read, path::Path, sync::mpsc::Sender};
 
 pub struct Callback {
     pub name: String,
@@ -244,15 +244,14 @@ pub enum WebviewMessage {
     EvalScript(String),
 }
 
-pub enum Message<T> {
+pub enum Message {
     Webview(WindowId, WebviewMessage),
     Window(WindowId, WindowMessage),
     NewWindow(WebViewAttributes, Option<Vec<Callback>>, Sender<WindowId>),
-    Custom(T),
 }
 
-pub trait ApplicationDispatcher<T> {
-    fn dispatch_message(&self, message: Message<T>) -> Result<()>;
+pub trait ApplicationDispatcher {
+    fn dispatch_message(&self, message: Message) -> Result<()>;
     fn add_window(
         &self,
         attributes: WebViewAttributes,
@@ -260,26 +259,15 @@ pub trait ApplicationDispatcher<T> {
     ) -> Result<WindowId>;
 }
 
-pub struct WebviewDispatcher<T, D>(D, WindowId, PhantomData<T>);
+pub struct WindowDispatcher<D>(D, WindowId);
 
-impl<T, D: ApplicationDispatcher<T>> WebviewDispatcher<T, D> {
+impl<D: ApplicationDispatcher> WindowDispatcher<D> {
     fn new(dispatcher: D, window_id: WindowId) -> Self {
-        Self(dispatcher, window_id, PhantomData)
+        Self(dispatcher, window_id)
     }
 
-    pub fn eval_script<S: Into<String>>(&self, script: S) -> Result<()> {
-        self.0.dispatch_message(Message::Webview(
-            self.1,
-            WebviewMessage::EvalScript(script.into()),
-        ))
-    }
-}
-
-pub struct WindowDispatcher<T, D>(D, WindowId, PhantomData<T>);
-
-impl<T, D: ApplicationDispatcher<T>> WindowDispatcher<T, D> {
-    fn new(dispatcher: D, window_id: WindowId) -> Self {
-        Self(dispatcher, window_id, PhantomData)
+    pub fn id(&self) -> WindowId {
+        self.1
     }
 
     pub fn set_resizable(&self, resizable: bool) -> Result<()> {
@@ -409,10 +397,17 @@ impl<T, D: ApplicationDispatcher<T>> WindowDispatcher<T, D> {
         self.0
             .dispatch_message(Message::Window(self.1, WindowMessage::SetIcon(icon)))
     }
+
+    pub fn eval_script<S: Into<String>>(&self, script: S) -> Result<()> {
+        self.0.dispatch_message(Message::Webview(
+            self.1,
+            WebviewMessage::EvalScript(script.into()),
+        ))
+    }
 }
 
 pub struct Application {
-    inner: InnerApplication<()>,
+    inner: InnerApplication,
 }
 
 impl Application {
@@ -426,30 +421,17 @@ impl Application {
         &mut self,
         attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
-    ) -> Result<WindowId> {
-        self.inner.create_webview(attributes, callbacks)
+    ) -> Result<WindowDispatcher<AppDispatcher>> {
+        let id = self.inner.create_webview(attributes, callbacks)?;
+        Ok(self.window_dispatcher(id))
     }
 
-    pub fn set_message_handler<F: FnMut(()) + 'static>(&mut self, handler: F) {
-        self.inner.set_message_handler(handler)
-    }
-
-    pub fn dispatcher(&self) -> AppDispatcher<()> {
+    pub fn dispatcher(&self) -> AppDispatcher {
         self.inner.dispatcher()
     }
 
-    pub fn window_dispatcher(
-        &self,
-        window_id: WindowId,
-    ) -> WindowDispatcher<(), AppDispatcher<()>> {
+    pub fn window_dispatcher(&self, window_id: WindowId) -> WindowDispatcher<AppDispatcher> {
         WindowDispatcher::new(self.dispatcher(), window_id)
-    }
-
-    pub fn webview_dispatcher(
-        &self,
-        window_id: WindowId,
-    ) -> WebviewDispatcher<(), AppDispatcher<()>> {
-        WebviewDispatcher::new(self.dispatcher(), window_id)
     }
 
     pub fn run(self) {
@@ -457,8 +439,8 @@ impl Application {
     }
 }
 
-trait ApplicationExt<'a, T>: Sized {
-    type Dispatcher: ApplicationDispatcher<T>;
+trait ApplicationExt: Sized {
+    type Dispatcher: ApplicationDispatcher;
     type Id: Copy;
 
     fn new() -> Result<Self>;
@@ -468,7 +450,6 @@ trait ApplicationExt<'a, T>: Sized {
         attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<Self::Id>;
-    fn set_message_handler<F: FnMut(T) + 'static>(&mut self, handler: F);
 
     fn dispatcher(&self) -> Self::Dispatcher;
 

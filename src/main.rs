@@ -1,5 +1,5 @@
 use wry::Result;
-use wry::{Application, ApplicationDispatcher, Callback, Message, WebViewAttributes};
+use wry::{Application, ApplicationDispatcher, Callback, WebViewAttributes};
 
 fn main() -> Result<()> {
     let webview1_attributes = WebViewAttributes {
@@ -25,21 +25,14 @@ fn main() -> Result<()> {
     };
 
     let mut app = Application::new()?;
-    let window1_id = app.create_webview(webview1_attributes, Some(vec![callback]))?;
+    let window1_dispatcher = app.create_webview(webview1_attributes, Some(vec![callback]))?;
     app.create_webview(webview2_attributes, None)?;
 
-    app.set_message_handler(|_| {
-        println!("got custom message");
-    });
-
     let dispatcher = app.dispatcher();
-    let window1_dispatcher = app.window_dispatcher(window1_id);
-    let webview1_dispatcher = app.webview_dispatcher(window1_id);
 
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));
-        dispatcher.dispatch_message(Message::Custom(())).unwrap();
-        webview1_dispatcher
+        window1_dispatcher
             .eval_script("console.log('dispatched message worked')".to_string())
             .unwrap();
 
