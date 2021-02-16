@@ -23,14 +23,14 @@ pub type WindowId = u32;
 pub struct Application<T> {
     webviews: HashMap<u32, WebView>,
     app: GtkApp,
-    event_loop_proxy: EventLoopProxy<u32, T>,
-    event_loop_proxy_rx: Receiver<Message<u32, T>>,
+    event_loop_proxy: EventLoopProxy<T>,
+    event_loop_proxy_rx: Receiver<Message<T>>,
     message_handler: Option<Box<dyn FnMut(T)>>,
 }
 
-struct EventLoopProxy<I, T>(Arc<Mutex<Sender<Message<I, T>>>>);
+struct EventLoopProxy<T>(Arc<Mutex<Sender<Message<T>>>>);
 
-impl<I, T> Clone for EventLoopProxy<I, T> {
+impl<T> Clone for EventLoopProxy<T> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
@@ -38,11 +38,11 @@ impl<I, T> Clone for EventLoopProxy<I, T> {
 
 #[derive(Clone)]
 pub struct AppDispatcher<T> {
-    proxy: EventLoopProxy<u32, T>,
+    proxy: EventLoopProxy<T>,
 }
 
-impl<T> ApplicationDispatcher<u32, T> for AppDispatcher<T> {
-    fn dispatch_message(&self, message: Message<u32, T>) -> Result<()> {
+impl<T> ApplicationDispatcher<T> for AppDispatcher<T> {
+    fn dispatch_message(&self, message: Message<T>) -> Result<()> {
         self.proxy.0.lock().unwrap().send(message).unwrap();
         Ok(())
     }
