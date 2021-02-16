@@ -241,14 +241,16 @@ impl ApplicationExt for Application {
                                         gdk::WindowHints::MAX_SIZE,
                                     );
                                 }
-                                WindowMessage::SetX(_x) => {
-                                    // TODO
+                                WindowMessage::SetX(x) => {
+                                    let (_, y) = window.get_position();
+                                    window.move_(x as i32, y);
                                 }
-                                WindowMessage::SetY(_y) => {
-                                    // TODO
+                                WindowMessage::SetY(y) => {
+                                    let (x, _) = window.get_position();
+                                    window.move_(x, y as i32);
                                 }
-                                WindowMessage::SetPosition { x: _, y: _ } => {
-                                    // TODO
+                                WindowMessage::SetPosition { x, y } => {
+                                    window.move_(x as i32, y as i32);
                                 }
                                 WindowMessage::SetFullscreen(fullscreen) => {
                                     if fullscreen {
@@ -288,7 +290,7 @@ fn load_icon(icon: Icon) -> Result<gdk_pixbuf::Pixbuf> {
 }
 
 fn _create_window(app: &GtkApp, attributes: AppWindowAttributes) -> Result<ApplicationWindow> {
-    //TODO window config (missing transparent, x, y)
+    //TODO window config (missing transparent)
     let window = ApplicationWindow::new(app);
 
     window.set_geometry_hints::<ApplicationWindow>(
@@ -332,6 +334,12 @@ fn _create_window(app: &GtkApp, attributes: AppWindowAttributes) -> Result<Appli
     window.set_visible(attributes.visible);
     window.set_decorated(attributes.decorations);
     window.set_keep_above(attributes.always_on_top);
+
+    match (attributes.x, attributes.y) {
+        (Some(x), Some(y)) => window.move_(x as i32, y as i32),
+        _ => {}
+    }
+
     if attributes.fullscreen {
         window.fullscreen();
     }
