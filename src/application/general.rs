@@ -1,5 +1,5 @@
 use crate::{
-    application::{AppWebViewAttributes, AppWindowAttributes, ApplicationExt},
+    application::{AppWebViewAttributes, AppWindowAttributes, ApplicationExt, WindowDispatcher},
     ApplicationDispatcher, Callback, Icon, Message, Result, WebView, WebViewAttributes,
     WebViewBuilder, WebviewMessage, WindowMessage,
 };
@@ -28,10 +28,7 @@ use bindings::windows::win32::windows_and_messaging::*;
 
 use std::{
     collections::HashMap,
-    sync::{
-        mpsc::{channel, Receiver, Sender},
-        Arc, Mutex,
-    },
+    sync::{mpsc::channel, Arc, Mutex},
 };
 
 type EventLoopProxy = Arc<Mutex<winit::event_loop::EventLoopProxy<Message>>>;
@@ -128,7 +125,7 @@ impl ApplicationExt for Application {
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
         let window = _create_window(&self.event_loop, window_attrs)?;
-        let webview = _create_webview(window, webview_attrs, callbacks)?;
+        let webview = _create_webview(&self.dispatcher(), window, webview_attrs, callbacks)?;
         let id = webview.window().id();
         self.webviews.insert(id, webview);
         Ok(id)
@@ -141,6 +138,7 @@ impl ApplicationExt for Application {
     }
 
     fn run(self) {
+        let dispatcher = self.dispatcher();
         let mut windows = self.webviews;
         self.event_loop.run(move |event, event_loop, control_flow| {
             *control_flow = ControlFlow::Wait;
@@ -167,7 +165,8 @@ impl ApplicationExt for Application {
                         let (window_attrs, webview_attrs) = attributes.split();
                         let window = _create_window(&event_loop, window_attrs).unwrap();
                         sender.send(window.id()).unwrap();
-                        let webview = _create_webview(window, webview_attrs, callbacks).unwrap();
+                        let webview =
+                            _create_webview(&dispatcher, window, webview_attrs, callbacks).unwrap();
                         let id = webview.window().id();
                         windows.insert(id, webview);
                     }
@@ -323,17 +322,22 @@ fn _create_window(
 }
 
 fn _create_webview(
+    dispatcher: &AppDispatcher,
     window: Window,
     attributes: AppWebViewAttributes,
     callbacks: Option<Vec<Callback>>,
 ) -> Result<WebView> {
+    let window_id = window.id();
     let mut webview = WebViewBuilder::new(window)?;
     for js in attributes.initialization_scripts {
         webview = webview.initialize_script(&js);
     }
     if let Some(cbs) = callbacks {
-        for Callback { name, function } in cbs {
-            webview = webview.add_callback(&name, function);
+        for Callback { name, mut function } in cbs {
+            let window_dispatcher = WindowDispatcher::new(dispatcher.clone(), window_id);
+            webview = webview.add_callback(&name, move |_, seq, req| {
+                function(&window_dispatcher, seq, req)
+            });
         }
     }
     webview = match attributes.url {
