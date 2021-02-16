@@ -17,6 +17,8 @@ use gtk::{
     WidgetExt,
 };
 
+pub type WindowId = u32;
+
 pub struct Application<T> {
     webviews: HashMap<u32, WebView>,
     app: GtkApp,
@@ -152,7 +154,7 @@ fn _create_webview(
     Ok(webview)
 }
 impl<T> ApplicationExt<'_, T> for Application<T> {
-    type Window = GtkWindow;
+    type Id = u32;
     type Dispatcher = AppDispatcher<T>;
 
     fn new() -> Result<Self> {
@@ -172,18 +174,14 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         })
     }
 
-    fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window> {
-        Ok(GtkWindow(_create_window(&self.app, attributes)?))
-    }
-
     fn create_webview(
         &mut self,
         window_attributes: AppWindowAttributes,
         webview_attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<Self::Id> {
-        let window = _create_window(&self.app, attributes)?;
-        let webview = _create_webview(window, attributes, callbacks)?;
+        let window = _create_window(&self.app, window_attributes)?;
+        let webview = _create_webview(window, webview_attributes, callbacks)?;
         let id = webview.window().get_id();
         self.webviews.insert(id, webview);
 
