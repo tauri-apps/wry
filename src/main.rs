@@ -18,7 +18,7 @@ fn main() -> Result<()> {
             println!("The seq is: {}", seq);
             println!("The req is: {:?}", req);
             dispatcher
-                .dispatch_script("console.log('The anwser is ' + window.x);")
+                .eval_script("console.log('The anwser is ' + window.x);")
                 .unwrap();
             0
         }),

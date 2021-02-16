@@ -1,5 +1,5 @@
 use crate::{
-    application::{AppWebViewAttributes, AppWindowAttributes, ApplicationExt},
+    application::{AppWebViewAttributes, AppWindowAttributes, ApplicationExt, WindowDispatcher},
     ApplicationDispatcher, Callback, Icon, Message, Result, WebView, WebViewAttributes,
     WebViewBuilder, WebviewMessage, WindowMessage,
 };
@@ -84,7 +84,7 @@ impl ApplicationExt for Application {
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
         let window = _create_window(&self.app, window_attrs)?;
-        let webview = _create_webview(window, webview_attrs, callbacks)?;
+        let webview = _create_webview(&self.dispatcher(), window, webview_attrs, callbacks)?;
         let id = webview.window().get_id();
         self.webviews.insert(id, webview);
 
@@ -98,6 +98,7 @@ impl ApplicationExt for Application {
     }
 
     fn run(self) {
+        let dispatcher = self.dispatcher();
         let shared_webviews = Arc::new(Mutex::new(self.webviews));
         let shared_webviews_ = shared_webviews.clone();
 
@@ -132,7 +133,8 @@ impl ApplicationExt for Application {
                         let (window_attrs, webview_attrs) = attributes.split();
                         let window = _create_window(&self.app, window_attrs).unwrap();
                         sender.send(window.get_id()).unwrap();
-                        let webview = _create_webview(window, webview_attrs, callbacks).unwrap();
+                        let webview =
+                            _create_webview(&dispatcher, window, webview_attrs, callbacks).unwrap();
                         let id = webview.window().get_id();
                         let shared_webviews_ = shared_webviews_.clone();
                         webview
@@ -343,17 +345,22 @@ fn _create_window(app: &GtkApp, attributes: AppWindowAttributes) -> Result<Appli
 }
 
 fn _create_webview(
+    dispatcher: &AppDispatcher,
     window: ApplicationWindow,
     attributes: AppWebViewAttributes,
     callbacks: Option<Vec<Callback>>,
 ) -> Result<WebView> {
+    let window_id = window.get_id();
     let mut webview = WebViewBuilder::new(window)?;
     for js in attributes.initialization_scripts {
         webview = webview.initialize_script(&js);
     }
     if let Some(cbs) = callbacks {
-        for Callback { name, function } in cbs {
-            webview = webview.add_callback(&name, function);
+        for Callback { name, mut function } in cbs {
+            let window_dispatcher = WindowDispatcher::new(dispatcher.clone(), window_id);
+            webview = webview.add_callback(&name, move |_, seq, req| {
+                function(&window_dispatcher, seq, req)
+            });
         }
     }
     webview = match attributes.url {
