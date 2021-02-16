@@ -1,7 +1,6 @@
 use crate::{
     AppMessage, AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Icon,
-    Message, Result, WebView, WebViewAttributes, WebViewBuilder, WebviewMessage, WindowExt,
-    WindowMessage,
+    Message, Result, WebView, WebViewAttributes, WebViewBuilder, WebviewMessage, WindowMessage,
 };
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};
@@ -33,15 +32,6 @@ use std::{
         Arc, Mutex,
     },
 };
-
-pub struct WinitWindow(Window);
-
-impl WindowExt<'_> for WinitWindow {
-    type Id = WindowId;
-    fn id(&self) -> Self::Id {
-        self.0.id()
-    }
-}
 
 type EventLoopProxy<I, T> = Arc<Mutex<winit::event_loop::EventLoopProxy<Message<I, T>>>>;
 
@@ -175,7 +165,7 @@ pub struct Application<T: 'static> {
 }
 
 impl<T> ApplicationExt<'_, T> for Application<T> {
-    type Window = WinitWindow;
+    type Id = WindowId;
     type Dispatcher = AppDispatcher<T>;
 
     fn new() -> Result<Self> {
@@ -189,20 +179,17 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
         })
     }
 
-    fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window> {
-        Ok(WinitWindow(_create_window(&self.event_loop, attributes)?))
-    }
-
     fn create_webview(
         &mut self,
-        window: Self::Window,
-        attributes: WebViewAttributes,
+        window_attributes: AppWindowAttributes,
+        webview_attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
-    ) -> Result<()> {
-        let webview = _create_webview(window.0, attributes, callbacks)?;
+    ) -> Result<Self::Id> {
+        let window = _create_window(&self.event_loop, window_attributes)?;
+        let webview = _create_webview(window, webview_attributes, callbacks)?;
         let id = webview.window().id();
         self.webviews.insert(id, webview);
-        Ok(())
+        Ok(id)
     }
 
     fn set_message_handler<F: FnMut(T) + 'static>(&mut self, handler: F) {

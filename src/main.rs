@@ -1,7 +1,7 @@
 use wry::Result;
 use wry::{
     AppWindowAttributes, Application, ApplicationDispatcher, ApplicationExt, Callback, Message,
-    WebViewAttributes, WindowExt,
+    WebViewAttributes,
 };
 
 fn main() -> Result<()> {
@@ -26,11 +26,12 @@ fn main() -> Result<()> {
     };
 
     let mut app = Application::<()>::new()?;
-    let window1 = app.create_window(AppWindowAttributes::default())?;
-    let window1_id = window1.id();
-    let window2 = app.create_window(AppWindowAttributes::default())?;
-    app.create_webview(window1, webview1_attributes, Some(vec![callback]))?;
-    app.create_webview(window2, webview2_attributes, None)?;
+    let window1_id = app.create_webview(
+        AppWindowAttributes::default(),
+        webview1_attributes,
+        Some(vec![callback]),
+    )?;
+    app.create_webview(AppWindowAttributes::default(), webview2_attributes, None)?;
 
     app.set_message_handler(|_| {
         println!("got custom message");

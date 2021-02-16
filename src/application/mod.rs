@@ -10,12 +10,6 @@ mod gtkrs;
 #[cfg(target_os = "linux")]
 pub use gtkrs::*;
 
-#[cfg(target_os = "linux")]
-pub use gtkrs::GtkWindow as Window;
-
-#[cfg(not(target_os = "linux"))]
-pub use general::WinitWindow as Window;
-
 use crate::{Dispatcher, Result};
 
 use std::marker::PhantomData;
@@ -383,52 +377,34 @@ impl<I: Copy, T, D: ApplicationDispatcher<I, T>> WindowDispatcher<I, T, D> {
 }
 
 pub trait ApplicationExt<'a, T>: Sized {
-    type Window: WindowExt<'a>;
-    type Dispatcher: ApplicationDispatcher<
-        <<Self as ApplicationExt<'a, T>>::Window as WindowExt<'a>>::Id,
-        T,
-    >;
+    type Dispatcher: ApplicationDispatcher<Self::Id, T>;
+    type Id: Copy;
 
     fn new() -> Result<Self>;
 
-    fn create_window(&self, attributes: AppWindowAttributes) -> Result<Self::Window>;
-
     fn create_webview(
         &mut self,
-        window: Self::Window,
-        attributes: WebViewAttributes,
+        window_attribures: AppWindowAttributes,
+        webview_attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
-    ) -> Result<()>;
+    ) -> Result<Self::Id>;
     fn set_message_handler<F: FnMut(T) + 'static>(&mut self, handler: F);
 
     fn dispatcher(&self) -> Self::Dispatcher;
 
     fn window_dispatcher(
         &self,
-        window_id: <<Self as ApplicationExt<'a, T>>::Window as WindowExt<'a>>::Id,
-    ) -> WindowDispatcher<
-        <<Self as ApplicationExt<'a, T>>::Window as WindowExt<'a>>::Id,
-        T,
-        Self::Dispatcher,
-    > {
+        window_id: Self::Id,
+    ) -> WindowDispatcher<Self::Id, T, Self::Dispatcher> {
         WindowDispatcher::new(self.dispatcher(), window_id)
     }
 
     fn webview_dispatcher(
         &self,
-        window_id: <<Self as ApplicationExt<'a, T>>::Window as WindowExt<'a>>::Id,
-    ) -> WebviewDispatcher<
-        <<Self as ApplicationExt<'a, T>>::Window as WindowExt<'a>>::Id,
-        T,
-        Self::Dispatcher,
-    > {
+        window_id: Self::Id,
+    ) -> WebviewDispatcher<Self::Id, T, Self::Dispatcher> {
         WebviewDispatcher::new(self.dispatcher(), window_id)
     }
 
     fn run(self);
-}
-
-pub trait WindowExt<'a> {
-    type Id: Copy;
-    fn id(&self) -> Self::Id;
 }

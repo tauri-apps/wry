@@ -1,7 +1,6 @@
 use crate::{
     AppMessage, AppWindowAttributes, ApplicationDispatcher, ApplicationExt, Callback, Icon,
-    Message, Result, WebView, WebViewAttributes, WebViewBuilder, WebviewMessage, WindowExt,
-    WindowMessage,
+    Message, Result, WebView, WebViewAttributes, WebViewBuilder, WebviewMessage, WindowMessage,
 };
 
 use std::{
@@ -24,16 +23,6 @@ pub struct Application<T> {
     event_loop_proxy: EventLoopProxy<u32, T>,
     event_loop_proxy_rx: Receiver<Message<u32, T>>,
     message_handler: Option<Box<dyn FnMut(T)>>,
-}
-
-pub struct GtkWindow(ApplicationWindow);
-pub type WindowId = u32;
-
-impl WindowExt<'_> for GtkWindow {
-    type Id = u32;
-    fn id(&self) -> Self::Id {
-        self.0.get_id()
-    }
 }
 
 struct EventLoopProxy<I, T>(Arc<Mutex<Sender<Message<I, T>>>>);
@@ -189,15 +178,16 @@ impl<T> ApplicationExt<'_, T> for Application<T> {
 
     fn create_webview(
         &mut self,
-        window: Self::Window,
-        attributes: WebViewAttributes,
+        window_attributes: AppWindowAttributes,
+        webview_attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
-    ) -> Result<()> {
-        let webview = _create_webview(window.0, attributes, callbacks)?;
+    ) -> Result<Self::Id> {
+        let window = _create_window(&self.app, attributes)?;
+        let webview = _create_webview(window, attributes, callbacks)?;
         let id = webview.window().get_id();
         self.webviews.insert(id, webview);
 
-        Ok(())
+        Ok(id)
     }
 
     fn set_message_handler<F: FnMut(T) + 'static>(&mut self, handler: F) {
