@@ -4,7 +4,7 @@ Cross-platfrom WebView rendering library in Rust that supports all major desktop
 
 ```toml
 [dependencies]
-wry = "0.4.0"
+wry = "0.5.0"
 ```
 
 ## Overview
@@ -24,10 +24,16 @@ use wry::{Application, Result};
 
 fn main() -> Result<()> {
     let mut app = Application::new()?;
-    app.create_window(Default::default(), None)?;
+    app.add_window(Default::default(), None)?;
     app.run();
     Ok(())
 }
+```
+
+There are also more samples under `examples`, you can enter commands like following to try them:
+
+```
+cargo run --example basic
 ```
 
 For more information, please read the documentation below.
