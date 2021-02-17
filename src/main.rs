@@ -25,20 +25,20 @@ fn main() -> Result<()> {
     };
 
     let mut app = Application::new()?;
-    let window1_dispatcher = app.add_window(webview1_attributes, Some(vec![callback]))?;
+    let window1_proxy = app.add_window(webview1_attributes, Some(vec![callback]))?;
     app.add_window(webview2_attributes, None)?;
 
     let dispatcher = app.application_proxy();
 
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));
-        window1_dispatcher
+        window1_proxy
             .eval_script("console.log('dispatched message worked')".to_string())
             .unwrap();
 
-        window1_dispatcher.set_title("new title").unwrap();
+        window1_proxy.set_title("new title").unwrap();
 
-        let window_id = dispatcher
+        let window_proxy = dispatcher
             .add_window(
                 WebViewAttributes {
                     title: "NEW WINDOW".into(),
@@ -48,7 +48,7 @@ fn main() -> Result<()> {
                 None,
             )
             .unwrap();
-        println!("{:?}", window_id);
+        println!("{:?}", window_proxy.id());
     });
 
     app.run();
