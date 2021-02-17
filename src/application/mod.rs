@@ -296,7 +296,7 @@ impl ApplicationProxy {
         self.inner.send_message(message)
     }
 
-    /// Adds another WebView window to the application. It returns its [`WindowProxy`] after created.
+    /// Adds another WebView window to the application. Returns its [`WindowProxy`] after created.
     pub fn add_window(
         &self,
         attributes: Attributes,
@@ -474,21 +474,40 @@ impl WindowProxy {
     }
 }
 
+/// Provides a way to create and manage WebView windows.
+///
+/// Application is the main gateway of all WebView windows. You can simply call
+/// [`Application::add_window`] to create a WebView embedded in a window and delegate to
+/// [`Application`].
+///
+/// [`Application::run`] has to be called on the (main) thread who creates its [`Application`]. In
+/// order to interact with application from other threads, [`Application::application_proxy`]
+/// and [`Application::window_proxy`] allow you to retrieve their proxies for further management
+/// when running the application.
 pub struct Application {
     inner: InnerApplication,
 }
 
-// TODO add more description to application since this is the main gateway of the crate.
-/// The main application to create and handle WebView windows.
 impl Application {
     /// Builds a new application.
+    ///
+    /// ***For cross-platform compatibility, the [`Application`] must be created on the main thread.***
+    /// Attempting to create the application on a different thread will usually result in unexpected
+    /// behaviors and even panic. This restriction isn't strictly necessary on all platforms, but is
+    /// imposed to eliminate any nasty surprises when porting to platforms that require it.
     pub fn new() -> Result<Self> {
         Ok(Self {
             inner: InnerApplication::new()?,
         })
     }
 
-    /// Adds another WebView window to the application. It returns its [`WindowProxy`] after created.
+    /// Adds a WebView window to the application. Returns its [`WindowProxy`] after created.
+    ///
+    /// [`Attributes`] is the configuration struct for you to customize the window.
+    ///
+    /// [`Callback`] allows you to define rust function to be called on Javascript side for its window.
+    ///
+    /// To create a default window, you could just pass `.add_window(Default::default(), None)`.
     pub fn add_window(
         &mut self,
         attributes: Attributes,
@@ -498,19 +517,21 @@ impl Application {
         Ok(self.window_proxy(id))
     }
 
-    /// Returns a [`ApplicationProxy`].
+    /// Returns a [`ApplicationProxy`] for you to manage the application from other threads.
     pub fn application_proxy(&self) -> ApplicationProxy {
         ApplicationProxy {
             inner: self.inner.application_proxy(),
         }
     }
 
-    /// Returns a [`WindowProxy`].
+    /// Returns the [`WindowProxy`] with given `WindowId`.
     pub fn window_proxy(&self, window_id: WindowId) -> WindowProxy {
         WindowProxy::new(self.application_proxy(), window_id)
     }
 
-    /// Runs the application.
+    /// Consume the application and start running it. This will hijack the main thread and iterate
+    /// its event loop. To further control the application after running, [`ApplicationProxy`] and
+    /// [`WindowProxy`] allow you to do so on other threads.
     pub fn run(self) {
         self.inner.run()
     }
