@@ -18,7 +18,7 @@ fn main() -> Result<()> {
             println!("The seq is: {}", seq);
             println!("The req is: {:?}", req);
             dispatcher
-                .eval_script("console.log('The anwser is ' + window.x);")
+                .evaluate_script("console.log('The anwser is ' + window.x);")
                 .unwrap();
             0
         }),
@@ -33,7 +33,7 @@ fn main() -> Result<()> {
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));
         window1_proxy
-            .eval_script("console.log('dispatched message worked')".to_string())
+            .evaluate_script("console.log('dispatched message worked')".to_string())
             .unwrap();
 
         window1_proxy.set_title("new title").unwrap();

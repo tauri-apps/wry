@@ -429,7 +429,7 @@ impl WindowProxy {
             .send_message(Message::Window(self.id, WindowMessage::SetIcon(icon)))
     }
 
-    pub fn eval_script<S: Into<String>>(&self, script: S) -> Result<()> {
+    pub fn evaluate_script<S: Into<String>>(&self, script: S) -> Result<()> {
         self.proxy.send_message(Message::Window(
             self.id,
             WindowMessage::EvaluationScript(script.into()),
