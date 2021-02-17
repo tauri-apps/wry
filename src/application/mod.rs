@@ -246,6 +246,7 @@ pub enum Message {
     NewWindow(WebViewAttributes, Option<Vec<Callback>>, Sender<WindowId>),
 }
 
+#[derive(Clone)]
 pub struct ApplicationProxy {
     inner: InnerApplicationProxy,
 }
@@ -259,8 +260,9 @@ impl ApplicationProxy {
         &self,
         attributes: WebViewAttributes,
         callbacks: Option<Vec<Callback>>,
-    ) -> Result<WindowId> {
-        self.inner.add_window(attributes, callbacks)
+    ) -> Result<WindowProxy> {
+        let id = self.inner.add_window(attributes, callbacks)?;
+        Ok(WindowProxy::new(self.clone(), id))
     }
 }
 
