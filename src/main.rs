@@ -1,13 +1,13 @@
 use wry::Result;
-use wry::{Application, Callback, WebViewAttributes};
+use wry::{Application, Attributes, Callback};
 
 fn main() -> Result<()> {
-    let webview1_attributes = WebViewAttributes {
+    let webview1_attributes = Attributes {
         url: Some("https://www.google.com".to_string()),
         initialization_scripts: vec![String::from("window.x = 42")],
         ..Default::default()
     };
-    let webview2_attributes = WebViewAttributes {
+    let webview2_attributes = Attributes {
         url: Some("https://www.google.com".to_string()),
         initialization_scripts: vec![String::from("window.x = 24")],
         ..Default::default()
@@ -40,7 +40,7 @@ fn main() -> Result<()> {
 
         let window_proxy = dispatcher
             .add_window(
-                WebViewAttributes {
+                Attributes {
                     title: "NEW WINDOW".into(),
                     url: Some("https://www.google.com".to_string()),
                     ..Default::default()

@@ -1,6 +1,6 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
-    ApplicationProxy, Callback, Icon, Message, Result, WebView, WebViewAttributes, WebViewBuilder,
+    ApplicationProxy, Attributes, Callback, Icon, Message, Result, WebView, WebViewBuilder,
     WindowMessage, WindowProxy,
 };
 #[cfg(target_os = "macos")]
@@ -50,7 +50,7 @@ impl AppProxy for InnerApplicationProxy {
 
     fn add_window(
         &self,
-        attributes: WebViewAttributes,
+        attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<WindowId> {
         let (sender, receiver) = channel();
@@ -120,7 +120,7 @@ impl App for InnerApplication {
 
     fn create_webview(
         &mut self,
-        attributes: WebViewAttributes,
+        attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();

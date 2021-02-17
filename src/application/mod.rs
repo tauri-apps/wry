@@ -35,7 +35,7 @@ impl Icon {
 
 /// Attributes to use when creating a window.
 #[derive(Debug, Clone)]
-pub struct WebViewAttributes {
+pub struct Attributes {
     /// Whether the window is resizable or not.
     ///
     /// The default is `true`.
@@ -131,7 +131,7 @@ pub struct WebViewAttributes {
     pub initialization_scripts: Vec<String>,
 }
 
-impl WebViewAttributes {
+impl Attributes {
     fn split(self) -> (InnerWindowAttributes, InnerWebViewAttributes) {
         (
             InnerWindowAttributes {
@@ -162,7 +162,7 @@ impl WebViewAttributes {
     }
 }
 
-impl Default for WebViewAttributes {
+impl Default for Attributes {
     #[inline]
     fn default() -> Self {
         Self {
@@ -243,7 +243,7 @@ pub enum WindowMessage {
 
 pub enum Message {
     Window(WindowId, WindowMessage),
-    NewWindow(WebViewAttributes, Option<Vec<Callback>>, Sender<WindowId>),
+    NewWindow(Attributes, Option<Vec<Callback>>, Sender<WindowId>),
 }
 
 #[derive(Clone)]
@@ -258,7 +258,7 @@ impl ApplicationProxy {
 
     pub fn add_window(
         &self,
-        attributes: WebViewAttributes,
+        attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<WindowProxy> {
         let id = self.inner.add_window(attributes, callbacks)?;
@@ -270,7 +270,7 @@ trait AppProxy {
     fn send_message(&self, message: Message) -> Result<()>;
     fn add_window(
         &self,
-        attributes: WebViewAttributes,
+        attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<WindowId>;
 }
@@ -440,7 +440,7 @@ impl Application {
 
     pub fn add_window(
         &mut self,
-        attributes: WebViewAttributes,
+        attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<WindowProxy> {
         let id = self.inner.create_webview(attributes, callbacks)?;
@@ -470,7 +470,7 @@ trait App: Sized {
 
     fn create_webview(
         &mut self,
-        attributes: WebViewAttributes,
+        attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
     ) -> Result<Self::Id>;
 

@@ -12,7 +12,7 @@
 //! ```
 //!
 //! Once you have your application instance, you can create the WebView window by calling
-//! [`Application::create_window`]. You can provide [`WebViewAttributes`] and [`Callback`] as
+//! [`Application::add_window`]. You can provide [`Attributes`] and [`Callback`] as
 //! arguments to configure the WebView window. If you don't have any preference, you could just set
 //! them with `Default::default()` and `None`.
 //!
@@ -77,8 +77,8 @@ pub mod platform;
 mod webview;
 
 pub use application::{
-    Application, ApplicationProxy, Callback, Icon, Message, WebViewAttributes, WindowId,
-    WindowMessage, WindowProxy,
+    Application, ApplicationProxy, Attributes, Callback, Icon, Message, WindowId, WindowMessage,
+    WindowProxy,
 };
 pub use webview::{Dispatcher, WebView, WebViewBuilder};
 
