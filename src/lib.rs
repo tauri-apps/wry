@@ -4,7 +4,7 @@
 //!
 //! # Building WebView windows through [`Application`]
 //!
-//! [`Application`] is the recommended way to build the WebView windows. It provides easy to use and
+//! [`Application`] is the recommended way to build the WebView windows. It provides ergonomic and
 //! unified APIs across all platforms. To get started, you simply create an [`Application`] first:
 //!
 //! ```no_run
@@ -17,33 +17,36 @@
 //! them with `Default::default()` and `None`.
 //!
 //! ```no_run
-//!     let attributes = WebViewAttributes {
-//!         title: String::from("Wryyyyyyyyyyyyyyy"),
-//!         // Initialization scripts can be used to define javascript functions and variables.
-//!         initialization_script: vec![String::from("breads = NaN"), String::from("menacing = 'ゴ'")],
-//!         ..Default::default()
-//!     };
-//!     // Callback defines a rust function to be called on javascript side later. Below is a function
-//!     // which will print the list of parameters after 8th calls.
-//!     let callback = Callback {
-//!         name: String::from("world"),
-//!         function: Box::new(|dispatcher, sequence, requests| {
-//!             // Dispatcher is a channel sender for you to dispatch script to the javascript world
-//!             // and evaluate it. This is useful when you want to perform any action in javascript.
-//!             dispatcher
-//!                 .dispatch_script("console.log(menacing);")
-//!                 .unwrap();
-//!             // Sequence is a number counting how many times this function being called.
-//!             if sequence < 8 {
-//!                 println!("{} seconds has passed.", sequence);
-//!             } else {
-//!                 // Requests is a vector of parameters passed from the caller.
-//!                 println!("{:?}", requests);
-//!             }
-//!             0
-//!         }),
-//!     };
-//!     app.create_window(attributes, Some(vec![callback]))?;
+//! let attributes = Attributes {
+//!     url: Some("https://www.google.com".to_string()),
+//!     // Initialization scripts can be used to define javascript functions and variables.
+//!     initialization_scripts: vec![
+//!         String::from("breads = NaN"),
+//!         String::from("menacing = 'ゴ'"),
+//!     ],
+//!     ..Default::default()
+//! };
+//! // Callback defines a rust function to be called on javascript side later. Below is a function
+//! // which will print the list of parameters after 8th calls.
+//! let callback = Callback {
+//!     name: "world".to_owned(),
+//!     function: Box::new(|proxy, sequence, requests| {
+//!         // Proxy is like a window handle for you to send message events to the corresponding
+//!         // webview window. You can use it to adjust window and evaluate javascript code like
+//!         // below. This is useful when you want to perform any action in javascript.
+//!         proxy.evaluate_script("console.log(menacing);").unwrap();
+//!         // Sequence is a number counting how many times this function being called.
+//!         if sequence < 8 {
+//!             println!("{} seconds has passed.", sequence);
+//!         } else {
+//!             // Requests is a vector of parameters passed from the caller.
+//!             println!("{:?}", requests);
+//!         }
+//!         0
+//!     }),
+//! };
+//!
+//! let window = app.add_window(attributes, Some(vec![callback]))?;
 //! ```
 //!
 //! Run the application with run in the end. This will consume the instance and run the application
@@ -56,9 +59,10 @@
 //! # Building WebView windows by yourself
 //!
 //! If you want to control whole windows creation and events handling, you can use
-//! [`WebViewBuilder`] / [`WebView`] and [platform] module to build it all by yourself. [platform]
-//! module re-exports [winit] for you to build the window across all platforms except Linux. We still
-//! need Gtk's library to build the WebView, so it's [gtk-rs] on Linux.
+//! [`WebViewBuilder`] / [`WebView`] under [webview] module and [platform] module to build it all
+//! by yourself. [platform] module re-exports [winit] for you to build the window across all
+//! platforms except Linux. We still need Gtk's library to build the WebView, so it's [gtk-rs] on
+//! Linux.
 //!
 //! [winit]: https://crates.io/crates/winit
 //! [gtk-rs]: https://crates.io/crates/gtk

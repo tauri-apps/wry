@@ -2,6 +2,8 @@ use wry::Result;
 use wry::{Application, Attributes, Callback};
 
 fn main() -> Result<()> {
+    let mut app = Application::new()?;
+
     let attributes = Attributes {
         url: Some("https://www.google.com".to_string()),
         // Initialization scripts can be used to define javascript functions and variables.
@@ -16,7 +18,7 @@ fn main() -> Result<()> {
     let callback = Callback {
         name: "world".to_owned(),
         function: Box::new(|proxy, sequence, requests| {
-            // Proxy is a handle for you to send message events to the corresponding webview
+            // Proxy is like a window handle for you to send message events to the corresponding webview
             // window. You can use it to adjust window and evaluate javascript code like below.
             // This is useful when you want to perform any action in javascript.
             proxy.evaluate_script("console.log(menacing);").unwrap();
@@ -31,7 +33,6 @@ fn main() -> Result<()> {
         }),
     };
 
-    let mut app = Application::new()?;
     let window1 = app.add_window(attributes, Some(vec![callback]))?;
     let app_proxy = app.application_proxy();
 

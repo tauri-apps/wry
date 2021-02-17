@@ -1,3 +1,5 @@
+//! [`WebView`] struct and associated types.
+
 use crate::platform::InnerWebView;
 use crate::Result;
 

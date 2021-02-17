@@ -15,8 +15,21 @@ use crate::Result;
 
 use std::{fs::read, path::Path, sync::mpsc::Sender};
 
+/// Defines a Rust callback function which can be called on Javascript side.
 pub struct Callback {
+    /// Name of the callback function.
     pub name: String,
+    /// The function itself takes three parameters and return a number as return value.
+    ///
+    /// [`WindowProxy`] can let you adjust the corresponding WebView window.
+    ///
+    /// The second parameter `i32` is a sequence number to count how many times this function has
+    /// been called.
+    ///
+    /// The last vector is the actual list of arguments passed from the caller.
+    ///
+    /// The return value of the function is a number. Return `0` indicates the call is successful,
+    /// and return others if not.
     pub function: Box<dyn FnMut(WindowProxy, i32, Vec<String>) -> i32 + Send>,
 }
 
@@ -28,20 +41,22 @@ impl std::fmt::Debug for Callback {
     }
 }
 
+///	An icon used for the window title bar, taskbar, etc.
 #[derive(Debug, Clone)]
 pub struct Icon(pub(crate) Vec<u8>);
 
 impl Icon {
+    /// Creates an icon from the file.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         Ok(Self(read(path)?))
     }
-
+    /// Creates an icon from raw bytes.
     pub fn from_bytes<B: Into<Vec<u8>>>(bytes: B) -> Result<Self> {
         Ok(Self(bytes.into()))
     }
 }
 
-/// Attributes to use when creating a window.
+/// Attributes to use when creating a webview window.
 #[derive(Debug, Clone)]
 pub struct Attributes {
     /// Whether the window is resizable or not.
@@ -80,62 +95,69 @@ pub struct Attributes {
     /// The default is `false`.
     pub always_on_top: bool,
 
-    /// The width of the window
+    /// The width of the window.
     ///
-    /// The default is 800.0
+    /// The default is `800.0`.
     pub width: f64,
 
-    /// The height of the window
+    /// The height of the window.
     ///
-    /// The default is 600.0
+    /// The default is `600.0`.
     pub height: f64,
 
-    /// The minimum width of the window
+    /// The minimum width of the window.
     ///
-    /// The default is None.
+    /// The default is `None`.
     pub min_width: Option<f64>,
 
-    /// The minimum height of the window
+    /// The minimum height of the window.
     ///
-    /// The default is None.
+    /// The default is `None`.
     pub min_height: Option<f64>,
 
-    /// The maximum width of the window
+    /// The maximum width of the window.
     ///
-    /// The default is None.
+    /// The default is `None`.
     pub max_width: Option<f64>,
 
-    /// The maximum height of the window
+    /// The maximum height of the window.
     ///
-    /// The default is None.
+    /// The default is `None`.
     pub max_height: Option<f64>,
 
-    /// The horizontal position of the window's top left corner
+    /// The horizontal position of the window's top left corner.
     ///
-    /// The default is None.
+    /// The default is `None`.
     pub x: Option<f64>,
 
-    /// The vertical position of the window's top left corner
+    /// The vertical position of the window's top left corner.
     ///
-    /// The default is None.
+    /// The default is `None`.
     pub y: Option<f64>,
 
     /// Whether to start the window in fullscreen or not.
     ///
-    /// The default is false.
+    /// The default is `false`.
     pub fullscreen: bool,
 
     /// The window icon.
     ///
-    /// The default is None,
+    /// The default is `None`.
     pub icon: Option<Icon>,
 
-    /// Whether to hide the window icon in the taskbar/dock
+    /// Whether to hide the window icon in the taskbar/dock.
     ///
-    /// The default is false
+    /// The default is `false`
     pub skip_taskbar: bool,
 
+    /// The URL to be loaded in the webview window.
+    ///
+    /// The default is `None`.
     pub url: Option<String>,
+
+    /// Javascript Code to be initialized when loading new pages.
+    ///
+    /// The default is an empty vector.
     pub initialization_scripts: Vec<String>,
 }
 
@@ -224,6 +246,7 @@ struct InnerWebViewAttributes {
     initialization_scripts: Vec<String>,
 }
 
+/// Describes a message for a WebView window.
 #[derive(Debug)]
 pub enum WindowMessage {
     SetResizable(bool),
@@ -250,22 +273,30 @@ pub enum WindowMessage {
     EvaluationScript(String),
 }
 
+/// Describes a general message.
 #[derive(Debug)]
 pub enum Message {
     Window(WindowId, WindowMessage),
     NewWindow(Attributes, Option<Vec<Callback>>, Sender<WindowId>),
 }
 
+/// A proxy to sent custom messages to [`Application`].
+///
+/// This can be created by calling [`Application::application_proxy`].
 #[derive(Clone)]
 pub struct ApplicationProxy {
     inner: InnerApplicationProxy,
 }
 
 impl ApplicationProxy {
+    /// Sends a message to the [`Application`] from which this proxy was created.
+    ///
+    /// Returns an Err if the associated EventLoop no longer exists.
     pub fn send_message(&self, message: Message) -> Result<()> {
         self.inner.send_message(message)
     }
 
+    /// Adds another WebView window to the application. It returns its [`WindowProxy`] after created.
     pub fn add_window(
         &self,
         attributes: Attributes,
@@ -285,6 +316,11 @@ trait AppProxy {
     ) -> Result<WindowId>;
 }
 
+/// A proxy to customize its corresponding WebView window.
+///
+/// Whenever [`Application::add_window`] creates a WebView Window, it will return this for you. But
+/// it can still be retrieved from [`Application::window_proxy`] in case you drop the window proxy
+/// too early.
 pub struct WindowProxy {
     proxy: ApplicationProxy,
     id: WindowId,
@@ -295,6 +331,7 @@ impl WindowProxy {
         Self { proxy, id }
     }
 
+    /// Gets the id of the WebView window.
     pub fn id(&self) -> WindowId {
         self.id
     }
@@ -441,13 +478,17 @@ pub struct Application {
     inner: InnerApplication,
 }
 
+// TODO add more description to application since this is the main gateway of the crate.
+/// The main application to create and handle WebView windows.
 impl Application {
+    /// Builds a new application.
     pub fn new() -> Result<Self> {
         Ok(Self {
             inner: InnerApplication::new()?,
         })
     }
 
+    /// Adds another WebView window to the application. It returns its [`WindowProxy`] after created.
     pub fn add_window(
         &mut self,
         attributes: Attributes,
@@ -457,16 +498,19 @@ impl Application {
         Ok(self.window_proxy(id))
     }
 
+    /// Returns a [`ApplicationProxy`].
     pub fn application_proxy(&self) -> ApplicationProxy {
         ApplicationProxy {
             inner: self.inner.application_proxy(),
         }
     }
 
+    /// Returns a [`WindowProxy`].
     pub fn window_proxy(&self, window_id: WindowId) -> WindowProxy {
         WindowProxy::new(self.application_proxy(), window_id)
     }
 
+    /// Runs the application.
     pub fn run(self) {
         self.inner.run()
     }
