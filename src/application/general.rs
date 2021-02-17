@@ -1,7 +1,7 @@
 use crate::{
-    application::{AppWebViewAttributes, AppWindowAttributes, ApplicationExt, WindowDispatcher},
-    ApplicationDispatcher, Callback, Icon, Message, Result, WebView, WebViewAttributes,
-    WebViewBuilder, WebviewMessage, WindowMessage,
+    application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
+    ApplicationProxy, Callback, Icon, Message, Result, WebView, WebViewAttributes, WebViewBuilder,
+    WindowMessage, WindowProxy,
 };
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};
@@ -34,12 +34,12 @@ use std::{
 type EventLoopProxy = Arc<Mutex<winit::event_loop::EventLoopProxy<Message>>>;
 
 #[derive(Clone)]
-pub struct AppDispatcher {
+pub struct InnerApplicationProxy {
     proxy: EventLoopProxy,
 }
 
-impl ApplicationDispatcher for AppDispatcher {
-    fn dispatch_message(&self, message: Message) -> Result<()> {
+impl AppProxy for InnerApplicationProxy {
+    fn send_message(&self, message: Message) -> Result<()> {
         self.proxy
             .lock()
             .unwrap()
@@ -54,13 +54,13 @@ impl ApplicationDispatcher for AppDispatcher {
         callbacks: Option<Vec<Callback>>,
     ) -> Result<WindowId> {
         let (sender, receiver) = channel();
-        self.dispatch_message(Message::NewWindow(attributes, callbacks, sender))?;
+        self.send_message(Message::NewWindow(attributes, callbacks, sender))?;
         Ok(receiver.recv().unwrap())
     }
 }
 
-impl From<&AppWindowAttributes> for WindowAttributes {
-    fn from(w: &AppWindowAttributes) -> Self {
+impl From<&InnerWindowAttributes> for WindowAttributes {
+    fn from(w: &InnerWindowAttributes) -> Self {
         let min_inner_size = match (w.min_width, w.min_height) {
             (Some(min_width), Some(min_height)) => {
                 Some(LogicalSize::new(min_width, min_height).into())
@@ -98,15 +98,15 @@ impl From<&AppWindowAttributes> for WindowAttributes {
     }
 }
 
-pub struct Application {
+pub struct InnerApplication {
     webviews: HashMap<WindowId, WebView>,
     event_loop: EventLoop<Message>,
     event_loop_proxy: EventLoopProxy,
 }
 
-impl ApplicationExt for Application {
+impl App for InnerApplication {
     type Id = WindowId;
-    type Dispatcher = AppDispatcher;
+    type Proxy = InnerApplicationProxy;
 
     fn new() -> Result<Self> {
         let event_loop = EventLoop::<Message>::with_user_event();
@@ -125,20 +125,20 @@ impl ApplicationExt for Application {
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
         let window = _create_window(&self.event_loop, window_attrs)?;
-        let webview = _create_webview(&self.dispatcher(), window, webview_attrs, callbacks)?;
+        let webview = _create_webview(&self.application_proxy(), window, webview_attrs, callbacks)?;
         let id = webview.window().id();
         self.webviews.insert(id, webview);
         Ok(id)
     }
 
-    fn dispatcher(&self) -> Self::Dispatcher {
-        AppDispatcher {
+    fn application_proxy(&self) -> Self::Proxy {
+        InnerApplicationProxy {
             proxy: self.event_loop_proxy.clone(),
         }
     }
 
     fn run(self) {
-        let dispatcher = self.dispatcher();
+        let dispatcher = self.application_proxy();
         let mut windows = self.webviews;
         self.event_loop.run(move |event, event_loop, control_flow| {
             *control_flow = ControlFlow::Wait;
@@ -170,17 +170,8 @@ impl ApplicationExt for Application {
                         let id = webview.window().id();
                         windows.insert(id, webview);
                     }
-                    Message::Webview(id, webview_message) => {
-                        if let Some(webview) = windows.get_mut(&id) {
-                            match webview_message {
-                                WebviewMessage::EvalScript(script) => {
-                                    let _ = webview.dispatch_script(&script);
-                                }
-                            }
-                        }
-                    }
                     Message::Window(id, window_message) => {
-                        if let Some(webview) = windows.get(&id) {
+                        if let Some(webview) = windows.get_mut(&id) {
                             let window = webview.window();
                             match window_message {
                                 WindowMessage::SetResizable(resizable) => {
@@ -264,6 +255,9 @@ impl ApplicationExt for Application {
                                         window.set_window_icon(Some(icon));
                                     }
                                 }
+                                WindowMessage::EvaluationScript(script) => {
+                                    let _ = webview.dispatch_script(&script);
+                                }
                             }
                         }
                     }
@@ -295,7 +289,7 @@ fn skip_taskbar(window: &Window) {
 
 fn _create_window(
     event_loop: &EventLoopWindowTarget<Message>,
-    attributes: AppWindowAttributes,
+    attributes: InnerWindowAttributes,
 ) -> Result<Window> {
     let mut window_builder = WindowBuilder::new();
     #[cfg(target_os = "macos")]
@@ -322,9 +316,9 @@ fn _create_window(
 }
 
 fn _create_webview(
-    dispatcher: &AppDispatcher,
+    dispatcher: &InnerApplicationProxy,
     window: Window,
-    attributes: AppWebViewAttributes,
+    attributes: InnerWebViewAttributes,
     callbacks: Option<Vec<Callback>>,
 ) -> Result<WebView> {
     let window_id = window.id();
@@ -337,7 +331,12 @@ fn _create_webview(
             let dispatcher = dispatcher.clone();
             webview = webview.add_callback(&name, move |_, seq, req| {
                 function(
-                    WindowDispatcher::new(dispatcher.clone(), window_id),
+                    WindowProxy::new(
+                        ApplicationProxy {
+                            inner: dispatcher.clone(),
+                        },
+                        window_id,
+                    ),
                     seq,
                     req,
                 )

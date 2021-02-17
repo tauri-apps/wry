@@ -1,19 +1,19 @@
 #[cfg(not(target_os = "linux"))]
 mod general;
 #[cfg(not(target_os = "linux"))]
-use general::Application as InnerApplication;
+pub use general::WindowId;
 #[cfg(not(target_os = "linux"))]
-pub use general::{AppDispatcher, WindowId};
+use general::{InnerApplication, InnerApplicationProxy};
 #[cfg(target_os = "linux")]
 mod gtkrs;
 #[cfg(target_os = "linux")]
-use gtkrs::*;
+pub use gtkrs::WindowId;
+#[cfg(target_os = "linux")]
+use gtkrs::{InnerApplication, InnerApplicationProxy};
 
 use crate::Result;
 
 use std::{fs::read, path::Path, sync::mpsc::Sender};
-
-pub use gtkrs::WindowId;
 
 pub struct Callback {
     pub name: String,
