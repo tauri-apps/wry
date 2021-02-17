@@ -1,5 +1,5 @@
 use wry::Result;
-use wry::{Application, ApplicationDispatcher, Callback, WebViewAttributes};
+use wry::{Application, Callback, WebViewAttributes};
 
 fn main() -> Result<()> {
     let webview1_attributes = WebViewAttributes {
@@ -25,10 +25,10 @@ fn main() -> Result<()> {
     };
 
     let mut app = Application::new()?;
-    let window1_dispatcher = app.create_webview(webview1_attributes, Some(vec![callback]))?;
-    app.create_webview(webview2_attributes, None)?;
+    let window1_dispatcher = app.add_window(webview1_attributes, Some(vec![callback]))?;
+    app.add_window(webview2_attributes, None)?;
 
-    let dispatcher = app.dispatcher();
+    let dispatcher = app.application_proxy();
 
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));

@@ -1,7 +1,7 @@
 use crate::{
-    application::{AppWebViewAttributes, AppWindowAttributes, ApplicationExt, WindowDispatcher},
-    ApplicationDispatcher, Callback, Icon, Message, Result, WebView, WebViewAttributes,
-    WebViewBuilder, WebviewMessage, WindowMessage,
+    application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes, WindowProxy},
+    ApplicationProxy, Callback, Icon, Message, Result, WebView, WebViewAttributes, WebViewBuilder,
+    WindowMessage,
 };
 
 use std::{
@@ -29,12 +29,12 @@ impl Clone for EventLoopProxy {
 }
 
 #[derive(Clone)]
-pub struct AppDispatcher {
+pub struct InnerApplicationProxy {
     proxy: EventLoopProxy,
 }
 
-impl ApplicationDispatcher for AppDispatcher {
-    fn dispatch_message(&self, message: Message) -> Result<()> {
+impl AppProxy for InnerApplicationProxy {
+    fn send_message(&self, message: Message) -> Result<()> {
         self.proxy.0.lock().unwrap().send(message).unwrap();
         Ok(())
     }
@@ -45,21 +45,21 @@ impl ApplicationDispatcher for AppDispatcher {
         callbacks: Option<Vec<Callback>>,
     ) -> Result<WindowId> {
         let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
-        self.dispatch_message(Message::NewWindow(attributes, callbacks, sender))?;
+        self.send_message(Message::NewWindow(attributes, callbacks, sender))?;
         Ok(receiver.recv().unwrap())
     }
 }
 
-pub struct Application {
+pub struct InnerApplication {
     webviews: HashMap<u32, WebView>,
     app: GtkApp,
     event_loop_proxy: EventLoopProxy,
     event_loop_proxy_rx: Receiver<Message>,
 }
 
-impl ApplicationExt for Application {
+impl App for InnerApplication {
     type Id = u32;
-    type Dispatcher = AppDispatcher;
+    type Proxy = InnerApplicationProxy;
 
     fn new() -> Result<Self> {
         let app = GtkApp::new(None, Default::default())?;
@@ -84,21 +84,21 @@ impl ApplicationExt for Application {
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
         let window = _create_window(&self.app, window_attrs)?;
-        let webview = _create_webview(&self.dispatcher(), window, webview_attrs, callbacks)?;
+        let webview = _create_webview(&self.application_proxy(), window, webview_attrs, callbacks)?;
         let id = webview.window().get_id();
         self.webviews.insert(id, webview);
 
         Ok(id)
     }
 
-    fn dispatcher(&self) -> Self::Dispatcher {
-        AppDispatcher {
+    fn application_proxy(&self) -> Self::Proxy {
+        InnerApplicationProxy {
             proxy: self.event_loop_proxy.clone(),
         }
     }
 
     fn run(self) {
-        let dispatcher = self.dispatcher();
+        let proxy = self.application_proxy();
         let shared_webviews = Arc::new(Mutex::new(self.webviews));
         let shared_webviews_ = shared_webviews.clone();
 
@@ -134,7 +134,7 @@ impl ApplicationExt for Application {
                         let window = _create_window(&self.app, window_attrs).unwrap();
                         sender.send(window.get_id()).unwrap();
                         let webview =
-                            _create_webview(&dispatcher, window, webview_attrs, callbacks).unwrap();
+                            _create_webview(&proxy, window, webview_attrs, callbacks).unwrap();
                         let id = webview.window().get_id();
                         let shared_webviews_ = shared_webviews_.clone();
                         webview
@@ -146,17 +146,8 @@ impl ApplicationExt for Application {
                         let mut webviews = shared_webviews.lock().unwrap();
                         webviews.insert(id, webview);
                     }
-                    Message::Webview(id, webview_message) => {
-                        if let Some(webview) = shared_webviews.lock().unwrap().get_mut(&id) {
-                            match webview_message {
-                                WebviewMessage::EvalScript(script) => {
-                                    let _ = webview.dispatch_script(&script);
-                                }
-                            }
-                        }
-                    }
                     Message::Window(id, window_message) => {
-                        if let Some(webview) = shared_webviews.lock().unwrap().get(&id) {
+                        if let Some(webview) = shared_webviews.lock().unwrap().get_mut(&id) {
                             let window = webview.window();
                             match window_message {
                                 WindowMessage::SetResizable(resizable) => {
@@ -266,6 +257,9 @@ impl ApplicationExt for Application {
                                         window.set_icon(Some(&icon));
                                     }
                                 }
+                                WindowMessage::EvaluationScript(script) => {
+                                    let _ = webview.dispatch_script(&script);
+                                }
                             }
                         }
                     }
@@ -291,7 +285,7 @@ fn load_icon(icon: Icon) -> Result<gdk_pixbuf::Pixbuf> {
     ))
 }
 
-fn _create_window(app: &GtkApp, attributes: AppWindowAttributes) -> Result<ApplicationWindow> {
+fn _create_window(app: &GtkApp, attributes: InnerWindowAttributes) -> Result<ApplicationWindow> {
     //TODO window config (missing transparent)
     let window = ApplicationWindow::new(app);
 
@@ -353,9 +347,9 @@ fn _create_window(app: &GtkApp, attributes: AppWindowAttributes) -> Result<Appli
 }
 
 fn _create_webview(
-    dispatcher: &AppDispatcher,
+    proxy: &InnerApplicationProxy,
     window: ApplicationWindow,
-    attributes: AppWebViewAttributes,
+    attributes: InnerWebViewAttributes,
     callbacks: Option<Vec<Callback>>,
 ) -> Result<WebView> {
     let window_id = window.get_id();
@@ -365,10 +359,15 @@ fn _create_webview(
     }
     if let Some(cbs) = callbacks {
         for Callback { name, mut function } in cbs {
-            let dispatcher = dispatcher.clone();
+            let proxy = proxy.clone();
             webview = webview.add_callback(&name, move |_, seq, req| {
                 function(
-                    WindowDispatcher::new(dispatcher.clone(), window_id),
+                    WindowProxy::new(
+                        ApplicationProxy {
+                            inner: proxy.clone(),
+                        },
+                        window_id,
+                    ),
                     seq,
                     req,
                 )
