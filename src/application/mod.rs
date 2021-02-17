@@ -20,6 +20,14 @@ pub struct Callback {
     pub function: Box<dyn FnMut(WindowProxy, i32, Vec<String>) -> i32 + Send>,
 }
 
+impl std::fmt::Debug for Callback {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Callback")
+            .field("name", &self.name)
+            .finish()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Icon(pub(crate) Vec<u8>);
 
@@ -216,6 +224,7 @@ struct InnerWebViewAttributes {
     initialization_scripts: Vec<String>,
 }
 
+#[derive(Debug)]
 pub enum WindowMessage {
     SetResizable(bool),
     SetTitle(String),
@@ -241,6 +250,7 @@ pub enum WindowMessage {
     EvaluationScript(String),
 }
 
+#[derive(Debug)]
 pub enum Message {
     Window(WindowId, WindowMessage),
     NewWindow(Attributes, Option<Vec<Callback>>, Sender<WindowId>),

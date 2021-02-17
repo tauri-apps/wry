@@ -35,7 +35,7 @@ pub struct InnerApplicationProxy {
 
 impl AppProxy for InnerApplicationProxy {
     fn send_message(&self, message: Message) -> Result<()> {
-        self.proxy.0.lock().unwrap().send(message).unwrap();
+        self.proxy.0.lock().unwrap().send(message)?;
         Ok(())
     }
 
@@ -46,7 +46,7 @@ impl AppProxy for InnerApplicationProxy {
     ) -> Result<WindowId> {
         let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
         self.send_message(Message::NewWindow(attributes, callbacks, sender))?;
-        Ok(receiver.recv().unwrap())
+        Ok(receiver.recv()?)
     }
 }
 

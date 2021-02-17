@@ -83,9 +83,9 @@ pub use application::{
 pub use webview::{Dispatcher, WebView, WebViewBuilder};
 
 #[cfg(not(target_os = "linux"))]
-use winit::window::BadIcon;
+use winit::{event_loop::EventLoopClosed, window::BadIcon};
 
-use std::sync::mpsc::SendError;
+use std::sync::mpsc::{RecvError, SendError};
 
 use url::ParseError;
 
@@ -95,6 +95,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Errors returned by wry.
 #[derive(Error, Debug)]
 pub enum Error {
+    #[cfg(not(target_os = "linux"))]
+    #[error(transparent)]
+    EventLoopClosed(#[from] EventLoopClosed<Message>),
     #[cfg(target_os = "linux")]
     #[error(transparent)]
     GlibError(#[from] glib::Error),
@@ -108,6 +111,8 @@ pub enum Error {
     #[cfg(not(target_os = "linux"))]
     #[error(transparent)]
     OsError(#[from] winit::error::OsError),
+    #[error(transparent)]
+    ReceiverError(#[from] RecvError),
     #[error(transparent)]
     SenderError(#[from] SendError<String>),
     #[error(transparent)]
