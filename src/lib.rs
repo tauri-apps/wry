@@ -116,6 +116,8 @@ pub enum Error {
     #[error(transparent)]
     SenderError(#[from] SendError<String>),
     #[error(transparent)]
+    SendMessageError(#[from] SendError<Message>),
+    #[error(transparent)]
     UrlError(#[from] ParseError),
     #[cfg(target_os = "windows")]
     #[error("Windows error: {0:?}")]
