@@ -10,8 +10,8 @@ wry = "0.5.0"
 ```
 
 <div align="center">
-  <a href="https://gfycat.com/helplessmagnificentballoonfish">
-    <img src="https://thumbs.gfycat.com/HelplessMagnificentBalloonfish-size_restricted.gif">
+  <a href="https://gfycat.com/needywetelk">
+    <img src="https://thumbs.gfycat.com/NeedyWetElk-size_restricted.gif">
   </a>
 </div>
 
