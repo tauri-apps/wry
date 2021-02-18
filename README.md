@@ -1,6 +1,6 @@
 # WRY (Webview Rendering librarY)
 
-[![](https://img.shields.io/crates/v/wry?style=flat-square)](https://crates.io/crates/wry)
+[![](https://img.shields.io/crates/v/wry?style=flat-square)](https://crates.io/crates/wry) [![](https://img.shields.io/docsrs/wry?style=flat-square)](https://docs.rs/wry/) ![](https://img.shields.io/crates/l/wry?style=flat-square)
 
 Cross-platfrom WebView rendering library in Rust that supports all major desktop platforms like Windows 10, macOS, and Linux.
 
@@ -11,7 +11,7 @@ wry = "0.5.0"
 
 <div align="center">
   <a href="https://gfycat.com/helplessmagnificentballoonfish">
-    <img src="https://thumbs.gfycat.com/helplessmagnificentballoonfish.gif">
+    <img src="https://thumbs.gfycat.com/HelplessMagnificentBalloonfish-size_restricted.gif">
   </a>
 </div>
 
