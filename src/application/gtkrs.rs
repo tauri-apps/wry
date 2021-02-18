@@ -64,7 +64,6 @@ impl App for InnerApplication {
         let app = GtkApp::new(None, Default::default())?;
         let cancellable: Option<&Cancellable> = None;
         app.register(cancellable)?;
-        app.activate();
 
         let (event_loop_proxy_tx, event_loop_proxy_rx) = channel();
 
