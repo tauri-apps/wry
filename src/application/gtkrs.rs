@@ -5,11 +5,10 @@ use crate::{
 };
 
 use std::{
+    cell::RefCell,
     collections::HashMap,
-    sync::{
-        mpsc::{channel, Receiver, Sender},
-        Arc, Mutex,
-    },
+    rc::Rc,
+    sync::mpsc::{channel, Receiver, Sender},
 };
 
 use gio::{ApplicationExt as GioApplicationExt, Cancellable};
@@ -20,7 +19,7 @@ use gtk::{
 
 pub type WindowId = u32;
 
-struct EventLoopProxy(Arc<Mutex<Sender<Message>>>);
+struct EventLoopProxy(Sender<Message>);
 
 impl Clone for EventLoopProxy {
     fn clone(&self) -> Self {
@@ -35,7 +34,7 @@ pub struct InnerApplicationProxy {
 
 impl AppProxy for InnerApplicationProxy {
     fn send_message(&self, message: Message) -> Result<()> {
-        self.proxy.0.lock().unwrap().send(message)?;
+        self.proxy.0.send(message)?;
         Ok(())
     }
 
@@ -72,7 +71,7 @@ impl App for InnerApplication {
         Ok(Self {
             webviews: HashMap::new(),
             app,
-            event_loop_proxy: EventLoopProxy(Arc::new(Mutex::new(event_loop_proxy_tx))),
+            event_loop_proxy: EventLoopProxy(event_loop_proxy_tx),
             event_loop_proxy_rx,
         })
     }
@@ -99,16 +98,16 @@ impl App for InnerApplication {
 
     fn run(self) {
         let proxy = self.application_proxy();
-        let shared_webviews = Arc::new(Mutex::new(self.webviews));
+        let shared_webviews = Rc::new(RefCell::new(self.webviews));
         let shared_webviews_ = shared_webviews.clone();
 
         {
-            let webviews = shared_webviews.lock().unwrap();
+            let webviews = shared_webviews.borrow_mut();
             for (id, w) in webviews.iter() {
                 let shared_webviews_ = shared_webviews_.clone();
                 let id_ = *id;
                 w.window().connect_delete_event(move |_window, _event| {
-                    shared_webviews_.lock().unwrap().remove(&id_);
+                    shared_webviews_.borrow_mut().remove(&id_);
                     Inhibit(false)
                 });
             }
@@ -116,7 +115,7 @@ impl App for InnerApplication {
 
         loop {
             {
-                let webviews = shared_webviews.lock().unwrap();
+                let webviews = shared_webviews.borrow_mut();
 
                 if webviews.is_empty() {
                     break;
@@ -140,14 +139,14 @@ impl App for InnerApplication {
                         webview
                             .window()
                             .connect_delete_event(move |_window, _event| {
-                                shared_webviews_.lock().unwrap().remove(&id);
+                                shared_webviews_.borrow_mut().remove(&id);
                                 Inhibit(false)
                             });
-                        let mut webviews = shared_webviews.lock().unwrap();
+                        let mut webviews = shared_webviews.borrow_mut();
                         webviews.insert(id, webview);
                     }
                     Message::Window(id, window_message) => {
-                        if let Some(webview) = shared_webviews.lock().unwrap().get_mut(&id) {
+                        if let Some(webview) = shared_webviews.borrow_mut().get_mut(&id) {
                             let window = webview.window();
                             match window_message {
                                 WindowMessage::SetResizable(resizable) => {
