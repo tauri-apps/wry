@@ -32,7 +32,7 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-    pub fn new(window: &Window, debug: bool) -> Result<Self> {
+    pub fn new(window: &Window, debug: bool, transparent: bool) -> Result<Self> {
         let mut hasher = DefaultHasher::new();
         window.id().hash(&mut hasher);
         let window_id = hasher.finish() as i64;
@@ -80,12 +80,21 @@ impl InnerWebView {
             let preference: id = msg_send![config, preferences];
             let nsnumber = class!(NSNumber);
             let number: id = msg_send![nsnumber, numberWithBool:1];
+            let zero: id = msg_send![nsnumber, numberWithBool:0];
             if debug {
                 // Equivalent Obj-C:
                 // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
                 let dev = get_nsstring("developerExtrasEnabled");
                 let _: id = msg_send![preference, setValue:number forKey:dev];
             }
+
+            if transparent {
+                // Equivalent Obj-C:
+                // [config setValue:@NO forKey:@"drawsBackground"];
+                let background = get_nsstring("drawsBackground");
+                let _: id = msg_send![config, setValue:zero forKey:background];
+            }
+
             // Equivalent Obj-C:
             // [[config preferences] setValue:@YES forKey:@"fullScreenEnabled"];
             let fullscreen = get_nsstring("fullScreenEnabled");

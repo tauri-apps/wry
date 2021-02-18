@@ -14,14 +14,14 @@ use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
 use winit::window::Window;
 
-const DEBUG: bool = true;
-
 /// Builder type of [`WebView`].
 ///
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
 /// [`WebViewBuilder`] privides ability to setup initialization before web engine starts.
 pub struct WebViewBuilder {
+    debug: bool,
+    transparent: bool,
     tx: Sender<String>,
     rx: Receiver<String>,
     initialization_scripts: Vec<String>,
@@ -44,7 +44,22 @@ impl WebViewBuilder {
             callbacks: vec![],
             window,
             url: None,
+            debug: false,
+            transparent: false,
         })
+    }
+
+    /// Enable extra developer tools like inspector if set to true.
+    pub fn debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
+        self
+    }
+
+    /// Whether the WebView window should be transparent. If this is true, writing colors
+    /// with alpha values different than `1.0` will produce a transparent window.
+    pub fn transparent(mut self, transparent: bool) -> Self {
+        self.transparent = transparent;
+        self
     }
 
     /// Initialize javascript code when loading new pages. Everytime webview load a new page, this
@@ -111,9 +126,9 @@ impl WebViewBuilder {
         #[cfg(target_os = "windows")]
         let webview = InnerWebView::new(self.window.hwnd())?;
         #[cfg(target_os = "macos")]
-        let webview = InnerWebView::new(&self.window, DEBUG)?;
+        let webview = InnerWebView::new(&self.window, self.debug, self.transparent)?;
         #[cfg(target_os = "linux")]
-        let webview = InnerWebView::new(&self.window, DEBUG)?;
+        let webview = InnerWebView::new(&self.window, self.debug)?;
         let webview = WebView {
             window: self.window,
             webview,
@@ -163,9 +178,9 @@ impl WebView {
         #[cfg(target_os = "windows")]
         let webview = InnerWebView::new(window.hwnd())?;
         #[cfg(target_os = "macos")]
-        let webview = InnerWebView::new(&window, DEBUG)?;
+        let webview = InnerWebView::new(&window, false, false)?;
         #[cfg(target_os = "linux")]
-        let webview = InnerWebView::new(&window, DEBUG)?;
+        let webview = InnerWebView::new(&window, false)?;
         let (tx, rx) = channel();
         Ok(Self {
             window,
@@ -175,6 +190,25 @@ impl WebView {
         })
     }
 
+    /// Create a [`WebView`] from provided [`Window`] along with several configurations.
+    /// Note that calling this directly loses
+    /// abilities to initialize scripts, add callbacks, and many more before starting WebView. To
+    /// benefit from above features, create a [`WebViewBuilder`] instead.
+    pub fn new_with_configs(window: Window, debug: bool, transparent: bool) -> Result<Self> {
+        #[cfg(target_os = "windows")]
+        let webview = InnerWebView::new(window.hwnd())?;
+        #[cfg(target_os = "macos")]
+        let webview = InnerWebView::new(&window, debug, transparent)?;
+        #[cfg(target_os = "linux")]
+        let webview = InnerWebView::new(&window, debug)?;
+        let (tx, rx) = channel();
+        Ok(Self {
+            window,
+            webview,
+            tx,
+            rx,
+        })
+    }
     /// Dispatch javascript code to be evaluated later. Note this will not actually run the
     /// scripts being dispatched. Users need to call [`WebView::evaluate_script`] to execute them.
     pub fn dispatch_script(&mut self, js: &str) -> Result<()> {

@@ -171,9 +171,6 @@ impl App for InnerApplication {
                                 WindowMessage::Hide => {
                                     window.hide();
                                 }
-                                WindowMessage::SetTransparent(_transparent) => {
-                                    // TODO
-                                }
                                 WindowMessage::SetDecorations(decorations) => {
                                     window.set_decorated(decorations);
                                 }
