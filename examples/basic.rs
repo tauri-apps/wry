@@ -5,7 +5,7 @@ fn main() -> Result<()> {
     let mut app = Application::new()?;
 
     let attributes = Attributes {
-        url: Some("https://www.google.com".to_string()),
+        url: Some("https://tauri.studio".to_string()),
         // Initialization scripts can be used to define javascript functions and variables.
         initialization_scripts: vec![
             String::from("breads = NaN"),
