@@ -26,12 +26,9 @@ mod bindings {
 #[cfg(target_os = "windows")]
 use bindings::windows::win32::windows_and_messaging::*;
 
-use std::{
-    collections::HashMap,
-    sync::{mpsc::channel, Arc, Mutex},
-};
+use std::{collections::HashMap, sync::mpsc::channel};
 
-type EventLoopProxy = Arc<Mutex<winit::event_loop::EventLoopProxy<Message>>>;
+type EventLoopProxy = winit::event_loop::EventLoopProxy<Message>;
 
 #[derive(Clone)]
 pub struct InnerApplicationProxy {
@@ -40,7 +37,7 @@ pub struct InnerApplicationProxy {
 
 impl AppProxy for InnerApplicationProxy {
     fn send_message(&self, message: Message) -> Result<()> {
-        self.proxy.lock().unwrap().send_event(message)?;
+        self.proxy.send_event(message)?;
         Ok(())
     }
 
@@ -110,7 +107,7 @@ impl App for InnerApplication {
         Ok(Self {
             webviews: HashMap::new(),
             event_loop,
-            event_loop_proxy: Arc::new(Mutex::new(proxy)),
+            event_loop_proxy: proxy,
         })
     }
 
