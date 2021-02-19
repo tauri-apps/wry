@@ -123,9 +123,6 @@ pub enum Error {
     SendMessageError(#[from] SendError<Message>),
     #[error(transparent)]
     UrlError(#[from] ParseError),
-    #[cfg(target_os = "windows")]
-    #[error("Windows error: {0:?}")]
-    WinrtError(windows::Error),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
     #[error("image error: {0}")]
@@ -133,11 +130,7 @@ pub enum Error {
     #[cfg(not(target_os = "linux"))]
     #[error("Icon error: {0}")]
     Icon(#[from] BadIcon),
-}
-
-#[cfg(target_os = "windows")]
-impl From<windows::Error> for Error {
-    fn from(error: windows::Error) -> Self {
-        Error::WinrtError(error)
-    }
+    #[cfg(target_os = "windows")]
+    #[error(transparent)]
+    WebView2Error(#[from] webview2::Error),
 }

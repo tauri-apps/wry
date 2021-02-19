@@ -129,7 +129,7 @@ impl WebViewBuilder {
         let webview = InnerWebView::new(&self.window, self.debug, self.transparent)?;
         #[cfg(target_os = "linux")]
         let webview = InnerWebView::new(&self.window, self.debug)?;
-        let webview = WebView {
+        let mut webview = WebView {
             window: self.window,
             webview,
             tx: self.tx,
@@ -242,7 +242,7 @@ impl WebView {
     /// provide a way to resize automatically.
     pub fn resize(&self) {
         #[cfg(target_os = "windows")]
-        self.webview.resize(self.window.hwnd());
+        self.webview.resize();
     }
 }
 

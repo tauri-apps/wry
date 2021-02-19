@@ -18,14 +18,6 @@ use libc::c_void;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
 
-#[allow(dead_code)]
-#[cfg(target_os = "windows")]
-mod bindings {
-    ::windows::include_bindings!();
-}
-#[cfg(target_os = "windows")]
-use bindings::windows::win32::windows_and_messaging::*;
-
 use std::{collections::HashMap, sync::mpsc::channel};
 
 type EventLoopProxy = winit::event_loop::EventLoopProxy<Message>;
@@ -265,16 +257,10 @@ fn load_icon(icon: Icon) -> crate::Result<WinitIcon> {
     let icon = WinitIcon::from_rgba(rgba, width, height)?;
     Ok(icon)
 }
-#[cfg(target_os = "windows")]
-extern "C" {
-    fn SkipTaskbar(window: HWND) -> c_void;
-}
 
 #[cfg(target_os = "windows")]
 fn skip_taskbar(window: &Window) {
-    unsafe {
-        SkipTaskbar(HWND(window.hwnd() as isize));
-    }
+    todo!()
 }
 
 fn _create_window(
