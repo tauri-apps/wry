@@ -6,14 +6,19 @@ use wry::platform::{
     winapi::shared::windef::RECT,
     win::*
 };
+use wry::webview::*;
 
 fn main() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
-    let mut webview = InnerWebView::new(window.hwnd()).unwrap();
-    webview.init("window.x = 42;");
-    webview.navigate("https://tauri.studio").unwrap();
-    webview.build();
+    let mut webview = WebViewBuilder::new(window).unwrap()
+        .initialize_script("window.x = 42;")
+        .add_callback("xxx", |w, _, _| {
+            println!("hello");
+            0
+        })
+        .load_url("https://tauri.studio").unwrap()
+        .build().unwrap();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -27,26 +32,17 @@ fn main() {
                 *control_flow = ControlFlow::Exit
             },
             Event::WindowEvent {
-                event: WindowEvent::Resized(new_size),
+                event: WindowEvent::Resized(_),
                 ..
             } => {
-                if let Some(webview_host) = webview.controller.get() {
-                    let r = RECT {
-                        left: 0,
-                        top: 0,
-                        right: new_size.width as i32,
-                        bottom: new_size.height as i32,
-                    };
-                    webview_host.put_bounds(r).expect("put_bounds");
-                }
+                webview.resize().unwrap();
             }
             Event::MainEventsCleared => {
-                window.request_redraw();
+                webview.window().request_redraw();
             },
             Event::RedrawRequested(_) => {
             },
             _ => ()
         }
-        //webview.eval("console.log(window.x);");
     });
 }

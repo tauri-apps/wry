@@ -10,15 +10,15 @@ use std::{
 };
 
 use once_cell::unsync::OnceCell;
-use webview2::{Controller, WebView};
-use winapi::shared::windef::HWND;
+use webview2::{Controller, WebView, PermissionKind, PermissionState};
+use winapi::shared::windef::{HWND, RECT};
 use winapi::um::winuser::GetClientRect;
 
 pub struct InnerWebView {
     pub controller: Rc<OnceCell<Controller>>,
     hwnd: HWND,
     initialization_scripts: Vec<String>,
-    url: Option<String>,
+    url: Option<(String, bool)>,
     window_id: i64,
 }
 
@@ -41,6 +41,7 @@ impl InnerWebView {
         let hwnd = self.hwnd;
         let controller_clone = self.controller.clone();
 
+        let window_id = self.window_id;
         webview2::EnvironmentBuilder::new().build(move |env| {
             env?.create_controller(hwnd, move |controller| {
                 let controller = controller?;
@@ -63,25 +64,49 @@ impl InnerWebView {
                     w.add_script_to_execute_on_document_created(&js, |_|(Ok(())));
                 }
                 w.add_script_to_execute_on_document_created(
-                    "window.external = {
-                      invoke: function(s) {
-                        window.webkit.messageHandlers.external.postMessage(s);
-                      },
-                    };",
+                    "window.external={invoke:s=>window.chrome.webview.postMessage(s)}",
                     |_|(Ok(()))
                 )?;
 
-                w.add_web_message_received(|webview, args| {
-                    let string = args.get_web_message_as_json()?;
-                    dbg!(string);
+                w.add_web_message_received(move |webview, args| {
+                    let s = args.try_get_web_message_as_string()?;
+                    let v: RPC = serde_json::from_str(&s).unwrap();
+                    let mut hashmap = CALLBACKS.lock().unwrap();
+                    let (f, d) = hashmap.get_mut(&(window_id, v.method)).unwrap();
+                    let status = f(d, v.id, v.params);
+
+                    let js = match status {
+                        0 => {
+                            format!(
+                                r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
+                                v.id, v.id
+                            )
+                        }
+                        _ => {
+                            format!(
+                                r#"window._rpc[{}].reject("RPC call fail"); window._rpc[{}] = undefined"#,
+                                v.id, v.id
+                            )
+                        }
+                    };
+                    webview.execute_script(&js, |_|(Ok(())))?;
                     Ok(())
                 })?;
-                // w.add_permission_requested(|webview, args| {
-                //     todo!()
-                // });
+                w.add_permission_requested(|_, args| {
+                    let kind = args.get_permission_kind()?;
+                    if kind == PermissionKind::ClipboardRead {
+                        args.put_state(PermissionState::Allow)?;
+                    }
+                    Ok(())
+                });
 
                 if let Some(url) = url {
-                    w.navigate(&url)?;
+                    if url.1 {
+                        w.navigate(&url.0)?;
+                    } else {
+                        w.navigate_to_string(&url.0)?;
+                    }
+
                 }
 
                 let _ = controller_clone.set(controller);
@@ -116,15 +141,26 @@ impl InnerWebView {
     }
 
     pub fn navigate(&mut self, url: &str) -> Result<()> {
-        self.url = Some(url.to_string());
+        self.url = Some((url.to_string(), true));
         Ok(())
     }
 
-    pub fn navigate_to_string(&self, url: &str) -> Result<()> {
-        todo!()
+    pub fn navigate_to_string(&mut self, url: &str) -> Result<()> {
+        self.url = Some((url.to_string(), false));
+        Ok(())
     }
 
-    pub fn resize(&self) {
-        todo!()
+    pub fn resize(&self, hwnd: *mut c_void) -> Result<()> {
+        let hwnd = hwnd as HWND;
+
+        unsafe {
+            let mut rect = std::mem::zeroed();
+            GetClientRect(hwnd, &mut rect);
+            if let Some(c) = self.controller.get() {
+                c.put_bounds(rect)?;
+            }
+        }
+
+        Ok(())
     }
 }
