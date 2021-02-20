@@ -2,23 +2,23 @@ use wry::platform::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
-    platform::windows::WindowExtWindows,
-    winapi::shared::windef::RECT,
-    win::*
 };
 use wry::webview::*;
 
 fn main() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
-    let mut webview = WebViewBuilder::new(window).unwrap()
+    let webview = WebViewBuilder::new(window)
+        .unwrap()
         .initialize_script("window.x = 42;")
-        .add_callback("xxx", |w, _, _| {
+        .add_callback("answer", |_, _, _| {
             println!("hello");
             0
         })
-        .load_url("https://tauri.studio").unwrap()
-        .build().unwrap();
+        .load_url("https://tauri.studio")
+        .unwrap()
+        .build()
+        .unwrap();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -30,7 +30,7 @@ fn main() {
             } => {
                 println!("The close button was pressed; stopping");
                 *control_flow = ControlFlow::Exit
-            },
+            }
             Event::WindowEvent {
                 event: WindowEvent::Resized(_),
                 ..
@@ -39,10 +39,9 @@ fn main() {
             }
             Event::MainEventsCleared => {
                 webview.window().request_redraw();
-            },
-            Event::RedrawRequested(_) => {
-            },
-            _ => ()
+            }
+            Event::RedrawRequested(_) => {}
+            _ => (),
         }
     });
 }

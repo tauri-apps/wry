@@ -13,11 +13,6 @@ use winit::{
     window::{Fullscreen, Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
 };
 
-#[cfg(target_os = "windows")]
-use libc::c_void;
-#[cfg(target_os = "windows")]
-use winit::platform::windows::WindowExtWindows;
-
 use std::{collections::HashMap, sync::mpsc::channel};
 
 type EventLoopProxy = winit::event_loop::EventLoopProxy<Message>;
@@ -141,7 +136,7 @@ impl App for InnerApplication {
                         }
                     }
                     WindowEvent::Resized(_) => {
-                        windows[&window_id].resize();
+                        windows[&window_id].resize().unwrap();
                     }
                     _ => {}
                 },
@@ -259,8 +254,8 @@ fn load_icon(icon: Icon) -> crate::Result<WinitIcon> {
 }
 
 #[cfg(target_os = "windows")]
-fn skip_taskbar(window: &Window) {
-    todo!()
+fn skip_taskbar(_window: &Window) {
+    // TODO
 }
 
 fn _create_window(

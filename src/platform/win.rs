@@ -2,20 +2,21 @@ use crate::platform::{CALLBACKS, RPC};
 use crate::{Dispatcher, Result};
 
 use std::{
-    ffi::CString,
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
     marker::Send,
-    os::raw::{c_char, c_void},
-    ptr::{null, null_mut},
+    os::raw::c_void,
     rc::Rc,
 };
 
 use once_cell::unsync::OnceCell;
-use webview2::{Controller, WebView, PermissionKind, PermissionState};
-use winapi::shared::windef::{HWND, RECT};
-use winapi::um::winuser::GetClientRect;
+use webview2::{Controller, PermissionKind, PermissionState};
+use winapi::{shared::windef::HWND, um::winuser::GetClientRect};
+use winit::{platform::windows::WindowExtWindows, window::Window};
 
 pub struct InnerWebView {
-    pub controller: Rc<OnceCell<Controller>>,
+    controller: Rc<OnceCell<Controller>>,
+    debug: bool,
     hwnd: HWND,
     initialization_scripts: Vec<String>,
     url: Option<(String, bool)>,
@@ -23,18 +24,23 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-    pub fn new(hwnd: *mut c_void) -> Result<Self> {
+    pub fn new(window: &Window, debug: bool) -> Result<Self> {
         let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
-        Ok(Self{
+        let mut hasher = DefaultHasher::new();
+        window.id().hash(&mut hasher);
+        let window_id = hasher.finish() as i64;
+        Ok(Self {
             controller,
-            hwnd: hwnd as HWND,
+            debug,
+            hwnd: window.hwnd() as HWND,
             initialization_scripts: vec![],
             url: None,
-            window_id: 0,
+            window_id,
         })
     }
 
     pub fn build(&mut self) -> Result<()> {
+        let debug = self.debug;
         let url = self.url.take();
         let mut scripts = vec![];
         std::mem::swap(&mut self.initialization_scripts, &mut scripts);
@@ -47,12 +53,13 @@ impl InnerWebView {
                 let controller = controller?;
                 let w = controller.get_webview()?;
 
-                let _ = w.get_settings().map(|settings| {
-                    let _ = settings.put_is_status_bar_enabled(false);
-                    let _ = settings.put_are_default_context_menus_enabled(true);
-                    let _ = settings.put_are_dev_tools_enabled(true);
-                    let _ = settings.put_is_zoom_control_enabled(false);
-                });
+                let settings = w.get_settings()?;
+                settings.put_is_status_bar_enabled(false)?;
+                settings.put_are_default_context_menus_enabled(true)?;
+                settings.put_is_zoom_control_enabled(false)?;
+                if debug {
+                    settings.put_are_dev_tools_enabled(true)?;
+                }
 
                 unsafe {
                     let mut rect = std::mem::zeroed();
@@ -61,7 +68,7 @@ impl InnerWebView {
                 }
 
                 for js in scripts {
-                    w.add_script_to_execute_on_document_created(&js, |_|(Ok(())));
+                    w.add_script_to_execute_on_document_created(&js, |_|(Ok(())))?;
                 }
                 w.add_script_to_execute_on_document_created(
                     "window.external={invoke:s=>window.chrome.webview.postMessage(s)}",
@@ -98,7 +105,7 @@ impl InnerWebView {
                         args.put_state(PermissionState::Allow)?;
                     }
                     Ok(())
-                });
+                })?;
 
                 if let Some(url) = url {
                     if url.1 {
@@ -135,7 +142,7 @@ impl InnerWebView {
     pub fn eval(&self, js: &str) -> Result<()> {
         if let Some(c) = self.controller.get() {
             let webview = c.get_webview()?;
-            webview.execute_script(js, |_|(Ok(())))?;
+            webview.execute_script(js, |_| (Ok(())))?;
         }
         Ok(())
     }

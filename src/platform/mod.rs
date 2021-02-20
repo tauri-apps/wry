@@ -11,16 +11,16 @@ mod macos;
 pub(crate) use macos::*;
 
 #[cfg(target_os = "windows")]
-pub mod win;
+mod win;
 #[cfg(target_os = "windows")]
 pub(crate) use win::*;
 
 #[cfg(target_os = "linux")]
 pub use gtk::*;
-#[cfg(not(target_os = "linux"))]
-pub use winit::*;
 #[cfg(target_os = "windows")]
 pub use winapi;
+#[cfg(not(target_os = "linux"))]
+pub use winit::*;
 
 use crate::Dispatcher;
 use std::{collections::HashMap, sync::Mutex};
