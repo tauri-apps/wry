@@ -13,8 +13,10 @@ use winit::{
     window::{Fullscreen, Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
 };
 
-use std::{collections::HashMap, ptr, sync::mpsc::channel};
+use std::{collections::HashMap, sync::mpsc::channel};
 
+#[cfg(target_os = "windows")]
+use std::ptr;
 #[cfg(target_os = "windows")]
 use {
     libc::c_void,

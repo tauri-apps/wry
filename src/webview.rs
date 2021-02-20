@@ -137,10 +137,8 @@ impl WebViewBuilder {
     }
 
     /// Consume the builder and create the [`WebView`].
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "linux")]
     pub fn build(self) -> Result<WebView> {
-        #[cfg(target_os = "macos")]
-        let webview = InnerWebView::new(&self.window, self.debug, self.transparent)?;
         #[cfg(target_os = "linux")]
         let webview = InnerWebView::new(&self.window, self.debug)?;
         let mut webview = WebView {
@@ -165,10 +163,12 @@ impl WebViewBuilder {
         Ok(webview)
     }
 
-    #[cfg(target_os = "windows")]
+    #[cfg(not(target_os = "linux"))]
     pub fn build(self) -> Result<WebView> {
         let webview = InnerWebView::new(
             &self.window,
+            #[cfg(target_os = "macos")]
+            self.transparent,
             self.debug,
             self.url,
             self.initialization_scripts,
@@ -203,7 +203,7 @@ impl WebView {
         #[cfg(target_os = "windows")]
         let webview = InnerWebView::new(&window, false, None, vec![])?;
         #[cfg(target_os = "macos")]
-        let webview = InnerWebView::new(&window, false, false)?;
+        let webview = InnerWebView::new(&window, false, false, None, vec![])?;
         #[cfg(target_os = "linux")]
         let webview = InnerWebView::new(&window, false)?;
         let (tx, rx) = channel();
@@ -223,7 +223,7 @@ impl WebView {
         #[cfg(target_os = "windows")]
         let webview = InnerWebView::new(&window, debug, None, vec![])?;
         #[cfg(target_os = "macos")]
-        let webview = InnerWebView::new(&window, debug, transparent)?;
+        let webview = InnerWebView::new(&window, debug, transparent, None, vec![])?;
         #[cfg(target_os = "linux")]
         let webview = InnerWebView::new(&window, debug)?;
         let (tx, rx) = channel();

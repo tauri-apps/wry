@@ -1,5 +1,5 @@
 use crate::platform::{CALLBACKS, RPC};
-use crate::{Dispatcher, Result};
+use crate::Result;
 
 use std::{
     collections::hash_map::DefaultHasher,
@@ -12,11 +12,11 @@ use std::{
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
 use cocoa::base::id;
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
-
 use objc::{
     declare::ClassDecl,
     runtime::{Object, Sel},
 };
+use url::Url;
 use winit::{platform::macos::WindowExtMacOS, window::Window};
 
 unsafe fn get_nsstring(s: &str) -> id {
@@ -28,11 +28,16 @@ unsafe fn get_nsstring(s: &str) -> id {
 pub struct InnerWebView {
     webview: id,
     manager: id,
-    window_id: i64,
 }
 
 impl InnerWebView {
-    pub fn new(window: &Window, debug: bool, transparent: bool) -> Result<Self> {
+    pub fn new(
+        window: &Window,
+        debug: bool,
+        transparent: bool,
+        url: Option<Url>,
+        scripts: Vec<String>,
+    ) -> Result<Self> {
         let mut hasher = DefaultHasher::new();
         window.id().hash(&mut hasher);
         let window_id = hasher.finish() as i64;
@@ -133,38 +138,32 @@ impl InnerWebView {
             let external = get_nsstring("external");
             let _: () = msg_send![manager, addScriptMessageHandler:handler name:external];
 
-            let w = Self {
-                webview,
-                manager,
-                window_id,
-            };
+            let w = Self { webview, manager };
+
             w.init(
                 "window.external = {
                       invoke: function(s) {
                         window.webkit.messageHandlers.external.postMessage(s);
                       },
                     };",
-            )?;
+            );
+            for js in scripts {
+                w.init(&js);
+            }
+
+            if let Some(url) = url {
+                if url.cannot_be_a_base() {
+                    w.navigate_to_string(url.as_str());
+                } else {
+                    w.navigate(url.as_str());
+                }
+            }
 
             let view = window.ns_view() as id;
             view.addSubview_(webview);
 
             Ok(w)
         }
-    }
-
-    pub fn init(&self, js: &str) -> Result<()> {
-        // Equivalent Obj-C:
-        // [manager addUserScript:[[WKUserScript alloc] initWithSource:[NSString stringWithUTF8String:js.c_str()] injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]]
-        unsafe {
-            let wkuserscript = class!(WKUserScript);
-            let userscript: id = msg_send![wkuserscript, alloc];
-            let js = get_nsstring(js);
-            let script: id =
-                msg_send![userscript, initWithSource:js injectionTime:0 forMainFrameOnly:1];
-            let _: () = msg_send![self.manager, addUserScript: script];
-        }
-        Ok(())
     }
 
     pub fn eval(&self, js: &str) -> Result<()> {
@@ -175,7 +174,20 @@ impl InnerWebView {
         Ok(())
     }
 
-    pub fn navigate(&self, url: &str) -> Result<()> {
+    fn init(&self, js: &str) {
+        // Equivalent Obj-C:
+        // [manager addUserScript:[[WKUserScript alloc] initWithSource:[NSString stringWithUTF8String:js.c_str()] injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]]
+        unsafe {
+            let wkuserscript = class!(WKUserScript);
+            let userscript: id = msg_send![wkuserscript, alloc];
+            let js = get_nsstring(js);
+            let script: id =
+                msg_send![userscript, initWithSource:js injectionTime:0 forMainFrameOnly:1];
+            let _: () = msg_send![self.manager, addUserScript: script];
+        }
+    }
+
+    fn navigate(&self, url: &str) {
         unsafe {
             let nsurl = class!(NSURL);
             let s = get_nsstring(url);
@@ -184,10 +196,9 @@ impl InnerWebView {
             let request: id = msg_send![nsurlrequest, requestWithURL: url];
             let _: () = msg_send![self.webview, loadRequest: request];
         }
-        Ok(())
     }
 
-    pub fn navigate_to_string(&self, url: &str) -> Result<()> {
+    fn navigate_to_string(&self, url: &str) {
         unsafe {
             let nsurl = class!(NSURL);
             let html = get_nsstring(url);
@@ -195,6 +206,5 @@ impl InnerWebView {
             let url: id = msg_send![nsurl, URLWithString: s];
             let _: () = msg_send![self.webview, loadHTMLString:html baseURL:url];
         }
-        Ok(())
     }
 }
