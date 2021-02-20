@@ -129,16 +129,6 @@ impl InnerWebView {
         Ok(())
     }
 
-    pub fn add_callback<F>(&self, name: &str, f: F, dispatcher: Dispatcher)
-    where
-        F: FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send + 'static,
-    {
-        CALLBACKS.lock().unwrap().insert(
-            (self.window_id, name.to_string()),
-            (Box::new(f), dispatcher),
-        );
-    }
-
     pub fn eval(&self, js: &str) -> Result<()> {
         if let Some(c) = self.controller.get() {
             let webview = c.get_webview()?;

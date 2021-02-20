@@ -1,9 +1,13 @@
 //! [`WebView`] struct and associated types.
 
-use crate::platform::InnerWebView;
+use crate::platform::{InnerWebView, CALLBACKS};
 use crate::Result;
 
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+    sync::mpsc::{channel, Receiver, Sender},
+};
 
 use url::Url;
 
@@ -25,27 +29,33 @@ pub struct WebViewBuilder {
     tx: Sender<String>,
     rx: Receiver<String>,
     initialization_scripts: Vec<String>,
-    callbacks: Vec<(
-        String,
-        Box<dyn FnMut(&Dispatcher, i32, Vec<String>) -> i32 + Send>,
-    )>,
     window: Window,
     url: Option<Url>,
+    window_id: i64,
 }
 
 impl WebViewBuilder {
     /// Create [`WebViewBuilder`] from provided [`Window`].
     pub fn new(window: Window) -> Result<Self> {
         let (tx, rx) = channel();
+        #[cfg(not(target_os = "linux"))]
+        let window_id = {
+            let mut hasher = DefaultHasher::new();
+            window.id().hash(&mut hasher);
+            hasher.finish() as i64
+        };
+        #[cfg(target_os = "linux")]
+        let window_id = window.get_id() as i64;
+
         Ok(Self {
             tx,
             rx,
             initialization_scripts: vec![],
-            callbacks: vec![],
             window,
             url: None,
             debug: false,
             transparent: false,
+            window_id,
         })
     }
 
@@ -110,7 +120,12 @@ impl WebViewBuilder {
             name
         );
         self.initialization_scripts.push(js);
-        self.callbacks.push((name.to_string(), Box::new(f)));
+
+        let window_id = self.window_id;
+        CALLBACKS.lock().unwrap().insert(
+            (window_id, name.to_string()),
+            (Box::new(f), Dispatcher(self.tx.clone())),
+        );
         self
     }
 
@@ -138,12 +153,6 @@ impl WebViewBuilder {
 
         for js in self.initialization_scripts {
             webview.webview.init(&js)?;
-        }
-
-        for cb in self.callbacks {
-            webview
-                .webview
-                .add_callback(&cb.0, cb.1, webview.dispatcher());
         }
 
         if let Some(url) = self.url {
@@ -195,9 +204,9 @@ impl WebView {
     }
 
     /// Create a [`WebView`] from provided [`Window`] along with several configurations.
-    /// Note that calling this directly loses
-    /// abilities to initialize scripts, add callbacks, and many more before starting WebView. To
-    /// benefit from above features, create a [`WebViewBuilder`] instead.
+    /// Note that calling this directly loses abilities to initialize scripts, add callbacks, and
+    /// many more before starting WebView. To benefit from above features, create a
+    /// [`WebViewBuilder`] instead.
     pub fn new_with_configs(window: Window, debug: bool, transparent: bool) -> Result<Self> {
         #[cfg(target_os = "windows")]
         let webview = InnerWebView::new(&window, debug)?;
