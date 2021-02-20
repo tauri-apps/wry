@@ -124,12 +124,12 @@ impl WebViewBuilder {
     /// Consume the builder and create the [`WebView`].
     pub fn build(self) -> Result<WebView> {
         #[cfg(target_os = "windows")]
-        let webview = InnerWebView::new(self.window.hwnd())?;
+        let webview = InnerWebView::new(&self.window, self.debug)?;
         #[cfg(target_os = "macos")]
         let webview = InnerWebView::new(&self.window, self.debug, self.transparent)?;
         #[cfg(target_os = "linux")]
         let webview = InnerWebView::new(&self.window, self.debug)?;
-        let webview = WebView {
+        let mut webview = WebView {
             window: self.window,
             webview,
             tx: self.tx,
@@ -153,6 +153,10 @@ impl WebViewBuilder {
                 webview.webview.navigate(url.as_str())?;
             }
         }
+
+        // TODO Redactor inner webview structure
+        #[cfg(target_os = "windows")]
+        webview.webview.build()?;
         Ok(webview)
     }
 }
@@ -176,7 +180,7 @@ impl WebView {
     /// benefit from above features, create a [`WebViewBuilder`] instead.
     pub fn new(window: Window) -> Result<Self> {
         #[cfg(target_os = "windows")]
-        let webview = InnerWebView::new(window.hwnd())?;
+        let webview = InnerWebView::new(&window, false)?;
         #[cfg(target_os = "macos")]
         let webview = InnerWebView::new(&window, false, false)?;
         #[cfg(target_os = "linux")]
@@ -196,7 +200,7 @@ impl WebView {
     /// benefit from above features, create a [`WebViewBuilder`] instead.
     pub fn new_with_configs(window: Window, debug: bool, transparent: bool) -> Result<Self> {
         #[cfg(target_os = "windows")]
-        let webview = InnerWebView::new(window.hwnd())?;
+        let webview = InnerWebView::new(&window, debug)?;
         #[cfg(target_os = "macos")]
         let webview = InnerWebView::new(&window, debug, transparent)?;
         #[cfg(target_os = "linux")]
@@ -240,9 +244,10 @@ impl WebView {
 
     /// Resize the WebView manually. This is required on Windows because its WebView API doesn't
     /// provide a way to resize automatically.
-    pub fn resize(&self) {
+    pub fn resize(&self) -> Result<()> {
         #[cfg(target_os = "windows")]
-        self.webview.resize(self.window.hwnd());
+        self.webview.resize(self.window.hwnd())?;
+        Ok(())
     }
 }
 
