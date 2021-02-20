@@ -348,7 +348,9 @@ fn _create_webview(
     callbacks: Option<Vec<Callback>>,
 ) -> Result<WebView> {
     let window_id = window.get_id();
-    let mut webview = WebViewBuilder::new(window)?;
+    let mut webview = WebViewBuilder::new(window)?
+        .debug(attributes.debug)
+        .transparent(attributes.transparent);
     for js in attributes.initialization_scripts {
         webview = webview.initialize_script(&js);
     }

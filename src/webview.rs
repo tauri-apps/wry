@@ -3,16 +3,17 @@
 use crate::platform::{InnerWebView, CALLBACKS};
 use crate::Result;
 
+use std::sync::mpsc::{channel, Receiver, Sender};
+#[cfg(not(target_os = "linux"))]
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
-    sync::mpsc::{channel, Receiver, Sender},
 };
 
 use url::Url;
 
 #[cfg(target_os = "linux")]
-use gtk::ApplicationWindow as Window;
+use gtk::{ApplicationWindow as Window, ApplicationWindowExt};
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
@@ -137,33 +138,6 @@ impl WebViewBuilder {
     }
 
     /// Consume the builder and create the [`WebView`].
-    #[cfg(target_os = "linux")]
-    pub fn build(self) -> Result<WebView> {
-        #[cfg(target_os = "linux")]
-        let webview = InnerWebView::new(&self.window, self.debug)?;
-        let mut webview = WebView {
-            window: self.window,
-            webview,
-            tx: self.tx,
-            rx: self.rx,
-        };
-
-        for js in self.initialization_scripts {
-            webview.webview.init(&js)?;
-        }
-
-        if let Some(url) = self.url {
-            if url.cannot_be_a_base() {
-                webview.webview.navigate_to_string(url.as_str())?;
-            } else {
-                webview.webview.navigate(url.as_str())?;
-            }
-        }
-
-        Ok(webview)
-    }
-
-    #[cfg(not(target_os = "linux"))]
     pub fn build(self) -> Result<WebView> {
         let webview = InnerWebView::new(
             &self.window,
@@ -200,19 +174,7 @@ impl WebView {
     /// abilities to initialize scripts, add callbacks, and many more before starting WebView. To
     /// benefit from above features, create a [`WebViewBuilder`] instead.
     pub fn new(window: Window) -> Result<Self> {
-        #[cfg(target_os = "windows")]
-        let webview = InnerWebView::new(&window, false, None, vec![])?;
-        #[cfg(target_os = "macos")]
-        let webview = InnerWebView::new(&window, false, false, None, vec![])?;
-        #[cfg(target_os = "linux")]
-        let webview = InnerWebView::new(&window, false)?;
-        let (tx, rx) = channel();
-        Ok(Self {
-            window,
-            webview,
-            tx,
-            rx,
-        })
+        Self::new_with_configs(window, false, false)
     }
 
     /// Create a [`WebView`] from provided [`Window`] along with several configurations.
@@ -225,7 +187,7 @@ impl WebView {
         #[cfg(target_os = "macos")]
         let webview = InnerWebView::new(&window, debug, transparent, None, vec![])?;
         #[cfg(target_os = "linux")]
-        let webview = InnerWebView::new(&window, debug)?;
+        let webview = InnerWebView::new(&window, debug, None, vec![])?;
         let (tx, rx) = channel();
         Ok(Self {
             window,

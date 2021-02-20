@@ -1,10 +1,11 @@
 use crate::platform::{CALLBACKS, RPC};
-use crate::{Dispatcher, Error, Result};
+use crate::{Error, Result};
 
 use std::rc::Rc;
 
 use gio::Cancellable;
 use gtk::{ApplicationWindow as Window, ApplicationWindowExt, ContainerExt, WidgetExt};
+use url::Url;
 use webkit2gtk::{
     SettingsExt, UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
     UserScriptInjectionTime, WebView, WebViewExt,
@@ -12,11 +13,15 @@ use webkit2gtk::{
 
 pub struct InnerWebView {
     webview: Rc<WebView>,
-    window_id: i64,
 }
 
 impl InnerWebView {
-    pub fn new(window: &Window, debug: bool) -> Result<Self> {
+    pub fn new(
+        window: &Window,
+        debug: bool,
+        url: Option<Url>,
+        scripts: Vec<String>,
+    ) -> Result<Self> {
         // Initialize webview widget
         let manager = UserContentManager::new();
         let webview = Rc::new(WebView::with_user_content_manager(&manager));
@@ -82,17 +87,27 @@ impl InnerWebView {
             window.show_all();
         }
 
-        let w = Self {
-            webview,
-            window_id: window.get_id() as i64,
-        };
+        let w = Self { webview };
 
         w.init("window.external={invoke:function(x){window.webkit.messageHandlers.external.postMessage(x);}}")?;
+        for js in scripts {
+            w.init(&js)?;
+        }
+
+        if let Some(url) = url {
+            w.webview.load_uri(url.as_str());
+        }
 
         Ok(w)
     }
 
-    pub fn init(&self, js: &str) -> Result<()> {
+    pub fn eval(&self, js: &str) -> Result<()> {
+        let cancellable: Option<&Cancellable> = None;
+        self.webview.run_javascript(js, cancellable, |_| ());
+        Ok(())
+    }
+
+    fn init(&self, js: &str) -> Result<()> {
         if let Some(manager) = self.webview.get_user_content_manager() {
             let script = UserScript::new(
                 js,
@@ -105,22 +120,6 @@ impl InnerWebView {
         } else {
             return Err(Error::InitScriptError);
         }
-        Ok(())
-    }
-
-    pub fn eval(&self, js: &str) -> Result<()> {
-        let cancellable: Option<&Cancellable> = None;
-        self.webview.run_javascript(js, cancellable, |_| ());
-        Ok(())
-    }
-
-    pub fn navigate(&self, url: &str) -> Result<()> {
-        self.webview.load_uri(url);
-        Ok(())
-    }
-
-    pub fn navigate_to_string(&self, url: &str) -> Result<()> {
-        self.webview.load_uri(url);
         Ok(())
     }
 }
