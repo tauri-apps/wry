@@ -13,7 +13,21 @@ use winit::{
     window::{Fullscreen, Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
 };
 
-use std::{collections::HashMap, sync::mpsc::channel};
+use std::{collections::HashMap, ptr, sync::mpsc::channel};
+
+#[cfg(target_os = "windows")]
+use {
+    libc::c_void,
+    winapi::{
+        shared::windef::HWND,
+        um::{
+            combaseapi::{CoCreateInstance, CLSCTX_SERVER},
+            shobjidl_core::{CLSID_TaskbarList, ITaskbarList},
+        },
+        DEFINE_GUID,
+    },
+    winit::platform::windows::WindowExtWindows,
+};
 
 type EventLoopProxy = winit::event_loop::EventLoopProxy<Message>;
 
@@ -255,7 +269,20 @@ fn load_icon(icon: Icon) -> crate::Result<WinitIcon> {
 
 #[cfg(target_os = "windows")]
 fn skip_taskbar(_window: &Window) {
-    // TODO
+    unsafe {
+        let mut taskbar_list: *mut ITaskbarList = std::mem::zeroed();
+        DEFINE_GUID! {IID_ITASKBAR_LIST,
+        0x56FDF342, 0xfd6d, 0x11d0, 0x95, 0x8a, 0x00, 0x60, 0x97, 0xc9, 0xa0, 0x90}
+        CoCreateInstance(
+            &CLSID_TaskbarList,
+            ptr::null_mut(),
+            CLSCTX_SERVER,
+            &IID_ITASKBAR_LIST,
+            &mut taskbar_list as *mut *mut ITaskbarList as *mut *mut c_void,
+        );
+        (&mut *taskbar_list).DeleteTab(_window.hwnd() as HWND);
+        (&mut *taskbar_list).Release();
+    }
 }
 
 fn _create_window(
