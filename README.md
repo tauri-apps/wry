@@ -74,7 +74,7 @@ WebKit is native on macOS so everything should be fine.
 
 ### Windows
 
-We use EdgeHTML provided by Windows Runtime. So only Windows 10 is supported.
+WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7, 8, and 10.
 
 ## License
 Apache-2.0/MIT
