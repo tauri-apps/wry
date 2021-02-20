@@ -1,53 +1,37 @@
 use crate::platform::{CALLBACKS, RPC};
-use crate::{Dispatcher, Result};
+use crate::Result;
 
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
-    marker::Send,
     os::raw::c_void,
     rc::Rc,
 };
 
 use once_cell::unsync::OnceCell;
+use url::Url;
 use webview2::{Controller, PermissionKind, PermissionState};
 use winapi::{shared::windef::HWND, um::winuser::GetClientRect};
 use winit::{platform::windows::WindowExtWindows, window::Window};
 
 pub struct InnerWebView {
     controller: Rc<OnceCell<Controller>>,
-    debug: bool,
-    hwnd: HWND,
-    initialization_scripts: Vec<String>,
-    url: Option<(String, bool)>,
-    window_id: i64,
 }
 
 impl InnerWebView {
-    pub fn new(window: &Window, debug: bool) -> Result<Self> {
+    pub fn new(
+        window: &Window,
+        debug: bool,
+        url: Option<Url>,
+        scripts: Vec<String>,
+    ) -> Result<Self> {
         let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
         let mut hasher = DefaultHasher::new();
         window.id().hash(&mut hasher);
         let window_id = hasher.finish() as i64;
-        Ok(Self {
-            controller,
-            debug,
-            hwnd: window.hwnd() as HWND,
-            initialization_scripts: vec![],
-            url: None,
-            window_id,
-        })
-    }
+        let hwnd = window.hwnd() as HWND;
+        let controller_clone = controller.clone();
 
-    pub fn build(&mut self) -> Result<()> {
-        let debug = self.debug;
-        let url = self.url.take();
-        let mut scripts = vec![];
-        std::mem::swap(&mut self.initialization_scripts, &mut scripts);
-        let hwnd = self.hwnd;
-        let controller_clone = self.controller.clone();
-
-        let window_id = self.window_id;
         webview2::EnvironmentBuilder::new().build(move |env| {
             env?.create_controller(hwnd, move |controller| {
                 let controller = controller?;
@@ -108,12 +92,11 @@ impl InnerWebView {
                 })?;
 
                 if let Some(url) = url {
-                    if url.1 {
-                        w.navigate(&url.0)?;
+                    if url.cannot_be_a_base() {
+                        w.navigate_to_string(url.as_str())?;
                     } else {
-                        w.navigate_to_string(&url.0)?;
+                        w.navigate(url.as_str())?;
                     }
-
                 }
 
                 let _ = controller_clone.set(controller);
@@ -121,12 +104,7 @@ impl InnerWebView {
             })
         })?;
 
-        Ok(())
-    }
-
-    pub fn init(&mut self, js: &str) -> Result<()> {
-        self.initialization_scripts.push(js.to_string());
-        Ok(())
+        Ok(Self { controller })
     }
 
     pub fn eval(&self, js: &str) -> Result<()> {
@@ -134,16 +112,6 @@ impl InnerWebView {
             let webview = c.get_webview()?;
             webview.execute_script(js, |_| (Ok(())))?;
         }
-        Ok(())
-    }
-
-    pub fn navigate(&mut self, url: &str) -> Result<()> {
-        self.url = Some((url.to_string(), true));
-        Ok(())
-    }
-
-    pub fn navigate_to_string(&mut self, url: &str) -> Result<()> {
-        self.url = Some((url.to_string(), false));
         Ok(())
     }
 

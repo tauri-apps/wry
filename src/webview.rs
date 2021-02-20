@@ -137,9 +137,8 @@ impl WebViewBuilder {
     }
 
     /// Consume the builder and create the [`WebView`].
+    #[cfg(not(target_os = "windows"))]
     pub fn build(self) -> Result<WebView> {
-        #[cfg(target_os = "windows")]
-        let webview = InnerWebView::new(&self.window, self.debug)?;
         #[cfg(target_os = "macos")]
         let webview = InnerWebView::new(&self.window, self.debug, self.transparent)?;
         #[cfg(target_os = "linux")]
@@ -163,10 +162,23 @@ impl WebViewBuilder {
             }
         }
 
-        // TODO Redactor inner webview structure
-        #[cfg(target_os = "windows")]
-        webview.webview.build()?;
         Ok(webview)
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn build(self) -> Result<WebView> {
+        let webview = InnerWebView::new(
+            &self.window,
+            self.debug,
+            self.url,
+            self.initialization_scripts,
+        )?;
+        Ok(WebView {
+            window: self.window,
+            webview,
+            tx: self.tx,
+            rx: self.rx,
+        })
     }
 }
 
@@ -189,7 +201,7 @@ impl WebView {
     /// benefit from above features, create a [`WebViewBuilder`] instead.
     pub fn new(window: Window) -> Result<Self> {
         #[cfg(target_os = "windows")]
-        let webview = InnerWebView::new(&window, false)?;
+        let webview = InnerWebView::new(&window, false, None, vec![])?;
         #[cfg(target_os = "macos")]
         let webview = InnerWebView::new(&window, false, false)?;
         #[cfg(target_os = "linux")]
@@ -209,7 +221,7 @@ impl WebView {
     /// [`WebViewBuilder`] instead.
     pub fn new_with_configs(window: Window, debug: bool, transparent: bool) -> Result<Self> {
         #[cfg(target_os = "windows")]
-        let webview = InnerWebView::new(&window, debug)?;
+        let webview = InnerWebView::new(&window, debug, None, vec![])?;
         #[cfg(target_os = "macos")]
         let webview = InnerWebView::new(&window, debug, transparent)?;
         #[cfg(target_os = "linux")]
