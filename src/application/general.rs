@@ -16,10 +16,8 @@ use winit::{
 use std::{collections::HashMap, sync::mpsc::channel};
 
 #[cfg(target_os = "windows")]
-use std::ptr;
-#[cfg(target_os = "windows")]
 use {
-    libc::c_void,
+    std::ptr,
     winapi::{
         shared::windef::HWND,
         um::{
@@ -272,7 +270,7 @@ fn load_icon(icon: Icon) -> crate::Result<WinitIcon> {
 #[cfg(target_os = "windows")]
 fn skip_taskbar(_window: &Window) {
     unsafe {
-        let mut taskbar_list: *mut ITaskbarList = std::mem::zeroed();
+        let taskbar_list: *mut ITaskbarList = std::mem::zeroed();
         DEFINE_GUID! {IID_ITASKBAR_LIST,
         0x56FDF342, 0xfd6d, 0x11d0, 0x95, 0x8a, 0x00, 0x60, 0x97, 0xc9, 0xa0, 0x90}
         CoCreateInstance(
@@ -280,10 +278,10 @@ fn skip_taskbar(_window: &Window) {
             ptr::null_mut(),
             CLSCTX_SERVER,
             &IID_ITASKBAR_LIST,
-            &mut taskbar_list as *mut *mut ITaskbarList as *mut *mut c_void,
+            &mut (taskbar_list as *mut _),
         );
-        (&mut *taskbar_list).DeleteTab(_window.hwnd() as HWND);
-        (&mut *taskbar_list).Release();
+        (*taskbar_list).DeleteTab(_window.hwnd() as HWND);
+        (*taskbar_list).Release();
     }
 }
 
