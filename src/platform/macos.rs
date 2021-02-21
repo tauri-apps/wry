@@ -153,10 +153,10 @@ impl WV for InnerWebView {
             // Navigation
             if let Some(url) = url {
                 if url.cannot_be_a_base() {
-                    let mut s = url.as_str().split(',');
-                    s.next(); // Discard scheme
-                    if let Some(s) = s.next() {
-                        w.navigate_to_string(s);
+                    let s = url.as_str();
+                    if let Some(pos) = s.find(',') {
+                        let (_, path) = s.split_at(pos + 1);
+                        w.navigate_to_string(path);
                     }
                 } else {
                     w.navigate(url.as_str());
