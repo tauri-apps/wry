@@ -84,6 +84,7 @@ pub use application::{
     Application, ApplicationProxy, Attributes, Callback, Icon, Message, WindowId, WindowMessage,
     WindowProxy,
 };
+pub use serde_json::Value;
 pub(crate) use webview::{Dispatcher, WebView, WebViewBuilder};
 
 #[cfg(not(target_os = "linux"))]
