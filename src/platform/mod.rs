@@ -17,8 +17,6 @@ pub(crate) use win::*;
 
 #[cfg(target_os = "linux")]
 pub use gtk::*;
-#[cfg(target_os = "windows")]
-pub use winapi;
 #[cfg(not(target_os = "linux"))]
 pub use winit::*;
 

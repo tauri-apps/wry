@@ -1,4 +1,5 @@
 use crate::platform::{CALLBACKS, RPC};
+use crate::webview::WV;
 use crate::Result;
 
 use std::{
@@ -19,6 +20,7 @@ use objc::{
 use url::Url;
 use winit::{platform::macos::WindowExtMacOS, window::Window};
 
+// Safety: objc runtime calls are unsafe
 unsafe fn get_nsstring(s: &str) -> id {
     let s = CString::new(s).unwrap();
     let nsstring = class!(NSString);
@@ -30,19 +32,23 @@ pub struct InnerWebView {
     manager: id,
 }
 
-impl InnerWebView {
-    pub fn new(
+impl WV for InnerWebView {
+    type Window = Window;
+
+    fn new(
         window: &Window,
         debug: bool,
-        transparent: bool,
-        url: Option<Url>,
         scripts: Vec<String>,
+        url: Option<Url>,
+        transparent: bool,
     ) -> Result<Self> {
         let mut hasher = DefaultHasher::new();
         window.id().hash(&mut hasher);
         let window_id = hasher.finish() as i64;
 
+        // Callback function for message handler
         extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
+            // Safety: objc runtime calls are unsafe
             unsafe {
                 let window_id = *this.get_ivar("_window_id");
                 let body: id = msg_send![msg, body];
@@ -74,47 +80,49 @@ impl InnerWebView {
             }
         }
 
+        // Safety: objc runtime calls are unsafe
         unsafe {
-            // Webview
+            // Webview, configs, and manager
             let wkwebviewconfig = class!(WKWebViewConfiguration);
             let config: id = msg_send![wkwebviewconfig, new];
             let manager: id = msg_send![config, userContentController];
             let wkwebview = class!(WKWebView);
             let webview: id = msg_send![wkwebview, alloc];
-
             let preference: id = msg_send![config, preferences];
             let nsnumber = class!(NSNumber);
-            let number: id = msg_send![nsnumber, numberWithBool:1];
-            let zero: id = msg_send![nsnumber, numberWithBool:0];
+            let yes: id = msg_send![nsnumber, numberWithBool:1];
+            let no: id = msg_send![nsnumber, numberWithBool:0];
+
             if debug {
                 // Equivalent Obj-C:
                 // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
                 let dev = get_nsstring("developerExtrasEnabled");
-                let _: id = msg_send![preference, setValue:number forKey:dev];
+                let _: id = msg_send![preference, setValue:yes forKey:dev];
             }
 
             if transparent {
                 // Equivalent Obj-C:
                 // [config setValue:@NO forKey:@"drawsBackground"];
                 let background = get_nsstring("drawsBackground");
-                let _: id = msg_send![config, setValue:zero forKey:background];
+                let _: id = msg_send![config, setValue:no forKey:background];
             }
 
             // Equivalent Obj-C:
             // [[config preferences] setValue:@YES forKey:@"fullScreenEnabled"];
             let fullscreen = get_nsstring("fullScreenEnabled");
-            let _: id = msg_send![preference, setValue:number forKey:fullscreen];
+            let _: id = msg_send![preference, setValue:yes forKey:fullscreen];
 
             // Equivalent Obj-C:
             // [[config preferences] setValue:@YES forKey:@"javaScriptCanAccessClipboard"];
             let clipboard = get_nsstring("javaScriptCanAccessClipboard");
-            let _: id = msg_send![preference, setValue:number forKey:clipboard];
+            let _: id = msg_send![preference, setValue:yes forKey:clipboard];
 
             // Equivalent Obj-C:
             // [[config preferences] setValue:@YES forKey:@"DOMPasteAllowed"];
             let dom = get_nsstring("DOMPasteAllowed");
-            let _: id = msg_send![preference, setValue:number forKey:dom];
+            let _: id = msg_send![preference, setValue:yes forKey:dom];
 
+            // Resize
             let size = window.inner_size().to_logical(window.scale_factor());
             let rect = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(size.width, size.height));
             let _: () = msg_send![webview, initWithFrame:rect configuration:config];
@@ -140,6 +148,7 @@ impl InnerWebView {
 
             let w = Self { webview, manager };
 
+            // Initialize scripts
             w.init(
                 "window.external = {
                       invoke: function(s) {
@@ -151,6 +160,7 @@ impl InnerWebView {
                 w.init(&js);
             }
 
+            // Navigation
             if let Some(url) = url {
                 if url.cannot_be_a_base() {
                     w.navigate_to_string(url.as_str());
@@ -166,15 +176,19 @@ impl InnerWebView {
         }
     }
 
-    pub fn eval(&self, js: &str) -> Result<()> {
+    fn eval(&self, js: &str) -> Result<()> {
+        // Safety: objc runtime calls are unsafe
         unsafe {
             let js = get_nsstring(js);
             let _: id = msg_send![self.webview, evaluateJavaScript:js completionHandler:null::<*const c_void>()];
         }
         Ok(())
     }
+}
 
+impl InnerWebView {
     fn init(&self, js: &str) {
+        // Safety: objc runtime calls are unsafe
         // Equivalent Obj-C:
         // [manager addUserScript:[[WKUserScript alloc] initWithSource:[NSString stringWithUTF8String:js.c_str()] injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]]
         unsafe {
@@ -188,6 +202,7 @@ impl InnerWebView {
     }
 
     fn navigate(&self, url: &str) {
+        // Safety: objc runtime calls are unsafe
         unsafe {
             let nsurl = class!(NSURL);
             let s = get_nsstring(url);
@@ -199,6 +214,7 @@ impl InnerWebView {
     }
 
     fn navigate_to_string(&self, url: &str) {
+        // Safety: objc runtime calls are unsafe
         unsafe {
             let nsurl = class!(NSURL);
             let html = get_nsstring(url);
