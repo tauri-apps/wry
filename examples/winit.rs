@@ -15,9 +15,7 @@ fn main() -> Result<()> {
         .unwrap()
         .initialize_script("menacing = 'ゴ';")
         .add_callback("world", |dispatcher, sequence, requests| {
-            dispatcher
-                .dispatch_script("console.log(menacing);")
-                .unwrap();
+            dispatcher.dispatch_script("console.log(menacing);")?;
             // Sequence is a number counting how many times this function being called.
             if sequence < 8 {
                 println!("{} seconds has passed.", sequence);
@@ -25,7 +23,7 @@ fn main() -> Result<()> {
                 // Requests is a vector of parameters passed from the caller.
                 println!("{:?}", requests);
             }
-            0
+            Ok(())
         })
         .load_url("https://tauri.studio")?
         .build()?;

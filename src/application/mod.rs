@@ -32,7 +32,7 @@ pub struct Callback {
     ///
     /// The return value of the function is a number. Return `0` indicates the call is successful,
     /// and return others if not.
-    pub function: Box<dyn FnMut(WindowProxy, i32, Vec<Value>) -> i32 + Send>,
+    pub function: Box<dyn FnMut(WindowProxy, i32, Vec<Value>) -> Result<()> + Send>,
 }
 
 impl std::fmt::Debug for Callback {

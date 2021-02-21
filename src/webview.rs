@@ -98,7 +98,7 @@ impl WebViewBuilder {
     /// javascript side, you can use the dispatcher to send them.
     pub fn add_callback<F>(mut self, name: &str, f: F) -> Self
     where
-        F: FnMut(&Dispatcher, i32, Vec<Value>) -> i32 + Send + 'static,
+        F: FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send + 'static,
     {
         let js = format!(
             r#"var name = {:?};

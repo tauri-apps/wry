@@ -20,7 +20,7 @@ pub use gtk::*;
 #[cfg(not(target_os = "linux"))]
 pub use winit::*;
 
-use crate::Dispatcher;
+use crate::{Dispatcher, Result};
 
 use std::{collections::HashMap, sync::Mutex};
 
@@ -32,7 +32,7 @@ pub(crate) static CALLBACKS: Lazy<
         HashMap<
             (i64, String),
             (
-                std::boxed::Box<dyn FnMut(&Dispatcher, i32, Vec<Value>) -> i32 + Send>,
+                std::boxed::Box<dyn FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send>,
                 Dispatcher,
             ),
         >,

@@ -21,7 +21,7 @@ fn main() -> Result<()> {
             // Proxy is like a window handle for you to send message events to the corresponding webview
             // window. You can use it to adjust window and evaluate javascript code like below.
             // This is useful when you want to perform any action in javascript.
-            proxy.evaluate_script("console.log(menacing);").unwrap();
+            proxy.evaluate_script("console.log(menacing);")?;
             // Sequence is a number counting how many times this function being called.
             if sequence < 8 {
                 println!("{} seconds has passed.", sequence);
@@ -29,7 +29,7 @@ fn main() -> Result<()> {
                 // Requests is a vector of parameters passed from the caller.
                 println!("{:?}", requests);
             }
-            0
+            Ok(())
         }),
     };
 
