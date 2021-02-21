@@ -1,3 +1,5 @@
+//! Re-export module that provides window creation and event handling based on each platform.
+
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
@@ -18,12 +20,23 @@ pub use gtk::*;
 #[cfg(not(target_os = "linux"))]
 pub use winit::*;
 
+use crate::{Dispatcher, Result};
+
 use std::{collections::HashMap, sync::Mutex};
 
 use once_cell::sync::Lazy;
+use serde_json::Value;
 
 pub(crate) static CALLBACKS: Lazy<
-    Mutex<HashMap<String, std::boxed::Box<dyn FnMut(i8, Vec<String>) -> i32 + Send>>>,
+    Mutex<
+        HashMap<
+            (i64, String),
+            (
+                std::boxed::Box<dyn FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send>,
+                Dispatcher,
+            ),
+        >,
+    >,
 > = Lazy::new(|| {
     let m = HashMap::new();
     Mutex::new(m)
@@ -31,7 +44,7 @@ pub(crate) static CALLBACKS: Lazy<
 
 #[derive(Debug, Serialize, Deserialize)]
 struct RPC {
-    id: i8,
+    id: i32,
     method: String,
-    params: Vec<String>,
+    params: Vec<Value>,
 }

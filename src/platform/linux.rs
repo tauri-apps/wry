@@ -1,11 +1,14 @@
 use crate::platform::{CALLBACKS, RPC};
+use crate::webview::WV;
 use crate::{Error, Result};
 
 use std::rc::Rc;
 
+use gdk::RGBA;
 use gio::Cancellable;
 use glib::Bytes;
-use gtk::{ContainerExt, WidgetExt, Window};
+use gtk::{ApplicationWindow as Window, ApplicationWindowExt, ContainerExt, WidgetExt};
+use url::Url;
 use webkit2gtk::{
     SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
     UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime, WebContext,
@@ -17,37 +20,47 @@ pub struct InnerWebView {
     context: WebContext,
 }
 
-impl InnerWebView {
-    pub fn new(window: &Window, debug: bool) -> Self {
-        // Initialize webview widget
+impl WV for InnerWebView {
+    type Window = Window;
+
+    fn new(
+        window: &Window,
+        debug: bool,
+        scripts: Vec<String>,
+        url: Option<Url>,
+        transparent: bool,
+    ) -> Result<Self> {
+        // Webview widget
         let manager = UserContentManager::new();
         let context = WebContext::new();
         let webview = Rc::new(WebView::new_with_context_and_user_content_manager(
             &context, &manager,
         ));
 
+        // Message handler
         let wv = Rc::clone(&webview);
         manager.register_script_message_handler("external");
+        let window_id = window.get_id() as i64;
         manager.connect_script_message_received(move |_m, msg| {
             if let Some(js) = msg.get_value() {
                 if let Some(context) = msg.get_global_context() {
                     if let Some(js) = js.to_string(&context) {
                         let v: RPC = serde_json::from_str(&js).unwrap();
                         let mut hashmap = CALLBACKS.lock().unwrap();
-                        let f = hashmap.get_mut(&v.method).unwrap();
-                        let status = f(v.id, v.params);
+                        let (f, d) = hashmap.get_mut(&(window_id, v.method)).unwrap();
+                        let status = f(d, v.id, v.params);
 
                         let js = match status {
-                            0 => {
+                            Ok(()) => {
                                 format!(
                                     r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
                                     v.id, v.id
                                 )
                             }
-                            _ => {
+                            Err(e) => {
                                 format!(
-                                    r#"window._rpc[{}].reject("RPC call fail"); window._rpc[{}] = undefined"#,
-                                    v.id, v.id
+                                    r#"window._rpc[{}].reject("RPC call fail with error {}"); window._rpc[{}] = undefined"#,
+                                    v.id, e, v.id
                                 )
                             }
                         };
@@ -59,17 +72,22 @@ impl InnerWebView {
             }
         });
 
-        let cancellable: Option<&Cancellable> = None;
-        webview.run_javascript("window.external={invoke:function(x){window.webkit.messageHandlers.external.postMessage(x);}}", cancellable, |_| ());
-
         window.add(&*webview);
         webview.grab_focus();
 
-        // Enable webgl and canvas features.
+        // Enable webgl, webaudio, canvas features and others as default.
         if let Some(settings) = WebViewExt::get_settings(&*webview) {
             settings.set_enable_webgl(true);
+            settings.set_enable_webaudio(true);
             settings.set_enable_accelerated_2d_canvas(true);
             settings.set_javascript_can_access_clipboard(true);
+
+            // Enable App cache
+            settings.set_enable_offline_web_application_cache(true);
+            settings.set_enable_page_cache(true);
+
+            // Enable Smooth scrooling
+            settings.set_enable_smooth_scrolling(true);
 
             if debug {
                 settings.set_enable_write_console_messages_to_stdout(true);
@@ -77,12 +95,37 @@ impl InnerWebView {
             }
         }
 
-        window.show_all();
+        // Transparent
+        if transparent {
+            webview.set_background_color(&RGBA {
+                red: 0.,
+                green: 0.,
+                blue: 0.,
+                alpha: 0.,
+            });
+        }
 
-        Self { webview, context }
+        if window.get_visible() {
+            window.show_all();
+        }
+
+        let w = Self { webview };
+
+        // Initialize scripts
+        w.init("window.external={invoke:function(x){window.webkit.messageHandlers.external.postMessage(x);}}")?;
+        for js in scripts {
+            w.init(&js)?;
+        }
+
+        // Navigation
+        if let Some(url) = url {
+            w.webview.load_uri(url.as_str());
+        }
+
+        Ok(w)
     }
 
-    pub fn register_buffer_protocol<F: 'static + Fn(&str) -> Vec<u8>>(
+    fn register_buffer_protocol<F: 'static + Fn(&str) -> Vec<u8>>(
         &self,
         protocol: String,
         handler: F,
@@ -111,7 +154,15 @@ impl InnerWebView {
         Ok(())
     }
 
-    pub fn init(&self, js: &str) -> Result<()> {
+    fn eval(&self, js: &str) -> Result<()> {
+        let cancellable: Option<&Cancellable> = None;
+        self.webview.run_javascript(js, cancellable, |_| ());
+        Ok(())
+    }
+}
+
+impl InnerWebView {
+    fn init(&self, js: &str) -> Result<()> {
         if let Some(manager) = self.webview.get_user_content_manager() {
             let script = UserScript::new(
                 js,
@@ -126,23 +177,4 @@ impl InnerWebView {
         }
         Ok(())
     }
-
-    pub fn eval(&self, js: &str) -> Result<()> {
-        let cancellable: Option<&Cancellable> = None;
-        self.webview.run_javascript(js, cancellable, |_| ());
-        Ok(())
-    }
-
-    pub fn navigate(&self, url: &str) -> Result<()> {
-        self.webview.load_uri(url);
-        Ok(())
-    }
-
-    pub fn navigate_to_string(&self, url: &str) -> Result<()> {
-        self.webview.load_uri(url);
-        Ok(())
-    }
 }
-
-unsafe impl Send for InnerWebView {}
-unsafe impl Sync for InnerWebView {}

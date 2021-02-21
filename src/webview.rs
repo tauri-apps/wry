@@ -1,62 +1,104 @@
+//! [`WebView`] struct and associated types.
+
 use crate::platform::{InnerWebView, CALLBACKS};
-use crate::{Error, Result};
+use crate::Result;
 
-use std::cell::RefCell;
 use std::sync::mpsc::{channel, Receiver, Sender};
+#[cfg(not(target_os = "linux"))]
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+};
 
+use serde_json::Value;
 use url::Url;
 
 #[cfg(target_os = "linux")]
-use gtk::Window;
+use gtk::{ApplicationWindow as Window, ApplicationWindowExt};
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
 use winit::window::Window;
 
-const DEBUG: bool = true;
-
-enum Content {
-    URL(Url),
-    HTML(Url),
-    CustomUri(String, String),
-}
-
+/// Builder type of [`WebView`].
+///
+/// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
+/// scripts for those who prefer to control fine grained window creation and event handling.
+/// [`WebViewBuilder`] privides ability to setup initialization before web engine starts.
 pub struct WebViewBuilder {
-    inner: WebView,
-    content: Option<Content>,
+    debug: bool,
+    transparent: bool,
+    tx: Sender<String>,
+    rx: Receiver<String>,
+    initialization_scripts: Vec<String>,
+    window: Window,
+    url: Option<Url>,
+    window_id: i64,
 }
 
 impl WebViewBuilder {
+    /// Create [`WebViewBuilder`] from provided [`Window`].
     pub fn new(window: Window) -> Result<Self> {
+        let (tx, rx) = channel();
+        #[cfg(not(target_os = "linux"))]
+        let window_id = {
+            let mut hasher = DefaultHasher::new();
+            window.id().hash(&mut hasher);
+            hasher.finish() as i64
+        };
+        #[cfg(target_os = "linux")]
+        let window_id = window.get_id() as i64;
+
         Ok(Self {
-            inner: WebView::new(window)?,
-            content: None,
+            tx,
+            rx,
+            initialization_scripts: vec![],
+            window,
+            url: None,
+            debug: false,
+            transparent: false,
+            window_id,
         })
     }
 
-    pub fn register_buffer_protocol<F: 'static + Fn(&str) -> Vec<u8>>(
-        &self,
-        protocol: String,
-        handler: F,
-    ) -> Result<()> {
-        self.inner
-            .webview
-            .register_buffer_protocol(protocol, handler)
+    /// Enable extra developer tools like inspector if set to true.
+    pub fn debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
+        self
     }
 
-    pub fn init(self, js: &str) -> Result<Self> {
-        self.inner.webview.init(js)?;
-        Ok(self)
+    /// Whether the WebView window should be transparent. If this is true, writing colors
+    /// with alpha values different than `1.0` will produce a transparent window.
+    pub fn transparent(mut self, transparent: bool) -> Self {
+        self.transparent = transparent;
+        self
     }
 
-    pub fn dispatch_sender(&self) -> Dispatcher {
-        Dispatcher(self.inner.tx.clone())
+    /// Initialize javascript code when loading new pages. Everytime webview load a new page, this
+    /// initialization code will be executed. It is guaranteed that code is executed before
+    /// `window.onload`.
+    pub fn initialize_script(mut self, js: &str) -> Self {
+        self.initialization_scripts.push(js.to_string());
+        self
     }
 
-    // TODO implement bind here
-    pub fn bind<F>(self, name: &str, f: F) -> Result<Self>
+    /// Create a [`Dispatcher`] to send evaluation scripts to the WebView. [`WebView`] is not thread
+    /// safe because it must be run on the main thread who creates it. [`Dispatcher`] can let you
+    /// send the scripts from other threads.
+    pub fn dispatcher(&self) -> Dispatcher {
+        Dispatcher(self.tx.clone())
+    }
+
+    /// Add a callback function to the WebView. The callback takse a dispatcher, a sequence number,
+    /// and a vector of arguments passed from callers as parameters.
+    ///
+    /// It uses RPC to communicate with javascript side and the sequence number is used to record
+    /// how many times has this callback been called. Arguments passed from callers is a vector of
+    /// serde values for you to decide how to handle them. IF you need to evaluate any code on
+    /// javascript side, you can use the dispatcher to send them.
+    pub fn add_callback<F>(mut self, name: &str, f: F) -> Self
     where
-        F: FnMut(i8, Vec<String>) -> i32 + Send + 'static,
+        F: FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send + 'static,
     {
         let js = format!(
             r#"var name = {:?};
@@ -79,122 +121,140 @@ impl WebViewBuilder {
             "#,
             name
         );
-        self.inner.webview.init(&js)?;
-        CALLBACKS
-            .lock()
-            .unwrap()
-            .insert(name.to_string(), Box::new(f));
-        Ok(self)
-    }
+        self.initialization_scripts.push(js);
 
-    pub fn load_url(mut self, url: &str) -> Result<Self> {
-        self.content = Some(Content::URL(Url::parse(url)?));
-        Ok(self)
-    }
-
-    pub fn load_custom_uri(mut self, identifier: &str, path: &str) -> Self {
-        self.content = Some(Content::CustomUri(identifier.to_string(), path.to_string()));
+        let window_id = self.window_id;
+        CALLBACKS.lock().unwrap().insert(
+            (window_id, name.to_string()),
+            (Box::new(f), Dispatcher(self.tx.clone())),
+        );
         self
     }
 
-    pub fn load_html(mut self, html: &str) -> Result<Self> {
-        let url = match Url::parse(html) {
-            Ok(url) => url,
-            Err(_) => Url::parse(&format!("data:text/html,{}", html))?,
-        };
-        self.content = Some(Content::HTML(url));
+    /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the
+    /// [`WebView`]. The provided URL must be valid.
+    pub fn load_url(mut self, url: &str) -> Result<Self> {
+        self.url = Some(Url::parse(url)?);
         Ok(self)
     }
 
+    /// Consume the builder and create the [`WebView`].
     pub fn build(self) -> Result<WebView> {
-        if let Some(url) = self.content {
-            match url {
-                Content::HTML(url) => self.inner.webview.navigate_to_string(url.as_str())?,
-                Content::URL(url) => todo!(),
-                Content::CustomUri(id, path) => {
-                    self.inner.webview.navigate_to_custom_uri(&id, &path)?
-                }
-            }
-        }
-        Ok(self.inner)
+        let webview = InnerWebView::new(
+            &self.window,
+            self.debug,
+            self.initialization_scripts,
+            self.url,
+            self.transparent,
+        )?;
+        Ok(WebView {
+            window: self.window,
+            webview,
+            tx: self.tx,
+            rx: self.rx,
+        })
     }
 }
 
-thread_local!(static EVAL: RefCell<Option<Receiver<String>>> = RefCell::new(None));
-
+/// The fundamental type to present a [`WebView`].
+///
+/// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
+/// scripts for those who prefer to control fine grained window creation and event handling.
+/// [`WebView`] presents the actuall WebView window and let you still able to perform actions
+/// during event handling to it. [`WebView`] also contains the associate [`Window`] with it.
 pub struct WebView {
     window: Window,
     webview: InnerWebView,
     tx: Sender<String>,
+    rx: Receiver<String>,
 }
 
 impl WebView {
+    /// Create a [`WebView`] from provided [`Window`]. Note that calling this directly loses
+    /// abilities to initialize scripts, add callbacks, and many more before starting WebView. To
+    /// benefit from above features, create a [`WebViewBuilder`] instead.
     pub fn new(window: Window) -> Result<Self> {
-        #[cfg(target_os = "windows")]
-        let webview = InnerWebView::new(window.hwnd())?;
-        #[cfg(target_os = "macos")]
-        let webview = InnerWebView::new(&window, DEBUG)?;
-        #[cfg(target_os = "linux")]
-        let webview = InnerWebView::new(&window, DEBUG);
+        Self::new_with_configs(window, false, false)
+    }
+
+    /// Create a [`WebView`] from provided [`Window`] along with several configurations.
+    /// Note that calling this directly loses abilities to initialize scripts, add callbacks, and
+    /// many more before starting WebView. To benefit from above features, create a
+    /// [`WebViewBuilder`] instead.
+    pub fn new_with_configs(window: Window, debug: bool, transparent: bool) -> Result<Self> {
+        let webview = InnerWebView::new(&window, debug, vec![], None, transparent)?;
         let (tx, rx) = channel();
-        EVAL.with(|e| {
-            *e.borrow_mut() = Some(rx);
-        });
         Ok(Self {
             window,
             webview,
             tx,
+            rx,
         })
     }
-
-    pub fn dispatch(&mut self, js: &str) -> Result<()> {
+    /// Dispatch javascript code to be evaluated later. Note this will not actually run the
+    /// scripts being dispatched. Users need to call [`WebView::evaluate_script`] to execute them.
+    pub fn dispatch_script(&mut self, js: &str) -> Result<()> {
         self.tx.send(js.to_string())?;
         Ok(())
     }
 
-    pub fn dispatch_sender(&self) -> Dispatcher {
+    /// Create a [`Dispatcher`] to send evaluation scripts to the WebView. [`WebView`] is not thread
+    /// safe because it must be run on the main thread who creates it. [`Dispatcher`] can let you
+    /// send the scripts from other threads.
+    pub fn dispatcher(&self) -> Dispatcher {
         Dispatcher(self.tx.clone())
     }
 
+    /// Get the [`Window`] associate with the [`WebView`]. This can let you perform window related
+    /// actions.
     pub fn window(&self) -> &Window {
         &self.window
     }
 
-    pub fn register_buffer_protocol<F: 'static + Fn(&str) -> Vec<u8>>(
-        &self,
-        protocol: String,
-        handler: F,
-    ) -> Result<()> {
-        self.webview.register_buffer_protocol(protocol, handler)
-    }
-
-    pub fn evaluate(&mut self) -> Result<()> {
-        EVAL.with(|e| -> Result<()> {
-            let e = &*e.borrow();
-            if let Some(rx) = e {
-                while let Ok(js) = rx.try_recv() {
-                    self.webview.eval(&js)?;
-                }
-            } else {
-                return Err(Error::EvalError);
-            }
-            Ok(())
-        })?;
+    /// Evaluate the scripts sent from [`Dispatcher`]s.
+    pub fn evaluate_script(&self) -> Result<()> {
+        while let Ok(js) = self.rx.try_recv() {
+            self.webview.eval(&js)?;
+        }
 
         Ok(())
     }
 
-    pub fn resize(&self) {
+    /// Resize the WebView manually. This is required on Windows because its WebView API doesn't
+    /// provide a way to resize automatically.
+    pub fn resize(&self) -> Result<()> {
         #[cfg(target_os = "windows")]
-        self.webview.resize(self.window.hwnd());
+        self.webview.resize(self.window.hwnd())?;
+        Ok(())
     }
 }
 
+#[derive(Clone)]
+/// A channel sender to dispatch javascript code to for the [`WebView`] to evaluate it.
+///
+/// [`WebView`] is not thread safe because it must be run on main thread who creates it.
+/// [`Dispatcher`] can let you send scripts from other thread.
 pub struct Dispatcher(Sender<String>);
 
 impl Dispatcher {
-    pub fn send(&self, js: &str) -> Result<()> {
+    /// Dispatch javascript code to be evaluated later. Note this will not actually run the
+    /// scripts being dispatched. Users need to call [`WebView::evaluate_script`] to execute them.
+    pub fn dispatch_script(&self, js: &str) -> Result<()> {
         self.0.send(js.to_string())?;
         Ok(())
     }
+}
+
+pub(crate) trait WV: Sized {
+    type Window;
+
+    fn new(
+        window: &Self::Window,
+        debug: bool,
+        scripts: Vec<String>,
+        url: Option<Url>,
+        transparent: bool,
+    ) -> Result<Self>;
+
+    fn eval(&self, js: &str) -> Result<()>;
 }
