@@ -32,11 +32,13 @@ impl InnerWebView {
         let hwnd = window.hwnd() as HWND;
         let controller_clone = controller.clone();
 
+        // Webview controller
         webview2::EnvironmentBuilder::new().build(move |env| {
             env?.create_controller(hwnd, move |controller| {
                 let controller = controller?;
                 let w = controller.get_webview()?;
 
+                // Enable sensible defaults
                 let settings = w.get_settings()?;
                 settings.put_is_status_bar_enabled(false)?;
                 settings.put_are_default_context_menus_enabled(true)?;
@@ -45,12 +47,14 @@ impl InnerWebView {
                     settings.put_are_dev_tools_enabled(true)?;
                 }
 
+                // Saftey: System calls are unsafe
                 unsafe {
                     let mut rect = std::mem::zeroed();
                     GetClientRect(hwnd, &mut rect);
                     controller.put_bounds(rect)?;
                 }
 
+                // Initialize scripts
                 for js in scripts {
                     w.add_script_to_execute_on_document_created(&js, |_|(Ok(())))?;
                 }
@@ -59,6 +63,7 @@ impl InnerWebView {
                     |_|(Ok(()))
                 )?;
 
+                // Message handler
                 w.add_web_message_received(move |webview, args| {
                     let s = args.try_get_web_message_as_string()?;
                     let v: RPC = serde_json::from_str(&s).unwrap();
@@ -83,6 +88,8 @@ impl InnerWebView {
                     webview.execute_script(&js, |_|(Ok(())))?;
                     Ok(())
                 })?;
+
+                // Enable clipboard
                 w.add_permission_requested(|_, args| {
                     let kind = args.get_permission_kind()?;
                     if kind == PermissionKind::ClipboardRead {
@@ -91,6 +98,7 @@ impl InnerWebView {
                     Ok(())
                 })?;
 
+                // Navigation
                 if let Some(url) = url {
                     if url.cannot_be_a_base() {
                         w.navigate_to_string(url.as_str())?;
@@ -118,6 +126,7 @@ impl InnerWebView {
     pub fn resize(&self, hwnd: *mut c_void) -> Result<()> {
         let hwnd = hwnd as HWND;
 
+        // Saftey: System calls are unsafe
         unsafe {
             let mut rect = std::mem::zeroed();
             GetClientRect(hwnd, &mut rect);

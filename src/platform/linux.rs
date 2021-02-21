@@ -22,10 +22,11 @@ impl InnerWebView {
         url: Option<Url>,
         scripts: Vec<String>,
     ) -> Result<Self> {
-        // Initialize webview widget
+        // Webview widget
         let manager = UserContentManager::new();
         let webview = Rc::new(WebView::with_user_content_manager(&manager));
 
+        // Message handler
         let wv = Rc::clone(&webview);
         manager.register_script_message_handler("external");
         let window_id = window.get_id() as i64;
@@ -70,11 +71,11 @@ impl InnerWebView {
             settings.set_enable_accelerated_2d_canvas(true);
             settings.set_javascript_can_access_clipboard(true);
 
-            // == Enable App cache == //
+            // Enable App cache
             settings.set_enable_offline_web_application_cache(true);
             settings.set_enable_page_cache(true);
 
-            // == Enable Smooth scrooling == //
+            // Enable Smooth scrooling
             settings.set_enable_smooth_scrolling(true);
 
             if debug {
@@ -89,11 +90,13 @@ impl InnerWebView {
 
         let w = Self { webview };
 
+        // Initialize scripts
         w.init("window.external={invoke:function(x){window.webkit.messageHandlers.external.postMessage(x);}}")?;
         for js in scripts {
             w.init(&js)?;
         }
 
+        // Navigation
         if let Some(url) = url {
             w.webview.load_uri(url.as_str());
         }
