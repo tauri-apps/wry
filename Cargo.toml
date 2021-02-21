@@ -34,7 +34,6 @@ glib = "0.10.3"
 gtk = "0.9"
 gdk = "0.13"
 gdk-pixbuf = "0.9"
-glib = "0.10"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 webview2 = "0.1.0-beta.1"
