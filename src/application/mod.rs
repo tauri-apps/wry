@@ -15,6 +15,8 @@ use crate::Result;
 
 use std::{fs::read, path::Path, sync::mpsc::Sender};
 
+use serde_json::Value;
+
 /// Defines a Rust callback function which can be called on Javascript side.
 pub struct Callback {
     /// Name of the callback function.
@@ -30,7 +32,7 @@ pub struct Callback {
     ///
     /// The return value of the function is a number. Return `0` indicates the call is successful,
     /// and return others if not.
-    pub function: Box<dyn FnMut(WindowProxy, i32, Vec<String>) -> i32 + Send>,
+    pub function: Box<dyn FnMut(WindowProxy, i32, Vec<Value>) -> Result<()> + Send>,
 }
 
 impl std::fmt::Debug for Callback {
