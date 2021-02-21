@@ -1,5 +1,6 @@
 use crate::platform::{CALLBACKS, RPC};
 use crate::Result;
+use crate::webview::WV;
 
 use std::{
     collections::hash_map::DefaultHasher,
@@ -18,12 +19,15 @@ pub struct InnerWebView {
     controller: Rc<OnceCell<Controller>>,
 }
 
-impl InnerWebView {
-    pub fn new(
+impl WV for InnerWebView {
+    type Window = Window;
+
+    fn new(
         window: &Window,
         debug: bool,
-        url: Option<Url>,
         scripts: Vec<String>,
+        url: Option<Url>,
+        transparent: bool
     ) -> Result<Self> {
         let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
         let mut hasher = DefaultHasher::new();
@@ -56,11 +60,11 @@ impl InnerWebView {
 
                 // Initialize scripts
                 for js in scripts {
-                    w.add_script_to_execute_on_document_created(&js, |_|(Ok(())))?;
+                    w.add_script_to_execute_on_document_created(&js, |_| (Ok(())))?;
                 }
                 w.add_script_to_execute_on_document_created(
                     "window.external={invoke:s=>window.chrome.webview.postMessage(s)}",
-                    |_|(Ok(()))
+                    |_| (Ok(()))
                 )?;
 
                 // Message handler
@@ -85,7 +89,7 @@ impl InnerWebView {
                             )
                         }
                     };
-                    webview.execute_script(&js, |_|(Ok(())))?;
+                    webview.execute_script(&js, |_| (Ok(())))?;
                     Ok(())
                 })?;
 
@@ -115,14 +119,16 @@ impl InnerWebView {
         Ok(Self { controller })
     }
 
-    pub fn eval(&self, js: &str) -> Result<()> {
+    fn eval(&self, js: &str) -> Result<()> {
         if let Some(c) = self.controller.get() {
             let webview = c.get_webview()?;
             webview.execute_script(js, |_| (Ok(())))?;
         }
         Ok(())
     }
+}
 
+impl InnerWebView {
     pub fn resize(&self, hwnd: *mut c_void) -> Result<()> {
         let hwnd = hwnd as HWND;
 

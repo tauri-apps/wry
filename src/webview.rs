@@ -181,12 +181,7 @@ impl WebView {
     /// many more before starting WebView. To benefit from above features, create a
     /// [`WebViewBuilder`] instead.
     pub fn new_with_configs(window: Window, debug: bool, transparent: bool) -> Result<Self> {
-        #[cfg(target_os = "windows")]
-        let webview = InnerWebView::new(&window, debug, None, vec![])?;
-        #[cfg(target_os = "macos")]
         let webview = InnerWebView::new(&window, debug, vec![], None, transparent)?;
-        #[cfg(target_os = "linux")]
-        let webview = InnerWebView::new(&window, debug, None, vec![])?;
         let (tx, rx) = channel();
         Ok(Self {
             window,
