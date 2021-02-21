@@ -107,11 +107,6 @@ impl WV for InnerWebView {
                 let _: id = msg_send![config, setValue:no forKey:background];
             }
 
-            // Equivalent Obj-C:
-            // [[config preferences] setValue:@YES forKey:@"fullScreenEnabled"];
-            let fullscreen = get_nsstring("fullScreenEnabled");
-            let _: id = msg_send![preference, setValue:yes forKey:fullscreen];
-
             // Resize
             let size = window.inner_size().to_logical(window.scale_factor());
             let rect = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(size.width, size.height));
