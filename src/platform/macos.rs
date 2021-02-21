@@ -112,16 +112,6 @@ impl WV for InnerWebView {
             let fullscreen = get_nsstring("fullScreenEnabled");
             let _: id = msg_send![preference, setValue:yes forKey:fullscreen];
 
-            // Equivalent Obj-C:
-            // [[config preferences] setValue:@YES forKey:@"javaScriptCanAccessClipboard"];
-            let clipboard = get_nsstring("javaScriptCanAccessClipboard");
-            let _: id = msg_send![preference, setValue:yes forKey:clipboard];
-
-            // Equivalent Obj-C:
-            // [[config preferences] setValue:@YES forKey:@"DOMPasteAllowed"];
-            let dom = get_nsstring("DOMPasteAllowed");
-            let _: id = msg_send![preference, setValue:yes forKey:dom];
-
             // Resize
             let size = window.inner_size().to_logical(window.scale_factor());
             let rect = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(size.width, size.height));
