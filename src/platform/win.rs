@@ -76,19 +76,20 @@ impl WV for InnerWebView {
                     let status = f(d, v.id, v.params);
 
                     let js = match status {
-                        0 => {
+                        Ok(()) => {
                             format!(
                                 r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
                                 v.id, v.id
                             )
                         }
-                        _ => {
+                        Err(e) => {
                             format!(
-                                r#"window._rpc[{}].reject("RPC call fail"); window._rpc[{}] = undefined"#,
-                                v.id, v.id
+                                r#"window._rpc[{}].reject("RPC call fail with error {}"); window._rpc[{}] = undefined"#,
+                                v.id, e, v.id
                             )
                         }
                     };
+
                     webview.execute_script(&js, |_| (Ok(())))?;
                     Ok(())
                 })?;
