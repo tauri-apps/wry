@@ -1,4 +1,5 @@
 use crate::platform::{CALLBACKS, RPC};
+use crate::webview::WV;
 use crate::{Error, Result};
 
 use std::rc::Rc;
@@ -15,12 +16,15 @@ pub struct InnerWebView {
     webview: Rc<WebView>,
 }
 
-impl InnerWebView {
-    pub fn new(
+impl WV for InnerWebView {
+    type Window = Window;
+
+    fn new(
         window: &Window,
         debug: bool,
-        url: Option<Url>,
         scripts: Vec<String>,
+        url: Option<Url>,
+        transparent: bool,
     ) -> Result<Self> {
         // Webview widget
         let manager = UserContentManager::new();
@@ -104,12 +108,14 @@ impl InnerWebView {
         Ok(w)
     }
 
-    pub fn eval(&self, js: &str) -> Result<()> {
+    fn eval(&self, js: &str) -> Result<()> {
         let cancellable: Option<&Cancellable> = None;
         self.webview.run_javascript(js, cancellable, |_| ());
         Ok(())
     }
+}
 
+impl InnerWebView {
     fn init(&self, js: &str) -> Result<()> {
         if let Some(manager) = self.webview.get_user_content_manager() {
             let script = UserScript::new(

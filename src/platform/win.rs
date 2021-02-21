@@ -1,6 +1,6 @@
 use crate::platform::{CALLBACKS, RPC};
-use crate::Result;
 use crate::webview::WV;
+use crate::Result;
 
 use std::{
     collections::hash_map::DefaultHasher,
@@ -27,7 +27,7 @@ impl WV for InnerWebView {
         debug: bool,
         scripts: Vec<String>,
         url: Option<Url>,
-        transparent: bool
+        transparent: bool,
     ) -> Result<Self> {
         let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
         let mut hasher = DefaultHasher::new();
