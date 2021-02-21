@@ -4,6 +4,7 @@ use crate::{Error, Result};
 
 use std::rc::Rc;
 
+use gdk::RGBA;
 use gio::Cancellable;
 use gtk::{ApplicationWindow as Window, ApplicationWindowExt, ContainerExt, WidgetExt};
 use url::Url;
@@ -86,6 +87,16 @@ impl WV for InnerWebView {
                 settings.set_enable_write_console_messages_to_stdout(true);
                 settings.set_enable_developer_extras(true);
             }
+        }
+
+        // Transparent
+        if transparent {
+            webview.set_background_color(&RGBA {
+                red: 0.,
+                green: 0.,
+                blue: 0.,
+                alpha: 0.,
+            });
         }
 
         if window.get_visible() {

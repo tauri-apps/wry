@@ -11,6 +11,7 @@ use std::{
     sync::mpsc::{channel, Receiver, Sender},
 };
 
+use cairo::Operator;
 use gio::{ApplicationExt as GioApplicationExt, Cancellable};
 use gtk::{
     Application as GtkApp, ApplicationWindow, ApplicationWindowExt, GtkWindowExt, Inhibit,
@@ -281,7 +282,6 @@ fn load_icon(icon: Icon) -> Result<gdk_pixbuf::Pixbuf> {
 }
 
 fn _create_window(app: &GtkApp, attributes: InnerWindowAttributes) -> Result<ApplicationWindow> {
-    //TODO window config (missing transparent)
     let window = ApplicationWindow::new(app);
 
     window.set_geometry_hints::<ApplicationWindow>(
@@ -314,6 +314,23 @@ fn _create_window(app: &GtkApp, attributes: InnerWindowAttributes) -> Result<App
         window.set_default_size(attributes.width as i32, attributes.height as i32);
     } else {
         window.set_size_request(attributes.width as i32, attributes.height as i32);
+    }
+
+    if attributes.transparent {
+        if let Some(screen) = window.get_screen() {
+            if let Some(visual) = screen.get_rgba_visual() {
+                window.set_visual(Some(&visual));
+            }
+        }
+
+        window.connect_draw(|_, cr| {
+            cr.set_source_rgba(0., 0., 0., 0.);
+            cr.set_operator(Operator::Source);
+            cr.paint();
+            cr.set_operator(Operator::Over);
+            Inhibit(false)
+        });
+        window.set_app_paintable(true);
     }
 
     window.set_skip_taskbar_hint(attributes.skip_taskbar);

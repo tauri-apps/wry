@@ -7,21 +7,6 @@ fn main() -> Result<()> {
     gtk::init()?;
     let window = Window::new(WindowType::Toplevel);
 
-    if let Some(screen) = window.get_screen() {
-        if let Some(visual) = screen.get_rgba_visual() {
-            window.set_visual(Some(&visual));
-        }
-    }
-
-    window.connect_draw(|_, cr| {
-        cr.set_source_rgba(0., 0., 0., 0.);
-        cr.set_operator(Operator::Source);
-        cr.paint();
-        cr.set_operator(Operator::Over);
-        Inhibit(false)
-    });
-
-    window.set_app_paintable(true);
     window.show_all();
     // TODO add to webview
     /*

@@ -11,7 +11,7 @@ fn main() -> Result<()> {
             r#"data:text/html,
             <!doctype html>
             <html>
-              <body style="background-color:rgba(87,87,87,0.5);">hello</body>
+              <body style="background-color:rgba(87,87,87,0.);">hello</body>
               <script>
                 window.onload = function() {
                   document.body.innerText = `hello, ${navigator.userAgent}`;
