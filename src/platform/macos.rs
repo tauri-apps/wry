@@ -91,6 +91,7 @@ impl WV for InnerWebView {
             let preference: id = msg_send![config, preferences];
             let nsnumber = class!(NSNumber);
             let yes: id = msg_send![nsnumber, numberWithBool:1];
+            #[cfg(feature = "private")]
             let no: id = msg_send![nsnumber, numberWithBool:0];
 
             if debug {
@@ -103,8 +104,8 @@ impl WV for InnerWebView {
             if transparent {
                 // Equivalent Obj-C:
                 // [config setValue:@NO forKey:@"drawsBackground"];
-                let background = get_nsstring("drawsBackground");
-                let _: id = msg_send![config, setValue:no forKey:background];
+                #[cfg(feature = "private")]
+                let _: id = msg_send![config, setValue:no forKey:get_nsstring("drawsBackground")];
             }
 
             // Resize
