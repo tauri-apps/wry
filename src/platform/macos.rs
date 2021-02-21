@@ -20,7 +20,7 @@ use objc::{
 use url::Url;
 use winit::{platform::macos::WindowExtMacOS, window::Window};
 
-// Saftey: objc runtime calls are unsafe
+// Safety: objc runtime calls are unsafe
 unsafe fn get_nsstring(s: &str) -> id {
     let s = CString::new(s).unwrap();
     let nsstring = class!(NSString);
@@ -48,7 +48,7 @@ impl WV for InnerWebView {
 
         // Callback function for message handler
         extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
-            // Saftey: objc runtime calls are unsafe
+            // Safety: objc runtime calls are unsafe
             unsafe {
                 let window_id = *this.get_ivar("_window_id");
                 let body: id = msg_send![msg, body];
@@ -80,7 +80,7 @@ impl WV for InnerWebView {
             }
         }
 
-        // Saftey: objc runtime calls are unsafe
+        // Safety: objc runtime calls are unsafe
         unsafe {
             // Webview, configs, and manager
             let wkwebviewconfig = class!(WKWebViewConfiguration);
@@ -177,7 +177,7 @@ impl WV for InnerWebView {
     }
 
     fn eval(&self, js: &str) -> Result<()> {
-        // Saftey: objc runtime calls are unsafe
+        // Safety: objc runtime calls are unsafe
         unsafe {
             let js = get_nsstring(js);
             let _: id = msg_send![self.webview, evaluateJavaScript:js completionHandler:null::<*const c_void>()];
@@ -188,7 +188,7 @@ impl WV for InnerWebView {
 
 impl InnerWebView {
     fn init(&self, js: &str) {
-        // Saftey: objc runtime calls are unsafe
+        // Safety: objc runtime calls are unsafe
         // Equivalent Obj-C:
         // [manager addUserScript:[[WKUserScript alloc] initWithSource:[NSString stringWithUTF8String:js.c_str()] injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]]
         unsafe {
@@ -202,7 +202,7 @@ impl InnerWebView {
     }
 
     fn navigate(&self, url: &str) {
-        // Saftey: objc runtime calls are unsafe
+        // Safety: objc runtime calls are unsafe
         unsafe {
             let nsurl = class!(NSURL);
             let s = get_nsstring(url);
@@ -214,7 +214,7 @@ impl InnerWebView {
     }
 
     fn navigate_to_string(&self, url: &str) {
-        // Saftey: objc runtime calls are unsafe
+        // Safety: objc runtime calls are unsafe
         unsafe {
             let nsurl = class!(NSURL);
             let html = get_nsstring(url);

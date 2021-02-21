@@ -51,7 +51,7 @@ impl WV for InnerWebView {
                     settings.put_are_dev_tools_enabled(true)?;
                 }
 
-                // Saftey: System calls are unsafe
+                // Safety: System calls are unsafe
                 unsafe {
                     let mut rect = std::mem::zeroed();
                     GetClientRect(hwnd, &mut rect);
@@ -132,7 +132,7 @@ impl InnerWebView {
     pub fn resize(&self, hwnd: *mut c_void) -> Result<()> {
         let hwnd = hwnd as HWND;
 
-        // Saftey: System calls are unsafe
+        // Safety: System calls are unsafe
         unsafe {
             let mut rect = std::mem::zeroed();
             GetClientRect(hwnd, &mut rect);
