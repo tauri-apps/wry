@@ -136,11 +136,36 @@ impl WV for InnerWebView {
 
             // Initialize scripts
             w.init(
-                "window.external = {
-                      invoke: function(s) {
+                r#"window.external = {
+                    invoke: function(s) {
                         window.webkit.messageHandlers.external.postMessage(s);
-                      },
-                    };",
+                    },
+                };
+
+                window.addEventListener("keydown", function(e) {
+                    if (e.defaultPrevented) {
+                        return;
+                    }
+
+                   if (e.metaKey) {
+                        switch(e.key) {
+                            case "x":
+                                document.execCommand("cut");
+                                e.preventDefault();
+                                break;
+                            case "c":
+                                document.execCommand("copy");
+                                e.preventDefault();
+                                break;
+                            case "v":
+                                document.execCommand("paste");
+                                e.preventDefault();
+                                break;
+                            default:
+                                return;
+                        }
+                    }
+                }, true);"#,
             );
             for js in scripts {
                 w.init(&js);
