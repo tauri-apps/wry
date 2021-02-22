@@ -37,7 +37,6 @@ impl WV for InnerWebView {
 
     fn new(
         window: &Window,
-        debug: bool,
         scripts: Vec<String>,
         url: Option<Url>,
         transparent: bool,
@@ -91,10 +90,10 @@ impl WV for InnerWebView {
             let preference: id = msg_send![config, preferences];
             let nsnumber = class!(NSNumber);
             let yes: id = msg_send![nsnumber, numberWithBool:1];
-            #[cfg(feature = "private")]
             let no: id = msg_send![nsnumber, numberWithBool:0];
 
-            if debug {
+            #[cfg(feature = "devtools")]
+            {
                 // Equivalent Obj-C:
                 // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
                 let dev = get_nsstring("developerExtrasEnabled");
@@ -104,7 +103,6 @@ impl WV for InnerWebView {
             if transparent {
                 // Equivalent Obj-C:
                 // [config setValue:@NO forKey:@"drawsBackground"];
-                #[cfg(feature = "private")]
                 let _: id = msg_send![config, setValue:no forKey:get_nsstring("drawsBackground")];
             }
 

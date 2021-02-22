@@ -22,7 +22,6 @@ impl WV for InnerWebView {
 
     fn new(
         window: &Window,
-        debug: bool,
         scripts: Vec<String>,
         url: Option<Url>,
         transparent: bool,
@@ -83,7 +82,8 @@ impl WV for InnerWebView {
             // Enable Smooth scrooling
             settings.set_enable_smooth_scrolling(true);
 
-            if debug {
+            #[cfg(feature = "devtools")]
+            {
                 settings.set_enable_write_console_messages_to_stdout(true);
                 settings.set_enable_developer_extras(true);
             }
