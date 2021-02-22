@@ -64,13 +64,10 @@
 //! platforms except Linux. We still need Gtk's library to build the WebView, so it's [gtk-rs] on
 //! Linux.
 //!
-//! ## Feature flags
+//! ## Debug build
 //!
-//! Here are some features are not enabled by default. They provide extra functionality to help you
-//! in development.
-//!
-//! - `devtools`: Enable tools like inspector for development or debug usage. Note this will call
-//! private APIs on macOS. Make sure it's not enabled on release build.
+//! Debug profile enables tools like inspector for development or debug usage. Note this will call
+//! private APIs on macOS.
 //!
 //! [winit]: https://crates.io/crates/winit
 //! [gtk-rs]: https://crates.io/crates/gtk
