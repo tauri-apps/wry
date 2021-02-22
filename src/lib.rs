@@ -100,9 +100,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Errors returned by wry.
 #[derive(Error, Debug)]
 pub enum Error {
-    #[cfg(not(target_os = "linux"))]
-    #[error("Failed to close the event lop")]
-    EventLoopClosed,
     #[cfg(target_os = "linux")]
     #[error(transparent)]
     GlibError(#[from] glib::Error),
@@ -120,6 +117,8 @@ pub enum Error {
     ReceiverError(#[from] RecvError),
     #[error(transparent)]
     SenderError(#[from] SendError<String>),
+    #[error("Failed to send the message")]
+    MessageSender,
     #[error(transparent)]
     UrlError(#[from] ParseError),
     #[error("IO error: {0}")]

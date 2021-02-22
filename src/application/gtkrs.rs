@@ -1,6 +1,6 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes, WindowProxy},
-    ApplicationProxy, Attributes, Callback, Icon, Message, Result, WebView, WebViewBuilder,
+    ApplicationProxy, Attributes, Callback, Error, Icon, Message, Result, WebView, WebViewBuilder,
     WindowMessage,
 };
 
@@ -35,7 +35,10 @@ pub struct InnerApplicationProxy {
 
 impl AppProxy for InnerApplicationProxy {
     fn send_message(&self, message: Message) -> Result<()> {
-        self.proxy.0.send(message)?;
+        self.proxy
+            .0
+            .send(message)
+            .map_err(|_| Error::MessageSender)?;
         Ok(())
     }
 
