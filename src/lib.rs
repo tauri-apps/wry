@@ -88,7 +88,7 @@ pub use serde_json::Value;
 pub(crate) use webview::{Dispatcher, WebView, WebViewBuilder};
 
 #[cfg(not(target_os = "linux"))]
-use winit::{event_loop::EventLoopClosed, window::BadIcon};
+use winit::window::BadIcon;
 
 use std::sync::mpsc::{RecvError, SendError};
 
@@ -100,9 +100,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Errors returned by wry.
 #[derive(Error, Debug)]
 pub enum Error {
-    #[cfg(not(target_os = "linux"))]
-    #[error(transparent)]
-    EventLoopClosed(#[from] EventLoopClosed<Message>),
     #[cfg(target_os = "linux")]
     #[error(transparent)]
     GlibError(#[from] glib::Error),
@@ -120,8 +117,8 @@ pub enum Error {
     ReceiverError(#[from] RecvError),
     #[error(transparent)]
     SenderError(#[from] SendError<String>),
-    #[error(transparent)]
-    SendMessageError(#[from] SendError<Message>),
+    #[error("Failed to send the message")]
+    MessageSender,
     #[error(transparent)]
     UrlError(#[from] ParseError),
     #[error("IO error: {0}")]
