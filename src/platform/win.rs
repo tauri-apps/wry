@@ -46,8 +46,8 @@ impl WV for InnerWebView {
                 settings.put_is_status_bar_enabled(false)?;
                 settings.put_are_default_context_menus_enabled(true)?;
                 settings.put_is_zoom_control_enabled(false)?;
-                #[cfg(feature = "devtools")]
-                settings.put_are_dev_tools_enabled(true)?;
+                settings.put_are_dev_tools_enabled(false)?;
+                debug_assert_eq!(settings.put_are_dev_tools_enabled(true)?, ());
 
                 // Safety: System calls are unsafe
                 unsafe {

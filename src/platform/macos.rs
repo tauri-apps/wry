@@ -92,13 +92,15 @@ impl WV for InnerWebView {
             let yes: id = msg_send![nsnumber, numberWithBool:1];
             let no: id = msg_send![nsnumber, numberWithBool:0];
 
-            #[cfg(feature = "devtools")]
-            {
-                // Equivalent Obj-C:
-                // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
-                let dev = get_nsstring("developerExtrasEnabled");
-                let _: id = msg_send![preference, setValue:yes forKey:dev];
-            }
+            debug_assert_eq!(
+                {
+                    // Equivalent Obj-C:
+                    // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
+                    let dev = get_nsstring("developerExtrasEnabled");
+                    let _: id = msg_send![preference, setValue:yes forKey:dev];
+                },
+                ()
+            );
 
             if transparent {
                 // Equivalent Obj-C:

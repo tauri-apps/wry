@@ -82,11 +82,13 @@ impl WV for InnerWebView {
             // Enable Smooth scrooling
             settings.set_enable_smooth_scrolling(true);
 
-            #[cfg(feature = "devtools")]
-            {
-                settings.set_enable_write_console_messages_to_stdout(true);
-                settings.set_enable_developer_extras(true);
-            }
+            debug_assert_eq!(
+                {
+                    settings.set_enable_write_console_messages_to_stdout(true);
+                    settings.set_enable_developer_extras(true);
+                },
+                ()
+            );
         }
 
         // Transparent
