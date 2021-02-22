@@ -1,7 +1,7 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
     ApplicationProxy, Attributes, Callback, Icon, Message, Result, WebView, WebViewBuilder,
-    WindowMessage, WindowProxy,
+    WindowMessage, WindowProxy, Error,
 };
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};
@@ -38,7 +38,8 @@ pub struct InnerApplicationProxy {
 
 impl AppProxy for InnerApplicationProxy {
     fn send_message(&self, message: Message) -> Result<()> {
-        self.proxy.send_event(message)?;
+        self.proxy.send_event(message)
+            .map_err(|_| Error::EventLoopClosed)?;
         Ok(())
     }
 
