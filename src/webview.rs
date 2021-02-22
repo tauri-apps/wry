@@ -26,7 +26,6 @@ use winit::window::Window;
 /// scripts for those who prefer to control fine grained window creation and event handling.
 /// [`WebViewBuilder`] privides ability to setup initialization before web engine starts.
 pub struct WebViewBuilder {
-    debug: bool,
     transparent: bool,
     tx: Sender<String>,
     rx: Receiver<String>,
@@ -55,16 +54,9 @@ impl WebViewBuilder {
             initialization_scripts: vec![],
             window,
             url: None,
-            debug: false,
             transparent: false,
             window_id,
         })
-    }
-
-    /// Enable extra developer tools like inspector if set to true.
-    pub fn debug(mut self, debug: bool) -> Self {
-        self.debug = debug;
-        self
     }
 
     /// Whether the WebView window should be transparent. If this is true, writing colors
@@ -142,7 +134,6 @@ impl WebViewBuilder {
     pub fn build(self) -> Result<WebView> {
         let webview = InnerWebView::new(
             &self.window,
-            self.debug,
             self.initialization_scripts,
             self.url,
             self.transparent,
@@ -174,15 +165,15 @@ impl WebView {
     /// abilities to initialize scripts, add callbacks, and many more before starting WebView. To
     /// benefit from above features, create a [`WebViewBuilder`] instead.
     pub fn new(window: Window) -> Result<Self> {
-        Self::new_with_configs(window, false, false)
+        Self::new_with_configs(window, false)
     }
 
     /// Create a [`WebView`] from provided [`Window`] along with several configurations.
     /// Note that calling this directly loses abilities to initialize scripts, add callbacks, and
     /// many more before starting WebView. To benefit from above features, create a
     /// [`WebViewBuilder`] instead.
-    pub fn new_with_configs(window: Window, debug: bool, transparent: bool) -> Result<Self> {
-        let webview = InnerWebView::new(&window, debug, vec![], None, transparent)?;
+    pub fn new_with_configs(window: Window, transparent: bool) -> Result<Self> {
+        let webview = InnerWebView::new(&window, vec![], None, transparent)?;
         let (tx, rx) = channel();
         Ok(Self {
             window,
@@ -250,7 +241,6 @@ pub(crate) trait WV: Sized {
 
     fn new(
         window: &Self::Window,
-        debug: bool,
         scripts: Vec<String>,
         url: Option<Url>,
         transparent: bool,

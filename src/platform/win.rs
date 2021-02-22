@@ -24,7 +24,6 @@ impl WV for InnerWebView {
 
     fn new(
         window: &Window,
-        debug: bool,
         scripts: Vec<String>,
         url: Option<Url>,
         transparent: bool,
@@ -47,9 +46,8 @@ impl WV for InnerWebView {
                 settings.put_is_status_bar_enabled(false)?;
                 settings.put_are_default_context_menus_enabled(true)?;
                 settings.put_is_zoom_control_enabled(false)?;
-                if debug {
-                    settings.put_are_dev_tools_enabled(true)?;
-                }
+                #[cfg(feature = "devtools")]
+                settings.put_are_dev_tools_enabled(true)?;
 
                 // Safety: System calls are unsafe
                 unsafe {
