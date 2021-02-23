@@ -93,7 +93,8 @@ impl WebViewBuilder {
         F: FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send + 'static,
     {
         let js = format!(
-            r#"var name = {:?};
+            r#"(function() {{
+                var name = {:?};
                 var RPC = window._rpc = (window._rpc || {{nextSeq: 1}});
                 window[name] = function() {{
                 var seq = RPC.nextSeq++;
@@ -110,6 +111,7 @@ impl WebViewBuilder {
                 }}));
                 return promise;
                 }}
+            }})()
             "#,
             name
         );
