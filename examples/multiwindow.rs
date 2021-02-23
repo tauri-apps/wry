@@ -33,7 +33,7 @@ fn main() -> Result<()> {
         }),
     };
 
-    let window1 = app.add_window(attributes, Some(vec![callback]))?;
+    let window1 = app.add_window(attributes, Some(vec![callback]), None)?;
     let app_proxy = app.application_proxy();
 
     std::thread::spawn(move || {
@@ -53,6 +53,7 @@ fn main() -> Result<()> {
                     url: Some("https://i.imgur.com/x6tXcr9.gif".to_string()),
                     ..Default::default()
                 },
+                None,
                 None,
             )
             .unwrap();
