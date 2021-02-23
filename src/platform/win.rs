@@ -26,6 +26,8 @@ impl WV for InnerWebView {
         window: &Window,
         scripts: Vec<String>,
         url: Option<Url>,
+        // TODO default background color option just adds to webview2 recently and it requires
+        // canary build. Implement this once it's in official release.
         transparent: bool,
         custom_protocol: Option<(String, F)>,
     ) -> Result<Self> {
@@ -96,19 +98,19 @@ impl WV for InnerWebView {
                 })?;
 
                 let mut custom_protocol_name = None;
-                if let Some(protocol) = custom_protocol {
+                if let Some((name, function)) = custom_protocol {
                     // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
                     // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-                    custom_protocol_name = Some(protocol.0.clone());
+                    custom_protocol_name = Some(name.clone());
                     w.add_web_resource_requested_filter(
-                        &format!("file://custom-protocol-{}*", protocol.0),
+                        &format!("file://custom-protocol-{}*", name),
                         webview2::WebResourceContext::All,
                     )?;
                     w.add_web_resource_requested(move |_, args| {
                         let uri = args.get_request().unwrap().get_uri().unwrap();
                         // Remove leading custom protocol indicator
-                        let path = &uri[(23 + protocol.0.len())..];
-                        match protocol.1(path) {
+                        let path = &uri[(23 + name.len())..];
+                        match function(path) {
                             Ok(content) => {
                                 let stream = webview2::Stream::from_bytes(&content);
                                 let mime = mime_guess::from_path(&uri)
