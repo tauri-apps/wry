@@ -72,6 +72,12 @@ sudo apt install libwebkit2gtk-4.0-dev
 
 WebKit is native on macOS so everything should be fine.
 
+If you are cross-compiling for macOS using [osxcross](https://github.com/tpoechtrager/osxcross) and encounter a runtime panic like `Class with name WKWebViewConfiguration could not be found` it's possible that `WebKit.framework` has not been linked correctly, to fix this set the `RUSTFLAGS` environment variable:
+
+```
+RUSTFLAGS="-l framework=WebKit" cargo build --target=x86_64-apple-darwin --release
+```
+
 ### Windows
 
 WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7, 8, and 10.
