@@ -1,7 +1,7 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
     ApplicationProxy, Attributes, Callback, Error, Icon, Message, Result, WebView, WebViewBuilder,
-    WindowMessage, WindowProxy,
+    WindowMessage, WindowProxy, CustomProtocol
 };
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};
@@ -48,9 +48,15 @@ impl AppProxy for InnerApplicationProxy {
         &self,
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
+        custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowId> {
         let (sender, receiver) = channel();
-        self.send_message(Message::NewWindow(attributes, callbacks, sender))?;
+        self.send_message(Message::NewWindow(
+            attributes,
+            callbacks,
+            sender,
+            custom_protocol,
+        ))?;
         Ok(receiver.recv()?)
     }
 }
@@ -118,10 +124,17 @@ impl App for InnerApplication {
         &mut self,
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
+        custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
         let window = _create_window(&self.event_loop, window_attrs)?;
-        let webview = _create_webview(&self.application_proxy(), window, webview_attrs, callbacks)?;
+        let webview = _create_webview(
+            &self.application_proxy(),
+            window,
+            webview_attrs,
+            callbacks,
+            custom_protocol,
+        )?;
         let id = webview.window().id();
         self.webviews.insert(id, webview);
         Ok(id)
@@ -157,12 +170,18 @@ impl App for InnerApplication {
                     _ => {}
                 },
                 Event::UserEvent(message) => match message {
-                    Message::NewWindow(attributes, callbacks, sender) => {
+                    Message::NewWindow(attributes, callbacks, sender, custom_protocol) => {
                         let (window_attrs, webview_attrs) = attributes.split();
                         let window = _create_window(&event_loop, window_attrs).unwrap();
                         sender.send(window.id()).unwrap();
-                        let webview =
-                            _create_webview(&dispatcher, window, webview_attrs, callbacks).unwrap();
+                        let webview = _create_webview(
+                            &dispatcher,
+                            window,
+                            webview_attrs,
+                            callbacks,
+                            custom_protocol,
+                        )
+                        .unwrap();
                         let id = webview.window().id();
                         windows.insert(id, webview);
                     }
@@ -320,6 +339,7 @@ fn _create_webview(
     window: Window,
     attributes: InnerWebViewAttributes,
     callbacks: Option<Vec<Callback>>,
+    custom_protocol: Option<CustomProtocol>,
 ) -> Result<WebView> {
     let window_id = window.id();
     let mut webview = WebViewBuilder::new(window)?.transparent(attributes.transparent);
@@ -342,6 +362,9 @@ fn _create_webview(
                 )
             });
         }
+    }
+    if let Some(protocol) = custom_protocol {
+        webview = webview.register_protocol(protocol.name, protocol.handler)
     }
     webview = match attributes.url {
         Some(url) => webview.load_url(&url)?,

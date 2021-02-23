@@ -33,6 +33,7 @@ pub struct WebViewBuilder {
     window: Window,
     url: Option<Url>,
     window_id: i64,
+    custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
 }
 
 impl WebViewBuilder {
@@ -56,6 +57,7 @@ impl WebViewBuilder {
             url: None,
             transparent: false,
             window_id,
+            custom_protocol: None,
         })
     }
 
@@ -79,6 +81,15 @@ impl WebViewBuilder {
     /// send the scripts from other threads.
     pub fn dispatcher(&self) -> Dispatcher {
         Dispatcher(self.tx.clone())
+    }
+
+    /// Register custom file loading protocol
+    pub fn register_protocol<F>(mut self, name: String, handler: F) -> Self
+    where
+        F: Fn(&str) -> Result<Vec<u8>> + 'static,
+    {
+        self.custom_protocol = Some((name, Box::new(handler)));
+        self
     }
 
     /// Add a callback function to the WebView. The callback takse a dispatcher, a sequence number,
@@ -139,6 +150,7 @@ impl WebViewBuilder {
             self.initialization_scripts,
             self.url,
             self.transparent,
+            self.custom_protocol,
         )?;
         Ok(WebView {
             window: self.window,
@@ -175,7 +187,8 @@ impl WebView {
     /// many more before starting WebView. To benefit from above features, create a
     /// [`WebViewBuilder`] instead.
     pub fn new_with_configs(window: Window, transparent: bool) -> Result<Self> {
-        let webview = InnerWebView::new(&window, vec![], None, transparent)?;
+        let picky_none: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)> = None;
+        let webview = InnerWebView::new(&window, vec![], None, transparent, picky_none)?;
         let (tx, rx) = channel();
         Ok(Self {
             window,
@@ -241,11 +254,12 @@ impl Dispatcher {
 pub(crate) trait WV: Sized {
     type Window;
 
-    fn new(
+    fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
         window: &Self::Window,
         scripts: Vec<String>,
         url: Option<Url>,
         transparent: bool,
+        custom_protocol: Option<(String, F)>,
     ) -> Result<Self>;
 
     fn eval(&self, js: &str) -> Result<()>;

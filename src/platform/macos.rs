@@ -35,11 +35,12 @@ pub struct InnerWebView {
 impl WV for InnerWebView {
     type Window = Window;
 
-    fn new(
+    fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
         window: &Window,
         scripts: Vec<String>,
         url: Option<Url>,
         transparent: bool,
+        custom_protocol: Option<(String, F)>,
     ) -> Result<Self> {
         let mut hasher = DefaultHasher::new();
         window.id().hash(&mut hasher);
@@ -81,9 +82,38 @@ impl WV for InnerWebView {
 
         // Safety: objc runtime calls are unsafe
         unsafe {
-            // Webview, configs, and manager
+            // Config and custom protocol
             let wkwebviewconfig = class!(WKWebViewConfiguration);
             let config: id = msg_send![wkwebviewconfig, new];
+
+            extern "C" fn start_task(this: &Object, _: Sel, webview: id, task: id) {
+                println!("task start");
+            }
+
+            extern "C" fn stop_task(this: &Object, _: Sel, webview: id, task: id) {}
+
+            let cls = ClassDecl::new("WryURLSchemeHandler", class!(NSObject));
+            let cls = match cls {
+                Some(mut cls) => {
+                    cls.add_method(
+                        sel!(webView:startURLSchemeTask:),
+                        // TODO Define a actual Task class
+                        start_task as extern "C" fn(&Object, Sel, id, id),
+                    );
+                    cls.add_method(
+                        sel!(webView:stopURLSchemeTask:),
+                        start_task as extern "C" fn(&Object, Sel, id, id),
+                    );
+                    cls.register()
+                }
+                None => class!(WryURLSchemeHandler),
+            };
+            let handler: id = msg_send![cls, new];
+            //let config: id = msg_send![webview, configuration];
+            let wry = get_nsstring("wry");
+            let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:wry];
+
+            // Webview and manager
             let manager: id = msg_send![config, userContentController];
             let wkwebview = class!(WKWebView);
             let webview: id = msg_send![wkwebview, alloc];

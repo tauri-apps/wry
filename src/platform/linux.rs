@@ -6,11 +6,13 @@ use std::rc::Rc;
 
 use gdk::RGBA;
 use gio::Cancellable;
+use glib::{Bytes, FileError};
 use gtk::{ApplicationWindow as Window, ApplicationWindowExt, ContainerExt, WidgetExt};
 use url::Url;
 use webkit2gtk::{
-    SettingsExt, UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
-    UserScriptInjectionTime, WebView, WebViewExt,
+    SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
+    UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime, WebContext,
+    WebContextExt, WebView, WebViewExt, WebViewExtManual,
 };
 
 pub struct InnerWebView {
@@ -20,15 +22,19 @@ pub struct InnerWebView {
 impl WV for InnerWebView {
     type Window = Window;
 
-    fn new(
+    fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
         window: &Window,
         scripts: Vec<String>,
         url: Option<Url>,
         transparent: bool,
+        custom_protocol: Option<(String, F)>,
     ) -> Result<Self> {
         // Webview widget
         let manager = UserContentManager::new();
-        let webview = Rc::new(WebView::with_user_content_manager(&manager));
+        let context = WebContext::new();
+        let webview = Rc::new(WebView::new_with_context_and_user_content_manager(
+            &context, &manager,
+        ));
 
         // Message handler
         let wv = Rc::clone(&webview);
@@ -111,6 +117,37 @@ impl WV for InnerWebView {
         w.init("window.external={invoke:function(x){window.webkit.messageHandlers.external.postMessage(x);}}")?;
         for js in scripts {
             w.init(&js)?;
+        }
+
+        // Custom protocol
+        if let Some((name, handler)) = custom_protocol {
+            context
+                .get_security_manager()
+                .unwrap()
+                .register_uri_scheme_as_secure(&name);
+            context.register_uri_scheme(&name.clone(), move |request| {
+                let file_path = request
+                    .get_uri()
+                    .unwrap()
+                    .as_str()
+                    .replace(format!("{}://", name).as_str(), "")
+                    // Somehow other assets get index.html in their path
+                    .replace("index.html/", "");
+                let mime = mime_guess::from_path(&file_path)
+                    .first()
+                    .unwrap()
+                    .to_string();
+                match handler(&file_path) {
+                    Ok(buffer) => {
+                        let input = gio::MemoryInputStream::from_bytes(&Bytes::from(&buffer));
+                        request.finish(&input, buffer.len() as i64, Some(&mime))
+                    }
+                    Err(_) => request.finish_error(&mut glib::Error::new(
+                        FileError::Exist,
+                        "Could not get requested file.",
+                    )),
+                }
+            });
         }
 
         // Navigation

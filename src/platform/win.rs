@@ -22,11 +22,12 @@ pub struct InnerWebView {
 impl WV for InnerWebView {
     type Window = Window;
 
-    fn new(
+    fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
         window: &Window,
         scripts: Vec<String>,
         url: Option<Url>,
         transparent: bool,
+        custom_protocol: Option<(String, F)>,
     ) -> Result<Self> {
         let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
         let mut hasher = DefaultHasher::new();
@@ -37,7 +38,9 @@ impl WV for InnerWebView {
 
         // Webview controller
         webview2::EnvironmentBuilder::new().build(move |env| {
-            env?.create_controller(hwnd, move |controller| {
+            let env = env?;
+            let env_ = env.clone();
+            env.create_controller(hwnd, move |controller| {
                 let controller = controller?;
                 let w = controller.get_webview()?;
 
@@ -62,7 +65,7 @@ impl WV for InnerWebView {
                 }
                 w.add_script_to_execute_on_document_created(
                     "window.external={invoke:s=>window.chrome.webview.postMessage(s)}",
-                    |_| (Ok(()))
+                    |_| (Ok(())),
                 )?;
 
                 // Message handler
@@ -92,6 +95,43 @@ impl WV for InnerWebView {
                     Ok(())
                 })?;
 
+                let mut custom_protocol_name = None;
+                if let Some(protocol) = custom_protocol {
+                    // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
+                    // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
+                    custom_protocol_name = Some(protocol.0.clone());
+                    w.add_web_resource_requested_filter(
+                        &format!("file://custom-protocol-{}*", protocol.0),
+                        webview2::WebResourceContext::All,
+                    )?;
+                    w.add_web_resource_requested(move |_, args| {
+                        let uri = args.get_request().unwrap().get_uri().unwrap();
+                        // Remove leading custom protocol indicator
+                        let path = &uri[(23 + protocol.0.len())..];
+                        match protocol.1(path) {
+                            Ok(content) => {
+                                let stream = webview2::Stream::from_bytes(&content);
+                                let mime = mime_guess::from_path(&uri)
+                                    .first()
+                                    .map(|m| m.to_string())
+                                    .unwrap_or("text/plain".into());
+                                let response = env_.create_web_resource_response(
+                                    stream,
+                                    200,
+                                    "OK",
+                                    &format!("Content-Type: {}", mime),
+                                )?;
+                                args.put_response(response)?;
+                                Ok(())
+                            }
+                            Err(_) => Err(webview2::Error::from(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                "Error loading requested file",
+                            ))),
+                        }
+                    })?;
+                }
+
                 // Enable clipboard
                 w.add_permission_requested(|_, args| {
                     let kind = args.get_permission_kind()?;
@@ -106,7 +146,18 @@ impl WV for InnerWebView {
                     if url.cannot_be_a_base() {
                         w.navigate_to_string(url.as_str())?;
                     } else {
-                        w.navigate(url.as_str())?;
+                        let mut url_string = String::from(url.as_str());
+                        if let Some(name) = custom_protocol_name {
+                            if name == url.scheme() {
+                                // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
+                                // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
+                                url_string = url.as_str().replace(
+                                    &format!("{}://", name),
+                                    &format!("file://custom-protocol-{}", name),
+                                )
+                            }
+                        }
+                        w.navigate(&url_string)?;
                     }
                 }
 
