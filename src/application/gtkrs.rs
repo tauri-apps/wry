@@ -1,7 +1,7 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes, WindowProxy},
-    ApplicationProxy, Attributes, Callback, Icon, Message, Result, WebView, WebViewBuilder,
-    WindowMessage,
+    ApplicationProxy, Attributes, Callback, CustomProtocol, Icon, Message, Result, WebView,
+    WebViewBuilder, WindowMessage,
 };
 
 use std::{
@@ -43,9 +43,15 @@ impl AppProxy for InnerApplicationProxy {
         &self,
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
+        custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowId> {
         let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
-        self.send_message(Message::NewWindow(attributes, callbacks, sender))?;
+        self.send_message(Message::NewWindow(
+            attributes,
+            callbacks,
+            sender,
+            custom_protocol,
+        ))?;
         Ok(receiver.recv()?)
     }
 }
@@ -80,10 +86,17 @@ impl App for InnerApplication {
         &mut self,
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
+        custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
         let window = _create_window(&self.app, window_attrs)?;
-        let webview = _create_webview(&self.application_proxy(), window, webview_attrs, callbacks)?;
+        let webview = _create_webview(
+            &self.application_proxy(),
+            window,
+            webview_attrs,
+            callbacks,
+            custom_protocol,
+        )?;
         let id = webview.window().get_id();
         self.webviews.insert(id, webview);
 
@@ -128,12 +141,18 @@ impl App for InnerApplication {
 
             while let Ok(message) = self.event_loop_proxy_rx.try_recv() {
                 match message {
-                    Message::NewWindow(attributes, callbacks, sender) => {
+                    Message::NewWindow(attributes, callbacks, sender, custom_protocol) => {
                         let (window_attrs, webview_attrs) = attributes.split();
                         let window = _create_window(&self.app, window_attrs).unwrap();
                         sender.send(window.get_id()).unwrap();
-                        let webview =
-                            _create_webview(&proxy, window, webview_attrs, callbacks).unwrap();
+                        let webview = _create_webview(
+                            &proxy,
+                            window,
+                            webview_attrs,
+                            callbacks,
+                            custom_protocol,
+                        )
+                        .unwrap();
                         let id = webview.window().get_id();
                         let shared_webviews_ = shared_webviews_.clone();
                         webview
@@ -363,6 +382,7 @@ fn _create_webview(
     window: ApplicationWindow,
     attributes: InnerWebViewAttributes,
     callbacks: Option<Vec<Callback>>,
+    custom_protocol: Option<CustomProtocol>,
 ) -> Result<WebView> {
     let window_id = window.get_id();
     let mut webview = WebViewBuilder::new(window)?
@@ -392,6 +412,9 @@ fn _create_webview(
         Some(url) => webview.load_url(&url)?,
         None => webview,
     };
+    if let Some(protocol) = custom_protocol {
+        webview = webview.register_protocol(protocol.name, protocol.handler);
+    }
 
     let webview = webview.build()?;
     Ok(webview)
