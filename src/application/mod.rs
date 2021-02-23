@@ -43,6 +43,19 @@ impl std::fmt::Debug for Callback {
     }
 }
 
+pub struct CustomProtocol {
+    pub name: String,
+    pub handler: Box<dyn Fn(&str) -> Result<Vec<u8>> + Send>,
+}
+
+impl std::fmt::Debug for CustomProtocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CustomProtocol")
+            .field("name", &self.name)
+            .finish()
+    }
+}
+
 ///	An icon used for the window title bar, taskbar, etc.
 #[derive(Debug, Clone)]
 pub struct Icon(pub(crate) Vec<u8>);
@@ -288,7 +301,12 @@ pub enum WindowMessage {
 #[derive(Debug)]
 pub enum Message {
     Window(WindowId, WindowMessage),
-    NewWindow(Attributes, Option<Vec<Callback>>, Sender<WindowId>),
+    NewWindow(
+        Attributes,
+        Option<Vec<Callback>>,
+        Sender<WindowId>,
+        Option<CustomProtocol>,
+    ),
 }
 
 /// A proxy to sent custom messages to [`Application`].
@@ -312,8 +330,11 @@ impl ApplicationProxy {
         &self,
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
+        custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
-        let id = self.inner.add_window(attributes, callbacks)?;
+        let id = self
+            .inner
+            .add_window(attributes, callbacks, custom_protocol)?;
         Ok(WindowProxy::new(self.clone(), id))
     }
 }
@@ -324,6 +345,7 @@ trait AppProxy {
         &self,
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
+        custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowId>;
 }
 
@@ -523,8 +545,11 @@ impl Application {
         &mut self,
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
+        custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
-        let id = self.inner.create_webview(attributes, callbacks)?;
+        let id = self
+            .inner
+            .create_webview(attributes, callbacks, custom_protocol)?;
         Ok(self.window_proxy(id))
     }
 
@@ -558,6 +583,7 @@ trait App: Sized {
         &mut self,
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
+        custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id>;
 
     fn application_proxy(&self) -> Self::Proxy;
