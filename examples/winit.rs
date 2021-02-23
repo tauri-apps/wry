@@ -25,7 +25,7 @@ fn main() -> Result<()> {
             }
             Ok(())
         })
-        .load_url("https://tauri.studio")?
+        .load_url("wry://tauri.studio")?
         .build()?;
 
     event_loop.run(move |event, _, control_flow| {

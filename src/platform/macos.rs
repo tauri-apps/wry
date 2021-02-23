@@ -86,11 +86,16 @@ impl WV for InnerWebView {
             let wkwebviewconfig = class!(WKWebViewConfiguration);
             let config: id = msg_send![wkwebviewconfig, new];
 
-            extern "C" fn start_task(this: &Object, _: Sel, webview: id, task: id) {
+            extern "C" fn start_task(_: &Object, _: Sel, _webview: id, task: id) {
                 println!("task start");
+                // This works but will panic becasue we haven't send didReceiveResponse &
+                // didReceiveData
+                let () = unsafe { msg_send![task, didFinish] };
             }
 
-            extern "C" fn stop_task(this: &Object, _: Sel, webview: id, task: id) {}
+            extern "C" fn stop_task(_: &Object, _: Sel, _webview: id, _task: id) {
+                println!("task stop");
+            }
 
             let cls = ClassDecl::new("WryURLSchemeHandler", class!(NSObject));
             let cls = match cls {
@@ -98,7 +103,7 @@ impl WV for InnerWebView {
                     cls.add_method(
                         sel!(webView:startURLSchemeTask:),
                         // TODO Define a actual Task class
-                        start_task as extern "C" fn(&Object, Sel, id, id),
+                        stop_task as extern "C" fn(&Object, Sel, id, id),
                     );
                     cls.add_method(
                         sel!(webView:stopURLSchemeTask:),
@@ -109,7 +114,6 @@ impl WV for InnerWebView {
                 None => class!(WryURLSchemeHandler),
             };
             let handler: id = msg_send![cls, new];
-            //let config: id = msg_send![webview, configuration];
             let wry = get_nsstring("wry");
             let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:wry];
 

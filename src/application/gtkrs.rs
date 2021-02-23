@@ -1,7 +1,7 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes, WindowProxy},
-    ApplicationProxy, Attributes, Callback, Error, Icon, Message, Result, WebView, WebViewBuilder,
-    WindowMessage, CustomProtocol
+    ApplicationProxy, Attributes, Callback, CustomProtocol, Error, Icon, Message, Result, WebView,
+    WebViewBuilder, WindowMessage,
 };
 
 use std::{
