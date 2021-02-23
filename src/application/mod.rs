@@ -414,7 +414,7 @@ impl WindowProxy {
     pub fn set_decorations(&self, decorations: bool) -> Result<()> {
         self.proxy.send_message(Message::Window(
             self.id,
-            WindowMessage::SetResizable(decorations),
+            WindowMessage::SetDecorations(decorations),
         ))
     }
 
