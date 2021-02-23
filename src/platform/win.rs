@@ -44,7 +44,7 @@ impl WV for InnerWebView {
             env.create_controller(hwnd, move |controller| {
                 let controller = controller?;
                 let w = controller.get_webview()?;
-    
+
                 // Enable sensible defaults
                 let settings = w.get_settings()?;
                 settings.put_is_status_bar_enabled(false)?;
@@ -53,14 +53,14 @@ impl WV for InnerWebView {
                 if debug {
                     settings.put_are_dev_tools_enabled(true)?;
                 }
-    
+
                 // Safety: System calls are unsafe
                 unsafe {
                     let mut rect = std::mem::zeroed();
                     GetClientRect(hwnd, &mut rect);
                     controller.put_bounds(rect)?;
                 }
-    
+
                 // Initialize scripts
                 for js in scripts {
                     w.add_script_to_execute_on_document_created(&js, |_| (Ok(())))?;
@@ -69,7 +69,7 @@ impl WV for InnerWebView {
                     "window.external={invoke:s=>window.chrome.webview.postMessage(s)}",
                     |_| (Ok(())),
                 )?;
-    
+
                 // Message handler
                 w.add_web_message_received(move |webview, args| {
                     let s = args.try_get_web_message_as_string()?;
@@ -96,7 +96,7 @@ impl WV for InnerWebView {
                     webview.execute_script(&js, |_| (Ok(())))?;
                     Ok(())
                 })?;
-    
+
                 let mut custom_protocol_name = None;
                 if let Some(protocol) = custom_protocol {
                     // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
@@ -133,7 +133,7 @@ impl WV for InnerWebView {
                         }
                     })?;
                 }
-    
+
                 // Enable clipboard
                 w.add_permission_requested(|_, args| {
                     let kind = args.get_permission_kind()?;
@@ -142,7 +142,7 @@ impl WV for InnerWebView {
                     }
                     Ok(())
                 })?;
-    
+
                 // Navigation
                 if let Some(url) = url {
                     if url.cannot_be_a_base() {
@@ -162,7 +162,7 @@ impl WV for InnerWebView {
                         w.navigate(&url_string)?;
                     }
                 }
-    
+
                 let _ = controller_clone.set(controller);
                 Ok(())
             })
