@@ -37,7 +37,6 @@ impl WV for InnerWebView {
 
     fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
         window: &Window,
-        debug: bool,
         scripts: Vec<String>,
         url: Option<Url>,
         transparent: bool,
@@ -121,20 +120,21 @@ impl WV for InnerWebView {
             let preference: id = msg_send![config, preferences];
             let nsnumber = class!(NSNumber);
             let yes: id = msg_send![nsnumber, numberWithBool:1];
-            #[cfg(feature = "private")]
             let no: id = msg_send![nsnumber, numberWithBool:0];
 
-            if debug {
-                // Equivalent Obj-C:
-                // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
-                let dev = get_nsstring("developerExtrasEnabled");
-                let _: id = msg_send![preference, setValue:yes forKey:dev];
-            }
+            debug_assert_eq!(
+                {
+                    // Equivalent Obj-C:
+                    // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
+                    let dev = get_nsstring("developerExtrasEnabled");
+                    let _: id = msg_send![preference, setValue:yes forKey:dev];
+                },
+                ()
+            );
 
             if transparent {
                 // Equivalent Obj-C:
                 // [config setValue:@NO forKey:@"drawsBackground"];
-                #[cfg(feature = "private")]
                 let _: id = msg_send![config, setValue:no forKey:get_nsstring("drawsBackground")];
             }
 
@@ -166,11 +166,36 @@ impl WV for InnerWebView {
 
             // Initialize scripts
             w.init(
-                "window.external = {
-                      invoke: function(s) {
+                r#"window.external = {
+                    invoke: function(s) {
                         window.webkit.messageHandlers.external.postMessage(s);
-                      },
-                    };",
+                    },
+                };
+
+                window.addEventListener("keydown", function(e) {
+                    if (e.defaultPrevented) {
+                        return;
+                    }
+
+                   if (e.metaKey) {
+                        switch(e.key) {
+                            case "x":
+                                document.execCommand("cut");
+                                e.preventDefault();
+                                break;
+                            case "c":
+                                document.execCommand("copy");
+                                e.preventDefault();
+                                break;
+                            case "v":
+                                document.execCommand("paste");
+                                e.preventDefault();
+                                break;
+                            default:
+                                return;
+                        }
+                    }
+                }, true);"#,
             );
             for js in scripts {
                 w.init(&js);

@@ -165,11 +165,6 @@ pub struct Attributes {
     /// The default is `false`
     pub skip_taskbar: bool,
 
-    /// Enable extra developer tools like inspector if set to true.
-    ///
-    /// The default is `false`.
-    pub debug: bool,
-
     /// The URL to be loaded in the webview window.
     ///
     /// The default is `None`.
@@ -205,7 +200,6 @@ impl Attributes {
                 skip_taskbar: self.skip_taskbar,
             },
             InnerWebViewAttributes {
-                debug: self.debug,
                 transparent: self.transparent,
                 url: self.url,
                 initialization_scripts: self.initialization_scripts,
@@ -236,7 +230,6 @@ impl Default for Attributes {
             fullscreen: false,
             icon: None,
             skip_taskbar: false,
-            debug: false,
             url: None,
             initialization_scripts: vec![],
         }
@@ -265,7 +258,6 @@ struct InnerWindowAttributes {
 }
 
 struct InnerWebViewAttributes {
-    debug: bool,
     transparent: bool,
     url: Option<String>,
     initialization_scripts: Vec<String>,

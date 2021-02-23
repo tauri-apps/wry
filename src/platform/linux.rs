@@ -24,7 +24,6 @@ impl WV for InnerWebView {
 
     fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
         window: &Window,
-        debug: bool,
         scripts: Vec<String>,
         url: Option<Url>,
         transparent: bool,
@@ -89,10 +88,13 @@ impl WV for InnerWebView {
             // Enable Smooth scrooling
             settings.set_enable_smooth_scrolling(true);
 
-            if debug {
-                settings.set_enable_write_console_messages_to_stdout(true);
-                settings.set_enable_developer_extras(true);
-            }
+            debug_assert_eq!(
+                {
+                    settings.set_enable_write_console_messages_to_stdout(true);
+                    settings.set_enable_developer_extras(true);
+                },
+                ()
+            );
         }
 
         // Transparent

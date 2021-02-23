@@ -1,7 +1,7 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
-    ApplicationProxy, Attributes, Callback, CustomProtocol, Icon, Message, Result, WebView,
-    WebViewBuilder, WindowMessage, WindowProxy,
+    ApplicationProxy, Attributes, Callback, Error, Icon, Message, Result, WebView, WebViewBuilder,
+    WindowMessage, WindowProxy, CustomProtocol
 };
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};
@@ -38,7 +38,9 @@ pub struct InnerApplicationProxy {
 
 impl AppProxy for InnerApplicationProxy {
     fn send_message(&self, message: Message) -> Result<()> {
-        self.proxy.send_event(message)?;
+        self.proxy
+            .send_event(message)
+            .map_err(|_| Error::MessageSender)?;
         Ok(())
     }
 
@@ -340,9 +342,7 @@ fn _create_webview(
     custom_protocol: Option<CustomProtocol>,
 ) -> Result<WebView> {
     let window_id = window.id();
-    let mut webview = WebViewBuilder::new(window)?
-        .debug(attributes.debug)
-        .transparent(attributes.transparent);
+    let mut webview = WebViewBuilder::new(window)?.transparent(attributes.transparent);
     for js in attributes.initialization_scripts {
         webview = webview.initialize_script(&js);
     }

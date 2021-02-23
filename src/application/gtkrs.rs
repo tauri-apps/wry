@@ -1,7 +1,7 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes, WindowProxy},
-    ApplicationProxy, Attributes, Callback, CustomProtocol, Icon, Message, Result, WebView,
-    WebViewBuilder, WindowMessage,
+    ApplicationProxy, Attributes, Callback, Error, Icon, Message, Result, WebView, WebViewBuilder,
+    WindowMessage, CustomProtocol
 };
 
 use std::{
@@ -35,7 +35,10 @@ pub struct InnerApplicationProxy {
 
 impl AppProxy for InnerApplicationProxy {
     fn send_message(&self, message: Message) -> Result<()> {
-        self.proxy.0.send(message)?;
+        self.proxy
+            .0
+            .send(message)
+            .map_err(|_| Error::MessageSender)?;
         Ok(())
     }
 
@@ -385,9 +388,7 @@ fn _create_webview(
     custom_protocol: Option<CustomProtocol>,
 ) -> Result<WebView> {
     let window_id = window.get_id();
-    let mut webview = WebViewBuilder::new(window)?
-        .debug(attributes.debug)
-        .transparent(attributes.transparent);
+    let mut webview = WebViewBuilder::new(window)?.transparent(attributes.transparent);
     for js in attributes.initialization_scripts {
         webview = webview.initialize_script(&js);
     }
