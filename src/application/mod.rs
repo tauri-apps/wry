@@ -274,6 +274,7 @@ pub enum WindowMessage {
     Unminimize,
     Show,
     Hide,
+    Close,
     SetDecorations(bool),
     SetAlwaysOnTop(bool),
     SetWidth(f64),
@@ -402,6 +403,11 @@ impl WindowProxy {
     pub fn hide(&self) -> Result<()> {
         self.proxy
             .send_message(Message::Window(self.id, WindowMessage::Hide))
+    }
+
+    pub fn close(&self) -> Result<()> {
+        self.proxy
+            .send_message(Message::Window(self.id, WindowMessage::Close))
     }
 
     pub fn set_transparent(&self, resizable: bool) -> Result<()> {

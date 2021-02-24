@@ -193,6 +193,9 @@ impl App for InnerApplication {
                                 WindowMessage::Hide => {
                                     window.hide();
                                 }
+                                WindowMessage::Close => {
+                                    window.close();
+                                }
                                 WindowMessage::SetDecorations(decorations) => {
                                     window.set_decorated(decorations);
                                 }

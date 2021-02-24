@@ -199,6 +199,9 @@ impl App for InnerApplication {
                                 WindowMessage::Unminimize => window.set_minimized(false),
                                 WindowMessage::Show => window.set_visible(true),
                                 WindowMessage::Hide => window.set_visible(false),
+                                WindowMessage::Close => {
+                                    windows.remove(&id);
+                                }
                                 WindowMessage::SetDecorations(decorations) => {
                                     window.set_decorations(decorations)
                                 }
