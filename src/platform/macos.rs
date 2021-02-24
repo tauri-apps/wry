@@ -99,10 +99,14 @@ impl WV for InnerWebView {
                 let utf8string = str::from_utf8(slice).unwrap();
 
                 // TODO create mime
+                let mime = mime_guess::from_path(utf8string)
+                    .first()
+                    .map(|m| m.to_string())
+                    .unwrap_or("text/plain".into());
                 // Send response
                 if let Ok(content) = function(utf8string) {
                     let nsurlresponse: id = msg_send![class!(NSURLResponse), alloc];
-                    let response: id = msg_send![nsurlresponse, initWithURL:url MIMEType:get_nsstring("text/plain")
+                    let response: id = msg_send![nsurlresponse, initWithURL:url MIMEType:get_nsstring(&mime)
                         expectedContentLength:content.len() textEncodingName:null::<c_void>()];
                     let () = msg_send![task, didReceiveResponse: response];
 
