@@ -14,6 +14,7 @@ fn main() -> Result<()> {
     let webview = WebViewBuilder::new(window)
         .unwrap()
         .initialize_script("menacing = 'ゴ';")
+        .register_protocol("wry".to_string(), |_| Ok(vec![97, 98, 99]))
         .add_callback("world", |dispatcher, sequence, requests| {
             dispatcher.dispatch_script("console.log(menacing);")?;
             // Sequence is a number counting how many times this function being called.

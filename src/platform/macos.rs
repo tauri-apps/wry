@@ -8,6 +8,7 @@ use std::{
     hash::{Hash, Hasher},
     os::raw::c_char,
     ptr::null,
+    slice, str,
 };
 
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
@@ -22,6 +23,7 @@ use winit::{platform::macos::WindowExtMacOS, window::Window};
 
 // Safety: objc runtime calls are unsafe
 unsafe fn get_nsstring(s: &str) -> id {
+    // TODO create with actual utf8 string
     let s = CString::new(s).unwrap();
     let nsstring = class!(NSString);
     msg_send![nsstring, stringWithUTF8String:s.as_ptr()]
@@ -80,42 +82,73 @@ impl WV for InnerWebView {
             }
         }
 
+        // Task handler for custom protocol
+        extern "C" fn start_task(this: &Object, _: Sel, _webview: id, task: id) {
+            unsafe {
+                let function = this.get_ivar::<*mut c_void>("function");
+                let function: &mut Box<dyn Fn(&str) -> Result<Vec<u8>>> =
+                    std::mem::transmute(*function);
+
+                // Get url request
+                let request: id = msg_send![task, request];
+                let url: id = msg_send![request, URL];
+                let nsstring: id = msg_send![url, absoluteString];
+                let bytes: *const c_char = msg_send![nsstring, UTF8String];
+                let len: usize = msg_send![nsstring, lengthOfBytesUsingEncoding:4];
+                let slice = slice::from_raw_parts(bytes as *const u8, len);
+                let utf8string = str::from_utf8(slice).unwrap();
+
+                // TODO create mime
+                // Send response
+                if let Ok(content) = function(utf8string) {
+                    let nsurlresponse: id = msg_send![class!(NSURLResponse), alloc];
+                    let response: id = msg_send![nsurlresponse, initWithURL:url MIMEType:get_nsstring("text/plain")
+                        expectedContentLength:content.len() textEncodingName:null::<c_void>()];
+                    let () = msg_send![task, didReceiveResponse: response];
+
+                    // Send data
+                    let bytes = content.as_ptr() as *mut c_void;
+                    let data: id = msg_send![class!(NSData), alloc];
+                    let data: id = msg_send![data, initWithBytes:bytes length:content.len()];
+                    let () = msg_send![task, didReceiveData: data];
+
+                    // Finish
+                    let () = msg_send![task, didFinish];
+                }
+            }
+        }
+        extern "C" fn stop_task(_: &Object, _: Sel, _webview: id, _task: id) {}
+
         // Safety: objc runtime calls are unsafe
         unsafe {
             // Config and custom protocol
             let wkwebviewconfig = class!(WKWebViewConfiguration);
             let config: id = msg_send![wkwebviewconfig, new];
+            if let Some((name, function)) = custom_protocol {
+                let cls = ClassDecl::new("CustomURLSchemeHandler", class!(NSObject));
+                let cls = match cls {
+                    Some(mut cls) => {
+                        cls.add_ivar::<*mut c_void>("function");
+                        cls.add_method(
+                            sel!(webView:startURLSchemeTask:),
+                            start_task as extern "C" fn(&Object, Sel, id, id),
+                        );
+                        cls.add_method(
+                            sel!(webView:stopURLSchemeTask:),
+                            stop_task as extern "C" fn(&Object, Sel, id, id),
+                        );
+                        cls.register()
+                    }
+                    None => class!(CustomURLSchemeHandler),
+                };
+                let handler: id = msg_send![cls, new];
+                let function: Box<Box<dyn Fn(&str) -> Result<Vec<u8>>>> =
+                    Box::new(Box::new(function));
 
-            extern "C" fn start_task(_: &Object, _: Sel, _webview: id, task: id) {
-                println!("task start");
-                // This works but will panic becasue we haven't send didReceiveResponse &
-                // didReceiveData
-                let () = unsafe { msg_send![task, didFinish] };
+                (*handler).set_ivar("function", Box::into_raw(function) as *mut _ as *mut c_void);
+                let name = get_nsstring(&name);
+                let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:name];
             }
-
-            extern "C" fn stop_task(_: &Object, _: Sel, _webview: id, _task: id) {
-                println!("task stop");
-            }
-
-            let cls = ClassDecl::new("WryURLSchemeHandler", class!(NSObject));
-            let cls = match cls {
-                Some(mut cls) => {
-                    cls.add_method(
-                        sel!(webView:startURLSchemeTask:),
-                        // TODO Define a actual Task class
-                        stop_task as extern "C" fn(&Object, Sel, id, id),
-                    );
-                    cls.add_method(
-                        sel!(webView:stopURLSchemeTask:),
-                        start_task as extern "C" fn(&Object, Sel, id, id),
-                    );
-                    cls.register()
-                }
-                None => class!(WryURLSchemeHandler),
-            };
-            let handler: id = msg_send![cls, new];
-            let wry = get_nsstring("wry");
-            let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:wry];
 
             // Webview and manager
             let manager: id = msg_send![config, userContentController];
@@ -162,7 +195,7 @@ impl WV for InnerWebView {
                 None => class!(WebViewDelegate),
             };
             let handler: id = msg_send![cls, new];
-            handler.as_mut().unwrap().set_ivar("_window_id", window_id);
+            (*handler).set_ivar("_window_id", window_id);
             let external = get_nsstring("external");
             let _: () = msg_send![manager, addScriptMessageHandler:handler name:external];
 
