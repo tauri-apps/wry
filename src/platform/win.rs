@@ -108,8 +108,11 @@ impl WV for InnerWebView {
                     )?;
                     w.add_web_resource_requested(move |_, args| {
                         let uri = args.get_request().unwrap().get_uri().unwrap();
-                        // Remove leading custom protocol indicator
-                        let path = &uri[(23 + name.len())..];
+                        // Undo the protocol workaround when giving path to resolver
+                        let path = &uri.replace(
+                            &format!("file://custom-protocol-{}", name),
+                            &format!("{}://", name)
+                        );
                         match function(path) {
                             Ok(content) => {
                                 let stream = webview2::Stream::from_bytes(&content);
