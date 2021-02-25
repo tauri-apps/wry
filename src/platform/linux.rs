@@ -126,21 +126,27 @@ impl WV for InnerWebView {
                 .unwrap()
                 .register_uri_scheme_as_secure(&name);
             context.register_uri_scheme(&name.clone(), move |request| {
-                let uri = request.get_uri().unwrap();
-                let file_path = uri.as_str();
-                let mime = mime_guess::from_path(&file_path)
-                    .first()
-                    .unwrap()
-                    .to_string();
-                match handler(&file_path) {
-                    Ok(buffer) => {
-                        let input = gio::MemoryInputStream::from_bytes(&Bytes::from(&buffer));
-                        request.finish(&input, buffer.len() as i64, Some(&mime))
+                if let Some(uri) = request.get_uri() {
+                    let uri = uri.as_str();
+                    let mime = match infer::get_from_path(uri) {
+                        Ok(Some(m)) => m.mime_type(),
+                        _ => "text/plain",
+                    };
+                    match handler(uri) {
+                        Ok(buffer) => {
+                            let input = gio::MemoryInputStream::from_bytes(&Bytes::from(&buffer));
+                            request.finish(&input, buffer.len() as i64, Some(mime))
+                        }
+                        Err(_) => request.finish_error(&mut glib::Error::new(
+                            FileError::Exist,
+                            "Could not get requested file.",
+                        )),
                     }
-                    Err(_) => request.finish_error(&mut glib::Error::new(
+                } else {
+                    request.finish_error(&mut glib::Error::new(
                         FileError::Exist,
-                        "Could not get requested file.",
-                    )),
+                        "Could not get uri.",
+                    ));
                 }
             });
         }
