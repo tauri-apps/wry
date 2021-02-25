@@ -4,7 +4,7 @@ use crate::Result;
 
 use std::{
     collections::hash_map::DefaultHasher,
-    ffi::{c_void, CStr, CString},
+    ffi::{c_void, CStr},
     hash::{Hash, Hasher},
     os::raw::c_char,
     ptr::null,
@@ -18,19 +18,12 @@ use objc::{
     declare::ClassDecl,
     runtime::{Object, Sel},
 };
+use objc_id::Id;
 use url::Url;
 use winit::{platform::macos::WindowExtMacOS, window::Window};
 
-// Safety: objc runtime calls are unsafe
-unsafe fn get_nsstring(s: &str) -> id {
-    // TODO create with actual utf8 string
-    let s = CString::new(s).unwrap();
-    let nsstring = class!(NSString);
-    msg_send![nsstring, stringWithUTF8String:s.as_ptr()]
-}
-
 pub struct InnerWebView {
-    webview: id,
+    webview: Id<Object>,
     manager: id,
 }
 
@@ -76,7 +69,7 @@ impl WV for InnerWebView {
                     }
                 };
                 let wv: id = msg_send![msg, webView];
-                let js = get_nsstring(&js);
+                let js = NSString::new(&js);
                 let _: id =
                     msg_send![wv, evaluateJavaScript:js completionHandler:null::<*const c_void>()];
             }
@@ -92,11 +85,11 @@ impl WV for InnerWebView {
                 // Get url request
                 let request: id = msg_send![task, request];
                 let url: id = msg_send![request, URL];
-                let nsstring: id = msg_send![url, absoluteString];
-                let bytes: *const c_char = msg_send![nsstring, UTF8String];
-                let len: usize = msg_send![nsstring, lengthOfBytesUsingEncoding:4];
-                let slice = slice::from_raw_parts(bytes as *const u8, len);
-                let uri = str::from_utf8(slice).unwrap();
+                let nsstring = {
+                    let s: id = msg_send![url, absoluteString];
+                    NSString(Id::from_ptr(s))
+                };
+                let uri = nsstring.to_str();
                 let mime = mime_guess::from_path(uri).first();
                 let mime = match &mime {
                     Some(m) => m.as_ref(),
@@ -106,7 +99,7 @@ impl WV for InnerWebView {
                 // Send response
                 if let Ok(content) = function(uri) {
                     let nsurlresponse: id = msg_send![class!(NSURLResponse), alloc];
-                    let response: id = msg_send![nsurlresponse, initWithURL:url MIMEType:get_nsstring(&mime)
+                    let response: id = msg_send![nsurlresponse, initWithURL:url MIMEType:NSString::new(mime)
                         expectedContentLength:content.len() textEncodingName:null::<c_void>()];
                     let () = msg_send![task, didReceiveResponse: response];
 
@@ -126,8 +119,7 @@ impl WV for InnerWebView {
         // Safety: objc runtime calls are unsafe
         unsafe {
             // Config and custom protocol
-            let wkwebviewconfig = class!(WKWebViewConfiguration);
-            let config: id = msg_send![wkwebviewconfig, new];
+            let config: id = msg_send![class!(WKWebViewConfiguration), new];
             if let Some((name, function)) = custom_protocol {
                 let cls = ClassDecl::new("CustomURLSchemeHandler", class!(NSObject));
                 let cls = match cls {
@@ -150,24 +142,21 @@ impl WV for InnerWebView {
                     Box::new(Box::new(function));
 
                 (*handler).set_ivar("function", Box::into_raw(function) as *mut _ as *mut c_void);
-                let name = get_nsstring(&name);
-                let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:name];
+                let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:NSString::new(&name)];
             }
 
             // Webview and manager
             let manager: id = msg_send![config, userContentController];
-            let wkwebview = class!(WKWebView);
-            let webview: id = msg_send![wkwebview, alloc];
+            let webview: id = msg_send![class!(WKWebView), alloc];
             let preference: id = msg_send![config, preferences];
-            let nsnumber = class!(NSNumber);
-            let yes: id = msg_send![nsnumber, numberWithBool:1];
-            let no: id = msg_send![nsnumber, numberWithBool:0];
+            let yes: id = msg_send![class!(NSNumber), numberWithBool:1];
+            let no: id = msg_send![class!(NSNumber), numberWithBool:0];
 
             debug_assert_eq!(
                 {
                     // Equivalent Obj-C:
                     // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
-                    let dev = get_nsstring("developerExtrasEnabled");
+                    let dev = NSString::new("developerExtrasEnabled");
                     let _: id = msg_send![preference, setValue:yes forKey:dev];
                 },
                 ()
@@ -176,7 +165,7 @@ impl WV for InnerWebView {
             if transparent {
                 // Equivalent Obj-C:
                 // [config setValue:@NO forKey:@"drawsBackground"];
-                let _: id = msg_send![config, setValue:no forKey:get_nsstring("drawsBackground")];
+                let _: id = msg_send![config, setValue:no forKey:NSString::new("drawsBackground")];
             }
 
             // Resize
@@ -200,10 +189,13 @@ impl WV for InnerWebView {
             };
             let handler: id = msg_send![cls, new];
             (*handler).set_ivar("_window_id", window_id);
-            let external = get_nsstring("external");
+            let external = NSString::new("external");
             let _: () = msg_send![manager, addScriptMessageHandler:handler name:external];
 
-            let w = Self { webview, manager };
+            let w = Self {
+                webview: Id::from_ptr(webview),
+                manager,
+            };
 
             // Initialize scripts
             w.init(
@@ -265,8 +257,7 @@ impl WV for InnerWebView {
     fn eval(&self, js: &str) -> Result<()> {
         // Safety: objc runtime calls are unsafe
         unsafe {
-            let js = get_nsstring(js);
-            let _: id = msg_send![self.webview, evaluateJavaScript:js completionHandler:null::<*const c_void>()];
+            let _: id = msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()];
         }
         Ok(())
     }
@@ -278,11 +269,8 @@ impl InnerWebView {
         // Equivalent Obj-C:
         // [manager addUserScript:[[WKUserScript alloc] initWithSource:[NSString stringWithUTF8String:js.c_str()] injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]]
         unsafe {
-            let wkuserscript = class!(WKUserScript);
-            let userscript: id = msg_send![wkuserscript, alloc];
-            let js = get_nsstring(js);
-            let script: id =
-                msg_send![userscript, initWithSource:js injectionTime:0 forMainFrameOnly:1];
+            let userscript: id = msg_send![class!(WKUserScript), alloc];
+            let script: id = msg_send![userscript, initWithSource:NSString::new(js) injectionTime:0 forMainFrameOnly:1];
             let _: () = msg_send![self.manager, addUserScript: script];
         }
     }
@@ -290,23 +278,42 @@ impl InnerWebView {
     fn navigate(&self, url: &str) {
         // Safety: objc runtime calls are unsafe
         unsafe {
-            let nsurl = class!(NSURL);
-            let s = get_nsstring(url);
-            let url: id = msg_send![nsurl, URLWithString: s];
-            let nsurlrequest = class!(NSURLRequest);
-            let request: id = msg_send![nsurlrequest, requestWithURL: url];
-            let _: () = msg_send![self.webview, loadRequest: request];
+            let url: id = msg_send![class!(NSURL), URLWithString: NSString::new(url)];
+            let request: id = msg_send![class!(NSURLRequest), requestWithURL: url];
+            let () = msg_send![self.webview, loadRequest: request];
         }
     }
 
     fn navigate_to_string(&self, url: &str) {
         // Safety: objc runtime calls are unsafe
         unsafe {
-            let nsurl = class!(NSURL);
-            let html = get_nsstring(url);
-            let s = get_nsstring("");
-            let url: id = msg_send![nsurl, URLWithString: s];
-            let _: () = msg_send![self.webview, loadHTMLString:html baseURL:url];
+            let empty: id = msg_send![class!(NSURL), URLWithString: NSString::new("")];
+            let () = msg_send![self.webview, loadHTMLString:NSString::new(url) baseURL:empty];
+        }
+    }
+}
+
+const UTF8_ENCODING: usize = 4;
+
+struct NSString(Id<Object>);
+
+impl NSString {
+    fn new(s: &str) -> Self {
+        // Safety: objc runtime calls are unsafe
+        NSString(unsafe {
+            let nsstring: id = msg_send![class!(NSString), alloc];
+            Id::from_ptr(
+                msg_send![nsstring, initWithBytes:s.as_ptr() length:s.len() encoding:UTF8_ENCODING],
+            )
+        })
+    }
+
+    fn to_str(&self) -> &str {
+        unsafe {
+            let bytes: *const c_char = msg_send![self.0, UTF8String];
+            let len = msg_send![self.0, lengthOfBytesUsingEncoding: UTF8_ENCODING];
+            let bytes = slice::from_raw_parts(bytes as *const u8, len);
+            str::from_utf8(bytes).unwrap()
         }
     }
 }
