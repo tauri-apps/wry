@@ -110,8 +110,8 @@ impl WV for InnerWebView {
                         let uri = args.get_request().unwrap().get_uri().unwrap();
                         // Undo the protocol workaround when giving path to resolver
                         let path = &uri.replace(
-                            format!("file://custom-protocol-{}", name),
-                            format!("{}://", name)
+                            &format!("file://custom-protocol-{}", name),
+                            &format!("{}://", name)
                         );
                         match function(path) {
                             Ok(content) => {
