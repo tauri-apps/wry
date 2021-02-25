@@ -536,10 +536,23 @@ impl Application {
     ///
     /// [`Attributes`] is the configuration struct for you to customize the window.
     ///
+    /// To create a default window, you could just pass `.add_window(Default::default(), None)`.
+    pub fn add_window(&mut self, attributes: Attributes) -> Result<WindowProxy> {
+        let id = self.inner.create_webview(attributes, None, None)?;
+        Ok(self.window_proxy(id))
+    }
+
+    /// Adds a WebView window to the application with more configuration options. Returns its [`WindowProxy`] after created.
+    ///
+    /// [`Attributes`] is the configuration struct for you to customize the window.
+    ///
     /// [`Callback`] allows you to define rust function to be called on Javascript side for its window.
     ///
+    /// [`CustomProtocol`] allows you to define custom URL scheme to handle actions like loading
+    /// assets.
+    ///
     /// To create a default window, you could just pass `.add_window(Default::default(), None)`.
-    pub fn add_window(
+    pub fn add_window_with_configs(
         &mut self,
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
