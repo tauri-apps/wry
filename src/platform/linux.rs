@@ -167,12 +167,13 @@ impl WV for InnerWebView {
             context.register_uri_scheme(&name.clone(), move |request| {
                 if let Some(uri) = request.get_uri() {
                     let uri = uri.as_str();
+                    let mime = mime_guess::from_path(uri).first();
+                    let mime = match &mime {
+                        Some(m) => m.as_ref(),
+                        None => "text/plain",
+                    };
                     match handler(uri) {
                         Ok(buffer) => {
-                            let mime = match infer::get(&buffer) {
-                                Some(m) => m.mime_type(),
-                                _ => "text/plain",
-                            };
                             let input = gio::MemoryInputStream::from_bytes(&Bytes::from(&buffer));
                             request.finish(&input, buffer.len() as i64, Some(mime))
                         }

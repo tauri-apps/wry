@@ -113,13 +113,14 @@ impl WV for InnerWebView {
                             &format!("file://custom-protocol-{}", name),
                             &format!("{}://", name)
                         );
+                        let mime = mime_guess::from_path(&uri).first();
+                        let mime = match &mime {
+                            Some(m) => m.as_ref(),
+                            None => "text/plain"
+                        };
                         match function(path) {
                             Ok(content) => {
                                 let stream = webview2::Stream::from_bytes(&content);
-                                let mime = match infer::get(&content) {
-                                    Some(m) => m.mime_type(),
-                                    _ => "text/plain",
-                                };
                                 let response = env_.create_web_resource_response(
                                     stream,
                                     200,
