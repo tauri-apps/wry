@@ -33,7 +33,7 @@ fn main() -> Result<()> {
         }),
     };
 
-    let window1 = app.add_window(attributes, Some(vec![callback]), None)?;
+    let window1 = app.add_window_with_configs(attributes, Some(vec![callback]), None)?;
     let app_proxy = app.application_proxy();
 
     std::thread::spawn(move || {
