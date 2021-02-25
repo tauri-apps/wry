@@ -126,13 +126,7 @@ impl WV for InnerWebView {
                 .unwrap()
                 .register_uri_scheme_as_secure(&name);
             context.register_uri_scheme(&name.clone(), move |request| {
-                let file_path = request
-                    .get_uri()
-                    .unwrap()
-                    .as_str()
-                    .replace(format!("{}://", name).as_str(), "")
-                    // Somehow other assets get index.html in their path
-                    .replace("index.html/", "");
+                let file_path = request.get_uri().unwrap().as_str();
                 let mime = mime_guess::from_path(&file_path)
                     .first()
                     .unwrap()
