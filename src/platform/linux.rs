@@ -128,8 +128,8 @@ impl WV for InnerWebView {
             context.register_uri_scheme(&name.clone(), move |request| {
                 if let Some(uri) = request.get_uri() {
                     let uri = uri.as_str();
-                    let mime = match infer::get_from_path(uri) {
-                        Ok(Some(m)) => m.mime_type(),
+                    let mime = match infer::get(uri.as_bytes()) {
+                        Some(m) => m.mime_type(),
                         _ => "text/plain",
                     };
                     match handler(uri) {

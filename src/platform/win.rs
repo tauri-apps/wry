@@ -116,8 +116,8 @@ impl WV for InnerWebView {
                         match function(path) {
                             Ok(content) => {
                                 let stream = webview2::Stream::from_bytes(&content);
-                                let mime = match infer::get_from_path(uri) {
-                                    Ok(Some(m)) => m.mime_type(),
+                                let mime = match infer::get(uri.as_bytes()) {
+                                    Some(m) => m.mime_type(),
                                     _ => "text/plain",
                                 };
                                 let response = env_.create_web_resource_response(
