@@ -45,7 +45,7 @@ fn main() -> Result<()> {
 
         window1.set_title("WRYYYYYYYYYYYYYYYYYYYYY").unwrap();
         let window2 = app_proxy
-            .add_window(
+            .add_window_with_configs(
                 Attributes {
                     width: 426.,
                     height: 197.,
