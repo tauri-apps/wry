@@ -1,6 +1,6 @@
 //! [`WebView`] struct and associated types.
 
-use crate::platform::{InnerWebView, CALLBACKS};
+use crate::platform::{InnerWebView, RpcRequest, RpcResponse, CALLBACKS, RPC_CALLBACK_NAME};
 use crate::Result;
 
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -34,6 +34,10 @@ pub struct WebViewBuilder {
     url: Option<Url>,
     window_id: i64,
     custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
+    rpc_handler: Option<(
+        Dispatcher,
+        Box<dyn Fn(&Dispatcher, RpcRequest) -> Option<RpcResponse> + Send>,
+    )>,
 }
 
 impl WebViewBuilder {
@@ -58,6 +62,7 @@ impl WebViewBuilder {
             transparent: false,
             window_id,
             custom_protocol: None,
+            rpc_handler: None,
         })
     }
 
@@ -73,6 +78,15 @@ impl WebViewBuilder {
     /// `window.onload`.
     pub fn initialize_script(mut self, js: &str) -> Self {
         self.initialization_scripts.push(js.to_string());
+        self
+    }
+
+    /// Set a RPC handler to receive messages.
+    pub fn set_rpc_handler(
+        mut self,
+        callback: Box<dyn Fn(&Dispatcher, RpcRequest) -> Option<RpcResponse> + Send>,
+    ) -> Self {
+        self.rpc_handler = Some((self.dispatcher(), callback));
         self
     }
 
@@ -151,6 +165,7 @@ impl WebViewBuilder {
             self.url,
             self.transparent,
             self.custom_protocol,
+            self.rpc_handler,
         )?;
         Ok(WebView {
             window: self.window,
@@ -188,7 +203,7 @@ impl WebView {
     /// [`WebViewBuilder`] instead.
     pub fn new_with_configs(window: Window, transparent: bool) -> Result<Self> {
         let picky_none: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)> = None;
-        let webview = InnerWebView::new(&window, vec![], None, transparent, picky_none)?;
+        let webview = InnerWebView::new(&window, vec![], None, transparent, picky_none, None)?;
         let (tx, rx) = channel();
         Ok(Self {
             window,
@@ -260,6 +275,10 @@ pub(crate) trait WV: Sized {
         url: Option<Url>,
         transparent: bool,
         custom_protocol: Option<(String, F)>,
+        rpc_handler: Option<(
+            Dispatcher,
+            Box<dyn Fn(&Dispatcher, RpcRequest) -> Option<RpcResponse> + Send>,
+        )>,
     ) -> Result<Self>;
 
     fn eval(&self, js: &str) -> Result<()>;
