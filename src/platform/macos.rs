@@ -97,8 +97,8 @@ impl WV for InnerWebView {
                 let len: usize = msg_send![nsstring, lengthOfBytesUsingEncoding:4];
                 let slice = slice::from_raw_parts(bytes as *const u8, len);
                 let uri = str::from_utf8(slice).unwrap();
-                let mime = match infer::get_from_path(uri) {
-                    Ok(Some(m)) => m.mime_type(),
+                let mime = match infer::get(uri.as_bytes()) {
+                    Some(m) => m.mime_type(),
                     _ => "text/plain",
                 };
 
