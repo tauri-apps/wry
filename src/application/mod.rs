@@ -415,13 +415,6 @@ impl WindowProxy {
             .send_message(Message::Window(self.id, WindowMessage::Close))
     }
 
-    pub fn set_transparent(&self, resizable: bool) -> Result<()> {
-        self.proxy.send_message(Message::Window(
-            self.id,
-            WindowMessage::SetResizable(resizable),
-        ))
-    }
-
     pub fn set_decorations(&self, decorations: bool) -> Result<()> {
         self.proxy.send_message(Message::Window(
             self.id,
