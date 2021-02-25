@@ -107,7 +107,7 @@ impl WV for InnerWebView {
                         webview2::WebResourceContext::All,
                     )?;
                     w.add_web_resource_requested(move |_, args| {
-                        let uri = args.get_request().unwrap().get_uri().unwrap();
+                        let uri = args.get_request()?.get_uri()?;
                         // Undo the protocol workaround when giving path to resolver
                         let path = &uri.replace(
                             &format!("file://custom-protocol-{}", name),
@@ -116,10 +116,10 @@ impl WV for InnerWebView {
                         match function(path) {
                             Ok(content) => {
                                 let stream = webview2::Stream::from_bytes(&content);
-                                let mime = mime_guess::from_path(&uri)
-                                    .first()
-                                    .map(|m| m.to_string())
-                                    .unwrap_or("text/plain".into());
+                                let mime = match infer::get_from_path(uri) {
+                                    Ok(Some(m)) => m.mime_type(),
+                                    _ => "text/plain",
+                                };
                                 let response = env_.create_web_resource_response(
                                     stream,
                                     200,
