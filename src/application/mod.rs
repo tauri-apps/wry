@@ -317,9 +317,14 @@ impl ApplicationProxy {
     pub fn send_message(&self, message: Message) -> Result<()> {
         self.inner.send_message(message)
     }
-
     /// Adds another WebView window to the application. Returns its [`WindowProxy`] after created.
-    pub fn add_window(
+    pub fn add_window(&self, attributes: Attributes) -> Result<WindowProxy> {
+        let id = self.inner.add_window(attributes, None, None)?;
+        Ok(WindowProxy::new(self.clone(), id))
+    }
+
+    /// Adds another WebView window to the application with more configuration options. Returns its [`WindowProxy`] after created.
+    pub fn add_window_with_configs(
         &self,
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
