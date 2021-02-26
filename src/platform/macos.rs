@@ -2,8 +2,6 @@ use crate::platform::{CALLBACKS, RPC};
 use crate::webview::WV;
 use crate::Result;
 
-use infer;
-
 use std::{
     collections::hash_map::DefaultHasher,
     ffi::{c_void, CStr},
@@ -92,45 +90,34 @@ impl WV for InnerWebView {
                     NSString(Id::from_ptr(s))
                 };
                 let uri = nsstring.to_str();
-                
-                let mut mime;
-                match infer::get_from_path(uri) {
-                    Ok(Some(info)) => {
-                        mime = info.extension();
-                    }
-                    Ok(None) => {
-                        mime = "text/plain";
-                    }
-                    Err(_e) => {
-                        // should we consider throwing?
-                        mime = "text/plain";
-                    }
-                }
-
-                // some webtypes are technically "text/plain"
-                if mime == "text/plain" {
-                    let v: Vec<&str> = uri.split(".").collect();
-                    let suffix = v.last().cloned();
-                    mime = match suffix {
-                        Some("css") => "text/css",
-                        Some("html") => "text/html",
-                        Some("js") => "text/javascript",
-                        Some("json") => "application/json",
-                        Some("jsonld") => "application/ld+json",
-                        Some("ico") => "image/vnd.microsoft.icon",
-                        Some("svg") => "image/svg",
-                        Some("csv") => "text/csv",
-                        Some("rtf") => "application/rtf",
-                        // if there is something like `wry://tauri.studio`, we need to assume html
-                        Some(&_) => "text/html",
-                        // using octet stream according to this:
-                        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
-                        None => "application/octet-stream",
-                    };
-                }
 
                 // Send response
                 if let Ok(content) = function(uri) {
+                    let mut mime = match infer::get(&content) {
+                        Some(info) => info.mime_type(),
+                        None => "text/plain",
+                    };
+                    // some webtypes are technically "text/plain"
+                    if mime == "text/plain" {
+                        let suffix = uri.split(".").last();
+                        mime = match suffix {
+                            Some("css") => "text/css",
+                            Some("html") => "text/html",
+                            Some("js") => "text/javascript",
+                            Some("json") => "application/json",
+                            Some("jsonld") => "application/ld+json",
+                            Some("ico") => "image/vnd.microsoft.icon",
+                            Some("svg") => "image/svg",
+                            Some("csv") => "text/csv",
+                            Some("rtf") => "application/rtf",
+                            // if there is something like `wry://tauri.studio`, we need to assume html
+                            Some(_) => "text/html",
+                            // using octet stream according to this:
+                            // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
+                            None => "application/octet-stream",
+                        };
+                    }
+
                     let nsurlresponse: id = msg_send![class!(NSURLResponse), alloc];
                     let response: id = msg_send![nsurlresponse, initWithURL:url MIMEType:NSString::new(mime)
                         expectedContentLength:content.len() textEncodingName:null::<c_void>()];
