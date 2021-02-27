@@ -90,7 +90,7 @@ pub use application::{
     WindowMessage, WindowProxy,
 };
 pub use serde_json::Value;
-pub(crate) use webview::{Dispatcher, WebView, WebViewBuilder};
+pub(crate) use webview::{Dispatcher, WebView, WebViewBuilder, RpcHandler};
 
 #[cfg(not(target_os = "linux"))]
 use winit::window::BadIcon;

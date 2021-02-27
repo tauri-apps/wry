@@ -1,7 +1,7 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes, WindowProxy},
     ApplicationProxy, Attributes, Callback, CustomProtocol, Error, Icon, Message, Result, WebView,
-    WebViewBuilder, WindowMessage,
+    WebViewBuilder, WindowMessage, RpcHandler,
 };
 
 use std::{
@@ -47,6 +47,7 @@ impl AppProxy for InnerApplicationProxy {
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
+        //rpc_handler: Option<RpcHandler>,
     ) -> Result<WindowId> {
         let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
         self.send_message(Message::NewWindow(

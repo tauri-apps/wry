@@ -1,6 +1,6 @@
 //! [`WebView`] struct and associated types.
 
-use crate::platform::{InnerWebView, CALLBACKS};
+use crate::platform::{InnerWebView, RpcRequest, RpcResponse, CALLBACKS, RPC_CALLBACK_NAME};
 use crate::Result;
 
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -20,6 +20,8 @@ use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
 use winit::window::Window;
 
+pub type RpcHandler = Box<dyn Fn(&Dispatcher, RpcRequest) -> Option<RpcResponse> + Send + Sync>;
+
 /// Builder type of [`WebView`].
 ///
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
@@ -34,6 +36,10 @@ pub struct WebViewBuilder {
     url: Option<Url>,
     window_id: i64,
     custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
+    rpc_handler: Option<(
+        Dispatcher,
+        RpcHandler,
+    )>,
 }
 
 impl WebViewBuilder {
@@ -58,6 +64,7 @@ impl WebViewBuilder {
             transparent: false,
             window_id,
             custom_protocol: None,
+            rpc_handler: None,
         })
     }
 
@@ -151,6 +158,7 @@ impl WebViewBuilder {
             self.url,
             self.transparent,
             self.custom_protocol,
+            self.rpc_handler,
         )?;
         Ok(WebView {
             window: self.window,
@@ -188,7 +196,7 @@ impl WebView {
     /// [`WebViewBuilder`] instead.
     pub fn new_with_configs(window: Window, transparent: bool) -> Result<Self> {
         let picky_none: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)> = None;
-        let webview = InnerWebView::new(&window, vec![], None, transparent, picky_none)?;
+        let webview = InnerWebView::new(&window, vec![], None, transparent, picky_none, None)?;
         let (tx, rx) = channel();
         Ok(Self {
             window,
@@ -260,6 +268,10 @@ pub(crate) trait WV: Sized {
         url: Option<Url>,
         transparent: bool,
         custom_protocol: Option<(String, F)>,
+        rpc_handler: Option<(
+            Dispatcher,
+            RpcHandler,
+        )>,
     ) -> Result<Self>;
 
     fn eval(&self, js: &str) -> Result<()>;
