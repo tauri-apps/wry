@@ -10,11 +10,14 @@ fn main() -> Result<()> {
         ..Default::default()
     };
 
-    app.add_window(attributes)?;
+    // NOTE: must be set before calling add_window().
     app.set_rpc_handler(Box::new(|dispatcher, req| {
         println!("Rpc handler was called {:?}", req);
         None 
     }));
+
+    app.add_window(attributes)?;
+
     app.run();
     Ok(())
 }

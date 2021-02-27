@@ -24,7 +24,7 @@ use crate::{Dispatcher, Result, RpcHandler};
 
 use std::{collections::HashMap, sync::Mutex};
 
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::Lazy;
 use serde_json::Value;
 
 pub(crate) const RPC_CALLBACK_NAME: &str = "__rpc__";
@@ -43,11 +43,6 @@ pub(crate) static CALLBACKS: Lazy<
     let m = HashMap::new();
     Mutex::new(m)
 });
-
-pub(crate) fn rpc_handler(handler: Option<RpcHandler>) -> &'static Option<RpcHandler> {
-    static INSTANCE: OnceCell<Option<RpcHandler>> = OnceCell::new();
-    INSTANCE.get_or_init(|| handler)
-}
 
 #[deprecated]
 #[derive(Debug, Serialize, Deserialize)]

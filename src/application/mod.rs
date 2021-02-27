@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 #[cfg(not(target_os = "linux"))]
 mod general;
 #[cfg(not(target_os = "linux"))]
@@ -528,6 +530,7 @@ impl Application {
     pub fn new() -> Result<Self> {
         Ok(Self {
             inner: InnerApplication::new()?,
+            //rpc_handler: None,
         })
     }
 
@@ -567,6 +570,7 @@ impl Application {
     pub fn application_proxy(&self) -> ApplicationProxy {
         ApplicationProxy {
             inner: self.inner.application_proxy(),
+            //rpc_handler: self.inner.
         }
     }
 
@@ -576,10 +580,11 @@ impl Application {
     }
 
     /// Set an RPC message handler.
-    pub fn set_rpc_handler(&self, handler: RpcHandler) {
-        // NOTE: we cannot push this via the Application proxy
-        // NOTE: system as it does not implement Clone
-        crate::platform::rpc_handler(Some(handler));
+    pub fn set_rpc_handler(&mut self, handler: RpcHandler) {
+        // TODO: detect if webviews already exist and panic
+        // TODO: because this should be set before callling add_window().
+
+        self.inner.rpc_handler = Some(Arc::new(handler));
     }
 
     /// Consume the application and start running it. This will hijack the main thread and iterate

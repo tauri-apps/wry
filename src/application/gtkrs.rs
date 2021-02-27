@@ -8,7 +8,7 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     rc::Rc,
-    sync::mpsc::{channel, Receiver, Sender},
+    sync::{Arc, Mutex, mpsc::{channel, Receiver, Sender}},
 };
 
 use cairo::Operator;
@@ -47,7 +47,6 @@ impl AppProxy for InnerApplicationProxy {
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
-        //rpc_handler: Option<RpcHandler>,
     ) -> Result<WindowId> {
         let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
         self.send_message(Message::NewWindow(
@@ -65,6 +64,7 @@ pub struct InnerApplication {
     app: GtkApp,
     event_loop_proxy: EventLoopProxy,
     event_loop_proxy_rx: Receiver<Message>,
+    pub(crate) rpc_handler: Option<Arc<RpcHandler>>,
 }
 
 impl App for InnerApplication {
@@ -83,6 +83,7 @@ impl App for InnerApplication {
             app,
             event_loop_proxy: EventLoopProxy(event_loop_proxy_tx),
             event_loop_proxy_rx,
+            rpc_handler: None,
         })
     }
 
@@ -94,12 +95,14 @@ impl App for InnerApplication {
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
         let window = _create_window(&self.app, window_attrs)?;
+
         let webview = _create_webview(
             &self.application_proxy(),
             window,
             webview_attrs,
             callbacks,
             custom_protocol,
+            self.rpc_handler.clone(),
         )?;
         let id = webview.window().get_id();
         self.webviews.insert(id, webview);
@@ -155,6 +158,7 @@ impl App for InnerApplication {
                             webview_attrs,
                             callbacks,
                             custom_protocol,
+                            self.rpc_handler.clone(),
                         )
                         .unwrap();
                         let id = webview.window().get_id();
@@ -390,6 +394,7 @@ fn _create_webview(
     attributes: InnerWebViewAttributes,
     callbacks: Option<Vec<Callback>>,
     custom_protocol: Option<CustomProtocol>,
+    rpc_handler: Option<Arc<RpcHandler>>,
 ) -> Result<WebView> {
     let window_id = window.get_id();
     let mut webview = WebViewBuilder::new(window)?.transparent(attributes.transparent);
@@ -419,6 +424,11 @@ fn _create_webview(
     };
     if let Some(protocol) = custom_protocol {
         webview = webview.register_protocol(protocol.name, protocol.handler);
+    }
+
+    if let Some(rpc_handler) = rpc_handler {
+        // TODO
+        //webview = webview.set_rpc_handler(rpc_handler);
     }
 
     let webview = webview.build()?;

@@ -143,6 +143,12 @@ impl WebViewBuilder {
         self
     }
 
+    /// Set the RPC handler.
+    pub(crate) fn set_rpc_handler(mut self, handler: RpcHandler) -> Self {
+        self.rpc_handler = Some((self.dispatcher(), handler));
+        self
+    }
+
     /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the
     /// [`WebView`]. The provided URL must be valid.
     pub fn load_url(mut self, url: &str) -> Result<Self> {
