@@ -20,6 +20,8 @@ use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
 use winit::window::Window;
 
+pub type RpcHandler = Box<dyn Fn(&Dispatcher, RpcRequest) -> Option<RpcResponse> + Send + Sync>;
+
 /// Builder type of [`WebView`].
 ///
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
@@ -36,7 +38,7 @@ pub struct WebViewBuilder {
     custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
     rpc_handler: Option<(
         Dispatcher,
-        Box<dyn Fn(&Dispatcher, RpcRequest) -> Option<RpcResponse> + Send>,
+        RpcHandler,
     )>,
 }
 
@@ -78,15 +80,6 @@ impl WebViewBuilder {
     /// `window.onload`.
     pub fn initialize_script(mut self, js: &str) -> Self {
         self.initialization_scripts.push(js.to_string());
-        self
-    }
-
-    /// Set a RPC handler to receive messages.
-    pub fn set_rpc_handler(
-        mut self,
-        callback: Box<dyn Fn(&Dispatcher, RpcRequest) -> Option<RpcResponse> + Send>,
-    ) -> Self {
-        self.rpc_handler = Some((self.dispatcher(), callback));
         self
     }
 
@@ -277,7 +270,7 @@ pub(crate) trait WV: Sized {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
             Dispatcher,
-            Box<dyn Fn(&Dispatcher, RpcRequest) -> Option<RpcResponse> + Send>,
+            RpcHandler,
         )>,
     ) -> Result<Self>;
 

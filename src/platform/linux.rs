@@ -1,6 +1,6 @@
 use crate::platform::{FuncCall, RpcRequest, RpcResponse, CALLBACKS, RPC, RPC_CALLBACK_NAME};
 use crate::webview::WV;
-use crate::{Dispatcher, Error, Result};
+use crate::{Dispatcher, Error, Result, RpcHandler};
 
 use std::rc::Rc;
 
@@ -31,7 +31,7 @@ impl WV for InnerWebView {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
             Dispatcher,
-            Box<dyn Fn(&Dispatcher, RpcRequest) -> Option<RpcResponse> + Send>,
+            RpcHandler,
         )>,
     ) -> Result<Self> {
         // Webview widget

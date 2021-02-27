@@ -11,7 +11,7 @@ pub use gtkrs::WindowId;
 #[cfg(target_os = "linux")]
 use gtkrs::{InnerApplication, InnerApplicationProxy};
 
-use crate::Result;
+use crate::{Result, RpcHandler};
 
 use std::{fs::read, path::Path, sync::mpsc::Sender};
 
@@ -344,6 +344,7 @@ trait AppProxy {
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
+        //rpc_handler: Option<RpcHandler>,
     ) -> Result<WindowId>;
 }
 
@@ -574,6 +575,13 @@ impl Application {
         WindowProxy::new(self.application_proxy(), window_id)
     }
 
+    /// Set an RPC message handler.
+    pub fn set_rpc_handler(&self, handler: RpcHandler) {
+        // NOTE: we cannot push this via the Application proxy
+        // NOTE: system as it does not implement Clone
+        crate::platform::rpc_handler(Some(handler));
+    }
+
     /// Consume the application and start running it. This will hijack the main thread and iterate
     /// its event loop. To further control the application after running, [`ApplicationProxy`] and
     /// [`WindowProxy`] allow you to do so on other threads.
@@ -593,6 +601,7 @@ trait App: Sized {
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
+        //rpc_handler: Option<RpcHandler>,
     ) -> Result<Self::Id>;
 
     fn application_proxy(&self) -> Self::Proxy;
