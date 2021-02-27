@@ -128,13 +128,34 @@ impl WV for InnerWebView {
             context.register_uri_scheme(&name.clone(), move |request| {
                 if let Some(uri) = request.get_uri() {
                     let uri = uri.as_str();
-                    let mime = mime_guess::from_path(uri).first();
-                    let mime = match &mime {
-                        Some(m) => m.as_ref(),
-                        None => "text/plain",
-                    };
+
                     match handler(uri) {
                         Ok(buffer) => {
+                            let mut mime = match infer::get(&buffer) {
+                                Some(info) => info.mime_type(),
+                                None => "text/plain",
+                            };
+                            // some webtypes are technically "text/plain"
+                            if mime == "text/plain" {
+                                let suffix = uri.split(".").last();
+                                mime = match suffix {
+                                    Some("css") => "text/css",
+                                    Some("html") => "text/html",
+                                    Some("js") => "text/javascript",
+                                    Some("json") => "application/json",
+                                    Some("jsonld") => "application/ld+json",
+                                    Some("ico") => "image/vnd.microsoft.icon",
+                                    Some("svg") => "image/svg",
+                                    Some("csv") => "text/csv",
+                                    Some("rtf") => "application/rtf",
+                                    // if there is something like `wry://tauri.studio`, we need to assume html
+                                    Some(_) => "text/html",
+                                    // using octet stream according to this:
+                                    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
+                                    None => "application/octet-stream",
+                                };
+                            }
+
                             let input = gio::MemoryInputStream::from_bytes(&Bytes::from(&buffer));
                             request.finish(&input, buffer.len() as i64, Some(mime))
                         }
