@@ -1,6 +1,6 @@
 use crate::platform::{CALLBACKS, RPC};
 use crate::webview::WV;
-use crate::Result;
+use crate::{Result, Dispatcher, RpcHandler};
 
 use std::{
     collections::hash_map::DefaultHasher,
@@ -36,6 +36,10 @@ impl WV for InnerWebView {
         url: Option<Url>,
         transparent: bool,
         custom_protocol: Option<(String, F)>,
+        rpc_handler: Option<(
+            Dispatcher,
+            RpcHandler,
+        )>,
     ) -> Result<Self> {
         let mut hasher = DefaultHasher::new();
         window.id().hash(&mut hasher);

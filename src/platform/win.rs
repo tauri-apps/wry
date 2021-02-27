@@ -1,6 +1,6 @@
 use crate::platform::{CALLBACKS, RPC};
 use crate::webview::WV;
-use crate::Result;
+use crate::{Result, Dispatcher, RpcHandler};
 
 use std::{
     collections::hash_map::DefaultHasher,
@@ -30,6 +30,10 @@ impl WV for InnerWebView {
         // canary build. Implement this once it's in official release.
         transparent: bool,
         custom_protocol: Option<(String, F)>,
+        rpc_handler: Option<(
+            Dispatcher,
+            RpcHandler,
+        )>,
     ) -> Result<Self> {
         let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
         let mut hasher = DefaultHasher::new();
