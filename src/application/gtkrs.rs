@@ -431,7 +431,6 @@ fn _create_webview(
     }
 
     if let Some(rpc_handler) = rpc_handler {
-        //webview = webview.set_rpc_handler(rpc_handler);
         let rpc_proxy = WindowProxy::new(
             ApplicationProxy {
                 inner: rpc_inner,
