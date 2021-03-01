@@ -397,6 +397,10 @@ fn _create_webview(
     rpc_handler: Option<Arc<RpcHandler>>,
 ) -> Result<WebView> {
     let window_id = window.get_id();
+
+    let rpc_win_id = window_id.clone();
+    let rpc_inner = proxy.clone();
+
     let mut webview = WebViewBuilder::new(window)?.transparent(attributes.transparent);
     for js in attributes.initialization_scripts {
         webview = webview.initialize_script(&js);
@@ -427,8 +431,14 @@ fn _create_webview(
     }
 
     if let Some(rpc_handler) = rpc_handler {
-        // TODO
-        webview = webview.set_rpc_handler(rpc_handler);
+        //webview = webview.set_rpc_handler(rpc_handler);
+        let rpc_proxy = WindowProxy::new(
+            ApplicationProxy {
+                inner: rpc_inner,
+            },
+            rpc_win_id,
+        );
+        webview = webview.set_rpc_handler(rpc_proxy, rpc_handler);
     }
 
     let webview = webview.build()?;

@@ -13,13 +13,23 @@ fn main() -> Result<()> {
 
     let html = r#"
 <script>
+let fullscreen = false;
+async function toggleFullScreen() {
+    await rpc.call('fullscreen', !fullscreen);
+    fullscreen = !fullscreen;
+}
+
 async function getAsyncRpcResult() {
     const reply = await rpc.call('send-parameters', {'message': 'world'});
-    console.log(reply);
+    const result = document.getElementById('rpc-result');
+    result.innerText = reply;
+    //console.log(reply);
 }
+
 </script>
-<div><button onclick="rpc.notify('toggle-fullscreen');">Toggle fullscreen</button></div>
+<div><button onclick="toggleFullScreen();">Toggle fullscreen</button></div>
 <div><button onclick="getAsyncRpcResult();">Send parameters</button></div>
+<div id="rpc-result"></div>
 "#;
 
     let markup = urlencoding::encode(html);
@@ -29,15 +39,24 @@ async function getAsyncRpcResult() {
     };
 
     // NOTE: must be set before calling add_window().
-    app.set_rpc_handler(Box::new(|dispatcher, mut req| {
+    app.set_rpc_handler(Box::new(|proxy, mut req| {
         let mut response = None;
-        println!("Rpc handler was called {:?}", req);
-        if &req.method == "toggle-fullscreen" {
-            println!("Toggle fullscren rpc call...");
+        if &req.method == "fullscreen" {
+            if let Some(params) = req.params.take() {
+                if let Some(mut args) = serde_json::from_value::<Vec<bool>>(params).ok() {
+                    if args.len() > 0 {
+                        let flag = args.swap_remove(0);
+                        // NOTE: in the real world we need to reply with an error
+                        let _ = proxy.set_fullscreen(flag);
+                    };
+                    response = Some(RpcResponse::new_result(req.id.take(), None));
+                }
+            }
+
         } else if &req.method == "send-parameters" {
             if let Some(params) = req.params.take() {
                 if let Some(mut args) = serde_json::from_value::<Vec<MessageParameters>>(params).ok() {
-                    let mut result = if args.len() > 0 {
+                    let result = if args.len() > 0 {
                         let msg = args.swap_remove(0);
                         Some(Value::String(format!("Hello, {}!", msg.message)))
                     } else {
@@ -53,7 +72,6 @@ async function getAsyncRpcResult() {
             }
         }
 
-        //dispatcher.set_fullscreen(true);
         response
     }));
 

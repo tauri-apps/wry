@@ -1,4 +1,5 @@
 use crate::platform::{FuncCall, RpcRequest, RpcResponse, CALLBACKS, RPC, RPC_CALLBACK_NAME};
+use crate::application::WindowProxy;
 use crate::webview::WV;
 use crate::{Dispatcher, Error, Result, RpcHandler};
 
@@ -31,7 +32,7 @@ impl WV for InnerWebView {
         transparent: bool,
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
-            Dispatcher,
+            WindowProxy,
             Arc<RpcHandler>,
         )>,
     ) -> Result<Self> {
@@ -65,8 +66,8 @@ impl WV for InnerWebView {
 
                                 // Send to an RPC handler
                                 if use_rpc {
-                                    let (dispatcher, rpc_handler) = rpc_handler.as_ref().unwrap();
-                                    let mut response = rpc_handler(dispatcher, ev.payload);
+                                    let (proxy, rpc_handler) = rpc_handler.as_ref().unwrap();
+                                    let mut response = rpc_handler(proxy, ev.payload);
                                     if let Some(mut response) = response.take() {
                                         if let Some(id) = response.id {
                                             println!("Send back to the client {:?}", id);
