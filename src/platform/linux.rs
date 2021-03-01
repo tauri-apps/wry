@@ -70,7 +70,6 @@ impl WV for InnerWebView {
                                     let mut response = rpc_handler(proxy, ev.payload);
                                     if let Some(mut response) = response.take() {
                                         if let Some(id) = response.id {
-                                            println!("Send back to the client {:?}", id);
                                             let js = if let Some(error) = response.error.take() {
                                                 match serde_json::to_string(&error) {
                                                     Ok(retval) => {
@@ -99,8 +98,6 @@ impl WV for InnerWebView {
                                                 format!("window.external.rpc._result({}, null)",
                                                     id.to_string())
                                             };
-
-                                            println!("Run response javascript {:?}", js);
 
                                             let cancellable: Option<&Cancellable> = None;
                                             wv.run_javascript(&js, cancellable, |_| ());

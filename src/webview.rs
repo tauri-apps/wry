@@ -151,13 +151,8 @@ impl WebViewBuilder {
         let js =
             r#"
             function Rpc() {
-                this._callback = '__rpc__';      // Callback function name
-                this._promises = {};            // Store promise callbacks
-
-                // Build a request payload
-                this.request = (id, method, params) => {
-                    return {jsonrpc: "2.0", id, method, params};
-                }
+                this._callback = '__rpc__';
+                this._promises = {};
 
                 // Private internal function called on error
                 this._error = (id, error) => {
@@ -179,7 +174,7 @@ impl WebViewBuilder {
                 this.call = function(method) {
                     const id = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
                     const params = Array.prototype.slice.call(arguments, 1);
-                    const payload = this.request(id, method, params);
+                    const payload = {jsonrpc: "2.0", id, method, params};
                     const msg = {callback: this._callback, payload};
                     const promise = new Promise((resolve, reject) => {
                         this._promises[id] = {resolve, reject};
@@ -191,7 +186,7 @@ impl WebViewBuilder {
                 // Send a notification without an `id` so no reply is expected.
                 this.notify = function(method) {
                     const params = Array.prototype.slice.call(arguments, 1);
-                    const payload = this.request(null, method, params);
+                    const payload = {jsonrpc: "2.0", method, params};
                     const msg = {callback: this._callback, payload};
                     window.external.invoke(JSON.stringify(msg));
                     return Promise.resolve();

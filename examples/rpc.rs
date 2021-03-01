@@ -20,10 +20,9 @@ async function toggleFullScreen() {
 }
 
 async function getAsyncRpcResult() {
-    const reply = await rpc.call('send-parameters', {'message': 'world'});
+    const reply = await rpc.call('send-parameters', {'message': 'WRY'});
     const result = document.getElementById('rpc-result');
     result.innerText = reply;
-    //console.log(reply);
 }
 
 </script>
@@ -65,9 +64,6 @@ async function getAsyncRpcResult() {
                     };
                     // Must always send a response as this is a `call()`
                     response = Some(RpcResponse::new_result(req.id.take(), result));
-
-                    println!("Got rpc parameters {:?}", response);
-
                 }
             }
         }
