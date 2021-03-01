@@ -69,9 +69,9 @@ pub struct FuncCall {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RpcRequest {
     jsonrpc: String,
-    id: Option<Value>,
-    method: String,
-    params: Option<Value>,
+    pub id: Option<Value>,
+    pub method: String,
+    pub params: Option<Value>,
 }
 
 /// RPC response message.
@@ -81,4 +81,25 @@ pub struct RpcResponse {
     id: Option<Value>,
     result: Option<Value>,
     error: Option<Value>,
+}
+
+impl RpcResponse {
+
+    /// Create a new result response.
+    pub fn new_result(id: Option<Value>, result: Option<Value>) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id, result,
+            error: None
+        } 
+    }
+
+    /// Create a new error response.
+    pub fn new_error(id: Option<Value>, error: Option<Value>) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id, error,
+            result: None
+        } 
+    }
 }

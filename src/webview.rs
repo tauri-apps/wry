@@ -3,7 +3,7 @@
 use crate::platform::{InnerWebView, RpcRequest, RpcResponse, CALLBACKS, RPC_CALLBACK_NAME};
 use crate::Result;
 
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, mpsc::{channel, Receiver, Sender}};
 #[cfg(not(target_os = "linux"))]
 use std::{
     collections::hash_map::DefaultHasher,
@@ -38,7 +38,7 @@ pub struct WebViewBuilder {
     custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
     rpc_handler: Option<(
         Dispatcher,
-        RpcHandler,
+        Arc<RpcHandler>,
     )>,
 }
 
@@ -111,7 +111,8 @@ impl WebViewBuilder {
         F: FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send + 'static,
     {
         let js = format!(
-            r#"(function() {{
+            r#"
+            (function() {{
                 var name = {:?};
                 var RPC = window._rpc = (window._rpc || {{nextSeq: 1}});
                 window[name] = function() {{
@@ -144,7 +145,60 @@ impl WebViewBuilder {
     }
 
     /// Set the RPC handler.
-    pub(crate) fn set_rpc_handler(mut self, handler: RpcHandler) -> Self {
+    pub(crate) fn set_rpc_handler(mut self, handler: Arc<RpcHandler>) -> Self {
+        let js =
+            r#"
+            function Rpc() {
+                this._callback = '__rpc__';      // Callback function name
+                this._promises = {};            // Store promise callbacks
+
+                // Build a request payload
+                this.request = (id, method, params) => {
+                    return {jsonrpc: "2.0", id, method, params};
+                }
+
+                // Private internal function called on error
+                this._error = (id, error) => {
+                    if(this._promises[id]){
+                        this._promises[id].reject(error);
+                        delete this._promises[id];
+                    }
+                }
+
+                // Private internal function called on result
+                this._result = (id, result) => {
+                    if(this._promises[id]){
+                        this._promises[id].resolve(result);
+                        delete this._promises[id];
+                    }
+                }
+
+                // Call remote method and expect a reply from the handler
+                this.call = function(method) {
+                    const id = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+                    const params = Array.prototype.slice.call(arguments, 1);
+                    const payload = this.request(id, method, params);
+                    const msg = {callback: this._callback, payload};
+                    const promise = new Promise((resolve, reject) => {
+                        this._promises[id] = {resolve, reject};
+                    });
+                    window.external.invoke(JSON.stringify(msg));
+                    return promise;
+                }
+
+                // Send a notification without an `id` so no reply is expected.
+                this.notify = function(method) {
+                    const params = Array.prototype.slice.call(arguments, 1);
+                    const payload = this.request(null, method, params);
+                    const msg = {callback: this._callback, payload};
+                    window.external.invoke(JSON.stringify(msg));
+                    return Promise.resolve();
+                }
+            }
+            window.rpc = window.external.rpc = new Rpc();
+            "#;
+        self.initialization_scripts.push(js.to_string());
+
         self.rpc_handler = Some((self.dispatcher(), handler));
         self
     }
@@ -276,7 +330,7 @@ pub(crate) trait WV: Sized {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
             Dispatcher,
-            RpcHandler,
+            Arc<RpcHandler>,
         )>,
     ) -> Result<Self>;
 

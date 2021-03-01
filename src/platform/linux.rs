@@ -3,6 +3,7 @@ use crate::webview::WV;
 use crate::{Dispatcher, Error, Result, RpcHandler};
 
 use std::rc::Rc;
+use std::sync::Arc;
 
 use serde_json::Value;
 use gdk::RGBA;
@@ -31,7 +32,7 @@ impl WV for InnerWebView {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
             Dispatcher,
-            RpcHandler,
+            Arc<RpcHandler>,
         )>,
     ) -> Result<Self> {
         // Webview widget
@@ -54,7 +55,7 @@ impl WV for InnerWebView {
                                 // Use `isize` to conform with existing `Callback` API but should 
                                 // really be a `u64`. Note that RPC spec allows for non-numbers 
                                 // in the `id` field!
-                                let id: i32 = if let Some(value) = ev.payload.id.take() {
+                                let id: i32 = if let Some(value) = ev.payload.id.clone().take() {
                                     if let Value::Number(num) = value {
                                         if num.is_i64() { num.as_i64().unwrap() as i32 } else { 0 }
                                     } else { 0 }
@@ -66,8 +67,43 @@ impl WV for InnerWebView {
                                 if use_rpc {
                                     let (dispatcher, rpc_handler) = rpc_handler.as_ref().unwrap();
                                     let mut response = rpc_handler(dispatcher, ev.payload);
-                                    if let Some(response) = response.take() {
-                                        // TODO: send response back to the client
+                                    if let Some(mut response) = response.take() {
+                                        if let Some(id) = response.id {
+                                            println!("Send back to the client {:?}", id);
+                                            let js = if let Some(error) = response.error.take() {
+                                                match serde_json::to_string(&error) {
+                                                    Ok(retval) => {
+                                                        format!("window.external.rpc._error({}, {})",
+                                                            id.to_string(), retval)
+                                                    }
+                                                    Err(_) => {
+                                                        format!("window.external.rpc._error({}, null)",
+                                                            id.to_string())
+                                                    }
+                                                }
+                                            } else if let Some(result) = response.result.take() {
+                                                match serde_json::to_string(&result) {
+                                                    Ok(retval) => {
+                                                        format!("window.external.rpc._result({}, {})",
+                                                            id.to_string(), retval)
+                                                    }
+                                                    Err(_) => {
+                                                        format!("window.external.rpc._result({}, null)",
+                                                            id.to_string())
+                                                    }
+                                                }
+                                            } else {
+                                                // No error or result, assume a positive response
+                                                // with empty result (ACK)
+                                                format!("window.external.rpc._result({}, null)",
+                                                    id.to_string())
+                                            };
+
+                                            println!("Run response javascript {:?}", js);
+
+                                            let cancellable: Option<&Cancellable> = None;
+                                            wv.run_javascript(&js, cancellable, |_| ());
+                                        }
                                     }
                                 // Normal callback mechanism
                                 } else {

@@ -3,6 +3,7 @@ use crate::webview::WV;
 use crate::{Result, Dispatcher, RpcHandler};
 
 use std::{
+    sync::Arc,
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
     os::raw::c_void,
@@ -32,7 +33,7 @@ impl WV for InnerWebView {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
             Dispatcher,
-            RpcHandler,
+            Arc<RpcHandler>,
         )>,
     ) -> Result<Self> {
         let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());

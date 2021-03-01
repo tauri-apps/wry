@@ -90,6 +90,7 @@ pub use application::{
     WindowMessage, WindowProxy,
 };
 pub use serde_json::Value;
+pub use platform::{RpcRequest, RpcResponse};
 pub(crate) use webview::{Dispatcher, WebView, WebViewBuilder, RpcHandler};
 
 #[cfg(not(target_os = "linux"))]

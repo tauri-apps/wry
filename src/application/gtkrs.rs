@@ -428,7 +428,7 @@ fn _create_webview(
 
     if let Some(rpc_handler) = rpc_handler {
         // TODO
-        //webview = webview.set_rpc_handler(rpc_handler);
+        webview = webview.set_rpc_handler(rpc_handler);
     }
 
     let webview = webview.build()?;
