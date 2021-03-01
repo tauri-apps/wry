@@ -82,6 +82,7 @@ extern crate thiserror;
 extern crate objc;
 
 mod application;
+pub mod mimetype;
 pub mod platform;
 pub mod webview;
 
