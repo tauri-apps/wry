@@ -1,4 +1,5 @@
 use crate::platform::{CALLBACKS, RPC};
+use crate::application::WindowProxy;
 use crate::webview::WV;
 use crate::{Result, Dispatcher, RpcHandler};
 
@@ -38,7 +39,7 @@ impl WV for InnerWebView {
         transparent: bool,
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
-            Dispatcher,
+            WindowProxy,
             Arc<RpcHandler>,
         )>,
     ) -> Result<Self> {
