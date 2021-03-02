@@ -1,5 +1,6 @@
 use crate::platform::{FuncCall, RpcRequest, RpcResponse, CALLBACKS, RPC, RPC_CALLBACK_NAME};
 use crate::application::WindowProxy;
+use crate::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Dispatcher, Error, Result, RpcHandler};
 
@@ -136,7 +137,7 @@ impl WV for InnerWebView {
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Bad Javascript function call: {:?}", &js);
+                                eprintln!("Bad Javascript function call: {} ({})", e, &js);
                             }
                         }
                     }
@@ -204,33 +205,9 @@ impl WV for InnerWebView {
 
                     match handler(uri) {
                         Ok(buffer) => {
-                            let mut mime = match infer::get(&buffer) {
-                                Some(info) => info.mime_type(),
-                                None => "text/plain",
-                            };
-                            // some webtypes are technically "text/plain"
-                            if mime == "text/plain" {
-                                let suffix = uri.split(".").last();
-                                mime = match suffix {
-                                    Some("css") => "text/css",
-                                    Some("html") => "text/html",
-                                    Some("js") => "text/javascript",
-                                    Some("json") => "application/json",
-                                    Some("jsonld") => "application/ld+json",
-                                    Some("ico") => "image/vnd.microsoft.icon",
-                                    Some("svg") => "image/svg",
-                                    Some("csv") => "text/csv",
-                                    Some("rtf") => "application/rtf",
-                                    // if there is something like `wry://tauri.studio`, we need to assume html
-                                    Some(_) => "text/html",
-                                    // using octet stream according to this:
-                                    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
-                                    None => "application/octet-stream",
-                                };
-                            }
-
+                            let mime = MimeType::parse(&buffer, uri);
                             let input = gio::MemoryInputStream::from_bytes(&Bytes::from(&buffer));
-                            request.finish(&input, buffer.len() as i64, Some(mime))
+                            request.finish(&input, buffer.len() as i64, Some(&mime))
                         }
                         Err(_) => request.finish_error(&mut glib::Error::new(
                             FileError::Exist,

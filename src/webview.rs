@@ -112,6 +112,7 @@ impl WebViewBuilder {
     where
         F: FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send + 'static,
     {
+
         let js = format!(
             r#"
             (function() {{
@@ -126,15 +127,20 @@ impl WebViewBuilder {
                     }};
                 }});
                 window.external.invoke(JSON.stringify({{
-                    id: seq,
-                    method: name,
-                    params: Array.prototype.slice.call(arguments),
+                    callback: {:?},
+                    payload: {{
+                        jsonrpc: '2.0',
+                        id: seq,
+                        method: name,
+                        params: Array.prototype.slice.call(arguments),
+                    }}
                 }}));
                 return promise;
                 }}
             }})()
             "#,
-            name
+            name,
+            name,
         );
         self.initialization_scripts.push(js);
 
