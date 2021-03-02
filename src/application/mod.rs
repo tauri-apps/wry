@@ -613,3 +613,58 @@ trait App: Sized {
 
     fn run(self);
 }
+
+pub(crate) const RPC_CALLBACK_NAME: &str = "__rpc__";
+const RPC_VERSION: &str = "2.0";
+
+/// Function call from Javascript.
+///
+/// If the callback name matches the name for an RPC handler
+/// the payload should be passed to the handler transparently.
+///
+/// Otherwise attempt to find a `Callback` with the same name
+/// and pass it the payload `params`.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FuncCall {
+    pub(crate) callback: String,
+    pub(crate) payload: RpcRequest,
+}
+
+/// RPC request message.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RpcRequest {
+    jsonrpc: String,
+    pub id: Option<Value>,
+    pub method: String,
+    pub params: Option<Value>,
+}
+
+/// RPC response message.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RpcResponse {
+    jsonrpc: String,
+    pub(crate) id: Option<Value>,
+    pub(crate) result: Option<Value>,
+    pub(crate) error: Option<Value>,
+}
+
+impl RpcResponse {
+
+    /// Create a new result response.
+    pub fn new_result(id: Option<Value>, result: Option<Value>) -> Self {
+        Self {
+            jsonrpc: RPC_VERSION.to_string(),
+            id, result,
+            error: None
+        } 
+    }
+
+    /// Create a new error response.
+    pub fn new_error(id: Option<Value>, error: Option<Value>) -> Self {
+        Self {
+            jsonrpc: RPC_VERSION.to_string(),
+            id, error,
+            result: None
+        } 
+    }
+}

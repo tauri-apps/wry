@@ -1,5 +1,5 @@
-use crate::platform::{FuncCall, RpcRequest, RpcResponse, CALLBACKS, RPC, RPC_CALLBACK_NAME};
-use crate::application::WindowProxy;
+use crate::platform::{CALLBACKS, RPC};
+use crate::application::{WindowProxy, FuncCall, RpcRequest, RpcResponse, RPC_CALLBACK_NAME};
 use crate::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Dispatcher, Error, Result, RpcHandler};

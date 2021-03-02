@@ -1,7 +1,7 @@
 //! [`WebView`] struct and associated types.
 
-use crate::platform::{InnerWebView, RpcRequest, RpcResponse, CALLBACKS, RPC_CALLBACK_NAME};
-use crate::application::WindowProxy;
+use crate::platform::{InnerWebView, CALLBACKS};
+use crate::application::{WindowProxy, RpcRequest, RpcResponse, RPC_CALLBACK_NAME};
 use crate::Result;
 
 use std::sync::{Arc, mpsc::{channel, Receiver, Sender}};
@@ -21,7 +21,6 @@ use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
 use winit::window::Window;
 
-//pub type RpcProxyHandler = Box<dyn Fn(&Dispatcher, RpcRequest) -> Option<RpcResponse> + Send + Sync>;
 pub type RpcHandler = Box<dyn Fn(&WindowProxy, RpcRequest) -> Option<RpcResponse> + Send + Sync>;
 
 /// Builder type of [`WebView`].
