@@ -1,7 +1,7 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
-    ApplicationProxy, Attributes, CustomProtocol, Error, Icon, Message, Result, RpcHandler,
-    WebView, WebViewBuilder, WindowMessage, WindowProxy,
+    Attributes, CustomProtocol, Error, Icon, Message, Result, RpcHandler, WebView, WebViewBuilder,
+    WindowMessage,
 };
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};
@@ -129,13 +129,7 @@ impl App for InnerApplication {
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
         let window = _create_window(&self.event_loop, window_attrs)?;
-        let webview = _create_webview(
-            &self.application_proxy(),
-            window,
-            webview_attrs,
-            custom_protocol,
-            rpc_handler,
-        )?;
+        let webview = _create_webview(window, webview_attrs, custom_protocol, rpc_handler)?;
         let id = webview.window().id();
         self.webviews.insert(id, webview);
         Ok(id)
@@ -148,7 +142,6 @@ impl App for InnerApplication {
     }
 
     fn run(self) {
-        let dispatcher = self.application_proxy();
         let mut windows = self.webviews;
         self.event_loop.run(move |event, event_loop, control_flow| {
             *control_flow = ControlFlow::Wait;
@@ -175,14 +168,9 @@ impl App for InnerApplication {
                         let (window_attrs, webview_attrs) = attributes.split();
                         let window = _create_window(&event_loop, window_attrs).unwrap();
                         sender.send(window.id()).unwrap();
-                        let webview = _create_webview(
-                            &dispatcher,
-                            window,
-                            webview_attrs,
-                            custom_protocol,
-                            rpc_handler,
-                        )
-                        .unwrap();
+                        let webview =
+                            _create_webview(window, webview_attrs, custom_protocol, rpc_handler)
+                                .unwrap();
                         let id = webview.window().id();
                         windows.insert(id, webview);
                     }
@@ -339,16 +327,11 @@ fn _create_window(
 }
 
 fn _create_webview(
-    dispatcher: &InnerApplicationProxy,
     window: Window,
     attributes: InnerWebViewAttributes,
     custom_protocol: Option<CustomProtocol>,
     rpc_handler: Option<RpcHandler>,
 ) -> Result<WebView> {
-    let window_id = window.id();
-    let rpc_win_id = window_id.clone();
-    let rpc_inner = dispatcher.clone();
-
     let mut webview = WebViewBuilder::new(window)?.transparent(attributes.transparent);
     for js in attributes.initialization_scripts {
         webview = webview.initialize_script(&js);
@@ -359,8 +342,7 @@ fn _create_webview(
     }
 
     if let Some(rpc_handler) = rpc_handler {
-        let rpc_proxy = WindowProxy::new(ApplicationProxy { inner: rpc_inner }, rpc_win_id);
-        webview = webview.set_rpc_handler(rpc_proxy, rpc_handler);
+        webview = webview.set_rpc_handler(rpc_handler);
     }
 
     webview = match attributes.url {

@@ -2,12 +2,7 @@ use crate::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Result, RpcHandler};
 
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-    os::raw::c_void,
-    rc::Rc,
-};
+use std::{os::raw::c_void, rc::Rc};
 
 use once_cell::unsync::OnceCell;
 use url::Url;
@@ -33,9 +28,6 @@ impl WV for InnerWebView {
         rpc_handler: Option<RpcHandler>,
     ) -> Result<Self> {
         let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
-        let mut hasher = DefaultHasher::new();
-        window.id().hash(&mut hasher);
-        let window_id = hasher.finish() as i64;
         let hwnd = window.hwnd() as HWND;
         let controller_clone = controller.clone();
 

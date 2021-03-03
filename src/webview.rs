@@ -5,11 +5,6 @@ use crate::platform::InnerWebView;
 use crate::Result;
 
 use std::sync::mpsc::{channel, Receiver, Sender};
-#[cfg(not(target_os = "linux"))]
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-};
 
 use url::Url;
 
