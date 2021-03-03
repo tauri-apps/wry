@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[cfg(not(target_os = "linux"))]
 mod general;
@@ -19,6 +19,7 @@ use std::{fs::read, path::Path, sync::mpsc::Sender};
 
 use serde_json::Value;
 
+/*
 /// Defines a Rust callback function which can be called on Javascript side.
 pub struct Callback {
     /// Name of the callback function.
@@ -44,6 +45,7 @@ impl std::fmt::Debug for Callback {
             .finish()
     }
 }
+*/
 
 pub struct CustomProtocol {
     pub name: String,
@@ -298,7 +300,6 @@ pub enum Message {
     Window(WindowId, WindowMessage),
     NewWindow(
         Attributes,
-        Option<Vec<Callback>>,
         Sender<WindowId>,
         Option<CustomProtocol>,
     ),
@@ -321,7 +322,7 @@ impl ApplicationProxy {
     }
     /// Adds another WebView window to the application. Returns its [`WindowProxy`] after created.
     pub fn add_window(&self, attributes: Attributes) -> Result<WindowProxy> {
-        let id = self.inner.add_window(attributes, None, None)?;
+        let id = self.inner.add_window(attributes, None)?;
         Ok(WindowProxy::new(self.clone(), id))
     }
 
@@ -329,12 +330,11 @@ impl ApplicationProxy {
     pub fn add_window_with_configs(
         &self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
         let id = self
             .inner
-            .add_window(attributes, callbacks, custom_protocol)?;
+            .add_window(attributes, custom_protocol)?;
         Ok(WindowProxy::new(self.clone(), id))
     }
 }
@@ -344,7 +344,6 @@ trait AppProxy {
     fn add_window(
         &self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
         //rpc_handler: Option<RpcHandler>,
     ) -> Result<WindowId>;
@@ -540,7 +539,7 @@ impl Application {
     ///
     /// To create a default window, you could just pass `.add_window(Default::default(), None)`.
     pub fn add_window(&mut self, attributes: Attributes) -> Result<WindowProxy> {
-        let id = self.inner.create_webview(attributes, None, None)?;
+        let id = self.inner.create_webview(attributes, None)?;
         Ok(self.window_proxy(id))
     }
 
@@ -557,12 +556,11 @@ impl Application {
     pub fn add_window_with_configs(
         &mut self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
         let id = self
             .inner
-            .create_webview(attributes, callbacks, custom_protocol)?;
+            .create_webview(attributes, custom_protocol)?;
         Ok(self.window_proxy(id))
     }
 
@@ -579,10 +577,14 @@ impl Application {
         WindowProxy::new(self.application_proxy(), window_id)
     }
 
-    /// Set an RPC message handler.
-    pub fn set_rpc_handler(&mut self, handler: RpcHandler) {
+    /// Set a handler to receive messages from the webview.
+    pub fn set_handler(&mut self, handler: RpcHandler) {
         // TODO: detect if webviews already exist and panic
         // TODO: because this should be set before callling add_window().
+
+        if !self.inner.is_empty() {
+            panic!("Webview handler must be set before adding windows (add_window() etc.)")
+        }
 
         self.inner.rpc_handler = Some(Arc::new(handler));
     }
@@ -604,7 +606,6 @@ trait App: Sized {
     fn create_webview(
         &mut self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
         //rpc_handler: Option<RpcHandler>,
     ) -> Result<Self::Id>;
@@ -614,21 +615,7 @@ trait App: Sized {
     fn run(self);
 }
 
-pub(crate) const RPC_CALLBACK_NAME: &str = "__rpc__";
 const RPC_VERSION: &str = "2.0";
-
-/// Function call from Javascript.
-///
-/// If the callback name matches the name for an RPC handler
-/// the payload should be passed to the handler transparently.
-///
-/// Otherwise attempt to find a `Callback` with the same name
-/// and pass it the payload `params`.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FuncCall {
-    pub(crate) callback: String,
-    pub(crate) payload: RpcRequest,
-}
 
 /// RPC request message.
 #[derive(Debug, Serialize, Deserialize)]
