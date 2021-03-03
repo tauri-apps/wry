@@ -4,7 +4,6 @@ use crate::webview::WV;
 use crate::{Result, RpcHandler};
 
 use std::{
-    sync::Arc,
     collections::hash_map::DefaultHasher,
     ffi::{c_void, CStr},
     hash::{Hash, Hasher},
@@ -40,7 +39,7 @@ impl WV for InnerWebView {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
             WindowProxy,
-            Arc<RpcHandler>,
+            RpcHandler,
         )>,
     ) -> Result<Self> {
         let mut hasher = DefaultHasher::new();

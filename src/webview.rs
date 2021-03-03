@@ -4,7 +4,7 @@ use crate::platform::{InnerWebView};
 use crate::application::{WindowProxy, RpcRequest, RpcResponse};
 use crate::Result;
 
-use std::sync::{Arc, mpsc::{channel, Receiver, Sender}};
+use std::sync::{mpsc::{channel, Receiver, Sender}};
 #[cfg(not(target_os = "linux"))]
 use std::{
     collections::hash_map::DefaultHasher,
@@ -39,7 +39,7 @@ pub struct WebViewBuilder {
     custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
     rpc_handler: Option<(
         WindowProxy,
-        Arc<RpcHandler>,
+        RpcHandler,
     )>,
 }
 
@@ -101,7 +101,7 @@ impl WebViewBuilder {
     }
 
     /// Set the RPC handler.
-    pub(crate) fn set_rpc_handler(mut self, proxy: WindowProxy, handler: Arc<RpcHandler>) -> Self {
+    pub(crate) fn set_rpc_handler(mut self, proxy: WindowProxy, handler: RpcHandler) -> Self {
         let js =
             r#"
             function Rpc() {
@@ -282,7 +282,7 @@ pub(crate) trait WV: Sized {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
             WindowProxy,
-            Arc<RpcHandler>,
+            RpcHandler,
         )>,
     ) -> Result<Self>;
 

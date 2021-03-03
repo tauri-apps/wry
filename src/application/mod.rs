@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 #[cfg(not(target_os = "linux"))]
 mod general;
 #[cfg(not(target_os = "linux"))]
@@ -295,12 +293,13 @@ pub enum WindowMessage {
 }
 
 /// Describes a general message.
-#[derive(Debug)]
+//#[derive(Debug)]
 pub enum Message {
     Window(WindowId, WindowMessage),
     NewWindow(
         Attributes,
         Sender<WindowId>,
+        Option<RpcHandler>,
         Option<CustomProtocol>,
     ),
 }
@@ -322,7 +321,7 @@ impl ApplicationProxy {
     }
     /// Adds another WebView window to the application. Returns its [`WindowProxy`] after created.
     pub fn add_window(&self, attributes: Attributes) -> Result<WindowProxy> {
-        let id = self.inner.add_window(attributes, None)?;
+        let id = self.inner.add_window(attributes, None, None)?;
         Ok(WindowProxy::new(self.clone(), id))
     }
 
@@ -330,11 +329,12 @@ impl ApplicationProxy {
     pub fn add_window_with_configs(
         &self,
         attributes: Attributes,
+        rpc_handler: Option<RpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
         let id = self
             .inner
-            .add_window(attributes, custom_protocol)?;
+            .add_window(attributes, rpc_handler, custom_protocol)?;
         Ok(WindowProxy::new(self.clone(), id))
     }
 }
@@ -344,8 +344,8 @@ trait AppProxy {
     fn add_window(
         &self,
         attributes: Attributes,
+        rpc_handler: Option<RpcHandler>,
         custom_protocol: Option<CustomProtocol>,
-        //rpc_handler: Option<RpcHandler>,
     ) -> Result<WindowId>;
 }
 
@@ -539,7 +539,7 @@ impl Application {
     ///
     /// To create a default window, you could just pass `.add_window(Default::default(), None)`.
     pub fn add_window(&mut self, attributes: Attributes) -> Result<WindowProxy> {
-        let id = self.inner.create_webview(attributes, None)?;
+        let id = self.inner.create_webview(attributes, None, None)?;
         Ok(self.window_proxy(id))
     }
 
@@ -556,11 +556,12 @@ impl Application {
     pub fn add_window_with_configs(
         &mut self,
         attributes: Attributes,
+        handler: Option<RpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
         let id = self
             .inner
-            .create_webview(attributes, custom_protocol)?;
+            .create_webview(attributes, handler, custom_protocol)?;
         Ok(self.window_proxy(id))
     }
 
@@ -575,15 +576,6 @@ impl Application {
     /// Returns the [`WindowProxy`] with given `WindowId`.
     pub fn window_proxy(&self, window_id: WindowId) -> WindowProxy {
         WindowProxy::new(self.application_proxy(), window_id)
-    }
-
-    /// Set a handler to receive messages from the webview.
-    pub fn set_handler(&mut self, handler: RpcHandler) {
-        if !self.inner.is_empty() {
-            panic!("Webview handler must be set before adding windows (add_window() etc.)")
-        }
-
-        self.inner.rpc_handler = Some(Arc::new(handler));
     }
 
     /// Consume the application and start running it. This will hijack the main thread and iterate
@@ -603,8 +595,8 @@ trait App: Sized {
     fn create_webview(
         &mut self,
         attributes: Attributes,
+        rpc_handler: Option<RpcHandler>,
         custom_protocol: Option<CustomProtocol>,
-        //rpc_handler: Option<RpcHandler>,
     ) -> Result<Self::Id>;
 
     fn application_proxy(&self) -> Self::Proxy;

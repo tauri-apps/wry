@@ -4,7 +4,6 @@ use crate::webview::WV;
 use crate::{Error, Result, RpcHandler};
 
 use std::rc::Rc;
-use std::sync::Arc;
 
 use gdk::RGBA;
 use gio::Cancellable;
@@ -32,7 +31,7 @@ impl WV for InnerWebView {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
             WindowProxy,
-            Arc<RpcHandler>,
+            RpcHandler,
         )>,
     ) -> Result<Self> {
         // Webview widget

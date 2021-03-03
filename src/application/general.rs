@@ -13,7 +13,7 @@ use winit::{
     window::{Fullscreen, Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
 };
 
-use std::{sync::Arc, collections::HashMap, sync::mpsc::channel};
+use std::{collections::HashMap, sync::mpsc::channel};
 
 #[cfg(target_os = "windows")]
 use {
@@ -48,12 +48,14 @@ impl AppProxy for InnerApplicationProxy {
     fn add_window(
         &self,
         attributes: Attributes,
+        rpc_handler: Option<RpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowId> {
         let (sender, receiver) = channel();
         self.send_message(Message::NewWindow(
             attributes,
             sender,
+            rpc_handler,
             custom_protocol,
         ))?;
         Ok(receiver.recv()?)
@@ -103,13 +105,6 @@ pub struct InnerApplication {
     webviews: HashMap<WindowId, WebView>,
     event_loop: EventLoop<Message>,
     event_loop_proxy: EventLoopProxy,
-    pub(crate) rpc_handler: Option<Arc<RpcHandler>>,
-}
-
-impl InnerApplication {
-    pub fn is_empty(&self) -> bool {
-        self.webviews.is_empty()
-    }
 }
 
 impl App for InnerApplication {
@@ -123,13 +118,13 @@ impl App for InnerApplication {
             webviews: HashMap::new(),
             event_loop,
             event_loop_proxy: proxy,
-            rpc_handler: None,
         })
     }
 
     fn create_webview(
         &mut self,
         attributes: Attributes,
+        rpc_handler: Option<RpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
@@ -139,7 +134,7 @@ impl App for InnerApplication {
             window,
             webview_attrs,
             custom_protocol,
-            self.rpc_handler.clone(),
+            rpc_handler,
         )?;
         let id = webview.window().id();
         self.webviews.insert(id, webview);
@@ -155,7 +150,6 @@ impl App for InnerApplication {
     fn run(self) {
         let dispatcher = self.application_proxy();
         let mut windows = self.webviews;
-        let rpc_handler = self.rpc_handler.clone();
         self.event_loop.run(move |event, event_loop, control_flow| {
             *control_flow = ControlFlow::Wait;
 
@@ -177,7 +171,7 @@ impl App for InnerApplication {
                     _ => {}
                 },
                 Event::UserEvent(message) => match message {
-                    Message::NewWindow(attributes, sender, custom_protocol) => {
+                    Message::NewWindow(attributes, sender, rpc_handler, custom_protocol) => {
                         let (window_attrs, webview_attrs) = attributes.split();
                         let window = _create_window(&event_loop, window_attrs).unwrap();
                         sender.send(window.id()).unwrap();
@@ -186,7 +180,7 @@ impl App for InnerApplication {
                             window,
                             webview_attrs,
                             custom_protocol,
-                            rpc_handler.clone(),
+                            rpc_handler,
                         )
                         .unwrap();
                         let id = webview.window().id();
@@ -349,7 +343,7 @@ fn _create_webview(
     window: Window,
     attributes: InnerWebViewAttributes,
     custom_protocol: Option<CustomProtocol>,
-    rpc_handler: Option<Arc<RpcHandler>>,
+    rpc_handler: Option<RpcHandler>,
 ) -> Result<WebView> {
     let window_id = window.id();
     let rpc_win_id = window_id.clone();

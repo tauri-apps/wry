@@ -8,7 +8,7 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     rc::Rc,
-    sync::{Arc, mpsc::{channel, Receiver, Sender}},
+    sync::{mpsc::{channel, Receiver, Sender}},
 };
 
 use cairo::Operator;
@@ -45,12 +45,14 @@ impl AppProxy for InnerApplicationProxy {
     fn add_window(
         &self,
         attributes: Attributes,
+        rpc_handler: Option<RpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowId> {
         let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
         self.send_message(Message::NewWindow(
             attributes,
             sender,
+            rpc_handler,
             custom_protocol,
         ))?;
         Ok(receiver.recv()?)
@@ -62,13 +64,6 @@ pub struct InnerApplication {
     app: GtkApp,
     event_loop_proxy: EventLoopProxy,
     event_loop_proxy_rx: Receiver<Message>,
-    pub(crate) rpc_handler: Option<Arc<RpcHandler>>,
-}
-
-impl InnerApplication {
-    pub fn is_empty(&self) -> bool {
-        self.webviews.is_empty()
-    }
 }
 
 impl App for InnerApplication {
@@ -87,13 +82,13 @@ impl App for InnerApplication {
             app,
             event_loop_proxy: EventLoopProxy(event_loop_proxy_tx),
             event_loop_proxy_rx,
-            rpc_handler: None,
         })
     }
 
     fn create_webview(
         &mut self,
         attributes: Attributes,
+        rpc_handler: Option<RpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
@@ -104,7 +99,7 @@ impl App for InnerApplication {
             window,
             webview_attrs,
             custom_protocol,
-            self.rpc_handler.clone(),
+            rpc_handler,
         )?;
         let id = webview.window().get_id();
         self.webviews.insert(id, webview);
@@ -150,7 +145,7 @@ impl App for InnerApplication {
 
             while let Ok(message) = self.event_loop_proxy_rx.try_recv() {
                 match message {
-                    Message::NewWindow(attributes, sender, custom_protocol) => {
+                    Message::NewWindow(attributes, sender, rpc_handler, custom_protocol) => {
                         let (window_attrs, webview_attrs) = attributes.split();
                         let window = _create_window(&self.app, window_attrs).unwrap();
                         sender.send(window.get_id()).unwrap();
@@ -159,7 +154,7 @@ impl App for InnerApplication {
                             window,
                             webview_attrs,
                             custom_protocol,
-                            self.rpc_handler.clone(),
+                            rpc_handler,
                         )
                         .unwrap();
                         let id = webview.window().get_id();
@@ -394,7 +389,7 @@ fn _create_webview(
     window: ApplicationWindow,
     attributes: InnerWebViewAttributes,
     custom_protocol: Option<CustomProtocol>,
-    rpc_handler: Option<Arc<RpcHandler>>,
+    rpc_handler: Option<RpcHandler>,
 ) -> Result<WebView> {
     let window_id = window.get_id();
 
