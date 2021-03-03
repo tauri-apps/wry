@@ -1,17 +1,15 @@
-use crate::platform::{CALLBACKS, RPC};
-use crate::application::{WindowProxy, FuncCall, RpcRequest, RpcResponse, RPC_CALLBACK_NAME};
+use crate::application::WindowProxy;
 use crate::mimetype::MimeType;
 use crate::webview::WV;
-use crate::{Dispatcher, Error, Result, RpcHandler};
+use crate::{Error, Result, RpcHandler};
 
 use std::rc::Rc;
 use std::sync::Arc;
 
-use serde_json::Value;
 use gdk::RGBA;
 use gio::Cancellable;
 use glib::{Bytes, FileError};
-use gtk::{ApplicationWindow as Window, ApplicationWindowExt, ContainerExt, WidgetExt};
+use gtk::{ApplicationWindow as Window, /* ApplicationWindowExt, */ ContainerExt, WidgetExt};
 use url::Url;
 use webkit2gtk::{
     SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
@@ -47,7 +45,7 @@ impl WV for InnerWebView {
         // Message handler
         let wv = Rc::clone(&webview);
         manager.register_script_message_handler("external");
-        let window_id = window.get_id() as i64;
+        //let window_id = window.get_id() as i64;
         manager.connect_script_message_received(move |_m, msg| {
             if let Some(js) = msg.get_value() {
                 if let Some(context) = msg.get_global_context() {
@@ -61,7 +59,7 @@ impl WV for InnerWebView {
                                     }
                                 }
                                 Err(e) => {
-                                    // todo 
+                                    eprintln!("{}", e);
                                 }
                             }
                         }

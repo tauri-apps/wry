@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[cfg(not(target_os = "linux"))]
 mod general;
@@ -614,21 +614,7 @@ trait App: Sized {
     fn run(self);
 }
 
-pub(crate) const RPC_CALLBACK_NAME: &str = "__rpc__";
 const RPC_VERSION: &str = "2.0";
-
-/// Function call from Javascript.
-///
-/// If the callback name matches the name for an RPC handler
-/// the payload should be passed to the handler transparently.
-///
-/// Otherwise attempt to find a `Callback` with the same name
-/// and pass it the payload `params`.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FuncCall {
-    pub(crate) callback: String,
-    pub(crate) payload: RpcRequest,
-}
 
 /// RPC request message.
 #[derive(Debug, Serialize, Deserialize)]

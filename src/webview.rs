@@ -1,7 +1,7 @@
 //! [`WebView`] struct and associated types.
 
 use crate::platform::{InnerWebView, CALLBACKS};
-use crate::application::{WindowProxy, RpcRequest, RpcResponse, RPC_CALLBACK_NAME};
+use crate::application::{WindowProxy, RpcRequest, RpcResponse};
 use crate::Result;
 
 use std::sync::{Arc, mpsc::{channel, Receiver, Sender}};
@@ -180,11 +180,10 @@ impl WebViewBuilder {
                     const id = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
                     const params = Array.prototype.slice.call(arguments, 1);
                     const payload = {jsonrpc: "2.0", id, method, params};
-                    const msg = {callback: this._callback, payload};
                     const promise = new Promise((resolve, reject) => {
                         this._promises[id] = {resolve, reject};
                     });
-                    window.external.invoke(JSON.stringify(msg));
+                    window.external.invoke(JSON.stringify(payload));
                     return promise;
                 }
 
@@ -192,8 +191,7 @@ impl WebViewBuilder {
                 this.notify = function(method) {
                     const params = Array.prototype.slice.call(arguments, 1);
                     const payload = {jsonrpc: "2.0", method, params};
-                    const msg = {callback: this._callback, payload};
-                    window.external.invoke(JSON.stringify(msg));
+                    window.external.invoke(JSON.stringify(payload));
                     return Promise.resolve();
                 }
             }

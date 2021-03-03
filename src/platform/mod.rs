@@ -20,7 +20,7 @@ pub use gtk::*;
 #[cfg(not(target_os = "linux"))]
 pub use winit::*;
 
-use crate::{Dispatcher, Error, Result, RpcHandler, application::{WindowProxy, FuncCall}};
+use crate::{Dispatcher, Error, Result, RpcHandler, application::{WindowProxy, RpcRequest}};
 
 use std::{collections::HashMap, sync::Mutex};
 
@@ -42,18 +42,10 @@ pub(crate) static CALLBACKS: Lazy<
     Mutex::new(m)
 });
 
-#[deprecated]
-#[derive(Debug, Serialize, Deserialize)]
-struct RPC {
-    id: i32,
-    method: String,
-    params: Vec<Value>,
-}
-
 pub(crate) fn rpc_proxy(js: String, proxy: &WindowProxy, handler: &RpcHandler) -> Result<Option<String>> {
-    match serde_json::from_str::<FuncCall>(&js) {
-        Ok(mut ev) => {
-            let mut response = (handler)(proxy, ev.payload);
+    match serde_json::from_str::<RpcRequest>(&js) {
+        Ok(req) => {
+            let mut response = (handler)(proxy, req);
             if let Some(mut response) = response.take() {
                 if let Some(id) = response.id {
                     let js = if let Some(error) = response.error.take() {

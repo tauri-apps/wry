@@ -8,7 +8,7 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     rc::Rc,
-    sync::{Arc, Mutex, mpsc::{channel, Receiver, Sender}},
+    sync::{Arc, mpsc::{channel, Receiver, Sender}},
 };
 
 use cairo::Operator;
