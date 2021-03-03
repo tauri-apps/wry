@@ -47,20 +47,18 @@ impl WV for InnerWebView {
         manager.register_script_message_handler("external");
         //let window_id = window.get_id() as i64;
         manager.connect_script_message_received(move |_m, msg| {
-            if let Some(js) = msg.get_value() {
-                if let Some(context) = msg.get_global_context() {
-                    if let Some(js) = js.to_string(&context) {
-                        if let Some((proxy, rpc_handler)) = rpc_handler.as_ref() {
-                            match super::rpc_proxy(js, proxy, rpc_handler) {
-                                Ok(result) => {
-                                    if let Some(ref script) = result {
-                                        let cancellable: Option<&Cancellable> = None;
-                                        wv.run_javascript(script, cancellable, |_| ());
-                                    }
+            if let (Some(js), Some(context)) = (msg.get_value(), msg.get_global_context()) {
+                if let Some(js) = js.to_string(&context) {
+                    if let Some((proxy, rpc_handler)) = rpc_handler.as_ref() {
+                        match super::rpc_proxy(js, proxy, rpc_handler) {
+                            Ok(result) => {
+                                if let Some(ref script) = result {
+                                    let cancellable: Option<&Cancellable> = None;
+                                    wv.run_javascript(script, cancellable, |_| ());
                                 }
-                                Err(e) => {
-                                    eprintln!("{}", e);
-                                }
+                            }
+                            Err(e) => {
+                                eprintln!("{}", e);
                             }
                         }
                     }
