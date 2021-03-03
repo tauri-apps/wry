@@ -34,15 +34,7 @@ mod win;
 pub(crate) use win::*;
 
 pub(crate) static CALLBACKS: Lazy<
-    Mutex<
-        HashMap<
-            (i64, String),
-            (
-                std::boxed::Box<dyn FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send>,
-                Dispatcher,
-            ),
-        >,
-    >,
+    Mutex<HashMap<(i64, String), std::boxed::Box<dyn FnMut(i32, Vec<Value>) -> Result<()> + Send>>>,
 > = Lazy::new(|| {
     let m = HashMap::new();
     Mutex::new(m)
@@ -147,7 +139,7 @@ impl WebViewBuilder {
     /// javascript side, you can use the dispatcher to send them.
     pub fn add_callback<F>(mut self, name: &str, f: F) -> Self
     where
-        F: FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send + 'static,
+        F: FnMut(i32, Vec<Value>) -> Result<()> + Send + 'static,
     {
         let js = format!(
             r#"
@@ -180,10 +172,10 @@ impl WebViewBuilder {
         self.initialization_scripts.push(js);
 
         let window_id = self.window_id;
-        CALLBACKS.lock().unwrap().insert(
-            (window_id, name.to_string()),
-            (Box::new(f), Dispatcher(self.tx.clone())),
-        );
+        CALLBACKS
+            .lock()
+            .unwrap()
+            .insert((window_id, name.to_string()), Box::new(f));
         self
     }
 

@@ -103,7 +103,7 @@ impl WV for InnerWebView {
                                 // Normal callback mechanism
                                 } else {
                                     let mut hashmap = CALLBACKS.lock().unwrap();
-                                    let (f, d) = hashmap.get_mut(&(window_id, ev.callback)).unwrap();
+                                    let f = hashmap.get_mut(&(window_id, ev.callback)).unwrap();
                                     // TODO: update `Callback` to take a `Value`?
                                     let raw_params = if let Some(val) = ev.payload.params.take() {
                                         val
@@ -112,7 +112,7 @@ impl WV for InnerWebView {
                                         arr
                                     } else { vec![raw_params] };
 
-                                    let status = f(d, id, params);
+                                    let status = f(id, params);
                                     let js = match status {
                                         Ok(()) => {
                                             format!(

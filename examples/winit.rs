@@ -15,8 +15,7 @@ fn main() -> Result<()> {
         .unwrap()
         .initialize_script("menacing = 'ゴ';")
         .register_protocol("wry".to_string(), |_| Ok(vec![97, 98, 99]))
-        .add_callback("world", |dispatcher, sequence, requests| {
-            dispatcher.dispatch_script("console.log(menacing);")?;
+        .add_callback("world", |sequence, requests| {
             // Sequence is a number counting how many times this function being called.
             if sequence < 8 {
                 println!("{} seconds has passed.", sequence);
