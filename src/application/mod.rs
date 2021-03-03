@@ -576,10 +576,14 @@ impl Application {
         WindowProxy::new(self.application_proxy(), window_id)
     }
 
-    /// Set an RPC message handler.
-    pub fn set_rpc_handler(&mut self, handler: RpcHandler) {
+    /// Set a handler to receive messages from the webview.
+    pub fn set_handler(&mut self, handler: RpcHandler) {
         // TODO: detect if webviews already exist and panic
         // TODO: because this should be set before callling add_window().
+
+        if !self.inner.is_empty() {
+            panic!("Webview handler must be set before adding windows (add_window() etc.)")
+        }
 
         self.inner.rpc_handler = Some(Arc::new(handler));
     }

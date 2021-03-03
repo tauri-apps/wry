@@ -106,6 +106,12 @@ pub struct InnerApplication {
     pub(crate) rpc_handler: Option<Arc<RpcHandler>>,
 }
 
+impl InnerApplication {
+    pub fn is_empty(&self) -> bool {
+        self.webviews.is_empty()
+    }
+}
+
 impl App for InnerApplication {
     type Id = WindowId;
     type Proxy = InnerApplicationProxy;
