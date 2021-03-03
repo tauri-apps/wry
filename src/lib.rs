@@ -87,11 +87,11 @@ pub mod platform;
 pub mod webview;
 
 pub use application::{
-    Application, ApplicationProxy, Attributes, Callback, CustomProtocol, Icon, Message, WindowId,
+    Application, ApplicationProxy, Attributes, CustomProtocol, Icon, Message, WindowId,
     WindowMessage, WindowProxy, RpcRequest, RpcResponse,
 };
 pub use serde_json::Value;
-pub(crate) use webview::{Dispatcher, WebView, WebViewBuilder, RpcHandler};
+pub(crate) use webview::{WebView, WebViewBuilder, RpcHandler};
 
 #[cfg(not(target_os = "linux"))]
 use winit::window::BadIcon;
@@ -114,6 +114,8 @@ pub enum Error {
     GlibBoolError(#[from] glib::BoolError),
     #[error("Failed to initialize the script")]
     InitScriptError,
+    #[error("Bad RPC request: {0} ((1))")]
+    RpcScriptError(String, String),
     #[error(transparent)]
     NulError(#[from] std::ffi::NulError),
     #[cfg(not(target_os = "linux"))]
@@ -125,6 +127,8 @@ pub enum Error {
     SenderError(#[from] SendError<String>),
     #[error("Failed to send the message")]
     MessageSender,
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
     #[error(transparent)]
     UrlError(#[from] ParseError),
     #[error("IO error: {0}")]

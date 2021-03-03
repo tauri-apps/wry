@@ -1,6 +1,6 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
-    ApplicationProxy, Attributes, Callback, CustomProtocol, Error, Icon, Message, Result, WebView,
+    ApplicationProxy, Attributes, CustomProtocol, Error, Icon, Message, Result, WebView,
     WebViewBuilder, WindowMessage, WindowProxy, RpcHandler,
 };
 #[cfg(target_os = "macos")]
@@ -48,13 +48,11 @@ impl AppProxy for InnerApplicationProxy {
     fn add_window(
         &self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowId> {
         let (sender, receiver) = channel();
         self.send_message(Message::NewWindow(
             attributes,
-            callbacks,
             sender,
             custom_protocol,
         ))?;
@@ -108,6 +106,12 @@ pub struct InnerApplication {
     pub(crate) rpc_handler: Option<Arc<RpcHandler>>,
 }
 
+impl InnerApplication {
+    pub fn is_empty(&self) -> bool {
+        self.webviews.is_empty()
+    }
+}
+
 impl App for InnerApplication {
     type Id = WindowId;
     type Proxy = InnerApplicationProxy;
@@ -126,7 +130,6 @@ impl App for InnerApplication {
     fn create_webview(
         &mut self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
@@ -135,7 +138,6 @@ impl App for InnerApplication {
             &self.application_proxy(),
             window,
             webview_attrs,
-            callbacks,
             custom_protocol,
             self.rpc_handler.clone(),
         )?;
@@ -175,7 +177,7 @@ impl App for InnerApplication {
                     _ => {}
                 },
                 Event::UserEvent(message) => match message {
-                    Message::NewWindow(attributes, callbacks, sender, custom_protocol) => {
+                    Message::NewWindow(attributes, sender, custom_protocol) => {
                         let (window_attrs, webview_attrs) = attributes.split();
                         let window = _create_window(&event_loop, window_attrs).unwrap();
                         sender.send(window.id()).unwrap();
@@ -183,7 +185,6 @@ impl App for InnerApplication {
                             &dispatcher,
                             window,
                             webview_attrs,
-                            callbacks,
                             custom_protocol,
                             rpc_handler.clone(),
                         )
@@ -347,7 +348,6 @@ fn _create_webview(
     dispatcher: &InnerApplicationProxy,
     window: Window,
     attributes: InnerWebViewAttributes,
-    callbacks: Option<Vec<Callback>>,
     custom_protocol: Option<CustomProtocol>,
     rpc_handler: Option<Arc<RpcHandler>>,
 ) -> Result<WebView> {
@@ -359,23 +359,7 @@ fn _create_webview(
     for js in attributes.initialization_scripts {
         webview = webview.initialize_script(&js);
     }
-    if let Some(cbs) = callbacks {
-        for Callback { name, mut function } in cbs {
-            let dispatcher = dispatcher.clone();
-            webview = webview.add_callback(&name, move |_, seq, req| {
-                function(
-                    WindowProxy::new(
-                        ApplicationProxy {
-                            inner: dispatcher.clone(),
-                        },
-                        window_id,
-                    ),
-                    seq,
-                    req,
-                )
-            });
-        }
-    }
+
     if let Some(protocol) = custom_protocol {
         webview = webview.register_protocol(protocol.name, protocol.handler)
     }

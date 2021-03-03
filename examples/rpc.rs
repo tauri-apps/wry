@@ -38,7 +38,7 @@ async function getAsyncRpcResult() {
     };
 
     // NOTE: must be set before calling add_window().
-    app.set_rpc_handler(Box::new(|proxy, mut req| {
+    app.set_handler(Box::new(|proxy, mut req| {
         let mut response = None;
         if &req.method == "fullscreen" {
             if let Some(params) = req.params.take() {

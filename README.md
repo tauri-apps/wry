@@ -46,6 +46,46 @@ cargo run --example multiwindow
 
 For more information, please read the documentation below.
 
+## Rust <-> Javascript
+
+Communication between the host Rust code and webview Javascript is done via [JSON-RPC][].
+
+Embedding code should call `set_handler()` on the application to register an incoming request handler and reply with responses that are passed back to Javascript. On the Javascript side the client is exposed via `window.rpc` with two public methods
+
+1. The `call()` function accepts a method name and parameters and expects a reply.
+2. The `notify()` function accepts a method name and parameters but does not expect a reply.
+
+Both methods return promises but `notify()` resolves immediately.
+
+For example in Rust:
+
+```rust
+use wry::{Application, Result, RpcResponse};
+
+fn main() -> Result<()> {
+    let mut app = Application::new()?;
+    app.set_handler(Box::new(|proxy, mut req| {
+      // Handle the request of type `RpcRequest` and reply with `RpcResponse`
+      // Use the `WindowProxy` to modify the window, eg: `set_fullscreen` etc.
+      None
+    });
+    app.add_window(Default::default())?;
+    app.run();
+    Ok(())
+}
+```
+
+Then in Javascript use `call()` to call a remote method and get a response:
+
+```javascript
+async function callRemoteMethod() {
+  let result = await window.rpc.call('remoteMethod', param1, param2);
+  // Do something with the result
+}
+```
+
+See the `rpc` example for more details.
+
 ## [Documentation](https://docs.rs/wry)
 
 ## Platform-specific notes
@@ -84,3 +124,5 @@ WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7,
 
 ## License
 Apache-2.0/MIT
+
+[JSON-RPC]: https://www.jsonrpc.org

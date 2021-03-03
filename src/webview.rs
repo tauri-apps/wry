@@ -1,7 +1,7 @@
 //! [`WebView`] struct and associated types.
 
-use crate::platform::{InnerWebView, CALLBACKS};
-use crate::application::{WindowProxy, RpcRequest, RpcResponse, RPC_CALLBACK_NAME};
+use crate::platform::{InnerWebView};
+use crate::application::{WindowProxy, RpcRequest, RpcResponse};
 use crate::Result;
 
 use std::sync::{Arc, mpsc::{channel, Receiver, Sender}};
@@ -11,7 +11,6 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use serde_json::Value;
 use url::Url;
 
 #[cfg(target_os = "linux")]
@@ -35,6 +34,7 @@ pub struct WebViewBuilder {
     initialization_scripts: Vec<String>,
     window: Window,
     url: Option<Url>,
+    // TODO: remove this field?
     window_id: i64,
     custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
     rpc_handler: Option<(
@@ -100,63 +100,11 @@ impl WebViewBuilder {
         self
     }
 
-    /// Add a callback function to the WebView. The callback takse a dispatcher, a sequence number,
-    /// and a vector of arguments passed from callers as parameters.
-    ///
-    /// It uses RPC to communicate with javascript side and the sequence number is used to record
-    /// how many times has this callback been called. Arguments passed from callers is a vector of
-    /// serde values for you to decide how to handle them. IF you need to evaluate any code on
-    /// javascript side, you can use the dispatcher to send them.
-    pub fn add_callback<F>(mut self, name: &str, f: F) -> Self
-    where
-        F: FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send + 'static,
-    {
-
-        let js = format!(
-            r#"
-            (function() {{
-                var name = {:?};
-                var RPC = window._rpc = (window._rpc || {{nextSeq: 1}});
-                window[name] = function() {{
-                var seq = RPC.nextSeq++;
-                var promise = new Promise(function(resolve, reject) {{
-                    RPC[seq] = {{
-                    resolve: resolve,
-                    reject: reject,
-                    }};
-                }});
-                window.external.invoke(JSON.stringify({{
-                    callback: {:?},
-                    payload: {{
-                        jsonrpc: '2.0',
-                        id: seq,
-                        method: name,
-                        params: Array.prototype.slice.call(arguments),
-                    }}
-                }}));
-                return promise;
-                }}
-            }})()
-            "#,
-            name,
-            name,
-        );
-        self.initialization_scripts.push(js);
-
-        let window_id = self.window_id;
-        CALLBACKS.lock().unwrap().insert(
-            (window_id, name.to_string()),
-            (Box::new(f), Dispatcher(self.tx.clone())),
-        );
-        self
-    }
-
     /// Set the RPC handler.
     pub(crate) fn set_rpc_handler(mut self, proxy: WindowProxy, handler: Arc<RpcHandler>) -> Self {
         let js =
             r#"
             function Rpc() {
-                this._callback = '__rpc__';
                 this._promises = {};
 
                 // Private internal function called on error
@@ -175,16 +123,20 @@ impl WebViewBuilder {
                     }
                 }
 
+                // Private internal function called on failure to remove any promise
+                this._clean = (id) => {
+                    delete this._promises[id];
+                }
+
                 // Call remote method and expect a reply from the handler
                 this.call = function(method) {
                     const id = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
                     const params = Array.prototype.slice.call(arguments, 1);
                     const payload = {jsonrpc: "2.0", id, method, params};
-                    const msg = {callback: this._callback, payload};
                     const promise = new Promise((resolve, reject) => {
                         this._promises[id] = {resolve, reject};
                     });
-                    window.external.invoke(JSON.stringify(msg));
+                    window.external.invoke(JSON.stringify(payload));
                     return promise;
                 }
 
@@ -192,8 +144,7 @@ impl WebViewBuilder {
                 this.notify = function(method) {
                     const params = Array.prototype.slice.call(arguments, 1);
                     const payload = {jsonrpc: "2.0", method, params};
-                    const msg = {callback: this._callback, payload};
-                    window.external.invoke(JSON.stringify(msg));
+                    window.external.invoke(JSON.stringify(payload));
                     return Promise.resolve();
                 }
             }
