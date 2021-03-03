@@ -20,72 +20,34 @@ pub use gtk::*;
 #[cfg(not(target_os = "linux"))]
 pub use winit::*;
 
-use crate::{Dispatcher, Error, Result, RpcHandler, application::{WindowProxy, RpcRequest}};
-
-use std::{collections::HashMap, sync::Mutex};
-
-use once_cell::sync::Lazy;
-use serde_json::Value;
-
-pub(crate) static CALLBACKS: Lazy<
-    Mutex<
-        HashMap<
-            (i64, String),
-            (
-                std::boxed::Box<dyn FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send>,
-                Dispatcher,
-            ),
-        >,
-    >,
-> = Lazy::new(|| {
-    let m = HashMap::new();
-    Mutex::new(m)
-});
+use crate::{Error, Result, RpcHandler, application::{WindowProxy, RpcRequest}};
 
 pub(crate) fn rpc_proxy(js: String, proxy: &WindowProxy, handler: &RpcHandler) -> Result<Option<String>> {
-    match serde_json::from_str::<RpcRequest>(&js) {
-        Ok(req) => {
-            let mut response = (handler)(proxy, req);
-            if let Some(mut response) = response.take() {
-                if let Some(id) = response.id {
-                    let js = if let Some(error) = response.error.take() {
-                        match serde_json::to_string(&error) {
-                            Ok(retval) => {
-                                format!("window.external.rpc._error({}, {})",
-                                    id.to_string(), retval)
-                            }
-                            Err(_) => {
-                                format!("window.external.rpc._error({}, null)",
-                                    id.to_string())
-                            }
-                        }
-                    } else if let Some(result) = response.result.take() {
-                        match serde_json::to_string(&result) {
-                            Ok(retval) => {
-                                format!("window.external.rpc._result({}, {})",
-                                    id.to_string(), retval)
-                            }
-                            Err(_) => {
-                                format!("window.external.rpc._result({}, null)",
-                                    id.to_string())
-                            }
-                        }
-                    } else {
-                        // No error or result, assume a positive response
-                        // with empty result (ACK)
-                        format!("window.external.rpc._result({}, null)",
-                            id.to_string())
-                    };
-                    Ok(Some(js))
-                } else {
-                    Ok(None)
-                }
+    let req = serde_json::from_str::<RpcRequest>(&js).map_err(|e| {
+        Error::RpcScriptError(e.to_string(), js)
+    })?;
+    let mut response = (handler)(proxy, req);
+    if let Some(mut response) = response.take() {
+        if let Some(id) = response.id {
+            let js = if let Some(error) = response.error.take() {
+                let retval = serde_json::to_string(&error)?;
+                format!("window.external.rpc._error({}, {})",
+                    id.to_string(), retval)
+            } else if let Some(result) = response.result.take() {
+                let retval = serde_json::to_string(&result)?;
+                format!("window.external.rpc._result({}, {})",
+                    id.to_string(), retval)
             } else {
-                Ok(None) 
-            }
+                // No error or result, assume a positive response
+                // with empty result (ACK)
+                format!("window.external.rpc._result({}, null)",
+                    id.to_string())
+            };
+            Ok(Some(js))
+        } else {
+            Ok(None)
         }
-        Err(e) => {
-            Err(Error::RpcScriptError(e.to_string(), js))
-        }
+    } else {
+        Ok(None) 
     }
 }

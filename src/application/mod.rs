@@ -19,6 +19,7 @@ use std::{fs::read, path::Path, sync::mpsc::Sender};
 
 use serde_json::Value;
 
+/*
 /// Defines a Rust callback function which can be called on Javascript side.
 pub struct Callback {
     /// Name of the callback function.
@@ -44,6 +45,7 @@ impl std::fmt::Debug for Callback {
             .finish()
     }
 }
+*/
 
 pub struct CustomProtocol {
     pub name: String,
@@ -298,7 +300,6 @@ pub enum Message {
     Window(WindowId, WindowMessage),
     NewWindow(
         Attributes,
-        Option<Vec<Callback>>,
         Sender<WindowId>,
         Option<CustomProtocol>,
     ),
@@ -321,7 +322,7 @@ impl ApplicationProxy {
     }
     /// Adds another WebView window to the application. Returns its [`WindowProxy`] after created.
     pub fn add_window(&self, attributes: Attributes) -> Result<WindowProxy> {
-        let id = self.inner.add_window(attributes, None, None)?;
+        let id = self.inner.add_window(attributes, None)?;
         Ok(WindowProxy::new(self.clone(), id))
     }
 
@@ -329,12 +330,11 @@ impl ApplicationProxy {
     pub fn add_window_with_configs(
         &self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
         let id = self
             .inner
-            .add_window(attributes, callbacks, custom_protocol)?;
+            .add_window(attributes, custom_protocol)?;
         Ok(WindowProxy::new(self.clone(), id))
     }
 }
@@ -344,9 +344,7 @@ trait AppProxy {
     fn add_window(
         &self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
-        //rpc_handler: Option<RpcHandler>,
     ) -> Result<WindowId>;
 }
 
@@ -540,7 +538,7 @@ impl Application {
     ///
     /// To create a default window, you could just pass `.add_window(Default::default(), None)`.
     pub fn add_window(&mut self, attributes: Attributes) -> Result<WindowProxy> {
-        let id = self.inner.create_webview(attributes, None, None)?;
+        let id = self.inner.create_webview(attributes, None)?;
         Ok(self.window_proxy(id))
     }
 
@@ -557,12 +555,11 @@ impl Application {
     pub fn add_window_with_configs(
         &mut self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
         let id = self
             .inner
-            .create_webview(attributes, callbacks, custom_protocol)?;
+            .create_webview(attributes, custom_protocol)?;
         Ok(self.window_proxy(id))
     }
 
@@ -604,9 +601,7 @@ trait App: Sized {
     fn create_webview(
         &mut self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
-        //rpc_handler: Option<RpcHandler>,
     ) -> Result<Self::Id>;
 
     fn application_proxy(&self) -> Self::Proxy;

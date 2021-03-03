@@ -51,7 +51,7 @@ impl WV for InnerWebView {
         extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
             // Safety: objc runtime calls are unsafe
             unsafe {
-                let window_id = *this.get_ivar("_window_id");
+                //let window_id = *this.get_ivar("_window_id");
                 let body: id = msg_send![msg, body];
                 let utf8: *const c_char = msg_send![body, UTF8String];
                 let js = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
