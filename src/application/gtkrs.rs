@@ -1,14 +1,17 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes, WindowProxy},
-    ApplicationProxy, Attributes, Callback, CustomProtocol, Error, Icon, Message, Result, WebView,
-    WebViewBuilder, WindowMessage, RpcHandler,
+    ApplicationProxy, Attributes, Callback, CustomProtocol, Error, Icon, Message, Result,
+    RpcHandler, WebView, WebViewBuilder, WindowMessage,
 };
 
 use std::{
     cell::RefCell,
     collections::HashMap,
     rc::Rc,
-    sync::{Arc, Mutex, mpsc::{channel, Receiver, Sender}},
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Arc,
+    },
 };
 
 use cairo::Operator;
@@ -431,12 +434,7 @@ fn _create_webview(
     }
 
     if let Some(rpc_handler) = rpc_handler {
-        let rpc_proxy = WindowProxy::new(
-            ApplicationProxy {
-                inner: rpc_inner,
-            },
-            rpc_win_id,
-        );
+        let rpc_proxy = WindowProxy::new(ApplicationProxy { inner: rpc_inner }, rpc_win_id);
         webview = webview.set_rpc_handler(rpc_proxy, rpc_handler);
     }
 

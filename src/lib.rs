@@ -83,15 +83,20 @@ extern crate objc;
 
 mod application;
 pub mod mimetype;
-pub mod platform;
+pub mod platform {
+    #[cfg(target_os = "linux")]
+    pub use gtk::*;
+    #[cfg(not(target_os = "linux"))]
+    pub use winit::*;
+}
 pub mod webview;
 
 pub use application::{
-    Application, ApplicationProxy, Attributes, Callback, CustomProtocol, Icon, Message, WindowId,
-    WindowMessage, WindowProxy, RpcRequest, RpcResponse,
+    Application, ApplicationProxy, Attributes, Callback, CustomProtocol, Icon, Message, RpcRequest,
+    RpcResponse, WindowId, WindowMessage, WindowProxy,
 };
 pub use serde_json::Value;
-pub(crate) use webview::{Dispatcher, WebView, WebViewBuilder, RpcHandler};
+pub(crate) use webview::{RpcHandler, WebView, WebViewBuilder};
 
 #[cfg(not(target_os = "linux"))]
 use winit::window::BadIcon;

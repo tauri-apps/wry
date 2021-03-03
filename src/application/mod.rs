@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[cfg(not(target_os = "linux"))]
 mod general;
@@ -649,22 +649,23 @@ pub struct RpcResponse {
 }
 
 impl RpcResponse {
-
     /// Create a new result response.
     pub fn new_result(id: Option<Value>, result: Option<Value>) -> Self {
         Self {
             jsonrpc: RPC_VERSION.to_string(),
-            id, result,
-            error: None
-        } 
+            id,
+            result,
+            error: None,
+        }
     }
 
     /// Create a new error response.
     pub fn new_error(id: Option<Value>, error: Option<Value>) -> Self {
         Self {
             jsonrpc: RPC_VERSION.to_string(),
-            id, error,
-            result: None
-        } 
+            id,
+            error,
+            result: None,
+        }
     }
 }

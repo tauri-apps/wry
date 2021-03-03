@@ -1,7 +1,7 @@
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use wry::Result;
 use wry::{Application, Attributes, RpcResponse};
-use serde::{Serialize, Deserialize};
-use serde_json::Value;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MessageParameters {
@@ -51,10 +51,11 @@ async function getAsyncRpcResult() {
                     response = Some(RpcResponse::new_result(req.id.take(), None));
                 }
             }
-
         } else if &req.method == "send-parameters" {
             if let Some(params) = req.params.take() {
-                if let Some(mut args) = serde_json::from_value::<Vec<MessageParameters>>(params).ok() {
+                if let Some(mut args) =
+                    serde_json::from_value::<Vec<MessageParameters>>(params).ok()
+                {
                     let result = if args.len() > 0 {
                         let msg = args.swap_remove(0);
                         Some(Value::String(format!("Hello, {}!", msg.message)))

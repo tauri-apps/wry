@@ -1,7 +1,7 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
-    ApplicationProxy, Attributes, Callback, CustomProtocol, Error, Icon, Message, Result, WebView,
-    WebViewBuilder, WindowMessage, WindowProxy, RpcHandler,
+    ApplicationProxy, Attributes, Callback, CustomProtocol, Error, Icon, Message, Result,
+    RpcHandler, WebView, WebViewBuilder, WindowMessage, WindowProxy,
 };
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};
@@ -13,7 +13,7 @@ use winit::{
     window::{Fullscreen, Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
 };
 
-use std::{sync::Arc, collections::HashMap, sync::mpsc::channel};
+use std::{collections::HashMap, sync::mpsc::channel, sync::Arc};
 
 #[cfg(target_os = "windows")]
 use {
@@ -381,12 +381,7 @@ fn _create_webview(
     }
 
     if let Some(rpc_handler) = rpc_handler {
-        let rpc_proxy = WindowProxy::new(
-            ApplicationProxy {
-                inner: rpc_inner,
-            },
-            rpc_win_id,
-        );
+        let rpc_proxy = WindowProxy::new(ApplicationProxy { inner: rpc_inner }, rpc_win_id);
         webview = webview.set_rpc_handler(rpc_proxy, rpc_handler);
     }
 

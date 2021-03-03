@@ -1,17 +1,16 @@
-use crate::platform::{CALLBACKS, RPC};
-use crate::application::{WindowProxy, FuncCall, RpcRequest, RpcResponse, RPC_CALLBACK_NAME};
+use crate::application::{FuncCall, WindowProxy, RPC_CALLBACK_NAME};
 use crate::mimetype::MimeType;
-use crate::webview::WV;
-use crate::{Dispatcher, Error, Result, RpcHandler};
+use crate::webview::{CALLBACKS, WV};
+use crate::{Error, Result, RpcHandler};
 
 use std::rc::Rc;
 use std::sync::Arc;
 
-use serde_json::Value;
 use gdk::RGBA;
 use gio::Cancellable;
 use glib::{Bytes, FileError};
 use gtk::{ApplicationWindow as Window, ApplicationWindowExt, ContainerExt, WidgetExt};
+use serde_json::Value;
 use url::Url;
 use webkit2gtk::{
     SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
@@ -32,10 +31,7 @@ impl WV for InnerWebView {
         url: Option<Url>,
         transparent: bool,
         custom_protocol: Option<(String, F)>,
-        rpc_handler: Option<(
-            WindowProxy,
-            Arc<RpcHandler>,
-        )>,
+        rpc_handler: Option<(WindowProxy, Arc<RpcHandler>)>,
     ) -> Result<Self> {
         // Webview widget
         let manager = UserContentManager::new();
@@ -113,7 +109,7 @@ impl WV for InnerWebView {
                                         val
                                     } else { Value::Null };
                                     let params = if let Value::Array(arr) = raw_params {
-                                        arr 
+                                        arr
                                     } else { vec![raw_params] };
 
                                     let status = f(d, id, params);

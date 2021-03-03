@@ -1,18 +1,59 @@
 //! [`WebView`] struct and associated types.
 
-use crate::platform::{InnerWebView, CALLBACKS};
-use crate::application::{WindowProxy, RpcRequest, RpcResponse, RPC_CALLBACK_NAME};
+use crate::application::{RpcRequest, RpcResponse, WindowProxy};
 use crate::Result;
 
-use std::sync::{Arc, mpsc::{channel, Receiver, Sender}};
+use std::sync::{
+    mpsc::{channel, Receiver, Sender},
+    Arc,
+};
 #[cfg(not(target_os = "linux"))]
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
 };
+use std::{collections::HashMap, sync::Mutex};
 
+use once_cell::sync::Lazy;
 use serde_json::Value;
 use url::Url;
+
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "linux")]
+pub(crate) use linux::*;
+
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(target_os = "macos")]
+pub(crate) use macos::*;
+
+#[cfg(target_os = "windows")]
+mod win;
+#[cfg(target_os = "windows")]
+pub(crate) use win::*;
+
+pub(crate) static CALLBACKS: Lazy<
+    Mutex<
+        HashMap<
+            (i64, String),
+            (
+                std::boxed::Box<dyn FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send>,
+                Dispatcher,
+            ),
+        >,
+    >,
+> = Lazy::new(|| {
+    let m = HashMap::new();
+    Mutex::new(m)
+});
+
+#[derive(Debug, Serialize, Deserialize)]
+struct RPC {
+    id: i32,
+    method: String,
+    params: Vec<Value>,
+}
 
 #[cfg(target_os = "linux")]
 use gtk::{ApplicationWindow as Window, ApplicationWindowExt};
@@ -37,10 +78,7 @@ pub struct WebViewBuilder {
     url: Option<Url>,
     window_id: i64,
     custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
-    rpc_handler: Option<(
-        WindowProxy,
-        Arc<RpcHandler>,
-    )>,
+    rpc_handler: Option<(WindowProxy, Arc<RpcHandler>)>,
 }
 
 impl WebViewBuilder {
@@ -111,7 +149,6 @@ impl WebViewBuilder {
     where
         F: FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send + 'static,
     {
-
         let js = format!(
             r#"
             (function() {{
@@ -138,8 +175,7 @@ impl WebViewBuilder {
                 }}
             }})()
             "#,
-            name,
-            name,
+            name, name,
         );
         self.initialization_scripts.push(js);
 
@@ -153,8 +189,7 @@ impl WebViewBuilder {
 
     /// Set the RPC handler.
     pub(crate) fn set_rpc_handler(mut self, proxy: WindowProxy, handler: Arc<RpcHandler>) -> Self {
-        let js =
-            r#"
+        let js = r#"
             function Rpc() {
                 this._callback = '__rpc__';
                 this._promises = {};
@@ -329,10 +364,7 @@ pub(crate) trait WV: Sized {
         url: Option<Url>,
         transparent: bool,
         custom_protocol: Option<(String, F)>,
-        rpc_handler: Option<(
-            WindowProxy,
-            Arc<RpcHandler>,
-        )>,
+        rpc_handler: Option<(WindowProxy, Arc<RpcHandler>)>,
     ) -> Result<Self>;
 
     fn eval(&self, js: &str) -> Result<()>;
