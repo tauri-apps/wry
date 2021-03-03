@@ -20,12 +20,30 @@ pub use gtk::*;
 #[cfg(not(target_os = "linux"))]
 pub use winit::*;
 
+use serde_json::Value;
+
 use crate::{Error, Result, RpcHandler, application::{WindowProxy, RpcRequest}};
 
+// Helper so all platforms handle RPC messages consistently.
 pub(crate) fn rpc_proxy(js: String, proxy: &WindowProxy, handler: &RpcHandler) -> Result<Option<String>> {
     let req = serde_json::from_str::<RpcRequest>(&js).map_err(|e| {
         Error::RpcScriptError(e.to_string(), js)
     })?;
+
+    // Get an id so we can clean up the promise regardless
+    let id: Option<u64> = if let Some(value) = req.id.clone().take() {
+        if let Value::Number(num) = value {
+            num.as_u64()
+        } else { None }
+    } else { None };
+
+    // Fallback just removes the promise
+    let fallback = if let Some(id) = id {
+        Some(format!("window.external.rpc._clean({})", id.to_string()))
+    } else {
+        None 
+    };
+
     let mut response = (handler)(proxy, req);
     if let Some(mut response) = response.take() {
         if let Some(id) = response.id {
@@ -45,9 +63,9 @@ pub(crate) fn rpc_proxy(js: String, proxy: &WindowProxy, handler: &RpcHandler) -
             };
             Ok(Some(js))
         } else {
-            Ok(None)
+            Ok(fallback)
         }
     } else {
-        Ok(None) 
+        Ok(fallback) 
     }
 }

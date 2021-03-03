@@ -105,7 +105,6 @@ impl WebViewBuilder {
         let js =
             r#"
             function Rpc() {
-                this._callback = '__rpc__';
                 this._promises = {};
 
                 // Private internal function called on error
@@ -122,6 +121,11 @@ impl WebViewBuilder {
                         this._promises[id].resolve(result);
                         delete this._promises[id];
                     }
+                }
+
+                // Private internal function called on failure to remove any promise
+                this._clean = (id) => {
+                    delete this._promises[id];
                 }
 
                 // Call remote method and expect a reply from the handler

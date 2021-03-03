@@ -45,7 +45,6 @@ impl WV for InnerWebView {
         // Message handler
         let wv = Rc::clone(&webview);
         manager.register_script_message_handler("external");
-        //let window_id = window.get_id() as i64;
         manager.connect_script_message_received(move |_m, msg| {
             if let (Some(js), Some(context)) = (msg.get_value(), msg.get_global_context()) {
                 if let Some(js) = js.to_string(&context) {
