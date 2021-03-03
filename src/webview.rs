@@ -1,9 +1,10 @@
 //! [`WebView`] struct and associated types.
 
 use crate::platform::{InnerWebView, CALLBACKS};
+use crate::application::{WindowProxy, RpcRequest, RpcResponse, RPC_CALLBACK_NAME};
 use crate::Result;
 
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, mpsc::{channel, Receiver, Sender}};
 #[cfg(not(target_os = "linux"))]
 use std::{
     collections::hash_map::DefaultHasher,
@@ -20,6 +21,8 @@ use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
 use winit::window::Window;
 
+pub type RpcHandler = Box<dyn Fn(&WindowProxy, RpcRequest) -> Option<RpcResponse> + Send + Sync>;
+
 /// Builder type of [`WebView`].
 ///
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
@@ -34,6 +37,10 @@ pub struct WebViewBuilder {
     url: Option<Url>,
     window_id: i64,
     custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
+    rpc_handler: Option<(
+        WindowProxy,
+        Arc<RpcHandler>,
+    )>,
 }
 
 impl WebViewBuilder {
@@ -58,6 +65,7 @@ impl WebViewBuilder {
             transparent: false,
             window_id,
             custom_protocol: None,
+            rpc_handler: None,
         })
     }
 
@@ -103,8 +111,10 @@ impl WebViewBuilder {
     where
         F: FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send + 'static,
     {
+
         let js = format!(
-            r#"(function() {{
+            r#"
+            (function() {{
                 var name = {:?};
                 var RPC = window._rpc = (window._rpc || {{nextSeq: 1}});
                 window[name] = function() {{
@@ -116,15 +126,20 @@ impl WebViewBuilder {
                     }};
                 }});
                 window.external.invoke(JSON.stringify({{
-                    id: seq,
-                    method: name,
-                    params: Array.prototype.slice.call(arguments),
+                    callback: {:?},
+                    payload: {{
+                        jsonrpc: '2.0',
+                        id: seq,
+                        method: name,
+                        params: Array.prototype.slice.call(arguments),
+                    }}
                 }}));
                 return promise;
                 }}
             }})()
             "#,
-            name
+            name,
+            name,
         );
         self.initialization_scripts.push(js);
 
@@ -133,6 +148,59 @@ impl WebViewBuilder {
             (window_id, name.to_string()),
             (Box::new(f), Dispatcher(self.tx.clone())),
         );
+        self
+    }
+
+    /// Set the RPC handler.
+    pub(crate) fn set_rpc_handler(mut self, proxy: WindowProxy, handler: Arc<RpcHandler>) -> Self {
+        let js =
+            r#"
+            function Rpc() {
+                this._callback = '__rpc__';
+                this._promises = {};
+
+                // Private internal function called on error
+                this._error = (id, error) => {
+                    if(this._promises[id]){
+                        this._promises[id].reject(error);
+                        delete this._promises[id];
+                    }
+                }
+
+                // Private internal function called on result
+                this._result = (id, result) => {
+                    if(this._promises[id]){
+                        this._promises[id].resolve(result);
+                        delete this._promises[id];
+                    }
+                }
+
+                // Call remote method and expect a reply from the handler
+                this.call = function(method) {
+                    const id = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+                    const params = Array.prototype.slice.call(arguments, 1);
+                    const payload = {jsonrpc: "2.0", id, method, params};
+                    const msg = {callback: this._callback, payload};
+                    const promise = new Promise((resolve, reject) => {
+                        this._promises[id] = {resolve, reject};
+                    });
+                    window.external.invoke(JSON.stringify(msg));
+                    return promise;
+                }
+
+                // Send a notification without an `id` so no reply is expected.
+                this.notify = function(method) {
+                    const params = Array.prototype.slice.call(arguments, 1);
+                    const payload = {jsonrpc: "2.0", method, params};
+                    const msg = {callback: this._callback, payload};
+                    window.external.invoke(JSON.stringify(msg));
+                    return Promise.resolve();
+                }
+            }
+            window.rpc = window.external.rpc = new Rpc();
+            "#;
+        self.initialization_scripts.push(js.to_string());
+        self.rpc_handler = Some((proxy, handler));
         self
     }
 
@@ -151,6 +219,7 @@ impl WebViewBuilder {
             self.url,
             self.transparent,
             self.custom_protocol,
+            self.rpc_handler,
         )?;
         Ok(WebView {
             window: self.window,
@@ -188,7 +257,7 @@ impl WebView {
     /// [`WebViewBuilder`] instead.
     pub fn new_with_configs(window: Window, transparent: bool) -> Result<Self> {
         let picky_none: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)> = None;
-        let webview = InnerWebView::new(&window, vec![], None, transparent, picky_none)?;
+        let webview = InnerWebView::new(&window, vec![], None, transparent, picky_none, None)?;
         let (tx, rx) = channel();
         Ok(Self {
             window,
@@ -260,6 +329,10 @@ pub(crate) trait WV: Sized {
         url: Option<Url>,
         transparent: bool,
         custom_protocol: Option<(String, F)>,
+        rpc_handler: Option<(
+            WindowProxy,
+            Arc<RpcHandler>,
+        )>,
     ) -> Result<Self>;
 
     fn eval(&self, js: &str) -> Result<()>;

@@ -20,7 +20,7 @@ pub use gtk::*;
 #[cfg(not(target_os = "linux"))]
 pub use winit::*;
 
-use crate::{Dispatcher, Result};
+use crate::{Dispatcher, Result, RpcHandler};
 
 use std::{collections::HashMap, sync::Mutex};
 
@@ -42,9 +42,12 @@ pub(crate) static CALLBACKS: Lazy<
     Mutex::new(m)
 });
 
+#[deprecated]
 #[derive(Debug, Serialize, Deserialize)]
 struct RPC {
     id: i32,
     method: String,
     params: Vec<Value>,
 }
+
+

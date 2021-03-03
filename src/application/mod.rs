@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 #[cfg(not(target_os = "linux"))]
 mod general;
 #[cfg(not(target_os = "linux"))]
@@ -11,7 +13,7 @@ pub use gtkrs::WindowId;
 #[cfg(target_os = "linux")]
 use gtkrs::{InnerApplication, InnerApplicationProxy};
 
-use crate::Result;
+use crate::{Result, RpcHandler};
 
 use std::{fs::read, path::Path, sync::mpsc::Sender};
 
@@ -344,6 +346,7 @@ trait AppProxy {
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
+        //rpc_handler: Option<RpcHandler>,
     ) -> Result<WindowId>;
 }
 
@@ -527,6 +530,7 @@ impl Application {
     pub fn new() -> Result<Self> {
         Ok(Self {
             inner: InnerApplication::new()?,
+            //rpc_handler: None,
         })
     }
 
@@ -566,12 +570,21 @@ impl Application {
     pub fn application_proxy(&self) -> ApplicationProxy {
         ApplicationProxy {
             inner: self.inner.application_proxy(),
+            //rpc_handler: self.inner.
         }
     }
 
     /// Returns the [`WindowProxy`] with given `WindowId`.
     pub fn window_proxy(&self, window_id: WindowId) -> WindowProxy {
         WindowProxy::new(self.application_proxy(), window_id)
+    }
+
+    /// Set an RPC message handler.
+    pub fn set_rpc_handler(&mut self, handler: RpcHandler) {
+        // TODO: detect if webviews already exist and panic
+        // TODO: because this should be set before callling add_window().
+
+        self.inner.rpc_handler = Some(Arc::new(handler));
     }
 
     /// Consume the application and start running it. This will hijack the main thread and iterate
@@ -593,9 +606,65 @@ trait App: Sized {
         attributes: Attributes,
         callbacks: Option<Vec<Callback>>,
         custom_protocol: Option<CustomProtocol>,
+        //rpc_handler: Option<RpcHandler>,
     ) -> Result<Self::Id>;
 
     fn application_proxy(&self) -> Self::Proxy;
 
     fn run(self);
+}
+
+pub(crate) const RPC_CALLBACK_NAME: &str = "__rpc__";
+const RPC_VERSION: &str = "2.0";
+
+/// Function call from Javascript.
+///
+/// If the callback name matches the name for an RPC handler
+/// the payload should be passed to the handler transparently.
+///
+/// Otherwise attempt to find a `Callback` with the same name
+/// and pass it the payload `params`.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FuncCall {
+    pub(crate) callback: String,
+    pub(crate) payload: RpcRequest,
+}
+
+/// RPC request message.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RpcRequest {
+    jsonrpc: String,
+    pub id: Option<Value>,
+    pub method: String,
+    pub params: Option<Value>,
+}
+
+/// RPC response message.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RpcResponse {
+    jsonrpc: String,
+    pub(crate) id: Option<Value>,
+    pub(crate) result: Option<Value>,
+    pub(crate) error: Option<Value>,
+}
+
+impl RpcResponse {
+
+    /// Create a new result response.
+    pub fn new_result(id: Option<Value>, result: Option<Value>) -> Self {
+        Self {
+            jsonrpc: RPC_VERSION.to_string(),
+            id, result,
+            error: None
+        } 
+    }
+
+    /// Create a new error response.
+    pub fn new_error(id: Option<Value>, error: Option<Value>) -> Self {
+        Self {
+            jsonrpc: RPC_VERSION.to_string(),
+            id, error,
+            result: None
+        } 
+    }
 }

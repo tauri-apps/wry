@@ -1,10 +1,13 @@
-use crate::mimetype::MimeType;
 use crate::platform::{CALLBACKS, RPC};
+use crate::application::{WindowProxy, FuncCall, RpcRequest, RpcResponse, RPC_CALLBACK_NAME};
+use crate::mimetype::MimeType;
 use crate::webview::WV;
-use crate::{Error, Result};
+use crate::{Dispatcher, Error, Result, RpcHandler};
 
 use std::rc::Rc;
+use std::sync::Arc;
 
+use serde_json::Value;
 use gdk::RGBA;
 use gio::Cancellable;
 use glib::{Bytes, FileError};
@@ -29,6 +32,10 @@ impl WV for InnerWebView {
         url: Option<Url>,
         transparent: bool,
         custom_protocol: Option<(String, F)>,
+        rpc_handler: Option<(
+            WindowProxy,
+            Arc<RpcHandler>,
+        )>,
     ) -> Result<Self> {
         // Webview widget
         let manager = UserContentManager::new();
@@ -45,28 +52,94 @@ impl WV for InnerWebView {
             if let Some(js) = msg.get_value() {
                 if let Some(context) = msg.get_global_context() {
                     if let Some(js) = js.to_string(&context) {
-                        let v: RPC = serde_json::from_str(&js).unwrap();
-                        let mut hashmap = CALLBACKS.lock().unwrap();
-                        let (f, d) = hashmap.get_mut(&(window_id, v.method)).unwrap();
-                        let status = f(d, v.id, v.params);
+                        match serde_json::from_str::<FuncCall>(&js) {
+                            Ok(mut ev) => {
+                                // Use `isize` to conform with existing `Callback` API but should 
+                                // really be a `u64`. Note that RPC spec allows for non-numbers 
+                                // in the `id` field!
+                                let id: i32 = if let Some(value) = ev.payload.id.clone().take() {
+                                    if let Value::Number(num) = value {
+                                        if num.is_i64() { num.as_i64().unwrap() as i32 } else { 0 }
+                                    } else { 0 }
+                                } else { 0 };
 
-                        let js = match status {
-                            Ok(()) => {
-                                format!(
-                                    r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
-                                    v.id, v.id
-                                )
+                                let use_rpc = rpc_handler.is_some() && &ev.callback == RPC_CALLBACK_NAME;
+
+                                // Send to an RPC handler
+                                if use_rpc {
+                                    let (proxy, rpc_handler) = rpc_handler.as_ref().unwrap();
+                                    let mut response = rpc_handler(proxy, ev.payload);
+                                    if let Some(mut response) = response.take() {
+                                        if let Some(id) = response.id {
+                                            let js = if let Some(error) = response.error.take() {
+                                                match serde_json::to_string(&error) {
+                                                    Ok(retval) => {
+                                                        format!("window.external.rpc._error({}, {})",
+                                                            id.to_string(), retval)
+                                                    }
+                                                    Err(_) => {
+                                                        format!("window.external.rpc._error({}, null)",
+                                                            id.to_string())
+                                                    }
+                                                }
+                                            } else if let Some(result) = response.result.take() {
+                                                match serde_json::to_string(&result) {
+                                                    Ok(retval) => {
+                                                        format!("window.external.rpc._result({}, {})",
+                                                            id.to_string(), retval)
+                                                    }
+                                                    Err(_) => {
+                                                        format!("window.external.rpc._result({}, null)",
+                                                            id.to_string())
+                                                    }
+                                                }
+                                            } else {
+                                                // No error or result, assume a positive response
+                                                // with empty result (ACK)
+                                                format!("window.external.rpc._result({}, null)",
+                                                    id.to_string())
+                                            };
+
+                                            let cancellable: Option<&Cancellable> = None;
+                                            wv.run_javascript(&js, cancellable, |_| ());
+                                        }
+                                    }
+                                // Normal callback mechanism
+                                } else {
+                                    let mut hashmap = CALLBACKS.lock().unwrap();
+                                    let (f, d) = hashmap.get_mut(&(window_id, ev.callback)).unwrap();
+                                    // TODO: update `Callback` to take a `Value`?
+                                    let raw_params = if let Some(val) = ev.payload.params.take() {
+                                        val
+                                    } else { Value::Null };
+                                    let params = if let Value::Array(arr) = raw_params {
+                                        arr 
+                                    } else { vec![raw_params] };
+
+                                    let status = f(d, id, params);
+                                    let js = match status {
+                                        Ok(()) => {
+                                            format!(
+                                                r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
+                                                id, id
+                                            )
+                                        }
+                                        Err(e) => {
+                                            format!(
+                                                r#"window._rpc[{}].reject("RPC call fail with error {}"); window._rpc[{}] = undefined"#,
+                                                id, e, id
+                                            )
+                                        }
+                                    };
+
+                                    let cancellable: Option<&Cancellable> = None;
+                                    wv.run_javascript(&js, cancellable, |_| ());
+                                }
                             }
                             Err(e) => {
-                                format!(
-                                    r#"window._rpc[{}].reject("RPC call fail with error {}"); window._rpc[{}] = undefined"#,
-                                    v.id, e, v.id
-                                )
+                                eprintln!("Bad Javascript function call: {} ({})", e, &js);
                             }
-                        };
-
-                        let cancellable: Option<&Cancellable> = None;
-                        wv.run_javascript(&js, cancellable, |_| ());
+                        }
                     }
                 }
             }

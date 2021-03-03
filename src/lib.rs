@@ -88,10 +88,10 @@ pub mod webview;
 
 pub use application::{
     Application, ApplicationProxy, Attributes, Callback, CustomProtocol, Icon, Message, WindowId,
-    WindowMessage, WindowProxy,
+    WindowMessage, WindowProxy, RpcRequest, RpcResponse,
 };
 pub use serde_json::Value;
-pub(crate) use webview::{Dispatcher, WebView, WebViewBuilder};
+pub(crate) use webview::{Dispatcher, WebView, WebViewBuilder, RpcHandler};
 
 #[cfg(not(target_os = "linux"))]
 use winit::window::BadIcon;

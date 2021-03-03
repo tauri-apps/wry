@@ -1,9 +1,11 @@
 use crate::mimetype::MimeType;
 use crate::platform::{CALLBACKS, RPC};
+use crate::application::WindowProxy;
 use crate::webview::WV;
-use crate::Result;
+use crate::{Result, Dispatcher, RpcHandler};
 
 use std::{
+    sync::Arc,
     collections::hash_map::DefaultHasher,
     ffi::{c_void, CStr},
     hash::{Hash, Hasher},
@@ -37,6 +39,10 @@ impl WV for InnerWebView {
         url: Option<Url>,
         transparent: bool,
         custom_protocol: Option<(String, F)>,
+        rpc_handler: Option<(
+            WindowProxy,
+            Arc<RpcHandler>,
+        )>,
     ) -> Result<Self> {
         let mut hasher = DefaultHasher::new();
         window.id().hash(&mut hasher);
