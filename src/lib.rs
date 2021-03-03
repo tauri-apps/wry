@@ -114,6 +114,8 @@ pub enum Error {
     GlibBoolError(#[from] glib::BoolError),
     #[error("Failed to initialize the script")]
     InitScriptError,
+    #[error("Bad RPC request: {0} ((1))")]
+    RpcScriptError(String, String),
     #[error(transparent)]
     NulError(#[from] std::ffi::NulError),
     #[cfg(not(target_os = "linux"))]

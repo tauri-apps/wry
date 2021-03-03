@@ -20,7 +20,7 @@ pub use gtk::*;
 #[cfg(not(target_os = "linux"))]
 pub use winit::*;
 
-use crate::{Dispatcher, Result, RpcHandler};
+use crate::{Dispatcher, Error, Result, RpcHandler, application::{WindowProxy, FuncCall}};
 
 use std::{collections::HashMap, sync::Mutex};
 
@@ -50,4 +50,50 @@ struct RPC {
     params: Vec<Value>,
 }
 
-
+pub(crate) fn rpc_proxy(js: String, proxy: &WindowProxy, handler: &RpcHandler) -> Result<Option<String>> {
+    match serde_json::from_str::<FuncCall>(&js) {
+        Ok(mut ev) => {
+            let mut response = (handler)(proxy, ev.payload);
+            if let Some(mut response) = response.take() {
+                if let Some(id) = response.id {
+                    let js = if let Some(error) = response.error.take() {
+                        match serde_json::to_string(&error) {
+                            Ok(retval) => {
+                                format!("window.external.rpc._error({}, {})",
+                                    id.to_string(), retval)
+                            }
+                            Err(_) => {
+                                format!("window.external.rpc._error({}, null)",
+                                    id.to_string())
+                            }
+                        }
+                    } else if let Some(result) = response.result.take() {
+                        match serde_json::to_string(&result) {
+                            Ok(retval) => {
+                                format!("window.external.rpc._result({}, {})",
+                                    id.to_string(), retval)
+                            }
+                            Err(_) => {
+                                format!("window.external.rpc._result({}, null)",
+                                    id.to_string())
+                            }
+                        }
+                    } else {
+                        // No error or result, assume a positive response
+                        // with empty result (ACK)
+                        format!("window.external.rpc._result({}, null)",
+                            id.to_string())
+                    };
+                    Ok(Some(js))
+                } else {
+                    Ok(None)
+                }
+            } else {
+                Ok(None) 
+            }
+        }
+        Err(e) => {
+            Err(Error::RpcScriptError(e.to_string(), js))
+        }
+    }
+}
