@@ -1,7 +1,7 @@
 use crate::mimetype::MimeType;
 use crate::application::WindowProxy;
 use crate::webview::WV;
-use crate::{Result, Dispatcher, RpcHandler};
+use crate::{Result, RpcHandler};
 
 use std::{
     sync::Arc,
