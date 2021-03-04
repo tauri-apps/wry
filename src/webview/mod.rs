@@ -13,10 +13,7 @@ mod win;
 #[cfg(target_os = "windows")]
 use win::*;
 
-use crate::{
-    application::{RpcRequest, RpcResponse},
-    Error, Result,
-};
+use crate::{Error, Result};
 
 use std::sync::mpsc::{channel, Receiver, Sender};
 
@@ -307,4 +304,66 @@ pub(crate) trait WV: Sized {
     ) -> Result<Self>;
 
     fn eval(&self, js: &str) -> Result<()>;
+}
+
+const RPC_VERSION: &str = "2.0";
+
+/// RPC request message.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RpcRequest {
+    jsonrpc: String,
+    pub id: Option<Value>,
+    pub method: String,
+    pub params: Option<Value>,
+}
+
+/// RPC response message.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RpcResponse {
+    jsonrpc: String,
+    pub(crate) id: Option<Value>,
+    pub(crate) result: Option<Value>,
+    pub(crate) error: Option<Value>,
+}
+
+impl RpcResponse {
+    /// Create a new result response.
+    pub fn new_result(id: Option<Value>, result: Option<Value>) -> Self {
+        Self {
+            jsonrpc: RPC_VERSION.to_string(),
+            id,
+            result,
+            error: None,
+        }
+    }
+
+    /// Create a new error response.
+    pub fn new_error(id: Option<Value>, error: Option<Value>) -> Self {
+        Self {
+            jsonrpc: RPC_VERSION.to_string(),
+            id,
+            error,
+            result: None,
+        }
+    }
+
+    /// Get a script that resolves the promise with a result.
+    pub fn into_result_script(id: Value, result: Value) -> Result<String> {
+        let retval = serde_json::to_string(&result)?;
+        Ok(format!(
+            "window.external.rpc._result({}, {})",
+            id.to_string(),
+            retval
+        ))
+    }
+
+    /// Get a script that rejects the promise with an error.
+    pub fn into_error_script(id: Value, result: Value) -> Result<String> {
+        let retval = serde_json::to_string(&result)?;
+        Ok(format!(
+            "window.external.rpc._error({}, {})",
+            id.to_string(),
+            retval
+        ))
+    }
 }
