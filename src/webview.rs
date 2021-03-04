@@ -112,11 +112,6 @@ impl WebViewBuilder {
                     }
                 }
 
-                // Private internal function called on failure to remove any promise
-                this._clean = (id) => {
-                    delete this._promises[id];
-                }
-
                 // Call remote method and expect a reply from the handler
                 this.call = function(method) {
                     const id = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
