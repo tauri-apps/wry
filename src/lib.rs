@@ -85,11 +85,11 @@ mod mimetype;
 pub mod webview;
 
 pub use application::{
-    Application, ApplicationProxy, Attributes, CustomProtocol, Icon, Message, RpcRequest,
-    RpcResponse, WindowId, WindowMessage, WindowProxy, WindowRpcHandler,
+    Application, ApplicationProxy, Attributes, CustomProtocol, Icon, Message, WindowId,
+    WindowMessage, WindowProxy, WindowRpcHandler,
 };
 pub use serde_json::Value;
-pub(crate) use webview::{RpcHandler, WebView, WebViewBuilder};
+pub(crate) use webview::{RpcHandler, RpcRequest, RpcResponse, WebView, WebViewBuilder};
 
 #[cfg(not(target_os = "linux"))]
 use winit::window::BadIcon;
