@@ -1,4 +1,3 @@
-use crate::application::WindowProxy;
 use crate::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Error, Result, RpcHandler};
@@ -29,10 +28,7 @@ impl WV for InnerWebView {
         url: Option<Url>,
         transparent: bool,
         custom_protocol: Option<(String, F)>,
-        rpc_handler: Option<(
-            WindowProxy,
-            RpcHandler,
-        )>,
+        rpc_handler: Option<RpcHandler>,
     ) -> Result<Self> {
         // Webview widget
         let manager = UserContentManager::new();
@@ -47,8 +43,8 @@ impl WV for InnerWebView {
         manager.connect_script_message_received(move |_m, msg| {
             if let (Some(js), Some(context)) = (msg.get_value(), msg.get_global_context()) {
                 if let Some(js) = js.to_string(&context) {
-                    if let Some((proxy, rpc_handler)) = rpc_handler.as_ref() {
-                        match super::rpc_proxy(js, proxy, rpc_handler) {
+                    if let Some(rpc_handler) = rpc_handler.as_ref() {
+                        match super::rpc_proxy(js, rpc_handler) {
                             Ok(result) => {
                                 if let Some(ref script) = result {
                                     let cancellable: Option<&Cancellable> = None;

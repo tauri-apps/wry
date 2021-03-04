@@ -1,5 +1,5 @@
-use crate::mimetype::MimeType;
 use crate::application::WindowProxy;
+use crate::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Result, RpcHandler};
 
@@ -37,10 +37,7 @@ impl WV for InnerWebView {
         url: Option<Url>,
         transparent: bool,
         custom_protocol: Option<(String, F)>,
-        rpc_handler: Option<(
-            WindowProxy,
-            RpcHandler,
-        )>,
+        rpc_handler: Option<(WindowProxy, RpcHandler)>,
     ) -> Result<Self> {
         let mut hasher = DefaultHasher::new();
         window.id().hash(&mut hasher);

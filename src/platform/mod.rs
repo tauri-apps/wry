@@ -22,15 +22,17 @@ pub use winit::*;
 
 use serde_json::Value;
 
-use crate::{Error, Result, RpcHandler, application::{WindowProxy, RpcRequest, RpcResponse}};
+use crate::{
+    application::{RpcRequest, RpcResponse},
+    Error, Result, RpcHandler,
+};
 
 // Helper so all platforms handle RPC messages consistently.
-pub(crate) fn rpc_proxy(js: String, proxy: &WindowProxy, handler: &RpcHandler) -> Result<Option<String>> {
-    let req = serde_json::from_str::<RpcRequest>(&js).map_err(|e| {
-        Error::RpcScriptError(e.to_string(), js)
-    })?;
+pub(crate) fn rpc_proxy(js: String, handler: &RpcHandler) -> Result<Option<String>> {
+    let req = serde_json::from_str::<RpcRequest>(&js)
+        .map_err(|e| Error::RpcScriptError(e.to_string(), js))?;
 
-    let mut response = (handler)(proxy, req);
+    let mut response = (handler)(req);
     // Got a synchronous response so convert it to a script to be evaluated
     if let Some(mut response) = response.take() {
         if let Some(id) = response.id {
@@ -48,6 +50,6 @@ pub(crate) fn rpc_proxy(js: String, proxy: &WindowProxy, handler: &RpcHandler) -
             Ok(None)
         }
     } else {
-        Ok(None) 
+        Ok(None)
     }
 }

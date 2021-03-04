@@ -1,10 +1,10 @@
 //! [`WebView`] struct and associated types.
 
-use crate::platform::{InnerWebView};
-use crate::application::{WindowProxy, RpcRequest, RpcResponse};
+use crate::application::{RpcRequest, RpcResponse};
+use crate::platform::InnerWebView;
 use crate::Result;
 
-use std::sync::{mpsc::{channel, Receiver, Sender}};
+use std::sync::mpsc::{channel, Receiver, Sender};
 #[cfg(not(target_os = "linux"))]
 use std::{
     collections::hash_map::DefaultHasher,
@@ -14,13 +14,13 @@ use std::{
 use url::Url;
 
 #[cfg(target_os = "linux")]
-use gtk::{ApplicationWindow as Window};
+use gtk::ApplicationWindow as Window;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
 use winit::window::Window;
 
-pub type RpcHandler = Box<dyn Fn(&WindowProxy, RpcRequest) -> Option<RpcResponse> + Send>;
+pub type RpcHandler = Box<dyn Fn(RpcRequest) -> Option<RpcResponse> + Send>;
 
 /// Builder type of [`WebView`].
 ///
@@ -35,10 +35,7 @@ pub struct WebViewBuilder {
     window: Window,
     url: Option<Url>,
     custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
-    rpc_handler: Option<(
-        WindowProxy,
-        RpcHandler,
-    )>,
+    rpc_handler: Option<RpcHandler>,
 }
 
 impl WebViewBuilder {
@@ -90,9 +87,8 @@ impl WebViewBuilder {
     }
 
     /// Set the RPC handler.
-    pub(crate) fn set_rpc_handler(mut self, proxy: WindowProxy, handler: RpcHandler) -> Self {
-        let js =
-            r#"
+    pub(crate) fn set_rpc_handler(mut self, handler: RpcHandler) -> Self {
+        let js = r#"
             function Rpc() {
                 this._promises = {};
 
@@ -135,7 +131,7 @@ impl WebViewBuilder {
             window.rpc = window.external.rpc = new Rpc();
             "#;
         self.initialization_scripts.push(js.to_string());
-        self.rpc_handler = Some((proxy, handler));
+        self.rpc_handler = Some(handler);
         self
     }
 
@@ -264,10 +260,7 @@ pub(crate) trait WV: Sized {
         url: Option<Url>,
         transparent: bool,
         custom_protocol: Option<(String, F)>,
-        rpc_handler: Option<(
-            WindowProxy,
-            RpcHandler,
-        )>,
+        rpc_handler: Option<RpcHandler>,
     ) -> Result<Self>;
 
     fn eval(&self, js: &str) -> Result<()>;

@@ -1,7 +1,7 @@
-use wry::Result;
-use wry::{Application, Attributes, RpcResponse, RpcRequest, WindowProxy};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use wry::Result;
+use wry::{Application, Attributes, RpcRequest, RpcResponse, WindowProxy};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MessageParameters {
@@ -36,23 +36,24 @@ async function getAsyncRpcResult() {
         ..Default::default()
     };
 
-    let handler = Box::new(|proxy: &WindowProxy, mut req: RpcRequest| {
+    let handler = Box::new(|mut req: RpcRequest| {
         let mut response = None;
         if &req.method == "fullscreen" {
             if let Some(params) = req.params.take() {
                 if let Some(mut args) = serde_json::from_value::<Vec<bool>>(params).ok() {
                     if args.len() > 0 {
-                        let flag = args.swap_remove(0);
+                        // let flag = args.swap_remove(0);
                         // NOTE: in the real world we need to reply with an error
-                        let _ = proxy.set_fullscreen(flag);
+                        // let _ = proxy.set_fullscreen(flag);
                     };
                     response = Some(RpcResponse::new_result(req.id.take(), None));
                 }
             }
-
         } else if &req.method == "send-parameters" {
             if let Some(params) = req.params.take() {
-                if let Some(mut args) = serde_json::from_value::<Vec<MessageParameters>>(params).ok() {
+                if let Some(mut args) =
+                    serde_json::from_value::<Vec<MessageParameters>>(params).ok()
+                {
                     let result = if args.len() > 0 {
                         let msg = args.swap_remove(0);
                         Some(Value::String(format!("Hello, {}!", msg.message)))

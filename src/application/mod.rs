@@ -596,36 +596,43 @@ pub struct RpcResponse {
 }
 
 impl RpcResponse {
-
     /// Create a new result response.
     pub fn new_result(id: Option<Value>, result: Option<Value>) -> Self {
         Self {
             jsonrpc: RPC_VERSION.to_string(),
-            id, result,
-            error: None
-        } 
+            id,
+            result,
+            error: None,
+        }
     }
 
     /// Create a new error response.
     pub fn new_error(id: Option<Value>, error: Option<Value>) -> Self {
         Self {
             jsonrpc: RPC_VERSION.to_string(),
-            id, error,
-            result: None
-        } 
+            id,
+            error,
+            result: None,
+        }
     }
 
     /// Get a script that resolves the promise with a result.
     pub fn into_result_script(id: Value, result: Value) -> Result<String> {
         let retval = serde_json::to_string(&result)?;
-        Ok(format!("window.external.rpc._result({}, {})",
-            id.to_string(), retval))
+        Ok(format!(
+            "window.external.rpc._result({}, {})",
+            id.to_string(),
+            retval
+        ))
     }
 
     /// Get a script that rejects the promise with an error.
     pub fn into_error_script(id: Value, result: Value) -> Result<String> {
         let retval = serde_json::to_string(&result)?;
-        Ok(format!("window.external.rpc._error({}, {})",
-            id.to_string(), retval))
+        Ok(format!(
+            "window.external.rpc._error({}, {})",
+            id.to_string(),
+            retval
+        ))
     }
 }
