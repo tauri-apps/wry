@@ -82,7 +82,7 @@ impl WebViewBuilder {
     }
 
     /// Set the RPC handler.
-    pub(crate) fn set_rpc_handler(mut self, handler: RpcHandler) -> Self {
+    pub fn set_rpc_handler(mut self, handler: RpcHandler) -> Self {
         let js = r#"
             function Rpc() {
                 this._promises = {};

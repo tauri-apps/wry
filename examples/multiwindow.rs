@@ -1,6 +1,6 @@
 use serde_json::Value;
 use wry::Result;
-use wry::{Application, Attributes, RpcRequest};
+use wry::{Application, Attributes, RpcRequest, WindowProxy};
 
 fn main() -> Result<()> {
     let mut app = Application::new()?;
@@ -27,7 +27,7 @@ async function openWindow() {
     let app_proxy = app.application_proxy();
     let (window_tx, window_rx) = std::sync::mpsc::channel::<String>();
 
-    let handler = Box::new(move |req: RpcRequest| {
+    let handler = Box::new(move |_: &WindowProxy, req: RpcRequest| {
         if &req.method == "openWindow" {
             if let Some(params) = req.params {
                 if let Value::Array(mut arr) = params {

@@ -17,6 +17,8 @@ use std::{fs::read, path::Path, sync::mpsc::Sender};
 
 use serde_json::Value;
 
+pub type WindowRpcHandler = Box<dyn Fn(&WindowProxy, RpcRequest) -> Option<RpcResponse> + Send>;
+
 pub struct CustomProtocol {
     pub name: String,
     pub handler: Box<dyn Fn(&str) -> Result<Vec<u8>> + Send>,
@@ -270,7 +272,7 @@ pub enum Message {
     NewWindow(
         Attributes,
         Sender<WindowId>,
-        Option<RpcHandler>,
+        Option<WindowRpcHandler>,
         Option<CustomProtocol>,
     ),
 }
@@ -300,7 +302,7 @@ impl ApplicationProxy {
     pub fn add_window_with_configs(
         &self,
         attributes: Attributes,
-        rpc_handler: Option<RpcHandler>,
+        rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
         let id = self
@@ -315,7 +317,7 @@ trait AppProxy {
     fn add_window(
         &self,
         attributes: Attributes,
-        rpc_handler: Option<RpcHandler>,
+        rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowId>;
 }
@@ -527,7 +529,7 @@ impl Application {
     pub fn add_window_with_configs(
         &mut self,
         attributes: Attributes,
-        handler: Option<RpcHandler>,
+        handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
         let id = self
@@ -566,7 +568,7 @@ trait App: Sized {
     fn create_webview(
         &mut self,
         attributes: Attributes,
-        rpc_handler: Option<RpcHandler>,
+        rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id>;
 
