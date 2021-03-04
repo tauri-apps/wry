@@ -406,8 +406,10 @@ fn _create_webview(
     }
 
     if let Some(rpc_handler) = rpc_handler {
-        let proxy = WindowProxy::new(ApplicationProxy { inner: proxy }, window_id);
-        webview = webview.set_rpc_handler(Box::new(move |requests| rpc_handler(&proxy, requests)));
+        webview = webview.set_rpc_handler(Box::new(move |requests| {
+            let proxy = WindowProxy::new(ApplicationProxy { inner: proxy.clone() }, window_id);
+            rpc_handler(proxy, requests)
+        }));
     }
 
     let webview = webview.build()?;
