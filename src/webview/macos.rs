@@ -1,14 +1,10 @@
 use crate::mimetype::MimeType;
-use crate::platform::{CALLBACKS, RPC};
 use crate::application::{WindowProxy, FileDropHandler};
 use crate::webview::WV;
-use crate::{Result, Dispatcher, RpcHandler};
+use crate::{Result, RpcHandler};
 
 use std::{
-    sync::Arc,
-    collections::hash_map::DefaultHasher,
     ffi::{c_void, CStr},
-    hash::{Hash, Hasher},
     os::raw::c_char,
     ptr::null,
     slice, str,
@@ -39,47 +35,31 @@ impl WV for InnerWebView {
         url: Option<Url>,
         transparent: bool,
         custom_protocol: Option<(String, F)>,
-        rpc_handler: Option<(
-            WindowProxy,
-            Arc<RpcHandler>,
-        )>,
+        rpc_handler: Option<RpcHandler>,
         file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
     ) -> Result<Self> {
-        let mut hasher = DefaultHasher::new();
-        window.id().hash(&mut hasher);
-        let window_id = hasher.finish() as i64;
-
         // Callback function for message handler
         extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
             // Safety: objc runtime calls are unsafe
             unsafe {
-                let window_id = *this.get_ivar("_window_id");
+                let function = this.get_ivar::<*mut c_void>("function");
+                let function: &mut RpcHandler = std::mem::transmute(*function);
                 let body: id = msg_send![msg, body];
                 let utf8: *const c_char = msg_send![body, UTF8String];
-                let s = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
-                let v: RPC = serde_json::from_str(&s).unwrap();
-                let mut hashmap = CALLBACKS.lock().unwrap();
-                let (f, d) = hashmap.get_mut(&(window_id, v.method)).unwrap();
-                let status = f(d, v.id, v.params);
+                let js = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
 
-                let js = match status {
-                    Ok(()) => {
-                        format!(
-                            r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
-                            v.id, v.id
-                        )
+                match super::rpc_proxy(js.to_string(), function) {
+                    Ok(result) => {
+                        if let Some(ref script) = result {
+                            let wv: id = msg_send![msg, webView];
+                            let js = NSString::new(script);
+                            let _: id = msg_send![wv, evaluateJavaScript:js completionHandler:null::<*const c_void>()];
+                        }
                     }
                     Err(e) => {
-                        format!(
-                            r#"window._rpc[{}].reject("RPC call fail with error {}"); window._rpc[{}] = undefined"#,
-                            v.id, e, v.id
-                        )
+                        eprintln!("{}", e);
                     }
-                };
-                let wv: id = msg_send![msg, webView];
-                let js = NSString::new(&js);
-                let _: id =
-                    msg_send![wv, evaluateJavaScript:js completionHandler:null::<*const c_void>()];
+                }
             }
         }
 
@@ -179,22 +159,26 @@ impl WV for InnerWebView {
             webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
 
             // Message handler
-            let cls = ClassDecl::new("WebViewDelegate", class!(NSObject));
-            let cls = match cls {
-                Some(mut cls) => {
-                    cls.add_ivar::<i64>("_window_id");
-                    cls.add_method(
-                        sel!(userContentController:didReceiveScriptMessage:),
-                        did_receive as extern "C" fn(&Object, Sel, id, id),
-                    );
-                    cls.register()
-                }
-                None => class!(WebViewDelegate),
-            };
-            let handler: id = msg_send![cls, new];
-            (*handler).set_ivar("_window_id", window_id);
-            let external = NSString::new("external");
-            let _: () = msg_send![manager, addScriptMessageHandler:handler name:external];
+            if let Some(rpc_handler) = rpc_handler {
+                let cls = ClassDecl::new("WebViewDelegate", class!(NSObject));
+                let cls = match cls {
+                    Some(mut cls) => {
+                        cls.add_ivar::<*mut c_void>("function");
+                        cls.add_method(
+                            sel!(userContentController:didReceiveScriptMessage:),
+                            did_receive as extern "C" fn(&Object, Sel, id, id),
+                        );
+                        cls.register()
+                    }
+                    None => class!(WebViewDelegate),
+                };
+                let handler: id = msg_send![cls, new];
+                let function: Box<RpcHandler> = Box::new(rpc_handler);
+
+                (*handler).set_ivar("function", Box::into_raw(function) as *mut _ as *mut c_void);
+                let external = NSString::new("external");
+                let _: () = msg_send![manager, addScriptMessageHandler:handler name:external];
+            }
 
             let w = Self {
                 webview: Id::from_ptr(webview),

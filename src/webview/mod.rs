@@ -1,27 +1,60 @@
 //! [`WebView`] struct and associated types.
 
-use crate::platform::{InnerWebView, CALLBACKS};
-use crate::application::{WindowProxy, RpcRequest, RpcResponse, RPC_CALLBACK_NAME, FileDropHandler};
-use crate::Result;
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "linux")]
+use linux::*;
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(target_os = "macos")]
+use macos::*;
+#[cfg(target_os = "windows")]
+mod win;
+#[cfg(target_os = "windows")]
+use win::*;
 
-use std::sync::{Arc, mpsc::{channel, Receiver, Sender}};
-#[cfg(not(target_os = "linux"))]
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-};
+use crate::{Error, Result, application::FileDropHandler};
+
+use std::sync::mpsc::{channel, Receiver, Sender};
 
 use serde_json::Value;
 use url::Url;
 
 #[cfg(target_os = "linux")]
-use gtk::{ApplicationWindow as Window, ApplicationWindowExt};
+use gtk::ApplicationWindow as Window;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
 use winit::window::Window;
 
-pub type RpcHandler = Box<dyn Fn(&WindowProxy, RpcRequest) -> Option<RpcResponse> + Send + Sync>;
+pub type RpcHandler = Box<dyn Fn(RpcRequest) -> Option<RpcResponse> + Send>;
+
+// Helper so all platforms handle RPC messages consistently.
+fn rpc_proxy(js: String, handler: &RpcHandler) -> Result<Option<String>> {
+    let req = serde_json::from_str::<RpcRequest>(&js)
+        .map_err(|e| Error::RpcScriptError(e.to_string(), js))?;
+
+    let mut response = (handler)(req);
+    // Got a synchronous response so convert it to a script to be evaluated
+    if let Some(mut response) = response.take() {
+        if let Some(id) = response.id {
+            let js = if let Some(error) = response.error.take() {
+                RpcResponse::into_error_script(id, error)?
+            } else if let Some(result) = response.result.take() {
+                RpcResponse::into_result_script(id, result)?
+            } else {
+                // No error or result, assume a positive response
+                // with empty result (ACK)
+                RpcResponse::into_result_script(id, Value::Null)?
+            };
+            Ok(Some(js))
+        } else {
+            Ok(None)
+        }
+    } else {
+        Ok(None)
+    }
+}
 
 /// Builder type of [`WebView`].
 ///
@@ -35,12 +68,8 @@ pub struct WebViewBuilder {
     initialization_scripts: Vec<String>,
     window: Window,
     url: Option<Url>,
-    window_id: i64,
     custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
-    rpc_handler: Option<(
-        WindowProxy,
-        Arc<RpcHandler>,
-    )>,
+    rpc_handler: Option<RpcHandler>,
     file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
 }
 
@@ -48,14 +77,6 @@ impl WebViewBuilder {
     /// Create [`WebViewBuilder`] from provided [`Window`].
     pub fn new(window: Window) -> Result<Self> {
         let (tx, rx) = channel();
-        #[cfg(not(target_os = "linux"))]
-        let window_id = {
-            let mut hasher = DefaultHasher::new();
-            window.id().hash(&mut hasher);
-            hasher.finish() as i64
-        };
-        #[cfg(target_os = "linux")]
-        let window_id = window.get_id() as i64;
 
         Ok(Self {
             tx,
@@ -64,7 +85,6 @@ impl WebViewBuilder {
             window,
             url: None,
             transparent: false,
-            window_id,
             custom_protocol: None,
             rpc_handler: None,
             file_drop_handlers: (None, None),
@@ -102,107 +122,58 @@ impl WebViewBuilder {
         self
     }
 
-    /// Add a callback function to the WebView. The callback takse a dispatcher, a sequence number,
-    /// and a vector of arguments passed from callers as parameters.
-    ///
-    /// It uses RPC to communicate with javascript side and the sequence number is used to record
-    /// how many times has this callback been called. Arguments passed from callers is a vector of
-    /// serde values for you to decide how to handle them. IF you need to evaluate any code on
-    /// javascript side, you can use the dispatcher to send them.
-    pub fn add_callback<F>(mut self, name: &str, f: F) -> Self
-    where
-        F: FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send + 'static,
-    {
-
-        let js = format!(
-            r#"
-            (function() {{
-                var name = {:?};
-                var RPC = window._rpc = (window._rpc || {{nextSeq: 1}});
-                window[name] = function() {{
-                var seq = RPC.nextSeq++;
-                var promise = new Promise(function(resolve, reject) {{
-                    RPC[seq] = {{
-                    resolve: resolve,
-                    reject: reject,
-                    }};
-                }});
-                window.external.invoke(JSON.stringify({{
-                    callback: {:?},
-                    payload: {{
-                        jsonrpc: '2.0',
-                        id: seq,
-                        method: name,
-                        params: Array.prototype.slice.call(arguments),
-                    }}
-                }}));
-                return promise;
-                }}
-            }})()
-            "#,
-            name,
-            name,
-        );
-        self.initialization_scripts.push(js);
-
-        let window_id = self.window_id;
-        CALLBACKS.lock().unwrap().insert(
-            (window_id, name.to_string()),
-            (Box::new(f), Dispatcher(self.tx.clone())),
-        );
-        self
-    }
-
     /// Set the RPC handler.
-    pub(crate) fn set_rpc_handler(mut self, proxy: WindowProxy, handler: Arc<RpcHandler>) -> Self {
-        let js =
-            r#"
-            function Rpc() {
-                this._callback = '__rpc__';
-                this._promises = {};
+    pub fn set_rpc_handler(mut self, handler: RpcHandler) -> Self {
+        let js = r#"
+            (function() {
+                function Rpc() {
+                    const self = this;
+                    this._promises = {};
 
-                // Private internal function called on error
-                this._error = (id, error) => {
-                    if(this._promises[id]){
-                        this._promises[id].reject(error);
-                        delete this._promises[id];
+                    // Private internal function called on error
+                    this._error = (id, error) => {
+                        if(this._promises[id]){
+                            this._promises[id].reject(error);
+                            delete this._promises[id];
+                        }
+                    }
+
+                    // Private internal function called on result
+                    this._result = (id, result) => {
+                        if(this._promises[id]){
+                            this._promises[id].resolve(result);
+                            delete this._promises[id];
+                        }
+                    }
+
+                    // Call remote method and expect a reply from the handler
+                    this.call = function(method) {
+                        const id = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+                        const params = Array.prototype.slice.call(arguments, 1);
+                        const payload = {jsonrpc: "2.0", id, method, params};
+                        const promise = new Promise((resolve, reject) => {
+                            self._promises[id] = {resolve, reject};
+                        });
+                        window.external.invoke(JSON.stringify(payload));
+                        return promise;
+                    }
+
+                    // Send a notification without an `id` so no reply is expected.
+                    this.notify = function(method) {
+                        const params = Array.prototype.slice.call(arguments, 1);
+                        const payload = {jsonrpc: "2.0", method, params};
+                        window.external.invoke(JSON.stringify(payload));
+                        return Promise.resolve();
                     }
                 }
-
-                // Private internal function called on result
-                this._result = (id, result) => {
-                    if(this._promises[id]){
-                        this._promises[id].resolve(result);
-                        delete this._promises[id];
-                    }
-                }
-
-                // Call remote method and expect a reply from the handler
-                this.call = function(method) {
-                    const id = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
-                    const params = Array.prototype.slice.call(arguments, 1);
-                    const payload = {jsonrpc: "2.0", id, method, params};
-                    const msg = {callback: this._callback, payload};
-                    const promise = new Promise((resolve, reject) => {
-                        this._promises[id] = {resolve, reject};
-                    });
-                    window.external.invoke(JSON.stringify(msg));
-                    return promise;
-                }
-
-                // Send a notification without an `id` so no reply is expected.
-                this.notify = function(method) {
-                    const params = Array.prototype.slice.call(arguments, 1);
-                    const payload = {jsonrpc: "2.0", method, params};
-                    const msg = {callback: this._callback, payload};
-                    window.external.invoke(JSON.stringify(msg));
-                    return Promise.resolve();
-                }
-            }
-            window.rpc = window.external.rpc = new Rpc();
+                window.external = window.external || {};
+                window.external.rpc = new Rpc();
+                window.rpc = window.external.rpc;
+            })();
             "#;
+
         self.initialization_scripts.push(js.to_string());
-        self.rpc_handler = Some((proxy, handler));
+        self.rpc_handler = Some(handler);
         self
     }
 
@@ -337,12 +308,71 @@ pub(crate) trait WV: Sized {
         url: Option<Url>,
         transparent: bool,
         custom_protocol: Option<(String, F)>,
-        rpc_handler: Option<(
-            WindowProxy,
-            Arc<RpcHandler>,
-        )>,
+        rpc_handler: Option<RpcHandler>,
         file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
     ) -> Result<Self>;
 
     fn eval(&self, js: &str) -> Result<()>;
+}
+
+const RPC_VERSION: &str = "2.0";
+
+/// RPC request message.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RpcRequest {
+    jsonrpc: String,
+    pub id: Option<Value>,
+    pub method: String,
+    pub params: Option<Value>,
+}
+
+/// RPC response message.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RpcResponse {
+    jsonrpc: String,
+    pub(crate) id: Option<Value>,
+    pub(crate) result: Option<Value>,
+    pub(crate) error: Option<Value>,
+}
+
+impl RpcResponse {
+    /// Create a new result response.
+    pub fn new_result(id: Option<Value>, result: Option<Value>) -> Self {
+        Self {
+            jsonrpc: RPC_VERSION.to_string(),
+            id,
+            result,
+            error: None,
+        }
+    }
+
+    /// Create a new error response.
+    pub fn new_error(id: Option<Value>, error: Option<Value>) -> Self {
+        Self {
+            jsonrpc: RPC_VERSION.to_string(),
+            id,
+            error,
+            result: None,
+        }
+    }
+
+    /// Get a script that resolves the promise with a result.
+    pub fn into_result_script(id: Value, result: Value) -> Result<String> {
+        let retval = serde_json::to_string(&result)?;
+        Ok(format!(
+            "window.external.rpc._result({}, {})",
+            id.to_string(),
+            retval
+        ))
+    }
+
+    /// Get a script that rejects the promise with an error.
+    pub fn into_error_script(id: Value, result: Value) -> Result<String> {
+        let retval = serde_json::to_string(&result)?;
+        Ok(format!(
+            "window.external.rpc._error({}, {})",
+            id.to_string(),
+            retval
+        ))
+    }
 }

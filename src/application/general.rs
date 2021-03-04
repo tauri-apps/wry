@@ -1,7 +1,7 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
-    ApplicationProxy, Attributes, Callback, CustomProtocol, Error, Icon, Message, Result, WebView,
-    WebViewBuilder, WindowMessage, WindowProxy, RpcHandler, FileDropHandler
+    ApplicationProxy, Attributes, CustomProtocol, Error, Icon, Message, Result, WebView,
+    WebViewBuilder, WindowMessage, WindowProxy, WindowRpcHandler, FileDropHandler
 };
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};
@@ -13,7 +13,7 @@ use winit::{
     window::{Fullscreen, Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
 };
 
-use std::{sync::Arc, collections::HashMap, sync::mpsc::channel};
+use std::{collections::HashMap, sync::mpsc::channel};
 
 #[cfg(target_os = "windows")]
 use {
@@ -48,14 +48,14 @@ impl AppProxy for InnerApplicationProxy {
     fn add_window(
         &self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
+        rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowId> {
         let (sender, receiver) = channel();
         self.send_message(Message::NewWindow(
             attributes,
-            callbacks,
             sender,
+            rpc_handler,
             custom_protocol,
         ))?;
         Ok(receiver.recv()?)
@@ -105,7 +105,6 @@ pub struct InnerApplication {
     webviews: HashMap<WindowId, WebView>,
     event_loop: EventLoop<Message>,
     event_loop_proxy: EventLoopProxy,
-    pub(crate) rpc_handler: Option<Arc<RpcHandler>>,
     pub(crate) file_drop_handler: Option<FileDropHandler>,
 }
 
@@ -120,7 +119,6 @@ impl App for InnerApplication {
             webviews: HashMap::new(),
             event_loop,
             event_loop_proxy: proxy,
-            rpc_handler: None,
             file_drop_handler: None,
         })
     }
@@ -128,18 +126,17 @@ impl App for InnerApplication {
     fn create_webview(
         &mut self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
+        rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
 
         let window = _create_window(&self.event_loop, window_attrs)?;
         let webview = _create_webview(
-            &self.application_proxy(),
+            self.application_proxy(),
             window,
-            callbacks,
             custom_protocol,
-            self.rpc_handler.clone(),
+            rpc_handler,
             (webview_attrs.file_drop_handler.clone(), self.file_drop_handler.clone()),
             webview_attrs,
         )?;
@@ -156,9 +153,8 @@ impl App for InnerApplication {
     }
 
     fn run(self) {
-        let dispatcher = self.application_proxy();
+        let proxy = self.application_proxy();
         let mut windows = self.webviews;
-        let rpc_handler = self.rpc_handler.clone();
         let file_drop_handler_override = self.file_drop_handler;
         self.event_loop.run(move |event, event_loop, control_flow| {
             *control_flow = ControlFlow::Wait;
@@ -181,16 +177,15 @@ impl App for InnerApplication {
                     _ => {}
                 },
                 Event::UserEvent(message) => match message {
-                    Message::NewWindow(attributes, callbacks, sender, custom_protocol) => {
+                    Message::NewWindow(attributes, sender, rpc_handler, custom_protocol) => {
                         let (window_attrs, webview_attrs) = attributes.split();
                         let window = _create_window(&event_loop, window_attrs).unwrap();
                         sender.send(window.id()).unwrap();
                         let webview = _create_webview(
-                            &dispatcher,
+                            proxy.clone(),
                             window,
-                            callbacks,
                             custom_protocol,
-                            rpc_handler.clone(),
+                            rpc_handler,
                             (webview_attrs.file_drop_handler.clone(), file_drop_handler_override.clone()),
                             webview_attrs,
                         )
@@ -351,11 +346,10 @@ fn _create_window(
 }
 
 fn _create_webview(
-    dispatcher: &InnerApplicationProxy,
+    proxy: InnerApplicationProxy,
     window: Window,
-    callbacks: Option<Vec<Callback>>,
     custom_protocol: Option<CustomProtocol>,
-    rpc_handler: Option<Arc<RpcHandler>>,
+    rpc_handler: Option<WindowRpcHandler>,
     file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
     attributes: InnerWebViewAttributes,
 ) -> Result<WebView> {
@@ -365,35 +359,21 @@ fn _create_webview(
     for js in attributes.initialization_scripts {
         webview = webview.initialize_script(&js);
     }
-    if let Some(cbs) = callbacks {
-        for Callback { name, mut function } in cbs {
-            let dispatcher = dispatcher.clone();
-            webview = webview.add_callback(&name, move |_, seq, req| {
-                function(
-                    WindowProxy::new(
-                        ApplicationProxy {
-                            inner: dispatcher.clone(),
-                        },
-                        window_id,
-                    ),
-                    seq,
-                    req,
-                )
-            });
-        }
-    }
+
     if let Some(protocol) = custom_protocol {
         webview = webview.register_protocol(protocol.name, protocol.handler)
     }
 
     if let Some(rpc_handler) = rpc_handler {
-        let rpc_proxy = WindowProxy::new(
-            ApplicationProxy {
-                inner: dispatcher.clone(),
-            },
-            window_id,
-        );
-        webview = webview.set_rpc_handler(rpc_proxy, rpc_handler);
+        webview = webview.set_rpc_handler(Box::new(move |requests| {
+            let proxy = WindowProxy::new(
+                ApplicationProxy {
+                    inner: proxy.clone(),
+                },
+                window_id,
+            );
+            rpc_handler(proxy, requests)
+        }));
     }
 
     webview = webview.set_file_drop_handlers(file_drop_handlers);

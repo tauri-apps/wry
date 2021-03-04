@@ -1,6 +1,3 @@
-use core::fmt;
-use std::{borrow::Borrow, sync::{Arc, RwLock}};
-
 #[cfg(not(target_os = "linux"))]
 mod general;
 #[cfg(not(target_os = "linux"))]
@@ -13,266 +10,16 @@ mod gtkrs;
 pub use gtkrs::WindowId;
 #[cfg(target_os = "linux")]
 use gtkrs::{InnerApplication, InnerApplicationProxy};
+mod attributes;
+pub use attributes::{Attributes, CustomProtocol, Icon, WindowRpcHandler};
+pub(crate) use attributes::{InnerWebViewAttributes, InnerWindowAttributes};
 
-use crate::{Result, RpcHandler};
+use crate::Result;
 
-use std::{fs::read, path::Path, sync::mpsc::Sender, path::PathBuf, cell::Cell};
+use std::{sync::{mpsc::Sender, Arc}, cell::Cell, path::PathBuf};
+use core::fmt;
 
 use serde_json::Value;
-
-/// Defines a Rust callback function which can be called on Javascript side.
-pub struct Callback {
-    /// Name of the callback function.
-    pub name: String,
-    /// The function itself takes three parameters and return a number as return value.
-    ///
-    /// [`WindowProxy`] can let you adjust the corresponding WebView window.
-    ///
-    /// The second parameter `i32` is a sequence number to count how many times this function has
-    /// been called.
-    ///
-    /// The last vector is the actual list of arguments passed from the caller.
-    ///
-    /// The return value of the function is a number. Return `0` indicates the call is successful,
-    /// and return others if not.
-    pub function: Box<dyn FnMut(WindowProxy, i32, Vec<Value>) -> Result<()> + Send>,
-}
-
-impl std::fmt::Debug for Callback {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Callback")
-            .field("name", &self.name)
-            .finish()
-    }
-}
-
-pub struct CustomProtocol {
-    pub name: String,
-    pub handler: Box<dyn Fn(&str) -> Result<Vec<u8>> + Send>,
-}
-
-impl std::fmt::Debug for CustomProtocol {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CustomProtocol")
-            .field("name", &self.name)
-            .finish()
-    }
-}
-
-///	An icon used for the window title bar, taskbar, etc.
-#[derive(Debug, Clone)]
-pub struct Icon(pub(crate) Vec<u8>);
-
-impl Icon {
-    /// Creates an icon from the file.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        Ok(Self(read(path)?))
-    }
-    /// Creates an icon from raw bytes.
-    pub fn from_bytes<B: Into<Vec<u8>>>(bytes: B) -> Result<Self> {
-        Ok(Self(bytes.into()))
-    }
-}
-
-/// Attributes to use when creating a webview window.
-#[derive(Debug, Clone)]
-pub struct Attributes {
-    /// Whether the window is resizable or not.
-    ///
-    /// The default is `true`.
-    pub resizable: bool,
-
-    /// The title of the window in the title bar.
-    ///
-    /// The default is `"wry"`.
-    pub title: String,
-
-    /// Whether the window should be maximized upon creation.
-    ///
-    /// The default is `false`.
-    pub maximized: bool,
-
-    /// Whether the window should be immediately visible upon creation.
-    ///
-    /// The default is `true`.
-    pub visible: bool,
-
-    /// Whether the WebView window should be transparent. If this is true, writing colors
-    /// with alpha values different than `1.0` will produce a transparent window.
-    ///
-    /// The default is `false`.
-    pub transparent: bool,
-
-    /// Whether the window should have borders and bars.
-    ///
-    /// The default is `true`.
-    pub decorations: bool,
-
-    /// Whether the window should always be on top of other windows.
-    ///
-    /// The default is `false`.
-    pub always_on_top: bool,
-
-    /// The width of the window.
-    ///
-    /// The default is `800.0`.
-    pub width: f64,
-
-    /// The height of the window.
-    ///
-    /// The default is `600.0`.
-    pub height: f64,
-
-    /// The minimum width of the window.
-    ///
-    /// The default is `None`.
-    pub min_width: Option<f64>,
-
-    /// The minimum height of the window.
-    ///
-    /// The default is `None`.
-    pub min_height: Option<f64>,
-
-    /// The maximum width of the window.
-    ///
-    /// The default is `None`.
-    pub max_width: Option<f64>,
-
-    /// The maximum height of the window.
-    ///
-    /// The default is `None`.
-    pub max_height: Option<f64>,
-
-    /// The horizontal position of the window's top left corner.
-    ///
-    /// The default is `None`.
-    pub x: Option<f64>,
-
-    /// The vertical position of the window's top left corner.
-    ///
-    /// The default is `None`.
-    pub y: Option<f64>,
-
-    /// Whether to start the window in fullscreen or not.
-    ///
-    /// The default is `false`.
-    pub fullscreen: bool,
-
-    /// The window icon.
-    ///
-    /// The default is `None`.
-    pub icon: Option<Icon>,
-
-    /// Whether to hide the window icon in the taskbar/dock.
-    ///
-    /// The default is `false`
-    pub skip_taskbar: bool,
-
-    /// The URL to be loaded in the webview window.
-    ///
-    /// The default is `None`.
-    pub url: Option<String>,
-
-    /// Javascript Code to be initialized when loading new pages.
-    ///
-    /// The default is an empty vector.
-    pub initialization_scripts: Vec<String>,
-
-    /// A closure that will be executed when a file is dropped on the window.
-    ///
-    /// The default is `None`.
-    pub file_drop_handler: Option<FileDropHandler>,
-}
-
-impl Attributes {
-    fn split(self) -> (InnerWindowAttributes, InnerWebViewAttributes) {
-        (
-            InnerWindowAttributes {
-                resizable: self.resizable,
-                title: self.title,
-                maximized: self.maximized,
-                visible: self.visible,
-                transparent: self.transparent,
-                decorations: self.decorations,
-                always_on_top: self.always_on_top,
-                width: self.width,
-                height: self.height,
-                min_width: self.min_width,
-                min_height: self.min_height,
-                max_width: self.max_width,
-                max_height: self.max_height,
-                x: self.x,
-                y: self.y,
-                fullscreen: self.fullscreen,
-                icon: self.icon,
-                skip_taskbar: self.skip_taskbar,
-            },
-            InnerWebViewAttributes {
-                transparent: self.transparent,
-                url: self.url,
-                initialization_scripts: self.initialization_scripts,
-                file_drop_handler: self.file_drop_handler,
-            },
-        )
-    }
-}
-
-impl Default for Attributes {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            resizable: true,
-            title: "wry".to_owned(),
-            maximized: false,
-            visible: true,
-            transparent: false,
-            decorations: true,
-            always_on_top: false,
-            width: 800.0,
-            height: 600.0,
-            min_width: None,
-            min_height: None,
-            max_width: None,
-            max_height: None,
-            x: None,
-            y: None,
-            fullscreen: false,
-            icon: None,
-            skip_taskbar: false,
-            url: None,
-            initialization_scripts: vec![],
-            file_drop_handler: None,
-        }
-    }
-}
-
-struct InnerWindowAttributes {
-    resizable: bool,
-    title: String,
-    maximized: bool,
-    visible: bool,
-    transparent: bool,
-    decorations: bool,
-    always_on_top: bool,
-    width: f64,
-    height: f64,
-    min_width: Option<f64>,
-    min_height: Option<f64>,
-    max_width: Option<f64>,
-    max_height: Option<f64>,
-    x: Option<f64>,
-    y: Option<f64>,
-    fullscreen: bool,
-    icon: Option<Icon>,
-    skip_taskbar: bool,
-}
-
-struct InnerWebViewAttributes {
-    transparent: bool,
-    url: Option<String>,
-    initialization_scripts: Vec<String>,
-    file_drop_handler: Option<FileDropHandler>,
-}
 
 /// Describes a message for a WebView window.
 #[derive(Debug)]
@@ -302,13 +49,12 @@ pub enum WindowMessage {
 }
 
 /// Describes a general message.
-#[derive(Debug)]
 pub enum Message {
     Window(WindowId, WindowMessage),
     NewWindow(
         Attributes,
-        Option<Vec<Callback>>,
         Sender<WindowId>,
+        Option<WindowRpcHandler>,
         Option<CustomProtocol>,
     ),
 }
@@ -338,12 +84,12 @@ impl ApplicationProxy {
     pub fn add_window_with_configs(
         &self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
+        rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
         let id = self
             .inner
-            .add_window(attributes, callbacks, custom_protocol)?;
+            .add_window(attributes, rpc_handler, custom_protocol)?;
         Ok(WindowProxy::new(self.clone(), id))
     }
 }
@@ -353,9 +99,8 @@ trait AppProxy {
     fn add_window(
         &self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
+        rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
-        //rpc_handler: Option<RpcHandler>,
     ) -> Result<WindowId>;
 }
 
@@ -566,12 +311,12 @@ impl Application {
     pub fn add_window_with_configs(
         &mut self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
+        handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
         let id = self
             .inner
-            .create_webview(attributes, callbacks, custom_protocol)?;
+            .create_webview(attributes, handler, custom_protocol)?;
         Ok(self.window_proxy(id))
     }
 
@@ -586,14 +331,6 @@ impl Application {
     /// Returns the [`WindowProxy`] with given `WindowId`.
     pub fn window_proxy(&self, window_id: WindowId) -> WindowProxy {
         WindowProxy::new(self.application_proxy(), window_id)
-    }
-
-    /// Set an RPC message handler.
-    pub fn set_rpc_handler(&mut self, handler: RpcHandler) {
-        // TODO: detect if webviews already exist and panic
-        // TODO: because this should be set before callling add_window().
-
-        self.inner.rpc_handler = Some(Arc::new(handler));
     }
 
     /// Set a file drop handler.
@@ -618,69 +355,13 @@ trait App: Sized {
     fn create_webview(
         &mut self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
+        rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
-        //rpc_handler: Option<RpcHandler>,
     ) -> Result<Self::Id>;
 
     fn application_proxy(&self) -> Self::Proxy;
 
     fn run(self);
-}
-
-pub(crate) const RPC_CALLBACK_NAME: &str = "__rpc__";
-const RPC_VERSION: &str = "2.0";
-
-/// Function call from Javascript.
-///
-/// If the callback name matches the name for an RPC handler
-/// the payload should be passed to the handler transparently.
-///
-/// Otherwise attempt to find a `Callback` with the same name
-/// and pass it the payload `params`.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FuncCall {
-    pub(crate) callback: String,
-    pub(crate) payload: RpcRequest,
-}
-
-/// RPC request message.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RpcRequest {
-    jsonrpc: String,
-    pub id: Option<Value>,
-    pub method: String,
-    pub params: Option<Value>,
-}
-
-/// RPC response message.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RpcResponse {
-    jsonrpc: String,
-    pub(crate) id: Option<Value>,
-    pub(crate) result: Option<Value>,
-    pub(crate) error: Option<Value>,
-}
-
-impl RpcResponse {
-
-    /// Create a new result response.
-    pub fn new_result(id: Option<Value>, result: Option<Value>) -> Self {
-        Self {
-            jsonrpc: RPC_VERSION.to_string(),
-            id, result,
-            error: None
-        } 
-    }
-
-    /// Create a new error response.
-    pub fn new_error(id: Option<Value>, error: Option<Value>) -> Self {
-        Self {
-            jsonrpc: RPC_VERSION.to_string(),
-            id, error,
-            result: None
-        } 
-    }
 }
 
 #[derive(Debug, Serialize, Clone)]

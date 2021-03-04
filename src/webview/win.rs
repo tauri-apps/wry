@@ -1,17 +1,9 @@
-use crate::{mimetype::MimeType, application::FileDropHandler};
-use crate::platform::{CALLBACKS, RPC};
-use crate::application::{WindowProxy, FileDropController, FileDropEvent};
+use crate::mimetype::MimeType;
 use crate::webview::WV;
-use crate::{Result, Dispatcher, RpcHandler};
+use crate::{Result, RpcHandler};
+use crate::application::{FileDropController, FileDropEvent, FileDropHandler};
 
-use std::{
-    sync::Arc,
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-    os::raw::c_void,
-    rc::Rc,
-    path::PathBuf,
-};
+use std::{os::raw::c_void, rc::Rc, path::PathBuf};
 
 use once_cell::unsync::OnceCell;
 use url::Url;
@@ -35,18 +27,11 @@ impl WV for InnerWebView {
         // canary build. Implement this once it's in official release.
         transparent: bool,
         custom_protocol: Option<(String, F)>,
-        rpc_handler: Option<(
-            WindowProxy,
-            Arc<RpcHandler>,
-        )>,
+        rpc_handler: Option<RpcHandler>,
         file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
-
     ) -> Result<Self> {
 
         let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
-        let mut hasher = DefaultHasher::new();
-        window.id().hash(&mut hasher);
-        let window_id = hasher.finish() as i64;
         let hwnd = window.hwnd() as HWND;
         let controller_clone = controller.clone();
 
@@ -74,38 +59,29 @@ impl WV for InnerWebView {
                 }
 
                 // Initialize scripts
-                for js in scripts {
-                    w.add_script_to_execute_on_document_created(&js, |_| (Ok(())))?;
-                }
                 w.add_script_to_execute_on_document_created(
                     "window.external={invoke:s=>window.chrome.webview.postMessage(s)}",
                     |_| (Ok(())),
                 )?;
+                for js in scripts {
+                    w.add_script_to_execute_on_document_created(&js, |_| (Ok(())))?;
+                }
 
                 // Message handler
                 w.add_web_message_received(move |webview, args| {
-                    let s = args.try_get_web_message_as_string()?;
-                    let v: RPC = serde_json::from_str(&s).unwrap();
-                    let mut hashmap = CALLBACKS.lock().unwrap();
-                    let (f, d) = hashmap.get_mut(&(window_id, v.method)).unwrap();
-                    let status = f(d, v.id, v.params);
-
-                    let js = match status {
-                        Ok(()) => {
-                            format!(
-                                r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
-                                v.id, v.id
-                            )
+                    let js = args.try_get_web_message_as_string()?;
+                    if let Some(rpc_handler) = rpc_handler.as_ref() {
+                        match super::rpc_proxy(js, rpc_handler) {
+                            Ok(result) => {
+                                if let Some(ref script) = result {
+                                    webview.execute_script(script, |_| (Ok(())))?;
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("{}", e);
+                            }
                         }
-                        Err(e) => {
-                            format!(
-                                r#"window._rpc[{}].reject("RPC call fail with error {}"); window._rpc[{}] = undefined"#,
-                                v.id, e, v.id
-                            )
-                        }
-                    };
-
-                    webview.execute_script(&js, |_| (Ok(())))?;
+                    }
                     Ok(())
                 })?;
 
@@ -123,7 +99,7 @@ impl WV for InnerWebView {
                         // Undo the protocol workaround when giving path to resolver
                         let path = &uri.replace(
                             &format!("file://custom-protocol-{}", name),
-                            &format!("{}://", name)
+                            &format!("{}://", name),
                         );
 
                         match function(path) {

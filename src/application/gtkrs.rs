@@ -1,14 +1,14 @@
 use crate::{
-    application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes, WindowProxy},
-    ApplicationProxy, Attributes, Callback, CustomProtocol, Error, Icon, Message, Result, WebView,
-    WebViewBuilder, WindowMessage, RpcHandler, FileDropHandler
+    application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
+    ApplicationProxy, Attributes, CustomProtocol, Error, Icon, Message, Result, WebView,
+    WebViewBuilder, WindowMessage, WindowProxy, WindowRpcHandler, FileDropHandler
 };
 
 use std::{
     cell::RefCell,
     collections::HashMap,
     rc::Rc,
-    sync::{Arc, Mutex, mpsc::{channel, Receiver, Sender}},
+    sync::mpsc::{channel, Receiver, Sender},
 };
 
 use cairo::Operator;
@@ -43,14 +43,14 @@ impl AppProxy for InnerApplicationProxy {
     fn add_window(
         &self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
+        rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowId> {
         let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
         self.send_message(Message::NewWindow(
             attributes,
-            callbacks,
             sender,
+            rpc_handler,
             custom_protocol,
         ))?;
         Ok(receiver.recv()?)
@@ -62,7 +62,6 @@ pub struct InnerApplication {
     app: GtkApp,
     event_loop_proxy: EventLoopProxy,
     event_loop_proxy_rx: Receiver<Message>,
-    pub(crate) rpc_handler: Option<Arc<RpcHandler>>,
     pub(crate) file_drop_handler: Option<FileDropHandler>,
 }
 
@@ -82,7 +81,6 @@ impl App for InnerApplication {
             app,
             event_loop_proxy: EventLoopProxy(event_loop_proxy_tx),
             event_loop_proxy_rx,
-            rpc_handler: None,
             file_drop_handler: None,
         })
     }
@@ -90,18 +88,17 @@ impl App for InnerApplication {
     fn create_webview(
         &mut self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
+        rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
         let window = _create_window(&self.app, window_attrs)?;
 
         let webview = _create_webview(
-            &self.application_proxy(),
+            self.application_proxy(),
             window,
-            callbacks,
             custom_protocol,
-            self.rpc_handler.clone(),
+            rpc_handler,
             (webview_attrs.file_drop_handler.clone(), self.file_drop_handler.clone()),
             webview_attrs,
         )?;
@@ -150,16 +147,15 @@ impl App for InnerApplication {
 
             while let Ok(message) = self.event_loop_proxy_rx.try_recv() {
                 match message {
-                    Message::NewWindow(attributes, callbacks, sender, custom_protocol) => {
+                    Message::NewWindow(attributes, sender, rpc_handler, custom_protocol) => {
                         let (window_attrs, webview_attrs) = attributes.split();
                         let window = _create_window(&self.app, window_attrs).unwrap();
                         sender.send(window.get_id()).unwrap();
                         let webview = _create_webview(
-                            &proxy,
+                            proxy.clone(),
                             window,
-                            callbacks,
                             custom_protocol,
-                            self.rpc_handler.clone(),
+                            rpc_handler,
                             (webview_attrs.file_drop_handler.clone(), self.file_drop_handler.clone()),
                             webview_attrs,
                         )
@@ -392,40 +388,19 @@ fn _create_window(app: &GtkApp, attributes: InnerWindowAttributes) -> Result<App
 }
 
 fn _create_webview(
-    proxy: &InnerApplicationProxy,
+    proxy: InnerApplicationProxy,
     window: ApplicationWindow,
-    callbacks: Option<Vec<Callback>>,
     custom_protocol: Option<CustomProtocol>,
-    rpc_handler: Option<Arc<RpcHandler>>,
+    rpc_handler: Option<WindowRpcHandler>,
     file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
     attributes: InnerWebViewAttributes,
 ) -> Result<WebView> {
     let window_id = window.get_id();
-
-    let rpc_win_id = window_id.clone();
-    let rpc_inner = proxy.clone();
-
     let mut webview = WebViewBuilder::new(window)?.transparent(attributes.transparent);
     for js in attributes.initialization_scripts {
         webview = webview.initialize_script(&js);
     }
-    if let Some(cbs) = callbacks {
-        for Callback { name, mut function } in cbs {
-            let proxy = proxy.clone();
-            webview = webview.add_callback(&name, move |_, seq, req| {
-                function(
-                    WindowProxy::new(
-                        ApplicationProxy {
-                            inner: proxy.clone(),
-                        },
-                        window_id,
-                    ),
-                    seq,
-                    req,
-                )
-            });
-        }
-    }
+
     webview = match attributes.url {
         Some(url) => webview.load_url(&url)?,
         None => webview,
@@ -435,13 +410,15 @@ fn _create_webview(
     }
 
     if let Some(rpc_handler) = rpc_handler {
-        let rpc_proxy = WindowProxy::new(
-            ApplicationProxy {
-                inner: rpc_inner,
-            },
-            rpc_win_id,
-        );
-        webview = webview.set_rpc_handler(rpc_proxy, rpc_handler);
+        webview = webview.set_rpc_handler(Box::new(move |requests| {
+            let proxy = WindowProxy::new(
+                ApplicationProxy {
+                    inner: proxy.clone(),
+                },
+                window_id,
+            );
+            rpc_handler(proxy, requests)
+        }));
     }
 
     webview = webview.set_file_drop_handlers(file_drop_handlers);
