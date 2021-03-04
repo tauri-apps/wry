@@ -1,4 +1,5 @@
-use std::sync::{Arc, Mutex};
+use core::fmt;
+use std::sync::{Arc, RwLock};
 
 #[cfg(not(target_os = "linux"))]
 mod general;
@@ -15,7 +16,7 @@ use gtkrs::{InnerApplication, InnerApplicationProxy};
 
 use crate::{Result, RpcHandler};
 
-use std::{fs::read, path::Path, sync::mpsc::Sender};
+use std::{fs::read, path::Path, sync::mpsc::Sender, path::PathBuf, cell::Cell};
 
 use serde_json::Value;
 
@@ -176,6 +177,11 @@ pub struct Attributes {
     ///
     /// The default is an empty vector.
     pub initialization_scripts: Vec<String>,
+
+    /// A closure that will be executed when a file is dropped on the window.
+    ///
+    /// The default is `None`.
+    pub file_drop_handler: Option<FileDropHandler>,
 }
 
 impl Attributes {
@@ -205,6 +211,7 @@ impl Attributes {
                 transparent: self.transparent,
                 url: self.url,
                 initialization_scripts: self.initialization_scripts,
+                file_drop_handler: self.file_drop_handler,
             },
         )
     }
@@ -234,6 +241,7 @@ impl Default for Attributes {
             skip_taskbar: false,
             url: None,
             initialization_scripts: vec![],
+            file_drop_handler: None,
         }
     }
 }
@@ -263,6 +271,7 @@ struct InnerWebViewAttributes {
     transparent: bool,
     url: Option<String>,
     initialization_scripts: Vec<String>,
+    file_drop_handler: Option<FileDropHandler>,
 }
 
 /// Describes a message for a WebView window.
@@ -587,6 +596,11 @@ impl Application {
         self.inner.rpc_handler = Some(Arc::new(handler));
     }
 
+    /// Set a file drop handler.
+    pub fn set_file_drop_handler(&mut self, handler: FileDropHandler) {
+        self.inner.file_drop_handler = Some(handler);
+    }
+
     /// Consume the application and start running it. This will hijack the main thread and iterate
     /// its event loop. To further control the application after running, [`ApplicationProxy`] and
     /// [`WindowProxy`] allow you to do so on other threads.
@@ -666,5 +680,123 @@ impl RpcResponse {
             id, error,
             result: None
         } 
+    }
+}
+
+#[derive(Debug, Serialize, Clone)]
+/// The status of a file drop event.
+pub enum FileDropStatus {
+    /// The file has been dragged onto the window, but has not been dropped yet.
+    Hovered(PathBuf),
+
+    /// The file has been dropped onto the window.
+    Dropped(PathBuf),
+
+    /// The file drop has been aborted.
+    Cancelled(PathBuf),
+}
+
+/// This needs to be defined because internally the respective events do not always yield a PathBuf.
+/// We can easily remember what was cancelled though, as Hovered and Dropped events will always yield a PathBuf which we will save ourselves for later reference.
+pub(crate) enum FileDropEvent {
+    Hovered,
+    Dropped,
+    Cancelled
+}
+
+#[derive(Clone)]
+pub struct FileDropHandler {
+    f: Arc<Box<dyn Fn(FileDropStatus) + Send + Sync + 'static>>
+}
+impl FileDropHandler {
+    /// Initializes a new file drop handler.
+    /// Example: FileDropHandler:new(|status: FileDropStatus| ...)
+    pub fn new<T>(f: T) -> FileDropHandler
+    where
+        T: Fn(FileDropStatus) + Send + Sync + 'static
+    {
+        FileDropHandler { f: Arc::new(Box::new(f)) }
+    }
+
+    pub fn call(&self, status: FileDropStatus) {
+        (self.f)(status);
+    }
+
+    pub(crate) fn select(a: Option<&FileDropHandler>, b: Option<&FileDropHandler>) -> Option<FileDropHandler> {
+        match a {
+            Some(a) => Some(a.clone()),
+            None => match b {
+                Some(b) => Some(b.clone()),
+                None => None
+            }
+        }
+    }
+}
+impl fmt::Debug for FileDropHandler {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "FileDropHandler")
+    }
+}
+
+pub(crate) struct FileDropController {
+    pub(crate) handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+    pub(crate) active_file_drop: Cell<Option<FileDropStatus>>
+}
+impl FileDropController {
+    pub(crate) fn new(handlers: (Option<FileDropHandler>, Option<FileDropHandler>)) -> FileDropController {
+        debug_assert!(handlers.0.is_some() || handlers.1.is_some(), "Tried to create a FileDropController with no file drop handlers!");
+        FileDropController {
+            handlers,
+            active_file_drop: Cell::new(None)
+        }
+    }
+
+    /// Called when a file drop event occurs. Bubbles the event up to the handler.
+    pub(crate) fn file_drop(&self, event: FileDropEvent, path: Option<PathBuf>) {
+        let new_status;
+        match event {
+            FileDropEvent::Hovered => {
+                new_status = FileDropStatus::Hovered(path.unwrap());
+            },
+            FileDropEvent::Dropped => {
+                new_status = FileDropStatus::Dropped(path.unwrap());
+            },
+            FileDropEvent::Cancelled => {
+                // Remember the path of what was aborted
+                if let Some(status) = self.active_file_drop.take() {
+                    let path = match status {
+                        FileDropStatus::Hovered(path) => { path }
+                        FileDropStatus::Dropped(path) => { path }
+                        FileDropStatus::Cancelled(path) => { path }
+                    };
+                    self.call(FileDropStatus::Cancelled(path));
+                }
+                return;
+            }
+        }
+
+        self.active_file_drop.set(Some(new_status.clone()));
+        self.call(new_status);
+    }
+
+    fn call(&self, status: FileDropStatus) {
+        // Kind of silly, but the most memory efficient
+        match self.handlers.0 {
+            Some(ref webview_file_drop_handler) => {
+                match self.handlers.1 {
+                    Some(ref app_file_drop_handler) => {
+                        webview_file_drop_handler.call(status.clone());
+                        app_file_drop_handler.call(status);
+                    },
+                    None => webview_file_drop_handler.call(status)
+                }
+            },
+            None => {
+                match self.handlers.1 {
+                    Some(ref app_file_drop_handler) => app_file_drop_handler.call(status),
+                    None => {}
+                }
+            }
+        }
     }
 }

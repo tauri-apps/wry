@@ -1,7 +1,7 @@
 //! [`WebView`] struct and associated types.
 
 use crate::platform::{InnerWebView, CALLBACKS};
-use crate::application::{WindowProxy, RpcRequest, RpcResponse, RPC_CALLBACK_NAME};
+use crate::application::{WindowProxy, RpcRequest, RpcResponse, RPC_CALLBACK_NAME, FileDropHandler};
 use crate::Result;
 
 use std::sync::{Arc, mpsc::{channel, Receiver, Sender}};
@@ -41,6 +41,7 @@ pub struct WebViewBuilder {
         WindowProxy,
         Arc<RpcHandler>,
     )>,
+    file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
 }
 
 impl WebViewBuilder {
@@ -66,6 +67,7 @@ impl WebViewBuilder {
             window_id,
             custom_protocol: None,
             rpc_handler: None,
+            file_drop_handlers: (None, None),
         })
     }
 
@@ -204,6 +206,11 @@ impl WebViewBuilder {
         self
     }
 
+    pub fn set_file_drop_handlers(mut self, handlers: (Option<FileDropHandler>, Option<FileDropHandler>)) -> Self {
+        self.file_drop_handlers = handlers;
+        self
+    }
+
     /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the
     /// [`WebView`]. The provided URL must be valid.
     pub fn load_url(mut self, url: &str) -> Result<Self> {
@@ -220,6 +227,7 @@ impl WebViewBuilder {
             self.transparent,
             self.custom_protocol,
             self.rpc_handler,
+            self.file_drop_handlers,
         )?;
         Ok(WebView {
             window: self.window,
@@ -257,7 +265,7 @@ impl WebView {
     /// [`WebViewBuilder`] instead.
     pub fn new_with_configs(window: Window, transparent: bool) -> Result<Self> {
         let picky_none: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)> = None;
-        let webview = InnerWebView::new(&window, vec![], None, transparent, picky_none, None)?;
+        let webview = InnerWebView::new(&window, vec![], None, transparent, picky_none, None, (None, None))?;
         let (tx, rx) = channel();
         Ok(Self {
             window,
@@ -333,6 +341,7 @@ pub(crate) trait WV: Sized {
             WindowProxy,
             Arc<RpcHandler>,
         )>,
+        file_drop_handler: (Option<FileDropHandler>, Option<FileDropHandler>),
     ) -> Result<Self>;
 
     fn eval(&self, js: &str) -> Result<()>;
