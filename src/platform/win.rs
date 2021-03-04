@@ -1,14 +1,8 @@
 use crate::mimetype::MimeType;
-use crate::application::WindowProxy;
 use crate::webview::WV;
 use crate::{Result, RpcHandler};
 
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-    os::raw::c_void,
-    rc::Rc,
-};
+use std::{os::raw::c_void, rc::Rc};
 
 use once_cell::unsync::OnceCell;
 use url::Url;
@@ -31,15 +25,9 @@ impl WV for InnerWebView {
         // canary build. Implement this once it's in official release.
         transparent: bool,
         custom_protocol: Option<(String, F)>,
-        rpc_handler: Option<(
-            WindowProxy,
-            RpcHandler,
-        )>,
+        rpc_handler: Option<RpcHandler>,
     ) -> Result<Self> {
         let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
-        let mut hasher = DefaultHasher::new();
-        window.id().hash(&mut hasher);
-        let window_id = hasher.finish() as i64;
         let hwnd = window.hwnd() as HWND;
         let controller_clone = controller.clone();
 
@@ -78,8 +66,8 @@ impl WV for InnerWebView {
                 // Message handler
                 w.add_web_message_received(move |webview, args| {
                     let js = args.try_get_web_message_as_string()?;
-                    if let Some((proxy, rpc_handler)) = rpc_handler.as_ref() {
-                        match super::rpc_proxy(js, proxy, rpc_handler) {
+                    if let Some(rpc_handler) = rpc_handler.as_ref() {
+                        match super::rpc_proxy(js, rpc_handler) {
                             Ok(result) => {
                                 if let Some(ref script) = result {
                                     webview.execute_script(script, |_| (Ok(())))?;
@@ -107,7 +95,7 @@ impl WV for InnerWebView {
                         // Undo the protocol workaround when giving path to resolver
                         let path = &uri.replace(
                             &format!("file://custom-protocol-{}", name),
-                            &format!("{}://", name)
+                            &format!("{}://", name),
                         );
 
                         match function(path) {

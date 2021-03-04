@@ -1,14 +1,14 @@
 use crate::{
-    application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes, WindowProxy},
+    application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
     ApplicationProxy, Attributes, CustomProtocol, Error, Icon, Message, Result, WebView,
-    WebViewBuilder, WindowMessage, RpcHandler,
+    WebViewBuilder, WindowMessage, WindowProxy, WindowRpcHandler,
 };
 
 use std::{
     cell::RefCell,
     collections::HashMap,
     rc::Rc,
-    sync::{mpsc::{channel, Receiver, Sender}},
+    sync::mpsc::{channel, Receiver, Sender},
 };
 
 use cairo::Operator;
@@ -45,7 +45,7 @@ impl AppProxy for InnerApplicationProxy {
     fn add_window(
         &self,
         attributes: Attributes,
-        rpc_handler: Option<RpcHandler>,
+        rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowId> {
         let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
@@ -88,14 +88,14 @@ impl App for InnerApplication {
     fn create_webview(
         &mut self,
         attributes: Attributes,
-        rpc_handler: Option<RpcHandler>,
+        rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
         let window = _create_window(&self.app, window_attrs)?;
 
         let webview = _create_webview(
-            &self.application_proxy(),
+            self.application_proxy(),
             window,
             webview_attrs,
             custom_protocol,
@@ -150,7 +150,7 @@ impl App for InnerApplication {
                         let window = _create_window(&self.app, window_attrs).unwrap();
                         sender.send(window.get_id()).unwrap();
                         let webview = _create_webview(
-                            &proxy,
+                            proxy.clone(),
                             window,
                             webview_attrs,
                             custom_protocol,
@@ -385,17 +385,13 @@ fn _create_window(app: &GtkApp, attributes: InnerWindowAttributes) -> Result<App
 }
 
 fn _create_webview(
-    proxy: &InnerApplicationProxy,
+    proxy: InnerApplicationProxy,
     window: ApplicationWindow,
     attributes: InnerWebViewAttributes,
     custom_protocol: Option<CustomProtocol>,
-    rpc_handler: Option<RpcHandler>,
+    rpc_handler: Option<WindowRpcHandler>,
 ) -> Result<WebView> {
     let window_id = window.get_id();
-
-    let rpc_win_id = window_id.clone();
-    let rpc_inner = proxy.clone();
-
     let mut webview = WebViewBuilder::new(window)?.transparent(attributes.transparent);
     for js in attributes.initialization_scripts {
         webview = webview.initialize_script(&js);
@@ -410,13 +406,8 @@ fn _create_webview(
     }
 
     if let Some(rpc_handler) = rpc_handler {
-        let rpc_proxy = WindowProxy::new(
-            ApplicationProxy {
-                inner: rpc_inner,
-            },
-            rpc_win_id,
-        );
-        webview = webview.set_rpc_handler(rpc_proxy, rpc_handler);
+        let proxy = WindowProxy::new(ApplicationProxy { inner: proxy }, window_id);
+        webview = webview.set_rpc_handler(Box::new(move |requests| rpc_handler(&proxy, requests)));
     }
 
     let webview = webview.build()?;
