@@ -81,7 +81,7 @@ extern crate thiserror;
 extern crate objc;
 
 mod application;
-pub mod mimetype;
+mod mimetype;
 pub mod webview;
 
 pub use application::{
