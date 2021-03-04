@@ -8,7 +8,7 @@ use std::rc::Rc;
 use gdk::RGBA;
 use gio::Cancellable;
 use glib::{Bytes, FileError};
-use gtk::{ApplicationWindow as Window, /* ApplicationWindowExt, */ ContainerExt, WidgetExt};
+use gtk::{ApplicationWindow as Window, ContainerExt, WidgetExt};
 use url::Url;
 use webkit2gtk::{
     SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,

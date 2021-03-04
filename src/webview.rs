@@ -14,7 +14,7 @@ use std::{
 use url::Url;
 
 #[cfg(target_os = "linux")]
-use gtk::{ApplicationWindow as Window, ApplicationWindowExt};
+use gtk::{ApplicationWindow as Window};
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
@@ -34,8 +34,6 @@ pub struct WebViewBuilder {
     initialization_scripts: Vec<String>,
     window: Window,
     url: Option<Url>,
-    // TODO: remove this field?
-    window_id: i64,
     custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
     rpc_handler: Option<(
         WindowProxy,
@@ -47,14 +45,6 @@ impl WebViewBuilder {
     /// Create [`WebViewBuilder`] from provided [`Window`].
     pub fn new(window: Window) -> Result<Self> {
         let (tx, rx) = channel();
-        #[cfg(not(target_os = "linux"))]
-        let window_id = {
-            let mut hasher = DefaultHasher::new();
-            window.id().hash(&mut hasher);
-            hasher.finish() as i64
-        };
-        #[cfg(target_os = "linux")]
-        let window_id = window.get_id() as i64;
 
         Ok(Self {
             tx,
@@ -63,7 +53,6 @@ impl WebViewBuilder {
             window,
             url: None,
             transparent: false,
-            window_id,
             custom_protocol: None,
             rpc_handler: None,
         })

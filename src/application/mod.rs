@@ -17,34 +17,6 @@ use std::{fs::read, path::Path, sync::mpsc::Sender};
 
 use serde_json::Value;
 
-/*
-/// Defines a Rust callback function which can be called on Javascript side.
-pub struct Callback {
-    /// Name of the callback function.
-    pub name: String,
-    /// The function itself takes three parameters and return a number as return value.
-    ///
-    /// [`WindowProxy`] can let you adjust the corresponding WebView window.
-    ///
-    /// The second parameter `i32` is a sequence number to count how many times this function has
-    /// been called.
-    ///
-    /// The last vector is the actual list of arguments passed from the caller.
-    ///
-    /// The return value of the function is a number. Return `0` indicates the call is successful,
-    /// and return others if not.
-    pub function: Box<dyn FnMut(WindowProxy, i32, Vec<Value>) -> Result<()> + Send>,
-}
-
-impl std::fmt::Debug for Callback {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Callback")
-            .field("name", &self.name)
-            .finish()
-    }
-}
-*/
-
 pub struct CustomProtocol {
     pub name: String,
     pub handler: Box<dyn Fn(&str) -> Result<Vec<u8>> + Send>,
@@ -293,7 +265,6 @@ pub enum WindowMessage {
 }
 
 /// Describes a general message.
-//#[derive(Debug)]
 pub enum Message {
     Window(WindowId, WindowMessage),
     NewWindow(
