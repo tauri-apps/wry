@@ -55,13 +55,13 @@ impl WV for InnerWebView {
                 }
 
                 // Initialize scripts
-                for js in scripts {
-                    w.add_script_to_execute_on_document_created(&js, |_| (Ok(())))?;
-                }
                 w.add_script_to_execute_on_document_created(
                     "window.external={invoke:s=>window.chrome.webview.postMessage(s)}",
                     |_| (Ok(())),
                 )?;
+                for js in scripts {
+                    w.add_script_to_execute_on_document_created(&js, |_| (Ok(())))?;
+                }
 
                 // Message handler
                 w.add_web_message_received(move |webview, args| {
