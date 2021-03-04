@@ -16,7 +16,7 @@ async function openWindow() {
 "#;
 
     let attributes = Attributes {
-        url: Some(format!("data:text/html,{}", urlencoding::encode(html))),
+        url: Some(format!("data:text/html,{}", html)),
         // Initialization scripts can be used to define javascript functions and variables.
         initialization_scripts: vec![
             /* Custom initialization scripts go here */

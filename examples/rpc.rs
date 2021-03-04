@@ -31,9 +31,8 @@ async function getAsyncRpcResult() {
 <div id="rpc-result"></div>
 "#;
 
-    let markup = urlencoding::encode(html);
     let attributes = Attributes {
-        url: Some(format!("data:text/html,{}", markup)),
+        url: Some(format!("data:text/html,{}", html)),
         ..Default::default()
     };
 
