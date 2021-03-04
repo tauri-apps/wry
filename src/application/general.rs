@@ -15,6 +15,8 @@ use winit::{
 
 use std::{sync::Arc, collections::HashMap, sync::mpsc::channel};
 
+use super::FileDropHandler;
+
 #[cfg(target_os = "windows")]
 use {
     libc::c_void,
@@ -106,6 +108,7 @@ pub struct InnerApplication {
     event_loop: EventLoop<Message>,
     event_loop_proxy: EventLoopProxy,
     pub(crate) rpc_handler: Option<Arc<RpcHandler>>,
+    pub(crate) file_drop_handler: Option<FileDropHandler>,
 }
 
 impl App for InnerApplication {
@@ -120,6 +123,7 @@ impl App for InnerApplication {
             event_loop,
             event_loop_proxy: proxy,
             rpc_handler: None,
+            file_drop_handler: None,
         })
     }
 
@@ -130,14 +134,16 @@ impl App for InnerApplication {
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
+
         let window = _create_window(&self.event_loop, window_attrs)?;
         let webview = _create_webview(
             &self.application_proxy(),
             window,
-            webview_attrs,
             callbacks,
             custom_protocol,
             self.rpc_handler.clone(),
+            (webview_attrs.file_drop_handler.clone(), self.file_drop_handler.clone()),
+            webview_attrs,
         )?;
         let id = webview.window().id();
         self.webviews.insert(id, webview);
@@ -154,6 +160,7 @@ impl App for InnerApplication {
         let dispatcher = self.application_proxy();
         let mut windows = self.webviews;
         let rpc_handler = self.rpc_handler.clone();
+        let file_drop_handler_override = self.file_drop_handler;
         self.event_loop.run(move |event, event_loop, control_flow| {
             *control_flow = ControlFlow::Wait;
 
@@ -182,10 +189,11 @@ impl App for InnerApplication {
                         let webview = _create_webview(
                             &dispatcher,
                             window,
-                            webview_attrs,
                             callbacks,
                             custom_protocol,
                             rpc_handler.clone(),
+                            (webview_attrs.file_drop_handler.clone(), file_drop_handler_override.clone()),
+                            webview_attrs,
                         )
                         .unwrap();
                         let id = webview.window().id();
@@ -346,14 +354,13 @@ fn _create_window(
 fn _create_webview(
     dispatcher: &InnerApplicationProxy,
     window: Window,
-    attributes: InnerWebViewAttributes,
     callbacks: Option<Vec<Callback>>,
     custom_protocol: Option<CustomProtocol>,
     rpc_handler: Option<Arc<RpcHandler>>,
+    file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+    attributes: InnerWebViewAttributes,
 ) -> Result<WebView> {
     let window_id = window.id();
-    let rpc_win_id = window_id.clone();
-    let rpc_inner = dispatcher.clone();
 
     let mut webview = WebViewBuilder::new(window)?.transparent(attributes.transparent);
     for js in attributes.initialization_scripts {
@@ -383,12 +390,14 @@ fn _create_webview(
     if let Some(rpc_handler) = rpc_handler {
         let rpc_proxy = WindowProxy::new(
             ApplicationProxy {
-                inner: rpc_inner,
+                inner: dispatcher.clone(),
             },
-            rpc_win_id,
+            window_id,
         );
         webview = webview.set_rpc_handler(rpc_proxy, rpc_handler);
     }
+
+    webview = webview.set_file_drop_handlers(file_drop_handlers);
 
     webview = match attributes.url {
         Some(url) => webview.load_url(&url)?,

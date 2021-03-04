@@ -1,6 +1,6 @@
-use crate::mimetype::MimeType;
+use crate::{mimetype::MimeType, application::FileDropHandler};
 use crate::platform::{CALLBACKS, RPC};
-use crate::application::WindowProxy;
+use crate::application::{WindowProxy, FileDropController, FileDropEvent};
 use crate::webview::WV;
 use crate::{Result, Dispatcher, RpcHandler};
 
@@ -10,6 +10,7 @@ use std::{
     hash::{Hash, Hasher},
     os::raw::c_void,
     rc::Rc,
+    path::PathBuf,
 };
 
 use once_cell::unsync::OnceCell;
@@ -26,6 +27,7 @@ impl WV for InnerWebView {
     type Window = Window;
 
     fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
+
         window: &Window,
         scripts: Vec<String>,
         url: Option<Url>,
@@ -37,7 +39,10 @@ impl WV for InnerWebView {
             WindowProxy,
             Arc<RpcHandler>,
         )>,
+        file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+
     ) -> Result<Self> {
+
         let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
         let mut hasher = DefaultHasher::new();
         window.id().hash(&mut hasher);
@@ -150,6 +155,28 @@ impl WV for InnerWebView {
                     }
                     Ok(())
                 })?;
+
+                if file_drop_handlers.0.is_some() || file_drop_handlers.1.is_some() {
+                    let file_drop_controller = FileDropController::new(file_drop_handlers);
+                    // HACK! Captures file drop events.
+                    // TODO https://docs.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2experimentalcompositioncontroller3?view=webview2-1.0.721-prerelease&preserve-view=true
+                    w.add_new_window_requested(move |_, args| {
+                        let uri = match args.get_uri() {
+                            Ok(uri) => uri,
+                            Err(_) => return Ok(())
+                        };
+
+                        match uri.strip_prefix("file:///") {
+                            None => {},
+                            Some(uri) => {
+                                args.put_handled(true)?;
+                                file_drop_controller.file_drop(FileDropEvent::Dropped, Some(PathBuf::from(uri)));
+                            }
+                        }
+
+                        Ok(())
+                    })?;
+                }
 
                 // Navigation
                 if let Some(url) = url {
