@@ -1,4 +1,4 @@
-use crate::{Result, RpcRequest, RpcResponse, WindowProxy};
+use crate::{Result, RpcRequest, RpcResponse, WindowProxy, FileDropHandler};
 
 use std::{fs::read, path::Path};
 
@@ -127,6 +127,11 @@ pub struct Attributes {
     ///
     /// The default is an empty vector.
     pub initialization_scripts: Vec<String>,
+
+    /// A closure that will be executed when a file is dropped on the window.
+    ///
+    /// The default is `None`.
+    pub file_drop_handler: Option<FileDropHandler>,
 }
 
 impl Attributes {
@@ -156,6 +161,7 @@ impl Attributes {
                 transparent: self.transparent,
                 url: self.url,
                 initialization_scripts: self.initialization_scripts,
+                file_drop_handler: self.file_drop_handler
             },
         )
     }
@@ -185,6 +191,7 @@ impl Default for Attributes {
             skip_taskbar: false,
             url: None,
             initialization_scripts: vec![],
+            file_drop_handler: None,
         }
     }
 }
@@ -214,4 +221,5 @@ pub(crate) struct InnerWebViewAttributes {
     pub transparent: bool,
     pub url: Option<String>,
     pub initialization_scripts: Vec<String>,
+    pub file_drop_handler: Option<FileDropHandler>,
 }

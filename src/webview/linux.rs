@@ -1,8 +1,9 @@
 use crate::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Error, Result, RpcHandler};
+use crate::application::{FileDropEvent, FileDropHandler, FileDropController};
 
-use std::rc::Rc;
+use std::{rc::Rc, sync::Arc, path::PathBuf};
 
 use gdk::RGBA;
 use gio::Cancellable;
@@ -23,12 +24,15 @@ impl WV for InnerWebView {
     type Window = Window;
 
     fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
+
         window: &Window,
         scripts: Vec<String>,
         url: Option<Url>,
         transparent: bool,
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<RpcHandler>,
+        file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+
     ) -> Result<Self> {
         // Webview widget
         let manager = UserContentManager::new();
@@ -135,6 +139,45 @@ impl WV for InnerWebView {
                         "Could not get uri.",
                     ));
                 }
+            });
+        }
+
+        // File drop handling
+        if file_drop_handlers.0.is_some() || file_drop_handlers.1.is_some() {
+            let file_drop_controller = Arc::new(FileDropController::new(file_drop_handlers));
+            let file_drop_controller_1 = file_drop_controller.clone();
+            let file_drop_controller_2 = file_drop_controller.clone();
+            let file_drop_controller_3 = file_drop_controller.clone();
+            let file_drop_controller_4 = file_drop_controller.clone();
+            
+            w.webview.connect_drag_data_received(move |_, _, _, _, data, info, _| {
+                if info == 2 {
+                    let uris = data.get_uris().iter().map(|gstr| {
+                        let path = gstr.as_str();
+                        PathBuf::from(path.to_string().strip_prefix("file://").unwrap_or(path))
+                    }).collect::<Vec<PathBuf>>();
+
+                    file_drop_controller_1.file_drop(FileDropEvent::Hovered, Some(uris));
+                } else {
+                    // drag_data_received is called twice, so we can ignore this signal
+                }
+            });
+    
+            w.webview.connect_drag_drop(move |_, _, x, y, time| {
+                gtk::Inhibit(file_drop_controller_2.file_drop(FileDropEvent::Dropped, None))
+            });
+    
+            w.webview.connect_drag_leave(move |_, _, time| {
+                if time == 0 {
+                    // The user cancelled the drag n drop
+                    file_drop_controller_3.file_drop(FileDropEvent::Cancelled, None);
+                } else {
+                    // The user dropped the file on the window, but this will be handled in connect_drag_drop instead
+                }
+            });
+    
+            w.webview.connect_drag_failed(move |_, _, _| {
+                gtk::Inhibit(file_drop_controller_4.file_drop(FileDropEvent::Cancelled, None))
             });
         }
 
