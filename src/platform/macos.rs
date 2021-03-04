@@ -1,6 +1,6 @@
 use crate::mimetype::MimeType;
 use crate::platform::{CALLBACKS, RPC};
-use crate::application::WindowProxy;
+use crate::application::{WindowProxy, FileDropHandler};
 use crate::webview::WV;
 use crate::{Result, Dispatcher, RpcHandler};
 
@@ -43,6 +43,7 @@ impl WV for InnerWebView {
             WindowProxy,
             Arc<RpcHandler>,
         )>,
+        file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
     ) -> Result<Self> {
         let mut hasher = DefaultHasher::new();
         window.id().hash(&mut hasher);

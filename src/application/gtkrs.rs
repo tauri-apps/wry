@@ -65,6 +65,7 @@ pub struct InnerApplication {
     event_loop_proxy: EventLoopProxy,
     event_loop_proxy_rx: Receiver<Message>,
     pub(crate) rpc_handler: Option<Arc<RpcHandler>>,
+    pub(crate) file_drop_handler: Option<FileDropHandler>,
 }
 
 impl App for InnerApplication {
@@ -84,6 +85,7 @@ impl App for InnerApplication {
             event_loop_proxy: EventLoopProxy(event_loop_proxy_tx),
             event_loop_proxy_rx,
             rpc_handler: None,
+            file_drop_handler: None,
         })
     }
 
@@ -99,11 +101,13 @@ impl App for InnerApplication {
         let webview = _create_webview(
             &self.application_proxy(),
             window,
-            webview_attrs,
             callbacks,
             custom_protocol,
             self.rpc_handler.clone(),
+            (webview_attrs.file_drop_handler.clone(), self.file_drop_handler.clone()),
+            webview_attrs,
         )?;
+
         let id = webview.window().get_id();
         self.webviews.insert(id, webview);
 
@@ -155,10 +159,11 @@ impl App for InnerApplication {
                         let webview = _create_webview(
                             &proxy,
                             window,
-                            webview_attrs,
                             callbacks,
                             custom_protocol,
                             self.rpc_handler.clone(),
+                            (webview_attrs.file_drop_handler.clone(), self.file_drop_handler.clone()),
+                            webview_attrs,
                         )
                         .unwrap();
                         let id = webview.window().get_id();
@@ -391,10 +396,11 @@ fn _create_window(app: &GtkApp, attributes: InnerWindowAttributes) -> Result<App
 fn _create_webview(
     proxy: &InnerApplicationProxy,
     window: ApplicationWindow,
-    attributes: InnerWebViewAttributes,
     callbacks: Option<Vec<Callback>>,
     custom_protocol: Option<CustomProtocol>,
     rpc_handler: Option<Arc<RpcHandler>>,
+    file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+    attributes: InnerWebViewAttributes,
 ) -> Result<WebView> {
     let window_id = window.get_id();
 

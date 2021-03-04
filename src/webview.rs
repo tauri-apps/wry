@@ -341,7 +341,7 @@ pub(crate) trait WV: Sized {
             WindowProxy,
             Arc<RpcHandler>,
         )>,
-        file_drop_handler: (Option<FileDropHandler>, Option<FileDropHandler>),
+        file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
     ) -> Result<Self>;
 
     fn eval(&self, js: &str) -> Result<()>;

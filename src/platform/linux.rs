@@ -1,5 +1,5 @@
 use crate::platform::{CALLBACKS, RPC};
-use crate::application::{WindowProxy, FuncCall, RpcRequest, RpcResponse, RPC_CALLBACK_NAME};
+use crate::application::{WindowProxy, FuncCall, RpcRequest, RpcResponse, RPC_CALLBACK_NAME, FileDropHandler};
 use crate::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Dispatcher, Error, Result, RpcHandler};
@@ -36,6 +36,7 @@ impl WV for InnerWebView {
             WindowProxy,
             Arc<RpcHandler>,
         )>,
+        file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
     ) -> Result<Self> {
         // Webview widget
         let manager = UserContentManager::new();

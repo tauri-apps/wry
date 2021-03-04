@@ -721,16 +721,6 @@ impl FileDropHandler {
     pub fn call(&self, status: FileDropStatus) {
         (self.f)(status);
     }
-
-    pub(crate) fn select(a: Option<&FileDropHandler>, b: Option<&FileDropHandler>) -> Option<FileDropHandler> {
-        match a {
-            Some(a) => Some(a.clone()),
-            None => match b {
-                Some(b) => Some(b.clone()),
-                None => None
-            }
-        }
-    }
 }
 impl fmt::Debug for FileDropHandler {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
