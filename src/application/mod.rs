@@ -622,7 +622,7 @@ impl RpcResponse {
     pub fn into_result_script(id: Value, result: Value) -> Result<String> {
         let retval = serde_json::to_string(&result)?;
         Ok(format!(
-            "window.external.rpc._result({}, {})",
+            "window.rpc._result({}, {})",
             id.to_string(),
             retval
         ))
@@ -632,7 +632,7 @@ impl RpcResponse {
     pub fn into_error_script(id: Value, result: Value) -> Result<String> {
         let retval = serde_json::to_string(&result)?;
         Ok(format!(
-            "window.external.rpc._error({}, {})",
+            "window.rpc._error({}, {})",
             id.to_string(),
             retval
         ))
