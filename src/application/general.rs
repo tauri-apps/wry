@@ -1,7 +1,7 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
     ApplicationProxy, Attributes, Callback, CustomProtocol, Error, Icon, Message, Result, WebView,
-    WebViewBuilder, WindowMessage, WindowProxy, RpcHandler,
+    WebViewBuilder, WindowMessage, WindowProxy, RpcHandler, FileDropHandler
 };
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};
@@ -14,8 +14,6 @@ use winit::{
 };
 
 use std::{sync::Arc, collections::HashMap, sync::mpsc::channel};
-
-use super::FileDropHandler;
 
 #[cfg(target_os = "windows")]
 use {

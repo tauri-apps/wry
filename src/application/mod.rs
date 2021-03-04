@@ -1,5 +1,5 @@
 use core::fmt;
-use std::sync::{Arc, RwLock};
+use std::{borrow::Borrow, sync::{Arc, RwLock}};
 
 #[cfg(not(target_os = "linux"))]
 mod general;
@@ -686,14 +686,14 @@ impl RpcResponse {
 #[derive(Debug, Serialize, Clone)]
 /// The status of a file drop event.
 pub enum FileDropStatus {
-    /// The file has been dragged onto the window, but has not been dropped yet.
-    Hovered(PathBuf),
+    /// The file(s) have been dragged onto the window, but have not been dropped yet.
+    Hovered(Vec<PathBuf>),
 
-    /// The file has been dropped onto the window.
-    Dropped(PathBuf),
+    /// The file(s) have been dropped onto the window.
+    Dropped(Vec<PathBuf>),
 
-    /// The file drop has been aborted.
-    Cancelled(PathBuf),
+    /// The file(s) drop was aborted.
+    Cancelled(Vec<PathBuf>),
 }
 
 /// This needs to be defined because internally the respective events do not always yield a PathBuf.
@@ -706,20 +706,20 @@ pub(crate) enum FileDropEvent {
 
 #[derive(Clone)]
 pub struct FileDropHandler {
-    f: Arc<Box<dyn Fn(FileDropStatus) + Send + Sync + 'static>>
+    f: Arc<Box<dyn Fn(FileDropStatus) -> bool + Send + Sync + 'static>>
 }
 impl FileDropHandler {
     /// Initializes a new file drop handler.
     /// Example: FileDropHandler:new(|status: FileDropStatus| ...)
     pub fn new<T>(f: T) -> FileDropHandler
     where
-        T: Fn(FileDropStatus) + Send + Sync + 'static
+        T: Fn(FileDropStatus) -> bool + Send + Sync + 'static
     {
         FileDropHandler { f: Arc::new(Box::new(f)) }
     }
 
-    pub fn call(&self, status: FileDropStatus) {
-        (self.f)(status);
+    pub fn call(&self, status: FileDropStatus) -> bool {
+        (self.f)(status)
     }
 }
 impl fmt::Debug for FileDropHandler {
@@ -742,51 +742,72 @@ impl FileDropController {
     }
 
     /// Called when a file drop event occurs. Bubbles the event up to the handler.
-    pub(crate) fn file_drop(&self, event: FileDropEvent, path: Option<PathBuf>) {
+    /// Return true to prevent the OS' default action for the file drop.
+    pub(crate) fn file_drop(&self, event: FileDropEvent, paths: Option<Vec<PathBuf>>) -> bool {
         let new_status;
+
         match event {
             FileDropEvent::Hovered => {
-                new_status = FileDropStatus::Hovered(path.unwrap());
+                let paths = match paths {
+                    Some(paths) => {
+                        if paths.is_empty() { panic!("A file drop hover event MUST provide a list of PathBufs!") } 
+                        paths
+                    },
+                    None => panic!("A file drop hover event MUST provide a list of PathBufs!")
+                };
+                new_status = FileDropStatus::Hovered(paths);
             },
-            FileDropEvent::Dropped => {
-                new_status = FileDropStatus::Dropped(path.unwrap());
-            },
-            FileDropEvent::Cancelled => {
-                // Remember the path of what was aborted
-                if let Some(status) = self.active_file_drop.take() {
-                    let path = match status {
-                        FileDropStatus::Hovered(path) => { path }
-                        FileDropStatus::Dropped(path) => { path }
-                        FileDropStatus::Cancelled(path) => { path }
-                    };
-                    self.call(FileDropStatus::Cancelled(path));
+            _ => {
+                let paths = match paths {
+                    Some(paths) => paths,
+                    None => {
+                        if let Some(status) = self.active_file_drop.take() {
+                            match status {
+                                FileDropStatus::Hovered(paths) => paths,
+                                FileDropStatus::Dropped(paths) => paths,
+                                FileDropStatus::Cancelled(paths) => paths
+                            }
+                        } else {
+                            debug_assert!(false, "Received a file drop event, but no list of files could be retrieved from memory!");
+                            return false;
+                        }
+                    }
+                };
+                match event {
+                    FileDropEvent::Dropped => new_status = FileDropStatus::Dropped(paths),
+                    FileDropEvent::Cancelled => new_status = FileDropStatus::Cancelled(paths),
+                    _ => {
+                        // Required so the compiler doesn't think new_status can be uninitialized.
+                        new_status = FileDropStatus::Cancelled(paths);
+                        panic!();
+                    }
                 }
-                return;
             }
         }
 
         self.active_file_drop.set(Some(new_status.clone()));
-        self.call(new_status);
+        self.call(new_status)
     }
 
-    fn call(&self, status: FileDropStatus) {
+    fn call(&self, status: FileDropStatus) -> bool {
         // Kind of silly, but the most memory efficient
+        let mut prevent_default = false;
         match self.handlers.0 {
             Some(ref webview_file_drop_handler) => {
                 match self.handlers.1 {
                     Some(ref app_file_drop_handler) => {
-                        webview_file_drop_handler.call(status.clone());
-                        app_file_drop_handler.call(status);
+                        prevent_default = webview_file_drop_handler.call(status.clone()) | app_file_drop_handler.call(status);
                     },
-                    None => webview_file_drop_handler.call(status)
+                    None => prevent_default = webview_file_drop_handler.call(status)
                 }
             },
             None => {
                 match self.handlers.1 {
-                    Some(ref app_file_drop_handler) => app_file_drop_handler.call(status),
+                    Some(ref app_file_drop_handler) => prevent_default = app_file_drop_handler.call(status),
                     None => {}
                 }
             }
         }
+        prevent_default
     }
 }

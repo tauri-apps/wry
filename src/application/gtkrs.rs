@@ -1,7 +1,7 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes, WindowProxy},
     ApplicationProxy, Attributes, Callback, CustomProtocol, Error, Icon, Message, Result, WebView,
-    WebViewBuilder, WindowMessage, RpcHandler,
+    WebViewBuilder, WindowMessage, RpcHandler, FileDropHandler
 };
 
 use std::{
@@ -12,11 +12,9 @@ use std::{
 };
 
 use cairo::Operator;
+use gdk::EventMask;
 use gio::{ApplicationExt as GioApplicationExt, Cancellable};
-use gtk::{
-    Application as GtkApp, ApplicationWindow, ApplicationWindowExt, GtkWindowExt, Inhibit,
-    WidgetExt,
-};
+use gtk::{Application as GtkApp, ApplicationWindow, ApplicationWindowExt, GtkWindowExt, Inhibit, WidgetExt, prelude::WidgetExtManual};
 
 pub type WindowId = u32;
 
@@ -445,6 +443,8 @@ fn _create_webview(
         );
         webview = webview.set_rpc_handler(rpc_proxy, rpc_handler);
     }
+
+    webview = webview.set_file_drop_handlers(file_drop_handlers);
 
     let webview = webview.build()?;
     Ok(webview)

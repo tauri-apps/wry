@@ -1,17 +1,18 @@
-use crate::platform::{CALLBACKS, RPC};
-use crate::application::{WindowProxy, FuncCall, RpcRequest, RpcResponse, RPC_CALLBACK_NAME, FileDropHandler};
+use crate::{application::FileDropEvent, platform::{CALLBACKS, RPC}};
+use crate::application::{WindowProxy, FuncCall, RpcRequest, RpcResponse, RPC_CALLBACK_NAME, FileDropHandler, FileDropController};
 use crate::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Dispatcher, Error, Result, RpcHandler};
 
 use std::rc::Rc;
 use std::sync::Arc;
+use std::path::PathBuf;
 
 use serde_json::Value;
 use gdk::RGBA;
 use gio::Cancellable;
 use glib::{Bytes, FileError};
-use gtk::{ApplicationWindow as Window, ApplicationWindowExt, ContainerExt, WidgetExt};
+use gtk::{ApplicationWindow as Window, ApplicationWindowExt, ContainerExt, Inhibit, WidgetExt, prelude::WidgetExtManual};
 use url::Url;
 use webkit2gtk::{
     SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
@@ -27,6 +28,7 @@ impl WV for InnerWebView {
     type Window = Window;
 
     fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
+
         window: &Window,
         scripts: Vec<String>,
         url: Option<Url>,
@@ -37,7 +39,9 @@ impl WV for InnerWebView {
             Arc<RpcHandler>,
         )>,
         file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+
     ) -> Result<Self> {
+
         // Webview widget
         let manager = UserContentManager::new();
         let context = WebContext::new();
@@ -227,6 +231,45 @@ impl WV for InnerWebView {
         // Navigation
         if let Some(url) = url {
             w.webview.load_uri(url.as_str());
+        }
+        
+        // File drop handling
+        if file_drop_handlers.0.is_some() || file_drop_handlers.1.is_some() {
+            let file_drop_controller = Arc::new(FileDropController::new(file_drop_handlers));
+            let file_drop_controller_1 = file_drop_controller.clone();
+            let file_drop_controller_2 = file_drop_controller.clone();
+            let file_drop_controller_3 = file_drop_controller.clone();
+            let file_drop_controller_4 = file_drop_controller.clone();
+            
+            w.webview.connect_drag_data_received(move |_, _, _, _, data, info, _| {
+                if info == 2 {
+                    let uris = data.get_uris().iter().map(|gstr| {
+                        let path = gstr.as_str();
+                        PathBuf::from(path.to_string().strip_prefix("file://").unwrap_or(path))
+                    }).collect::<Vec<PathBuf>>();
+
+                    file_drop_controller_1.file_drop(FileDropEvent::Hovered, Some(uris));
+                } else {
+                    // drag_data_received is called twice, so we can ignore this signal
+                }
+            });
+    
+            w.webview.connect_drag_drop(move |_, _, x, y, time| {
+                gtk::Inhibit(file_drop_controller_2.file_drop(FileDropEvent::Dropped, None))
+            });
+    
+            w.webview.connect_drag_leave(move |_, _, time| {
+                if time == 0 {
+                    // The user cancelled the drag n drop
+                    file_drop_controller_3.file_drop(FileDropEvent::Cancelled, None);
+                } else {
+                    // The user dropped the file on the window, but this will be handled in connect_drag_drop instead
+                }
+            });
+    
+            w.webview.connect_drag_failed(move |_, _, _| {
+                gtk::Inhibit(file_drop_controller_4.file_drop(FileDropEvent::Cancelled, None))
+            });
         }
 
         Ok(w)

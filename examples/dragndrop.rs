@@ -7,12 +7,14 @@ fn main() -> Result<()> {
     
     app.set_file_drop_handler(FileDropHandler::new(|status| {
         println!("Any window: {:?}", status);
+        true
     }));
 
     app.add_window(Attributes {
         url: Some("about:blank".to_string()),
         file_drop_handler: Some(FileDropHandler::new(|status| {
             println!("Window 1: {:?}", status);
+            true
         })),
         ..Default::default()
     })?;
@@ -21,6 +23,7 @@ fn main() -> Result<()> {
         url: Some("about:blank".to_string()),
         file_drop_handler: Some(FileDropHandler::new(|status| {
             println!("Window 2: {:?}", status);
+            true
         })),
         ..Default::default()
     })?;

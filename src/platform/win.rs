@@ -170,7 +170,7 @@ impl WV for InnerWebView {
                             None => {},
                             Some(uri) => {
                                 args.put_handled(true)?;
-                                file_drop_controller.file_drop(FileDropEvent::Dropped, Some(PathBuf::from(uri)));
+                                file_drop_controller.file_drop(FileDropEvent::Dropped, Some(vec![PathBuf::from(uri)]));
                             }
                         }
 
