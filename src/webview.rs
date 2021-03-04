@@ -84,48 +84,53 @@ impl WebViewBuilder {
     /// Set the RPC handler.
     pub fn set_rpc_handler(mut self, handler: RpcHandler) -> Self {
         let js = r#"
-            function Rpc() {
-                const self = this;
-                this._promises = {};
+            (function() {
+                function Rpc() {
+                    const self = this;
+                    this._promises = {};
 
-                // Private internal function called on error
-                this._error = (id, error) => {
-                    if(this._promises[id]){
-                        this._promises[id].reject(error);
-                        delete this._promises[id];
+                    // Private internal function called on error
+                    this._error = (id, error) => {
+                        if(this._promises[id]){
+                            this._promises[id].reject(error);
+                            delete this._promises[id];
+                        }
+                    }
+
+                    // Private internal function called on result
+                    this._result = (id, result) => {
+                        if(this._promises[id]){
+                            this._promises[id].resolve(result);
+                            delete this._promises[id];
+                        }
+                    }
+
+                    // Call remote method and expect a reply from the handler
+                    this.call = function(method) {
+                        const id = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+                        const params = Array.prototype.slice.call(arguments, 1);
+                        const payload = {jsonrpc: "2.0", id, method, params};
+                        const promise = new Promise((resolve, reject) => {
+                            self._promises[id] = {resolve, reject};
+                        });
+                        window.external.invoke(JSON.stringify(payload));
+                        return promise;
+                    }
+
+                    // Send a notification without an `id` so no reply is expected.
+                    this.notify = function(method) {
+                        const params = Array.prototype.slice.call(arguments, 1);
+                        const payload = {jsonrpc: "2.0", method, params};
+                        window.external.invoke(JSON.stringify(payload));
+                        return Promise.resolve();
                     }
                 }
-
-                // Private internal function called on result
-                this._result = (id, result) => {
-                    if(this._promises[id]){
-                        this._promises[id].resolve(result);
-                        delete this._promises[id];
-                    }
-                }
-
-                // Call remote method and expect a reply from the handler
-                this.call = function(method) {
-                    const id = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
-                    const params = Array.prototype.slice.call(arguments, 1);
-                    const payload = {jsonrpc: "2.0", id, method, params};
-                    const promise = new Promise((resolve, reject) => {
-                        self._promises[id] = {resolve, reject};
-                    });
-                    window.external.invoke(JSON.stringify(payload));
-                    return promise;
-                }
-
-                // Send a notification without an `id` so no reply is expected.
-                this.notify = function(method) {
-                    const params = Array.prototype.slice.call(arguments, 1);
-                    const payload = {jsonrpc: "2.0", method, params};
-                    window.external.invoke(JSON.stringify(payload));
-                    return Promise.resolve();
-                }
-            }
-            window.rpc = window.external.rpc = new Rpc();
+                window.external = window.external || {};
+                window.external.rpc = new Rpc();
+                window.rpc = window.external.rpc;
+            })();
             "#;
+
         self.initialization_scripts.push(js.to_string());
         self.rpc_handler = Some(handler);
         self
