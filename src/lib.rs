@@ -1,4 +1,4 @@
-//! Wry is a Cross-platform WebView rendering library.
+//! Wry is a Cross-webview WebView rendering library.
 //!
 //! There are two main ways to build WebView windows: [`Application`] and build by yourself.
 //!
@@ -7,7 +7,7 @@
 //! [`Application`] is the recommended way to build the WebView windows. It provides ergonomic and
 //! unified APIs across all platforms. To get started, you simply create an [`Application`] first:
 //!
-//! ```no_run
+//! ```ignore
 //! let application = Application::new()?;
 //! ```
 //!
@@ -16,7 +16,7 @@
 //! arguments to configure the WebView window. If you don't have any preference, you could just set
 //! them with `Default::default()` and `None`.
 //!
-//! ```no_run
+//! ```ignore
 //! let attributes = Attributes {
 //!     url: Some("https://www.google.com".to_string()),
 //!     // Initialization scripts can be used to define javascript functions and variables.
@@ -52,17 +52,16 @@
 //! Run the application with run in the end. This will consume the instance and run the application
 //! on current thread.
 //!
-//! ```no_run
+//! ```ignore
 //! application.run();
 //! ```
 //!
 //! # Building WebView windows by yourself
 //!
 //! If you want to control whole windows creation and events handling, you can use
-//! [`WebViewBuilder`] / [`WebView`] under [webview] module and [platform] module to build it all
-//! by yourself. [platform] module re-exports [winit] for you to build the window across all
-//! platforms except Linux. We still need Gtk's library to build the WebView, so it's [gtk-rs] on
-//! Linux.
+//! [`WebViewBuilder`] / [`WebView`] under [webview] module to build it all by yourself. You need
+//! [winit] for you to build the window across all platforms except Linux. We still need Gtk's
+//! library to build the WebView, so it's [gtk-rs] on Linux.
 //!
 //! ## Debug build
 //!
@@ -83,7 +82,6 @@ extern crate objc;
 
 mod application;
 pub mod mimetype;
-pub mod platform;
 pub mod webview;
 
 pub use application::{

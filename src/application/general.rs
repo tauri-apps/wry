@@ -1,7 +1,7 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
-    ApplicationProxy, Attributes, CustomProtocol, Error, Icon, Message, Result,
-    WebView, WebViewBuilder, WindowMessage, WindowProxy, WindowRpcHandler,
+    ApplicationProxy, Attributes, CustomProtocol, Error, Icon, Message, Result, WebView,
+    WebViewBuilder, WindowMessage, WindowProxy, WindowRpcHandler,
 };
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};
@@ -358,7 +358,12 @@ fn _create_webview(
 
     if let Some(rpc_handler) = rpc_handler {
         webview = webview.set_rpc_handler(Box::new(move |requests| {
-            let proxy = WindowProxy::new(ApplicationProxy { inner: proxy.clone() }, window_id);
+            let proxy = WindowProxy::new(
+                ApplicationProxy {
+                    inner: proxy.clone(),
+                },
+                window_id,
+            );
             rpc_handler(proxy, requests)
         }));
     }
