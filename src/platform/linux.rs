@@ -30,7 +30,7 @@ impl WV for InnerWebView {
         transparent: bool,
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
-            WindowProxy,
+            Rc<WindowProxy>,
             RpcHandler,
         )>,
     ) -> Result<Self> {
@@ -47,7 +47,7 @@ impl WV for InnerWebView {
         manager.connect_script_message_received(move |_m, msg| {
             if let (Some(js), Some(context)) = (msg.get_value(), msg.get_global_context()) {
                 if let Some(js) = js.to_string(&context) {
-                    if let Some((proxy, rpc_handler)) = rpc_handler.as_ref() {
+                    if let Some((proxy, rpc_handler)) = rpc_handler.as_ref().map(|(p, r)| (Rc::clone(p), r)) {
                         match super::rpc_proxy(js, proxy, rpc_handler) {
                             Ok(result) => {
                                 if let Some(ref script) = result {

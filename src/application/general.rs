@@ -13,7 +13,7 @@ use winit::{
     window::{Fullscreen, Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
 };
 
-use std::{collections::HashMap, sync::mpsc::channel};
+use std::{rc::Rc, collections::HashMap, sync::mpsc::channel};
 
 #[cfg(target_os = "windows")]
 use {
@@ -365,7 +365,7 @@ fn _create_webview(
             },
             rpc_win_id,
         );
-        webview = webview.set_rpc_handler(rpc_proxy, rpc_handler);
+        webview = webview.set_rpc_handler(Rc::new(rpc_proxy), rpc_handler);
     }
 
     webview = match attributes.url {

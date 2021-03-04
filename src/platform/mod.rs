@@ -20,12 +20,13 @@ pub use gtk::*;
 #[cfg(not(target_os = "linux"))]
 pub use winit::*;
 
+use std::rc::Rc;
 use serde_json::Value;
 
 use crate::{Error, Result, RpcHandler, application::{WindowProxy, RpcRequest, RpcResponse}};
 
 // Helper so all platforms handle RPC messages consistently.
-pub(crate) fn rpc_proxy(js: String, proxy: &WindowProxy, handler: &RpcHandler) -> Result<Option<String>> {
+pub(crate) fn rpc_proxy(js: String, proxy: Rc<WindowProxy>, handler: &RpcHandler) -> Result<Option<String>> {
     let req = serde_json::from_str::<RpcRequest>(&js).map_err(|e| {
         Error::RpcScriptError(e.to_string(), js)
     })?;

@@ -1,5 +1,6 @@
 use wry::Result;
 use wry::{Application, Attributes, RpcResponse, RpcRequest, WindowProxy};
+use std::rc::Rc;
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 
@@ -36,7 +37,7 @@ async function getAsyncRpcResult() {
         ..Default::default()
     };
 
-    let handler = Box::new(|proxy: &WindowProxy, mut req: RpcRequest| {
+    let handler = Box::new(|proxy: Rc<WindowProxy>, mut req: RpcRequest| {
         let mut response = None;
         if &req.method == "fullscreen" {
             if let Some(params) = req.params.take() {

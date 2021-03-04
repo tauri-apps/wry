@@ -32,7 +32,7 @@ impl WV for InnerWebView {
         transparent: bool,
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
-            WindowProxy,
+            Rc<WindowProxy>,
             RpcHandler,
         )>,
     ) -> Result<Self> {

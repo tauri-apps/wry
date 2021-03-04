@@ -416,7 +416,7 @@ fn _create_webview(
             },
             rpc_win_id,
         );
-        webview = webview.set_rpc_handler(rpc_proxy, rpc_handler);
+        webview = webview.set_rpc_handler(Rc::new(rpc_proxy), rpc_handler);
     }
 
     let webview = webview.build()?;

@@ -3,6 +3,7 @@
 use crate::platform::{InnerWebView};
 use crate::application::{WindowProxy, RpcRequest, RpcResponse};
 use crate::Result;
+use std::rc::Rc;
 
 use std::sync::{mpsc::{channel, Receiver, Sender}};
 #[cfg(not(target_os = "linux"))]
@@ -20,7 +21,7 @@ use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
 use winit::window::Window;
 
-pub type RpcHandler = Box<dyn Fn(&WindowProxy, RpcRequest) -> Option<RpcResponse> + Send>;
+pub type RpcHandler = Box<dyn Fn(Rc<WindowProxy>, RpcRequest) -> Option<RpcResponse> + Send>;
 
 /// Builder type of [`WebView`].
 ///
@@ -36,7 +37,7 @@ pub struct WebViewBuilder {
     url: Option<Url>,
     custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
     rpc_handler: Option<(
-        WindowProxy,
+        Rc<WindowProxy>,
         RpcHandler,
     )>,
 }
@@ -90,7 +91,7 @@ impl WebViewBuilder {
     }
 
     /// Set the RPC handler.
-    pub(crate) fn set_rpc_handler(mut self, proxy: WindowProxy, handler: RpcHandler) -> Self {
+    pub(crate) fn set_rpc_handler(mut self, proxy: Rc<WindowProxy>, handler: RpcHandler) -> Self {
         let js =
             r#"
             function Rpc() {
@@ -265,7 +266,7 @@ pub(crate) trait WV: Sized {
         transparent: bool,
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
-            WindowProxy,
+            Rc<WindowProxy>,
             RpcHandler,
         )>,
     ) -> Result<Self>;
