@@ -36,7 +36,7 @@ async function getAsyncRpcResult() {
         ..Default::default()
     };
 
-    let handler = Box::new(|proxy: &WindowProxy, mut req: RpcRequest| {
+    let handler = Box::new(|proxy: WindowProxy, mut req: RpcRequest| {
         let mut response = None;
         if &req.method == "fullscreen" {
             if let Some(params) = req.params.take() {

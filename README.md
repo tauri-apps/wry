@@ -64,7 +64,7 @@ use wry::{Application, Result, WindowProxy, RpcRequest, RpcResponse};
 
 fn main() -> Result<()> {
     let mut app = Application::new()?;
-    let handler = Box::new(|proxy: &WindowProxy, mut req: RpcRequest| {
+    let handler = Box::new(|proxy: WindowProxy, mut req: RpcRequest| {
       // Handle the request of type `RpcRequest` and reply with `Option<RpcResponse>`, 
       // use the `req.method` field to determine which action to take.
       // 

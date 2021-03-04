@@ -17,7 +17,7 @@ use std::{fs::read, path::Path, sync::mpsc::Sender};
 
 use serde_json::Value;
 
-pub type WindowRpcHandler = Box<dyn Fn(&WindowProxy, RpcRequest) -> Option<RpcResponse> + Send>;
+pub type WindowRpcHandler = Box<dyn Fn(WindowProxy, RpcRequest) -> Option<RpcResponse> + Send>;
 
 pub struct CustomProtocol {
     pub name: String,
