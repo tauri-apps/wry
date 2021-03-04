@@ -85,6 +85,7 @@ impl WebViewBuilder {
     pub fn set_rpc_handler(mut self, handler: RpcHandler) -> Self {
         let js = r#"
             function Rpc() {
+                const self = this;
                 this._promises = {};
 
                 // Private internal function called on error
@@ -109,7 +110,7 @@ impl WebViewBuilder {
                     const params = Array.prototype.slice.call(arguments, 1);
                     const payload = {jsonrpc: "2.0", id, method, params};
                     const promise = new Promise((resolve, reject) => {
-                        this._promises[id] = {resolve, reject};
+                        self._promises[id] = {resolve, reject};
                     });
                     window.external.invoke(JSON.stringify(payload));
                     return promise;
