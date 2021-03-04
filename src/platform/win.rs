@@ -1,11 +1,9 @@
 use crate::mimetype::MimeType;
-use crate::platform::{CALLBACKS, RPC};
 use crate::application::WindowProxy;
 use crate::webview::WV;
-use crate::{Result, Dispatcher, RpcHandler};
+use crate::{Result, RpcHandler};
 
 use std::{
-    sync::Arc,
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
     os::raw::c_void,
@@ -35,7 +33,7 @@ impl WV for InnerWebView {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
             WindowProxy,
-            Arc<RpcHandler>,
+            RpcHandler,
         )>,
     ) -> Result<Self> {
         let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
@@ -79,28 +77,19 @@ impl WV for InnerWebView {
 
                 // Message handler
                 w.add_web_message_received(move |webview, args| {
-                    let s = args.try_get_web_message_as_string()?;
-                    let v: RPC = serde_json::from_str(&s).unwrap();
-                    let mut hashmap = CALLBACKS.lock().unwrap();
-                    let (f, d) = hashmap.get_mut(&(window_id, v.method)).unwrap();
-                    let status = f(d, v.id, v.params);
-
-                    let js = match status {
-                        Ok(()) => {
-                            format!(
-                                r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
-                                v.id, v.id
-                            )
+                    let js = args.try_get_web_message_as_string()?;
+                    if let Some((proxy, rpc_handler)) = rpc_handler.as_ref() {
+                        match super::rpc_proxy(js, proxy, rpc_handler) {
+                            Ok(result) => {
+                                if let Some(ref script) = result {
+                                    webview.execute_script(script, |_| (Ok(())))?;
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("{}", e);
+                            }
                         }
-                        Err(e) => {
-                            format!(
-                                r#"window._rpc[{}].reject("RPC call fail with error {}"); window._rpc[{}] = undefined"#,
-                                v.id, e, v.id
-                            )
-                        }
-                    };
-
-                    webview.execute_script(&js, |_| (Ok(())))?;
+                    }
                     Ok(())
                 })?;
 

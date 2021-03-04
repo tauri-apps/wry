@@ -20,34 +20,34 @@ pub use gtk::*;
 #[cfg(not(target_os = "linux"))]
 pub use winit::*;
 
-use crate::{Dispatcher, Result, RpcHandler};
-
-use std::{collections::HashMap, sync::Mutex};
-
-use once_cell::sync::Lazy;
 use serde_json::Value;
 
-pub(crate) static CALLBACKS: Lazy<
-    Mutex<
-        HashMap<
-            (i64, String),
-            (
-                std::boxed::Box<dyn FnMut(&Dispatcher, i32, Vec<Value>) -> Result<()> + Send>,
-                Dispatcher,
-            ),
-        >,
-    >,
-> = Lazy::new(|| {
-    let m = HashMap::new();
-    Mutex::new(m)
-});
+use crate::{Error, Result, RpcHandler, application::{WindowProxy, RpcRequest, RpcResponse}};
 
-#[deprecated]
-#[derive(Debug, Serialize, Deserialize)]
-struct RPC {
-    id: i32,
-    method: String,
-    params: Vec<Value>,
+// Helper so all platforms handle RPC messages consistently.
+pub(crate) fn rpc_proxy(js: String, proxy: &WindowProxy, handler: &RpcHandler) -> Result<Option<String>> {
+    let req = serde_json::from_str::<RpcRequest>(&js).map_err(|e| {
+        Error::RpcScriptError(e.to_string(), js)
+    })?;
+
+    let mut response = (handler)(proxy, req);
+    // Got a synchronous response so convert it to a script to be evaluated
+    if let Some(mut response) = response.take() {
+        if let Some(id) = response.id {
+            let js = if let Some(error) = response.error.take() {
+                RpcResponse::into_error_script(id, error)?
+            } else if let Some(result) = response.result.take() {
+                RpcResponse::into_result_script(id, result)?
+            } else {
+                // No error or result, assume a positive response
+                // with empty result (ACK)
+                RpcResponse::into_result_script(id, Value::Null)?
+            };
+            Ok(Some(js))
+        } else {
+            Ok(None)
+        }
+    } else {
+        Ok(None) 
+    }
 }
-
-

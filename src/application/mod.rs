@@ -1,5 +1,3 @@
-use std::sync::{Arc, Mutex};
-
 #[cfg(not(target_os = "linux"))]
 mod general;
 #[cfg(not(target_os = "linux"))]
@@ -18,32 +16,6 @@ use crate::{Result, RpcHandler};
 use std::{fs::read, path::Path, sync::mpsc::Sender};
 
 use serde_json::Value;
-
-/// Defines a Rust callback function which can be called on Javascript side.
-pub struct Callback {
-    /// Name of the callback function.
-    pub name: String,
-    /// The function itself takes three parameters and return a number as return value.
-    ///
-    /// [`WindowProxy`] can let you adjust the corresponding WebView window.
-    ///
-    /// The second parameter `i32` is a sequence number to count how many times this function has
-    /// been called.
-    ///
-    /// The last vector is the actual list of arguments passed from the caller.
-    ///
-    /// The return value of the function is a number. Return `0` indicates the call is successful,
-    /// and return others if not.
-    pub function: Box<dyn FnMut(WindowProxy, i32, Vec<Value>) -> Result<()> + Send>,
-}
-
-impl std::fmt::Debug for Callback {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Callback")
-            .field("name", &self.name)
-            .finish()
-    }
-}
 
 pub struct CustomProtocol {
     pub name: String,
@@ -293,13 +265,12 @@ pub enum WindowMessage {
 }
 
 /// Describes a general message.
-#[derive(Debug)]
 pub enum Message {
     Window(WindowId, WindowMessage),
     NewWindow(
         Attributes,
-        Option<Vec<Callback>>,
         Sender<WindowId>,
+        Option<RpcHandler>,
         Option<CustomProtocol>,
     ),
 }
@@ -329,12 +300,12 @@ impl ApplicationProxy {
     pub fn add_window_with_configs(
         &self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
+        rpc_handler: Option<RpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
         let id = self
             .inner
-            .add_window(attributes, callbacks, custom_protocol)?;
+            .add_window(attributes, rpc_handler, custom_protocol)?;
         Ok(WindowProxy::new(self.clone(), id))
     }
 }
@@ -344,9 +315,8 @@ trait AppProxy {
     fn add_window(
         &self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
+        rpc_handler: Option<RpcHandler>,
         custom_protocol: Option<CustomProtocol>,
-        //rpc_handler: Option<RpcHandler>,
     ) -> Result<WindowId>;
 }
 
@@ -557,12 +527,12 @@ impl Application {
     pub fn add_window_with_configs(
         &mut self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
+        handler: Option<RpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
         let id = self
             .inner
-            .create_webview(attributes, callbacks, custom_protocol)?;
+            .create_webview(attributes, handler, custom_protocol)?;
         Ok(self.window_proxy(id))
     }
 
@@ -577,14 +547,6 @@ impl Application {
     /// Returns the [`WindowProxy`] with given `WindowId`.
     pub fn window_proxy(&self, window_id: WindowId) -> WindowProxy {
         WindowProxy::new(self.application_proxy(), window_id)
-    }
-
-    /// Set an RPC message handler.
-    pub fn set_rpc_handler(&mut self, handler: RpcHandler) {
-        // TODO: detect if webviews already exist and panic
-        // TODO: because this should be set before callling add_window().
-
-        self.inner.rpc_handler = Some(Arc::new(handler));
     }
 
     /// Consume the application and start running it. This will hijack the main thread and iterate
@@ -604,9 +566,8 @@ trait App: Sized {
     fn create_webview(
         &mut self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
+        rpc_handler: Option<RpcHandler>,
         custom_protocol: Option<CustomProtocol>,
-        //rpc_handler: Option<RpcHandler>,
     ) -> Result<Self::Id>;
 
     fn application_proxy(&self) -> Self::Proxy;
@@ -614,21 +575,7 @@ trait App: Sized {
     fn run(self);
 }
 
-pub(crate) const RPC_CALLBACK_NAME: &str = "__rpc__";
 const RPC_VERSION: &str = "2.0";
-
-/// Function call from Javascript.
-///
-/// If the callback name matches the name for an RPC handler
-/// the payload should be passed to the handler transparently.
-///
-/// Otherwise attempt to find a `Callback` with the same name
-/// and pass it the payload `params`.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FuncCall {
-    pub(crate) callback: String,
-    pub(crate) payload: RpcRequest,
-}
 
 /// RPC request message.
 #[derive(Debug, Serialize, Deserialize)]
@@ -666,5 +613,19 @@ impl RpcResponse {
             id, error,
             result: None
         } 
+    }
+
+    /// Get a script that resolves the promise with a result.
+    pub fn into_result_script(id: Value, result: Value) -> Result<String> {
+        let retval = serde_json::to_string(&result)?;
+        Ok(format!("window.external.rpc._result({}, {})",
+            id.to_string(), retval))
+    }
+
+    /// Get a script that rejects the promise with an error.
+    pub fn into_error_script(id: Value, result: Value) -> Result<String> {
+        let retval = serde_json::to_string(&result)?;
+        Ok(format!("window.external.rpc._error({}, {})",
+            id.to_string(), retval))
     }
 }

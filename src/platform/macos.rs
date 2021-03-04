@@ -1,11 +1,9 @@
 use crate::mimetype::MimeType;
-use crate::platform::{CALLBACKS, RPC};
 use crate::application::WindowProxy;
 use crate::webview::WV;
-use crate::{Result, Dispatcher, RpcHandler};
+use crate::{Result, RpcHandler};
 
 use std::{
-    sync::Arc,
     collections::hash_map::DefaultHasher,
     ffi::{c_void, CStr},
     hash::{Hash, Hasher},
@@ -41,7 +39,7 @@ impl WV for InnerWebView {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<(
             WindowProxy,
-            Arc<RpcHandler>,
+            RpcHandler,
         )>,
     ) -> Result<Self> {
         let mut hasher = DefaultHasher::new();
@@ -52,33 +50,30 @@ impl WV for InnerWebView {
         extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
             // Safety: objc runtime calls are unsafe
             unsafe {
-                let window_id = *this.get_ivar("_window_id");
+                //let window_id = *this.get_ivar("_window_id");
                 let body: id = msg_send![msg, body];
                 let utf8: *const c_char = msg_send![body, UTF8String];
-                let s = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
-                let v: RPC = serde_json::from_str(&s).unwrap();
-                let mut hashmap = CALLBACKS.lock().unwrap();
-                let (f, d) = hashmap.get_mut(&(window_id, v.method)).unwrap();
-                let status = f(d, v.id, v.params);
+                let js = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
 
-                let js = match status {
-                    Ok(()) => {
-                        format!(
-                            r#"window._rpc[{}].resolve("RPC call success"); window._rpc[{}] = undefined"#,
-                            v.id, v.id
-                        )
+                // FIXME: allow access to rpc_handler here?
+
+                /*
+                if let Some((proxy, rpc_handler)) = rpc_handler.as_ref() {
+                    match super::rpc_proxy(js.to_string(), proxy, rpc_handler) {
+                        Ok(result) => {
+                            if let Some(ref script) = result {
+                                let wv: id = msg_send![msg, webView];
+                                let js = NSString::new(script);
+                                let _: id =
+                                    msg_send![wv, evaluateJavaScript:js completionHandler:null::<*const c_void>()];
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("{}", e);
+                        }
                     }
-                    Err(e) => {
-                        format!(
-                            r#"window._rpc[{}].reject("RPC call fail with error {}"); window._rpc[{}] = undefined"#,
-                            v.id, e, v.id
-                        )
-                    }
-                };
-                let wv: id = msg_send![msg, webView];
-                let js = NSString::new(&js);
-                let _: id =
-                    msg_send![wv, evaluateJavaScript:js completionHandler:null::<*const c_void>()];
+                }
+                */
             }
         }
 

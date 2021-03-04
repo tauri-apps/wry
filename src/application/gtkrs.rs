@@ -1,6 +1,6 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes, WindowProxy},
-    ApplicationProxy, Attributes, Callback, CustomProtocol, Error, Icon, Message, Result, WebView,
+    ApplicationProxy, Attributes, CustomProtocol, Error, Icon, Message, Result, WebView,
     WebViewBuilder, WindowMessage, RpcHandler,
 };
 
@@ -8,7 +8,7 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     rc::Rc,
-    sync::{Arc, Mutex, mpsc::{channel, Receiver, Sender}},
+    sync::{mpsc::{channel, Receiver, Sender}},
 };
 
 use cairo::Operator;
@@ -45,14 +45,14 @@ impl AppProxy for InnerApplicationProxy {
     fn add_window(
         &self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
+        rpc_handler: Option<RpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowId> {
         let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
         self.send_message(Message::NewWindow(
             attributes,
-            callbacks,
             sender,
+            rpc_handler,
             custom_protocol,
         ))?;
         Ok(receiver.recv()?)
@@ -64,7 +64,6 @@ pub struct InnerApplication {
     app: GtkApp,
     event_loop_proxy: EventLoopProxy,
     event_loop_proxy_rx: Receiver<Message>,
-    pub(crate) rpc_handler: Option<Arc<RpcHandler>>,
 }
 
 impl App for InnerApplication {
@@ -83,14 +82,13 @@ impl App for InnerApplication {
             app,
             event_loop_proxy: EventLoopProxy(event_loop_proxy_tx),
             event_loop_proxy_rx,
-            rpc_handler: None,
         })
     }
 
     fn create_webview(
         &mut self,
         attributes: Attributes,
-        callbacks: Option<Vec<Callback>>,
+        rpc_handler: Option<RpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
@@ -100,9 +98,8 @@ impl App for InnerApplication {
             &self.application_proxy(),
             window,
             webview_attrs,
-            callbacks,
             custom_protocol,
-            self.rpc_handler.clone(),
+            rpc_handler,
         )?;
         let id = webview.window().get_id();
         self.webviews.insert(id, webview);
@@ -148,7 +145,7 @@ impl App for InnerApplication {
 
             while let Ok(message) = self.event_loop_proxy_rx.try_recv() {
                 match message {
-                    Message::NewWindow(attributes, callbacks, sender, custom_protocol) => {
+                    Message::NewWindow(attributes, sender, rpc_handler, custom_protocol) => {
                         let (window_attrs, webview_attrs) = attributes.split();
                         let window = _create_window(&self.app, window_attrs).unwrap();
                         sender.send(window.get_id()).unwrap();
@@ -156,9 +153,8 @@ impl App for InnerApplication {
                             &proxy,
                             window,
                             webview_attrs,
-                            callbacks,
                             custom_protocol,
-                            self.rpc_handler.clone(),
+                            rpc_handler,
                         )
                         .unwrap();
                         let id = webview.window().get_id();
@@ -392,9 +388,8 @@ fn _create_webview(
     proxy: &InnerApplicationProxy,
     window: ApplicationWindow,
     attributes: InnerWebViewAttributes,
-    callbacks: Option<Vec<Callback>>,
     custom_protocol: Option<CustomProtocol>,
-    rpc_handler: Option<Arc<RpcHandler>>,
+    rpc_handler: Option<RpcHandler>,
 ) -> Result<WebView> {
     let window_id = window.get_id();
 
@@ -405,23 +400,7 @@ fn _create_webview(
     for js in attributes.initialization_scripts {
         webview = webview.initialize_script(&js);
     }
-    if let Some(cbs) = callbacks {
-        for Callback { name, mut function } in cbs {
-            let proxy = proxy.clone();
-            webview = webview.add_callback(&name, move |_, seq, req| {
-                function(
-                    WindowProxy::new(
-                        ApplicationProxy {
-                            inner: proxy.clone(),
-                        },
-                        window_id,
-                    ),
-                    seq,
-                    req,
-                )
-            });
-        }
-    }
+
     webview = match attributes.url {
         Some(url) => webview.load_url(&url)?,
         None => webview,

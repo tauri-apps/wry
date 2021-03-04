@@ -1,63 +1,73 @@
 use wry::Result;
-use wry::{Application, Attributes, Callback};
+use wry::{Application, Attributes, WindowProxy, RpcRequest};
+use serde_json::Value;
 
 fn main() -> Result<()> {
     let mut app = Application::new()?;
 
+    let html = r#"
+<script>    
+async function openWindow() {
+    await window.rpc.notify("openWindow", "https://i.imgur.com/x6tXcr9.gif");
+}
+</script>
+<p>Multiwindow example</p>
+<button onclick="openWindow();">Launch window</button>        
+"#;
+
     let attributes = Attributes {
-        url: Some("https://tauri.studio".to_string()),
+        url: Some(format!("data:text/html,{}", html)),
         // Initialization scripts can be used to define javascript functions and variables.
         initialization_scripts: vec![
-            String::from("breads = NaN"),
-            String::from("menacing = 'ゴ'"),
+            /* Custom initialization scripts go here */
         ],
         ..Default::default()
     };
-    // Callback defines a rust function to be called on javascript side later. Below is a function
-    // which will print the list of parameters after 8th calls.
-    let callback = Callback {
-        name: "world".to_owned(),
-        function: Box::new(|proxy, sequence, requests| {
-            // Proxy is like a window handle for you to send message events to the corresponding webview
-            // window. You can use it to adjust window and evaluate javascript code like below.
-            // This is useful when you want to perform any action in javascript.
-            proxy.evaluate_script("console.log(menacing);")?;
-            // Sequence is a number counting how many times this function being called.
-            if sequence < 8 {
-                println!("{} seconds has passed.", sequence);
-            } else {
-                // Requests is a vector of parameters passed from the caller.
-                println!("{:?}", requests);
-            }
-            Ok(())
-        }),
-    };
 
-    let window1 = app.add_window_with_configs(attributes, Some(vec![callback]), None)?;
     let app_proxy = app.application_proxy();
+    let (window_tx, window_rx) = std::sync::mpsc::channel::<String>();
+
+    let handler = Box::new(move |_proxy: &WindowProxy, req: RpcRequest| {
+        if &req.method == "openWindow" {
+            if let Some(params) = req.params {
+                if let Value::Array(mut arr) = params {
+                    let mut param = if arr.get(0).is_none() {
+                        None
+                    } else {
+                        Some(arr.swap_remove(0))
+                    };
+
+                    if let Some(param) = param.take() {
+                        if let Value::String(url) = param {
+                            let _ = window_tx.send(url);
+                        }
+                    }
+                }
+            }
+        }
+        None 
+    });
+
+    let _ = app.add_window_with_configs(attributes, Some(handler), None)?;
 
     std::thread::spawn(move || {
-        for _ in 0..7 {
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            window1.evaluate_script("world()".to_string()).unwrap();
-        }
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        while let Ok(url) = window_rx.recv() {
+            let new_window = app_proxy
+                .add_window_with_configs(
+                    Attributes {
+                        width: 426.,
+                        height: 197.,
+                        title: "RODA RORA DA".into(),
+                        url: Some(url),
+                        ..Default::default()
+                    },
+                    None,
+                    None,
+                )
+                .unwrap();
+            println!("ID of new window: {:?}", new_window.id());
 
-        window1.set_title("WRYYYYYYYYYYYYYYYYYYYYY").unwrap();
-        let window2 = app_proxy
-            .add_window_with_configs(
-                Attributes {
-                    width: 426.,
-                    height: 197.,
-                    title: "RODA RORA DA".into(),
-                    url: Some("https://i.imgur.com/x6tXcr9.gif".to_string()),
-                    ..Default::default()
-                },
-                None,
-                None,
-            )
-            .unwrap();
-        println!("ID of second window: {:?}", window2.id());
+        }
     });
 
     app.run();

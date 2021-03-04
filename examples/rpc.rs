@@ -1,5 +1,5 @@
 use wry::Result;
-use wry::{Application, Attributes, RpcResponse};
+use wry::{Application, Attributes, RpcResponse, RpcRequest, WindowProxy};
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 
@@ -31,14 +31,12 @@ async function getAsyncRpcResult() {
 <div id="rpc-result"></div>
 "#;
 
-    let markup = urlencoding::encode(html);
     let attributes = Attributes {
-        url: Some(format!("data:text/html,{}", markup)),
+        url: Some(format!("data:text/html,{}", html)),
         ..Default::default()
     };
 
-    // NOTE: must be set before calling add_window().
-    app.set_rpc_handler(Box::new(|proxy, mut req| {
+    let handler = Box::new(|proxy: &WindowProxy, mut req: RpcRequest| {
         let mut response = None;
         if &req.method == "fullscreen" {
             if let Some(params) = req.params.take() {
@@ -69,9 +67,9 @@ async function getAsyncRpcResult() {
         }
 
         response
-    }));
+    });
 
-    app.add_window(attributes)?;
+    app.add_window_with_configs(attributes, Some(handler), None)?;
 
     app.run();
     Ok(())
