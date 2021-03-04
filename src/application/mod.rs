@@ -11,7 +11,7 @@ pub use gtkrs::WindowId;
 #[cfg(target_os = "linux")]
 use gtkrs::{InnerApplication, InnerApplicationProxy};
 
-use crate::{Result, RpcHandler};
+use crate::Result;
 
 use std::{fs::read, path::Path, sync::mpsc::Sender};
 
