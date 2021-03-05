@@ -1,5 +1,5 @@
 use crate::mimetype::MimeType;
-use crate::application::{WindowProxy, FileDropHandler};
+use crate::application::{WindowProxy, FileDropHandler, FileDropEvent, FileDropController};
 use crate::webview::WV;
 use crate::{Result, RpcHandler};
 
@@ -8,28 +8,154 @@ use std::{
     os::raw::c_char,
     ptr::null,
     slice, str,
+    sync::Once,
+    path::PathBuf,
 };
 
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
-use cocoa::base::id;
+use cocoa::base::{id, BOOL, YES};
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use objc::{
     declare::ClassDecl,
-    runtime::{Object, Sel},
+    runtime::{Object, Sel, Class},
 };
 use objc_id::Id;
 use url::Url;
 use winit::{platform::macos::WindowExtMacOS, window::Window};
 
+// https://github.com/ryanmcgrath/cacao/blob/784727748c60183665cabf3c18fb54896c81214e/src/webview/class.rs#L129
+fn register_webview_class() -> *const Class {
+    static mut VIEW_CLASS: *const Class = 0 as *const Class;
+    static INIT: Once = Once::new();
+
+    INIT.call_once(|| unsafe {
+        let superclass = class!(WKWebView);
+        let mut decl = ClassDecl::new("WryWebView", superclass).unwrap();
+
+        decl.add_ivar::<*mut c_void>("FileDropController");
+        decl.add_ivar::<*mut c_void>("draggingEntered");
+        decl.add_ivar::<*mut c_void>("draggingEnded");
+        decl.add_ivar::<*mut c_void>("draggingExited");
+
+        decl.add_method(
+            sel!(draggingEntered:),
+            FileDropDelegate::dragging_entered as extern "C" fn(&mut Object, Sel, id) -> BOOL,
+        );
+
+        decl.add_method(
+            sel!(draggingEnded:),
+            FileDropDelegate::dragging_ended as extern "C" fn(&mut Object, Sel, id) -> BOOL,
+        );
+
+        decl.add_method(
+            sel!(draggingExited:),
+            FileDropDelegate::dragging_exited as extern "C" fn(&mut Object, Sel, id) -> BOOL,
+        );
+
+        VIEW_CLASS = decl.register();
+    });
+
+    unsafe { VIEW_CLASS }
+}
+
+// This struct contains functions which will be "injected" into the WKWebView,
+// + any relevant helper functions.
+// Safety: objc runtime calls are unsafe
+#[repr(C)]
+struct FileDropDelegate;
+impl FileDropDelegate {
+    unsafe fn init(webview: *mut Object, handlers: (Option<FileDropHandler>, Option<FileDropHandler>)) -> Option<*mut FileDropController> {
+        if handlers.0.is_none() && handlers.1.is_none() { return None }
+
+        let dragging_entered = objc::runtime::class_getInstanceMethod(class!(WKWebView), sel!(draggingEntered:));
+        let dragging_ended = objc::runtime::class_getInstanceMethod(class!(WKWebView), sel!(draggingEnded:));
+        let dragging_exited = objc::runtime::class_getInstanceMethod(class!(WKWebView), sel!(draggingExited:));
+
+        (*webview).set_ivar("draggingEntered", Box::into_raw(Box::new(dragging_entered)) as *mut _ as *mut c_void);
+        (*webview).set_ivar("draggingEnded", Box::into_raw(Box::new(dragging_ended)) as *mut _ as *mut c_void);
+        (*webview).set_ivar("draggingExited", Box::into_raw(Box::new(dragging_exited)) as *mut _ as *mut c_void);
+
+        let controller = Box::leak(Box::new(FileDropController::new(handlers)));
+        let ptr = controller as *mut FileDropController;
+        (*webview).set_ivar("FileDropController", ptr as *mut c_void);
+        Some(ptr)
+    }
+
+    fn get_controller<F: FnOnce(&mut FileDropController) -> T, T>(this: &Object, callback: F) {
+        let file_drop_controller = unsafe {
+            let file_drop_controller: *mut c_void = *this.get_ivar("FileDropController");
+            &mut *(file_drop_controller as *mut FileDropController)
+        };
+        callback(file_drop_controller);
+    }
+
+    fn file_drop(this: &mut Object, event: FileDropEvent, paths: Option<Vec<PathBuf>>) {
+        FileDropDelegate::get_controller(this, move |controller| {
+            controller.file_drop(event, paths);
+        });
+    }
+    
+    extern "C" fn dragging_entered(this: &mut Object, sel: Sel, sender: id) -> BOOL {
+        use cocoa::foundation::NSFastEnumeration;
+        use cocoa::foundation::NSString;
+
+        let paths = unsafe {
+            println!("dragging_entered");
+
+            let pb: id = msg_send![sender, draggingPasteboard];
+            let mut file_drop_paths = Vec::new();
+            for path in cocoa::appkit::NSPasteboard::propertyListForType(pb, cocoa::appkit::NSFilenamesPboardType).iter() {
+                file_drop_paths.push(PathBuf::from(CStr::from_ptr(NSString::UTF8String(path)).to_string_lossy().into_owned()));
+            }
+            file_drop_paths
+        };
+
+        println!("{:?}; {:?}, {:?}", this, sel, sender);
+        println!("{:?}", paths);
+        FileDropDelegate::file_drop(this, FileDropEvent::Hovered, Some(paths));
+        YES
+    }
+
+    extern "C" fn dragging_ended(this: &mut Object, sel: Sel, sender: id) -> BOOL {
+        use cocoa::foundation::NSFastEnumeration;
+        use cocoa::foundation::NSString;
+
+        let paths = unsafe {
+            println!("dragging_ended");
+
+            let pb: id = msg_send![sender, draggingPasteboard];
+            let mut file_drop_paths = Vec::new();
+            for path in cocoa::appkit::NSPasteboard::propertyListForType(pb, cocoa::appkit::NSFilenamesPboardType).iter() {
+                file_drop_paths.push(PathBuf::from(CStr::from_ptr(NSString::UTF8String(path)).to_string_lossy().into_owned()));
+            }
+            file_drop_paths
+        };
+
+        println!("{:?}; {:?}, {:?}", this, sel, sender);
+        println!("{:?}", paths);
+        FileDropDelegate::file_drop(this, FileDropEvent::Dropped, Some(paths));
+        YES
+    }
+
+    extern "C" fn dragging_exited(this: &mut Object, sel: Sel, sender: id) -> BOOL {
+        println!("dragging_exited; {:?}, {:?}, {:?}", this, sel, sender);
+        FileDropDelegate::file_drop(this, FileDropEvent::Cancelled, None);
+        YES
+    }
+}
+
+#[repr(C)]
 pub struct InnerWebView {
     webview: Id<Object>,
     manager: id,
+    file_drop_controller: Option<*mut FileDropController>
 }
 
 impl WV for InnerWebView {
     type Window = Window;
 
     fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
+
         window: &Window,
         scripts: Vec<String>,
         url: Option<Url>,
@@ -37,6 +163,7 @@ impl WV for InnerWebView {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<RpcHandler>,
         file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+
     ) -> Result<Self> {
         // Callback function for message handler
         extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
@@ -131,7 +258,7 @@ impl WV for InnerWebView {
 
             // Webview and manager
             let manager: id = msg_send![config, userContentController];
-            let webview: id = msg_send![class!(WKWebView), alloc];
+            let webview: id = msg_send![register_webview_class(), alloc];
             let preference: id = msg_send![config, preferences];
             let yes: id = msg_send![class!(NSNumber), numberWithBool:1];
             let no: id = msg_send![class!(NSNumber), numberWithBool:0];
@@ -181,6 +308,7 @@ impl WV for InnerWebView {
             }
 
             let w = Self {
+                file_drop_controller: FileDropDelegate::init(webview, file_drop_handlers),
                 webview: Id::from_ptr(webview),
                 manager,
             };
@@ -277,6 +405,18 @@ impl InnerWebView {
         unsafe {
             let empty: id = msg_send![class!(NSURL), URLWithString: NSString::new("")];
             let () = msg_send![self.webview, loadHTMLString:NSString::new(url) baseURL:empty];
+        }
+    }
+}
+
+impl Drop for InnerWebView {
+    fn drop(&mut self) {
+        if let Some(ptr) = self.file_drop_controller {
+            // Safety: It's possible for this pointer to be a nullptr which could cause a panic.
+            // This ptr should never be null as it has been leaked by Box::leak. It could only be dropped
+            // by the Objective-C side which does not manage memory like Rust and therefore will not drop it unless
+            // explicitly instructed to.
+            unsafe { std::ptr::drop_in_place(ptr) };
         }
     }
 }
