@@ -18,8 +18,6 @@ use crate::Result;
 
 use std::sync::mpsc::Sender;
 
-use serde_json::Value;
-
 /// Describes a message for a WebView window.
 #[derive(Debug)]
 pub enum WindowMessage {
