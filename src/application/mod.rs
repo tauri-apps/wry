@@ -418,53 +418,48 @@ impl FileDropController {
         debug_assert!(handlers.0.is_some() || handlers.1.is_some(), "Tried to create a FileDropController with no file drop handlers!");
         FileDropController {
             handlers,
-            active_file_drop: Cell::new(None)
+            active_file_drop: Cell::new(None),
         }
     }
 
     /// Called when a file drop event occurs. Bubbles the event up to the handler.
     /// Return true to prevent the OS' default action for the file drop.
     pub(crate) fn file_drop(&self, event: FileDropEvent, paths: Option<Vec<PathBuf>>) -> bool {
-        let new_status;
+        let paths = match event {
 
-        match event {
             FileDropEvent::Hovered => {
-                let paths = match paths {
-                    Some(paths) => {
-                        if paths.is_empty() { panic!("A file drop hover event MUST provide a list of PathBufs!") } 
-                        paths
-                    },
-                    None => panic!("A file drop hover event MUST provide a list of PathBufs!")
-                };
-                new_status = FileDropStatus::Hovered(paths);
+                if paths.is_none() || paths.as_ref().unwrap().is_empty() {
+                    debug_assert!(false, "FileDropEvent::Hovered received with missing or empty paths list!");
+                    return false;
+                }
+                paths.unwrap()
             },
-            _ => {
-                let paths = match paths {
-                    Some(paths) => paths,
+
+            _ => match paths {
+
+                Some(paths) => paths,
+                
+                None => match self.active_file_drop.take() {
                     None => {
-                        if let Some(status) = self.active_file_drop.take() {
-                            match status {
-                                FileDropStatus::Hovered(paths) => paths,
-                                FileDropStatus::Dropped(paths) => paths,
-                                FileDropStatus::Cancelled(paths) => paths
-                            }
-                        } else {
-                            debug_assert!(false, "Received a file drop event, but no list of files could be retrieved from memory!");
-                            return false;
-                        }
-                    }
-                };
-                match event {
-                    FileDropEvent::Dropped => new_status = FileDropStatus::Dropped(paths),
-                    FileDropEvent::Cancelled => new_status = FileDropStatus::Cancelled(paths),
-                    _ => {
-                        // Required so the compiler doesn't think new_status can be uninitialized.
-                        new_status = FileDropStatus::Cancelled(paths);
-                        panic!();
+                        debug_assert!(false, "Failed to retrieve paths list from memory for this file drop event!");
+                        return false;
+                    },
+                    Some(status) => match status {
+                        FileDropStatus::Hovered(paths) => paths,
+                        FileDropStatus::Dropped(paths) => paths,
+                        FileDropStatus::Cancelled(paths) => paths
                     }
                 }
+
             }
-        }
+
+        };
+
+        let new_status = match event {
+            FileDropEvent::Hovered => FileDropStatus::Hovered(paths),
+            FileDropEvent::Dropped => FileDropStatus::Dropped(paths),
+            FileDropEvent::Cancelled => FileDropStatus::Cancelled(paths)
+        };
 
         self.active_file_drop.set(Some(new_status.clone()));
         self.call(new_status)
