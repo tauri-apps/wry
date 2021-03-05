@@ -21,48 +21,6 @@ use objc_id::Id;
 use url::Url;
 use winit::{platform::macos::WindowExtMacOS, window::Window};
 
-// https://github.com/ryanmcgrath/cacao/blob/784727748c60183665cabf3c18fb54896c81214e/src/webview/class.rs#L129
-fn register_webview_class() -> *const Class {
-    static mut VIEW_CLASS: *const Class = 0 as *const Class;
-    static INIT: Once = Once::new();
-
-    INIT.call_once(|| unsafe {
-        let superclass = class!(WKWebView);
-        let mut decl = ClassDecl::new("WryWebView", superclass).unwrap();
-        
-        decl.add_ivar::<*mut c_void>("FileDropController");
-        
-        decl.add_method(
-            sel!(prepareForDragOperation:),
-            FileDropDelegate::prepare_for_drag_operation as extern "C" fn(&mut Object, Sel, id) -> BOOL,
-        );
-
-        decl.add_method(
-            sel!(draggingUpdated:),
-            FileDropDelegate::dragging_updated as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
-        );
-
-        decl.add_method(
-            sel!(draggingEntered:),
-            FileDropDelegate::dragging_entered as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
-        );
-
-        decl.add_method(
-            sel!(performDragOperation:),
-            FileDropDelegate::perform_drag_operation as extern "C" fn(&mut Object, Sel, id) -> BOOL,
-        );
-
-        decl.add_method(
-            sel!(draggingExited:),
-            FileDropDelegate::dragging_exited as extern "C" fn(&mut Object, Sel, id),
-        );
-
-        VIEW_CLASS = decl.register();
-    });
-
-    unsafe { VIEW_CLASS }
-}
-
 type NSDragOperation = cocoa::foundation::NSUInteger;
 #[allow(non_upper_case_globals)]
 const NSDragOperationLink: NSDragOperation = 2;
@@ -81,9 +39,14 @@ lazy_static! {
             method_getImplementation(class_getInstanceMethod(class!(WKWebView), sel!(draggingExited:)))
         )
     };
-    static ref OBJ_PERFORM_DRAG_OPERATION: extern "C" fn(*const Object, Sel, id) -> BOOL = unsafe {
+    static ref OBJC_PERFORM_DRAG_OPERATION: extern "C" fn(*const Object, Sel, id) -> BOOL = unsafe {
         std::mem::transmute(
             method_getImplementation(class_getInstanceMethod(class!(WKWebView), sel!(performDragOperation:)))
+        )
+    };
+    static ref OBJC_DRAGGING_UPDATED: extern "C" fn(*const Object, Sel, id) -> NSDragOperation = unsafe {
+        std::mem::transmute(
+            method_getImplementation(class_getInstanceMethod(class!(WKWebView), sel!(draggingUpdated:)))
         )
     };
 }
@@ -107,12 +70,17 @@ impl FileDropDelegate {
         &mut *(delegate as *mut FileDropController)
     }
 
-    extern "C" fn dragging_updated(_: &mut Object, _: Sel, _: id) -> NSDragOperation {
-        NSDragOperationLink
-    }
-
-    extern "C" fn prepare_for_drag_operation(_: &mut Object, _: Sel, _: id) -> BOOL {
-        YES
+    extern "C" fn dragging_updated(this: &mut Object, sel: Sel, drag_info: id) -> NSDragOperation {
+        let os_operation = OBJC_DRAGGING_UPDATED(this, sel, drag_info);
+        if os_operation == 0 {
+            // 0 will be returned for a file drop on any arbitrary location on the webview.
+            // We'll override that with NSDragOperationLink.
+            NSDragOperationLink
+        } else {
+            // A different NSDragOperation is returned when a file is hovered over something like
+            // a <input type="file">, so we'll make sure to preserve that behaviour.
+            os_operation
+        }
     }
     
     extern "C" fn dragging_entered(this: &mut Object, sel: Sel, drag_info: id) -> NSDragOperation {
@@ -155,7 +123,7 @@ impl FileDropDelegate {
 
         if !controller.file_drop(FileDropEvent::Dropped, Some(paths)) {
             // Reject the Wry file drop (invoke the OS default behaviour)
-            OBJ_PERFORM_DRAG_OPERATION(this, sel, drag_info)
+            OBJC_PERFORM_DRAG_OPERATION(this, sel, drag_info)
         } else {
             YES
         }
@@ -168,9 +136,45 @@ impl FileDropDelegate {
             OBJC_DRAGGING_EXITED(this, sel, drag_info);
         }
     }
+
+    // https://github.com/ryanmcgrath/cacao/blob/784727748c60183665cabf3c18fb54896c81214e/src/webview/class.rs#L129
+    fn register_webview_class() -> *const Class {
+        static mut VIEW_CLASS: *const Class = 0 as *const Class;
+        static INIT: Once = Once::new();
+
+        INIT.call_once(|| unsafe {
+            let superclass = class!(WKWebView);
+            let mut decl = ClassDecl::new("WryWebView", superclass).unwrap();
+            
+            decl.add_ivar::<*mut c_void>("FileDropController");
+
+            decl.add_method(
+                sel!(draggingUpdated:),
+                FileDropDelegate::dragging_updated as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
+            );
+
+            decl.add_method(
+                sel!(draggingEntered:),
+                FileDropDelegate::dragging_entered as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
+            );
+
+            decl.add_method(
+                sel!(performDragOperation:),
+                FileDropDelegate::perform_drag_operation as extern "C" fn(&mut Object, Sel, id) -> BOOL,
+            );
+
+            decl.add_method(
+                sel!(draggingExited:),
+                FileDropDelegate::dragging_exited as extern "C" fn(&mut Object, Sel, id),
+            );
+
+            VIEW_CLASS = decl.register();
+        });
+
+        unsafe { VIEW_CLASS }
+    }
 }
 
-#[repr(C)]
 pub struct InnerWebView {
     webview: Id<Object>,
     manager: id,
@@ -290,7 +294,7 @@ impl WV for InnerWebView {
             let use_custom_webview_class = file_drop_handlers.0.is_some() || file_drop_handlers.1.is_some();
 
             let webview_class = match use_custom_webview_class {
-                true => register_webview_class(),
+                true => FileDropDelegate::register_webview_class(),
                 false => class!(WKWebView)
             };
 
@@ -345,10 +349,13 @@ impl WV for InnerWebView {
                 let _: () = msg_send![manager, addScriptMessageHandler:handler name:external];
             }
 
+            // File drop handling
+            let file_drop_controller = FileDropDelegate::init(webview, file_drop_handlers);
+
             let w = Self {
-                file_drop_controller: FileDropDelegate::init(webview, file_drop_handlers),
                 webview: Id::from_ptr(webview),
                 manager,
+                file_drop_controller,
             };
 
             // Initialize scripts

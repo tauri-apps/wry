@@ -4,7 +4,7 @@ use wry::{Application, Attributes, Result, FileDropHandler};
 
 static TEST_HTML: &str = r#"data:text/html,
 Drop files onto the window and read the console!<br>
-Dropping files onto the following form is also possible:
+Dropping files onto the following form is also possible:<br><br>
 <input type="file"/>
 "#;
 
