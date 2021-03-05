@@ -1,4 +1,4 @@
-//! Wry is a Cross-webview WebView rendering library.
+//! Wry is a Cross-platform WebView rendering library.
 //!
 //! There are two main ways to build WebView windows: [`Application`] and build by yourself.
 //!
