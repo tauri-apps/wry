@@ -13,12 +13,10 @@ use std::{
 };
 
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
-use cocoa::base::{id, BOOL, YES, NO};
+use cocoa::base::{id, BOOL, YES};
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
-use objc::{
-    declare::ClassDecl,
-    runtime::{Object, Sel, Class},
-};
+use lazy_static::lazy_static;
+use objc::{declare::ClassDecl, runtime::{Object, Sel, Class}};
 use objc_id::Id;
 use url::Url;
 use winit::{platform::macos::WindowExtMacOS, window::Window};
@@ -31,13 +29,9 @@ fn register_webview_class() -> *const Class {
     INIT.call_once(|| unsafe {
         let superclass = class!(WKWebView);
         let mut decl = ClassDecl::new("WryWebView", superclass).unwrap();
-
-        decl.add_ivar::<*mut c_void>("WindowId");
+        
         decl.add_ivar::<*mut c_void>("FileDropController");
-        decl.add_ivar::<*mut c_void>("draggingEntered");
-        decl.add_ivar::<*mut c_void>("performDragOperation");
-        decl.add_ivar::<*mut c_void>("draggingExited");
-
+        
         decl.add_method(
             sel!(prepareForDragOperation:),
             FileDropDelegate::prepare_for_drag_operation as extern "C" fn(&mut Object, Sel, id) -> BOOL,
@@ -73,6 +67,27 @@ type NSDragOperation = cocoa::foundation::NSUInteger;
 #[allow(non_upper_case_globals)]
 const NSDragOperationLink: NSDragOperation = 2;
 
+// TODO: make these OnceCells?
+use objc::runtime::class_getInstanceMethod;
+use objc::runtime::method_getImplementation;
+lazy_static! {
+    static ref OBJC_DRAGGING_ENTERED: extern "C" fn(*const Object, Sel, id) -> NSDragOperation = unsafe {
+        std::mem::transmute(
+            method_getImplementation(class_getInstanceMethod(class!(WKWebView), sel!(draggingEntered:)))
+        )
+    };
+    static ref OBJC_DRAGGING_EXITED: extern "C" fn(*const Object, Sel, id) = unsafe {
+        std::mem::transmute(
+            method_getImplementation(class_getInstanceMethod(class!(WKWebView), sel!(draggingExited:)))
+        )
+    };
+    static ref OBJ_PERFORM_DRAG_OPERATION: extern "C" fn(*const Object, Sel, id) -> BOOL = unsafe {
+        std::mem::transmute(
+            method_getImplementation(class_getInstanceMethod(class!(WKWebView), sel!(performDragOperation:)))
+        )
+    };
+}
+
 // This struct contains functions which will be "injected" into the WKWebView,
 // + any relevant helper functions.
 // Safety: objc runtime calls are unsafe
@@ -81,43 +96,33 @@ impl FileDropDelegate {
     unsafe fn init(webview: *mut Object, handlers: (Option<FileDropHandler>, Option<FileDropHandler>)) -> Option<*mut FileDropController> {
         if handlers.0.is_none() && handlers.1.is_none() { return None }
 
-        /*let dragging_entered = objc::runtime::class_getInstanceMethod(class!(WKWebView), sel!(draggingEntered:));
-        let dragging_ended = objc::runtime::class_getInstanceMethod(class!(WKWebView), sel!(draggingEnded:));
-        let dragging_exited = objc::runtime::class_getInstanceMethod(class!(WKWebView), sel!(draggingExited:));
-
-        (*webview).set_ivar("draggingEntered", Box::into_raw(Box::new(dragging_entered)) as *mut _ as *mut c_void);
-        (*webview).set_ivar("draggingEnded", Box::into_raw(Box::new(dragging_ended)) as *mut _ as *mut c_void);
-        (*webview).set_ivar("draggingExited", Box::into_raw(Box::new(dragging_exited)) as *mut _ as *mut c_void);*/
-
         let controller = Box::leak(Box::new(FileDropController::new(handlers)));
         let ptr = controller as *mut FileDropController;
         (*webview).set_ivar("FileDropController", ptr as *mut c_void);
         Some(ptr)
     }
 
-    fn get_controller(this: &Object) -> &mut FileDropController {
-        unsafe {
-            let delegate: *mut c_void = *this.get_ivar("FileDropController");
-            &mut *(delegate as *mut FileDropController)
-        }
+    unsafe fn get_controller(this: &Object) -> &mut FileDropController {
+        let delegate: *mut c_void = *this.get_ivar("FileDropController");
+        &mut *(delegate as *mut FileDropController)
     }
 
     extern "C" fn dragging_updated(_: &mut Object, _: Sel, _: id) -> NSDragOperation {
         NSDragOperationLink
     }
 
-    extern "C" fn prepare_for_drag_operation(this: &mut Object, sel: Sel, sender: id) -> BOOL {
+    extern "C" fn prepare_for_drag_operation(_: &mut Object, _: Sel, _: id) -> BOOL {
         YES
     }
     
-    extern "C" fn dragging_entered(this: &mut Object, sel: Sel, sender: id) -> NSDragOperation {
+    extern "C" fn dragging_entered(this: &mut Object, sel: Sel, drag_info: id) -> NSDragOperation {
         use cocoa::foundation::NSFastEnumeration;
         use cocoa::foundation::NSString;
 
-        let controller = FileDropDelegate::get_controller(this);
+        let controller = unsafe { FileDropDelegate::get_controller(this) };
 
         let paths = unsafe {
-            let pb: id = msg_send![sender, draggingPasteboard];
+            let pb: id = msg_send![drag_info, draggingPasteboard];
             let mut file_drop_paths = Vec::new();
             for path in cocoa::appkit::NSPasteboard::propertyListForType(pb, cocoa::appkit::NSFilenamesPboardType).iter() {
                 file_drop_paths.push(PathBuf::from(CStr::from_ptr(NSString::UTF8String(path)).to_string_lossy().into_owned()));
@@ -125,19 +130,22 @@ impl FileDropDelegate {
             file_drop_paths
         };
 
-        controller.file_drop(FileDropEvent::Hovered, Some(paths));
-        
-        NSDragOperationLink
+        if !controller.file_drop(FileDropEvent::Hovered, Some(paths)) {
+            // Reject the Wry file drop (invoke the OS default behaviour)
+            OBJC_DRAGGING_ENTERED(this, sel, drag_info)
+        } else {
+            NSDragOperationLink
+        }
     }
 
-    extern "C" fn perform_drag_operation(this: &mut Object, sel: Sel, sender: id) -> BOOL {
+    extern "C" fn perform_drag_operation(this: &mut Object, sel: Sel, drag_info: id) -> BOOL {
         use cocoa::foundation::NSFastEnumeration;
         use cocoa::foundation::NSString;
 
-        let controller = FileDropDelegate::get_controller(this);
+        let controller = unsafe { FileDropDelegate::get_controller(this) };
 
         let paths = unsafe {
-            let pb: id = msg_send![sender, draggingPasteboard];
+            let pb: id = msg_send![drag_info, draggingPasteboard];
             let mut file_drop_paths = Vec::new();
             for path in cocoa::appkit::NSPasteboard::propertyListForType(pb, cocoa::appkit::NSFilenamesPboardType).iter() {
                 file_drop_paths.push(PathBuf::from(CStr::from_ptr(NSString::UTF8String(path)).to_string_lossy().into_owned()));
@@ -145,14 +153,20 @@ impl FileDropDelegate {
             file_drop_paths
         };
 
-        controller.file_drop(FileDropEvent::Dropped, Some(paths));
-
-        YES
+        if !controller.file_drop(FileDropEvent::Dropped, Some(paths)) {
+            // Reject the Wry file drop (invoke the OS default behaviour)
+            OBJ_PERFORM_DRAG_OPERATION(this, sel, drag_info)
+        } else {
+            YES
+        }
     }
 
-    extern "C" fn dragging_exited(this: &mut Object, sel: Sel, sender: id) {
-        let controller = FileDropDelegate::get_controller(this);
-        controller.file_drop(FileDropEvent::Cancelled, None);
+    extern "C" fn dragging_exited(this: &mut Object, sel: Sel, drag_info: id) {
+        let controller = unsafe { FileDropDelegate::get_controller(this) };
+        if !controller.file_drop(FileDropEvent::Cancelled, None) {
+            // Reject the Wry file drop (invoke the OS default behaviour)
+            OBJC_DRAGGING_EXITED(this, sel, drag_info);
+        }
     }
 }
 
@@ -268,9 +282,21 @@ impl WV for InnerWebView {
                 let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:NSString::new(&name)];
             }
 
+            // First, since we may have to use a custom class to hook into file drop operations,
+            // we need to define WHICH class we're going to use to create the WKWebView.
+            // If there are no file drop handlers set, we can just alloc a new WKWebView.
+            // Otherwise, we'll alloc a WryWebView.
+
+            let use_custom_webview_class = file_drop_handlers.0.is_some() || file_drop_handlers.1.is_some();
+
+            let webview_class = match use_custom_webview_class {
+                true => register_webview_class(),
+                false => class!(WKWebView)
+            };
+
             // Webview and manager
             let manager: id = msg_send![config, userContentController];
-            let webview: id = msg_send![register_webview_class(), alloc];
+            let webview: id = msg_send![webview_class, alloc];
             let preference: id = msg_send![config, preferences];
             let yes: id = msg_send![class!(NSNumber), numberWithBool:1];
             let no: id = msg_send![class!(NSNumber), numberWithBool:0];

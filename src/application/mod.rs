@@ -377,8 +377,8 @@ pub enum FileDropStatus {
     Cancelled(Vec<PathBuf>),
 }
 
-/// This needs to be defined because internally the respective events do not always yield a PathBuf.
-/// We can easily remember what was cancelled though, as Hovered and Dropped events will always yield a PathBuf which we will save ourselves for later reference.
+// This needs to be defined because internally the respective events do not always yield a PathBuf.
+// We can easily remember what was cancelled though, as Hovered and Dropped events will always yield a PathBuf which we will save ourselves for later reference.
 pub(crate) enum FileDropEvent {
     Hovered,
     Dropped,
@@ -391,7 +391,14 @@ pub struct FileDropHandler {
 }
 impl FileDropHandler {
     /// Initializes a new file drop handler.
+    ///
     /// Example: FileDropHandler:new(|status: FileDropStatus| ...)
+    /// 
+    /// ### Blocking OS Default Behavior
+    /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
+    ///
+    /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
+    /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
     pub fn new<T>(f: T) -> FileDropHandler
     where
         T: Fn(FileDropStatus) -> bool + Send + Sync + 'static
@@ -399,6 +406,7 @@ impl FileDropHandler {
         FileDropHandler { f: Arc::new(Box::new(f)) }
     }
 
+    /// Manually invokes the file drop handler closures with a provided FileDropStatus(Vec<PathBuf>)
     pub fn call(&self, status: FileDropStatus) -> bool {
         (self.f)(status)
     }
@@ -422,8 +430,8 @@ impl FileDropController {
         }
     }
 
-    /// Called when a file drop event occurs. Bubbles the event up to the handler.
-    /// Return true to prevent the OS' default action for the file drop.
+    // Called when a file drop event occurs. Bubbles the event up to the handler.
+    // Return true to prevent the OS' default action for the file drop.
     pub(crate) fn file_drop(&self, event: FileDropEvent, paths: Option<Vec<PathBuf>>) -> bool {
         let paths = match event {
 
