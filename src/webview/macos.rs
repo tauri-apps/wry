@@ -13,7 +13,7 @@ use std::{
 };
 
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
-use cocoa::base::{id, BOOL, YES};
+use cocoa::base::{id, BOOL, YES, NO};
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use objc::{
     declare::ClassDecl,
@@ -32,24 +32,35 @@ fn register_webview_class() -> *const Class {
         let superclass = class!(WKWebView);
         let mut decl = ClassDecl::new("WryWebView", superclass).unwrap();
 
+        decl.add_ivar::<*mut c_void>("WindowId");
         decl.add_ivar::<*mut c_void>("FileDropController");
         decl.add_ivar::<*mut c_void>("draggingEntered");
-        decl.add_ivar::<*mut c_void>("draggingEnded");
+        decl.add_ivar::<*mut c_void>("performDragOperation");
         decl.add_ivar::<*mut c_void>("draggingExited");
 
         decl.add_method(
-            sel!(draggingEntered:),
-            FileDropDelegate::dragging_entered as extern "C" fn(&mut Object, Sel, id) -> BOOL,
+            sel!(prepareForDragOperation:),
+            FileDropDelegate::prepare_for_drag_operation as extern "C" fn(&mut Object, Sel, id) -> BOOL,
         );
 
         decl.add_method(
-            sel!(draggingEnded:),
-            FileDropDelegate::dragging_ended as extern "C" fn(&mut Object, Sel, id) -> BOOL,
+            sel!(draggingUpdated:),
+            FileDropDelegate::dragging_updated as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
+        );
+
+        decl.add_method(
+            sel!(draggingEntered:),
+            FileDropDelegate::dragging_entered as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
+        );
+
+        decl.add_method(
+            sel!(performDragOperation:),
+            FileDropDelegate::perform_drag_operation as extern "C" fn(&mut Object, Sel, id) -> BOOL,
         );
 
         decl.add_method(
             sel!(draggingExited:),
-            FileDropDelegate::dragging_exited as extern "C" fn(&mut Object, Sel, id) -> BOOL,
+            FileDropDelegate::dragging_exited as extern "C" fn(&mut Object, Sel, id),
         );
 
         VIEW_CLASS = decl.register();
@@ -58,22 +69,25 @@ fn register_webview_class() -> *const Class {
     unsafe { VIEW_CLASS }
 }
 
+type NSDragOperation = cocoa::foundation::NSUInteger;
+#[allow(non_upper_case_globals)]
+const NSDragOperationLink: NSDragOperation = 2;
+
 // This struct contains functions which will be "injected" into the WKWebView,
 // + any relevant helper functions.
 // Safety: objc runtime calls are unsafe
-#[repr(C)]
 struct FileDropDelegate;
 impl FileDropDelegate {
     unsafe fn init(webview: *mut Object, handlers: (Option<FileDropHandler>, Option<FileDropHandler>)) -> Option<*mut FileDropController> {
         if handlers.0.is_none() && handlers.1.is_none() { return None }
 
-        let dragging_entered = objc::runtime::class_getInstanceMethod(class!(WKWebView), sel!(draggingEntered:));
+        /*let dragging_entered = objc::runtime::class_getInstanceMethod(class!(WKWebView), sel!(draggingEntered:));
         let dragging_ended = objc::runtime::class_getInstanceMethod(class!(WKWebView), sel!(draggingEnded:));
         let dragging_exited = objc::runtime::class_getInstanceMethod(class!(WKWebView), sel!(draggingExited:));
 
         (*webview).set_ivar("draggingEntered", Box::into_raw(Box::new(dragging_entered)) as *mut _ as *mut c_void);
         (*webview).set_ivar("draggingEnded", Box::into_raw(Box::new(dragging_ended)) as *mut _ as *mut c_void);
-        (*webview).set_ivar("draggingExited", Box::into_raw(Box::new(dragging_exited)) as *mut _ as *mut c_void);
+        (*webview).set_ivar("draggingExited", Box::into_raw(Box::new(dragging_exited)) as *mut _ as *mut c_void);*/
 
         let controller = Box::leak(Box::new(FileDropController::new(handlers)));
         let ptr = controller as *mut FileDropController;
@@ -81,27 +95,28 @@ impl FileDropDelegate {
         Some(ptr)
     }
 
-    fn get_controller<F: FnOnce(&mut FileDropController) -> T, T>(this: &Object, callback: F) {
-        let file_drop_controller = unsafe {
-            let file_drop_controller: *mut c_void = *this.get_ivar("FileDropController");
-            &mut *(file_drop_controller as *mut FileDropController)
-        };
-        callback(file_drop_controller);
+    fn get_controller(this: &Object) -> &mut FileDropController {
+        unsafe {
+            let delegate: *mut c_void = *this.get_ivar("FileDropController");
+            &mut *(delegate as *mut FileDropController)
+        }
     }
 
-    fn file_drop(this: &mut Object, event: FileDropEvent, paths: Option<Vec<PathBuf>>) {
-        FileDropDelegate::get_controller(this, move |controller| {
-            controller.file_drop(event, paths);
-        });
+    extern "C" fn dragging_updated(_: &mut Object, _: Sel, _: id) -> NSDragOperation {
+        NSDragOperationLink
+    }
+
+    extern "C" fn prepare_for_drag_operation(this: &mut Object, sel: Sel, sender: id) -> BOOL {
+        YES
     }
     
-    extern "C" fn dragging_entered(this: &mut Object, sel: Sel, sender: id) -> BOOL {
+    extern "C" fn dragging_entered(this: &mut Object, sel: Sel, sender: id) -> NSDragOperation {
         use cocoa::foundation::NSFastEnumeration;
         use cocoa::foundation::NSString;
 
-        let paths = unsafe {
-            println!("dragging_entered");
+        let controller = FileDropDelegate::get_controller(this);
 
+        let paths = unsafe {
             let pb: id = msg_send![sender, draggingPasteboard];
             let mut file_drop_paths = Vec::new();
             for path in cocoa::appkit::NSPasteboard::propertyListForType(pb, cocoa::appkit::NSFilenamesPboardType).iter() {
@@ -110,19 +125,18 @@ impl FileDropDelegate {
             file_drop_paths
         };
 
-        println!("{:?}; {:?}, {:?}", this, sel, sender);
-        println!("{:?}", paths);
-        FileDropDelegate::file_drop(this, FileDropEvent::Hovered, Some(paths));
-        YES
+        controller.file_drop(FileDropEvent::Hovered, Some(paths));
+        
+        NSDragOperationLink
     }
 
-    extern "C" fn dragging_ended(this: &mut Object, sel: Sel, sender: id) -> BOOL {
+    extern "C" fn perform_drag_operation(this: &mut Object, sel: Sel, sender: id) -> BOOL {
         use cocoa::foundation::NSFastEnumeration;
         use cocoa::foundation::NSString;
 
-        let paths = unsafe {
-            println!("dragging_ended");
+        let controller = FileDropDelegate::get_controller(this);
 
+        let paths = unsafe {
             let pb: id = msg_send![sender, draggingPasteboard];
             let mut file_drop_paths = Vec::new();
             for path in cocoa::appkit::NSPasteboard::propertyListForType(pb, cocoa::appkit::NSFilenamesPboardType).iter() {
@@ -131,16 +145,14 @@ impl FileDropDelegate {
             file_drop_paths
         };
 
-        println!("{:?}; {:?}, {:?}", this, sel, sender);
-        println!("{:?}", paths);
-        FileDropDelegate::file_drop(this, FileDropEvent::Dropped, Some(paths));
+        controller.file_drop(FileDropEvent::Dropped, Some(paths));
+
         YES
     }
 
-    extern "C" fn dragging_exited(this: &mut Object, sel: Sel, sender: id) -> BOOL {
-        println!("dragging_exited; {:?}, {:?}, {:?}", this, sel, sender);
-        FileDropDelegate::file_drop(this, FileDropEvent::Cancelled, None);
-        YES
+    extern "C" fn dragging_exited(this: &mut Object, sel: Sel, sender: id) {
+        let controller = FileDropDelegate::get_controller(this);
+        controller.file_drop(FileDropEvent::Cancelled, None);
     }
 }
 
