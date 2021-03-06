@@ -12,9 +12,15 @@ use std::{
 };
 
 use cairo::Operator;
-use gdk::EventMask;
 use gio::{ApplicationExt as GioApplicationExt, Cancellable};
-use gtk::{Application as GtkApp, ApplicationWindow, ApplicationWindowExt, GtkWindowExt, Inhibit, WidgetExt, prelude::WidgetExtManual};
+use gtk::{
+    Application as GtkApp,
+    ApplicationWindow,
+    ApplicationWindowExt,
+    GtkWindowExt,
+    Inhibit,
+    WidgetExt,
+};
 
 pub type WindowId = u32;
 

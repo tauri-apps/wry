@@ -27,7 +27,7 @@ impl FileDropController {
 		});
 	
 		let listener_ref = listener.clone();
-		webview.connect_drag_drop(move |_, _, x, y, time| {
+		webview.connect_drag_drop(move |_, _, _, _, _| {
 			gtk::Inhibit(listener_ref.file_drop(FileDropEvent::Dropped, None))
 		});
 	

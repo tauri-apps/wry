@@ -49,7 +49,6 @@ pub(crate) struct FileDropController {
 }
 impl Drop for FileDropController {
     fn drop(&mut self) {
-        println!("dropped!");
         unsafe { Box::from_raw(self.listener) };
     }
 }

@@ -3,7 +3,7 @@ use crate::webview::WV;
 use crate::{Error, Result, RpcHandler};
 use crate::file_drop::{FileDropHandler, FileDropController};
 
-use std::{rc::Rc, sync::Arc, path::PathBuf};
+use std::rc::Rc;
 
 use gdk::RGBA;
 use gio::Cancellable;
