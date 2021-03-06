@@ -90,7 +90,7 @@ pub use file_drop::{FileDropStatus, FileDropHandler};
 
 pub use application::{
     Application, ApplicationProxy, Attributes, CustomProtocol, Icon, Message, WindowId,
-    WindowMessage, WindowProxy, WindowRpcHandler
+    WindowMessage, WindowProxy, WindowRpcHandler,
 };
 pub use serde_json::Value;
 pub(crate) use webview::{RpcHandler, WebView, WebViewBuilder};

@@ -13,7 +13,10 @@ use std::{
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
 use cocoa::base::id;
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
-use objc::{declare::ClassDecl, runtime::{Object, Sel}};
+use objc::{
+    declare::ClassDecl,
+    runtime::{Object, Sel}
+};
 use objc_id::Id;
 use url::Url;
 use winit::{platform::macos::WindowExtMacOS, window::Window};

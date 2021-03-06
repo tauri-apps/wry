@@ -14,11 +14,7 @@ use std::{
 use cairo::Operator;
 use gio::{ApplicationExt as GioApplicationExt, Cancellable};
 use gtk::{
-    Application as GtkApp,
-    ApplicationWindow,
-    ApplicationWindowExt,
-    GtkWindowExt,
-    Inhibit,
+    Application as GtkApp, ApplicationWindow, ApplicationWindowExt, GtkWindowExt, Inhibit,
     WidgetExt,
 };
 
