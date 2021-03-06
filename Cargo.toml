@@ -10,6 +10,9 @@ repository = "https://github.com/tauri-apps/wry"
 documentation = "https://docs.rs/wry"
 categories = ["gui"]
 
+[features]
+file-drop = []
+
 [package.metadata.docs.rs]
 default-target = "x86_64-unknown-linux-gnu"
 targets = ["x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu", "x86_64-apple-darwin"]

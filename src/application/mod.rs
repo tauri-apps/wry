@@ -11,6 +11,7 @@ pub use gtkrs::WindowId;
 #[cfg(target_os = "linux")]
 use gtkrs::{InnerApplication, InnerApplicationProxy};
 
+#[cfg(feature="file-drop")]
 use crate::file_drop::FileDropHandler;
 
 mod attributes;
@@ -339,6 +340,7 @@ impl Application {
     }
 
     /// Set a file drop handler.
+    #[cfg(feature="file-drop")]
     pub fn set_file_drop_handler(&mut self, handler: FileDropHandler) {
         self.inner.file_drop_handler = Some(handler);
     }

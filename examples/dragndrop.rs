@@ -9,6 +9,11 @@ Dropping files onto the following form is also possible:<br><br>
 "#;
 
 fn main() -> Result<()> {
+    #[cfg(not(feature="file-drop"))]
+    {
+        compile_error!("The file-drop feature needs to be enabled to run this example. e.g. cargo run --example dragndrop --features file-drop")
+    }
+
     let mut app = Application::new()?;
 
     app.set_file_drop_handler(FileDropHandler::new(|status| {

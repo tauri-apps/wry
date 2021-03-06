@@ -1,17 +1,17 @@
+#[cfg(feature="file-drop")]
 use super::{FileDropEvent, FileDropHandler, FileDropListener};
 
 use std::{
 	ffi::{c_void, CStr},
 	path::PathBuf,
-	sync::Once
 };
 
 use lazy_static::lazy_static;
 
-use objc::{declare::ClassDecl, runtime::{Object, Sel, Class}};
+use objc::{declare::ClassDecl, runtime::{Object, Sel}};
 use cocoa::base::{id, BOOL, YES};
 
-type NSDragOperation = cocoa::foundation::NSUInteger;
+pub(crate) type NSDragOperation = cocoa::foundation::NSUInteger;
 #[allow(non_upper_case_globals)]
 const NSDragOperationLink: NSDragOperation = 2;
 
@@ -129,40 +129,27 @@ impl FileDropController {
         }
     }
 
-    // https://github.com/ryanmcgrath/cacao/blob/784727748c60183665cabf3c18fb54896c81214e/src/webview/class.rs#L129
-    pub(crate) fn register_webview_class() -> *const Class {
-        static mut VIEW_CLASS: *const Class = 0 as *const Class;
-        static INIT: Once = Once::new();
+    pub(crate) unsafe fn register_webview_class(decl: &mut ClassDecl) {
+        decl.add_ivar::<*mut c_void>("FileDropListener");
 
-        INIT.call_once(|| unsafe {
-            let superclass = class!(WKWebView);
-            let mut decl = ClassDecl::new("WryWebView", superclass).unwrap();
+        decl.add_method(
+            sel!(draggingUpdated:),
+            FileDropController::dragging_updated as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
+        );
 
-            decl.add_ivar::<*mut c_void>("FileDropListener");
+        decl.add_method(
+            sel!(draggingEntered:),
+            FileDropController::dragging_entered as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
+        );
 
-            decl.add_method(
-                sel!(draggingUpdated:),
-                FileDropController::dragging_updated as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
-            );
+        decl.add_method(
+            sel!(performDragOperation:),
+            FileDropController::perform_drag_operation as extern "C" fn(&mut Object, Sel, id) -> BOOL,
+        );
 
-            decl.add_method(
-                sel!(draggingEntered:),
-                FileDropController::dragging_entered as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
-            );
-
-            decl.add_method(
-                sel!(performDragOperation:),
-                FileDropController::perform_drag_operation as extern "C" fn(&mut Object, Sel, id) -> BOOL,
-            );
-
-            decl.add_method(
-                sel!(draggingExited:),
-                FileDropController::dragging_exited as extern "C" fn(&mut Object, Sel, id),
-            );
-
-            VIEW_CLASS = decl.register();
-        });
-
-        unsafe { VIEW_CLASS }
+        decl.add_method(
+            sel!(draggingExited:),
+            FileDropController::dragging_exited as extern "C" fn(&mut Object, Sel, id),
+        );
     }
 }
