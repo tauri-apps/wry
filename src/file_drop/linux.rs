@@ -7,7 +7,7 @@ use gtk::WidgetExt;
 
 pub(crate) struct FileDropController;
 impl FileDropController {
-	pub(crate) fn listen(webview: Rc<WebView>, handlers: (Option<FileDropHandler>, Option<FileDropHandler>)) {
+	pub(crate) fn new(webview: Rc<WebView>, handlers: (Option<FileDropHandler>, Option<FileDropHandler>)) {
 		if handlers.0.is_none() && handlers.1.is_none() { return }
 
 		let listener = Rc::new(FileDropListener::new(handlers));

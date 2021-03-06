@@ -101,7 +101,7 @@ impl WV for InnerWebView {
         }
 
         // File drop handling
-        FileDropController::listen(webview.clone(), file_drop_handlers);
+        FileDropController::new(webview.clone(), file_drop_handlers);
 
         if window.get_visible() {
             window.show_all();
