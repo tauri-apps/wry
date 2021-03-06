@@ -1,7 +1,7 @@
 use crate::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Error, Result, RpcHandler};
-use crate::application::{FileDropEvent, FileDropHandler, FileDropController};
+use crate::file_drop::{FileDropHandler, FileDropController};
 
 use std::{rc::Rc, sync::Arc, path::PathBuf};
 
@@ -101,43 +101,7 @@ impl WV for InnerWebView {
         }
 
         // File drop handling
-        if file_drop_handlers.0.is_some() || file_drop_handlers.1.is_some() {
-            let file_drop_controller = Arc::new(FileDropController::new(file_drop_handlers));
-            
-            let file_drop_controller_ref = file_drop_controller.clone();
-            webview.connect_drag_data_received(move |_, _, _, _, data, info, _| {
-                if info == 2 {
-                    let uris = data.get_uris().iter().map(|gstr| {
-                        let path = gstr.as_str();
-                        PathBuf::from(path.to_string().strip_prefix("file://").unwrap_or(path))
-                    }).collect::<Vec<PathBuf>>();
-
-                    file_drop_controller_ref.file_drop(FileDropEvent::Hovered, Some(uris));
-                } else {
-                    // drag_data_received is called twice, so we can ignore this signal
-                }
-            });
-    
-            let file_drop_controller_ref = file_drop_controller.clone();
-            webview.connect_drag_drop(move |_, _, x, y, time| {
-                gtk::Inhibit(file_drop_controller_ref.file_drop(FileDropEvent::Dropped, None))
-            });
-    
-            let file_drop_controller_ref = file_drop_controller.clone();
-            webview.connect_drag_leave(move |_, _, time| {
-                if time == 0 {
-                    // The user cancelled the drag n drop
-                    file_drop_controller_ref.file_drop(FileDropEvent::Cancelled, None);
-                } else {
-                    // The user dropped the file on the window, but this will be handled in connect_drag_drop instead
-                }
-            });
-    
-            let file_drop_controller_ref = file_drop_controller.clone();
-            webview.connect_drag_failed(move |_, _, _| {
-                gtk::Inhibit(file_drop_controller_ref.file_drop(FileDropEvent::Cancelled, None))
-            });
-        }
+        FileDropController::listen(webview.clone(), file_drop_handlers);
 
         if window.get_visible() {
             window.show_all();

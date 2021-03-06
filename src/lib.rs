@@ -82,11 +82,15 @@ extern crate objc;
 
 mod application;
 mod mimetype;
+
 pub mod webview;
+
+mod file_drop;
+pub use file_drop::{FileDropStatus, FileDropHandler};
 
 pub use application::{
     Application, ApplicationProxy, Attributes, CustomProtocol, Icon, Message, WindowId,
-    WindowMessage, WindowProxy, WindowRpcHandler, FileDropStatus, FileDropHandler
+    WindowMessage, WindowProxy, WindowRpcHandler
 };
 pub use serde_json::Value;
 pub(crate) use webview::{RpcHandler, RpcRequest, RpcResponse, WebView, WebViewBuilder};

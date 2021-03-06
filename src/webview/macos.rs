@@ -25,7 +25,7 @@ type NSDragOperation = cocoa::foundation::NSUInteger;
 #[allow(non_upper_case_globals)]
 const NSDragOperationLink: NSDragOperation = 2;
 
-// TODO: make these OnceCells?
+// TODO: don't depend on lazy_static?
 use objc::runtime::class_getInstanceMethod;
 use objc::runtime::method_getImplementation;
 lazy_static! {

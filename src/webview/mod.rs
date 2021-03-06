@@ -13,7 +13,9 @@ mod win;
 #[cfg(target_os = "windows")]
 use win::*;
 
-use crate::{Error, Result, application::FileDropHandler};
+use crate::file_drop::FileDropHandler;
+
+use crate::{Error, Result};
 
 use std::sync::mpsc::{channel, Receiver, Sender};
 
