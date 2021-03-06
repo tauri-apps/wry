@@ -1,9 +1,9 @@
 use crate::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Result, RpcHandler};
-use crate::application::{FileDropController, FileDropEvent, FileDropHandler};
+use crate::file_drop::{FileDropController, FileDropHandler};
 
-use std::{os::raw::c_void, rc::Rc, path::PathBuf};
+use std::{os::raw::c_void, rc::Rc};
 
 use once_cell::unsync::OnceCell;
 use url::Url;
@@ -13,6 +13,11 @@ use winit::{platform::windows::WindowExtWindows, window::Window};
 
 pub struct InnerWebView {
     controller: Rc<OnceCell<Controller>>,
+
+    // Store FileDropController in here to make sure it gets dropped when
+    // the webview gets dropped, otherwise we'll have a memory leak
+    #[allow(dead_code)]
+    file_drop_controller: Rc<OnceCell<FileDropController>>
 }
 
 impl WV for InnerWebView {
@@ -29,11 +34,16 @@ impl WV for InnerWebView {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<RpcHandler>,
         file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+
     ) -> Result<Self> {
 
-        let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
         let hwnd = window.hwnd() as HWND;
+
+        let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
         let controller_clone = controller.clone();
+
+        let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
+        let file_drop_controller_clone = file_drop_controller.clone();
 
         // Webview controller
         webview2::EnvironmentBuilder::new().build(move |env| {
@@ -132,27 +142,6 @@ impl WV for InnerWebView {
                     Ok(())
                 })?;
 
-                if file_drop_handlers.0.is_some() || file_drop_handlers.1.is_some() {
-                    let file_drop_controller = FileDropController::new(file_drop_handlers);
-                    // HACK! Captures file drop events.
-                    // TODO https://docs.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2experimentalcompositioncontroller3?view=webview2-1.0.721-prerelease&preserve-view=true
-                    w.add_new_window_requested(move |_, args| {
-                        let uri = match args.get_uri() {
-                            Ok(uri) => uri,
-                            Err(_) => return Ok(())
-                        };
-
-                        match uri.strip_prefix("file:///") {
-                            None => {},
-                            Some(uri) => {
-                                args.put_handled(file_drop_controller.file_drop(FileDropEvent::Dropped, Some(vec![PathBuf::from(uri)])))?;
-                            }
-                        }
-
-                        Ok(())
-                    })?;
-                }
-
                 // Navigation
                 if let Some(url) = url {
                     if url.cannot_be_a_base() {
@@ -174,11 +163,19 @@ impl WV for InnerWebView {
                 }
 
                 let _ = controller_clone.set(controller);
+
+                let mut file_drop_controller = FileDropController::new();
+                file_drop_controller.listen(hwnd, file_drop_handlers);
+                let _ = file_drop_controller_clone.set(file_drop_controller);
+
                 Ok(())
             })
         })?;
 
-        Ok(Self { controller })
+        Ok(Self {
+            controller,
+            file_drop_controller,
+        })
     }
 
     fn eval(&self, js: &str) -> Result<()> {
