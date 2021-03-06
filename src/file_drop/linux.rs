@@ -40,7 +40,8 @@ impl FileDropController {
 				// The user dropped the file on the window, but this will be handled in connect_drag_drop instead
 			}
 		});
-	
+		
+		// Called when a drag "fails" - we'll just emit a Cancelled event.
 		let listener_ref = listener.clone();
 		webview.connect_drag_failed(move |_, _, _| {
 			gtk::Inhibit(listener_ref.file_drop(FileDropEvent::Cancelled, None))

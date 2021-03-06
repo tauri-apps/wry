@@ -26,6 +26,8 @@ pub(crate) struct FileDropController {
 }
 impl Drop for FileDropController {
     fn drop(&mut self) {
+        // Safety: this could dereference a null ptr.
+        // This should never be a null ptr unless something goes wrong in Windows.
         unsafe {
 			for ptr in &self.handlers {
 				Box::from_raw(*ptr);
@@ -48,6 +50,7 @@ impl FileDropController {
 	}
 
 	fn inject(&mut self, hwnd: HWND, listener: Rc<FileDropListener>) -> bool {
+        // Safety: WinAPI calls are unsafe
 		unsafe {
 			let file_drop_handler = IDropTarget::new(hwnd, listener);
 			let handler_interface_ptr = &mut (*file_drop_handler.data).interface as winapi::um::oleidl::LPDROPTARGET;
@@ -66,6 +69,7 @@ impl FileDropController {
 }
 
 // https://gist.github.com/application-developer-DA/5a460d9ca02948f1d2bfa53100c941da
+// Safety: WinAPI calls are unsafe
 
 fn enumerate_child_windows<F>(hwnd: HWND, mut callback: F)
     where F: FnMut(HWND) -> bool
@@ -84,6 +88,7 @@ unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: winapi::shared:
 
 // The below code has been ripped from Winit - if only they'd `pub use` this!
 // https://github.com/rust-windowing/winit/blob/b9f3d333e41464457f6e42640793bf88b9563727/src/platform_impl/windows/drop_handler.rs
+// Safety: WinAPI calls are unsafe
 
 use winapi::{
     shared::{

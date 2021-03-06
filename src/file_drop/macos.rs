@@ -16,6 +16,7 @@ type NSDragOperation = cocoa::foundation::NSUInteger;
 const NSDragOperationLink: NSDragOperation = 2;
 
 // TODO: don't depend on lazy_static?
+// Safety: objc runtime calls are unsafe
 use objc::runtime::class_getInstanceMethod;
 use objc::runtime::method_getImplementation;
 lazy_static! {
@@ -49,6 +50,8 @@ pub(crate) struct FileDropController {
 }
 impl Drop for FileDropController {
     fn drop(&mut self) {
+		// Safety: This could dereference a null ptr.
+		// This should never be a null ptr unless something goes wrong in Obj-C.
         unsafe { Box::from_raw(self.listener) };
     }
 }
@@ -69,6 +72,18 @@ impl FileDropController {
         &mut *(delegate as *mut FileDropListener)
     }
 
+	unsafe fn collect_paths(drag_info: id) -> Vec<PathBuf> {
+        use cocoa::foundation::NSFastEnumeration;
+        use cocoa::foundation::NSString;
+
+		let pb: id = msg_send![drag_info, draggingPasteboard];
+		let mut file_drop_paths = Vec::new();
+		for path in cocoa::appkit::NSPasteboard::propertyListForType(pb, cocoa::appkit::NSFilenamesPboardType).iter() {
+			file_drop_paths.push(PathBuf::from(CStr::from_ptr(NSString::UTF8String(path)).to_string_lossy().into_owned()));
+		}
+		file_drop_paths
+	}
+
     extern "C" fn dragging_updated(this: &mut Object, sel: Sel, drag_info: id) -> NSDragOperation {
         let os_operation = OBJC_DRAGGING_UPDATED(this, sel, drag_info);
         if os_operation == 0 {
@@ -83,19 +98,8 @@ impl FileDropController {
     }
     
     extern "C" fn dragging_entered(this: &mut Object, sel: Sel, drag_info: id) -> NSDragOperation {
-        use cocoa::foundation::NSFastEnumeration;
-        use cocoa::foundation::NSString;
-
         let listener = unsafe { FileDropController::get_listener(this) };
-
-        let paths = unsafe {
-            let pb: id = msg_send![drag_info, draggingPasteboard];
-            let mut file_drop_paths = Vec::new();
-            for path in cocoa::appkit::NSPasteboard::propertyListForType(pb, cocoa::appkit::NSFilenamesPboardType).iter() {
-                file_drop_paths.push(PathBuf::from(CStr::from_ptr(NSString::UTF8String(path)).to_string_lossy().into_owned()));
-            }
-            file_drop_paths
-        };
+        let paths = unsafe { FileDropController::collect_paths(drag_info) };
 
         if !listener.file_drop(FileDropEvent::Hovered, Some(paths)) {
             // Reject the Wry file drop (invoke the OS default behaviour)
@@ -106,19 +110,8 @@ impl FileDropController {
     }
 
     extern "C" fn perform_drag_operation(this: &mut Object, sel: Sel, drag_info: id) -> BOOL {
-        use cocoa::foundation::NSFastEnumeration;
-        use cocoa::foundation::NSString;
-
         let listener = unsafe { FileDropController::get_listener(this) };
-
-        let paths = unsafe {
-            let pb: id = msg_send![drag_info, draggingPasteboard];
-            let mut file_drop_paths = Vec::new();
-            for path in cocoa::appkit::NSPasteboard::propertyListForType(pb, cocoa::appkit::NSFilenamesPboardType).iter() {
-                file_drop_paths.push(PathBuf::from(CStr::from_ptr(NSString::UTF8String(path)).to_string_lossy().into_owned()));
-            }
-            file_drop_paths
-        };
+        let paths = unsafe { FileDropController::collect_paths(drag_info) };
 
         if !listener.file_drop(FileDropEvent::Dropped, Some(paths)) {
             // Reject the Wry file drop (invoke the OS default behaviour)
