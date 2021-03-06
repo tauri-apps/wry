@@ -109,6 +109,7 @@ trait AppProxy {
 /// Whenever [`Application::add_window`] creates a WebView Window, it will return this for you. But
 /// it can still be retrieved from [`Application::window_proxy`] in case you drop the window proxy
 /// too early.
+#[derive(Clone)]
 pub struct WindowProxy {
     proxy: ApplicationProxy,
     id: WindowId,
@@ -122,6 +123,10 @@ impl WindowProxy {
     /// Gets the id of the WebView window.
     pub fn id(&self) -> WindowId {
         self.id
+    }
+
+    pub fn application_proxy(&self) -> ApplicationProxy {
+        self.proxy.clone()
     }
 
     pub fn set_resizable(&self, resizable: bool) -> Result<()> {
@@ -311,12 +316,12 @@ impl Application {
     pub fn add_window_with_configs(
         &mut self,
         attributes: Attributes,
-        handler: Option<WindowRpcHandler>,
+        rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
         let id = self
             .inner
-            .create_webview(attributes, handler, custom_protocol)?;
+            .create_webview(attributes, rpc_handler, custom_protocol)?;
         Ok(self.window_proxy(id))
     }
 

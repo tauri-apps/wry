@@ -1,4 +1,4 @@
-//! Wry is a Cross-webview WebView rendering library.
+//! Wry is a Cross-platform WebView rendering library.
 //!
 //! There are two main ways to build WebView windows: [`Application`] and build by yourself.
 //!
@@ -93,7 +93,8 @@ pub use application::{
     WindowMessage, WindowProxy, WindowRpcHandler
 };
 pub use serde_json::Value;
-pub(crate) use webview::{RpcHandler, RpcRequest, RpcResponse, WebView, WebViewBuilder};
+pub(crate) use webview::{RpcHandler, WebView, WebViewBuilder};
+pub use webview::{RpcRequest, RpcResponse};
 
 #[cfg(not(target_os = "linux"))]
 use winit::window::BadIcon;
