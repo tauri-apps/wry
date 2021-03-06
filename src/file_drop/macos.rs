@@ -1,4 +1,4 @@
-#[cfg(feature="file-drop")]
+#[cfg(feature = "file-drop")]
 use super::{FileDropEvent, FileDropHandler, FileDropListener};
 
 use std::{

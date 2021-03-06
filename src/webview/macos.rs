@@ -2,7 +2,7 @@ use crate::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Result, RpcHandler};
 
-#[cfg(feature="file-drop")]
+#[cfg(feature = "file-drop")]
 use crate::file_drop::{FileDropHandler, FileDropController};
 
 use std::{
@@ -35,7 +35,7 @@ pub(crate) fn register_webview_class() -> *const Class {
         #[allow(unused_mut)]
         let mut decl = ClassDecl::new("WryWebView", superclass).unwrap();
 
-        #[cfg(feature="file-drop")]
+        #[cfg(feature = "file-drop")]
         FileDropController::register_webview_class(&mut decl);
 
         VIEW_CLASS = decl.register();
@@ -50,7 +50,7 @@ pub struct InnerWebView {
 
     // Store FileDropController in here to make sure it gets dropped when
     // the webview gets dropped, otherwise we'll have a memory leak
-    #[cfg(feature="file-drop")]
+    #[cfg(feature = "file-drop")]
     #[allow(dead_code)]
     file_drop_controller: Option<FileDropController>,
 }
@@ -67,7 +67,7 @@ impl WV for InnerWebView {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<RpcHandler>,
 
-        #[cfg(feature="file-drop")]
+        #[cfg(feature = "file-drop")]
         file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
 
     ) -> Result<Self> {
@@ -214,14 +214,14 @@ impl WV for InnerWebView {
             }
 
             // File drop handling
-            #[cfg(feature="file-drop")]
+            #[cfg(feature = "file-drop")]
             let file_drop_controller = FileDropController::new(webview, file_drop_handlers);
 
             let w = Self {
                 webview: Id::from_ptr(webview),
                 manager,
 
-                #[cfg(feature="file-drop")]
+                #[cfg(feature = "file-drop")]
                 file_drop_controller,
             };
 

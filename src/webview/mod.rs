@@ -13,7 +13,7 @@ mod win;
 #[cfg(target_os = "windows")]
 use win::*;
 
-#[cfg(feature="file-drop")]
+#[cfg(feature = "file-drop")]
 use crate::file_drop::FileDropHandler;
 
 use crate::{Error, Result};
@@ -74,7 +74,7 @@ pub struct WebViewBuilder {
     custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
     rpc_handler: Option<RpcHandler>,
 
-    #[cfg(feature="file-drop")]
+    #[cfg(feature = "file-drop")]
     file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
 }
 
@@ -93,7 +93,7 @@ impl WebViewBuilder {
             custom_protocol: None,
             rpc_handler: None,
 
-            #[cfg(feature="file-drop")]
+            #[cfg(feature = "file-drop")]
             file_drop_handlers: (None, None),
         })
     }
@@ -184,7 +184,7 @@ impl WebViewBuilder {
         self
     }
 
-    #[cfg(feature="file-drop")]
+    #[cfg(feature = "file-drop")]
     pub fn set_file_drop_handlers(mut self, handlers: (Option<FileDropHandler>, Option<FileDropHandler>)) -> Self {
         self.file_drop_handlers = handlers;
         self
@@ -207,7 +207,7 @@ impl WebViewBuilder {
             self.custom_protocol,
             self.rpc_handler,
 
-            #[cfg(feature="file-drop")]
+            #[cfg(feature = "file-drop")]
             self.file_drop_handlers,
         )?;
         Ok(WebView {
@@ -250,7 +250,7 @@ impl WebView {
         let webview = InnerWebView::new(
             &window, vec![], None, transparent, picky_none, None,
 
-            #[cfg(feature="file-drop")]
+            #[cfg(feature = "file-drop")]
             (None, None)
         )?;
 
@@ -329,7 +329,7 @@ pub(crate) trait WV: Sized {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<RpcHandler>,
 
-        #[cfg(feature="file-drop")]
+        #[cfg(feature = "file-drop")]
         file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
 
     ) -> Result<Self>;

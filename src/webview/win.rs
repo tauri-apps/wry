@@ -1,6 +1,8 @@
 use crate::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Result, RpcHandler};
+
+#[cfg(feature = "file-drop")]
 use crate::file_drop::{FileDropController, FileDropHandler};
 
 use std::{os::raw::c_void, rc::Rc};
@@ -16,6 +18,7 @@ pub struct InnerWebView {
 
     // Store FileDropController in here to make sure it gets dropped when
     // the webview gets dropped, otherwise we'll have a memory leak
+    #[cfg(feature = "file-drop")]
     #[allow(dead_code)]
     file_drop_controller: Rc<OnceCell<FileDropController>>
 }
@@ -33,6 +36,8 @@ impl WV for InnerWebView {
         transparent: bool,
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<RpcHandler>,
+
+        #[cfg(feature = "file-drop")]
         file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
 
     ) -> Result<Self> {
@@ -42,7 +47,9 @@ impl WV for InnerWebView {
         let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
         let controller_clone = controller.clone();
 
+        #[cfg(feature = "file-drop")]
         let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
+        #[cfg(feature = "file-drop")]
         let file_drop_controller_clone = file_drop_controller.clone();
 
         // Webview controller
@@ -163,10 +170,13 @@ impl WV for InnerWebView {
                 }
 
                 let _ = controller_clone.set(controller);
-
-                let mut file_drop_controller = FileDropController::new();
-                file_drop_controller.listen(hwnd, file_drop_handlers);
-                let _ = file_drop_controller_clone.set(file_drop_controller);
+                
+                #[cfg(feature = "file-drop")]
+                {
+                    let mut file_drop_controller = FileDropController::new();
+                    file_drop_controller.listen(hwnd, file_drop_handlers);
+                    let _ = file_drop_controller_clone.set(file_drop_controller);
+                }
 
                 Ok(())
             })
@@ -174,6 +184,8 @@ impl WV for InnerWebView {
 
         Ok(Self {
             controller,
+
+            #[cfg(feature = "file-drop")]
             file_drop_controller,
         })
     }

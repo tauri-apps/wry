@@ -1,8 +1,11 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
     ApplicationProxy, Attributes, CustomProtocol, Error, Icon, Message, Result, WebView,
-    WebViewBuilder, WindowMessage, WindowProxy, WindowRpcHandler, FileDropHandler
+    WebViewBuilder, WindowMessage, WindowProxy, WindowRpcHandler
 };
+
+#[cfg(feature = "file-drop")]
+use crate::file_drop::FileDropHandler;
 
 use std::{
     cell::RefCell,
@@ -64,6 +67,8 @@ pub struct InnerApplication {
     app: GtkApp,
     event_loop_proxy: EventLoopProxy,
     event_loop_proxy_rx: Receiver<Message>,
+
+    #[cfg(feature = "file-drop")]
     pub(crate) file_drop_handler: Option<FileDropHandler>,
 }
 
@@ -83,6 +88,8 @@ impl App for InnerApplication {
             app,
             event_loop_proxy: EventLoopProxy(event_loop_proxy_tx),
             event_loop_proxy_rx,
+            
+            #[cfg(feature = "file-drop")]
             file_drop_handler: None,
         })
     }
@@ -101,7 +108,10 @@ impl App for InnerApplication {
             window,
             custom_protocol,
             rpc_handler,
+
+            #[cfg(feature = "file-drop")]
             (webview_attrs.file_drop_handler.clone(), self.file_drop_handler.clone()),
+
             webview_attrs,
         )?;
 
@@ -158,7 +168,10 @@ impl App for InnerApplication {
                             window,
                             custom_protocol,
                             rpc_handler,
+
+                            #[cfg(feature = "file-drop")]
                             (webview_attrs.file_drop_handler.clone(), self.file_drop_handler.clone()),
+
                             webview_attrs,
                         )
                         .unwrap();
@@ -390,12 +403,17 @@ fn _create_window(app: &GtkApp, attributes: InnerWindowAttributes) -> Result<App
 }
 
 fn _create_webview(
+
     proxy: InnerApplicationProxy,
     window: ApplicationWindow,
     custom_protocol: Option<CustomProtocol>,
     rpc_handler: Option<WindowRpcHandler>,
+
+    #[cfg(feature = "file-drop")]
     file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+
     attributes: InnerWebViewAttributes,
+
 ) -> Result<WebView> {
     let window_id = window.get_id();
     let mut webview = WebViewBuilder::new(window)?.transparent(attributes.transparent);
@@ -423,7 +441,10 @@ fn _create_webview(
         }));
     }
 
-    webview = webview.set_file_drop_handlers(file_drop_handlers);
+    #[cfg(feature = "file-drop")]
+    {
+        webview = webview.set_file_drop_handlers(file_drop_handlers);
+    }
 
     let webview = webview.build()?;
     Ok(webview)
