@@ -189,7 +189,7 @@ impl App for InnerApplication {
                                     window.deiconify();
                                 }
                                 WindowMessage::Show => {
-                                    window.show();
+                                    window.show_all();
                                 }
                                 WindowMessage::Hide => {
                                     window.hide();
