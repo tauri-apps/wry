@@ -140,7 +140,7 @@ impl App for InnerApplication {
             (webview_attrs.file_drop_handler.clone(), self.file_drop_handler.clone()),
             webview_attrs,
         )?;
-        
+
         let id = webview.window().id();
         self.webviews.insert(id, webview);
         Ok(id)

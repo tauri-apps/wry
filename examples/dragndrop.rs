@@ -10,7 +10,7 @@ Dropping files onto the following form is also possible:<br><br>
 
 fn main() -> Result<()> {
     let mut app = Application::new()?;
-    
+
     app.set_file_drop_handler(FileDropHandler::new(|status| {
         println!("Any window: {:?}", status);
         false // Returning true will block the OS default behaviour.
@@ -24,7 +24,7 @@ fn main() -> Result<()> {
         })),
         ..Default::default()
     })?;
-    
+
     app.add_window(Attributes {
         url: Some(TEST_HTML.to_string()),
         file_drop_handler: Some(FileDropHandler::new(|status| {

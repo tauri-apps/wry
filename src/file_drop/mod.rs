@@ -43,7 +43,7 @@ impl FileDropHandler {
     /// Initializes a new file drop handler.
     ///
     /// Example: FileDropHandler:new(|status: FileDropStatus| ...)
-    /// 
+    ///
     /// ### Blocking OS Default Behavior
     /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
     ///
@@ -96,7 +96,7 @@ impl FileDropListener {
             _ => match paths {
 
                 Some(paths) => paths,
-                
+
                 None => match self.active_file_drop.take() {
                     None => {
                         debug_assert!(false, "Failed to retrieve paths list from memory for this file drop event!");

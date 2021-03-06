@@ -96,7 +96,7 @@ impl FileDropController {
             os_operation
         }
     }
-    
+
     extern "C" fn dragging_entered(this: &mut Object, sel: Sel, drag_info: id) -> NSDragOperation {
         let listener = unsafe { FileDropController::get_listener(this) };
         let paths = unsafe { FileDropController::collect_paths(drag_info) };
@@ -137,7 +137,7 @@ impl FileDropController {
         INIT.call_once(|| unsafe {
             let superclass = class!(WKWebView);
             let mut decl = ClassDecl::new("WryWebView", superclass).unwrap();
-            
+
             decl.add_ivar::<*mut c_void>("FileDropListener");
 
             decl.add_method(
