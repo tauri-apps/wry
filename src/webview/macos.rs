@@ -1,5 +1,4 @@
 use crate::mimetype::MimeType;
-use crate::application::WindowProxy;
 use crate::webview::WV;
 use crate::{Result, RpcHandler};
 use crate::file_drop::{FileDropHandler, FileDropController};
