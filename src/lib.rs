@@ -88,7 +88,7 @@ pub mod webview;
 #[cfg(feature = "file-drop")]
 mod file_drop;
 #[cfg(feature = "file-drop")]
-pub use file_drop::{FileDropStatus, FileDropHandler};
+pub use file_drop::{FileDropData, FileDropEvent, FileDropHandler};
 
 pub use application::{
     Application, ApplicationProxy, Attributes, CustomProtocol, Icon, Message, WindowId,

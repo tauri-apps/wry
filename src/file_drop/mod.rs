@@ -11,38 +11,58 @@ mod win;
 #[cfg(target_os = "windows")]
 pub(crate) use win::*;
 
-use core::fmt;
-use std::{cell::Cell, path::PathBuf, sync::Arc};
+use crate::mimetype::MimeType;
 
-#[derive(Debug, Serialize, Clone)]
-/// The status of a file drop event.
-pub enum FileDropStatus {
+use core::fmt;
+use std::{
+    cell::Cell,
+    path::PathBuf,
+    sync::Arc,
+};
+
+#[derive(Debug, Serialize, Clone, Copy)]
+pub enum FileDropEvent {
     /// The file(s) have been dragged onto the window, but have not been dropped yet.
-    Hovered(Vec<PathBuf>),
+    Hovered,
 
     /// The file(s) have been dropped onto the window.
-    Dropped(Vec<PathBuf>),
+    Dropped,
 
-    /// The file(s) drop was aborted.
-    Cancelled(Vec<PathBuf>),
+    /// The file drop was aborted.
+    Cancelled,
 }
 
-// This needs to be defined because internally the respective events do not always yield a PathBuf.
-// We can easily remember what was cancelled though, as Hovered and Dropped events will always yield a PathBuf which we will save ourselves for later reference.
-pub(crate) enum FileDropEvent {
-    Hovered,
-    Dropped,
-    Cancelled
+/// Data about a file that was dropped on a webview.
+#[derive(Debug, Serialize, Clone)]
+pub struct FileDrop {
+    path: PathBuf,
+    mime: MimeType,
+}
+impl From<PathBuf> for FileDrop {
+    fn from(path: PathBuf) -> Self {
+        let mime = match path.is_dir() {
+            true => MimeType::DIRECTORY,
+            false => MimeType::parse_from_uri(&path.to_string_lossy().to_string())
+        };
+        FileDrop { path, mime }
+    }
+}
+
+/// Data about a webview file drop event.
+#[derive(Debug, Serialize, Clone)]
+pub struct FileDropData {
+    event: FileDropEvent,
+    files: Vec<FileDrop>,
 }
 
 #[derive(Clone)]
 pub struct FileDropHandler {
-    f: Arc<Box<dyn Fn(FileDropStatus) -> bool + Send + Sync + 'static>>
+    f: Arc<Box<dyn Fn(FileDropData) -> bool + Send + Sync + 'static>>
 }
 impl FileDropHandler {
     /// Initializes a new file drop handler.
     ///
-    /// Example: FileDropHandler:new(|status: FileDropStatus| ...)
+    /// Example: `FileDropHandler:new(|data: FileDropData| ...)`
     ///
     /// ### Blocking OS Default Behavior
     /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
@@ -51,14 +71,14 @@ impl FileDropHandler {
     /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
     pub fn new<T>(f: T) -> FileDropHandler
     where
-        T: Fn(FileDropStatus) -> bool + Send + Sync + 'static
+        T: Fn(FileDropData) -> bool + Send + Sync + 'static
     {
         FileDropHandler { f: Arc::new(Box::new(f)) }
     }
 
-    /// Manually invokes the file drop handler closures with a provided FileDropStatus(Vec<PathBuf>)
-    pub fn call(&self, status: FileDropStatus) -> bool {
-        (self.f)(status)
+    /// Manually invokes the file drop handler closures with a provided FileDropData(Vec<PathBuf>)
+    pub fn call(&self, data: FileDropData) -> bool {
+        (self.f)(data)
     }
 }
 impl fmt::Debug for FileDropHandler {
@@ -69,7 +89,7 @@ impl fmt::Debug for FileDropHandler {
 
 pub(crate) struct FileDropListener {
     pub(crate) handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
-    pub(crate) active_file_drop: Cell<Option<FileDropStatus>>
+    pub(crate) active_file_drop: Cell<Option<FileDropData>>
 }
 impl FileDropListener {
     pub(crate) fn new(handlers: (Option<FileDropHandler>, Option<FileDropHandler>)) -> FileDropListener {
@@ -83,29 +103,34 @@ impl FileDropListener {
     // Called when a file drop event occurs. Bubbles the event up to the handler.
     // Return true to prevent the OS' default action for the file drop.
     pub(crate) fn file_drop(&self, event: FileDropEvent, paths: Option<Vec<PathBuf>>) -> bool {
-        let paths = match event {
+        let data: FileDropData = match event {
 
             FileDropEvent::Hovered => {
                 if paths.is_none() || paths.as_ref().unwrap().is_empty() {
                     debug_assert!(false, "FileDropEvent::Hovered received with missing or empty paths list!");
                     return false;
                 }
-                paths.unwrap()
+                FileDropData {
+                    files: paths.unwrap().into_iter().map(FileDrop::from).collect::<Vec<FileDrop>>(),
+                    event
+                }
             },
 
             _ => match paths {
 
-                Some(paths) => paths,
+                Some(paths) => FileDropData {
+                    files: paths.into_iter().map(FileDrop::from).collect::<Vec<FileDrop>>(),
+                    event
+                },
 
                 None => match self.active_file_drop.take() {
                     None => {
                         debug_assert!(false, "Failed to retrieve paths list from memory for this file drop event!");
                         return false;
                     },
-                    Some(status) => match status {
-                        FileDropStatus::Hovered(paths) => paths,
-                        FileDropStatus::Dropped(paths) => paths,
-                        FileDropStatus::Cancelled(paths) => paths
+                    Some(mut data) => {
+                        data.event = event;
+                        data
                     }
                 }
 
@@ -113,31 +138,25 @@ impl FileDropListener {
 
         };
 
-        let new_status = match event {
-            FileDropEvent::Hovered => FileDropStatus::Hovered(paths),
-            FileDropEvent::Dropped => FileDropStatus::Dropped(paths),
-            FileDropEvent::Cancelled => FileDropStatus::Cancelled(paths)
-        };
-
-        self.active_file_drop.set(Some(new_status.clone()));
-        self.call(new_status)
+        self.active_file_drop.set(Some(data.clone()));
+        self.call(data)
     }
 
-    fn call(&self, status: FileDropStatus) -> bool {
+    fn call(&self, data: FileDropData) -> bool {
         // Kind of silly, but the most memory efficient
         let mut prevent_default = false;
         match self.handlers.0 {
             Some(ref webview_file_drop_handler) => {
                 match self.handlers.1 {
                     Some(ref app_file_drop_handler) => {
-                        prevent_default = webview_file_drop_handler.call(status.clone()) | app_file_drop_handler.call(status);
+                        prevent_default = webview_file_drop_handler.call(data.clone()) | app_file_drop_handler.call(data);
                     },
-                    None => prevent_default = webview_file_drop_handler.call(status)
+                    None => prevent_default = webview_file_drop_handler.call(data)
                 }
             },
             None => {
                 match self.handlers.1 {
-                    Some(ref app_file_drop_handler) => prevent_default = app_file_drop_handler.call(status),
+                    Some(ref app_file_drop_handler) => prevent_default = app_file_drop_handler.call(data),
                     None => {}
                 }
             }
