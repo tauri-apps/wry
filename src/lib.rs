@@ -99,7 +99,7 @@ use std::sync::mpsc::{RecvError, SendError};
 
 use url::ParseError;
 
-/// Convinient type alias of Result type for wry.
+/// Convenient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Errors returned by wry.

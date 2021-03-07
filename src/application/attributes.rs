@@ -2,6 +2,66 @@ use crate::{Result, RpcRequest, RpcResponse, WindowProxy};
 
 use std::{fs::read, path::Path};
 
+/// The RPC handler to Communicate between the host Rust code and Javascript on webview.
+///
+/// The communication is done via [JSON-RPC](https://www.jsonrpc.org).
+/// Users can pass a `RpcHandler` to [`Application::add_window_with_configs`](crate::Application::add_window_with_configs) to register an incoming
+/// request handler and reply with responses that are passed back to Javascript. On the Javascript
+/// side the client is exposed via `window.rpc` with two public methods:
+///
+/// 1. The `call()` function accepts a method name and parameters and expects a reply.
+/// 2. The `notify()` function accepts a method name and parameters but does not expect a reply.
+///
+/// Both functions return promises but `notify()` resolves immediately.
+///
+/// # Example
+///
+/// ```
+/// use wry::{Application, Result, WindowProxy, RpcRequest, RpcResponse};
+///
+/// fn main() -> Result<()> {
+///     let mut app = Application::new()?;
+///     let handler = Box::new(|proxy: WindowProxy, mut req: RpcRequest| {
+///       // Handle the request of type `RpcRequest` and reply with `Option<RpcResponse>`,
+///       // use the `req.method` field to determine which action to take.
+///       //
+///       // If the handler returns a `RpcResponse` it is immediately evaluated
+///       // in the calling webview.
+///       //
+///       // Use the `WindowProxy` to modify the window, eg: `set_fullscreen` etc.
+///       //
+///       // If the request is a notification (no `id` field) then the handler
+///       // can just return `None`.
+///       //
+///       // If an `id` field is present and the handler wants to execute asynchronous
+///       // code it can return `None` but then *must* later evaluate either
+///       // `RpcResponse::into_result_script()` or `RpcResponse::into_error_script()`
+///       // in the webview to ensure the promise is resolved or rejected and removed
+///       // from the cache.
+///       None
+///     });
+///     app.add_window_with_configs(Default::default(), Some(handler), None)?;
+///     app.run();
+///     Ok(())
+/// }
+/// ```
+///
+/// Then in Javascript use `call()` to call a remote method and get a response:
+///
+/// ```javascript
+/// async function callRemoteMethod() {
+///   let result = await window.rpc.call('remoteMethod', param1, param2);
+///   // Do something with the result
+/// }
+/// ```
+///
+/// If Javascript code wants to use a callback style it is easy to alias a function to a method call:
+///
+/// ```javascript
+/// function someRemoteMethod() {
+///   return window.rpc.call(arguments.callee.name, Array.prototype.slice(arguments, 0));
+/// }
+/// ```
 pub type WindowRpcHandler = Box<dyn Fn(WindowProxy, RpcRequest) -> Option<RpcResponse> + Send>;
 
 pub struct CustomProtocol {

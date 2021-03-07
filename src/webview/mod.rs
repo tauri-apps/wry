@@ -27,6 +27,18 @@ use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
 use winit::window::Window;
 
+/// The RPC handler to Communicate between the host Rust code and Javascript on webview.
+///
+/// The communication is done via [JSON-RPC](https://www.jsonrpc.org). This is the handler for lower
+/// level webview creation. For higher application level, please see [`WindowRpcHandler`](crate::WindowRpcHandler).
+/// Users can pass a `RpcHandler` to [`WebViewBuilder::set_rpc_handler`] to register an incoming
+/// request handler and reply with responses that are passed back to Javascript. On the Javascript
+/// side the client is exposed via `window.rpc` with two public methods:
+///
+/// 1. The `call()` function accepts a method name and parameters and expects a reply.
+/// 2. The `notify()` function accepts a method name and parameters but does not expect a reply.
+///
+/// Both functions return promises but `notify()` resolves immediately.
 pub type RpcHandler = Box<dyn Fn(RpcRequest) -> Option<RpcResponse> + Send>;
 
 // Helper so all platforms handle RPC messages consistently.
@@ -309,6 +321,9 @@ pub(crate) trait WV: Sized {
 const RPC_VERSION: &str = "2.0";
 
 /// RPC request message.
+///
+/// This usually passes to the [`RpcHandler`] or [`WindowRpcHandler`](crate::WindowRpcHandler) as
+/// the parameter. You don't create this by yourself.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RpcRequest {
     jsonrpc: String,
@@ -317,7 +332,7 @@ pub struct RpcRequest {
     pub params: Option<Value>,
 }
 
-/// RPC response message.
+/// RPC response message which being sent back to the Javascript side.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RpcResponse {
     jsonrpc: String,
