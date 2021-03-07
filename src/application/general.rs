@@ -202,6 +202,9 @@ impl App for InnerApplication {
                                 WindowMessage::Hide => window.set_visible(false),
                                 WindowMessage::Close => {
                                     windows.remove(&id);
+                                    if windows.is_empty() {
+                                        *control_flow = ControlFlow::Exit;
+                                    }
                                 }
                                 WindowMessage::SetDecorations(decorations) => {
                                     window.set_decorations(decorations)
