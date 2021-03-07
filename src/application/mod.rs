@@ -305,12 +305,10 @@ impl Application {
     ///
     /// [`Attributes`] is the configuration struct for you to customize the window.
     ///
-    /// [`Callback`] allows you to define rust function to be called on Javascript side for its window.
+    /// [`WindowRpcHandler`] allows you to process requests sent from Javascript side via RPC.
     ///
     /// [`CustomProtocol`] allows you to define custom URL scheme to handle actions like loading
     /// assets.
-    ///
-    /// To create a default window, you could just pass `.add_window(Default::default(), None)`.
     pub fn add_window_with_configs(
         &mut self,
         attributes: Attributes,
