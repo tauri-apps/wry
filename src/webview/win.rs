@@ -131,7 +131,11 @@ impl WV for InnerWebView {
                 // Navigation
                 if let Some(url) = url {
                     if url.cannot_be_a_base() {
-                        w.navigate_to_string(url.as_str())?;
+                        let s = url.as_str();
+                        if let Some(pos) = s.find(',') {
+                            let (_, path) = s.split_at(pos + 1);
+                            w.navigate_to_string(path)?;
+                        }
                     } else {
                         let mut url_string = String::from(url.as_str());
                         if let Some(name) = custom_protocol_name {
