@@ -35,7 +35,7 @@ impl WV for InnerWebView {
         rpc_handler: Option<RpcHandler>,
 
         #[cfg(feature = "file-drop")]
-        file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+        file_drop_handler: Option<FileDropHandler>,
 
     ) -> Result<Self> {
         // Webview widget
@@ -106,7 +106,9 @@ impl WV for InnerWebView {
 
         // File drop handling
         #[cfg(feature = "file-drop")]
-        FileDropController::new(webview.clone(), file_drop_handlers);
+        if let Some(file_drop_handler) = file_drop_handler {
+            FileDropController::new(webview.clone(), file_drop_handler);
+        }
 
         if window.get_visible() {
             window.show_all();

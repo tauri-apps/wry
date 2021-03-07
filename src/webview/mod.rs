@@ -75,7 +75,7 @@ pub struct WebViewBuilder {
     rpc_handler: Option<RpcHandler>,
 
     #[cfg(feature = "file-drop")]
-    file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+    file_drop_handler: Option<FileDropHandler>,
 }
 
 impl WebViewBuilder {
@@ -94,7 +94,7 @@ impl WebViewBuilder {
             rpc_handler: None,
 
             #[cfg(feature = "file-drop")]
-            file_drop_handlers: (None, None),
+            file_drop_handler: None,
         })
     }
 
@@ -185,8 +185,8 @@ impl WebViewBuilder {
     }
 
     #[cfg(feature = "file-drop")]
-    pub fn set_file_drop_handlers(mut self, handlers: (Option<FileDropHandler>, Option<FileDropHandler>)) -> Self {
-        self.file_drop_handlers = handlers;
+    pub fn set_file_drop_handler(mut self, handler: Option<FileDropHandler>) -> Self {
+        self.file_drop_handler = handler;
         self
     }
 
@@ -208,7 +208,7 @@ impl WebViewBuilder {
             self.rpc_handler,
 
             #[cfg(feature = "file-drop")]
-            self.file_drop_handlers,
+            self.file_drop_handler,
         )?;
         Ok(WebView {
             window: self.window,
@@ -251,7 +251,7 @@ impl WebView {
             &window, vec![], None, transparent, picky_none, None,
 
             #[cfg(feature = "file-drop")]
-            (None, None)
+            None
         )?;
 
         let (tx, rx) = channel();
@@ -330,7 +330,7 @@ pub(crate) trait WV: Sized {
         rpc_handler: Option<RpcHandler>,
 
         #[cfg(feature = "file-drop")]
-        file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+        file_drop_handler: Option<FileDropHandler>,
 
     ) -> Result<Self>;
 

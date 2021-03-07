@@ -22,14 +22,14 @@ use std::{
 use winapi::shared::windef::HWND;
 
 pub(crate) struct FileDropController {
-	handlers: Vec<*mut IDropTarget>
+	drop_targets: Vec<*mut IDropTarget>
 }
 impl Drop for FileDropController {
     fn drop(&mut self) {
         // Safety: this could dereference a null ptr.
         // This should never be a null ptr unless something goes wrong in Windows.
         unsafe {
-			for ptr in &self.handlers {
+			for ptr in &self.drop_targets {
 				Box::from_raw(*ptr);
 			}
 		}
@@ -37,13 +37,11 @@ impl Drop for FileDropController {
 }
 impl FileDropController {
 	pub(crate) fn new() -> Self {
-		FileDropController { handlers: Vec::new() }
+		FileDropController { drop_targets: Vec::new() }
 	}
 
-	pub(crate) fn listen(&mut self, hwnd: HWND, handlers: (Option<FileDropHandler>, Option<FileDropHandler>)) {
-		if handlers.0.is_none() && handlers.1.is_none() { return }
-
-        let listener = Rc::new(FileDropListener::new(handlers));
+	pub(crate) fn listen(&mut self, hwnd: HWND, handler: FileDropHandler) {
+        let listener = Rc::new(FileDropListener::new(handler));
 
 		// Enumerate child windows to find the WebView2 "window" and override!
 		enumerate_child_windows(hwnd, |hwnd| { self.inject(hwnd, listener.clone()) });
@@ -60,7 +58,7 @@ impl FileDropController {
 				winapi::um::ole2::RegisterDragDrop(hwnd, handler_interface_ptr) == S_OK
 			{
 				// Not a great solution. But there is no reliable way to get the window handle of the webview, for whatever reason...
-				self.handlers.push(Box::into_raw(Box::new(file_drop_handler)));
+				self.drop_targets.push(Box::into_raw(Box::new(file_drop_handler)));
 			}
 		}
 

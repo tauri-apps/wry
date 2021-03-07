@@ -88,14 +88,13 @@ impl fmt::Debug for FileDropHandler {
 }
 
 pub(crate) struct FileDropListener {
-    pub(crate) handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+    pub(crate) handler: FileDropHandler,
     pub(crate) active_file_drop: Cell<Option<FileDropData>>
 }
 impl FileDropListener {
-    pub(crate) fn new(handlers: (Option<FileDropHandler>, Option<FileDropHandler>)) -> FileDropListener {
-        debug_assert!(handlers.0.is_some() || handlers.1.is_some(), "Tried to create a FileDropListener with no file drop handlers!");
+    pub(crate) fn new(handler: FileDropHandler) -> FileDropListener {
         FileDropListener {
-            handlers,
+            handler,
             active_file_drop: Cell::new(None),
         }
     }
@@ -139,28 +138,6 @@ impl FileDropListener {
         };
 
         self.active_file_drop.set(Some(data.clone()));
-        self.call(data)
-    }
-
-    fn call(&self, data: FileDropData) -> bool {
-        // Kind of silly, but the most memory efficient
-        let mut prevent_default = false;
-        match self.handlers.0 {
-            Some(ref webview_file_drop_handler) => {
-                match self.handlers.1 {
-                    Some(ref app_file_drop_handler) => {
-                        prevent_default = webview_file_drop_handler.call(data.clone()) | app_file_drop_handler.call(data);
-                    },
-                    None => prevent_default = webview_file_drop_handler.call(data)
-                }
-            },
-            None => {
-                match self.handlers.1 {
-                    Some(ref app_file_drop_handler) => prevent_default = app_file_drop_handler.call(data),
-                    None => {}
-                }
-            }
-        }
-        prevent_default
+        self.handler.call(data)
     }
 }

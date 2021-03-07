@@ -56,12 +56,12 @@ impl Drop for FileDropController {
     }
 }
 impl FileDropController {
-    pub(crate) unsafe fn new(webview: *mut Object, handlers: (Option<FileDropHandler>, Option<FileDropHandler>)) -> Option<FileDropController> {
-        if handlers.0.is_none() && handlers.1.is_none() { return None }
-
-        let listener = Box::into_raw(Box::new(FileDropListener::new(handlers)));
+    pub(crate) unsafe fn new(webview: *mut Object, handler: FileDropHandler) -> Option<FileDropController> {
+        let listener = Box::into_raw(Box::new(FileDropListener::new(handler)));
+        
         let ptr = listener as *mut FileDropListener;
         (*webview).set_ivar("FileDropListener", ptr as *mut c_void);
+
         Some(FileDropController {
 			listener: ptr
 		})

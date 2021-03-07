@@ -38,7 +38,7 @@ impl WV for InnerWebView {
         rpc_handler: Option<RpcHandler>,
 
         #[cfg(feature = "file-drop")]
-        file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+        file_drop_handler: Option<FileDropHandler>,
 
     ) -> Result<Self> {
 
@@ -172,9 +172,9 @@ impl WV for InnerWebView {
                 let _ = controller_clone.set(controller);
                 
                 #[cfg(feature = "file-drop")]
-                {
+                if let Some(file_drop_handler) = file_drop_handler {
                     let mut file_drop_controller = FileDropController::new();
-                    file_drop_controller.listen(hwnd, file_drop_handlers);
+                    file_drop_controller.listen(hwnd, file_drop_handler);
                     let _ = file_drop_controller_clone.set(file_drop_controller);
                 }
 

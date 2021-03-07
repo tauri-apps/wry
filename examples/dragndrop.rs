@@ -16,11 +16,6 @@ fn main() -> Result<()> {
 
     let mut app = Application::new()?;
 
-    app.set_file_drop_handler(FileDropHandler::new(|data| {
-        println!("Any window: {:?}", data);
-        false // Returning true will block the OS default behaviour.
-    }));
-
     app.add_window(Attributes {
         url: Some(TEST_HTML.to_string()),
         file_drop_handler: Some(FileDropHandler::new(|data| {

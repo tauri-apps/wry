@@ -11,9 +11,6 @@ pub use gtkrs::WindowId;
 #[cfg(target_os = "linux")]
 use gtkrs::{InnerApplication, InnerApplicationProxy};
 
-#[cfg(feature = "file-drop")]
-use crate::file_drop::FileDropHandler;
-
 mod attributes;
 pub use attributes::{Attributes, CustomProtocol, Icon, WindowRpcHandler};
 pub(crate) use attributes::{InnerWebViewAttributes, InnerWindowAttributes};
@@ -337,12 +334,6 @@ impl Application {
     /// Returns the [`WindowProxy`] with given `WindowId`.
     pub fn window_proxy(&self, window_id: WindowId) -> WindowProxy {
         WindowProxy::new(self.application_proxy(), window_id)
-    }
-
-    /// Set a file drop handler.
-    #[cfg(feature = "file-drop")]
-    pub fn set_file_drop_handler(&mut self, handler: FileDropHandler) {
-        self.inner.file_drop_handler = Some(handler);
     }
 
     /// Consume the application and start running it. This will hijack the main thread and iterate

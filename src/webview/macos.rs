@@ -68,7 +68,7 @@ impl WV for InnerWebView {
         rpc_handler: Option<RpcHandler>,
 
         #[cfg(feature = "file-drop")]
-        file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+        file_drop_handler: Option<FileDropHandler>,
 
     ) -> Result<Self> {
         // Callback function for message handler
@@ -213,16 +213,16 @@ impl WV for InnerWebView {
                 let _: () = msg_send![manager, addScriptMessageHandler:handler name:external];
             }
 
-            // File drop handling
-            #[cfg(feature = "file-drop")]
-            let file_drop_controller = FileDropController::new(webview, file_drop_handlers);
-
             let w = Self {
                 webview: Id::from_ptr(webview),
                 manager,
 
+                // File drop handling
                 #[cfg(feature = "file-drop")]
-                file_drop_controller,
+                file_drop_controller: match file_drop_handler {
+                    Some(file_drop_handler) => FileDropController::new(webview, file_drop_handler),
+                    None => None
+                },
             };
 
             // Initialize scripts

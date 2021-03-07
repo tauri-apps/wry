@@ -67,9 +67,6 @@ pub struct InnerApplication {
     app: GtkApp,
     event_loop_proxy: EventLoopProxy,
     event_loop_proxy_rx: Receiver<Message>,
-
-    #[cfg(feature = "file-drop")]
-    pub(crate) file_drop_handler: Option<FileDropHandler>,
 }
 
 impl App for InnerApplication {
@@ -88,9 +85,6 @@ impl App for InnerApplication {
             app,
             event_loop_proxy: EventLoopProxy(event_loop_proxy_tx),
             event_loop_proxy_rx,
-            
-            #[cfg(feature = "file-drop")]
-            file_drop_handler: None,
         })
     }
 
@@ -110,7 +104,7 @@ impl App for InnerApplication {
             rpc_handler,
 
             #[cfg(feature = "file-drop")]
-            (webview_attrs.file_drop_handler.clone(), self.file_drop_handler.clone()),
+            webview_attrs.file_drop_handler.clone(),
 
             webview_attrs,
         )?;
@@ -170,7 +164,7 @@ impl App for InnerApplication {
                             rpc_handler,
 
                             #[cfg(feature = "file-drop")]
-                            (webview_attrs.file_drop_handler.clone(), self.file_drop_handler.clone()),
+                            webview_attrs.file_drop_handler.clone(),
 
                             webview_attrs,
                         )
@@ -410,7 +404,7 @@ fn _create_webview(
     rpc_handler: Option<WindowRpcHandler>,
 
     #[cfg(feature = "file-drop")]
-    file_drop_handlers: (Option<FileDropHandler>, Option<FileDropHandler>),
+    file_drop_handler: Option<FileDropHandler>,
 
     attributes: InnerWebViewAttributes,
 
@@ -443,7 +437,7 @@ fn _create_webview(
 
     #[cfg(feature = "file-drop")]
     {
-        webview = webview.set_file_drop_handlers(file_drop_handlers);
+        webview = webview.set_file_drop_handler(file_drop_handler);
     }
 
     let webview = webview.build()?;
