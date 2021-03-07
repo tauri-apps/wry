@@ -167,7 +167,7 @@ impl Attributes {
                 initialization_scripts: self.initialization_scripts,
 
                 #[cfg(feature = "file-drop")]
-                file_drop_handler: self.file_drop_handler
+                file_drop_handler: self.file_drop_handler,
             },
         )
     }

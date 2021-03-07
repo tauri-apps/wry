@@ -2,14 +2,17 @@
 use super::{FileDropEvent, FileDropHandler, FileDropListener};
 
 use std::{
-	ffi::{c_void, CStr},
-	path::PathBuf,
+    ffi::{c_void, CStr},
+    path::PathBuf,
 };
 
 use lazy_static::lazy_static;
 
-use objc::{declare::ClassDecl, runtime::{Object, Sel}};
 use cocoa::base::{id, BOOL, YES};
+use objc::{
+    declare::ClassDecl,
+    runtime::{Object, Sel},
+};
 
 pub(crate) type NSDragOperation = cocoa::foundation::NSUInteger;
 #[allow(non_upper_case_globals)]
@@ -21,24 +24,28 @@ use objc::runtime::class_getInstanceMethod;
 use objc::runtime::method_getImplementation;
 lazy_static! {
     static ref OBJC_DRAGGING_ENTERED: extern "C" fn(*const Object, Sel, id) -> NSDragOperation = unsafe {
-        std::mem::transmute(
-            method_getImplementation(class_getInstanceMethod(class!(WKWebView), sel!(draggingEntered:)))
-        )
+        std::mem::transmute(method_getImplementation(class_getInstanceMethod(
+            class!(WKWebView),
+            sel!(draggingEntered:),
+        )))
     };
     static ref OBJC_DRAGGING_EXITED: extern "C" fn(*const Object, Sel, id) = unsafe {
-        std::mem::transmute(
-            method_getImplementation(class_getInstanceMethod(class!(WKWebView), sel!(draggingExited:)))
-        )
+        std::mem::transmute(method_getImplementation(class_getInstanceMethod(
+            class!(WKWebView),
+            sel!(draggingExited:),
+        )))
     };
     static ref OBJC_PERFORM_DRAG_OPERATION: extern "C" fn(*const Object, Sel, id) -> BOOL = unsafe {
-        std::mem::transmute(
-            method_getImplementation(class_getInstanceMethod(class!(WKWebView), sel!(performDragOperation:)))
-        )
+        std::mem::transmute(method_getImplementation(class_getInstanceMethod(
+            class!(WKWebView),
+            sel!(performDragOperation:),
+        )))
     };
     static ref OBJC_DRAGGING_UPDATED: extern "C" fn(*const Object, Sel, id) -> NSDragOperation = unsafe {
-        std::mem::transmute(
-            method_getImplementation(class_getInstanceMethod(class!(WKWebView), sel!(draggingUpdated:)))
-        )
+        std::mem::transmute(method_getImplementation(class_getInstanceMethod(
+            class!(WKWebView),
+            sel!(draggingUpdated:),
+        )))
     };
 }
 
@@ -46,25 +53,26 @@ lazy_static! {
 // + any relevant helper functions.
 // Safety: objc runtime calls are unsafe
 pub(crate) struct FileDropController {
-	listener: *mut FileDropListener
+    listener: *mut FileDropListener,
 }
 impl Drop for FileDropController {
     fn drop(&mut self) {
-		// Safety: This could dereference a null ptr.
-		// This should never be a null ptr unless something goes wrong in Obj-C.
+        // Safety: This could dereference a null ptr.
+        // This should never be a null ptr unless something goes wrong in Obj-C.
         unsafe { Box::from_raw(self.listener) };
     }
 }
 impl FileDropController {
-    pub(crate) unsafe fn new(webview: *mut Object, handler: FileDropHandler) -> Option<FileDropController> {
+    pub(crate) unsafe fn new(
+        webview: *mut Object,
+        handler: FileDropHandler,
+    ) -> Option<FileDropController> {
         let listener = Box::into_raw(Box::new(FileDropListener::new(handler)));
-        
+
         let ptr = listener as *mut FileDropListener;
         (*webview).set_ivar("FileDropListener", ptr as *mut c_void);
 
-        Some(FileDropController {
-			listener: ptr
-		})
+        Some(FileDropController { listener: ptr })
     }
 
     unsafe fn get_listener(this: &Object) -> &mut FileDropListener {
@@ -72,17 +80,26 @@ impl FileDropController {
         &mut *(delegate as *mut FileDropListener)
     }
 
-	unsafe fn collect_paths(drag_info: id) -> Vec<PathBuf> {
+    unsafe fn collect_paths(drag_info: id) -> Vec<PathBuf> {
         use cocoa::foundation::NSFastEnumeration;
         use cocoa::foundation::NSString;
 
-		let pb: id = msg_send![drag_info, draggingPasteboard];
-		let mut file_drop_paths = Vec::new();
-		for path in cocoa::appkit::NSPasteboard::propertyListForType(pb, cocoa::appkit::NSFilenamesPboardType).iter() {
-			file_drop_paths.push(PathBuf::from(CStr::from_ptr(NSString::UTF8String(path)).to_string_lossy().into_owned()));
-		}
-		file_drop_paths
-	}
+        let pb: id = msg_send![drag_info, draggingPasteboard];
+        let mut file_drop_paths = Vec::new();
+        for path in cocoa::appkit::NSPasteboard::propertyListForType(
+            pb,
+            cocoa::appkit::NSFilenamesPboardType,
+        )
+        .iter()
+        {
+            file_drop_paths.push(PathBuf::from(
+                CStr::from_ptr(NSString::UTF8String(path))
+                    .to_string_lossy()
+                    .into_owned(),
+            ));
+        }
+        file_drop_paths
+    }
 
     extern "C" fn dragging_updated(this: &mut Object, sel: Sel, drag_info: id) -> NSDragOperation {
         let os_operation = OBJC_DRAGGING_UPDATED(this, sel, drag_info);
@@ -134,17 +151,20 @@ impl FileDropController {
 
         decl.add_method(
             sel!(draggingUpdated:),
-            FileDropController::dragging_updated as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
+            FileDropController::dragging_updated
+                as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
         );
 
         decl.add_method(
             sel!(draggingEntered:),
-            FileDropController::dragging_entered as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
+            FileDropController::dragging_entered
+                as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
         );
 
         decl.add_method(
             sel!(performDragOperation:),
-            FileDropController::perform_drag_operation as extern "C" fn(&mut Object, Sel, id) -> BOOL,
+            FileDropController::perform_drag_operation
+                as extern "C" fn(&mut Object, Sel, id) -> BOOL,
         );
 
         decl.add_method(

@@ -14,11 +14,7 @@ pub(crate) use win::*;
 use crate::mimetype::MimeType;
 
 use core::fmt;
-use std::{
-    cell::Cell,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{cell::Cell, path::PathBuf, sync::Arc};
 
 #[derive(Debug, Serialize, Clone, Copy)]
 pub enum FileDropEvent {
@@ -42,7 +38,7 @@ impl From<PathBuf> for FileDrop {
     fn from(path: PathBuf) -> Self {
         let mime = match path.is_dir() {
             true => MimeType::DIRECTORY,
-            false => MimeType::parse_from_uri(&path.to_string_lossy().to_string())
+            false => MimeType::parse_from_uri(&path.to_string_lossy().to_string()),
         };
         FileDrop { path, mime }
     }
@@ -57,7 +53,7 @@ pub struct FileDropData {
 
 #[derive(Clone)]
 pub struct FileDropHandler {
-    f: Arc<Box<dyn Fn(FileDropData) -> bool + Send + Sync + 'static>>
+    f: Arc<Box<dyn Fn(FileDropData) -> bool + Send + Sync + 'static>>,
 }
 impl FileDropHandler {
     /// Initializes a new file drop handler.
@@ -71,9 +67,11 @@ impl FileDropHandler {
     /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
     pub fn new<T>(f: T) -> FileDropHandler
     where
-        T: Fn(FileDropData) -> bool + Send + Sync + 'static
+        T: Fn(FileDropData) -> bool + Send + Sync + 'static,
     {
-        FileDropHandler { f: Arc::new(Box::new(f)) }
+        FileDropHandler {
+            f: Arc::new(Box::new(f)),
+        }
     }
 
     /// Manually invokes the file drop handler closures with a provided FileDropData(Vec<PathBuf>)
@@ -89,7 +87,7 @@ impl fmt::Debug for FileDropHandler {
 
 pub(crate) struct FileDropListener {
     pub(crate) handler: FileDropHandler,
-    pub(crate) active_file_drop: Cell<Option<FileDropData>>
+    pub(crate) active_file_drop: Cell<Option<FileDropData>>,
 }
 impl FileDropListener {
     pub(crate) fn new(handler: FileDropHandler) -> FileDropListener {
@@ -103,38 +101,46 @@ impl FileDropListener {
     // Return true to prevent the OS' default action for the file drop.
     pub(crate) fn file_drop(&self, event: FileDropEvent, paths: Option<Vec<PathBuf>>) -> bool {
         let data: FileDropData = match event {
-
             FileDropEvent::Hovered => {
                 if paths.is_none() || paths.as_ref().unwrap().is_empty() {
-                    debug_assert!(false, "FileDropEvent::Hovered received with missing or empty paths list!");
+                    debug_assert!(
+                        false,
+                        "FileDropEvent::Hovered received with missing or empty paths list!"
+                    );
                     return false;
                 }
                 FileDropData {
-                    files: paths.unwrap().into_iter().map(FileDrop::from).collect::<Vec<FileDrop>>(),
-                    event
+                    files: paths
+                        .unwrap()
+                        .into_iter()
+                        .map(FileDrop::from)
+                        .collect::<Vec<FileDrop>>(),
+                    event,
                 }
-            },
-
-            _ => match paths {
-
-                Some(paths) => FileDropData {
-                    files: paths.into_iter().map(FileDrop::from).collect::<Vec<FileDrop>>(),
-                    event
-                },
-
-                None => match self.active_file_drop.take() {
-                    None => {
-                        debug_assert!(false, "Failed to retrieve paths list from memory for this file drop event!");
-                        return false;
-                    },
-                    Some(mut data) => {
-                        data.event = event;
-                        data
-                    }
-                }
-
             }
 
+            _ => {
+                match paths {
+                    Some(paths) => FileDropData {
+                        files: paths
+                            .into_iter()
+                            .map(FileDrop::from)
+                            .collect::<Vec<FileDrop>>(),
+                        event,
+                    },
+
+                    None => match self.active_file_drop.take() {
+                        None => {
+                            debug_assert!(false, "Failed to retrieve paths list from memory for this file drop event!");
+                            return false;
+                        }
+                        Some(mut data) => {
+                            data.event = event;
+                            data
+                        }
+                    },
+                }
+            }
         };
 
         self.active_file_drop.set(Some(data.clone()));

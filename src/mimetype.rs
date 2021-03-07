@@ -34,7 +34,7 @@ impl std::fmt::Display for MimeType {
             MimeType::OCTETSTREAM => "application/octet-stream",
             MimeType::RTF => "application/rtf",
             MimeType::SVG => "image/svg",
-            
+
             #[cfg(feature = "file-drop")]
             MimeType::DIRECTORY => "text/uri-list",
         };

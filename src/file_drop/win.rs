@@ -6,71 +6,71 @@ use super::{FileDropEvent, FileDropHandler, FileDropListener};
 // https://docs.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2experimentalcompositioncontroller3?view=webview2-1.0.721-prerelease&preserve-view=true
 
 use std::{
-	rc::Rc,
-	ffi::OsString,
-	os::{
-		windows::ffi::OsStringExt,
-		raw::c_void,
-	},
-	path::PathBuf,
-	ptr, sync::atomic::{
-		AtomicUsize,
-		Ordering
-	}
+    ffi::OsString,
+    os::{raw::c_void, windows::ffi::OsStringExt},
+    path::PathBuf,
+    ptr,
+    rc::Rc,
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use winapi::shared::windef::HWND;
 
 pub(crate) struct FileDropController {
-	drop_targets: Vec<*mut IDropTarget>
+    drop_targets: Vec<*mut IDropTarget>,
 }
 impl Drop for FileDropController {
     fn drop(&mut self) {
         // Safety: this could dereference a null ptr.
         // This should never be a null ptr unless something goes wrong in Windows.
         unsafe {
-			for ptr in &self.drop_targets {
-				Box::from_raw(*ptr);
-			}
-		}
+            for ptr in &self.drop_targets {
+                Box::from_raw(*ptr);
+            }
+        }
     }
 }
 impl FileDropController {
-	pub(crate) fn new() -> Self {
-		FileDropController { drop_targets: Vec::new() }
-	}
+    pub(crate) fn new() -> Self {
+        FileDropController {
+            drop_targets: Vec::new(),
+        }
+    }
 
-	pub(crate) fn listen(&mut self, hwnd: HWND, handler: FileDropHandler) {
+    pub(crate) fn listen(&mut self, hwnd: HWND, handler: FileDropHandler) {
         let listener = Rc::new(FileDropListener::new(handler));
 
-		// Enumerate child windows to find the WebView2 "window" and override!
-		enumerate_child_windows(hwnd, |hwnd| { self.inject(hwnd, listener.clone()) });
-	}
+        // Enumerate child windows to find the WebView2 "window" and override!
+        enumerate_child_windows(hwnd, |hwnd| self.inject(hwnd, listener.clone()));
+    }
 
-	fn inject(&mut self, hwnd: HWND, listener: Rc<FileDropListener>) -> bool {
+    fn inject(&mut self, hwnd: HWND, listener: Rc<FileDropListener>) -> bool {
         // Safety: WinAPI calls are unsafe
-		unsafe {
-			let file_drop_handler = IDropTarget::new(hwnd, listener);
-			let handler_interface_ptr = &mut (*file_drop_handler.data).interface as winapi::um::oleidl::LPDROPTARGET;
+        unsafe {
+            let file_drop_handler = IDropTarget::new(hwnd, listener);
+            let handler_interface_ptr =
+                &mut (*file_drop_handler.data).interface as winapi::um::oleidl::LPDROPTARGET;
 
-			if
-				winapi::um::ole2::RevokeDragDrop(hwnd) != winapi::shared::winerror::DRAGDROP_E_INVALIDHWND &&
-				winapi::um::ole2::RegisterDragDrop(hwnd, handler_interface_ptr) == S_OK
-			{
-				// Not a great solution. But there is no reliable way to get the window handle of the webview, for whatever reason...
-				self.drop_targets.push(Box::into_raw(Box::new(file_drop_handler)));
-			}
-		}
+            if winapi::um::ole2::RevokeDragDrop(hwnd)
+                != winapi::shared::winerror::DRAGDROP_E_INVALIDHWND
+                && winapi::um::ole2::RegisterDragDrop(hwnd, handler_interface_ptr) == S_OK
+            {
+                // Not a great solution. But there is no reliable way to get the window handle of the webview, for whatever reason...
+                self.drop_targets
+                    .push(Box::into_raw(Box::new(file_drop_handler)));
+            }
+        }
 
-		true
-	}
+        true
+    }
 }
 
 // https://gist.github.com/application-developer-DA/5a460d9ca02948f1d2bfa53100c941da
 // Safety: WinAPI calls are unsafe
 
 fn enumerate_child_windows<F>(hwnd: HWND, mut callback: F)
-    where F: FnMut(HWND) -> bool
+where
+    F: FnMut(HWND) -> bool,
 {
     let mut trait_obj: &mut dyn FnMut(HWND) -> bool = &mut callback;
     let closure_pointer_pointer: *mut c_void = unsafe { std::mem::transmute(&mut trait_obj) };
@@ -79,9 +79,16 @@ fn enumerate_child_windows<F>(hwnd: HWND, mut callback: F)
     unsafe { winapi::um::winuser::EnumChildWindows(hwnd, Some(enumerate_callback), lparam) };
 }
 
-unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: winapi::shared::minwindef::LPARAM) -> winapi::shared::minwindef::BOOL {
+unsafe extern "system" fn enumerate_callback(
+    hwnd: HWND,
+    lparam: winapi::shared::minwindef::LPARAM,
+) -> winapi::shared::minwindef::BOOL {
     let closure: &mut &mut dyn FnMut(HWND) -> bool = std::mem::transmute(lparam as *mut c_void);
-    if closure(hwnd) { winapi::shared::minwindef::TRUE } else { winapi::shared::minwindef::FALSE }
+    if closure(hwnd) {
+        winapi::shared::minwindef::TRUE
+    } else {
+        winapi::shared::minwindef::FALSE
+    }
 }
 
 // The below code has been ripped from Winit - if only they'd `pub use` this!
@@ -97,7 +104,9 @@ use winapi::{
     },
     um::{
         objidl::IDataObject,
-        oleidl::{IDropTarget as NativeIDropTarget, IDropTargetVtbl, DROPEFFECT_COPY, DROPEFFECT_NONE},
+        oleidl::{
+            IDropTarget as NativeIDropTarget, IDropTargetVtbl, DROPEFFECT_COPY, DROPEFFECT_NONE,
+        },
         shellapi, unknwnbase,
         winnt::HRESULT,
     },
@@ -107,7 +116,7 @@ use winapi::{
 #[repr(C)]
 struct IDropTargetData {
     pub interface: NativeIDropTarget,
-	listener: Rc<FileDropListener>,
+    listener: Rc<FileDropListener>,
     refcount: AtomicUsize,
     window: HWND,
     cursor_effect: DWORD,
@@ -132,9 +141,9 @@ impl IDropTarget {
             cursor_effect: DROPEFFECT_NONE,
             hovered_is_valid: false,
         });
-		IDropTarget {
-			data: Box::into_raw(data),
-		}
+        IDropTarget {
+            data: Box::into_raw(data),
+        }
     }
 
     // Implement IUnknown
@@ -171,7 +180,7 @@ impl IDropTarget {
         _pt: *const POINTL,
         pdwEffect: *mut DWORD,
     ) -> HRESULT {
-		let mut paths = Vec::new();
+        let mut paths = Vec::new();
 
         let drop_handler = Self::from_interface(this);
         let hdrop = Self::collect_paths(pDataObj, &mut paths);
@@ -183,7 +192,9 @@ impl IDropTarget {
         };
         *pdwEffect = drop_handler.cursor_effect;
 
-		drop_handler.listener.file_drop(FileDropEvent::Hovered, Some(paths));
+        drop_handler
+            .listener
+            .file_drop(FileDropEvent::Hovered, Some(paths));
 
         S_OK
     }
@@ -203,7 +214,9 @@ impl IDropTarget {
     pub unsafe extern "system" fn DragLeave(this: *mut NativeIDropTarget) -> HRESULT {
         let drop_handler = Self::from_interface(this);
         if drop_handler.hovered_is_valid {
-			drop_handler.listener.file_drop(FileDropEvent::Cancelled, None);
+            drop_handler
+                .listener
+                .file_drop(FileDropEvent::Cancelled, None);
         }
 
         S_OK
@@ -224,7 +237,9 @@ impl IDropTarget {
             shellapi::DragFinish(hdrop);
         }
 
-		drop_handler.listener.file_drop(FileDropEvent::Dropped, Some(paths));
+        drop_handler
+            .listener
+            .file_drop(FileDropEvent::Dropped, Some(paths));
 
         S_OK
     }
@@ -233,7 +248,10 @@ impl IDropTarget {
         &mut *(this as *mut _)
     }
 
-    unsafe fn collect_paths(data_obj: *const IDataObject, paths: &mut Vec<PathBuf>) -> Option<shellapi::HDROP> {
+    unsafe fn collect_paths(
+        data_obj: *const IDataObject,
+        paths: &mut Vec<PathBuf>,
+    ) -> Option<shellapi::HDROP> {
         use winapi::{
             shared::{
                 winerror::{DV_E_FORMATETC, SUCCEEDED},
@@ -282,10 +300,16 @@ impl IDropTarget {
         } else if get_data_result == DV_E_FORMATETC {
             // If the dropped item is not a file this error will occur.
             // In this case it is OK to return without taking further action.
-            debug_assert!(false, "Error occured while processing dropped/hovered item: item is not a file.");
+            debug_assert!(
+                false,
+                "Error occured while processing dropped/hovered item: item is not a file."
+            );
             return None;
         } else {
-            debug_assert!(false, "Unexpected error occured while processing dropped/hovered item.");
+            debug_assert!(
+                false,
+                "Unexpected error occured while processing dropped/hovered item."
+            );
             return None;
         }
     }

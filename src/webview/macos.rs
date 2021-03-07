@@ -3,14 +3,14 @@ use crate::webview::WV;
 use crate::{Result, RpcHandler};
 
 #[cfg(feature = "file-drop")]
-use crate::file_drop::{FileDropHandler, FileDropController};
+use crate::file_drop::{FileDropController, FileDropHandler};
 
 use std::{
     ffi::{c_void, CStr},
     os::raw::c_char,
     ptr::null,
     slice, str,
-	sync::Once,
+    sync::Once,
 };
 
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
@@ -18,7 +18,7 @@ use cocoa::base::id;
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use objc::{
     declare::ClassDecl,
-    runtime::{Object, Sel, Class}
+    runtime::{Class, Object, Sel},
 };
 use objc_id::Id;
 use url::Url;
@@ -59,7 +59,6 @@ impl WV for InnerWebView {
     type Window = Window;
 
     fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
-
         window: &Window,
         scripts: Vec<String>,
         url: Option<Url>,
@@ -67,9 +66,7 @@ impl WV for InnerWebView {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<RpcHandler>,
 
-        #[cfg(feature = "file-drop")]
-        file_drop_handler: Option<FileDropHandler>,
-
+        #[cfg(feature = "file-drop")] file_drop_handler: Option<FileDropHandler>,
     ) -> Result<Self> {
         // Callback function for message handler
         extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
@@ -221,7 +218,7 @@ impl WV for InnerWebView {
                 #[cfg(feature = "file-drop")]
                 file_drop_controller: match file_drop_handler {
                     Some(file_drop_handler) => FileDropController::new(webview, file_drop_handler),
-                    None => None
+                    None => None,
                 },
             };
 

@@ -20,14 +20,13 @@ pub struct InnerWebView {
     // the webview gets dropped, otherwise we'll have a memory leak
     #[cfg(feature = "file-drop")]
     #[allow(dead_code)]
-    file_drop_controller: Rc<OnceCell<FileDropController>>
+    file_drop_controller: Rc<OnceCell<FileDropController>>,
 }
 
 impl WV for InnerWebView {
     type Window = Window;
 
     fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
-
         window: &Window,
         scripts: Vec<String>,
         url: Option<Url>,
@@ -37,11 +36,8 @@ impl WV for InnerWebView {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<RpcHandler>,
 
-        #[cfg(feature = "file-drop")]
-        file_drop_handler: Option<FileDropHandler>,
-
+        #[cfg(feature = "file-drop")] file_drop_handler: Option<FileDropHandler>,
     ) -> Result<Self> {
-
         let hwnd = window.hwnd() as HWND;
 
         let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
@@ -170,7 +166,7 @@ impl WV for InnerWebView {
                 }
 
                 let _ = controller_clone.set(controller);
-                
+
                 #[cfg(feature = "file-drop")]
                 if let Some(file_drop_handler) = file_drop_handler {
                     let mut file_drop_controller = FileDropController::new();

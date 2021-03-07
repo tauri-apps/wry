@@ -206,7 +206,6 @@ impl WebViewBuilder {
             self.transparent,
             self.custom_protocol,
             self.rpc_handler,
-
             #[cfg(feature = "file-drop")]
             self.file_drop_handler,
         )?;
@@ -248,10 +247,14 @@ impl WebView {
         let picky_none: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)> = None;
 
         let webview = InnerWebView::new(
-            &window, vec![], None, transparent, picky_none, None,
-
+            &window,
+            vec![],
+            None,
+            transparent,
+            picky_none,
+            None,
             #[cfg(feature = "file-drop")]
-            None
+            None,
         )?;
 
         let (tx, rx) = channel();
@@ -321,7 +324,6 @@ pub(crate) trait WV: Sized {
     type Window;
 
     fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
-
         window: &Self::Window,
         scripts: Vec<String>,
         url: Option<Url>,
@@ -329,9 +331,7 @@ pub(crate) trait WV: Sized {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<RpcHandler>,
 
-        #[cfg(feature = "file-drop")]
-        file_drop_handler: Option<FileDropHandler>,
-
+        #[cfg(feature = "file-drop")] file_drop_handler: Option<FileDropHandler>,
     ) -> Result<Self>;
 
     fn eval(&self, js: &str) -> Result<()>;

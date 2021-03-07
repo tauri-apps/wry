@@ -3,7 +3,7 @@ use crate::webview::WV;
 use crate::{Error, Result, RpcHandler};
 
 #[cfg(feature = "file-drop")]
-use crate::file_drop::{FileDropHandler, FileDropController};
+use crate::file_drop::{FileDropController, FileDropHandler};
 
 use std::rc::Rc;
 
@@ -26,7 +26,6 @@ impl WV for InnerWebView {
     type Window = Window;
 
     fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
-
         window: &Window,
         scripts: Vec<String>,
         url: Option<Url>,
@@ -34,9 +33,7 @@ impl WV for InnerWebView {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<RpcHandler>,
 
-        #[cfg(feature = "file-drop")]
-        file_drop_handler: Option<FileDropHandler>,
-
+        #[cfg(feature = "file-drop")] file_drop_handler: Option<FileDropHandler>,
     ) -> Result<Self> {
         // Webview widget
         let manager = UserContentManager::new();
