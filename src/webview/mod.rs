@@ -228,14 +228,14 @@ pub struct WebView {
 
 impl WebView {
     /// Create a [`WebView`] from provided [`Window`]. Note that calling this directly loses
-    /// abilities to initialize scripts, add callbacks, and many more before starting WebView. To
+    /// abilities to initialize scripts, add rpc handler, and many more before starting WebView. To
     /// benefit from above features, create a [`WebViewBuilder`] instead.
     pub fn new(window: Window) -> Result<Self> {
         Self::new_with_configs(window, false)
     }
 
     /// Create a [`WebView`] from provided [`Window`] along with several configurations.
-    /// Note that calling this directly loses abilities to initialize scripts, add callbacks, and
+    /// Note that calling this directly loses abilities to initialize scripts, add rpc handler, and
     /// many more before starting WebView. To benefit from above features, create a
     /// [`WebViewBuilder`] instead.
     pub fn new_with_configs(window: Window, transparent: bool) -> Result<Self> {

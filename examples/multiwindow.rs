@@ -15,9 +15,7 @@ fn main() -> Result<()> {
         ..Default::default()
     };
 
-    let app_proxy = app.application_proxy();
     let (window_tx, window_rx) = std::sync::mpsc::channel::<String>();
-
     let handler = Box::new(move |_: WindowProxy, req: RpcRequest| {
         if &req.method == "openWindow" {
             if let Some(params) = req.params {
@@ -30,7 +28,7 @@ fn main() -> Result<()> {
     });
 
     let window_proxy = app.add_window_with_configs(attributes, Some(handler), None)?;
-
+    let app_proxy = app.application_proxy();
     std::thread::spawn(move || {
         let mut count = 1;
         loop {

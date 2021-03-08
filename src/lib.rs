@@ -12,13 +12,13 @@
 //! ```
 //!
 //! Once you have your application instance, you can create the WebView window by calling
-//! [`Application::add_window`]. You can provide [`Attributes`] and [`Callback`] as
-//! arguments to configure the WebView window. If you don't have any preference, you could just set
-//! them with `Default::default()` and `None`.
+//! [`Application::add_window`] with [`Attributes`] as the argument to configure the WebView window.
+//! If you don't have any preference, you could just set it with `Default::default()`.
 //!
 //! ```ignore
 //! let attributes = Attributes {
-//!     url: Some("https://www.google.com".to_string()),
+//!     url: Some("https://tauri.studio".to_string()),
+//!     title: String::from("Hello World!"),
 //!     // Initialization scripts can be used to define javascript functions and variables.
 //!     initialization_scripts: vec![
 //!         String::from("breads = NaN"),
@@ -26,27 +26,8 @@
 //!     ],
 //!     ..Default::default()
 //! };
-//! // Callback defines a rust function to be called on javascript side later. Below is a function
-//! // which will print the list of parameters after 8th calls.
-//! let callback = Callback {
-//!     name: "world".to_owned(),
-//!     function: Box::new(|proxy, sequence, requests| {
-//!         // Proxy is like a window handle for you to send message events to the corresponding
-//!         // webview window. You can use it to adjust window and evaluate javascript code like
-//!         // below. This is useful when you want to perform any action in javascript.
-//!         proxy.evaluate_script("console.log(menacing);").unwrap();
-//!         // Sequence is a number counting how many times this function being called.
-//!         if sequence < 8 {
-//!             println!("{} seconds has passed.", sequence);
-//!         } else {
-//!             // Requests is a vector of parameters passed from the caller.
-//!             println!("{:?}", requests);
-//!         }
-//!         0
-//!     }),
-//! };
 //!
-//! let window = app.add_window(attributes, Some(vec![callback]))?;
+//! let window = app.add_window(attributes)?;
 //! ```
 //!
 //! Run the application with run in the end. This will consume the instance and run the application

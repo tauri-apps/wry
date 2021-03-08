@@ -36,7 +36,7 @@ impl WV for InnerWebView {
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<RpcHandler>,
     ) -> Result<Self> {
-        // Callback function for message handler
+        // Function for rpc handler
         extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
             // Safety: objc runtime calls are unsafe
             unsafe {
