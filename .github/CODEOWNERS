@@ -1,0 +1,14 @@
+# Current WG Code Sub Teams:
+# @tauri-apps/admins
+# @tauri-apps/core
+# @tauri-apps/testing
+
+# admins default to review
+# Order is important; the last matching pattern takes the most precedence.
+* @tauri-apps/admins 
+
+.github @tauri-apps/admins @tauri-apps/testing
+
+/examples/ @tauri-apps/testing
+
+/src/ @tauri-apps/core
