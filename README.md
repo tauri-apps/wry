@@ -28,11 +28,18 @@ Wry connects the web engine on each platform and provides easy to use and unifie
 The minimum example looks like following:
 
 ```rust
-use wry::{Application, Result};
+use wry::{Application, Attributes, Result};
 
 fn main() -> Result<()> {
     let mut app = Application::new()?;
-    app.add_window(Default::default(), None)?;
+
+    let attributes = Attributes {
+        url: Some("https://tauri.studio/".to_string()),
+        title: String::from("Hello World!"),
+        ..Default::default()
+    };
+
+    app.add_window(attributes)?;
     app.run();
     Ok(())
 }

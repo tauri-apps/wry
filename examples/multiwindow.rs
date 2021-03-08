@@ -5,22 +5,13 @@ use wry::{Application, Attributes, RpcRequest, WindowProxy};
 fn main() -> Result<()> {
     let mut app = Application::new()?;
 
-    let html = r#"
-<script>    
-async function openWindow() {
-    await window.rpc.notify("openWindow", "https://i.imgur.com/x6tXcr9.gif");
-}
-</script>
-<p>Multiwindow example</p>
-<button onclick="openWindow();">Launch window</button>        
-"#;
-
     let attributes = Attributes {
-        url: Some(format!("data:text/html,{}", html)),
+        url: Some(format!("https://tauri.studio")),
         // Initialization scripts can be used to define javascript functions and variables.
-        initialization_scripts: vec![
-            /* Custom initialization scripts go here */
-        ],
+        initialization_scripts: vec![r#"async function openWindow() {
+                await window.rpc.notify("openWindow", "https://i.imgur.com/x6tXcr9.gif");
+            }"#
+        .to_string()],
         ..Default::default()
     };
 
@@ -30,42 +21,38 @@ async function openWindow() {
     let handler = Box::new(move |_: WindowProxy, req: RpcRequest| {
         if &req.method == "openWindow" {
             if let Some(params) = req.params {
-                if let Value::Array(mut arr) = params {
-                    let mut param = if arr.get(0).is_none() {
-                        None
-                    } else {
-                        Some(arr.swap_remove(0))
-                    };
-
-                    if let Some(param) = param.take() {
-                        if let Value::String(url) = param {
-                            let _ = window_tx.send(url);
-                        }
-                    }
+                if let Value::String(url) = &params[0] {
+                    let _ = window_tx.send(url.to_string());
                 }
             }
         }
         None
     });
 
-    let _ = app.add_window_with_configs(attributes, Some(handler), None)?;
+    let window_proxy = app.add_window_with_configs(attributes, Some(handler), None)?;
 
     std::thread::spawn(move || {
-        while let Ok(url) = window_rx.recv() {
-            let new_window = app_proxy
-                .add_window_with_configs(
-                    Attributes {
+        let mut count = 1;
+        loop {
+            if let Ok(url) = window_rx.try_recv() {
+                let new_window = app_proxy
+                    .add_window(Attributes {
                         width: 426.,
                         height: 197.,
                         title: "RODA RORA DA".into(),
                         url: Some(url),
                         ..Default::default()
-                    },
-                    None,
-                    None,
-                )
-                .unwrap();
-            println!("ID of new window: {:?}", new_window.id());
+                    })
+                    .unwrap();
+                println!("ID of new window: {:?}", new_window.id());
+            } else if count < 8 {
+                println!("{} seconds have passed...", count);
+                count += 1;
+            } else if count == 8 {
+                window_proxy.evaluate_script("openWindow()");
+                count += 1;
+            }
+            std::thread::sleep(std::time::Duration::new(1, 0));
         }
     });
 

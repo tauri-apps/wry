@@ -6,16 +6,13 @@ fn main() -> Result<()> {
 
     let attributes = Attributes {
         url: Some("https://www.wirple.com/".to_string()),
-
-        //title: String::from("3D Render Test ^ ^"),
+        title: String::from("3D Render Test ^ ^"),
         fullscreen: true,
-        //transparent: true, // <- Future
-        //decorations: true,
-        // maximized: true, and others from (https://docs.rs/wry/0.5.0/wry/struct.Attributes.html)
+        transparent: true,
         ..Default::default()
     };
 
-    app.add_window_with_configs(attributes, None, None)?;
+    app.add_window(attributes)?;
     app.run();
     Ok(())
 }
