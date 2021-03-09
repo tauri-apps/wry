@@ -13,6 +13,9 @@ mod win;
 #[cfg(target_os = "windows")]
 use win::*;
 
+#[cfg(feature = "file-drop")]
+use crate::file_drop::FileDropHandler;
+
 use crate::{Error, Result};
 
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -82,6 +85,9 @@ pub struct WebViewBuilder {
     url: Option<Url>,
     custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
     rpc_handler: Option<RpcHandler>,
+
+    #[cfg(feature = "file-drop")]
+    file_drop_handler: Option<FileDropHandler>,
 }
 
 impl WebViewBuilder {
@@ -98,6 +104,9 @@ impl WebViewBuilder {
             transparent: false,
             custom_protocol: None,
             rpc_handler: None,
+
+            #[cfg(feature = "file-drop")]
+            file_drop_handler: None,
         })
     }
 
@@ -187,6 +196,12 @@ impl WebViewBuilder {
         self
     }
 
+    #[cfg(feature = "file-drop")]
+    pub fn set_file_drop_handler(mut self, handler: Option<FileDropHandler>) -> Self {
+        self.file_drop_handler = handler;
+        self
+    }
+
     /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the
     /// [`WebView`]. The provided URL must be valid.
     pub fn load_url(mut self, url: &str) -> Result<Self> {
@@ -203,6 +218,8 @@ impl WebViewBuilder {
             self.transparent,
             self.custom_protocol,
             self.rpc_handler,
+            #[cfg(feature = "file-drop")]
+            self.file_drop_handler,
         )?;
         Ok(WebView {
             window: self.window,
@@ -240,8 +257,20 @@ impl WebView {
     /// [`WebViewBuilder`] instead.
     pub fn new_with_configs(window: Window, transparent: bool) -> Result<Self> {
         let picky_none: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)> = None;
-        let webview = InnerWebView::new(&window, vec![], None, transparent, picky_none, None)?;
+
+        let webview = InnerWebView::new(
+            &window,
+            vec![],
+            None,
+            transparent,
+            picky_none,
+            None,
+            #[cfg(feature = "file-drop")]
+            None,
+        )?;
+
         let (tx, rx) = channel();
+
         Ok(Self {
             window,
             webview,
@@ -313,6 +342,8 @@ pub(crate) trait WV: Sized {
         transparent: bool,
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<RpcHandler>,
+
+        #[cfg(feature = "file-drop")] file_drop_handler: Option<FileDropHandler>,
     ) -> Result<Self>;
 
     fn eval(&self, js: &str) -> Result<()>;

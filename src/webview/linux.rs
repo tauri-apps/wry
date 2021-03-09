@@ -2,6 +2,9 @@ use crate::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Error, Result, RpcHandler};
 
+#[cfg(feature = "file-drop")]
+use crate::file_drop::{FileDropController, FileDropHandler};
+
 use std::rc::Rc;
 
 use gdk::RGBA;
@@ -29,6 +32,8 @@ impl WV for InnerWebView {
         transparent: bool,
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<RpcHandler>,
+
+        #[cfg(feature = "file-drop")] file_drop_handler: Option<FileDropHandler>,
     ) -> Result<Self> {
         // Webview widget
         let manager = UserContentManager::new();
@@ -94,6 +99,12 @@ impl WV for InnerWebView {
                 blue: 0.,
                 alpha: 0.,
             });
+        }
+
+        // File drop handling
+        #[cfg(feature = "file-drop")]
+        if let Some(file_drop_handler) = file_drop_handler {
+            FileDropController::new(webview.clone(), file_drop_handler);
         }
 
         if window.get_visible() {

@@ -4,6 +4,9 @@ use crate::{
     WebViewBuilder, WindowMessage, WindowProxy, WindowRpcHandler,
 };
 
+#[cfg(feature = "file-drop")]
+use crate::file_drop::FileDropHandler;
+
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -97,10 +100,13 @@ impl App for InnerApplication {
         let webview = _create_webview(
             self.application_proxy(),
             window,
-            webview_attrs,
             custom_protocol,
             rpc_handler,
+            #[cfg(feature = "file-drop")]
+            webview_attrs.file_drop_handler.clone(),
+            webview_attrs,
         )?;
+
         let id = webview.window().get_id();
         self.webviews.insert(id, webview);
 
@@ -152,9 +158,11 @@ impl App for InnerApplication {
                         let webview = _create_webview(
                             proxy.clone(),
                             window,
-                            webview_attrs,
                             custom_protocol,
                             rpc_handler,
+                            #[cfg(feature = "file-drop")]
+                            webview_attrs.file_drop_handler.clone(),
+                            webview_attrs,
                         )
                         .unwrap();
                         let id = webview.window().get_id();
@@ -387,9 +395,12 @@ fn _create_window(app: &GtkApp, attributes: InnerWindowAttributes) -> Result<App
 fn _create_webview(
     proxy: InnerApplicationProxy,
     window: ApplicationWindow,
-    attributes: InnerWebViewAttributes,
     custom_protocol: Option<CustomProtocol>,
     rpc_handler: Option<WindowRpcHandler>,
+
+    #[cfg(feature = "file-drop")] file_drop_handler: Option<FileDropHandler>,
+
+    attributes: InnerWebViewAttributes,
 ) -> Result<WebView> {
     let window_id = window.get_id();
     let mut webview = WebViewBuilder::new(window)?.transparent(attributes.transparent);
@@ -415,6 +426,11 @@ fn _create_webview(
             );
             rpc_handler(proxy, requests)
         }));
+    }
+
+    #[cfg(feature = "file-drop")]
+    {
+        webview = webview.set_file_drop_handler(file_drop_handler);
     }
 
     let webview = webview.build()?;

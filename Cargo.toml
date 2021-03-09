@@ -10,6 +10,9 @@ repository = "https://github.com/tauri-apps/wry"
 documentation = "https://docs.rs/wry"
 categories = ["gui"]
 
+[features]
+file-drop = []
+
 [package.metadata.docs.rs]
 default-target = "x86_64-unknown-linux-gnu"
 targets = ["x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu", "x86_64-apple-darwin"]
@@ -35,7 +38,7 @@ gdk-pixbuf = "0.9"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 webview2 = "0.1.0-beta.1"
-winapi = { version = "0.3", features = ["libloaderapi"] }
+winapi = { version = "0.3", features = ["libloaderapi", "oleidl"] }
 winit = "0.24"
 
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -44,3 +47,4 @@ core-graphics = "0.22"
 objc = "0.2"
 objc_id = "0.1"
 winit = "0.24"
+lazy_static = "1.4.0"

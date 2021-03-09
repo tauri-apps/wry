@@ -30,6 +30,9 @@ use {
     winit::platform::windows::WindowExtWindows,
 };
 
+#[cfg(feature = "file-drop")]
+use crate::FileDropHandler;
+
 type EventLoopProxy = winit::event_loop::EventLoopProxy<Message>;
 
 #[derive(Clone)]
@@ -128,14 +131,18 @@ impl App for InnerApplication {
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id> {
         let (window_attrs, webview_attrs) = attributes.split();
+
         let window = _create_window(&self.event_loop, window_attrs)?;
         let webview = _create_webview(
             self.application_proxy(),
             window,
-            webview_attrs,
             custom_protocol,
             rpc_handler,
+            #[cfg(feature = "file-drop")]
+            webview_attrs.file_drop_handler.clone(),
+            webview_attrs,
         )?;
+
         let id = webview.window().id();
         self.webviews.insert(id, webview);
         Ok(id)
@@ -150,6 +157,7 @@ impl App for InnerApplication {
     fn run(self) {
         let proxy = self.application_proxy();
         let mut windows = self.webviews;
+
         self.event_loop.run(move |event, event_loop, control_flow| {
             *control_flow = ControlFlow::Wait;
 
@@ -178,9 +186,11 @@ impl App for InnerApplication {
                         let webview = _create_webview(
                             proxy.clone(),
                             window,
-                            webview_attrs,
                             custom_protocol,
                             rpc_handler,
+                            #[cfg(feature = "file-drop")]
+                            webview_attrs.file_drop_handler.clone(),
+                            webview_attrs,
                         )
                         .unwrap();
                         let id = webview.window().id();
@@ -344,9 +354,12 @@ fn _create_window(
 fn _create_webview(
     proxy: InnerApplicationProxy,
     window: Window,
-    attributes: InnerWebViewAttributes,
     custom_protocol: Option<CustomProtocol>,
     rpc_handler: Option<WindowRpcHandler>,
+
+    #[cfg(feature = "file-drop")] file_drop_handler: Option<FileDropHandler>,
+
+    attributes: InnerWebViewAttributes,
 ) -> Result<WebView> {
     let window_id = window.id();
 
@@ -369,6 +382,11 @@ fn _create_webview(
             );
             rpc_handler(proxy, requests)
         }));
+    }
+
+    #[cfg(feature = "file-drop")]
+    {
+        webview = webview.set_file_drop_handler(file_drop_handler);
     }
 
     webview = match attributes.url {

@@ -10,6 +10,7 @@ mod gtkrs;
 pub use gtkrs::WindowId;
 #[cfg(target_os = "linux")]
 use gtkrs::{InnerApplication, InnerApplicationProxy};
+
 mod attributes;
 pub use attributes::{Attributes, CustomProtocol, Icon, WindowRpcHandler};
 pub(crate) use attributes::{InnerWebViewAttributes, InnerWindowAttributes};

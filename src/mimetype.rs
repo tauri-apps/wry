@@ -3,6 +3,7 @@ use std::fmt;
 const MIMETYPE_PLAIN: &str = "text/plain";
 
 /// [Web Compatible MimeTypes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types#important_mime_types_for_web_developers)
+#[derive(Debug, Serialize, Copy, Clone)]
 pub(crate) enum MimeType {
     CSS,
     CSV,
@@ -14,6 +15,10 @@ pub(crate) enum MimeType {
     OCTETSTREAM,
     RTF,
     SVG,
+
+    /// Used by file drop to signify that the dropped file is a directory.
+    #[cfg(feature = "file-drop")]
+    DIRECTORY,
 }
 
 impl std::fmt::Display for MimeType {
@@ -29,6 +34,9 @@ impl std::fmt::Display for MimeType {
             MimeType::OCTETSTREAM => "application/octet-stream",
             MimeType::RTF => "application/rtf",
             MimeType::SVG => "image/svg",
+
+            #[cfg(feature = "file-drop")]
+            MimeType::DIRECTORY => "text/uri-list",
         };
         write!(f, "{}", mime)
     }
