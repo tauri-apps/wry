@@ -1,4 +1,4 @@
-use crate::mimetype::MimeType;
+use crate::webview::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Result, RpcHandler};
 

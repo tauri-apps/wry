@@ -63,7 +63,6 @@ extern crate objc;
 
 mod application;
 mod file_drop;
-mod mimetype;
 pub mod webview;
 
 pub use application::{

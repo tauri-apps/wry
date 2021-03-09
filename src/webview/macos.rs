@@ -1,5 +1,5 @@
 use crate::file_drop::{add_file_drop_methods, set_file_drop_handler, FileDropHandler};
-use crate::mimetype::MimeType;
+use crate::webview::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Result, RpcHandler};
 
