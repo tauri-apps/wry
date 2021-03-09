@@ -67,11 +67,16 @@ pub use file_drop::{FileDropEvent, FileDropHandler};
 #[cfg(not(feature = "file-drop"))]
 pub(crate) use file_drop::{FileDropEvent, FileDropHandler};
 
+#[cfg(feature = "protocol")]
+pub use application::CustomProtocol;
+#[cfg(not(feature = "protocol"))]
+pub(crate) use application::CustomProtocol;
+
 mod application;
 pub mod webview;
 
 pub use application::{
-    Application, ApplicationProxy, Attributes, CustomProtocol, Icon, Message, WindowId,
+    Application, ApplicationProxy, Attributes, Icon, Message, WindowId,
     WindowMessage, WindowProxy, WindowRpcHandler,
 };
 pub use serde_json::Value;

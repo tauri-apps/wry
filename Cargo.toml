@@ -15,8 +15,9 @@ default-target = "x86_64-unknown-linux-gnu"
 targets = ["x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu", "x86_64-apple-darwin"]
 
 [features]
-default = ["file-drop"]
+default = ["file-drop", "protocol"]
 file-drop = []
+protocol = []
 
 [dependencies]
 libc = "0.2"
@@ -48,4 +49,3 @@ core-graphics = "0.22"
 objc = "0.2"
 objc_id = "0.1"
 winit = "0.24"
-lazy_static = "1.4.0"
