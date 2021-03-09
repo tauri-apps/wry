@@ -84,9 +84,9 @@ impl ApplicationProxy {
     pub fn add_window_with_configs(
         &self,
         attributes: Attributes,
-        file_drop_handler: Option<FileDropHandler>,
         rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
+        file_drop_handler: Option<FileDropHandler>,
     ) -> Result<WindowProxy> {
         let id =
             self.inner
@@ -316,9 +316,9 @@ impl Application {
     pub fn add_window_with_configs(
         &mut self,
         attributes: Attributes,
-        file_drop_handler: Option<FileDropHandler>,
         rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
+        file_drop_handler: Option<FileDropHandler>,
     ) -> Result<WindowProxy> {
         let id = self.inner.create_webview(
             attributes,

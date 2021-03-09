@@ -4,7 +4,6 @@ use crate::{
     WebViewBuilder, WindowMessage, WindowProxy, WindowRpcHandler,
 };
 
-#[cfg(feature = "file-drop")]
 use crate::file_drop::FileDropHandler;
 
 use std::{
@@ -105,7 +104,6 @@ impl App for InnerApplication {
             window,
             custom_protocol,
             rpc_handler,
-            #[cfg(feature = "file-drop")]
             file_drop_handler,
             webview_attrs,
         )?;
@@ -169,7 +167,6 @@ impl App for InnerApplication {
                             window,
                             custom_protocol,
                             rpc_handler,
-                            #[cfg(feature = "file-drop")]
                             file_drop_handler,
                             webview_attrs,
                         )
@@ -406,8 +403,7 @@ fn _create_webview(
     window: ApplicationWindow,
     custom_protocol: Option<CustomProtocol>,
     rpc_handler: Option<WindowRpcHandler>,
-
-    #[cfg(feature = "file-drop")] file_drop_handler: Option<FileDropHandler>,
+    file_drop_handler: Option<FileDropHandler>,
 
     attributes: InnerWebViewAttributes,
 ) -> Result<WebView> {
@@ -437,10 +433,7 @@ fn _create_webview(
         }));
     }
 
-    #[cfg(feature = "file-drop")]
-    {
-        webview = webview.set_file_drop_handler(file_drop_handler);
-    }
+    webview = webview.set_file_drop_handler(file_drop_handler);
 
     let webview = webview.build()?;
     Ok(webview)

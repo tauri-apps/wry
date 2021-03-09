@@ -70,7 +70,7 @@ async function getAsyncRpcResult() {
         response
     });
 
-    app.add_window_with_configs(attributes, Some(handler), None)?;
+    app.add_window_with_configs(attributes, Some(handler), None, None)?;
 
     app.run();
     Ok(())

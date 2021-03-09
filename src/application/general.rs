@@ -31,7 +31,6 @@ use {
     winit::platform::windows::WindowExtWindows,
 };
 
-#[cfg(feature = "file-drop")]
 use crate::FileDropHandler;
 
 type EventLoopProxy = winit::event_loop::EventLoopProxy<Message>;
@@ -142,7 +141,6 @@ impl App for InnerApplication {
             window,
             custom_protocol,
             rpc_handler,
-            #[cfg(feature = "file-drop")]
             file_drop_handler,
             webview_attrs,
         )?;
@@ -198,7 +196,6 @@ impl App for InnerApplication {
                             window,
                             custom_protocol,
                             rpc_handler,
-                            #[cfg(feature = "file-drop")]
                             file_drop_handler,
                             webview_attrs,
                         )
@@ -366,8 +363,7 @@ fn _create_webview(
     window: Window,
     custom_protocol: Option<CustomProtocol>,
     rpc_handler: Option<WindowRpcHandler>,
-
-    #[cfg(feature = "file-drop")] file_drop_handler: Option<FileDropHandler>,
+    file_drop_handler: Option<FileDropHandler>,
 
     attributes: InnerWebViewAttributes,
 ) -> Result<WebView> {
@@ -394,10 +390,7 @@ fn _create_webview(
         }));
     }
 
-    #[cfg(feature = "file-drop")]
-    {
-        webview = webview.set_file_drop_handler(file_drop_handler);
-    }
+    webview = webview.set_file_drop_handler(file_drop_handler);
 
     webview = match attributes.url {
         Some(url) => webview.load_url(&url)?,

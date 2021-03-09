@@ -9,11 +9,6 @@ Dropping files onto the following form is also possible:<br><br>
 "#;
 
 fn main() -> Result<()> {
-    #[cfg(not(feature = "file-drop"))]
-    {
-        compile_error!("The file-drop feature needs to be enabled to run this example. e.g. cargo run --example dragndrop --features file-drop")
-    }
-
     let mut app = Application::new()?;
 
     app.add_window_with_configs(
@@ -21,12 +16,12 @@ fn main() -> Result<()> {
             url: Some(TEST_HTML.to_string()),
             ..Default::default()
         },
+        None,
+        None,
         Some(Box::new(|data| {
             println!("Window 1: {:?}", data);
             false // Returning true will block the OS default behaviour.
         })),
-        None,
-        None,
     )?;
     app.run();
     Ok(())
