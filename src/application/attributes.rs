@@ -69,7 +69,7 @@ pub struct CustomProtocol {
   pub handler: Box<dyn Fn(&str) -> Result<Vec<u8>> + Send>,
 }
 
-///	An icon used for the window title bar, taskbar, etc.
+/// An icon used for the window title bar, taskbar, etc.
 #[derive(Debug, Clone)]
 pub struct Icon(pub(crate) Vec<u8>);
 
