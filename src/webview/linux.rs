@@ -3,7 +3,7 @@ use crate::webview::WV;
 use crate::{Error, Result, RpcHandler};
 
 #[cfg(feature = "file-drop")]
-use crate::file_drop::{FileDropController, FileDropHandler};
+use crate::file_drop::{self, FileDropHandler};
 
 use std::rc::Rc;
 
@@ -104,7 +104,7 @@ impl WV for InnerWebView {
         // File drop handling
         #[cfg(feature = "file-drop")]
         if let Some(file_drop_handler) = file_drop_handler {
-            FileDropController::new(webview.clone(), file_drop_handler);
+            file_drop::connect_drag_event(webview.clone(), file_drop_handler);
         }
 
         if window.get_visible() {
