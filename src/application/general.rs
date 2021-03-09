@@ -3,6 +3,7 @@ use crate::{
     ApplicationProxy, Attributes, CustomProtocol, Error, Icon, Message, Result, WebView,
     WebViewBuilder, WindowMessage, WindowProxy, WindowRpcHandler,
 };
+
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};
 pub use winit::window::WindowId;
@@ -51,6 +52,7 @@ impl AppProxy for InnerApplicationProxy {
     fn add_window(
         &self,
         attributes: Attributes,
+        file_drop_handler: Option<FileDropHandler>,
         rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowId> {
@@ -58,6 +60,7 @@ impl AppProxy for InnerApplicationProxy {
         self.send_message(Message::NewWindow(
             attributes,
             sender,
+            file_drop_handler,
             rpc_handler,
             custom_protocol,
         ))?;
@@ -127,6 +130,7 @@ impl App for InnerApplication {
     fn create_webview(
         &mut self,
         attributes: Attributes,
+        file_drop_handler: Option<FileDropHandler>,
         rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id> {
@@ -139,7 +143,7 @@ impl App for InnerApplication {
             custom_protocol,
             rpc_handler,
             #[cfg(feature = "file-drop")]
-            webview_attrs.file_drop_handler.clone(),
+            file_drop_handler,
             webview_attrs,
         )?;
 
@@ -179,7 +183,13 @@ impl App for InnerApplication {
                     _ => {}
                 },
                 Event::UserEvent(message) => match message {
-                    Message::NewWindow(attributes, sender, rpc_handler, custom_protocol) => {
+                    Message::NewWindow(
+                        attributes,
+                        sender,
+                        file_drop_handler,
+                        rpc_handler,
+                        custom_protocol,
+                    ) => {
                         let (window_attrs, webview_attrs) = attributes.split();
                         let window = _create_window(&event_loop, window_attrs).unwrap();
                         sender.send(window.id()).unwrap();
@@ -189,7 +199,7 @@ impl App for InnerApplication {
                             custom_protocol,
                             rpc_handler,
                             #[cfg(feature = "file-drop")]
-                            webview_attrs.file_drop_handler.clone(),
+                            file_drop_handler,
                             webview_attrs,
                         )
                         .unwrap();
