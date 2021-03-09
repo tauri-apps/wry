@@ -61,16 +61,27 @@ extern crate thiserror;
 #[macro_use]
 extern crate objc;
 
+mod file_drop;
+#[cfg(feature = "file-drop")]
+pub use file_drop::{FileDropEvent, FileDropHandler};
+#[cfg(not(feature = "file-drop"))]
+pub(crate) use file_drop::{FileDropEvent, FileDropHandler};
+
+#[cfg(feature = "protocol")]
+pub use application::CustomProtocol;
+#[cfg(not(feature = "protocol"))]
+pub(crate) use application::CustomProtocol;
+
 mod application;
 pub mod webview;
 
 pub use application::{
-    Application, ApplicationProxy, Attributes, CustomProtocol, Icon, Message, WindowId,
+    Application, ApplicationProxy, Attributes, Icon, Message, WindowId,
     WindowMessage, WindowProxy, WindowRpcHandler,
 };
 pub use serde_json::Value;
-pub use webview::{FileDropEvent, FileDropHandler, RpcRequest, RpcResponse};
 pub(crate) use webview::{RpcHandler, WebView, WebViewBuilder};
+pub use webview::{RpcRequest, RpcResponse};
 
 #[cfg(not(target_os = "linux"))]
 use winit::window::BadIcon;

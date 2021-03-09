@@ -1,9 +1,8 @@
 mod file_drop;
 
-use super::file_drop::FileDropHandler;
 use crate::webview::mimetype::MimeType;
 use crate::webview::WV;
-use crate::{Result, RpcHandler};
+use crate::{FileDropHandler, Result, RpcHandler};
 use file_drop::{add_file_drop_methods, set_file_drop_handler};
 
 use std::{
