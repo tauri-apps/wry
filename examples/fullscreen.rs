@@ -1,20 +1,19 @@
-use wry::Result;
-use wry::{Application, Attributes};
+use wry::{Application, Attributes, Result};
 
 fn main() -> Result<()> {
-    let mut app = Application::new()?;
+  let mut app = Application::new()?;
 
-    let attributes = Attributes {
-        url: Some("https://www.wirple.com/".to_string()),
-        title: String::from("3D Render Test ^ ^"),
-        fullscreen: true,
-        transparent: true,
-        ..Default::default()
-    };
+  let attributes = Attributes {
+    url: Some("https://www.wirple.com/".to_string()),
+    title: String::from("3D Render Test ^ ^"),
+    fullscreen: true,
+    transparent: true,
+    ..Default::default()
+  };
 
-    app.add_window(attributes)?;
-    app.run();
-    Ok(())
+  app.add_window(attributes)?;
+  app.run();
+  Ok(())
 }
 
 // Test Result:

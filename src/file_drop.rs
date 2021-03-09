@@ -2,12 +2,12 @@ use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Clone)]
 pub enum FileDropEvent {
-    /// The file(s) have been dragged onto the window, but have not been dropped yet.
-    Hovered(Vec<PathBuf>),
-    /// The file(s) have been dropped onto the window.
-    Dropped(Vec<PathBuf>),
-    /// The file drop was aborted.
-    Cancelled,
+  /// The file(s) have been dragged onto the window, but have not been dropped yet.
+  Hovered(Vec<PathBuf>),
+  /// The file(s) have been dropped onto the window.
+  Dropped(Vec<PathBuf>),
+  /// The file drop was aborted.
+  Cancelled,
 }
 
 /// Initializes a new file drop handler.
