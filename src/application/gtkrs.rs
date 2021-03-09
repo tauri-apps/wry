@@ -1,10 +1,8 @@
 use crate::{
     application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
-    ApplicationProxy, Attributes, CustomProtocol, Error, Icon, Message, Result, WebView,
-    WebViewBuilder, WindowMessage, WindowProxy, WindowRpcHandler,
+    ApplicationProxy, Attributes, CustomProtocol, Error, FileDropHandler, Icon, Message, Result,
+    WebView, WebViewBuilder, WindowMessage, WindowProxy, WindowRpcHandler,
 };
-
-use crate::file_drop::FileDropHandler;
 
 use std::{
     cell::RefCell,

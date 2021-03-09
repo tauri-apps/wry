@@ -62,18 +62,15 @@ extern crate thiserror;
 extern crate objc;
 
 mod application;
-mod file_drop;
-mod mimetype;
 pub mod webview;
 
 pub use application::{
     Application, ApplicationProxy, Attributes, CustomProtocol, Icon, Message, WindowId,
     WindowMessage, WindowProxy, WindowRpcHandler,
 };
-pub use file_drop::{FileDropEvent, FileDropHandler};
 pub use serde_json::Value;
+pub use webview::{FileDropEvent, FileDropHandler, RpcRequest, RpcResponse};
 pub(crate) use webview::{RpcHandler, WebView, WebViewBuilder};
-pub use webview::{RpcRequest, RpcResponse};
 
 #[cfg(not(target_os = "linux"))]
 use winit::window::BadIcon;

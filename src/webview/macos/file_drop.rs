@@ -1,4 +1,4 @@
-use super::{FileDropEvent, FileDropHandler};
+use crate::{FileDropEvent, FileDropHandler};
 
 use std::{
     ffi::{c_void, CStr},
@@ -17,8 +17,6 @@ pub(crate) type NSDragOperation = cocoa::foundation::NSUInteger;
 #[allow(non_upper_case_globals)]
 const NSDragOperationLink: NSDragOperation = 2;
 
-// TODO: don't depend on lazy_static?
-// Safety: objc runtime calls are unsafe
 use objc::runtime::class_getInstanceMethod;
 use objc::runtime::method_getImplementation;
 

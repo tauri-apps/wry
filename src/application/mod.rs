@@ -15,7 +15,7 @@ mod attributes;
 pub use attributes::{Attributes, CustomProtocol, Icon, WindowRpcHandler};
 pub(crate) use attributes::{InnerWebViewAttributes, InnerWindowAttributes};
 
-use crate::file_drop::FileDropHandler;
+use crate::FileDropHandler;
 use crate::Result;
 
 use std::sync::mpsc::Sender;

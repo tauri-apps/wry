@@ -1,4 +1,4 @@
-use super::{FileDropEvent, FileDropHandler};
+use crate::{FileDropEvent, FileDropHandler};
 
 use std::{cell::Cell, path::PathBuf, rc::Rc};
 
