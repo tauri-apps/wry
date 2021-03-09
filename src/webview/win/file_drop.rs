@@ -1,4 +1,4 @@
-use super::{FileDropEvent, FileDropHandler};
+use crate::{FileDropEvent, FileDropHandler};
 
 // A silly implementation of file drop handling for Windows!
 // This can be pretty much entirely replaced when WebView2 SDK 1.0.721-prerelease becomes stable.

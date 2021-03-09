@@ -1,6 +1,8 @@
 //! [`WebView`] struct and associated types.
 
+mod file_drop;
 mod mimetype;
+
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
@@ -14,9 +16,8 @@ mod win;
 #[cfg(target_os = "windows")]
 use win::*;
 
-use crate::file_drop::FileDropHandler;
-
 use crate::{Error, Result};
+pub use file_drop::{FileDropEvent, FileDropHandler};
 
 use std::sync::mpsc::{channel, Receiver, Sender};
 
