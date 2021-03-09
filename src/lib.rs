@@ -76,8 +76,8 @@ mod application;
 pub mod webview;
 
 pub use application::{
-    Application, ApplicationProxy, Attributes, Icon, Message, WindowId,
-    WindowMessage, WindowProxy, WindowRpcHandler,
+  Application, ApplicationProxy, Attributes, Icon, Message, WindowId, WindowMessage, WindowProxy,
+  WindowRpcHandler,
 };
 pub use serde_json::Value;
 pub(crate) use webview::{RpcHandler, WebView, WebViewBuilder};
@@ -96,39 +96,39 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Errors returned by wry.
 #[derive(Error, Debug)]
 pub enum Error {
-    #[cfg(target_os = "linux")]
-    #[error(transparent)]
-    GlibError(#[from] glib::Error),
-    #[cfg(target_os = "linux")]
-    #[error(transparent)]
-    GlibBoolError(#[from] glib::BoolError),
-    #[error("Failed to initialize the script")]
-    InitScriptError,
-    #[error("Bad RPC request: {0} ((1))")]
-    RpcScriptError(String, String),
-    #[error(transparent)]
-    NulError(#[from] std::ffi::NulError),
-    #[cfg(not(target_os = "linux"))]
-    #[error(transparent)]
-    OsError(#[from] winit::error::OsError),
-    #[error(transparent)]
-    ReceiverError(#[from] RecvError),
-    #[error(transparent)]
-    SenderError(#[from] SendError<String>),
-    #[error("Failed to send the message")]
-    MessageSender,
-    #[error(transparent)]
-    Json(#[from] serde_json::Error),
-    #[error(transparent)]
-    UrlError(#[from] ParseError),
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("image error: {0}")]
-    Image(#[from] image::ImageError),
-    #[cfg(not(target_os = "linux"))]
-    #[error("Icon error: {0}")]
-    Icon(#[from] BadIcon),
-    #[cfg(target_os = "windows")]
-    #[error(transparent)]
-    WebView2Error(#[from] webview2::Error),
+  #[cfg(target_os = "linux")]
+  #[error(transparent)]
+  GlibError(#[from] glib::Error),
+  #[cfg(target_os = "linux")]
+  #[error(transparent)]
+  GlibBoolError(#[from] glib::BoolError),
+  #[error("Failed to initialize the script")]
+  InitScriptError,
+  #[error("Bad RPC request: {0} ((1))")]
+  RpcScriptError(String, String),
+  #[error(transparent)]
+  NulError(#[from] std::ffi::NulError),
+  #[cfg(not(target_os = "linux"))]
+  #[error(transparent)]
+  OsError(#[from] winit::error::OsError),
+  #[error(transparent)]
+  ReceiverError(#[from] RecvError),
+  #[error(transparent)]
+  SenderError(#[from] SendError<String>),
+  #[error("Failed to send the message")]
+  MessageSender,
+  #[error(transparent)]
+  Json(#[from] serde_json::Error),
+  #[error(transparent)]
+  UrlError(#[from] ParseError),
+  #[error("IO error: {0}")]
+  Io(#[from] std::io::Error),
+  #[error("image error: {0}")]
+  Image(#[from] image::ImageError),
+  #[cfg(not(target_os = "linux"))]
+  #[error("Icon error: {0}")]
+  Icon(#[from] BadIcon),
+  #[cfg(target_os = "windows")]
+  #[error(transparent)]
+  WebView2Error(#[from] webview2::Error),
 }
