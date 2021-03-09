@@ -15,6 +15,7 @@ mod attributes;
 pub use attributes::{Attributes, CustomProtocol, Icon, WindowRpcHandler};
 pub(crate) use attributes::{InnerWebViewAttributes, InnerWindowAttributes};
 
+use crate::file_drop::FileDropHandler;
 use crate::Result;
 
 use std::sync::mpsc::Sender;
@@ -52,6 +53,7 @@ pub enum Message {
     NewWindow(
         Attributes,
         Sender<WindowId>,
+        Option<FileDropHandler>,
         Option<WindowRpcHandler>,
         Option<CustomProtocol>,
     ),
@@ -74,7 +76,7 @@ impl ApplicationProxy {
     }
     /// Adds another WebView window to the application. Returns its [`WindowProxy`] after created.
     pub fn add_window(&self, attributes: Attributes) -> Result<WindowProxy> {
-        let id = self.inner.add_window(attributes, None, None)?;
+        let id = self.inner.add_window(attributes, None, None, None)?;
         Ok(WindowProxy::new(self.clone(), id))
     }
 
@@ -82,12 +84,13 @@ impl ApplicationProxy {
     pub fn add_window_with_configs(
         &self,
         attributes: Attributes,
+        file_drop_handler: Option<FileDropHandler>,
         rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
-        let id = self
-            .inner
-            .add_window(attributes, rpc_handler, custom_protocol)?;
+        let id =
+            self.inner
+                .add_window(attributes, file_drop_handler, rpc_handler, custom_protocol)?;
         Ok(WindowProxy::new(self.clone(), id))
     }
 }
@@ -97,6 +100,7 @@ trait AppProxy {
     fn add_window(
         &self,
         attributes: Attributes,
+        file_drop_handler: Option<FileDropHandler>,
         rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowId>;
@@ -297,7 +301,7 @@ impl Application {
     ///
     /// To create a default window, you could just pass `.add_window(Default::default(), None)`.
     pub fn add_window(&mut self, attributes: Attributes) -> Result<WindowProxy> {
-        let id = self.inner.create_webview(attributes, None, None)?;
+        let id = self.inner.create_webview(attributes, None, None, None)?;
         Ok(self.window_proxy(id))
     }
 
@@ -312,12 +316,16 @@ impl Application {
     pub fn add_window_with_configs(
         &mut self,
         attributes: Attributes,
+        file_drop_handler: Option<FileDropHandler>,
         rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<WindowProxy> {
-        let id = self
-            .inner
-            .create_webview(attributes, rpc_handler, custom_protocol)?;
+        let id = self.inner.create_webview(
+            attributes,
+            file_drop_handler,
+            rpc_handler,
+            custom_protocol,
+        )?;
         Ok(self.window_proxy(id))
     }
 
@@ -351,6 +359,7 @@ trait App: Sized {
     fn create_webview(
         &mut self,
         attributes: Attributes,
+        file_drop_handler: Option<FileDropHandler>,
         rpc_handler: Option<WindowRpcHandler>,
         custom_protocol: Option<CustomProtocol>,
     ) -> Result<Self::Id>;

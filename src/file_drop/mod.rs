@@ -13,8 +13,7 @@ pub(crate) use win::*;
 
 use crate::mimetype::MimeType;
 
-use core::fmt;
-use std::{cell::Cell, path::PathBuf, sync::Arc};
+use std::{cell::Cell, path::PathBuf};
 
 #[derive(Debug, Serialize, Clone, Copy)]
 pub enum FileDropEvent {
@@ -51,39 +50,16 @@ pub struct FileDropData {
     files: Vec<FileDrop>,
 }
 
-#[derive(Clone)]
-pub struct FileDropHandler {
-    f: Arc<Box<dyn Fn(FileDropData) -> bool + Send + Sync + 'static>>,
-}
-impl FileDropHandler {
-    /// Initializes a new file drop handler.
-    ///
-    /// Example: `FileDropHandler:new(|data: FileDropData| ...)`
-    ///
-    /// ### Blocking OS Default Behavior
-    /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
-    ///
-    /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
-    /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
-    pub fn new<T>(f: T) -> FileDropHandler
-    where
-        T: Fn(FileDropData) -> bool + Send + Sync + 'static,
-    {
-        FileDropHandler {
-            f: Arc::new(Box::new(f)),
-        }
-    }
-
-    /// Manually invokes the file drop handler closures with a provided FileDropData(Vec<PathBuf>)
-    pub fn call(&self, data: FileDropData) -> bool {
-        (self.f)(data)
-    }
-}
-impl fmt::Debug for FileDropHandler {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "FileDropHandler")
-    }
-}
+/// Initializes a new file drop handler.
+///
+/// Example: `FileDropHandler:new(|data: FileDropData| ...)`
+///
+/// ### Blocking OS Default Behavior
+/// Return `true` in the callback to block the OS' default behavior of handling a file drop.
+///
+/// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
+/// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
+pub type FileDropHandler = Box<dyn Fn(FileDropData) -> bool + Send>;
 
 pub(crate) struct FileDropListener {
     pub(crate) handler: FileDropHandler,
@@ -144,6 +120,6 @@ impl FileDropListener {
         };
 
         self.active_file_drop.set(Some(data.clone()));
-        self.handler.call(data)
+        (self.handler)(data)
     }
 }

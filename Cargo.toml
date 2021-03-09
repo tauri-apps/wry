@@ -11,6 +11,7 @@ documentation = "https://docs.rs/wry"
 categories = ["gui"]
 
 [features]
+default = ["file-drop"]
 file-drop = []
 
 [package.metadata.docs.rs]

@@ -1,4 +1,4 @@
-use wry::{Application, Attributes, FileDropHandler, Result};
+use wry::{Application, Attributes, Result};
 
 // Apps can have a global file drop handler, and invidiual windows can have their own, too.
 
@@ -16,24 +16,18 @@ fn main() -> Result<()> {
 
     let mut app = Application::new()?;
 
-    app.add_window(Attributes {
-        url: Some(TEST_HTML.to_string()),
-        file_drop_handler: Some(FileDropHandler::new(|data| {
+    app.add_window_with_configs(
+        Attributes {
+            url: Some(TEST_HTML.to_string()),
+            ..Default::default()
+        },
+        Some(Box::new(|data| {
             println!("Window 1: {:?}", data);
             false // Returning true will block the OS default behaviour.
         })),
-        ..Default::default()
-    })?;
-
-    app.add_window(Attributes {
-        url: Some(TEST_HTML.to_string()),
-        file_drop_handler: Some(FileDropHandler::new(|data| {
-            println!("Window 2: {:?}", data);
-            false // Returning true will block the OS default behaviour.
-        })),
-        ..Default::default()
-    })?;
-
+        None,
+        None,
+    )?;
     app.run();
     Ok(())
 }
