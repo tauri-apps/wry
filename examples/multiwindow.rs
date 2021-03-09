@@ -27,7 +27,7 @@ fn main() -> Result<()> {
         None
     });
 
-    let window_proxy = app.add_window_with_configs(attributes, Some(handler), None)?;
+    let window_proxy = app.add_window_with_configs(attributes, Some(handler), None, None)?;
     let app_proxy = app.application_proxy();
     std::thread::spawn(move || {
         let mut count = 1;
@@ -47,7 +47,7 @@ fn main() -> Result<()> {
                 println!("{} seconds have passed...", count);
                 count += 1;
             } else if count == 8 {
-                window_proxy.evaluate_script("openWindow()");
+                window_proxy.evaluate_script("openWindow()").unwrap();
                 count += 1;
             }
             std::thread::sleep(std::time::Duration::new(1, 0));

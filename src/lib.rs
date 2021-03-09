@@ -62,19 +62,15 @@ extern crate thiserror;
 extern crate objc;
 
 mod application;
-mod mimetype;
-
-pub mod webview;
-
-#[cfg(feature = "file-drop")]
 mod file_drop;
-#[cfg(feature = "file-drop")]
-pub use file_drop::{FileDropData, FileDropEvent, FileDropHandler};
+mod mimetype;
+pub mod webview;
 
 pub use application::{
     Application, ApplicationProxy, Attributes, CustomProtocol, Icon, Message, WindowId,
     WindowMessage, WindowProxy, WindowRpcHandler,
 };
+pub use file_drop::{FileDropEvent, FileDropHandler};
 pub use serde_json::Value;
 pub(crate) use webview::{RpcHandler, WebView, WebViewBuilder};
 pub use webview::{RpcRequest, RpcResponse};

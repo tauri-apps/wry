@@ -1,4 +1,4 @@
-use super::{FileDropEvent, FileDropHandler, FileDropListener};
+use super::{FileDropEvent, FileDropHandler};
 
 // A silly implementation of file drop handling for Windows!
 // This can be pretty much entirely replaced when WebView2 SDK 1.0.721-prerelease becomes stable.
@@ -38,13 +38,13 @@ impl FileDropController {
     }
 
     pub(crate) fn listen(&mut self, hwnd: HWND, handler: FileDropHandler) {
-        let listener = Rc::new(FileDropListener::new(handler));
+        let listener = Rc::new(handler);
 
         // Enumerate child windows to find the WebView2 "window" and override!
         enumerate_child_windows(hwnd, |hwnd| self.inject(hwnd, listener.clone()));
     }
 
-    fn inject(&mut self, hwnd: HWND, listener: Rc<FileDropListener>) -> bool {
+    fn inject(&mut self, hwnd: HWND, listener: Rc<FileDropHandler>) -> bool {
         // Safety: WinAPI calls are unsafe
         unsafe {
             let file_drop_handler = IDropTarget::new(hwnd, listener);
@@ -116,7 +116,7 @@ use winapi::{
 #[repr(C)]
 struct IDropTargetData {
     pub interface: NativeIDropTarget,
-    listener: Rc<FileDropListener>,
+    listener: Rc<FileDropHandler>,
     refcount: AtomicUsize,
     window: HWND,
     cursor_effect: DWORD,
@@ -130,7 +130,7 @@ pub struct IDropTarget {
 
 #[allow(non_snake_case)]
 impl IDropTarget {
-    fn new(window: HWND, listener: Rc<FileDropListener>) -> IDropTarget {
+    fn new(window: HWND, listener: Rc<FileDropHandler>) -> IDropTarget {
         let data = Box::new(IDropTargetData {
             listener,
             interface: NativeIDropTarget {
@@ -192,9 +192,7 @@ impl IDropTarget {
         };
         *pdwEffect = drop_handler.cursor_effect;
 
-        drop_handler
-            .listener
-            .file_drop(FileDropEvent::Hovered, Some(paths));
+        (drop_handler.listener)(FileDropEvent::Hovered(paths));
 
         S_OK
     }
@@ -214,9 +212,7 @@ impl IDropTarget {
     pub unsafe extern "system" fn DragLeave(this: *mut NativeIDropTarget) -> HRESULT {
         let drop_handler = Self::from_interface(this);
         if drop_handler.hovered_is_valid {
-            drop_handler
-                .listener
-                .file_drop(FileDropEvent::Cancelled, None);
+            (drop_handler.listener)(FileDropEvent::Cancelled);
         }
 
         S_OK
@@ -237,9 +233,7 @@ impl IDropTarget {
             shellapi::DragFinish(hdrop);
         }
 
-        drop_handler
-            .listener
-            .file_drop(FileDropEvent::Dropped, Some(paths));
+        (drop_handler.listener)(FileDropEvent::Dropped(paths));
 
         S_OK
     }

@@ -1,16 +1,13 @@
+use crate::file_drop::{add_file_drop_methods, set_file_drop_handler, FileDropHandler};
 use crate::mimetype::MimeType;
 use crate::webview::WV;
 use crate::{Result, RpcHandler};
-
-#[cfg(feature = "file-drop")]
-use crate::file_drop::{FileDropController, FileDropHandler};
 
 use std::{
     ffi::{c_void, CStr},
     os::raw::c_char,
     ptr::null,
     slice, str,
-    sync::Once,
 };
 
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
@@ -18,41 +15,15 @@ use cocoa::base::id;
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use objc::{
     declare::ClassDecl,
-    runtime::{Class, Object, Sel},
+    runtime::{Object, Sel},
 };
 use objc_id::Id;
 use url::Url;
 use winit::{platform::macos::WindowExtMacOS, window::Window};
 
-// https://github.com/ryanmcgrath/cacao/blob/784727748c60183665cabf3c18fb54896c81214e/src/webview/class.rs#L129
-pub(crate) fn register_webview_class() -> *const Class {
-    static mut VIEW_CLASS: *const Class = 0 as *const Class;
-    static INIT: Once = Once::new();
-
-    INIT.call_once(|| unsafe {
-        let superclass = class!(WKWebView);
-
-        #[allow(unused_mut)]
-        let mut decl = ClassDecl::new("WryWebView", superclass).unwrap();
-
-        #[cfg(feature = "file-drop")]
-        FileDropController::register_webview_class(&mut decl);
-
-        VIEW_CLASS = decl.register();
-    });
-
-    unsafe { VIEW_CLASS }
-}
-
 pub struct InnerWebView {
     webview: Id<Object>,
     manager: id,
-
-    // Store FileDropController in here to make sure it gets dropped when
-    // the webview gets dropped, otherwise we'll have a memory leak
-    #[cfg(feature = "file-drop")]
-    #[allow(dead_code)]
-    file_drop_controller: Option<FileDropController>,
 }
 
 impl WV for InnerWebView {
@@ -65,8 +36,7 @@ impl WV for InnerWebView {
         transparent: bool,
         custom_protocol: Option<(String, F)>,
         rpc_handler: Option<RpcHandler>,
-
-        #[cfg(feature = "file-drop")] file_drop_handler: Option<FileDropHandler>,
+        file_drop_handler: Option<FileDropHandler>,
     ) -> Result<Self> {
         // Function for rpc handler
         extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
@@ -161,7 +131,14 @@ impl WV for InnerWebView {
 
             // Webview and manager
             let manager: id = msg_send![config, userContentController];
-            let webview: id = msg_send![register_webview_class(), alloc];
+            let cls = match ClassDecl::new("WryWebView", class!(WKWebView)) {
+                Some(mut decl) => {
+                    add_file_drop_methods(&mut decl);
+                    decl.register()
+                }
+                _ => class!(WryWebView),
+            };
+            let webview: id = msg_send![cls, alloc];
             let preference: id = msg_send![config, preferences];
             let yes: id = msg_send![class!(NSNumber), numberWithBool:1];
             let no: id = msg_send![class!(NSNumber), numberWithBool:0];
@@ -210,16 +187,14 @@ impl WV for InnerWebView {
                 let _: () = msg_send![manager, addScriptMessageHandler:handler name:external];
             }
 
+            // File drop handling
+            if let Some(file_drop_handler) = file_drop_handler {
+                set_file_drop_handler(webview, file_drop_handler)
+            };
+
             let w = Self {
                 webview: Id::from_ptr(webview),
                 manager,
-
-                // File drop handling
-                #[cfg(feature = "file-drop")]
-                file_drop_controller: match file_drop_handler {
-                    Some(file_drop_handler) => FileDropController::new(webview, file_drop_handler),
-                    None => None,
-                },
             };
 
             // Initialize scripts

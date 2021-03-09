@@ -23,7 +23,7 @@ fn main() -> Result<()> {
         ..Default::default()
     };
 
-    app.add_window_with_configs(attributes, None, None)?;
+    app.add_window(attributes)?;
     app.run();
     Ok(())
 }

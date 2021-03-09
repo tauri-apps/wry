@@ -2,9 +2,6 @@ use crate::{Result, RpcRequest, RpcResponse, WindowProxy};
 
 use std::{fs::read, path::Path};
 
-#[cfg(feature = "file-drop")]
-use crate::FileDropHandler;
-
 /// The RPC handler to Communicate between the host Rust code and Javascript on webview.
 ///
 /// The communication is done via [JSON-RPC](https://www.jsonrpc.org).
@@ -190,12 +187,6 @@ pub struct Attributes {
     ///
     /// The default is an empty vector.
     pub initialization_scripts: Vec<String>,
-
-    /// A closure that will be executed when a file is dropped on the window.
-    ///
-    /// The default is `None`.
-    #[cfg(feature = "file-drop")]
-    pub file_drop_handler: Option<FileDropHandler>,
 }
 
 impl Attributes {
@@ -225,9 +216,6 @@ impl Attributes {
                 transparent: self.transparent,
                 url: self.url,
                 initialization_scripts: self.initialization_scripts,
-
-                #[cfg(feature = "file-drop")]
-                file_drop_handler: self.file_drop_handler,
             },
         )
     }
@@ -257,9 +245,6 @@ impl Default for Attributes {
             skip_taskbar: false,
             url: None,
             initialization_scripts: vec![],
-
-            #[cfg(feature = "file-drop")]
-            file_drop_handler: None,
         }
     }
 }
@@ -289,7 +274,4 @@ pub(crate) struct InnerWebViewAttributes {
     pub transparent: bool,
     pub url: Option<String>,
     pub initialization_scripts: Vec<String>,
-
-    #[cfg(feature = "file-drop")]
-    pub file_drop_handler: Option<FileDropHandler>,
 }
