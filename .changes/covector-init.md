@@ -1,5 +1,0 @@
----
-"wry": housekeeping
----
-
-Initialize covector!
