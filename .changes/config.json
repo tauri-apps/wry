@@ -7,7 +7,6 @@
       "version": true,
       "getPublishedVersion": "cargo search ${ pkg.pkg } --limit 1",
       "prepublish": [
-        "sudo apt-get update",
         "cargo install cargo-audit --features=fix",
         {
           "command": "cargo generate-lockfile",
