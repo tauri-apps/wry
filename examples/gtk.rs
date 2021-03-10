@@ -1,20 +1,32 @@
-
-
 #[cfg(not(target_os = "linux"))]
 fn main() {}
 
 #[cfg(target_os = "linux")]
 fn main() -> wry::Result<()> {
+  use gio::{prelude::*, Cancellable};
+  use gtk::prelude::*;
   use wry::webview::WebViewBuilder;
-  use cairo::*;
-  use gtk::*;
 
   gtk::init()?;
-  let window = Window::new(WindowType::Toplevel);
+  let app = gtk::Application::new(Some("org.tauri.demo"), gio::ApplicationFlags::FLAGS_NONE)?;
+  let cancellable: Option<&Cancellable> = None;
+  app.register(cancellable)?;
 
+  let window = gtk::ApplicationWindow::new(&app);
+  window.set_default_size(320, 200);
+  window.set_title("Basic example");
   window.show_all();
-  // TODO add to webview
 
-  gtk::main();
-  Ok(())
+  let mut webview = WebViewBuilder::new(window)
+    .unwrap()
+    .initialize_script("menacing = 'ゴ';")
+    .load_url("https://tauri.studio")?
+    .build()?;
+  webview.dispatch_script("console.log('Hello World');")?;
+
+  loop {
+    webview.evaluate_script()?;
+
+    gtk::main_iteration();
+  }
 }

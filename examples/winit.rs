@@ -3,12 +3,12 @@ fn main() {}
 
 #[cfg(not(target_os = "linux"))]
 fn main() -> wry::Result<()> {
-  use wry::webview::WebViewBuilder;
   use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
   };
+  use wry::webview::WebViewBuilder;
 
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
