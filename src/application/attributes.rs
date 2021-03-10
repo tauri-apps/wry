@@ -16,7 +16,7 @@ use std::{fs::read, path::Path};
 ///
 /// # Example
 ///
-/// ```
+/// ```no_run
 /// use wry::{Application, Result, WindowProxy, RpcRequest, RpcResponse};
 ///
 /// fn main() -> Result<()> {
@@ -40,7 +40,7 @@ use std::{fs::read, path::Path};
 ///       // from the cache.
 ///       None
 ///     });
-///     app.add_window_with_configs(Default::default(), Some(handler), None)?;
+///     app.add_window_with_configs(Default::default(), Some(handler), None, None)?;
 ///     app.run();
 ///     Ok(())
 /// }

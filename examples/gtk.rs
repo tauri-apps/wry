@@ -1,9 +1,14 @@
-use wry::{webview::WebViewBuilder, Result};
 
-use cairo::*;
-use gtk::*;
 
-fn main() -> Result<()> {
+#[cfg(not(target_os = "linux"))]
+fn main() {}
+
+#[cfg(target_os = "linux")]
+fn main() -> wry::Result<()> {
+  use wry::webview::WebViewBuilder;
+  use cairo::*;
+  use gtk::*;
+
   gtk::init()?;
   let window = Window::new(WindowType::Toplevel);
 

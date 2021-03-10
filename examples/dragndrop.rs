@@ -1,7 +1,5 @@
 use wry::{Application, Attributes, Result};
 
-// Apps can have a global file drop handler, and invidiual windows can have their own, too.
-
 static TEST_HTML: &str = r#"data:text/html,
 Drop files onto the window and read the console!<br>
 Dropping files onto the following form is also possible:<br><br>

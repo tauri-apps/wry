@@ -1,31 +1,20 @@
-use wry::{
-  platform::{
+#[cfg(target_os = "linux")]
+fn main() {}
+
+#[cfg(not(target_os = "linux"))]
+fn main() -> wry::Result<()> {
+  use wry::webview::WebViewBuilder;
+  use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
-  },
-  webview::WebViewBuilder,
-  Result,
-};
+  };
 
-fn main() -> Result<()> {
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
   let webview = WebViewBuilder::new(window)
     .unwrap()
     .initialize_script("menacing = 'ゴ';")
-    .register_protocol("wry".to_string(), |_| Ok(vec![97, 98, 99]))
-    .add_callback("world", |dispatcher, sequence, requests| {
-      dispatcher.dispatch_script("console.log(menacing);")?;
-      // Sequence is a number counting how many times this function being called.
-      if sequence < 8 {
-        println!("{} seconds has passed.", sequence);
-      } else {
-        // Requests is a vector of parameters passed from the caller.
-        println!("{:?}", requests);
-      }
-      Ok(())
-    })
     .load_url("wry://tauri.studio")?
     .build()?;
 
