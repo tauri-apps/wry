@@ -44,6 +44,15 @@
 //! [winit] for you to build the window across all platforms except Linux. We still need Gtk's
 //! library to build the WebView, so it's [gtk-rs] on Linux.
 //!
+//! ## Feature flags
+//!
+//! Wry uses a set of feature flags to toggle several advanced features.
+//!
+//! - `file-drop`: Enable [`FileDropHandler`] to control the behaviour when there are files
+//! interacting with the window.
+//! - `protocol`: Enable [`CustomProtocol`] to define custom URL scheme for handling tasks like
+//! loading assets.
+//!
 //! ## Debug build
 //!
 //! Debug profile enables tools like inspector for development or debug usage. Note this will call

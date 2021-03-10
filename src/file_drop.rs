@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+/// An event enumeration sent to [`FileDropHandler`].
 #[derive(Debug, Serialize, Clone)]
 pub enum FileDropEvent {
   /// The file(s) have been dragged onto the window, but have not been dropped yet.
@@ -10,11 +11,9 @@ pub enum FileDropEvent {
   Cancelled,
 }
 
-/// Initializes a new file drop handler.
+/// A listener closure to process incoming [`FileDropEvent`] of the window.
 ///
-/// Example: `FileDropHandler:new(|data: FileDropData| ...)`
-///
-/// ### Blocking OS Default Behavior
+/// # Blocking OS Default Behavior
 /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
 ///
 /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.

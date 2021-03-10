@@ -64,8 +64,12 @@ use std::{fs::read, path::Path};
 /// ```
 pub type WindowRpcHandler = Box<dyn Fn(WindowProxy, RpcRequest) -> Option<RpcResponse> + Send>;
 
+/// A protocol to define custom URL scheme for handling tasks like loading assets.
 pub struct CustomProtocol {
+  /// The name of the custom URL scheme.
   pub name: String,
+  /// The closure that takes the URL as parameter and returns the contents bytes that
+  /// WebView going to load.
   pub handler: Box<dyn Fn(&str) -> Result<Vec<u8>> + Send>,
 }
 
