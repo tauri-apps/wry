@@ -26,3 +26,5 @@ jobs:
 
       - name: build
         run: cargo build
+      - name: test
+        run: cargo test
