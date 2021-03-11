@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: cargo login
-        run: cargo login ${{ secrets.ORG_CRATE_TOKEN }}
+        run: cargo login ${{ secrets.CRATE_TOKEN }}
       - name: git config
         run: |
           git config --global user.name "${{ github.event.pusher.name }}"
