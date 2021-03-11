@@ -44,6 +44,7 @@ pub enum WindowMessage {
   SetFullscreen(bool),
   SetIcon(Icon),
   EvaluationScript(String),
+  BeginDrag { x: f64, y: f64 },
 }
 
 /// Describes a general message.
@@ -275,6 +276,12 @@ impl WindowProxy {
       self.id,
       WindowMessage::EvaluationScript(script.into()),
     ))
+  }
+
+  pub fn begin_drag(&self, x: f64, y: f64) -> Result<()> {
+    self
+      .proxy
+      .send_message(Message::Window(self.id, WindowMessage::BeginDrag { x, y }))
   }
 }
 

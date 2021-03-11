@@ -95,7 +95,14 @@ impl WebViewBuilder {
     Ok(Self {
       tx,
       rx,
-      initialization_scripts: vec![],
+      initialization_scripts: vec![r#"
+        document.addEventListener('mousedown', (e) => {
+            if(e.target.classList.contains('drag-region') && e.buttons === 1){
+                window.rpc.notify('__WRY_BEGIN_WINDOW_DRAG__', e.screenX, e.screenY);
+            }
+        })
+      "#
+      .into()],
       window,
       url: None,
       transparent: false,

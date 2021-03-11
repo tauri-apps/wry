@@ -279,6 +279,9 @@ impl App for InnerApplication {
                 WindowMessage::EvaluationScript(script) => {
                   let _ = webview.dispatch_script(&script);
                 }
+                WindowMessage::BeginDrag { x, y } => {
+                  // TODO
+                }
               }
             }
           }
@@ -363,17 +366,28 @@ fn _create_webview(
     webview = webview.register_protocol(protocol.name, protocol.handler)
   }
 
-  if let Some(rpc_handler) = rpc_handler {
-    webview = webview.set_rpc_handler(Box::new(move |requests| {
-      let proxy = WindowProxy::new(
-        ApplicationProxy {
-          inner: proxy.clone(),
-        },
-        window_id,
-      );
-      rpc_handler(proxy, requests)
-    }));
-  }
+  webview = webview.set_rpc_handler(Box::new(move |mut request| {
+    let proxy = WindowProxy::new(
+      ApplicationProxy {
+        inner: proxy.clone(),
+      },
+      window_id,
+    );
+
+    if &request.method == "__WRY_BEGIN_WINDOW_DRAG__" {
+      if let Some(params) = request.params.take() {
+        let x = params[0].as_f64()?;
+        let y = params[1].as_f64()?;
+        proxy.begin_drag(x, y).unwrap();
+      }
+    }
+
+    if let Some(rpc_handler) = &rpc_handler {
+      rpc_handler(proxy, request)
+    } else {
+      None
+    }
+  }));
 
   webview = webview.set_file_drop_handler(file_drop_handler);
 
