@@ -3,7 +3,7 @@ name: version or publish
 on:
   push:
     branches:
-      - master
+      - dev
 
 jobs:
   version-or-publish:
