@@ -1,6 +1,9 @@
 use crate::{Result, RpcRequest, RpcResponse, WindowProxy};
 
-use std::{fs::read, path::Path};
+use std::{
+  fs::read,
+  path::{Path, PathBuf},
+};
 
 /// The RPC handler to Communicate between the host Rust code and Javascript on webview.
 ///
@@ -191,6 +194,11 @@ pub struct Attributes {
   ///
   /// The default is an empty vector.
   pub initialization_scripts: Vec<String>,
+
+  /// Webview user data path.
+  ///
+  /// The default is `None`.
+  pub user_data_path: Option<PathBuf>,
 }
 
 impl Attributes {
@@ -220,6 +228,7 @@ impl Attributes {
         transparent: self.transparent,
         url: self.url,
         initialization_scripts: self.initialization_scripts,
+        user_data_path: self.user_data_path,
       },
     )
   }
@@ -249,6 +258,7 @@ impl Default for Attributes {
       skip_taskbar: false,
       url: None,
       initialization_scripts: vec![],
+      user_data_path: None,
     }
   }
 }
@@ -278,4 +288,5 @@ pub(crate) struct InnerWebViewAttributes {
   pub transparent: bool,
   pub url: Option<String>,
   pub initialization_scripts: Vec<String>,
+  pub user_data_path: Option<PathBuf>,
 }

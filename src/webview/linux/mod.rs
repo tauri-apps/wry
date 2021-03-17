@@ -5,7 +5,7 @@ use crate::{
   Error, FileDropHandler, Result, RpcHandler,
 };
 
-use std::rc::Rc;
+use std::{path::PathBuf, rc::Rc};
 
 use gdk::RGBA;
 use gio::Cancellable;
@@ -33,6 +33,7 @@ impl WV for InnerWebView {
     custom_protocol: Option<(String, F)>,
     rpc_handler: Option<RpcHandler>,
     file_drop_handler: Option<FileDropHandler>,
+    _user_data_path: Option<PathBuf>,
   ) -> Result<Self> {
     // Webview widget
     let manager = UserContentManager::new();
