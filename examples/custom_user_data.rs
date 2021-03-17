@@ -1,12 +1,15 @@
 use std::path::PathBuf;
+use std::fs;
 use wry::{Application, Attributes, Result};
 
 fn main() -> Result<()> {
   let mut app = Application::new()?;
 
-  let test_path = PathBuf::from(env!("OUT_DIR"));
-
-  println!("Webview storage path: {:#?}", test_path);
+  // Use a sample directory at the root of the project
+  let test_path = PathBuf::from("./target/webview_data");
+  // The directory need to exist or the Webview will panic
+  fs::create_dir_all(&test_path)?;
+  println!("Webview storage path: {:#?}", &test_path);
 
   let attributes = Attributes {
     url: Some("https://tauri.studio/".to_string()),
