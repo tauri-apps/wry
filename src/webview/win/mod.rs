@@ -7,7 +7,7 @@ use crate::{
 
 use file_drop::FileDropController;
 
-use std::{os::raw::c_void, rc::Rc};
+use std::{os::raw::c_void, path::PathBuf, rc::Rc};
 
 use once_cell::unsync::OnceCell;
 use url::Url;
@@ -37,6 +37,7 @@ impl WV for InnerWebView {
     custom_protocol: Option<(String, F)>,
     rpc_handler: Option<RpcHandler>,
     file_drop_handler: Option<FileDropHandler>,
+    user_data_path: Option<PathBuf>,
   ) -> Result<Self> {
     let hwnd = window.hwnd() as HWND;
 
@@ -46,8 +47,19 @@ impl WV for InnerWebView {
     let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
     let file_drop_controller_clone = file_drop_controller.clone();
 
+    let webview_builder: webview2::EnvironmentBuilder;
+    let user_data_path_provided: PathBuf;
+
+    if user_data_path.is_some() {
+      user_data_path_provided = user_data_path.unwrap();
+      webview_builder =
+        webview2::EnvironmentBuilder::new().with_user_data_folder(&user_data_path_provided);
+    } else {
+      webview_builder = webview2::EnvironmentBuilder::new();
+    }
+
     // Webview controller
-    webview2::EnvironmentBuilder::new().build(move |env| {
+    webview_builder.build(move |env| {
       let env = env?;
       let env_ = env.clone();
       env.create_controller(hwnd, move |controller| {

@@ -354,7 +354,10 @@ fn _create_webview(
 ) -> Result<WebView> {
   let window_id = window.id();
 
-  let mut webview = WebViewBuilder::new(window)?.transparent(attributes.transparent);
+  let mut webview = WebViewBuilder::new(window)?
+    .transparent(attributes.transparent)
+    .user_data_path(attributes.user_data_path);
+
   for js in attributes.initialization_scripts {
     webview = webview.initialize_script(&js);
   }

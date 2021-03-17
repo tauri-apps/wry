@@ -17,7 +17,10 @@ use win::*;
 
 use crate::{Error, FileDropHandler, Result};
 
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::{
+  path::PathBuf,
+  sync::mpsc::{channel, Receiver, Sender},
+};
 
 use serde_json::Value;
 use url::Url;
@@ -85,6 +88,7 @@ pub struct WebViewBuilder {
   custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
   rpc_handler: Option<RpcHandler>,
   file_drop_handler: Option<FileDropHandler>,
+  user_data_path: Option<PathBuf>,
 }
 
 impl WebViewBuilder {
@@ -102,6 +106,7 @@ impl WebViewBuilder {
       custom_protocol: None,
       rpc_handler: None,
       file_drop_handler: None,
+      user_data_path: None,
     })
   }
 
@@ -117,6 +122,13 @@ impl WebViewBuilder {
   /// `window.onload`.
   pub fn initialize_script(mut self, js: &str) -> Self {
     self.initialization_scripts.push(js.to_string());
+    self
+  }
+
+  /// Whether the WebView window should have a custom user data path. This is usefull in Windows
+  /// when a bundled application can't have the webview data inside `Program Files`.
+  pub fn user_data_path(mut self, user_data_path: Option<PathBuf>) -> Self {
+    self.user_data_path = user_data_path;
     self
   }
 
@@ -213,6 +225,7 @@ impl WebViewBuilder {
       self.custom_protocol,
       self.rpc_handler,
       self.file_drop_handler,
+      self.user_data_path,
     )?;
     Ok(WebView {
       window: self.window,
@@ -251,7 +264,16 @@ impl WebView {
   pub fn new_with_configs(window: Window, transparent: bool) -> Result<Self> {
     let picky_none: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)> = None;
 
-    let webview = InnerWebView::new(&window, vec![], None, transparent, picky_none, None, None)?;
+    let webview = InnerWebView::new(
+      &window,
+      vec![],
+      None,
+      transparent,
+      picky_none,
+      None,
+      None,
+      None,
+    )?;
 
     let (tx, rx) = channel();
 
@@ -327,6 +349,7 @@ pub(crate) trait WV: Sized {
     custom_protocol: Option<(String, F)>,
     rpc_handler: Option<RpcHandler>,
     file_drop_handler: Option<FileDropHandler>,
+    user_data_path: Option<PathBuf>,
   ) -> Result<Self>;
 
   fn eval(&self, js: &str) -> Result<()>;

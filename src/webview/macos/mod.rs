@@ -9,6 +9,7 @@ use file_drop::{add_file_drop_methods, set_file_drop_handler};
 use std::{
   ffi::{c_void, CStr},
   os::raw::c_char,
+  path::PathBuf,
   ptr::null,
   slice, str,
 };
@@ -42,6 +43,7 @@ impl WV for InnerWebView {
     custom_protocol: Option<(String, F)>,
     rpc_handler: Option<RpcHandler>,
     file_drop_handler: Option<FileDropHandler>,
+    _user_data_path: Option<PathBuf>,
   ) -> Result<Self> {
     // Function for rpc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
