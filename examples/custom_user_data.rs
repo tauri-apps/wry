@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-use std::fs;
+use std::{fs, path::PathBuf};
 use wry::{Application, Attributes, Result};
 
 fn main() -> Result<()> {
