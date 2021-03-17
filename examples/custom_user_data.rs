@@ -6,7 +6,8 @@ fn main() -> Result<()> {
   let mut app = Application::new()?;
 
   // Use a sample directory at the root of the project
-  let test_path = PathBuf::from("./target/webview_data");
+  // We need an absoulte path
+  let test_path = fs::canonicalize(PathBuf::from("./target/webview_data"))?;
   // The directory need to exist or the Webview will panic
   fs::create_dir_all(&test_path)?;
   println!("Webview storage path: {:#?}", &test_path);
