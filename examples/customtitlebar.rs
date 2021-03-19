@@ -21,15 +21,22 @@ fn main() -> Result<()> {
               </div>
             </div>
           </div>
+          <div>
+            WRYYYYYYYYYYYYYYYYYYYYYY!
+          </div>
         </body>
         <script>
+          let maximized = false;
           document.getElementById('minimize').addEventListener('click', () => rpc.notify('minimize'));
-          document.getElementById('maximize').addEventListener('click', () => rpc.notify('maximize'));
+          document.getElementById('maximize').addEventListener('click', () => {
+            maximized = !maximized;
+            rpc.notify('maximize', maximized);
+          });
           document.getElementById('close').addEventListener('click', () => rpc.notify('close'));
         </script>
       "#.into(),
     ),
-    // inject the css after 500ms
+    // inject the css after 500ms, otherwise it won't work as the `head` element isn't created yet.
     initialization_scripts:vec![
       r#"
         setTimeout(() => {
@@ -48,7 +55,6 @@ fn main() -> Result<()> {
               display: flex;
               justify-content: space-between;
               align-items: center;
-              padding-left: 5px;
             }
             .titlebar-button {
               display: inline-flex;
@@ -79,7 +85,11 @@ fn main() -> Result<()> {
       proxy.minimize().unwrap();
     }
     if req.method == "maximize" {
-      proxy.maximize().unwrap();
+      if req.params.unwrap().as_array().unwrap()[0] == true {
+        proxy.maximize().unwrap();
+      } else {
+        proxy.unmaximize().unwrap();
+      }
     }
     if req.method == "close" {
       proxy.close().unwrap();

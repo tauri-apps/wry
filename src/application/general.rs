@@ -279,8 +279,8 @@ impl App for InnerApplication {
                 WindowMessage::EvaluationScript(script) => {
                   let _ = webview.dispatch_script(&script);
                 }
-                WindowMessage::BeginDrag { x, y } => {
-                  // TODO
+                WindowMessage::BeginDrag { x: _, y: _ } => {
+                  window.drag_window().unwrap();
                 }
               }
             }
