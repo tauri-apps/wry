@@ -158,27 +158,40 @@ impl App for InnerApplication {
             custom_protocol,
           ) => {
             let (window_attrs, webview_attrs) = attributes.split();
-            let window = _create_window(&self.app, window_attrs).unwrap();
-            sender.send(window.get_id()).unwrap();
-            let webview = _create_webview(
-              proxy.clone(),
-              window,
-              custom_protocol,
-              rpc_handler,
-              file_drop_handler,
-              webview_attrs,
-            )
-            .unwrap();
-            let id = webview.window().get_id();
-            let shared_webviews_ = shared_webviews_.clone();
-            webview
-              .window()
-              .connect_delete_event(move |_window, _event| {
-                shared_webviews_.borrow_mut().remove(&id);
-                Inhibit(false)
-              });
-            let mut webviews = shared_webviews.borrow_mut();
-            webviews.insert(id, webview);
+            match _create_window(&self.app, window_attrs) {
+              Ok(window) => {
+                if let Err(e) = sender.send(window.get_id()) {
+                  log::error!("{}", e);
+                }
+                match _create_webview(
+                  proxy.clone(),
+                  window,
+                  custom_protocol,
+                  rpc_handler,
+                  file_drop_handler,
+                  webview_attrs,
+                ) {
+                  Ok(webview) => {
+                    let id = webview.window().get_id();
+                    let shared_webviews_ = shared_webviews_.clone();
+                    webview
+                      .window()
+                      .connect_delete_event(move |_window, _event| {
+                        shared_webviews_.borrow_mut().remove(&id);
+                        Inhibit(false)
+                      });
+                    let mut webviews = shared_webviews.borrow_mut();
+                    webviews.insert(id, webview);
+                  }
+                  Err(e) => {
+                    log::error!("{}", e);
+                  }
+                }
+              }
+              Err(e) => {
+                log::error!("{}", e);
+              }
+            }
           }
           Message::Window(id, window_message) => {
             if let Some(webview) = shared_webviews.borrow_mut().get_mut(&id) {

@@ -122,7 +122,7 @@ impl WV for InnerWebView {
     if let Some((name, handler)) = custom_protocol {
       context
         .get_security_manager()
-        .unwrap()
+        .ok_or(Error::MissingManager)?
         .register_uri_scheme_as_secure(&name);
       context.register_uri_scheme(&name.clone(), move |request| {
         if let Some(uri) = request.get_uri() {
