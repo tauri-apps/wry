@@ -161,7 +161,9 @@ impl App for InnerApplication {
       *control_flow = ControlFlow::Wait;
 
       for (_, w) in windows.iter() {
-        w.evaluate_script().unwrap();
+        if let Err(e) = w.evaluate_script() {
+          log::error!("{}", e);
+        }
       }
       match event {
         Event::WindowEvent { event, window_id } => match event {
@@ -173,7 +175,9 @@ impl App for InnerApplication {
             }
           }
           WindowEvent::Resized(_) => {
-            windows[&window_id].resize().unwrap();
+            if let Err(e) = windows[&window_id].resize() {
+              log::error!("{}", e);
+            }
           }
           _ => {}
         },
@@ -186,19 +190,32 @@ impl App for InnerApplication {
             custom_protocol,
           ) => {
             let (window_attrs, webview_attrs) = attributes.split();
-            let window = _create_window(&event_loop, window_attrs).unwrap();
-            sender.send(window.id()).unwrap();
-            let webview = _create_webview(
-              proxy.clone(),
-              window,
-              custom_protocol,
-              rpc_handler,
-              file_drop_handler,
-              webview_attrs,
-            )
-            .unwrap();
-            let id = webview.window().id();
-            windows.insert(id, webview);
+            match _create_window(&event_loop, window_attrs) {
+              Ok(window) => {
+                if let Err(e) = sender.send(window.id()) {
+                  log::error!("{}", e);
+                }
+                match _create_webview(
+                  proxy.clone(),
+                  window,
+                  custom_protocol,
+                  rpc_handler,
+                  file_drop_handler,
+                  webview_attrs,
+                ) {
+                  Ok(webview) => {
+                    let id = webview.window().id();
+                    windows.insert(id, webview);
+                  }
+                  Err(e) => {
+                    log::error!("{}", e);
+                  }
+                }
+              }
+              Err(e) => {
+                log::error!("{}", e);
+              }
+            }
           }
           Message::Window(id, window_message) => {
             if let Some(webview) = windows.get_mut(&id) {

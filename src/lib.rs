@@ -111,6 +111,9 @@ pub enum Error {
   #[cfg(target_os = "linux")]
   #[error(transparent)]
   GlibBoolError(#[from] glib::BoolError),
+  #[cfg(target_os = "linux")]
+  #[error("Fail to fetch security manager")]
+  MissingManager,
   #[error("Failed to initialize the script")]
   InitScriptError,
   #[error("Bad RPC request: {0} ((1))")]

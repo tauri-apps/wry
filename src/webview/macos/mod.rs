@@ -320,7 +320,7 @@ impl NSString {
       let bytes: *const c_char = msg_send![self.0, UTF8String];
       let len = msg_send![self.0, lengthOfBytesUsingEncoding: UTF8_ENCODING];
       let bytes = slice::from_raw_parts(bytes as *const u8, len);
-      str::from_utf8(bytes).unwrap()
+      str::from_utf8_unchecked(bytes)
     }
   }
 }
