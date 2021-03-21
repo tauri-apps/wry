@@ -3,7 +3,7 @@
 ## \[0.6.1]
 
 - Add attribute option to allow WebView on Windows use user_data folder
-  - [c0ad692](https://github.com/tauri-apps/wry/commit/c0ad692e8191b0de5ae043577ce1e85cd377c3c2) Update README ([#122](https://github.com/tauri-apps/wry/pull/122)) on 2021-03-21
+  - [8dd58ee](https://github.com/tauri-apps/wry/commit/8dd58eec77d4c89491b1af427d06c4ee6cfa8e58) feat/ allow webview2 (windows) to use optional user_data folder provided by the attributes ([#120](https://github.com/tauri-apps/wry/pull/120)) on 2021-03-21
 
 ## \[0.6.0]
 
