@@ -180,6 +180,7 @@ impl WV for InnerWebView {
           }
         }
 
+        controller.put_is_visible(true);
         let _ = controller_clone.set(controller);
 
         if let Some(file_drop_handler) = file_drop_handler {
