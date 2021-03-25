@@ -45,11 +45,11 @@ gdk-pixbuf = "0.9"
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2 = "0.1.0-beta.1"
 winapi = { version = "0.3", features = [ "libloaderapi", "oleidl" ] }
-winit = "0.24"
+winit = { git = "https:/github.com/rust-windowing/winit", rev = "98470393d11b3b670c1e122c26a15c563dcf68a4"}
 
 [target."cfg(target_os = \"macos\")".dependencies]
 cocoa = "0.24"
 core-graphics = "0.22"
 objc = "0.2"
 objc_id = "0.1"
-winit = "0.24"
+winit = { git = "https:/github.com/rust-windowing/winit", rev = "98470393d11b3b670c1e122c26a15c563dcf68a4"}
