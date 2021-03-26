@@ -85,8 +85,8 @@ mod application;
 pub mod webview;
 
 pub use application::{
-  Application, ApplicationProxy, Attributes, Icon, Message, WindowId, WindowMessage, WindowProxy,
-  WindowRpcHandler,
+  Application, ApplicationProxy, Attributes, Event, Icon, Message, WindowEvent, WindowId,
+  WindowMessage, WindowProxy, WindowRpcHandler,
 };
 pub use serde_json::Value;
 pub(crate) use webview::{RpcHandler, WebView, WebViewBuilder};
