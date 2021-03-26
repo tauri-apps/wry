@@ -1,14 +1,18 @@
 use crate::{
   application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
-  ApplicationProxy, Attributes, CustomProtocol, Error, FileDropHandler, Icon, Message, Result,
-  WebView, WebViewBuilder, WindowMessage, WindowProxy, WindowRpcHandler,
+  ApplicationProxy, Attributes, CustomProtocol, Error, Event as WryEvent, FileDropHandler, Icon,
+  Message, Result, WebView, WebViewBuilder, WindowEvent as WryWindowEvent, WindowMessage,
+  WindowProxy, WindowRpcHandler,
 };
 
 use std::{
   cell::RefCell,
   collections::HashMap,
   rc::Rc,
-  sync::mpsc::{channel, Receiver, Sender},
+  sync::{
+    mpsc::{channel, Receiver, Sender},
+    Arc, Mutex,
+  },
 };
 
 use cairo::Operator;
@@ -30,6 +34,7 @@ impl Clone for EventLoopProxy {
 #[derive(Clone)]
 pub struct InnerApplicationProxy {
   proxy: EventLoopProxy,
+  receiver: Arc<Mutex<Receiver<WryEvent>>>,
 }
 
 impl AppProxy for InnerApplicationProxy {
@@ -59,6 +64,11 @@ impl AppProxy for InnerApplicationProxy {
     ))?;
     Ok(receiver.recv()?)
   }
+
+  fn listen_event(&self) -> Result<WryEvent> {
+    let rx = self.receiver.lock().unwrap();
+    Ok(rx.recv()?)
+  }
 }
 
 pub struct InnerApplication {
@@ -66,6 +76,7 @@ pub struct InnerApplication {
   app: GtkApp,
   event_loop_proxy: EventLoopProxy,
   event_loop_proxy_rx: Receiver<Message>,
+  event_channel: (Sender<WryEvent>, Arc<Mutex<Receiver<WryEvent>>>),
 }
 
 impl App for InnerApplication {
@@ -78,12 +89,14 @@ impl App for InnerApplication {
     app.register(cancellable)?;
 
     let (event_loop_proxy_tx, event_loop_proxy_rx) = channel();
+    let (tx, rx) = channel();
 
     Ok(Self {
       webviews: HashMap::new(),
       app,
       event_loop_proxy: EventLoopProxy(event_loop_proxy_tx),
       event_loop_proxy_rx,
+      event_channel: (tx, Arc::new(Mutex::new(rx))),
     })
   }
 
@@ -115,6 +128,7 @@ impl App for InnerApplication {
   fn application_proxy(&self) -> Self::Proxy {
     InnerApplicationProxy {
       proxy: self.event_loop_proxy.clone(),
+      receiver: self.event_channel.1.clone(),
     }
   }
 
@@ -122,14 +136,20 @@ impl App for InnerApplication {
     let proxy = self.application_proxy();
     let shared_webviews = Rc::new(RefCell::new(self.webviews));
     let shared_webviews_ = shared_webviews.clone();
+    let event_sender = self.event_channel.0;
 
     {
       let webviews = shared_webviews.borrow_mut();
       for (id, w) in webviews.iter() {
         let shared_webviews_ = shared_webviews_.clone();
         let id_ = *id;
+        let tx_clone = event_sender.clone();
         w.window().connect_delete_event(move |_window, _event| {
           shared_webviews_.borrow_mut().remove(&id_);
+          let _ = tx_clone.send(WryEvent::WindowEvent {
+            window_id: id_,
+            event: WryWindowEvent::CloseRequested,
+          });
           Inhibit(false)
         });
       }

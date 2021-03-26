@@ -1,7 +1,8 @@
 use crate::{
   application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
-  ApplicationProxy, Attributes, CustomProtocol, Error, Icon, Message, Result, WebView,
-  WebViewBuilder, WindowMessage, WindowProxy, WindowRpcHandler,
+  ApplicationProxy, Attributes, CustomProtocol, Error, Event as WryEvent, Icon, Message, Result,
+  WebView, WebViewBuilder, WindowEvent as WryWindowEvent, WindowMessage, WindowProxy,
+  WindowRpcHandler,
 };
 
 #[cfg(target_os = "macos")]
@@ -14,7 +15,13 @@ use winit::{
   window::{Fullscreen, Icon as WinitIcon, Window, WindowAttributes, WindowBuilder},
 };
 
-use std::{collections::HashMap, sync::mpsc::channel};
+use std::{
+  collections::HashMap,
+  sync::{
+    mpsc::{channel, Receiver, Sender},
+    Arc, Mutex,
+  },
+};
 
 #[cfg(target_os = "windows")]
 use {
@@ -38,6 +45,7 @@ type EventLoopProxy = winit::event_loop::EventLoopProxy<Message>;
 #[derive(Clone)]
 pub struct InnerApplicationProxy {
   proxy: EventLoopProxy,
+  receiver: Arc<Mutex<Receiver<WryEvent>>>,
 }
 
 impl AppProxy for InnerApplicationProxy {
@@ -65,6 +73,11 @@ impl AppProxy for InnerApplicationProxy {
       custom_protocol,
     ))?;
     Ok(receiver.recv()?)
+  }
+
+  fn listen_event(&self) -> Result<WryEvent> {
+    let rx = self.receiver.lock().unwrap();
+    Ok(rx.recv()?)
   }
 }
 
@@ -107,6 +120,7 @@ pub struct InnerApplication {
   webviews: HashMap<WindowId, WebView>,
   event_loop: EventLoop<Message>,
   event_loop_proxy: EventLoopProxy,
+  event_channel: (Sender<WryEvent>, Arc<Mutex<Receiver<WryEvent>>>),
 }
 
 impl App for InnerApplication {
@@ -116,10 +130,12 @@ impl App for InnerApplication {
   fn new() -> Result<Self> {
     let event_loop = EventLoop::<Message>::with_user_event();
     let proxy = event_loop.create_proxy();
+    let (tx, rx) = channel();
     Ok(Self {
       webviews: HashMap::new(),
       event_loop,
       event_loop_proxy: proxy,
+      event_channel: (tx, Arc::new(Mutex::new(rx))),
     })
   }
 
@@ -150,12 +166,14 @@ impl App for InnerApplication {
   fn application_proxy(&self) -> Self::Proxy {
     InnerApplicationProxy {
       proxy: self.event_loop_proxy.clone(),
+      receiver: self.event_channel.1.clone(),
     }
   }
 
   fn run(self) {
     let proxy = self.application_proxy();
     let mut windows = self.webviews;
+    let event_sender = self.event_channel.0;
 
     self.event_loop.run(move |event, event_loop, control_flow| {
       *control_flow = ControlFlow::Wait;
@@ -169,6 +187,12 @@ impl App for InnerApplication {
         Event::WindowEvent { event, window_id } => match event {
           WindowEvent::CloseRequested => {
             windows.remove(&window_id);
+            event_sender
+              .send(WryEvent::WindowEvent {
+                window_id,
+                event: WryWindowEvent::CloseRequested,
+              })
+              .unwrap();
 
             if windows.is_empty() {
               *control_flow = ControlFlow::Exit;

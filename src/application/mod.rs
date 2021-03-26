@@ -19,6 +19,17 @@ use crate::{FileDropHandler, Result};
 
 use std::sync::mpsc::Sender;
 
+pub enum Event {
+  WindowEvent {
+    window_id: WindowId,
+    event: WindowEvent,
+  },
+}
+
+pub enum WindowEvent {
+  CloseRequested,
+}
+
 /// Describes a message for a WebView window.
 #[derive(Debug)]
 pub enum WindowMessage {
@@ -93,6 +104,11 @@ impl ApplicationProxy {
       .add_window(attributes, file_drop_handler, rpc_handler, custom_protocol)?;
     Ok(WindowProxy::new(self.clone(), id))
   }
+
+  /// Receive event from the application.
+  pub fn listen_event(&self) -> Result<Event> {
+    self.inner.listen_event()
+  }
 }
 
 trait AppProxy {
@@ -104,6 +120,7 @@ trait AppProxy {
     rpc_handler: Option<WindowRpcHandler>,
     custom_protocol: Option<CustomProtocol>,
   ) -> Result<WindowId>;
+  fn listen_event(&self) -> Result<Event>;
 }
 
 /// A proxy to customize its corresponding WebView window.
