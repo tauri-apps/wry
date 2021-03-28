@@ -1,4 +1,4 @@
-use windows::Abi;
+use windows::{Abi, Interface};
 
 use bindings::Windows::Win32::{
   Com::{self as com, DVASPECT, TYMED},
@@ -35,8 +35,7 @@ impl Drop for FileDropController {
     unsafe {
       for ptr in &self.drop_targets {
         let mut drop_target = Box::from_raw(*ptr);
-        let drop_target_ptr = &mut drop_target.as_mut() as *mut _;
-        DropTarget::Release(drop_target_ptr as *mut _);
+        DropTarget::Release(drop_target.as_mut() as *mut _ as *mut _);
       }
     }
   }
@@ -61,7 +60,8 @@ impl FileDropController {
     unsafe {
       if com::RevokeDragDrop(hwnd).0 != SystemServices::DRAGDROP_E_INVALIDHWND.0 {
         let mut drop_target = Box::new(DropTarget::new(hwnd, listener));
-        if let Ok(interface) = com::IDropTarget::from_abi(&mut *drop_target as *mut _ as *mut _) {
+        if let Ok(interface) = com::IDropTarget::from_abi(drop_target.as_mut() as *mut _ as *mut _)
+        {
           if com::RegisterDragDrop(hwnd, interface).is_ok() {
             // Not a great solution. But there is no reliable way to get the window handle of the webview, for whatever reason...
             self.drop_targets.push(Box::into_raw(drop_target));
@@ -125,13 +125,22 @@ impl DropTarget {
 
   // Implement IUnknown
   pub unsafe extern "system" fn QueryInterface(
-    _this: windows::RawPtr,
-    _iid: &windows::Guid,
-    _interface: *mut windows::RawPtr,
+    this: windows::RawPtr,
+    iid: &windows::Guid,
+    interface: *mut windows::RawPtr,
   ) -> windows::ErrorCode {
-    // This function doesn't appear to be required for an `IDropTarget`.
-    // An implementation would be nice however.
-    unimplemented!();
+    if interface.is_null() {
+      windows::ErrorCode::E_POINTER
+    } else {
+      match *iid {
+        windows::IUnknown::IID | com::IDropTarget::IID => {
+          DropTarget::AddRef(this);
+          *interface = this;
+          windows::ErrorCode::S_OK
+        }
+        _ => windows::ErrorCode::E_NOINTERFACE,
+      }
+    }
   }
 
   pub unsafe extern "system" fn AddRef(this: windows::RawPtr) -> u32 {
