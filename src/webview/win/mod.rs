@@ -112,11 +112,7 @@ impl WV for InnerWebView {
           match super::rpc_proxy(js, rpc_handler) {
             Ok(result) => {
               if let Some(ref script) = result {
-                if let Err(e) =
-                  wait_for_async_operation(webview.ExecuteScriptAsync(script.as_str())?)
-                {
-                  eprintln!("{}", e);
-                }
+                let _ = webview.ExecuteScriptAsync(script.as_str())?;
               }
             }
             Err(e) => {
@@ -229,7 +225,7 @@ impl WV for InnerWebView {
 
   fn eval(&self, js: &str) -> Result<()> {
     if let Some(w) = self.webview.get() {
-      wait_for_async_operation(w.ExecuteScriptAsync(js)?)?;
+      let _ = w.ExecuteScriptAsync(js)?;
     }
     Ok(())
   }
