@@ -1,0 +1,11 @@
+[package]
+name = "bindings"
+version = "0.1.0"
+authors = ["Bill Avery <billav@microsoft.com>"]
+edition = "2018"
+
+[dependencies]
+windows = { git = "https:/github.com/microsoft/windows-rs", rev = "81491f85f196f7cc6f2030bf4e50de3456283357"}
+
+[build-dependencies]
+windows = { git = "https:/github.com/microsoft/windows-rs", rev = "81491f85f196f7cc6f2030bf4e50de3456283357"}

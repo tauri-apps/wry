@@ -29,6 +29,8 @@ use url::Url;
 use gtk::ApplicationWindow as Window;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
+#[cfg(target_os = "windows")]
+use bindings::Windows::Win32::WindowsAndMessaging::HWND;
 #[cfg(not(target_os = "linux"))]
 use winit::window::Window;
 
@@ -324,7 +326,7 @@ impl WebView {
   /// provide a way to resize automatically.
   pub fn resize(&self) -> Result<()> {
     #[cfg(target_os = "windows")]
-    self.webview.resize(self.window.hwnd())?;
+    self.webview.resize(HWND(self.window.hwnd() as _))?;
     Ok(())
   }
 }
