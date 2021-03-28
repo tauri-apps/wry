@@ -34,7 +34,9 @@ impl Drop for FileDropController {
     // This should never be a null ptr unless something goes wrong in Windows.
     unsafe {
       for ptr in &self.drop_targets {
-        Box::from_raw(*ptr);
+        let mut drop_target = Box::from_raw(*ptr);
+        let drop_target_ptr = &mut drop_target.as_mut() as *mut _;
+        DropTarget::Release(drop_target_ptr as *mut _);
       }
     }
   }
@@ -60,7 +62,7 @@ impl FileDropController {
       if com::RevokeDragDrop(hwnd).0 != SystemServices::DRAGDROP_E_INVALIDHWND.0 {
         let mut drop_target = Box::new(DropTarget::new(hwnd, listener));
         if let Ok(interface) = com::IDropTarget::from_abi(&mut *drop_target as *mut _ as *mut _) {
-          if com::RegisterDragDrop(hwnd, interface.clone()).is_ok() {
+          if com::RegisterDragDrop(hwnd, interface).is_ok() {
             // Not a great solution. But there is no reliable way to get the window handle of the webview, for whatever reason...
             self.drop_targets.push(Box::into_raw(drop_target));
           }
