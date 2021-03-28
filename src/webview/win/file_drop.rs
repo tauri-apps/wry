@@ -25,7 +25,7 @@ use std::{
 };
 
 pub(crate) struct FileDropController {
-  drop_targets: Vec<*mut DropTarget>,
+  drop_targets: Vec<(HWND, *mut DropTarget)>,
 }
 
 impl Drop for FileDropController {
@@ -33,7 +33,8 @@ impl Drop for FileDropController {
     // Safety: this could dereference a null ptr.
     // This should never be a null ptr unless something goes wrong in Windows.
     unsafe {
-      for ptr in &self.drop_targets {
+      for (hwnd, ptr) in &self.drop_targets {
+        let _ = com::RevokeDragDrop(hwnd);
         DropTarget::Release(*ptr as *mut _);
       }
     }
@@ -59,11 +60,11 @@ impl FileDropController {
     unsafe {
       if com::RevokeDragDrop(hwnd).0 != SystemServices::DRAGDROP_E_INVALIDHWND.0 {
         let mut drop_target = Box::new(DropTarget::new(hwnd, listener));
-        if let Ok(interface) = com::IDropTarget::from_abi(drop_target.as_mut() as *mut _ as *mut _)
-        {
+        let interface: windows::Result<com::IDropTarget> = from_abi(drop_target.as_mut() as *mut _ as *mut _);
+        if let Ok(interface) = interface {
           if com::RegisterDragDrop(hwnd, interface).is_ok() {
             // Not a great solution. But there is no reliable way to get the window handle of the webview, for whatever reason...
-            self.drop_targets.push(Box::into_raw(drop_target));
+            self.drop_targets.push((hwnd, Box::into_raw(drop_target)));
           }
         }
       }
@@ -92,6 +93,12 @@ extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
     let closure: &mut &mut dyn FnMut(HWND) -> bool = mem::transmute(lparam.0 as *mut c_void);
     closure(hwnd).into()
   }
+}
+
+unsafe fn from_abi<I: Interface>(this: windows::RawPtr) -> windows::Result<I> {
+  let unknown = windows::IUnknown::from_abi(this)?;
+  unknown.vtable().1(unknown.abi()); // AddRef to balance the Release called in IUnknown::drop
+  Ok(unknown.cast()?)
 }
 
 // The below code has been ripped from Winit - if only they'd `pub use` this!
@@ -168,8 +175,8 @@ impl DropTarget {
     let mut paths = Vec::new();
 
     let drop_handler = Self::from_interface(this);
-    if let Ok(data_obj) = com::IDataObject::from_abi(pDataObj) {
-      data_obj.vtable().1(pDataObj); // AddRef so the Interface wrapper doesn't perform an extra Release
+    let data_obj = from_abi(pDataObj);
+    if let Ok(data_obj) = data_obj {
       let hdrop = Self::collect_paths(&data_obj, &mut paths);
 
       drop_handler.hovered_is_valid = hdrop.is_some();
@@ -217,8 +224,8 @@ impl DropTarget {
     let mut paths = Vec::new();
 
     let drop_handler = Self::from_interface(this);
-    if let Ok(data_obj) = com::IDataObject::from_abi(pDataObj) {
-      data_obj.vtable().1(pDataObj); // AddRef so the Interface wrapper doesn't perform an extra Release
+    let data_obj = from_abi(pDataObj);
+    if let Ok(data_obj) = data_obj {
       let hdrop = Self::collect_paths(&data_obj, &mut paths);
       if let Some(hdrop) = hdrop {
         shell::DragFinish(hdrop);
