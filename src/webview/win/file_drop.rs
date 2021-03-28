@@ -34,8 +34,7 @@ impl Drop for FileDropController {
     // This should never be a null ptr unless something goes wrong in Windows.
     unsafe {
       for ptr in &self.drop_targets {
-        let mut drop_target = Box::from_raw(*ptr);
-        DropTarget::Release(drop_target.as_mut() as *mut _ as *mut _);
+        DropTarget::Release(*ptr as *mut _);
       }
     }
   }
@@ -154,7 +153,7 @@ impl DropTarget {
     let count = drop_target.refcount.fetch_sub(1, Ordering::Release) - 1;
     if count == 0 {
       // Destroy the underlying data
-      mem::drop(drop_target);
+      Box::from_raw(drop_target);
     }
     count
   }
@@ -170,8 +169,8 @@ impl DropTarget {
 
     let drop_handler = Self::from_interface(this);
     if let Ok(data_obj) = com::IDataObject::from_abi(pDataObj) {
+      data_obj.vtable().1(pDataObj); // AddRef so the Interface wrapper doesn't perform an extra Release
       let hdrop = Self::collect_paths(&data_obj, &mut paths);
-      mem::forget(data_obj);
 
       drop_handler.hovered_is_valid = hdrop.is_some();
       drop_handler.cursor_effect = if drop_handler.hovered_is_valid {
@@ -219,8 +218,8 @@ impl DropTarget {
 
     let drop_handler = Self::from_interface(this);
     if let Ok(data_obj) = com::IDataObject::from_abi(pDataObj) {
+      data_obj.vtable().1(pDataObj); // AddRef so the Interface wrapper doesn't perform an extra Release
       let hdrop = Self::collect_paths(&data_obj, &mut paths);
-      mem::forget(data_obj);
       if let Some(hdrop) = hdrop {
         shell::DragFinish(hdrop);
       }
