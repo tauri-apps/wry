@@ -1,3 +1,4 @@
+use crate::WindowProxy;
 use std::path::PathBuf;
 
 /// An event enumeration sent to [`FileDropHandler`].
@@ -19,3 +20,6 @@ pub enum FileDropEvent {
 /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
 /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
 pub type FileDropHandler = Box<dyn Fn(FileDropEvent) -> bool + Send>;
+
+/// TODO: docs
+pub type WindowFileDropHandler = Box<dyn Fn(WindowProxy, FileDropEvent) -> bool + Send>;

@@ -15,7 +15,7 @@ mod attributes;
 pub use attributes::{Attributes, CustomProtocol, Icon, WindowRpcHandler};
 pub(crate) use attributes::{InnerWebViewAttributes, InnerWindowAttributes};
 
-use crate::{FileDropHandler, Result};
+use crate::{Result, WindowFileDropHandler};
 
 use std::sync::mpsc::Sender;
 
@@ -64,7 +64,7 @@ pub enum Message {
   NewWindow(
     Attributes,
     Sender<WindowId>,
-    Option<FileDropHandler>,
+    Option<WindowFileDropHandler>,
     Option<WindowRpcHandler>,
     Option<CustomProtocol>,
   ),
@@ -97,7 +97,7 @@ impl ApplicationProxy {
     attributes: Attributes,
     rpc_handler: Option<WindowRpcHandler>,
     custom_protocol: Option<CustomProtocol>,
-    file_drop_handler: Option<FileDropHandler>,
+    file_drop_handler: Option<WindowFileDropHandler>,
   ) -> Result<WindowProxy> {
     let id = self
       .inner
@@ -116,7 +116,7 @@ trait AppProxy {
   fn add_window(
     &self,
     attributes: Attributes,
-    file_drop_handler: Option<FileDropHandler>,
+    file_drop_handler: Option<WindowFileDropHandler>,
     rpc_handler: Option<WindowRpcHandler>,
     custom_protocol: Option<CustomProtocol>,
   ) -> Result<WindowId>;
@@ -353,7 +353,7 @@ impl Application {
     attributes: Attributes,
     rpc_handler: Option<WindowRpcHandler>,
     custom_protocol: Option<CustomProtocol>,
-    file_drop_handler: Option<FileDropHandler>,
+    file_drop_handler: Option<WindowFileDropHandler>,
   ) -> Result<WindowProxy> {
     let id =
       self
@@ -392,7 +392,7 @@ trait App: Sized {
   fn create_webview(
     &mut self,
     attributes: Attributes,
-    file_drop_handler: Option<FileDropHandler>,
+    file_drop_handler: Option<WindowFileDropHandler>,
     rpc_handler: Option<WindowRpcHandler>,
     custom_protocol: Option<CustomProtocol>,
   ) -> Result<Self::Id>;

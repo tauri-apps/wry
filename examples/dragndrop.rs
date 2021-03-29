@@ -16,7 +16,7 @@ fn main() -> Result<()> {
     },
     None,
     None,
-    Some(Box::new(|data| {
+    Some(Box::new(|_, data| {
       println!("Window 1: {:?}", data);
       false // Returning true will block the OS default behaviour.
     })),

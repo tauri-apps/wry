@@ -1,7 +1,7 @@
 use crate::{
   application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
-  ApplicationProxy, Attributes, CustomProtocol, Error, Event as WryEvent, FileDropHandler, Icon,
-  Message, Result, WebView, WebViewBuilder, WindowEvent as WryWindowEvent, WindowMessage,
+  ApplicationProxy, Attributes, CustomProtocol, Error, Event as WryEvent, Icon, Message, Result,
+  WebView, WebViewBuilder, WindowEvent as WryWindowEvent, WindowFileDropHandler, WindowMessage,
   WindowProxy, WindowRpcHandler,
 };
 
@@ -50,7 +50,7 @@ impl AppProxy for InnerApplicationProxy {
   fn add_window(
     &self,
     attributes: Attributes,
-    file_drop_handler: Option<FileDropHandler>,
+    file_drop_handler: Option<WindowFileDropHandler>,
     rpc_handler: Option<WindowRpcHandler>,
     custom_protocol: Option<CustomProtocol>,
   ) -> Result<WindowId> {
@@ -103,7 +103,7 @@ impl App for InnerApplication {
   fn create_webview(
     &mut self,
     attributes: Attributes,
-    file_drop_handler: Option<FileDropHandler>,
+    file_drop_handler: Option<WindowFileDropHandler>,
     rpc_handler: Option<WindowRpcHandler>,
     custom_protocol: Option<CustomProtocol>,
   ) -> Result<Self::Id> {
@@ -437,7 +437,7 @@ fn _create_webview(
   window: ApplicationWindow,
   custom_protocol: Option<CustomProtocol>,
   rpc_handler: Option<WindowRpcHandler>,
-  file_drop_handler: Option<FileDropHandler>,
+  file_drop_handler: Option<WindowFileDropHandler>,
 
   attributes: InnerWebViewAttributes,
 ) -> Result<WebView> {
@@ -455,10 +455,11 @@ fn _create_webview(
     webview = webview.register_protocol(protocol.name, protocol.handler);
   }
 
+  let proxy_ = proxy.clone();
   webview = webview.set_rpc_handler(Box::new(move |mut request| {
     let proxy = WindowProxy::new(
       ApplicationProxy {
-        inner: proxy.clone(),
+        inner: proxy_.clone(),
       },
       window_id,
     );
@@ -478,7 +479,20 @@ fn _create_webview(
     }
   }));
 
-  webview = webview.set_file_drop_handler(file_drop_handler);
+  webview = webview.set_file_drop_handler(Some(Box::new(move |event| {
+    let proxy = WindowProxy::new(
+      ApplicationProxy {
+        inner: proxy.clone(),
+      },
+      window_id,
+    );
+
+    if let Some(file_drop_handler) = &file_drop_handler {
+      file_drop_handler(proxy, event)
+    } else {
+      false
+    }
+  })));
 
   let webview = webview.build()?;
   Ok(webview)

@@ -71,10 +71,10 @@ extern crate thiserror;
 extern crate objc;
 
 mod file_drop;
-#[cfg(feature = "file-drop")]
-pub use file_drop::{FileDropEvent, FileDropHandler};
 #[cfg(not(feature = "file-drop"))]
 pub(crate) use file_drop::{FileDropEvent, FileDropHandler};
+#[cfg(feature = "file-drop")]
+pub use file_drop::{FileDropEvent, FileDropHandler, WindowFileDropHandler};
 
 #[cfg(feature = "protocol")]
 pub use application::CustomProtocol;
