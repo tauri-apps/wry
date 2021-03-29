@@ -7,7 +7,7 @@ use bindings::{
     Storage::Streams::*,
     Win32::{
       DisplayDevices::RECT,
-      WindowsAndMessaging::{self, HWND, MSG},
+      WindowsAndMessaging::{self, HWND},
     },
   },
 };
@@ -19,11 +19,19 @@ use crate::{
 
 use file_drop::FileDropController;
 
-use std::{path::PathBuf, rc::Rc, sync::mpsc};
+use std::{
+  path::PathBuf,
+  rc::Rc,
+  sync::mpsc::{self, RecvError},
+};
 
 use once_cell::unsync::OnceCell;
 use url::Url;
-use winit::{platform::windows::WindowExtWindows, window::Window};
+use winit::{
+  event_loop::{ControlFlow, EventLoop},
+  platform::{run_return::EventLoopExtRunReturn, windows::WindowExtWindows},
+  window::Window,
+};
 
 pub struct InnerWebView {
   controller: Rc<OnceCell<webview2::CoreWebView2Controller>>,
@@ -254,12 +262,9 @@ impl InnerWebView {
 
 /// The WebView2 threading model runs everything on the UI thread, including callbacks which it triggers
 /// with `PostMessage`, and we're using this here because it's waiting for some async operations in WebView2
-/// to finish before starting the main message loop in `WebView::run`. As long as there are no pending
-/// results in `rx`, it will pump Window messages and check for a result after each message is dispatched.
-///
-/// `GetMessage` is a blocking call, so if we want to send results from another thread, senders from other
-/// threads should "kick" the message loop after sending the result by calling `PostThreadMessage` with an
-/// ignorable/unhandled message such as `WM_APP`.
+/// to finish before starting the main message loop in `EventLoop::run`. As long as there are no pending
+/// results in `rx`, it will poll the [`EventLoop`] with [`EventLoopExtRunReturn::run_return`] and check for a
+/// result after each message is dispatched.
 fn wait_for_async_operation<T>(op: IAsyncOperation<T>) -> Result<T>
 where
   T: windows::RuntimeType,
@@ -272,25 +277,16 @@ where
     Ok(())
   }))?;
 
-  let mut msg = MSG::default();
-  let hwnd = HWND::default();
-
-  loop {
-    if let Ok(result) = rx.try_recv() {
-      return Ok(result);
+  let mut result = Err(RecvError.into());
+  let mut event_loop = EventLoop::new();
+  event_loop.run_return(|_, _, control_flow| {
+    if let Ok(value) = rx.try_recv() {
+      *control_flow = ControlFlow::Exit;
+      result = Ok(value);
+    } else {
+      *control_flow = ControlFlow::Poll;
     }
+  });
 
-    unsafe {
-      match WindowsAndMessaging::GetMessageA(&mut msg, hwnd, 0, 0).0 {
-        -1 => {
-          return Err(windows::Error::fast_error(windows::ErrorCode::from_thread()).into());
-        }
-        0 => return Err(mpsc::RecvError.into()),
-        _ => {
-          WindowsAndMessaging::TranslateMessage(&msg);
-          WindowsAndMessaging::DispatchMessageA(&msg);
-        }
-      }
-    }
-  }
+  result
 }
