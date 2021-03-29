@@ -46,13 +46,13 @@ gdk-pixbuf = "0.9"
 [target."cfg(target_os = \"windows\")".dependencies]
 bindings = { path = "bindings" }
 windows = { git = "https:/github.com/microsoft/windows-rs", rev = "81491f85f196f7cc6f2030bf4e50de3456283357"}
-winit = { git = "https:/github.com/rust-windowing/winit", rev = "98470393d11b3b670c1e122c26a15c563dcf68a4"}
+tauri-winit = "0.24"
 
 [target."cfg(target_os = \"macos\")".dependencies]
 cocoa = "0.24"
 core-graphics = "0.22"
 objc = "0.2"
 objc_id = "0.1"
-winit = { git = "https:/github.com/rust-windowing/winit", rev = "98470393d11b3b670c1e122c26a15c563dcf68a4"}
+tauri-winit = "0.24"
 
 [workspace]
