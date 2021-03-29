@@ -54,3 +54,5 @@ core-graphics = "0.22"
 objc = "0.2"
 objc_id = "0.1"
 winit = { git = "https:/github.com/rust-windowing/winit", rev = "98470393d11b3b670c1e122c26a15c563dcf68a4"}
+
+[workspace]

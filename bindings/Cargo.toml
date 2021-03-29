@@ -8,4 +8,7 @@ edition = "2018"
 windows = { git = "https:/github.com/microsoft/windows-rs", rev = "81491f85f196f7cc6f2030bf4e50de3456283357"}
 
 [build-dependencies]
+serde = { version = "1.0", features = [ "derive" ] }
+serde_json = "1.0"
+thiserror = "1.0"
 windows = { git = "https:/github.com/microsoft/windows-rs", rev = "81491f85f196f7cc6f2030bf4e50de3456283357"}

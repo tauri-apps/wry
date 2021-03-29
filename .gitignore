@@ -1,2 +1,8 @@
 /target
 Cargo.lock
+
+# The bindings crate on Windows caches the NuGet package for WebView2 here
+/bindings/Microsoft.Web.WebView2.*/
+
+# VS code settings
+.vscode/
