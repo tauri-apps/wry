@@ -45,7 +45,7 @@ gdk-pixbuf = "0.9"
 
 [target."cfg(target_os = \"windows\")".dependencies]
 bindings = { path = "bindings" }
-windows = { git = "https:/github.com/microsoft/windows-rs", rev = "81491f85f196f7cc6f2030bf4e50de3456283357"}
+windows = "0.7.0"
 tauri-winit = "0.24"
 
 [target."cfg(target_os = \"macos\")".dependencies]
