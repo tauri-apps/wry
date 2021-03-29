@@ -25,12 +25,12 @@ use std::{
 use serde_json::Value;
 use url::Url;
 
+#[cfg(target_os = "windows")]
+use bindings::Windows::Win32::WindowsAndMessaging::HWND;
 #[cfg(target_os = "linux")]
 use gtk::ApplicationWindow as Window;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
-#[cfg(target_os = "windows")]
-use bindings::Windows::Win32::WindowsAndMessaging::HWND;
 #[cfg(not(target_os = "linux"))]
 use winit::window::Window;
 

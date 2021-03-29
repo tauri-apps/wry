@@ -44,7 +44,7 @@ fn main() -> webview2_nuget::Result<()> {
         LRESULT,
         PWSTR,
         userHMETAFILEPICT,
-        userHENHMETAFILE,
+        userHENHMETAFILE
       },
       Windows::Win32::WindowsAndMessaging::*
   );
@@ -62,7 +62,7 @@ mod webview2_nuget {
     let manifest_dir = get_manifest_dir()?;
     let install_root = match manifest_dir.to_str() {
       Some(path) => path,
-      None => return Err(Error::MissingPath(manifest_dir))
+      None => return Err(Error::MissingPath(manifest_dir)),
     };
 
     let mut package_root = manifest_dir.clone();
@@ -75,7 +75,7 @@ mod webview2_nuget {
 
       let nuget_tool = match nuget_path.to_str() {
         Some(path) => path,
-        None => return Err(Error::MissingPath(nuget_path))
+        None => return Err(Error::MissingPath(nuget_path)),
       };
 
       Command::new(nuget_tool)
@@ -90,7 +90,7 @@ mod webview2_nuget {
         .output()?;
 
       if !check_nuget_dir(install_root)? {
-        return Err(Error::MissingPath(package_root))
+        return Err(Error::MissingPath(package_root));
       }
     }
 
@@ -159,16 +159,11 @@ mod webview2_nuget {
 
     #[derive(Deserialize)]
     struct CargoMetadata {
-      workspace_root: String
+      workspace_root: String,
     }
 
     let output = Command::new(env::var("CARGO")?)
-      .args(&[
-        "metadata",
-        "--format-version=1",
-        "--no-deps",
-        "--offline",
-      ])
+      .args(&["metadata", "--format-version=1", "--no-deps", "--offline"])
       .output()?;
 
     let metadata: CargoMetadata = serde_json::from_slice(&output.stdout)?;

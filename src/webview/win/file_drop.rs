@@ -60,7 +60,8 @@ impl FileDropController {
     unsafe {
       if com::RevokeDragDrop(hwnd).0 != SystemServices::DRAGDROP_E_INVALIDHWND.0 {
         let mut drop_target = Box::new(DropTarget::new(hwnd, listener));
-        let interface: windows::Result<com::IDropTarget> = from_abi(drop_target.as_mut() as *mut _ as *mut _);
+        let interface: windows::Result<com::IDropTarget> =
+          from_abi(drop_target.as_mut() as *mut _ as *mut _);
         if let Ok(interface) = interface {
           if com::RegisterDragDrop(hwnd, interface).is_ok() {
             // Not a great solution. But there is no reliable way to get the window handle of the webview, for whatever reason...
