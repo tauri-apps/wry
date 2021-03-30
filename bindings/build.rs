@@ -1,9 +1,6 @@
 #[macro_use]
 extern crate thiserror;
 
-extern crate serde;
-extern crate serde_json;
-
 fn main() -> webview2_nuget::Result<()> {
   let package_root = webview2_nuget::install()?;
   webview2_nuget::update_windows(package_root)?;
