@@ -25,6 +25,8 @@ use std::{
 use serde_json::Value;
 use url::Url;
 
+#[cfg(target_os = "windows")]
+use bindings::Windows::Win32::WindowsAndMessaging::HWND;
 #[cfg(target_os = "linux")]
 use gtk::ApplicationWindow as Window;
 #[cfg(target_os = "windows")]
@@ -324,7 +326,7 @@ impl WebView {
   /// provide a way to resize automatically.
   pub fn resize(&self) -> Result<()> {
     #[cfg(target_os = "windows")]
-    self.webview.resize(self.window.hwnd())?;
+    self.webview.resize(HWND(self.window.hwnd() as _))?;
     Ok(())
   }
 }
