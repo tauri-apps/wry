@@ -11,9 +11,11 @@ mod macos;
 #[cfg(target_os = "macos")]
 use macos::*;
 #[cfg(target_os = "windows")]
-mod win;
+#[cfg(feature = "winrt")]
+mod winrt;
 #[cfg(target_os = "windows")]
-use win::*;
+#[cfg(feature = "winrt")]
+use winrt::*;
 
 use crate::{Error, FileDropHandler, Result};
 
@@ -26,6 +28,7 @@ use serde_json::Value;
 use url::Url;
 
 #[cfg(target_os = "windows")]
+#[cfg(feature = "winrt")]
 use bindings::Windows::Win32::WindowsAndMessaging::HWND;
 #[cfg(target_os = "linux")]
 use gtk::ApplicationWindow as Window;
@@ -326,6 +329,7 @@ impl WebView {
   /// provide a way to resize automatically.
   pub fn resize(&self) -> Result<()> {
     #[cfg(target_os = "windows")]
+    #[cfg(feature = "winrt")]
     self.webview.resize(HWND(self.window.hwnd() as _))?;
     Ok(())
   }

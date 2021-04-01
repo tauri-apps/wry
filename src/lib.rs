@@ -141,6 +141,7 @@ pub enum Error {
   #[error("Icon error: {0}")]
   Icon(#[from] BadIcon),
   #[cfg(target_os = "windows")]
+  #[cfg(feature = "winrt")]
   #[error(transparent)]
   WindowsError(#[from] windows::Error),
 }

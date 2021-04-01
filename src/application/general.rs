@@ -6,6 +6,7 @@ use crate::{
 };
 
 #[cfg(target_os = "windows")]
+#[cfg(feature = "winrt")]
 use bindings::Windows::Win32::{Shell as shell, WindowsAndMessaging::HWND};
 
 #[cfg(target_os = "macos")]
@@ -27,6 +28,7 @@ use std::{
 };
 
 #[cfg(target_os = "windows")]
+#[cfg(feature = "winrt")]
 use winit::platform::windows::WindowExtWindows;
 
 use crate::FileDropHandler;
@@ -334,6 +336,7 @@ fn load_icon(icon: Icon) -> crate::Result<WinitIcon> {
 
 #[cfg(target_os = "windows")]
 fn skip_taskbar(_window: &Window) {
+  #[cfg(feature = "winrt")]
   unsafe {
     if let Ok(taskbar_list) = windows::create_instance::<shell::ITaskbarList>(&shell::TaskbarList) {
       let _ = taskbar_list.DeleteTab(HWND(_window.hwnd() as _));
