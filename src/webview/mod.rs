@@ -16,6 +16,12 @@ mod winrt;
 #[cfg(target_os = "windows")]
 #[cfg(feature = "winrt")]
 use winrt::*;
+#[cfg(target_os = "windows")]
+#[cfg(feature = "win32")]
+mod win32;
+#[cfg(target_os = "windows")]
+#[cfg(feature = "win32")]
+use win32::*;
 
 use crate::{Error, FileDropHandler, Result};
 
@@ -331,6 +337,9 @@ impl WebView {
     #[cfg(target_os = "windows")]
     #[cfg(feature = "winrt")]
     self.webview.resize(HWND(self.window.hwnd() as _))?;
+    #[cfg(target_os = "windows")]
+    #[cfg(feature = "win32")]
+    self.webview.resize(self.window.hwnd())?;
     Ok(())
   }
 }

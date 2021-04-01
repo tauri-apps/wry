@@ -144,4 +144,8 @@ pub enum Error {
   #[cfg(feature = "winrt")]
   #[error(transparent)]
   WindowsError(#[from] windows::Error),
+  #[cfg(target_os = "windows")]
+  #[cfg(feature = "win32")]
+  #[error(transparent)]
+  WebView2Error(#[from] webview2::Error),
 }

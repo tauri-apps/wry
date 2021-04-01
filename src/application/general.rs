@@ -30,6 +30,21 @@ use std::{
 #[cfg(target_os = "windows")]
 #[cfg(feature = "winrt")]
 use winit::platform::windows::WindowExtWindows;
+#[cfg(target_os = "windows")]
+#[cfg(feature = "win32")]
+use {
+  libc::c_void,
+  std::ptr,
+  winapi::{
+    shared::windef::HWND,
+    um::{
+      combaseapi::{CoCreateInstance, CLSCTX_SERVER},
+      shobjidl_core::{CLSID_TaskbarList, ITaskbarList},
+    },
+    DEFINE_GUID,
+  },
+  winit::platform::windows::WindowExtWindows,
+};
 
 use crate::FileDropHandler;
 
@@ -341,6 +356,21 @@ fn skip_taskbar(_window: &Window) {
     if let Ok(taskbar_list) = windows::create_instance::<shell::ITaskbarList>(&shell::TaskbarList) {
       let _ = taskbar_list.DeleteTab(HWND(_window.hwnd() as _));
     }
+  }
+  #[cfg(feature = "win32")]
+  unsafe {
+    let mut taskbar_list: *mut ITaskbarList = std::mem::zeroed();
+    DEFINE_GUID! {IID_ITASKBAR_LIST,
+    0x56FDF342, 0xfd6d, 0x11d0, 0x95, 0x8a, 0x00, 0x60, 0x97, 0xc9, 0xa0, 0x90}
+    CoCreateInstance(
+      &CLSID_TaskbarList,
+      ptr::null_mut(),
+      CLSCTX_SERVER,
+      &IID_ITASKBAR_LIST,
+      &mut taskbar_list as *mut *mut ITaskbarList as *mut *mut c_void,
+    );
+    (*taskbar_list).DeleteTab(_window.hwnd() as HWND);
+    (*taskbar_list).Release();
   }
 }
 
