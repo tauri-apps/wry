@@ -3,16 +3,14 @@ use std::{
   path::PathBuf,
 };
 
-use cocoa::base::{BOOL, id, YES};
+use cocoa::base::{id, BOOL, YES};
 use objc::{
   declare::ClassDecl,
-  runtime::{Object, Sel},
+  runtime::{class_getInstanceMethod, method_getImplementation, Object, Sel},
 };
-use objc::runtime::{class_getInstanceMethod, method_getImplementation};
 use once_cell::sync::Lazy;
 
-use crate::FileDropEvent;
-use crate::webview::FileDropHandler;
+use crate::{webview::FileDropHandler, FileDropEvent};
 
 pub(crate) type NSDragOperation = cocoa::foundation::NSUInteger;
 #[allow(non_upper_case_globals)]

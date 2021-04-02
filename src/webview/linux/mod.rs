@@ -12,10 +12,9 @@ use webkit2gtk::{
 };
 
 use crate::{
-  Error,
-  Result, RpcHandler, webview::{mimetype::MimeType, WV},
+  webview::{mimetype::MimeType, FileDropHandler, WV},
+  Error, Result, RpcHandler,
 };
-use crate::webview::FileDropHandler;
 
 mod file_drop;
 

@@ -3,8 +3,7 @@ use std::{cell::Cell, path::PathBuf, rc::Rc};
 use gtk::WidgetExt;
 use webkit2gtk::WebView;
 
-use crate::FileDropEvent;
-use crate::webview::FileDropHandler;
+use crate::{webview::FileDropHandler, FileDropEvent};
 
 pub(crate) fn connect_drag_event(webview: Rc<WebView>, handler: FileDropHandler) {
   let listener = Rc::new((handler, Cell::new(None)));

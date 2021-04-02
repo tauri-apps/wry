@@ -22,10 +22,9 @@ use winit::{platform::macos::WindowExtMacOS, window::Window};
 use file_drop::{add_file_drop_methods, set_file_drop_handler};
 
 use crate::{
-  Result,
-  RpcHandler, webview::{mimetype::MimeType, WV},
+  webview::{mimetype::MimeType, FileDropHandler, WV},
+  Result, RpcHandler,
 };
-use crate::webview::FileDropHandler;
 
 mod file_drop;
 

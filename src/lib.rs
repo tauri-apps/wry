@@ -77,27 +77,27 @@ use url::ParseError;
 #[cfg(not(target_os = "linux"))]
 use winit::window::BadIcon;
 
-pub use application::{
-  Application, ApplicationProxy, Attributes, Event, Icon, Message, WindowEvent, WindowId,
-  WindowMessage, WindowProxy, WindowRpcHandler,
-};
 #[cfg(feature = "protocol")]
 pub use application::CustomProtocol;
 #[cfg(not(feature = "protocol"))]
 pub(crate) use application::CustomProtocol;
-#[cfg(feature = "file-drop")]
-pub use file_drop::{FileDropEvent, WindowFileDropHandler};
+pub use application::{
+  Application, ApplicationProxy, Attributes, Event, Icon, Message, WindowEvent, WindowId,
+  WindowMessage, WindowProxy, WindowRpcHandler,
+};
 #[cfg(not(feature = "file-drop"))]
 pub(crate) use file_drop::FileDropEvent;
-pub(crate) use webview::{RpcHandler, WebView, WebViewBuilder};
-pub use webview::{RpcRequest, RpcResponse};
+#[cfg(feature = "file-drop")]
+pub use file_drop::{FileDropEvent, WindowFileDropHandler};
 #[cfg(not(feature = "file-drop"))]
 pub(crate) use webview::FileDropHandler;
 #[cfg(feature = "file-drop")]
 pub use webview::FileDropHandler;
+pub(crate) use webview::{RpcHandler, WebView, WebViewBuilder};
+pub use webview::{RpcRequest, RpcResponse};
 
-mod file_drop;
 mod application;
+mod file_drop;
 pub mod webview;
 
 /// Convenient type alias of Result type for wry.
