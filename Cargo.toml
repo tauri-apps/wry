@@ -24,7 +24,7 @@ targets = [
 default = [ "file-drop", "protocol", "win32" ]
 file-drop = [ ]
 protocol = [ ]
-winrt = [ "webview2-bindings", "windows" ]
+#winrt = [ "webview2-bindings", "windows" ]
 win32 = [ "webview2", "winapi" ]
 
 [dependencies]
@@ -51,8 +51,8 @@ async-channel = "1.6"
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2 = { version = "0.1.0-beta.1", optional = true }
 winapi = { version = "0.3", features = [ "libloaderapi", "oleidl" ], optional = true }
-webview2-bindings = { version = "0.1", path = "bindings", optional = true }
-windows = { version = "0.7", optional = true }
+#webview2-bindings = { version = "0.1", path = "bindings", optional = true }
+#windows = { version = "0.7", optional = true }
 tauri-winit = "0.24"
 
 [target."cfg(target_os = \"macos\")".dependencies]
