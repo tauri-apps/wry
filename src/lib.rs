@@ -143,5 +143,5 @@ pub enum Error {
   Icon(#[from] BadIcon),
   #[cfg(target_os = "windows")]
   #[error(transparent)]
-  WebView2Error(#[from] webview2::Error),
+  WindowsError(#[from] windows::Error),
 }

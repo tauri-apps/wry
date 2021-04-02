@@ -1,6 +1,6 @@
 [package]
 name = "wry"
-version = "0.6.1"
+version = "0.6.2"
 authors = [ "Ngo Iok Ui <wusyong9104@gmail.com>" ]
 edition = "2018"
 license = "Apache-2.0/MIT"
@@ -42,10 +42,11 @@ glib = "0.10"
 gtk = "0.9"
 gdk = "0.13"
 gdk-pixbuf = "0.9"
+async-channel = "1.6"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2 = "0.1.0-beta.1"
-winapi = { version = "0.3", features = [ "libloaderapi", "oleidl" ] }
+bindings = { path = "bindings" }
+windows = "0.7.0"
 tauri-winit = "0.24"
 
 [target."cfg(target_os = \"macos\")".dependencies]
@@ -54,3 +55,5 @@ core-graphics = "0.22"
 objc = "0.2"
 objc_id = "0.1"
 tauri-winit = "0.24"
+
+[workspace]

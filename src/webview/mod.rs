@@ -25,6 +25,8 @@ use crate::{Error, FileDropEvent, Result};
 
 mod mimetype;
 
+#[cfg(target_os = "windows")]
+use bindings::Windows::Win32::WindowsAndMessaging::HWND;
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "macos")]
@@ -337,7 +339,7 @@ impl WebView {
   /// provide a way to resize automatically.
   pub fn resize(&self) -> Result<()> {
     #[cfg(target_os = "windows")]
-    self.webview.resize(self.window.hwnd())?;
+    self.webview.resize(HWND(self.window.hwnd() as _))?;
     Ok(())
   }
 }

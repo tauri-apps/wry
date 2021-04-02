@@ -15,6 +15,7 @@ use std::{
   },
 };
 
+use async_channel::unbounded;
 use cairo::Operator;
 use gio::{ApplicationExt as GioApplicationExt, Cancellable};
 use gtk::{
@@ -23,7 +24,7 @@ use gtk::{
 
 pub type WindowId = u32;
 
-struct EventLoopProxy(Sender<Message>);
+struct EventLoopProxy(async_channel::Sender<Message>);
 
 impl Clone for EventLoopProxy {
   fn clone(&self) -> Self {
@@ -42,7 +43,7 @@ impl AppProxy for InnerApplicationProxy {
     self
       .proxy
       .0
-      .send(message)
+      .try_send(message)
       .map_err(|_| Error::MessageSender)?;
     Ok(())
   }
@@ -75,7 +76,7 @@ pub struct InnerApplication {
   webviews: HashMap<u32, WebView>,
   app: GtkApp,
   event_loop_proxy: EventLoopProxy,
-  event_loop_proxy_rx: Receiver<Message>,
+  event_loop_proxy_rx: async_channel::Receiver<Message>,
   event_channel: (Sender<WryEvent>, Arc<Mutex<Receiver<WryEvent>>>),
 }
 
@@ -88,7 +89,7 @@ impl App for InnerApplication {
     let cancellable: Option<&Cancellable> = None;
     app.register(cancellable)?;
 
-    let (event_loop_proxy_tx, event_loop_proxy_rx) = channel();
+    let (event_loop_proxy_tx, event_loop_proxy_rx) = unbounded::<Message>();
     let (tx, rx) = channel();
 
     Ok(Self {
@@ -139,7 +140,7 @@ impl App for InnerApplication {
     let event_sender = self.event_channel.0;
 
     {
-      let webviews = shared_webviews.borrow_mut();
+      let webviews = shared_webviews.borrow();
       for (id, w) in webviews.iter() {
         let shared_webviews_ = shared_webviews_.clone();
         let id_ = *id;
@@ -155,6 +156,18 @@ impl App for InnerApplication {
       }
     }
 
+    // Acquire the main context and set it as the current thread-default
+    // Local futures must be spawned on the thread owning the main context
+    let default_context = glib::MainContext::default();
+    default_context.push_thread_default();
+    default_context.spawn_local(process_messages(
+      self.app,
+      proxy,
+      shared_webviews_,
+      self.event_loop_proxy_rx,
+    ));
+    default_context.pop_thread_default();
+
     loop {
       {
         let webviews = shared_webviews.borrow_mut();
@@ -168,174 +181,176 @@ impl App for InnerApplication {
         }
       }
 
-      while let Ok(message) = self.event_loop_proxy_rx.try_recv() {
-        match message {
-          Message::NewWindow(
-            attributes,
-            sender,
-            file_drop_handler,
-            rpc_handler,
-            custom_protocol,
-          ) => {
-            let (window_attrs, webview_attrs) = attributes.split();
-            match _create_window(&self.app, window_attrs) {
-              Ok(window) => {
-                if let Err(e) = sender.send(window.get_id()) {
-                  log::error!("{}", e);
-                }
-                match _create_webview(
-                  proxy.clone(),
-                  window,
-                  custom_protocol,
-                  rpc_handler,
-                  file_drop_handler,
-                  webview_attrs,
-                ) {
-                  Ok(webview) => {
-                    let id = webview.window().get_id();
-                    let shared_webviews_ = shared_webviews_.clone();
-                    webview
-                      .window()
-                      .connect_delete_event(move |_window, _event| {
-                        shared_webviews_.borrow_mut().remove(&id);
-                        Inhibit(false)
-                      });
-                    let mut webviews = shared_webviews.borrow_mut();
-                    webviews.insert(id, webview);
-                  }
-                  Err(e) => {
-                    log::error!("{}", e);
-                  }
-                }
+      gtk::main_iteration();
+    }
+  }
+}
+
+async fn process_messages(
+  app: gtk::Application,
+  proxy: InnerApplicationProxy,
+  shared_webviews: Rc<RefCell<HashMap<u32, WebView>>>,
+  event_loop_proxy_rx: async_channel::Receiver<Message>,
+) {
+  while let Ok(message) = event_loop_proxy_rx.recv().await {
+    match message {
+      Message::NewWindow(attributes, sender, file_drop_handler, rpc_handler, custom_protocol) => {
+        let (window_attrs, webview_attrs) = attributes.split();
+        match _create_window(&app, window_attrs) {
+          Ok(window) => {
+            if let Err(e) = sender.send(window.get_id()) {
+              log::error!("{}", e);
+            }
+            match _create_webview(
+              proxy.clone(),
+              window,
+              custom_protocol,
+              rpc_handler,
+              file_drop_handler,
+              webview_attrs,
+            ) {
+              Ok(webview) => {
+                let id = webview.window().get_id();
+                let shared_webviews_ = shared_webviews.clone();
+                webview
+                  .window()
+                  .connect_delete_event(move |_window, _event| {
+                    shared_webviews_.borrow_mut().remove(&id);
+                    Inhibit(false)
+                  });
+                let mut webviews = shared_webviews.borrow_mut();
+                webviews.insert(id, webview);
               }
               Err(e) => {
                 log::error!("{}", e);
               }
             }
           }
-          Message::Window(id, window_message) => {
-            if let Some(webview) = shared_webviews.borrow_mut().get_mut(&id) {
-              let window = webview.window();
-              match window_message {
-                WindowMessage::SetResizable(resizable) => {
-                  window.set_resizable(resizable);
-                }
-                WindowMessage::SetTitle(title) => window.set_title(&title),
-                WindowMessage::Maximize => {
-                  window.maximize();
-                }
-                WindowMessage::Unmaximize => {
-                  window.unmaximize();
-                }
-                WindowMessage::Minimize => {
-                  window.iconify();
-                }
-                WindowMessage::Unminimize => {
-                  window.deiconify();
-                }
-                WindowMessage::Show => {
-                  window.show_all();
-                }
-                WindowMessage::Hide => {
-                  window.hide();
-                }
-                WindowMessage::Close => {
-                  window.close();
-                }
-                WindowMessage::SetDecorations(decorations) => {
-                  window.set_decorated(decorations);
-                }
-                WindowMessage::SetAlwaysOnTop(always_on_top) => {
-                  window.set_keep_above(always_on_top);
-                }
-                WindowMessage::SetWidth(width) => {
-                  window.resize(width as i32, window.get_size().1);
-                }
-                WindowMessage::SetHeight(height) => {
-                  window.resize(window.get_size().0, height as i32);
-                }
-                WindowMessage::Resize { width, height } => {
-                  window.resize(width as i32, height as i32);
-                }
-                WindowMessage::SetMinSize {
-                  min_width,
-                  min_height,
-                } => {
-                  window.set_geometry_hints::<ApplicationWindow>(
-                    None,
-                    Some(&gdk::Geometry {
-                      min_width: min_width as i32,
-                      min_height: min_height as i32,
-                      max_width: 0,
-                      max_height: 0,
-                      base_width: 0,
-                      base_height: 0,
-                      width_inc: 0,
-                      height_inc: 0,
-                      min_aspect: 0f64,
-                      max_aspect: 0f64,
-                      win_gravity: gdk::Gravity::Center,
-                    }),
-                    gdk::WindowHints::MIN_SIZE,
-                  );
-                }
-                WindowMessage::SetMaxSize {
-                  max_width,
-                  max_height,
-                } => {
-                  window.set_geometry_hints::<ApplicationWindow>(
-                    None,
-                    Some(&gdk::Geometry {
-                      min_width: 0,
-                      min_height: 0,
-                      max_width: max_width as i32,
-                      max_height: max_height as i32,
-                      base_width: 0,
-                      base_height: 0,
-                      width_inc: 0,
-                      height_inc: 0,
-                      min_aspect: 0f64,
-                      max_aspect: 0f64,
-                      win_gravity: gdk::Gravity::Center,
-                    }),
-                    gdk::WindowHints::MAX_SIZE,
-                  );
-                }
-                WindowMessage::SetX(x) => {
-                  let (_, y) = window.get_position();
-                  window.move_(x as i32, y);
-                }
-                WindowMessage::SetY(y) => {
-                  let (x, _) = window.get_position();
-                  window.move_(x, y as i32);
-                }
-                WindowMessage::SetPosition { x, y } => {
-                  window.move_(x as i32, y as i32);
-                }
-                WindowMessage::SetFullscreen(fullscreen) => {
-                  if fullscreen {
-                    window.fullscreen();
-                  } else {
-                    window.unfullscreen();
-                  }
-                }
-                WindowMessage::SetIcon(icon) => {
-                  if let Ok(icon) = load_icon(icon) {
-                    window.set_icon(Some(&icon));
-                  }
-                }
-                WindowMessage::EvaluationScript(script) => {
-                  let _ = webview.dispatch_script(&script);
-                }
-                WindowMessage::BeginDrag { x, y } => {
-                  window.begin_move_drag(1, x as i32, y as i32, 0);
-                }
+          Err(e) => {
+            log::error!("{}", e);
+          }
+        }
+      }
+      Message::Window(id, window_message) => {
+        if let Some(webview) = shared_webviews.borrow_mut().get_mut(&id) {
+          let window = webview.window();
+          match window_message {
+            WindowMessage::SetResizable(resizable) => {
+              window.set_resizable(resizable);
+            }
+            WindowMessage::SetTitle(title) => window.set_title(&title),
+            WindowMessage::Maximize => {
+              window.maximize();
+            }
+            WindowMessage::Unmaximize => {
+              window.unmaximize();
+            }
+            WindowMessage::Minimize => {
+              window.iconify();
+            }
+            WindowMessage::Unminimize => {
+              window.deiconify();
+            }
+            WindowMessage::Show => {
+              window.show_all();
+            }
+            WindowMessage::Hide => {
+              window.hide();
+            }
+            WindowMessage::Close => {
+              window.close();
+            }
+            WindowMessage::SetDecorations(decorations) => {
+              window.set_decorated(decorations);
+            }
+            WindowMessage::SetAlwaysOnTop(always_on_top) => {
+              window.set_keep_above(always_on_top);
+            }
+            WindowMessage::SetWidth(width) => {
+              window.resize(width as i32, window.get_size().1);
+            }
+            WindowMessage::SetHeight(height) => {
+              window.resize(window.get_size().0, height as i32);
+            }
+            WindowMessage::Resize { width, height } => {
+              window.resize(width as i32, height as i32);
+            }
+            WindowMessage::SetMinSize {
+              min_width,
+              min_height,
+            } => {
+              window.set_geometry_hints::<ApplicationWindow>(
+                None,
+                Some(&gdk::Geometry {
+                  min_width: min_width as i32,
+                  min_height: min_height as i32,
+                  max_width: 0,
+                  max_height: 0,
+                  base_width: 0,
+                  base_height: 0,
+                  width_inc: 0,
+                  height_inc: 0,
+                  min_aspect: 0f64,
+                  max_aspect: 0f64,
+                  win_gravity: gdk::Gravity::Center,
+                }),
+                gdk::WindowHints::MIN_SIZE,
+              );
+            }
+            WindowMessage::SetMaxSize {
+              max_width,
+              max_height,
+            } => {
+              window.set_geometry_hints::<ApplicationWindow>(
+                None,
+                Some(&gdk::Geometry {
+                  min_width: 0,
+                  min_height: 0,
+                  max_width: max_width as i32,
+                  max_height: max_height as i32,
+                  base_width: 0,
+                  base_height: 0,
+                  width_inc: 0,
+                  height_inc: 0,
+                  min_aspect: 0f64,
+                  max_aspect: 0f64,
+                  win_gravity: gdk::Gravity::Center,
+                }),
+                gdk::WindowHints::MAX_SIZE,
+              );
+            }
+            WindowMessage::SetX(x) => {
+              let (_, y) = window.get_position();
+              window.move_(x as i32, y);
+            }
+            WindowMessage::SetY(y) => {
+              let (x, _) = window.get_position();
+              window.move_(x, y as i32);
+            }
+            WindowMessage::SetPosition { x, y } => {
+              window.move_(x as i32, y as i32);
+            }
+            WindowMessage::SetFullscreen(fullscreen) => {
+              if fullscreen {
+                window.fullscreen();
+              } else {
+                window.unfullscreen();
               }
+            }
+            WindowMessage::SetIcon(icon) => {
+              if let Ok(icon) = load_icon(icon) {
+                window.set_icon(Some(&icon));
+              }
+            }
+            WindowMessage::EvaluationScript(script) => {
+              let _ = webview.dispatch_script(&script);
+            }
+            WindowMessage::BeginDrag { x, y } => {
+              window.begin_move_drag(1, x as i32, y as i32, 0);
             }
           }
         }
       }
-      gtk::main_iteration();
     }
   }
 }
