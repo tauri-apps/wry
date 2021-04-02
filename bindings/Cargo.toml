@@ -1,8 +1,16 @@
 [package]
-name = "bindings"
+name = "webview2-bindings"
 version = "0.1.0"
-authors = ["Bill Avery <billav@microsoft.com>"]
+authors = ["Bill Avery <billav@microsoft.com>", "Ngo Iok Ui <wusyong9104@gmail.com>"]
 edition = "2018"
+
+[lib]
+name = "bindings"
+
+[package.metadata.docs.rs]
+targets = [
+    "x86_64-pc-windows-msvc",
+]
 
 [dependencies]
 windows = "0.7.0"
