@@ -348,7 +348,11 @@ impl WebView {
   /// provide a way to resize automatically.
   pub fn resize(&self) -> Result<()> {
     #[cfg(target_os = "windows")]
+    #[cfg(feature = "winrt")]
     self.webview.resize(HWND(self.window.hwnd() as _))?;
+    #[cfg(target_os = "windows")]
+    #[cfg(feature = "win32")]
+    self.webview.resize(self.window.hwnd())?;
     Ok(())
   }
 }
