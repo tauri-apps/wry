@@ -7,7 +7,7 @@ use crate::{
 
 #[cfg(target_os = "windows")]
 #[cfg(feature = "winrt")]
-use bindings::Windows::Win32::{Shell as shell, WindowsAndMessaging::HWND};
+use windows_webview2::Windows::Win32::{Shell as shell, WindowsAndMessaging::HWND};
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, WindowBuilderExtMacOS};

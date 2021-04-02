@@ -1,6 +1,6 @@
 mod file_drop;
 
-use bindings::{
+use windows_webview2::{
   Microsoft::Web::WebView2::Core as webview2,
   Windows::{
     Foundation::*,

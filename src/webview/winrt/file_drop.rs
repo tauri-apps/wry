@@ -1,6 +1,6 @@
 use windows::{Abi, Interface};
 
-use bindings::Windows::Win32::{
+use windows_webview2::Windows::Win32::{
   Com::{self as com, DVASPECT, TYMED},
   DisplayDevices::POINTL,
   Shell::{self as shell, HDROP},
