@@ -8,7 +8,7 @@ use std::{
 /// The RPC handler to Communicate between the host Rust code and Javascript on webview.
 ///
 /// The communication is done via [JSON-RPC](https://www.jsonrpc.org).
-/// Users can pass a `RpcHandler` to [`Application::add_window_with_configs`](crate::Application::add_window_with_configs) to register an incoming
+/// Users can pass a `WindowRpcHandler` to [`Application::add_window_with_configs`](crate::Application::add_window_with_configs) to register an incoming
 /// request handler and reply with responses that are passed back to Javascript. On the Javascript
 /// side the client is exposed via `window.rpc` with two public methods:
 ///

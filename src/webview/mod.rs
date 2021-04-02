@@ -1,38 +1,47 @@
 //! [`WebView`] struct and associated types.
 
+mod mimetype;
+
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "linux")]
+use linux::*;
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(target_os = "macos")]
+use macos::*;
+#[cfg(target_os = "windows")]
+#[cfg(feature = "winrt")]
+mod winrt;
+#[cfg(target_os = "windows")]
+#[cfg(feature = "winrt")]
+use winrt::*;
+#[cfg(target_os = "windows")]
+#[cfg(feature = "win32")]
+mod win32;
+#[cfg(target_os = "windows")]
+#[cfg(feature = "win32")]
+use win32::*;
+
+use crate::{Error, FileDropEvent, Result};
+
 use std::{
   path::PathBuf,
   sync::mpsc::{channel, Receiver, Sender},
 };
 
-#[cfg(target_os = "linux")]
-use gtk::ApplicationWindow as Window;
 use serde_json::Value;
 use url::Url;
+
+#[cfg(target_os = "windows")]
+#[cfg(feature = "winrt")]
+use bindings::Windows::Win32::WindowsAndMessaging::HWND;
+#[cfg(target_os = "linux")]
+use gtk::ApplicationWindow as Window;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
 use winit::window::Window;
-
-#[cfg(target_os = "linux")]
-use linux::*;
-#[cfg(target_os = "macos")]
-use macos::*;
-#[cfg(target_os = "windows")]
-use win::*;
-
-use crate::{Error, FileDropEvent, Result};
-
-mod mimetype;
-
-#[cfg(target_os = "windows")]
-use bindings::Windows::Win32::WindowsAndMessaging::HWND;
-#[cfg(target_os = "linux")]
-mod linux;
-#[cfg(target_os = "macos")]
-mod macos;
-#[cfg(target_os = "windows")]
-mod win;
 
 /// The RPC handler to Communicate between the host Rust code and Javascript on webview.
 ///
