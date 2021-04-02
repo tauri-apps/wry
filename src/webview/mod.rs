@@ -1,36 +1,36 @@
 //! [`WebView`] struct and associated types.
 
-mod mimetype;
-
-#[cfg(target_os = "linux")]
-mod linux;
-#[cfg(target_os = "linux")]
-use linux::*;
-#[cfg(target_os = "macos")]
-mod macos;
-#[cfg(target_os = "macos")]
-use macos::*;
-#[cfg(target_os = "windows")]
-mod win;
-#[cfg(target_os = "windows")]
-use win::*;
-
-use crate::{Error, FileDropHandler, Result};
-
 use std::{
   path::PathBuf,
   sync::mpsc::{channel, Receiver, Sender},
 };
 
-use serde_json::Value;
-use url::Url;
-
 #[cfg(target_os = "linux")]
 use gtk::ApplicationWindow as Window;
+use serde_json::Value;
+use url::Url;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
 use winit::window::Window;
+
+#[cfg(target_os = "linux")]
+use linux::*;
+#[cfg(target_os = "macos")]
+use macos::*;
+#[cfg(target_os = "windows")]
+use win::*;
+
+use crate::{Error, FileDropEvent, Result};
+
+mod mimetype;
+
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(target_os = "windows")]
+mod win;
 
 /// The RPC handler to Communicate between the host Rust code and Javascript on webview.
 ///
@@ -45,6 +45,19 @@ use winit::window::Window;
 ///
 /// Both functions return promises but `notify()` resolves immediately.
 pub type RpcHandler = Box<dyn Fn(RpcRequest) -> Option<RpcResponse> + Send>;
+
+/// A listener closure to process incoming [`FileDropEvent`] of the webview.
+///
+/// This is the handler for lower level webview creation. For higher application level, please see
+/// [`WindowFileDropHandler`](create::WindowFileDropHandler). Users can pass a `FileDropHandler` to
+/// [`WebViewBuilder::set_file_drop_handler`] to register an incoming file drop event to a closure.
+///
+/// # Blocking OS Default Behavior
+/// Return `true` in the callback to block the OS' default behavior of handling a file drop.
+///
+/// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
+/// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
+pub type FileDropHandler = Box<dyn Fn(FileDropEvent) -> bool + Send>;
 
 // Helper so all platforms handle RPC messages consistently.
 fn rpc_proxy(js: String, handler: &RpcHandler) -> Result<Option<String>> {

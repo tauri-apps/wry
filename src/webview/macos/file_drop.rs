@@ -1,23 +1,22 @@
-use crate::{FileDropEvent, FileDropHandler};
-
 use std::{
   ffi::{c_void, CStr},
   path::PathBuf,
 };
 
-use once_cell::sync::Lazy;
-
-use cocoa::base::{id, BOOL, YES};
+use cocoa::base::{BOOL, id, YES};
 use objc::{
   declare::ClassDecl,
   runtime::{Object, Sel},
 };
+use objc::runtime::{class_getInstanceMethod, method_getImplementation};
+use once_cell::sync::Lazy;
+
+use crate::FileDropEvent;
+use crate::webview::FileDropHandler;
 
 pub(crate) type NSDragOperation = cocoa::foundation::NSUInteger;
 #[allow(non_upper_case_globals)]
 const NSDragOperationLink: NSDragOperation = 2;
-
-use objc::runtime::{class_getInstanceMethod, method_getImplementation};
 
 static OBJC_DRAGGING_ENTERED: Lazy<extern "C" fn(*const Object, Sel, id) -> NSDragOperation> =
   Lazy::new(|| unsafe {

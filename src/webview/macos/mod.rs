@@ -1,11 +1,3 @@
-mod file_drop;
-
-use crate::{
-  webview::{mimetype::MimeType, WV},
-  FileDropHandler, Result, RpcHandler,
-};
-use file_drop::{add_file_drop_methods, set_file_drop_handler};
-
 use std::{
   ffi::{c_void, CStr},
   os::raw::c_char,
@@ -26,6 +18,16 @@ use objc::{
 use objc_id::Id;
 use url::Url;
 use winit::{platform::macos::WindowExtMacOS, window::Window};
+
+use file_drop::{add_file_drop_methods, set_file_drop_handler};
+
+use crate::{
+  Result,
+  RpcHandler, webview::{mimetype::MimeType, WV},
+};
+use crate::webview::FileDropHandler;
+
+mod file_drop;
 
 pub struct InnerWebView {
   webview: Id<Object>,

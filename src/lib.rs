@@ -70,34 +70,35 @@ extern crate thiserror;
 #[macro_use]
 extern crate objc;
 
-mod file_drop;
-#[cfg(not(feature = "file-drop"))]
-pub(crate) use file_drop::{FileDropEvent, FileDropHandler};
-#[cfg(feature = "file-drop")]
-pub use file_drop::{FileDropEvent, FileDropHandler, WindowFileDropHandler};
+use std::sync::mpsc::{RecvError, SendError};
 
-#[cfg(feature = "protocol")]
-pub use application::CustomProtocol;
-#[cfg(not(feature = "protocol"))]
-pub(crate) use application::CustomProtocol;
-
-mod application;
-pub mod webview;
+pub use serde_json::Value;
+use url::ParseError;
+#[cfg(not(target_os = "linux"))]
+use winit::window::BadIcon;
 
 pub use application::{
   Application, ApplicationProxy, Attributes, Event, Icon, Message, WindowEvent, WindowId,
   WindowMessage, WindowProxy, WindowRpcHandler,
 };
-pub use serde_json::Value;
+#[cfg(feature = "protocol")]
+pub use application::CustomProtocol;
+#[cfg(not(feature = "protocol"))]
+pub(crate) use application::CustomProtocol;
+#[cfg(feature = "file-drop")]
+pub use file_drop::{FileDropEvent, WindowFileDropHandler};
+#[cfg(not(feature = "file-drop"))]
+pub(crate) use file_drop::FileDropEvent;
 pub(crate) use webview::{RpcHandler, WebView, WebViewBuilder};
 pub use webview::{RpcRequest, RpcResponse};
+#[cfg(not(feature = "file-drop"))]
+pub(crate) use webview::FileDropHandler;
+#[cfg(feature = "file-drop")]
+pub use webview::FileDropHandler;
 
-#[cfg(not(target_os = "linux"))]
-use winit::window::BadIcon;
-
-use std::sync::mpsc::{RecvError, SendError};
-
-use url::ParseError;
+mod file_drop;
+mod application;
+pub mod webview;
 
 /// Convenient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;

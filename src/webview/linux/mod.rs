@@ -1,10 +1,3 @@
-mod file_drop;
-
-use crate::{
-  webview::{mimetype::MimeType, WV},
-  Error, FileDropHandler, Result, RpcHandler,
-};
-
 use std::{path::PathBuf, rc::Rc};
 
 use gdk::RGBA;
@@ -17,6 +10,14 @@ use webkit2gtk::{
   UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime, WebContext,
   WebContextExt, WebView, WebViewExt, WebViewExtManual,
 };
+
+use crate::{
+  Error,
+  Result, RpcHandler, webview::{mimetype::MimeType, WV},
+};
+use crate::webview::FileDropHandler;
+
+mod file_drop;
 
 pub struct InnerWebView {
   webview: Rc<WebView>,

@@ -1,12 +1,3 @@
-mod file_drop;
-
-use crate::{
-  webview::{mimetype::MimeType, WV},
-  FileDropHandler, Result, RpcHandler,
-};
-
-use file_drop::FileDropController;
-
 use std::{os::raw::c_void, path::PathBuf, rc::Rc};
 
 use once_cell::unsync::OnceCell;
@@ -14,6 +5,16 @@ use url::Url;
 use webview2::{Controller, PermissionKind, PermissionState};
 use winapi::{shared::windef::HWND, um::winuser::GetClientRect};
 use winit::{platform::windows::WindowExtWindows, window::Window};
+
+use file_drop::FileDropController;
+
+use crate::{
+  Result,
+  RpcHandler, webview::{mimetype::MimeType, WV},
+};
+use crate::webview::FileDropHandler;
+
+mod file_drop;
 
 pub struct InnerWebView {
   controller: Rc<OnceCell<Controller>>,

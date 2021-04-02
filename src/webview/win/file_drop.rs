@@ -1,10 +1,3 @@
-use crate::{FileDropEvent, FileDropHandler};
-
-// A silly implementation of file drop handling for Windows!
-// This can be pretty much entirely replaced when WebView2 SDK 1.0.721-prerelease becomes stable.
-// https://docs.microsoft.com/en-us/microsoft-edge/webview2/releasenotes#10721-prerelease
-// https://docs.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2experimentalcompositioncontroller3?view=webview2-1.0.721-prerelease&preserve-view=true
-
 use std::{
   ffi::OsString,
   os::{raw::c_void, windows::ffi::OsStringExt},
@@ -14,7 +7,29 @@ use std::{
   sync::atomic::{AtomicUsize, Ordering},
 };
 
+use winapi::{
+  shared::{
+    guiddef::REFIID,
+    minwindef::{DWORD, UINT, ULONG},
+    windef::POINTL,
+    winerror::S_OK,
+  },
+  um::{
+    objidl::IDataObject,
+    oleidl::{DROPEFFECT_COPY, DROPEFFECT_NONE, IDropTarget as NativeIDropTarget, IDropTargetVtbl},
+    shellapi, unknwnbase,
+    winnt::HRESULT,
+  },
+};
 use winapi::shared::windef::HWND;
+
+use crate::FileDropEvent;
+use crate::webview::FileDropHandler;
+
+// A silly implementation of file drop handling for Windows!
+// This can be pretty much entirely replaced when WebView2 SDK 1.0.721-prerelease becomes stable.
+// https://docs.microsoft.com/en-us/microsoft-edge/webview2/releasenotes#10721-prerelease
+// https://docs.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2experimentalcompositioncontroller3?view=webview2-1.0.721-prerelease&preserve-view=true
 
 pub(crate) struct FileDropController {
   drop_targets: Vec<*mut IDropTarget>,
@@ -94,21 +109,6 @@ unsafe extern "system" fn enumerate_callback(
 // The below code has been ripped from Winit - if only they'd `pub use` this!
 // https://github.com/rust-windowing/winit/blob/b9f3d333e41464457f6e42640793bf88b9563727/src/platform_impl/windows/drop_handler.rs
 // Safety: WinAPI calls are unsafe
-
-use winapi::{
-  shared::{
-    guiddef::REFIID,
-    minwindef::{DWORD, UINT, ULONG},
-    windef::POINTL,
-    winerror::S_OK,
-  },
-  um::{
-    objidl::IDataObject,
-    oleidl::{IDropTarget as NativeIDropTarget, IDropTargetVtbl, DROPEFFECT_COPY, DROPEFFECT_NONE},
-    shellapi, unknwnbase,
-    winnt::HRESULT,
-  },
-};
 
 #[allow(non_camel_case_types)]
 #[repr(C)]
