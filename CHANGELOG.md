@@ -1,5 +1,12 @@
 # Changelog
 
+## \[0.7.0]
+
+- Add old win32 implementation on windows as default feature flag.
+  - [1a88cd2](https://github.com/tauri-apps/wry/commit/1a88cd267f2a29c1dd35d7197250972718081847) refactor: Add win32 implementation and feature flag for both backends ([#139](https://github.com/tauri-apps/wry/pull/139)) on 2021-04-02
+- Adds a `WindowProxy` to the file drop handler closure - `WindowFileDropHandler`.
+  - [20cb051](https://github.com/tauri-apps/wry/commit/20cb051aba28009c70dad838b2a9b1575cb5363a) feat: add WindowProxy to file drop handler closure ([#140](https://github.com/tauri-apps/wry/pull/140)) on 2021-04-01
+
 ## \[0.6.2]
 
 - Add pipe back to version check for covector config. This prevents the CI failure on publish if it exists already. The issue was patched in covector (and tests in place so it doesn't break in the future).
