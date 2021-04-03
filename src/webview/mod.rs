@@ -33,11 +33,11 @@ use std::{
 use serde_json::Value;
 use url::Url;
 
-#[cfg(target_os = "windows")]
-#[cfg(feature = "winrt")]
-use bindings::Windows::Win32::WindowsAndMessaging::HWND;
 #[cfg(target_os = "linux")]
 use gtk::ApplicationWindow as Window;
+#[cfg(target_os = "windows")]
+#[cfg(feature = "winrt")]
+use windows_webview2::Windows::Win32::WindowsAndMessaging::HWND;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
 #[cfg(not(target_os = "linux"))]
