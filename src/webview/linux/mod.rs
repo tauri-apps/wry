@@ -84,7 +84,6 @@ impl WV for InnerWebView {
 
       debug_assert_eq!(
         {
-          settings.set_enable_write_console_messages_to_stdout(true);
           settings.set_enable_developer_extras(true);
         },
         ()
