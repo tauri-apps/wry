@@ -292,14 +292,12 @@ impl IDropTarget {
     } else if get_data_result == DV_E_FORMATETC {
       // If the dropped item is not a file this error will occur.
       // In this case it is OK to return without taking further action.
-      debug_assert!(
-        false,
+      log::warn!(
         "Error occured while processing dropped/hovered item: item is not a file."
       );
       return None;
     } else {
-      debug_assert!(
-        false,
+      log::warn!(
         "Unexpected error occured while processing dropped/hovered item."
       );
       return None;
