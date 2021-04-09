@@ -471,7 +471,7 @@ fn _create_webview(
   }
 
   let proxy_ = proxy.clone();
-  webview = webview.set_rpc_handler(Box::new(move |mut request| {
+  webview = webview.set_rpc_handler(Box::new(move |request| {
     let proxy = WindowProxy::new(
       ApplicationProxy {
         inner: proxy_.clone(),
@@ -480,7 +480,7 @@ fn _create_webview(
     );
 
     if &request.method == "__WRY_BEGIN_WINDOW_DRAG__" {
-      if let Some(params) = request.params.take() {
+      if let Some(params) = &request.params {
         let x = params[0].as_f64()?;
         let y = params[1].as_f64()?;
         proxy.begin_drag(x, y).unwrap();
