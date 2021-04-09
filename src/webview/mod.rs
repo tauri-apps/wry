@@ -373,23 +373,6 @@ impl Dispatcher {
   }
 }
 
-pub(crate) trait WV: Sized {
-  type Window;
-
-  fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
-    window: &Self::Window,
-    scripts: Vec<String>,
-    url: Option<Url>,
-    transparent: bool,
-    custom_protocol: Option<(String, F)>,
-    rpc_handler: Option<RpcHandler>,
-    file_drop_handler: Option<FileDropHandler>,
-    user_data_path: Option<PathBuf>,
-  ) -> Result<Self>;
-
-  fn eval(&self, js: &str) -> Result<()>;
-}
-
 const RPC_VERSION: &str = "2.0";
 
 /// RPC request message.

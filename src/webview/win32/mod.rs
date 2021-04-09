@@ -1,7 +1,7 @@
 mod file_drop;
 
 use crate::{
-  webview::{mimetype::MimeType, WV},
+  webview::mimetype::MimeType,
   FileDropHandler, Result, RpcHandler,
 };
 
@@ -24,10 +24,8 @@ pub struct InnerWebView {
   file_drop_controller: Rc<OnceCell<FileDropController>>,
 }
 
-impl WV for InnerWebView {
-  type Window = Window;
-
-  fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
+impl InnerWebView {
+  pub fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
     window: &Window,
     scripts: Vec<String>,
     url: Option<Url>,
@@ -200,16 +198,14 @@ impl WV for InnerWebView {
     })
   }
 
-  fn eval(&self, js: &str) -> Result<()> {
+  pub fn eval(&self, js: &str) -> Result<()> {
     if let Some(c) = self.controller.get() {
       let webview = c.get_webview()?;
       webview.execute_script(js, |_| (Ok(())))?;
     }
     Ok(())
   }
-}
 
-impl InnerWebView {
   pub fn resize(&self, hwnd: *mut c_void) -> Result<()> {
     let hwnd = hwnd as HWND;
 
