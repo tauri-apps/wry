@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 use wry::{Application, Attributes, Result};
 
 static TEST_HTML: &str = r#"data:text/html,

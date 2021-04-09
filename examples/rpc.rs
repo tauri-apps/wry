@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use wry::{Application, Attributes, Result, RpcRequest, RpcResponse, WindowProxy};

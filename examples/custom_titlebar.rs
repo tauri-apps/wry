@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 use wry::{Application, Attributes, Result, RpcRequest, WindowProxy, WindowRpcHandler};
 
 fn main() -> Result<()> {

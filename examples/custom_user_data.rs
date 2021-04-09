@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 use std::{fs, path::PathBuf};
 use wry::{Application, Attributes, Result};
 
