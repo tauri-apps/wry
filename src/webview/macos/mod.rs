@@ -111,7 +111,7 @@ impl InnerWebView {
       // Config and custom protocol
       let config: id = msg_send![class!(WKWebViewConfiguration), new];
       for (name, function) in custom_protocols {
-        let scheme_name = format!("{}URLSchemeHandler", name); 
+        let scheme_name = format!("{}URLSchemeHandler", name);
         let cls = ClassDecl::new(&scheme_name, class!(NSObject));
         let cls = match cls {
           Some(mut cls) => {

@@ -1,13 +1,10 @@
 mod file_drop;
 
-use crate::{
-  webview::mimetype::MimeType,
-  FileDropHandler, Result, RpcHandler,
-};
+use crate::{webview::mimetype::MimeType, FileDropHandler, Result, RpcHandler};
 
 use file_drop::FileDropController;
 
-use std::{os::raw::c_void, path::PathBuf, rc::Rc, collections::HashSet};
+use std::{collections::HashSet, os::raw::c_void, path::PathBuf, rc::Rc};
 
 use once_cell::unsync::OnceCell;
 use url::Url;

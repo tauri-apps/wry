@@ -12,10 +12,7 @@ use windows_webview2::{
   },
 };
 
-use crate::{
-  webview::mimetype::MimeType,
-  FileDropHandler, Result, RpcHandler,
-};
+use crate::{webview::mimetype::MimeType, FileDropHandler, Result, RpcHandler};
 
 use file_drop::FileDropController;
 
