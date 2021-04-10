@@ -68,7 +68,7 @@ impl InnerApplicationProxy {
     attributes: Attributes,
     file_drop_handler: Option<WindowFileDropHandler>,
     rpc_handler: Option<WindowRpcHandler>,
-    custom_protocol: Option<CustomProtocol>,
+    custom_protocols: Vec<CustomProtocol>,
   ) -> Result<WindowId> {
     let (sender, receiver) = channel();
     self.send_message(Message::NewWindow(
@@ -76,7 +76,7 @@ impl InnerApplicationProxy {
       sender,
       file_drop_handler,
       rpc_handler,
-      custom_protocol,
+      custom_protocols,
     ))?;
     Ok(receiver.recv()?)
   }
@@ -147,7 +147,7 @@ impl InnerApplication {
     attributes: Attributes,
     file_drop_handler: Option<WindowFileDropHandler>,
     rpc_handler: Option<WindowRpcHandler>,
-    custom_protocol: Option<CustomProtocol>,
+    custom_protocols: Vec<CustomProtocol>,
   ) -> Result<WindowId> {
     let (window_attrs, webview_attrs) = attributes.split();
 
@@ -155,7 +155,7 @@ impl InnerApplication {
     let webview = _create_webview(
       self.application_proxy(),
       window,
-      custom_protocol,
+      custom_protocols,
       rpc_handler,
       file_drop_handler,
       webview_attrs,
@@ -214,7 +214,7 @@ impl InnerApplication {
             sender,
             file_drop_handler,
             rpc_handler,
-            custom_protocol,
+            custom_protocols,
           ) => {
             let (window_attrs, webview_attrs) = attributes.split();
             match _create_window(&event_loop, window_attrs) {
@@ -225,7 +225,7 @@ impl InnerApplication {
                 match _create_webview(
                   proxy.clone(),
                   window,
-                  custom_protocol,
+                  custom_protocols,
                   rpc_handler,
                   file_drop_handler,
                   webview_attrs,
@@ -400,7 +400,7 @@ fn _create_window(
 fn _create_webview(
   proxy: InnerApplicationProxy,
   window: Window,
-  custom_protocol: Option<CustomProtocol>,
+  custom_protocols: Vec<CustomProtocol>,
   rpc_handler: Option<WindowRpcHandler>,
   file_drop_handler: Option<WindowFileDropHandler>,
 
@@ -416,7 +416,7 @@ fn _create_webview(
     webview = webview.initialize_script(&js);
   }
 
-  if let Some(protocol) = custom_protocol {
+  for protocol in custom_protocols {
     webview = webview.register_protocol(protocol.name, protocol.handler)
   }
 
