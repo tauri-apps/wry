@@ -109,7 +109,7 @@ pub struct WebViewBuilder {
   initialization_scripts: Vec<String>,
   window: Window,
   url: Option<Url>,
-  custom_protocol: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
+  custom_protocols: Vec<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
   rpc_handler: Option<RpcHandler>,
   file_drop_handler: Option<FileDropHandler>,
   user_data_path: Option<PathBuf>,
@@ -134,7 +134,7 @@ impl WebViewBuilder {
       window,
       url: None,
       transparent: false,
-      custom_protocol: None,
+      custom_protocols: vec![],
       rpc_handler: None,
       file_drop_handler: None,
       user_data_path: None,
@@ -175,7 +175,7 @@ impl WebViewBuilder {
   where
     F: Fn(&str) -> Result<Vec<u8>> + 'static,
   {
-    self.custom_protocol = Some((name, Box::new(handler)));
+    self.custom_protocols.push((name, Box::new(handler)));
     self
   }
 
@@ -253,7 +253,7 @@ impl WebViewBuilder {
       self.initialization_scripts,
       self.url,
       self.transparent,
-      self.custom_protocol,
+      self.custom_protocols,
       self.rpc_handler,
       self.file_drop_handler,
       self.user_data_path,
@@ -293,14 +293,14 @@ impl WebView {
   /// many more before starting WebView. To benefit from above features, create a
   /// [`WebViewBuilder`] instead.
   pub fn new_with_configs(window: Window, transparent: bool) -> Result<Self> {
-    let picky_none: Option<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)> = None;
+    let picky_vec: Vec<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)> = Vec::new();
 
     let webview = InnerWebView::new(
       &window,
       vec![],
       None,
       transparent,
-      picky_none,
+      picky_vec,
       None,
       None,
       None,

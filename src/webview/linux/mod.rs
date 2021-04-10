@@ -28,7 +28,7 @@ impl InnerWebView {
     scripts: Vec<String>,
     url: Option<Url>,
     transparent: bool,
-    custom_protocol: Option<(String, F)>,
+    custom_protocols: Vec<(String, F)>,
     rpc_handler: Option<RpcHandler>,
     file_drop_handler: Option<FileDropHandler>,
     _user_data_path: Option<PathBuf>,
@@ -116,7 +116,7 @@ impl InnerWebView {
     }
 
     // Custom protocol
-    if let Some((name, handler)) = custom_protocol {
+    for (name, handler) in custom_protocols {
       context
         .get_security_manager()
         .ok_or(Error::MissingManager)?
