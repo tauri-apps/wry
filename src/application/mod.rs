@@ -111,18 +111,6 @@ impl ApplicationProxy {
   }
 }
 
-trait AppProxy {
-  fn send_message(&self, message: Message) -> Result<()>;
-  fn add_window(
-    &self,
-    attributes: Attributes,
-    file_drop_handler: Option<WindowFileDropHandler>,
-    rpc_handler: Option<WindowRpcHandler>,
-    custom_protocol: Option<CustomProtocol>,
-  ) -> Result<WindowId>;
-  fn listen_event(&self) -> Result<Event>;
-}
-
 /// A proxy to customize its corresponding WebView window.
 ///
 /// Whenever [`Application::add_window`] creates a WebView Window, it will return this for you. But
@@ -381,23 +369,4 @@ impl Application {
   pub fn run(self) {
     self.inner.run()
   }
-}
-
-trait App: Sized {
-  type Proxy: AppProxy;
-  type Id: Copy;
-
-  fn new() -> Result<Self>;
-
-  fn create_webview(
-    &mut self,
-    attributes: Attributes,
-    file_drop_handler: Option<WindowFileDropHandler>,
-    rpc_handler: Option<WindowRpcHandler>,
-    custom_protocol: Option<CustomProtocol>,
-  ) -> Result<Self::Id>;
-
-  fn application_proxy(&self) -> Self::Proxy;
-
-  fn run(self);
 }
