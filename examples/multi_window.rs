@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     None
   });
 
-  let window_proxy = app.add_window_with_configs(attributes, Some(handler), None, None)?;
+  let window_proxy = app.add_window_with_configs(attributes, Some(handler), vec![], None)?;
   let app_proxy = app.application_proxy();
   std::thread::spawn(move || {
     let mut count = 1;

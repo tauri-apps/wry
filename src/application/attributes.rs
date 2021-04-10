@@ -43,7 +43,7 @@ use std::{
 ///       // from the cache.
 ///       None
 ///     });
-///     app.add_window_with_configs(Default::default(), Some(handler), None, None)?;
+///     app.add_window_with_configs(Default::default(), Some(handler), vec![], None)?;
 ///     app.run();
 ///     Ok(())
 /// }
