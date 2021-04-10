@@ -53,7 +53,7 @@ impl InnerApplicationProxy {
     attributes: Attributes,
     file_drop_handler: Option<WindowFileDropHandler>,
     rpc_handler: Option<WindowRpcHandler>,
-    custom_protocol: Option<CustomProtocol>,
+    custom_protocols: Vec<CustomProtocol>,
   ) -> Result<WindowId> {
     let (sender, receiver): (Sender<WindowId>, Receiver<WindowId>) = channel();
     self.send_message(Message::NewWindow(
@@ -61,7 +61,7 @@ impl InnerApplicationProxy {
       sender,
       file_drop_handler,
       rpc_handler,
-      custom_protocol,
+      custom_protocols,
     ))?;
     Ok(receiver.recv()?)
   }
@@ -103,7 +103,7 @@ impl InnerApplication {
     attributes: Attributes,
     file_drop_handler: Option<WindowFileDropHandler>,
     rpc_handler: Option<WindowRpcHandler>,
-    custom_protocol: Option<CustomProtocol>,
+    custom_protocols: Vec<CustomProtocol>,
   ) -> Result<u32> {
     let (window_attrs, webview_attrs) = attributes.split();
     let window = _create_window(&self.app, window_attrs)?;
@@ -111,7 +111,7 @@ impl InnerApplication {
     let webview = _create_webview(
       self.application_proxy(),
       window,
-      custom_protocol,
+      custom_protocols,
       rpc_handler,
       file_drop_handler,
       webview_attrs,
@@ -191,7 +191,7 @@ async fn process_messages(
 ) {
   while let Ok(message) = event_loop_proxy_rx.recv().await {
     match message {
-      Message::NewWindow(attributes, sender, file_drop_handler, rpc_handler, custom_protocol) => {
+      Message::NewWindow(attributes, sender, file_drop_handler, rpc_handler, custom_protocols) => {
         let (window_attrs, webview_attrs) = attributes.split();
         match _create_window(&app, window_attrs) {
           Ok(window) => {
@@ -201,7 +201,7 @@ async fn process_messages(
             match _create_webview(
               proxy.clone(),
               window,
-              custom_protocol,
+              custom_protocols,
               rpc_handler,
               file_drop_handler,
               webview_attrs,
@@ -447,7 +447,7 @@ fn _create_window(app: &GtkApp, attributes: InnerWindowAttributes) -> Result<App
 fn _create_webview(
   proxy: InnerApplicationProxy,
   window: ApplicationWindow,
-  custom_protocol: Option<CustomProtocol>,
+  custom_protocols: Vec<CustomProtocol>,
   rpc_handler: Option<WindowRpcHandler>,
   file_drop_handler: Option<WindowFileDropHandler>,
 
@@ -463,7 +463,8 @@ fn _create_webview(
     Some(url) => webview.load_url(&url)?,
     None => webview,
   };
-  if let Some(protocol) = custom_protocol {
+
+  for protocol in custom_protocols {
     webview = webview.register_protocol(protocol.name, protocol.handler);
   }
 

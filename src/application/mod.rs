@@ -66,7 +66,7 @@ pub enum Message {
     Sender<WindowId>,
     Option<WindowFileDropHandler>,
     Option<WindowRpcHandler>,
-    Option<CustomProtocol>,
+    Vec<CustomProtocol>,
   ),
 }
 
@@ -87,7 +87,7 @@ impl ApplicationProxy {
   }
   /// Adds another WebView window to the application. Returns its [`WindowProxy`] after created.
   pub fn add_window(&self, attributes: Attributes) -> Result<WindowProxy> {
-    let id = self.inner.add_window(attributes, None, None, None)?;
+    let id = self.inner.add_window(attributes, None, None, vec![])?;
     Ok(WindowProxy::new(self.clone(), id))
   }
 
@@ -96,12 +96,12 @@ impl ApplicationProxy {
     &self,
     attributes: Attributes,
     rpc_handler: Option<WindowRpcHandler>,
-    custom_protocol: Option<CustomProtocol>,
+    custom_protocols: Vec<CustomProtocol>,
     file_drop_handler: Option<WindowFileDropHandler>,
   ) -> Result<WindowProxy> {
     let id = self
       .inner
-      .add_window(attributes, file_drop_handler, rpc_handler, custom_protocol)?;
+      .add_window(attributes, file_drop_handler, rpc_handler, custom_protocols)?;
     Ok(WindowProxy::new(self.clone(), id))
   }
 
@@ -324,7 +324,7 @@ impl Application {
   ///
   /// To create a default window, you could just pass `.add_window(Default::default(), None)`.
   pub fn add_window(&mut self, attributes: Attributes) -> Result<WindowProxy> {
-    let id = self.inner.create_webview(attributes, None, None, None)?;
+    let id = self.inner.create_webview(attributes, None, None, vec![])?;
     Ok(self.window_proxy(id))
   }
 
@@ -340,13 +340,13 @@ impl Application {
     &mut self,
     attributes: Attributes,
     rpc_handler: Option<WindowRpcHandler>,
-    custom_protocol: Option<CustomProtocol>,
+    custom_protocols: Vec<CustomProtocol>,
     file_drop_handler: Option<WindowFileDropHandler>,
   ) -> Result<WindowProxy> {
     let id =
       self
         .inner
-        .create_webview(attributes, file_drop_handler, rpc_handler, custom_protocol)?;
+        .create_webview(attributes, file_drop_handler, rpc_handler, custom_protocols)?;
     Ok(self.window_proxy(id))
   }
 
