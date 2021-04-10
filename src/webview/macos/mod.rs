@@ -22,7 +22,7 @@ use winit::{platform::macos::WindowExtMacOS, window::Window};
 use file_drop::{add_file_drop_methods, set_file_drop_handler};
 
 use crate::{
-  webview::{mimetype::MimeType, FileDropHandler, WV},
+  webview::{mimetype::MimeType, FileDropHandler},
   Result, RpcHandler,
 };
 
@@ -33,10 +33,8 @@ pub struct InnerWebView {
   manager: id,
 }
 
-impl WV for InnerWebView {
-  type Window = Window;
-
-  fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
+impl InnerWebView {
+  pub fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
     window: &Window,
     scripts: Vec<String>,
     url: Option<Url>,
@@ -261,16 +259,14 @@ impl WV for InnerWebView {
     }
   }
 
-  fn eval(&self, js: &str) -> Result<()> {
+  pub fn eval(&self, js: &str) -> Result<()> {
     // Safety: objc runtime calls are unsafe
     unsafe {
       let _: id = msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()];
     }
     Ok(())
   }
-}
 
-impl InnerWebView {
   fn init(&self, js: &str) {
     // Safety: objc runtime calls are unsafe
     // Equivalent Obj-C:
