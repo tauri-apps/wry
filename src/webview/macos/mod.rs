@@ -39,7 +39,7 @@ impl InnerWebView {
     scripts: Vec<String>,
     url: Option<Url>,
     transparent: bool,
-    custom_protocol: Option<(String, F)>,
+    custom_protocols: Vec<(String, F)>,
     rpc_handler: Option<RpcHandler>,
     file_drop_handler: Option<FileDropHandler>,
     _user_data_path: Option<PathBuf>,
@@ -110,8 +110,9 @@ impl InnerWebView {
     unsafe {
       // Config and custom protocol
       let config: id = msg_send![class!(WKWebViewConfiguration), new];
-      if let Some((name, function)) = custom_protocol {
-        let cls = ClassDecl::new("CustomURLSchemeHandler", class!(NSObject));
+      for (name, function) in custom_protocols {
+        let scheme_name = format!("{}URLSchemeHandler", name); 
+        let cls = ClassDecl::new(&scheme_name, class!(NSObject));
         let cls = match cls {
           Some(mut cls) => {
             cls.add_ivar::<*mut c_void>("function");
@@ -125,7 +126,7 @@ impl InnerWebView {
             );
             cls.register()
           }
-          None => class!(CustomURLSchemeHandler),
+          None => class!(scheme_name),
         };
         let handler: id = msg_send![cls, new];
         let function: Box<Box<dyn Fn(&str) -> Result<Vec<u8>>>> = Box::new(Box::new(function));
