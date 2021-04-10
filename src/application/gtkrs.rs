@@ -1,5 +1,5 @@
 use crate::{
-  application::{App, AppProxy, InnerWebViewAttributes, InnerWindowAttributes},
+  application::{InnerWebViewAttributes, InnerWindowAttributes},
   ApplicationProxy, Attributes, CustomProtocol, Error, Event as WryEvent, Icon, Message, Result,
   WebView, WebViewBuilder, WindowEvent as WryWindowEvent, WindowFileDropHandler, WindowMessage,
   WindowProxy, WindowRpcHandler,
@@ -38,8 +38,8 @@ pub struct InnerApplicationProxy {
   receiver: Arc<Mutex<Receiver<WryEvent>>>,
 }
 
-impl AppProxy for InnerApplicationProxy {
-  fn send_message(&self, message: Message) -> Result<()> {
+impl InnerApplicationProxy {
+  pub fn send_message(&self, message: Message) -> Result<()> {
     self
       .proxy
       .0
@@ -48,7 +48,7 @@ impl AppProxy for InnerApplicationProxy {
     Ok(())
   }
 
-  fn add_window(
+  pub fn add_window(
     &self,
     attributes: Attributes,
     file_drop_handler: Option<WindowFileDropHandler>,
@@ -66,7 +66,7 @@ impl AppProxy for InnerApplicationProxy {
     Ok(receiver.recv()?)
   }
 
-  fn listen_event(&self) -> Result<WryEvent> {
+  pub fn listen_event(&self) -> Result<WryEvent> {
     let rx = self.receiver.lock().unwrap();
     Ok(rx.recv()?)
   }
@@ -80,11 +80,8 @@ pub struct InnerApplication {
   event_channel: (Sender<WryEvent>, Arc<Mutex<Receiver<WryEvent>>>),
 }
 
-impl App for InnerApplication {
-  type Id = u32;
-  type Proxy = InnerApplicationProxy;
-
-  fn new() -> Result<Self> {
+impl InnerApplication {
+  pub fn new() -> Result<Self> {
     let app = GtkApp::new(None, Default::default())?;
     let cancellable: Option<&Cancellable> = None;
     app.register(cancellable)?;
@@ -101,13 +98,13 @@ impl App for InnerApplication {
     })
   }
 
-  fn create_webview(
+  pub fn create_webview(
     &mut self,
     attributes: Attributes,
     file_drop_handler: Option<WindowFileDropHandler>,
     rpc_handler: Option<WindowRpcHandler>,
     custom_protocol: Option<CustomProtocol>,
-  ) -> Result<Self::Id> {
+  ) -> Result<u32> {
     let (window_attrs, webview_attrs) = attributes.split();
     let window = _create_window(&self.app, window_attrs)?;
 
@@ -126,14 +123,14 @@ impl App for InnerApplication {
     Ok(id)
   }
 
-  fn application_proxy(&self) -> Self::Proxy {
+  pub fn application_proxy(&self) -> InnerApplicationProxy {
     InnerApplicationProxy {
       proxy: self.event_loop_proxy.clone(),
       receiver: self.event_channel.1.clone(),
     }
   }
 
-  fn run(self) {
+  pub fn run(self) {
     let proxy = self.application_proxy();
     let shared_webviews = Rc::new(RefCell::new(self.webviews));
     let shared_webviews_ = shared_webviews.clone();
