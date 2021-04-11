@@ -12,14 +12,12 @@ use windows_webview2::{
   },
 };
 
-use crate::{
-  webview::{mimetype::MimeType, WV},
-  FileDropHandler, Result, RpcHandler,
-};
+use crate::{webview::mimetype::MimeType, FileDropHandler, Result, RpcHandler};
 
 use file_drop::FileDropController;
 
 use std::{
+  collections::HashSet,
   path::PathBuf,
   rc::Rc,
   sync::mpsc::{self, RecvError},
@@ -43,17 +41,15 @@ pub struct InnerWebView {
   file_drop_controller: Rc<OnceCell<FileDropController>>,
 }
 
-impl WV for InnerWebView {
-  type Window = Window;
-
-  fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
+impl InnerWebView {
+  pub fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
     window: &Window,
     scripts: Vec<String>,
     url: Option<Url>,
     // TODO default background color option just adds to webview2 recently and it requires
     // canary build. Implement this once it's in official release.
     #[allow(unused_variables)] transparent: bool,
-    custom_protocol: Option<(String, F)>,
+    custom_protocols: Vec<(String, F)>,
     rpc_handler: Option<RpcHandler>,
     file_drop_handler: Option<FileDropHandler>,
     user_data_path: Option<PathBuf>,
@@ -132,11 +128,11 @@ impl WV for InnerWebView {
       Ok(())
     }))?;
 
-    let mut custom_protocol_name = None;
-    if let Some((name, function)) = custom_protocol {
+    let mut custom_protocol_names = HashSet::new();
+    for (name, function) in custom_protocols {
       // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
       // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-      custom_protocol_name = Some(name.clone());
+      custom_protocol_names.insert(name.clone());
       w.AddWebResourceRequestedFilter(
         format!("file://custom-protocol-{}*", name).as_str(),
         webview2::CoreWebView2WebResourceContext::All,
@@ -199,15 +195,14 @@ impl WV for InnerWebView {
         }
       } else {
         let mut url_string = String::from(url.as_str());
-        if let Some(name) = custom_protocol_name {
-          if name == url.scheme() {
-            // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
-            // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-            url_string = url.as_str().replace(
-              &format!("{}://", name),
-              &format!("file://custom-protocol-{}", name),
-            )
-          }
+        let name = url.scheme();
+        if custom_protocol_names.contains(name) {
+          // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
+          // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
+          url_string = url.as_str().replace(
+            &format!("{}://", name),
+            &format!("file://custom-protocol-{}", name),
+          )
         }
         w.Navigate(url_string.as_str())?;
       }
@@ -231,15 +226,13 @@ impl WV for InnerWebView {
     })
   }
 
-  fn eval(&self, js: &str) -> Result<()> {
+  pub fn eval(&self, js: &str) -> Result<()> {
     if let Some(w) = self.webview.get() {
       let _ = w.ExecuteScriptAsync(js)?;
     }
     Ok(())
   }
-}
 
-impl InnerWebView {
   pub fn resize(&self, hwnd: HWND) -> Result<()> {
     // Safety: System calls are unsafe
     unsafe {
