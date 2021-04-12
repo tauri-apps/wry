@@ -2,13 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-#[cfg(target_os = "linux")]
-fn main() {}
-
-#[cfg(not(target_os = "linux"))]
 fn main() -> wry::Result<()> {
-  use winit::{
-    event::{Event, WindowEvent},
+  use wry::window::{
+    //event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
   };
@@ -25,6 +21,7 @@ fn main() -> wry::Result<()> {
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
+    /*
     match event {
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
@@ -42,5 +39,6 @@ fn main() -> wry::Result<()> {
       Event::RedrawRequested(_) => {}
       _ => (),
     }
+    */
   });
 }

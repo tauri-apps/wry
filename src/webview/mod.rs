@@ -37,15 +37,12 @@ use std::{
 use serde_json::Value;
 use url::Url;
 
-#[cfg(target_os = "linux")]
-use gtk::ApplicationWindow as Window;
 #[cfg(target_os = "windows")]
 #[cfg(feature = "winrt")]
 use windows_webview2::Windows::Win32::WindowsAndMessaging::HWND;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
-#[cfg(not(target_os = "linux"))]
-use winit::window::Window;
+use crate::window::window::Window;
 
 /// The RPC handler to Communicate between the host Rust code and Javascript on webview.
 ///
@@ -253,7 +250,7 @@ impl WebViewBuilder {
   /// Consume the builder and create the [`WebView`].
   pub fn build(self) -> Result<WebView> {
     let webview = InnerWebView::new(
-      &self.window,
+      &self.window.window,
       self.initialization_scripts,
       self.url,
       self.transparent,
@@ -300,7 +297,7 @@ impl WebView {
     let picky_vec: Vec<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)> = Vec::new();
 
     let webview = InnerWebView::new(
-      &window,
+      &window.window,
       vec![],
       None,
       transparent,

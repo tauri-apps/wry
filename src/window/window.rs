@@ -251,7 +251,10 @@ impl WindowBuilder {
     pub fn build<T: 'static>(
         self,
         window_target: &EventLoopWindowTarget<T>,
-    ) {} // TODO -> Result<Window, OsError> {
+    ) -> Result<Window, OsError> {
+        Window::new(window_target, self.window)
+        // TODO request redraw
+    }
 }
 
 pub struct Window {
@@ -262,7 +265,7 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new<T>(
+    pub(crate) fn new<T>(
         event_loop_window_target: &EventLoopWindowTarget<T>,
         attributes: WindowAttributes,
     ) -> Result<Self, OsError> {

@@ -100,11 +100,12 @@ impl<T: 'static> EventLoop<T> {
     }
 
     pub(crate) fn new_any_thread() -> EventLoop<T> {
-        EventLoop::new_gtk_any_thread().expect("ailed to initialize any backend!")
+        EventLoop::new_gtk_any_thread().expect("Failed to initialize any backend!")
     }
 
     fn new_gtk_any_thread() -> Result<EventLoop<T>, Box<dyn Error>> {
-        let app = gtk::Application::new(Some("Winit"), gio::ApplicationFlags::FLAGS_NONE)?;
+        gtk::init().expect("Failed to initialize gtk!");
+        let app = gtk::Application::new(Some("org.tauri.wry"), gio::ApplicationFlags::empty())?;
 
         // Create event loop window target.
         let window_target = EventLoopWindowTarget {
@@ -145,6 +146,7 @@ impl<T: 'static> EventLoop<T> {
     where
         F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T>, &mut ControlFlow),
     {
+        self.window_target.app.activate();
         loop {
           gtk::main_iteration();
         }

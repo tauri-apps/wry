@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use crate::WindowProxy;
+//use crate::WindowProxy;
 
 /// An event enumeration sent to [`FileDropHandler`].
 #[derive(Debug, Serialize, Clone)]
@@ -16,7 +16,7 @@ pub enum FileDropEvent {
   /// The file drop was aborted.
   Cancelled,
 }
-
+/*
 /// A listener closure to process incoming [`FileDropEvent`] of the webview.
 ///
 /// Users can pass a [`WindowFileDropHandler`] to [`Application::add_window_with_configs`](crate::Application::add_window_with_configs)
@@ -49,3 +49,4 @@ pub enum FileDropEvent {
 /// }
 /// ```
 pub type WindowFileDropHandler = Box<dyn Fn(WindowProxy, FileDropEvent) -> bool + Send>;
+*/
