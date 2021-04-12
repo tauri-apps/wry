@@ -103,6 +103,7 @@ pub use webview::{RpcRequest, RpcResponse};
 mod application;
 mod file_drop;
 pub mod webview;
+pub mod winit_gtk;
 
 /// Convenient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;
