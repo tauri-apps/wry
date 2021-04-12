@@ -26,6 +26,8 @@ pub use winit::event_loop::ControlFlow;
 /// EventLoop<T>`), so functions that take this as a parameter can also take
 /// `&EventLoop`.
 pub struct EventLoopWindowTarget<T> {
+    /// Gtk application
+    pub(crate) app: gtk::Application,
     _marker: std::marker::PhantomData<T>,
     _unsafe: std::marker::PhantomData<*mut ()>, // Not Send nor Sync
 }
@@ -44,8 +46,6 @@ pub struct EventLoopWindowTarget<T> {
 /// `Window` created from this `EventLoop` _can_ be sent to an other thread, and the
 /// `EventLoopProxy` allows you to wake up an `EventLoop` from another thread.
 pub struct EventLoop<T: 'static> {
-    /// Gtk application
-    app: gtk::Application,
     /// Window target.
     window_target: EventLoopWindowTarget<T>,
     _unsafe: std::marker::PhantomData<*mut ()>, // Not Send nor Sync
@@ -108,13 +108,13 @@ impl<T: 'static> EventLoop<T> {
 
         // Create event loop window target.
         let window_target = EventLoopWindowTarget {
+            app,
             _marker: std::marker::PhantomData,
             _unsafe: std::marker::PhantomData,
         };
 
         // Create event loop itself.
         let event_loop = Self {
-            app,
             window_target,
             _unsafe: std::marker::PhantomData,
         };

@@ -1,5 +1,7 @@
 use std::fmt;
 
+use gtk::prelude::*;
+
 use super::{
     dpi::{PhysicalPosition, PhysicalSize, Position, Size},
     error::{ExternalError, NotSupportedError, OsError},
@@ -13,7 +15,7 @@ use super::{
 /// Whenever you receive an event specific to a window, this event contains a `WindowId` which you
 /// can then compare to the ids of your windows.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct WindowId(usize);
+pub struct WindowId(u32);
 
 impl WindowId {
     /// Returns a dummy `WindowId`, useful for unit testing. The only guarantee made about the return
@@ -252,3 +254,27 @@ impl WindowBuilder {
     ) {} // TODO -> Result<Window, OsError> {
 }
 
+pub struct Window {
+    /// Window id.
+    pub(crate) window_id: WindowId,
+    /// Gtk application window.
+    pub(crate) window: gtk::ApplicationWindow,
+}
+
+impl Window {
+    pub fn new<T>(
+        event_loop_window_target: &EventLoopWindowTarget<T>,
+        attributes: WindowAttributes,
+    ) -> Result<Self, OsError> {
+        let app = &event_loop_window_target.app;
+        let window = gtk::ApplicationWindow::new(app);
+        let window_id = WindowId(window.get_id());
+
+        window.show_all();
+        
+        Ok(Self {
+            window_id,
+            window
+        })
+    }
+}
