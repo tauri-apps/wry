@@ -16,6 +16,7 @@ use std::process;
 
 use gtk::prelude::*;
 use gio::prelude::*;
+use gio::Cancellable;
 use winit::event::{Event, StartCause, WindowEvent};
 pub use winit::event_loop::ControlFlow;
 
@@ -104,8 +105,9 @@ impl<T: 'static> EventLoop<T> {
     }
 
     fn new_gtk_any_thread() -> Result<EventLoop<T>, Box<dyn Error>> {
-        gtk::init().expect("Failed to initialize gtk!");
         let app = gtk::Application::new(Some("org.tauri.wry"), gio::ApplicationFlags::empty())?;
+        let cancellable: Option<&Cancellable> = None;
+        app.register(cancellable)?;
 
         // Create event loop window target.
         let window_target = EventLoopWindowTarget {

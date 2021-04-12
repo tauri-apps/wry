@@ -15,7 +15,7 @@ fn main() -> wry::Result<()> {
   let webview = WebViewBuilder::new(window)
     .unwrap()
     .initialize_script("menacing = 'ゴ';")
-    .load_url("wry://tauri.studio")?
+    .load_url("https://tauri.studio")?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {
