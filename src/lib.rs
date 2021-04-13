@@ -66,6 +66,9 @@
 //! [gtk-rs]: https://crates.io/crates/gtk
 //!
 
+#[cfg(target_os = "linux")]
+#[macro_use]
+extern crate bitflags;
 #[macro_use]
 extern crate serde;
 #[macro_use]
@@ -94,7 +97,7 @@ pub use application::{
 #[cfg(not(feature = "file-drop"))]
 pub(crate) use file_drop::FileDropEvent;
 #[cfg(feature = "file-drop")]
-pub use file_drop::{FileDropEvent};//, WindowFileDropHandler};
+pub use file_drop::FileDropEvent; //, WindowFileDropHandler};
 #[cfg(not(feature = "file-drop"))]
 pub(crate) use webview::FileDropHandler;
 #[cfg(feature = "file-drop")]

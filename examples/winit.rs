@@ -3,12 +3,14 @@
 // SPDX-License-Identifier: MIT
 
 fn main() -> wry::Result<()> {
-  use wry::window::{
-    //event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
+  use wry::{
+    webview::WebViewBuilder,
+    window::{
+      event::{Event, StartCause, WindowEvent},
+      event_loop::{ControlFlow, EventLoop},
+      window::WindowBuilder,
+    },
   };
-  use wry::webview::WebViewBuilder;
 
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
@@ -21,24 +23,13 @@ fn main() -> wry::Result<()> {
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
-    /*
     match event {
+      Event::NewEvents(StartCause::Init) => println!("Hello"),
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      Event::WindowEvent {
-        event: WindowEvent::Resized(_),
-        ..
-      } => {
-        webview.resize().unwrap();
-      }
-      Event::MainEventsCleared => {
-        webview.window().request_redraw();
-      }
-      Event::RedrawRequested(_) => {}
       _ => (),
     }
-    */
   });
 }
