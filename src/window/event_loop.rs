@@ -191,7 +191,7 @@ impl<T: 'static> EventLoop<T> {
     });
     app.activate();
 
-    loop {
+    while control_flow != ControlFlow::Exit {
       if let Ok(event) = event_rx.try_recv() {
         callback(event, &self.window_target, &mut control_flow);
       }
