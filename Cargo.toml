@@ -3,7 +3,7 @@ workspace = { }
 [package]
 name = "wry"
 version = "0.7.0"
-authors = [ "Ngo Iok Ui <wusyong9104@gmail.com>" ]
+authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2018"
 license = "Apache-2.0/MIT"
 description = "Cross-platform WebView rendering library"
