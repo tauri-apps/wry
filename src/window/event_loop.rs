@@ -17,7 +17,6 @@ use std::{
   ops::Deref,
   process,
   rc::Rc,
-  sync::mpsc::{channel, Receiver, Sender},
 };
 
 use gio::{prelude::*, Cancellable};
@@ -196,16 +195,18 @@ impl<T: 'static> EventLoop<T> {
     // Acquire the main context and set it as the current thread-default
     // Local futures must be spawned on the thread owning the main context
     let default_context = glib::MainContext::default();
+    let keep_running = Rc::new(RefCell::new(true));
     default_context.push_thread_default();
     default_context.spawn_local(process_events(
       event_rx,
       self.window_target,
       control_flow,
       callback,
+      keep_running.clone(),
     ));
     default_context.pop_thread_default();
 
-    loop {
+    while *keep_running.borrow() {
       gtk::main_iteration();
     }
   }
@@ -227,13 +228,27 @@ async fn process_events<T, F>(
   window_target: EventLoopWindowTarget<T>,
   mut control_flow: ControlFlow,
   mut callback: F,
+  keep_running: Rc<RefCell<bool>>,
 ) where
   F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T>, &mut ControlFlow) + 'static,
 {
-  while let Ok(event) = event_rx.recv().await {
-    callback(event, &window_target, &mut control_flow);
-    // TODO control flow
-  }
+    loop {
+        match control_flow {
+            ControlFlow::Exit => {
+                keep_running.replace(false);
+                break;
+            }
+            // It's the same for Poll and Wait since we spawn the local task in Gtk.
+            // MainContext of Gtk will handle the future for us.
+            // FIXME Maybe we should spawn to another thread and use GMutex/GCond?
+            _ => {
+              if let Ok(event) = event_rx.recv().await {
+                callback(event, &window_target, &mut control_flow);
+                // TODO control flow
+              }
+            }
+        }
+    }
 }
 
 impl<T> Deref for EventLoop<T> {
