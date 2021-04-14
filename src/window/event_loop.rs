@@ -155,13 +155,13 @@ impl<T: 'static> EventLoop<T> {
     process::exit(0)
   }
 
-  pub(crate) fn run_return<F>(&mut self, mut callback: F)
+  pub(crate) fn run_return<F>(mut self, mut callback: F)
   where
-    F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T>, &mut ControlFlow),
+    F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T>, &mut ControlFlow) + 'static,
   {
     let mut control_flow = ControlFlow::default();
     let app = &self.window_target.app;
-    let (event_tx, event_rx) = channel::<Event<'_, T>>();
+    let (event_tx, event_rx) = async_channel::unbounded::<Event<'_, T>>();
 
     // Send closed event when a window is removed
     let windows = self.window_target.windows.take();
@@ -174,7 +174,7 @@ impl<T: 'static> EventLoop<T> {
       window.connect_delete_event(move |_, _| {
         windows_rc.borrow_mut().remove(&id);
         tx_clone
-          .send(Event::WindowEvent {
+          .try_send(Event::WindowEvent {
             window_id: id,
             event: WindowEvent::CloseRequested,
           })
@@ -187,15 +187,25 @@ impl<T: 'static> EventLoop<T> {
     // Send StartCause::Init event
     let tx_clone = event_tx.clone();
     app.connect_activate(move |_| {
-      tx_clone.send(Event::NewEvents(StartCause::Init)).unwrap();
+      tx_clone
+        .try_send(Event::NewEvents(StartCause::Init))
+        .unwrap();
     });
     app.activate();
 
-    while control_flow != ControlFlow::Exit {
-      if let Ok(event) = event_rx.try_recv() {
-        callback(event, &self.window_target, &mut control_flow);
-      }
+    // Acquire the main context and set it as the current thread-default
+    // Local futures must be spawned on the thread owning the main context
+    let default_context = glib::MainContext::default();
+    default_context.push_thread_default();
+    default_context.spawn_local(process_events(
+      event_rx,
+      self.window_target,
+      control_flow,
+      callback,
+    ));
+    default_context.pop_thread_default();
 
+    loop {
       gtk::main_iteration();
     }
   }
@@ -209,6 +219,20 @@ impl<T: 'static> EventLoop<T> {
   #[inline]
   pub fn window_target(&self) -> &EventLoopWindowTarget<T> {
     &self.window_target
+  }
+}
+
+async fn process_events<T, F>(
+  event_rx: async_channel::Receiver<Event<'_, T>>,
+  window_target: EventLoopWindowTarget<T>,
+  mut control_flow: ControlFlow,
+  mut callback: F,
+) where
+  F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T>, &mut ControlFlow) + 'static,
+{
+  while let Ok(event) = event_rx.recv().await {
+    callback(event, &window_target, &mut control_flow);
+    // TODO control flow
   }
 }
 
