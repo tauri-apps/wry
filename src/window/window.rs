@@ -1,6 +1,6 @@
 use std::fmt;
 
-use gtk::prelude::*;
+use gtk::{prelude::*, ApplicationWindow};
 
 use super::{
   dpi::{PhysicalPosition, PhysicalSize, Position, Size},
@@ -276,9 +276,89 @@ impl Window {
       .borrow_mut()
       .insert(window_id);
 
+    // Set Width/Height & Resizable
+    let scale_factor = window.get_scale_factor();
+    let (width, height) = attributes
+      .inner_size
+      .map(|size| size.to_logical::<f64>(scale_factor as f64).into())
+      .unwrap_or((800, 600));
+    window.set_resizable(attributes.resizable);
+    if attributes.resizable {
+      window.set_default_size(width, height);
+    } else {
+      window.set_size_request(width, height);
+    }
+
+    // Set Min/Max Size
+    let geom_mask = (if attributes.min_inner_size.is_some() {
+      gdk::WindowHints::MIN_SIZE
+    } else {
+      gdk::WindowHints::empty()
+    }) | (if attributes.max_inner_size.is_some() {
+      gdk::WindowHints::MAX_SIZE
+    } else {
+      gdk::WindowHints::empty()
+    });
+    let (min_width, min_height) = attributes
+      .min_inner_size
+      .map(|size| size.to_logical::<f64>(scale_factor as f64).into())
+      .unwrap_or_default();
+    let (max_width, max_height) = attributes
+      .max_inner_size
+      .map(|size| size.to_logical::<f64>(scale_factor as f64).into())
+      .unwrap_or_default();
+    window.set_geometry_hints::<ApplicationWindow>(
+      None,
+      Some(&gdk::Geometry {
+        min_width,
+        min_height,
+        max_width,
+        max_height,
+        base_width: 0,
+        base_height: 0,
+        width_inc: 0,
+        height_inc: 0,
+        min_aspect: 0f64,
+        max_aspect: 0f64,
+        win_gravity: gdk::Gravity::Center,
+      }),
+      geom_mask,
+    );
+
+    // Set Transparent
+    if attributes.transparent {
+      if let Some(screen) = window.get_screen() {
+        if let Some(visual) = screen.get_rgba_visual() {
+          window.set_visual(Some(&visual));
+        }
+      }
+
+      window.connect_draw(|_, cr| {
+        cr.set_source_rgba(0., 0., 0., 0.);
+        cr.set_operator(cairo::Operator::Source);
+        cr.paint();
+        cr.set_operator(cairo::Operator::Over);
+        Inhibit(false)
+      });
+      window.set_app_paintable(true);
+    }
+
+    // Rest attributes
+    window.set_title(&attributes.title);
+    if attributes.maximized {
+      window.maximize();
+    }
+    window.set_visible(attributes.visible);
+    window.set_decorated(attributes.decorations);
+    window.set_keep_above(attributes.always_on_top);
+
     window.show_all();
 
     Ok(Self { window_id, window })
+  }
+
+  pub fn id(&self) -> WindowId {
+    self.window_id
   }
 }
 
