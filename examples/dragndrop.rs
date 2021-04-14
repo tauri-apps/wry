@@ -17,7 +17,7 @@ fn main() -> Result<()> {
       ..Default::default()
     },
     None,
-    None,
+    vec![],
     Some(Box::new(|_, data| {
       println!("Window 1: {:?}", data);
       false // Returning true will block the OS default behaviour.

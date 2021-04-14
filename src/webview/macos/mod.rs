@@ -22,7 +22,7 @@ use winit::{platform::macos::WindowExtMacOS, window::Window};
 use file_drop::{add_file_drop_methods, set_file_drop_handler};
 
 use crate::{
-  webview::{mimetype::MimeType, FileDropHandler, WV},
+  webview::{mimetype::MimeType, FileDropHandler},
   Result, RpcHandler,
 };
 
@@ -33,15 +33,13 @@ pub struct InnerWebView {
   manager: id,
 }
 
-impl WV for InnerWebView {
-  type Window = Window;
-
-  fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
+impl InnerWebView {
+  pub fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
     window: &Window,
     scripts: Vec<String>,
     url: Option<Url>,
     transparent: bool,
-    custom_protocol: Option<(String, F)>,
+    custom_protocols: Vec<(String, F)>,
     rpc_handler: Option<RpcHandler>,
     file_drop_handler: Option<FileDropHandler>,
     _user_data_path: Option<PathBuf>,
@@ -112,8 +110,9 @@ impl WV for InnerWebView {
     unsafe {
       // Config and custom protocol
       let config: id = msg_send![class!(WKWebViewConfiguration), new];
-      if let Some((name, function)) = custom_protocol {
-        let cls = ClassDecl::new("CustomURLSchemeHandler", class!(NSObject));
+      for (name, function) in custom_protocols {
+        let scheme_name = format!("{}URLSchemeHandler", name);
+        let cls = ClassDecl::new(&scheme_name, class!(NSObject));
         let cls = match cls {
           Some(mut cls) => {
             cls.add_ivar::<*mut c_void>("function");
@@ -127,7 +126,7 @@ impl WV for InnerWebView {
             );
             cls.register()
           }
-          None => class!(CustomURLSchemeHandler),
+          None => class!(scheme_name),
         };
         let handler: id = msg_send![cls, new];
         let function: Box<Box<dyn Fn(&str) -> Result<Vec<u8>>>> = Box::new(Box::new(function));
@@ -261,16 +260,14 @@ impl WV for InnerWebView {
     }
   }
 
-  fn eval(&self, js: &str) -> Result<()> {
+  pub fn eval(&self, js: &str) -> Result<()> {
     // Safety: objc runtime calls are unsafe
     unsafe {
       let _: id = msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()];
     }
     Ok(())
   }
-}
 
-impl InnerWebView {
   fn init(&self, js: &str) {
     // Safety: objc runtime calls are unsafe
     // Equivalent Obj-C:

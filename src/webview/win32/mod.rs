@@ -1,13 +1,10 @@
 mod file_drop;
 
-use crate::{
-  webview::{mimetype::MimeType, WV},
-  FileDropHandler, Result, RpcHandler,
-};
+use crate::{webview::mimetype::MimeType, FileDropHandler, Result, RpcHandler};
 
 use file_drop::FileDropController;
 
-use std::{os::raw::c_void, path::PathBuf, rc::Rc};
+use std::{collections::HashSet, os::raw::c_void, path::PathBuf, rc::Rc};
 
 use once_cell::unsync::OnceCell;
 use url::Url;
@@ -24,17 +21,15 @@ pub struct InnerWebView {
   file_drop_controller: Rc<OnceCell<FileDropController>>,
 }
 
-impl WV for InnerWebView {
-  type Window = Window;
-
-  fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
+impl InnerWebView {
+  pub fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
     window: &Window,
     scripts: Vec<String>,
     url: Option<Url>,
     // TODO default background color option just adds to webview2 recently and it requires
     // canary build. Implement this once it's in official release.
     transparent: bool,
-    custom_protocol: Option<(String, F)>,
+    custom_protocols: Vec<(String, F)>,
     rpc_handler: Option<RpcHandler>,
     file_drop_handler: Option<FileDropHandler>,
     user_data_path: Option<PathBuf>,
@@ -109,15 +104,16 @@ impl WV for InnerWebView {
           Ok(())
         })?;
 
-        let mut custom_protocol_name = None;
-        if let Some((name, function)) = custom_protocol {
+        let mut custom_protocol_names = HashSet::new();
+        for (name, function) in custom_protocols {
           // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
           // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-          custom_protocol_name = Some(name.clone());
+          custom_protocol_names.insert(name.clone());
           w.add_web_resource_requested_filter(
             &format!("file://custom-protocol-{}*", name),
             webview2::WebResourceContext::All,
           )?;
+          let env_clone = env_.clone();
           w.add_web_resource_requested(move |_, args| {
             let uri = args.get_request()?.get_uri()?;
             // Undo the protocol workaround when giving path to resolver
@@ -130,7 +126,7 @@ impl WV for InnerWebView {
               Ok(content) => {
                 let mime = MimeType::parse(&content, &uri);
                 let stream = webview2::Stream::from_bytes(&content);
-                let response = env_.create_web_resource_response(
+                let response = env_clone.create_web_resource_response(
                   stream,
                   200,
                   "OK",
@@ -166,15 +162,14 @@ impl WV for InnerWebView {
             }
           } else {
             let mut url_string = String::from(url.as_str());
-            if let Some(name) = custom_protocol_name {
-              if name == url.scheme() {
-                // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
-                // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-                url_string = url.as_str().replace(
-                  &format!("{}://", name),
-                  &format!("file://custom-protocol-{}", name),
-                )
-              }
+            let name = url.scheme();
+            if custom_protocol_names.contains(name) {
+              // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
+              // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
+              url_string = url.as_str().replace(
+                &format!("{}://", name),
+                &format!("file://custom-protocol-{}", name),
+              )
             }
             w.navigate(&url_string)?;
           }
@@ -200,16 +195,14 @@ impl WV for InnerWebView {
     })
   }
 
-  fn eval(&self, js: &str) -> Result<()> {
+  pub fn eval(&self, js: &str) -> Result<()> {
     if let Some(c) = self.controller.get() {
       let webview = c.get_webview()?;
       webview.execute_script(js, |_| (Ok(())))?;
     }
     Ok(())
   }
-}
 
-impl InnerWebView {
   pub fn resize(&self, hwnd: *mut c_void) -> Result<()> {
     let hwnd = hwnd as HWND;
 

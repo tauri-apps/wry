@@ -99,7 +99,7 @@ fn main() -> Result<()> {
     None
   });
 
-  let _window1 = app.add_window_with_configs(attributes, Some(handler), None, None)?;
+  let _window1 = app.add_window_with_configs(attributes, Some(handler), vec![], None)?;
 
   app.run();
   Ok(())

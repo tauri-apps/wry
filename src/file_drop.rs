@@ -39,7 +39,7 @@ pub enum FileDropEvent {
 ///       // Return `true` to block the default file drop behavior of the OS.
 ///       false
 ///     });
-///     app.add_window_with_configs(Default::default(), None, None, Some(file_drop))?;
+///     app.add_window_with_configs(Default::default(), None, vec![], Some(file_drop))?;
 ///     app.run();
 ///     Ok(())
 /// }
