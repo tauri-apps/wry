@@ -1,6 +1,5 @@
 ---
-"wry": minor
+"wry": patch
 ---
 
-Wry now accepts multiple custom protocol registerations.
-
+Apply license header for SPDX compliance.

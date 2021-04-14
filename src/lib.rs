@@ -1,3 +1,7 @@
+// Copyright 2019-2021 Tauri Programme within The Commons Conservancy
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
+
 //! Wry is a Cross-platform WebView rendering library.
 //!
 //! There are two main ways to build WebView windows: [`Application`] and build by yourself.
