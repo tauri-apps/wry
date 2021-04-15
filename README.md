@@ -41,7 +41,7 @@ fn main() -> Result<()> {
 There are also more samples under `examples`, you can enter commands like following to try them:
 
 ```
-cargo run --example multiwindow
+cargo run --example multi_window
 ```
 
 For more information, please read the documentation below.
