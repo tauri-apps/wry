@@ -13,11 +13,20 @@
 //! [create_proxy]: crate::event_loop::EventLoop::create_proxy
 //! [event_loop_proxy]: crate::event_loop::EventLoopProxy
 //! [send_event]: crate::event_loop::EventLoopProxy::send_event
-use std::{cell::RefCell, collections::HashSet, error::Error, fmt, ops::Deref, process, rc::Rc};
+use std::{
+  cell::RefCell,
+  collections::HashSet,
+  error::Error,
+  fmt,
+  ops::Deref,
+  process,
+  rc::Rc,
+  sync::mpsc::{channel, Receiver, SendError, Sender},
+};
 
 use gio::{prelude::*, Cancellable};
 use gtk::{prelude::*, Inhibit};
-pub use winit::event_loop::ControlFlow;
+pub use winit::event_loop::{ControlFlow, EventLoopClosed};
 
 use super::{
   event::{Event, StartCause, WindowEvent},
@@ -33,6 +42,7 @@ use super::{
 pub struct EventLoopWindowTarget<T> {
   /// Gtk application
   pub(crate) app: gtk::Application,
+  /// Window Ids of the application
   pub(crate) windows: Rc<RefCell<HashSet<WindowId>>>,
   _marker: std::marker::PhantomData<T>,
   _unsafe: std::marker::PhantomData<*mut ()>, // Not Send nor Sync
@@ -54,6 +64,10 @@ pub struct EventLoopWindowTarget<T> {
 pub struct EventLoop<T: 'static> {
   /// Window target.
   window_target: EventLoopWindowTarget<T>,
+  /// User event sender for EventLoopProxy
+  user_event_tx: Sender<T>,
+  /// User event receiver
+  user_event_rx: Receiver<T>,
   _unsafe: std::marker::PhantomData<*mut ()>, // Not Send nor Sync
 }
 
@@ -122,9 +136,14 @@ impl<T: 'static> EventLoop<T> {
       _unsafe: std::marker::PhantomData,
     };
 
+    // Create user event channel
+    let (user_event_tx, user_event_rx) = channel();
+
     // Create event loop itself.
     let event_loop = Self {
       window_target,
+      user_event_tx,
+      user_event_rx,
       _unsafe: std::marker::PhantomData,
     };
 
@@ -207,15 +226,16 @@ impl<T: 'static> EventLoop<T> {
     }
   }
 
-  /// Creates an `EventLoopProxy` that can be used to dispatch user events to the main event loop.
-  pub fn create_proxy(&self) {
-    // -> EventLoopProxy<T> {
-    todo!()
-  }
-
   #[inline]
   pub fn window_target(&self) -> &EventLoopWindowTarget<T> {
     &self.window_target
+  }
+
+  /// Creates an `EventLoopProxy` that can be used to dispatch user events to the main event loop.
+  pub fn create_proxy(&self) -> EventLoopProxy<T> {
+    EventLoopProxy {
+      user_event_tx: self.user_event_tx.clone(),
+    }
   }
 }
 
@@ -240,7 +260,6 @@ async fn process_events<T, F>(
       _ => {
         if let Ok(event) = event_rx.recv().await {
           callback(event, &window_target, &mut control_flow);
-          // TODO control flow
         }
       }
     }
@@ -254,7 +273,25 @@ impl<T> Deref for EventLoop<T> {
   }
 }
 
-// TODO EventLoopWindowTarget EventLoopProxy
+/// Used to send custom events to `EventLoop`.
+#[derive(Debug, Clone)]
+pub struct EventLoopProxy<T: 'static> {
+  user_event_tx: Sender<T>,
+}
+
+impl<T: 'static> EventLoopProxy<T> {
+  /// Send an event to the `EventLoop` from which this proxy was created. This emits a
+  /// `UserEvent(event)` event in the event loop, where `event` is the value passed to this
+  /// function.
+  ///
+  /// Returns an `Err` if the associated `EventLoop` no longer exists.
+  pub fn send_event(&self, event: T) -> Result<(), EventLoopClosed<T>> {
+    self
+      .user_event_tx
+      .send(event)
+      .map_err(|SendError(error)| EventLoopClosed(error))
+  }
+}
 
 fn assert_is_main_thread(suggested_method: &str) {
   if !is_main_thread() {

@@ -364,6 +364,8 @@ impl Window {
   pub fn id(&self) -> WindowId {
     self.window_id
   }
+
+  //TODO other setters
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
