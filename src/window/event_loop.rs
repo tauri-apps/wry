@@ -25,6 +25,7 @@ use std::{
 };
 
 use gio::{prelude::*, Cancellable};
+use glib::{MainContext, Priority};
 use gtk::{prelude::*, Inhibit};
 pub use winit::event_loop::{ControlFlow, EventLoopClosed};
 
@@ -175,7 +176,7 @@ impl<T: 'static> EventLoop<T> {
   {
     let mut control_flow = ControlFlow::default();
     let app = &self.window_target.app;
-    let (event_tx, event_rx) = async_channel::unbounded::<Event<'_, T>>();
+    let (event_tx, event_rx) = MainContext::channel::<Event<'_, T>>(Priority::default());
 
     // Send closed event when a window is removed
     let windows = self.window_target.windows.take();
@@ -188,7 +189,7 @@ impl<T: 'static> EventLoop<T> {
       window.connect_delete_event(move |_, _| {
         windows_rc.borrow_mut().remove(&id);
         tx_clone
-          .try_send(Event::WindowEvent {
+          .send(Event::WindowEvent {
             window_id: id,
             event: WindowEvent::CloseRequested,
           })
@@ -201,25 +202,30 @@ impl<T: 'static> EventLoop<T> {
     // Send StartCause::Init event
     let tx_clone = event_tx.clone();
     app.connect_activate(move |_| {
-      tx_clone
-        .try_send(Event::NewEvents(StartCause::Init))
-        .unwrap();
+      tx_clone.send(Event::NewEvents(StartCause::Init)).unwrap();
     });
     app.activate();
 
     // Acquire the main context and set it as the current thread-default
     // Local futures must be spawned on the thread owning the main context
-    let default_context = glib::MainContext::default();
+    let context = MainContext::default();
+    context.push_thread_default();
     let keep_running = Rc::new(RefCell::new(true));
-    default_context.push_thread_default();
-    default_context.spawn_local(process_events(
-      event_rx,
-      self.window_target,
-      control_flow,
-      callback,
-      keep_running.clone(),
-    ));
-    default_context.pop_thread_default();
+    let keep_running_ = keep_running.clone();
+    event_rx.attach(Some(&context), move |event| {
+      callback(event, &self.window_target, &mut control_flow);
+      match control_flow {
+        ControlFlow::Exit => {
+          keep_running_.replace(false);
+          glib::Continue(false)
+        }
+        // It's the same for Poll and Wait since we spawn the local task in Gtk.
+        // MainContext of Gtk will handle the future for us.
+        // FIXME Maybe we should spawn to another thread and use GMutex/GCond?
+        _ => glib::Continue(true),
+      }
+    });
+    context.pop_thread_default();
 
     while *keep_running.borrow() {
       gtk::main_iteration();
@@ -235,33 +241,6 @@ impl<T: 'static> EventLoop<T> {
   pub fn create_proxy(&self) -> EventLoopProxy<T> {
     EventLoopProxy {
       user_event_tx: self.user_event_tx.clone(),
-    }
-  }
-}
-
-async fn process_events<T, F>(
-  event_rx: async_channel::Receiver<Event<'_, T>>,
-  window_target: EventLoopWindowTarget<T>,
-  mut control_flow: ControlFlow,
-  mut callback: F,
-  keep_running: Rc<RefCell<bool>>,
-) where
-  F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T>, &mut ControlFlow) + 'static,
-{
-  loop {
-    match control_flow {
-      ControlFlow::Exit => {
-        keep_running.replace(false);
-        break;
-      }
-      // It's the same for Poll and Wait since we spawn the local task in Gtk.
-      // MainContext of Gtk will handle the future for us.
-      // FIXME Maybe we should spawn to another thread and use GMutex/GCond?
-      _ => {
-        if let Ok(event) = event_rx.recv().await {
-          callback(event, &window_target, &mut control_flow);
-        }
-      }
     }
   }
 }

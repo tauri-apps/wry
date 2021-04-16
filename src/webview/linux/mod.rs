@@ -7,7 +7,7 @@ use std::{path::PathBuf, rc::Rc};
 use gdk::RGBA;
 use gio::Cancellable;
 use glib::{Bytes, FileError};
-use gtk::{ApplicationWindow as Window, ContainerExt, WidgetExt};
+use gtk::{ContainerExt, WidgetExt};
 use url::Url;
 use webkit2gtk::{
   SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
@@ -17,6 +17,7 @@ use webkit2gtk::{
 
 use crate::{
   webview::{mimetype::MimeType, FileDropHandler},
+  window::window::Window,
   Error, Result, RpcHandler,
 };
 
@@ -37,6 +38,7 @@ impl InnerWebView {
     file_drop_handler: Option<FileDropHandler>,
     _user_data_path: Option<PathBuf>,
   ) -> Result<Self> {
+    let window = &window.window;
     // Webview widget
     let manager = UserContentManager::new();
     let context = WebContext::new();

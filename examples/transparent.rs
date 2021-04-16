@@ -20,8 +20,9 @@ fn main() -> wry::Result<()> {
     .unwrap();
 
   let _webview = WebViewBuilder::new(window)?
-      .transparent(true)
-    .load_url(r#"data:text/html,
+    .transparent(true)
+    .load_url(
+      r#"data:text/html,
             <!doctype html>
             <html>
               <body style="background-color:rgba(87,87,87,0.);">hello</body>
@@ -30,7 +31,8 @@ fn main() -> wry::Result<()> {
                   document.body.innerText = `hello, ${navigator.userAgent}`;
                 };
               </script>
-            </html>"#)?
+            </html>"#,
+    )?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {
@@ -45,4 +47,3 @@ fn main() -> wry::Result<()> {
     }
   });
 }
-
