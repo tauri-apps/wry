@@ -10,6 +10,7 @@ use super::{
   dpi::{PhysicalPosition, PhysicalSize, Position, Size},
   error::{ExternalError, NotSupportedError, OsError},
   event_loop::EventLoopWindowTarget,
+  monitor::{MonitorHandle, VideoMode},
 };
 
 /// Identifier of a window. Unique for each window.
@@ -56,7 +57,11 @@ pub struct WindowAttributes {
   /// The default is `true`.
   pub resizable: bool,
 
-  // TODO pub fullscreen: Option<Fullscreen>,
+  /// Whether the window should be set as fullscreen upon creation.
+  ///
+  /// The default is `None`.
+  pub fullscreen: Option<Fullscreen>,
+
   /// The title of the window in the title bar.
   ///
   /// The default is `"winit window"`.
@@ -100,7 +105,7 @@ impl Default for WindowAttributes {
       resizable: true,
       title: "winit window".to_owned(),
       maximized: false,
-      //fullscreen: None,
+      fullscreen: None,
       visible: true,
       transparent: false,
       decorations: true,
@@ -188,7 +193,16 @@ impl WindowBuilder {
     self
   }
 
-  // TODO pub fn with_fullscreen(mut self, fullscreen: Option<Fullscreen>) -> Self {
+  /// Sets the window fullscreen state.
+  ///
+  /// See [`Window::set_fullscreen`] for details.
+  ///
+  /// [`Window::set_fullscreen`]: crate::window::Window::set_fullscreen
+  #[inline]
+  pub fn with_fullscreen(mut self, fullscreen: Option<Fullscreen>) -> Self {
+    self.window.fullscreen = fullscreen;
+    self
+  }
 
   /// Requests maximized mode.
   ///
@@ -349,6 +363,9 @@ impl Window {
 
     // Rest attributes
     window.set_title(&attributes.title);
+    if attributes.fullscreen.is_some() {
+      window.fullscreen();
+    }
     if attributes.maximized {
       window.maximize();
     }
@@ -366,6 +383,15 @@ impl Window {
   }
 
   //TODO other setters
+}
+
+/// Fullscreen modes.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Fullscreen {
+  Exclusive(VideoMode),
+
+  /// Providing `None` to `Borderless` will fullscreen on the current monitor.
+  Borderless(Option<MonitorHandle>),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
