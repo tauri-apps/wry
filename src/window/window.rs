@@ -7,11 +7,13 @@ use std::fmt;
 use gtk::{prelude::*, ApplicationWindow};
 
 use super::{
-  dpi::{PhysicalPosition, PhysicalSize, Position, Size},
-  error::{ExternalError, NotSupportedError, OsError},
+  dpi::Size,
+  error::OsError,
   event_loop::EventLoopWindowTarget,
   monitor::{MonitorHandle, VideoMode},
 };
+
+pub use super::icon::{BadIcon, Icon};
 
 /// Identifier of a window. Unique for each window.
 ///
@@ -92,7 +94,11 @@ pub struct WindowAttributes {
   ///
   /// The default is `false`.
   pub always_on_top: bool,
-  // TODO pub window_icon: Option<Icon>,
+
+  /// The window icon.
+  ///
+  /// The default is `None`.
+  pub window_icon: Option<Icon>,
 }
 
 impl Default for WindowAttributes {
@@ -110,7 +116,7 @@ impl Default for WindowAttributes {
       transparent: false,
       decorations: true,
       always_on_top: false,
-      //window_icon: None,
+      window_icon: None,
     }
   }
 }
@@ -255,7 +261,16 @@ impl WindowBuilder {
     self
   }
 
-  // TODO pub fn with_window_icon(mut self, window_icon: Option<Icon>) -> Self {
+  /// Sets the window icon.
+  ///
+  /// See [`Window::set_window_icon`] for details.
+  ///
+  /// [`Window::set_window_icon`]: crate::window::Window::set_window_icon
+  #[inline]
+  pub fn with_window_icon(mut self, window_icon: Option<Icon>) -> Self {
+    self.window.window_icon = window_icon;
+    self
+  }
 
   /// Builds the window.
   ///
@@ -372,6 +387,9 @@ impl Window {
     window.set_visible(attributes.visible);
     window.set_decorated(attributes.decorations);
     window.set_keep_above(attributes.always_on_top);
+    if let Some(icon) = attributes.window_icon {
+      window.set_icon(Some(&icon.inner));
+    }
 
     window.show_all();
 

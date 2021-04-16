@@ -6,5 +6,6 @@ pub use winit::dpi;
 pub mod error;
 pub mod event;
 pub mod event_loop;
+mod icon;
 pub mod monitor;
 pub mod window;
