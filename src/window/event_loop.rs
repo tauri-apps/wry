@@ -14,18 +14,12 @@
 //! [event_loop_proxy]: crate::event_loop::EventLoopProxy
 //! [send_event]: crate::event_loop::EventLoopProxy::send_event
 use std::{
-  cell::RefCell,
-  collections::HashSet,
-  error::Error,
-  fmt,
-  ops::Deref,
-  process,
-  rc::Rc,
-  sync::mpsc::{channel, Receiver, SendError, Sender},
+  cell::RefCell, collections::HashSet, error::Error, fmt, ops::Deref, process, rc::Rc,
+  sync::mpsc::SendError,
 };
 
 use gio::{prelude::*, Cancellable};
-use glib::{MainContext, Priority};
+use glib::{MainContext, Priority, Receiver, Sender};
 use gtk::{prelude::*, Inhibit};
 pub use winit::event_loop::{ControlFlow, EventLoopClosed};
 
@@ -138,7 +132,7 @@ impl<T: 'static> EventLoop<T> {
     };
 
     // Create user event channel
-    let (user_event_tx, user_event_rx) = channel();
+    let (user_event_tx, user_event_rx) = MainContext::channel(Priority::default());
 
     // Create event loop itself.
     let event_loop = Self {
@@ -208,12 +202,15 @@ impl<T: 'static> EventLoop<T> {
 
     // Acquire the main context and set it as the current thread-default
     // Local futures must be spawned on the thread owning the main context
+    let user_event_rx = self.user_event_rx;
+    let window_target = self.window_target;
     let context = MainContext::default();
     context.push_thread_default();
     let keep_running = Rc::new(RefCell::new(true));
+    // Inner events
     let keep_running_ = keep_running.clone();
     event_rx.attach(Some(&context), move |event| {
-      callback(event, &self.window_target, &mut control_flow);
+      callback(event, &window_target, &mut control_flow);
       match control_flow {
         ControlFlow::Exit => {
           keep_running_.replace(false);
@@ -223,6 +220,18 @@ impl<T: 'static> EventLoop<T> {
         // MainContext of Gtk will handle the future for us.
         // FIXME Maybe we should spawn to another thread and use GMutex/GCond?
         _ => glib::Continue(true),
+      }
+    });
+
+    // User events
+    let keep_running_ = keep_running.clone();
+    let tx_clone = event_tx.clone();
+    user_event_rx.attach(Some(&context), move |event| {
+      if *keep_running_.borrow() {
+        tx_clone.send(Event::UserEvent(event)).unwrap();
+        glib::Continue(true)
+      } else {
+        glib::Continue(false)
       }
     });
     context.pop_thread_default();
