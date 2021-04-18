@@ -47,6 +47,7 @@ impl InnerWebView {
     rpc_handler: Option<RpcHandler>,
     file_drop_handler: Option<FileDropHandler>,
     _user_data_path: Option<PathBuf>,
+    html: Option<String>,
   ) -> Result<Self> {
     // Function for rpc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
@@ -255,6 +256,10 @@ impl InnerWebView {
         } else {
           w.navigate(url.as_str());
         }
+      }
+
+      if let Some(html) = html {
+        w.navigate_to_string(html.as_str());
       }
 
       let view = window.ns_view() as id;

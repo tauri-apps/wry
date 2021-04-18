@@ -203,6 +203,12 @@ pub struct Attributes {
   ///
   /// The default is `None`.
   pub user_data_path: Option<PathBuf>,
+
+  /// A HTML String can be rendered with the webview window.
+  /// Use either this or load from a URL.
+  ///
+  /// The default is `None`.
+  pub html: Option<String>,
 }
 
 impl Attributes {
@@ -233,6 +239,7 @@ impl Attributes {
         url: self.url,
         initialization_scripts: self.initialization_scripts,
         user_data_path: self.user_data_path,
+        html: self.html,
       },
     )
   }
@@ -263,6 +270,7 @@ impl Default for Attributes {
       url: None,
       initialization_scripts: vec![],
       user_data_path: None,
+      html: None,
     }
   }
 }
@@ -293,4 +301,5 @@ pub(crate) struct InnerWebViewAttributes {
   pub url: Option<String>,
   pub initialization_scripts: Vec<String>,
   pub user_data_path: Option<PathBuf>,
+  pub html: Option<String>,
 }

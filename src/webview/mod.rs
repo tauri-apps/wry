@@ -117,6 +117,7 @@ pub struct WebViewBuilder {
   rpc_handler: Option<RpcHandler>,
   file_drop_handler: Option<FileDropHandler>,
   user_data_path: Option<PathBuf>,
+  html: Option<String>
 }
 
 impl WebViewBuilder {
@@ -142,6 +143,7 @@ impl WebViewBuilder {
       rpc_handler: None,
       file_drop_handler: None,
       user_data_path: None,
+      html: None,
     })
   }
 
@@ -250,6 +252,12 @@ impl WebViewBuilder {
     Ok(self)
   }
 
+  /// Load a HTML String without any sanity checks.
+  pub fn load_html(mut self, html: String) -> Result<Self> {
+    self.html = Some(html);
+    Ok(self)
+  } 
+
   /// Consume the builder and create the [`WebView`].
   pub fn build(self) -> Result<WebView> {
     let webview = InnerWebView::new(
@@ -261,6 +269,7 @@ impl WebViewBuilder {
       self.rpc_handler,
       self.file_drop_handler,
       self.user_data_path,
+      self.html,
     )?;
     Ok(WebView {
       window: self.window,
@@ -305,6 +314,7 @@ impl WebView {
       None,
       transparent,
       picky_vec,
+      None,
       None,
       None,
       None,

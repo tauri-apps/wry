@@ -468,6 +468,11 @@ fn _create_webview(
     None => webview,
   };
 
+  webview = match attributes.html {
+    Some(html) => webview.load_html(html)?,
+    None => webview,
+  };
+
   let webview = webview.build()?;
   Ok(webview)
 }
