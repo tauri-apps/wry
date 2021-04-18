@@ -4,17 +4,27 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use wry::{Application, Attributes, Result, RpcRequest, RpcResponse, WindowProxy};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MessageParameters {
   message: String,
 }
 
-fn main() -> Result<()> {
-  let mut app = Application::new()?;
+fn main() -> wry::Result<()> {
+  use wry::{
+    webview::WebViewBuilder,
+    window::{
+      event::{Event, WindowEvent},
+      event_loop::{ControlFlow, EventLoop},
+      window::WindowBuilder,
+    },
+    RpcRequest, RpcResponse,
+  };
 
-  let html = r#"
+  let event_loop = EventLoop::new();
+  let window = WindowBuilder::new().build(&event_loop).unwrap();
+
+  let url = r#"data:text/html,
 <script>
 let fullscreen = false;
 async function toggleFullScreen() {
@@ -34,20 +44,15 @@ async function getAsyncRpcResult() {
 <div id="rpc-result"></div>
 "#;
 
-  let attributes = Attributes {
-    url: Some(format!("data:text/html,{}", html)),
-    ..Default::default()
-  };
-
-  let handler = Box::new(|proxy: WindowProxy, mut req: RpcRequest| {
+  let handler = Box::new(|mut req: RpcRequest| {
     let mut response = None;
     if &req.method == "fullscreen" {
       if let Some(params) = req.params.take() {
         if let Some(mut args) = serde_json::from_value::<Vec<bool>>(params).ok() {
           if args.len() > 0 {
-            let flag = args.swap_remove(0);
+            let _flag = args.swap_remove(0);
             // NOTE: in the real world we need to reply with an error
-            let _ = proxy.set_fullscreen(flag);
+            // TODO let _ = window.set_fullscreen(flag);
           };
           response = Some(RpcResponse::new_result(req.id.take(), None));
         }
@@ -70,9 +75,21 @@ async function getAsyncRpcResult() {
 
     response
   });
+  let _webview = WebViewBuilder::new(window)
+    .unwrap()
+    .load_url(url)?
+    .set_rpc_handler(handler)
+    .build()?;
 
-  app.add_window_with_configs(attributes, Some(handler), vec![], None)?;
+  event_loop.run(move |event, _, control_flow| {
+    *control_flow = ControlFlow::Poll;
 
-  app.run();
-  Ok(())
+    match event {
+      Event::WindowEvent {
+        event: WindowEvent::CloseRequested,
+        ..
+      } => *control_flow = ControlFlow::Exit,
+      _ => (),
+    }
+  });
 }
