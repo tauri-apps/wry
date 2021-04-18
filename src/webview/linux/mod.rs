@@ -36,6 +36,7 @@ impl InnerWebView {
     rpc_handler: Option<RpcHandler>,
     file_drop_handler: Option<FileDropHandler>,
     _user_data_path: Option<PathBuf>,
+    html: Option<String>
   ) -> Result<Self> {
     // Webview widget
     let manager = UserContentManager::new();
@@ -152,6 +153,10 @@ impl InnerWebView {
     // Navigation
     if let Some(url) = url {
       w.webview.load_uri(url.as_str());
+    }
+
+    if let Some(html) = html {
+      w.webview.load_html(html.as_str(), None);
     }
 
     Ok(w)

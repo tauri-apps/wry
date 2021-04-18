@@ -468,6 +468,11 @@ fn _create_webview(
     None => webview,
   };
 
+  webview = match attributes.html {
+    Some(html) => webview.load_html(html)?,
+    None => webview,
+  };
+
   for protocol in custom_protocols {
     webview = webview.register_protocol(protocol.name, protocol.handler);
   }
