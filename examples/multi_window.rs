@@ -51,7 +51,7 @@ fn main() -> wry::Result<()> {
 
   let instant = Instant::now();
   let eight_secs = Duration::from_secs(8);
-  let mut sent = true;
+  let mut new_webview = None;
   event_loop.run(move |event, event_loop, control_flow| {
     *control_flow = ControlFlow::Poll;
 
@@ -61,15 +61,18 @@ fn main() -> wry::Result<()> {
         .with_inner_size(PhysicalSize::new(426, 197))
         .build(&event_loop)
         .unwrap();
-      let _new_webview = WebViewBuilder::new(new_window)
-        .unwrap()
-        .load_url(&url)
-        .unwrap()
-        .build()
-        .unwrap();
-    } else if instant.elapsed() >= eight_secs && sent {
-      webview.dispatch_script("openWindow()").unwrap();
-      sent = false;
+      new_webview = Some(
+        WebViewBuilder::new(new_window)
+          .unwrap()
+          .load_url(&url)
+          .unwrap()
+          .build()
+          .unwrap(),
+      );
+    } else if let None = new_webview {
+      if instant.elapsed() >= eight_secs {
+        webview.dispatch_script("openWindow()").unwrap();
+      }
     }
 
     match event {
