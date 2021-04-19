@@ -92,8 +92,6 @@ pub use file_drop::FileDropEvent;
 pub(crate) use webview::FileDropHandler;
 #[cfg(feature = "file-drop")]
 pub use webview::FileDropHandler;
-pub(crate) use webview::RpcHandler;
-pub use webview::{RpcRequest, RpcResponse};
 
 #[cfg(target_os = "linux")]
 pub mod application;

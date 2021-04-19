@@ -27,7 +27,7 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
   let (window_tx, window_rx) = std::sync::mpsc::channel::<String>();
-  let handler = Box::new(move |req: RpcRequest| {
+  let handler = move |req: RpcRequest| {
     if &req.method == "openWindow" {
       if let Some(params) = req.params {
         if let Value::String(url) = &params[0] {
@@ -36,7 +36,7 @@ fn main() -> wry::Result<()> {
       }
     }
     None
-  });
+  };
 
   let mut webview = WebViewBuilder::new(window)
     .unwrap()

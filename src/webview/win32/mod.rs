@@ -4,7 +4,7 @@
 
 mod file_drop;
 
-use crate::{webview::mimetype::MimeType, FileDropHandler, Result, RpcHandler};
+use crate::{webview::{mimetype::MimeType, RpcRequest, RpcResponse}, FileDropHandler, Result};
 
 use file_drop::FileDropController;
 
@@ -32,9 +32,9 @@ impl InnerWebView {
     url: Option<Url>,
     // TODO default background color option just adds to webview2 recently and it requires
     // canary build. Implement this once it's in official release.
-    transparent: bool,
+    _transparent: bool,
     custom_protocols: Vec<(String, F)>,
-    rpc_handler: Option<RpcHandler>,
+    rpc_handler: Option<impl Fn(RpcRequest) -> Option<RpcResponse> + 'static>,
     file_drop_handler: Option<FileDropHandler>,
     user_data_path: Option<PathBuf>,
   ) -> Result<Self> {

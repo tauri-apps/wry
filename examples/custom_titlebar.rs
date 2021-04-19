@@ -50,7 +50,7 @@ fn main() -> wry::Result<()> {
         </script>
       "#;
 
-  let handler = Box::new(|mut _req: RpcRequest| {
+  let handler = |mut _req: RpcRequest| {
     /* TODO window setter
     if req.method == "minimize" {
       proxy.minimize().unwrap();
@@ -67,7 +67,7 @@ fn main() -> wry::Result<()> {
     }
     */
     None
-  });
+  };
   let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url(url)?
