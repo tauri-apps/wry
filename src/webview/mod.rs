@@ -58,7 +58,10 @@ use winit::platform::windows::WindowExtWindows;
 pub type FileDropHandler = Box<dyn Fn(FileDropEvent) -> bool + Send>;
 
 // Helper so all platforms handle RPC messages consistently.
-fn rpc_proxy(js: String, handler: impl Fn(RpcRequest) -> Option<RpcResponse>) -> Result<Option<String>> {
+fn rpc_proxy(
+  js: String,
+  handler: impl Fn(RpcRequest) -> Option<RpcResponse>,
+) -> Result<Option<String>> {
   let req = serde_json::from_str::<RpcRequest>(&js)
     .map_err(|e| Error::RpcScriptError(e.to_string(), js))?;
 
@@ -178,7 +181,7 @@ impl WebViewBuilder {
   /// Both functions return promises but `notify()` resolves immediately.
   pub fn with_rpc_handler<F>(mut self, handler: F) -> Self
   where
-    F: Fn(RpcRequest) -> Option<RpcResponse> + 'static
+    F: Fn(RpcRequest) -> Option<RpcResponse> + 'static,
   {
     let js = r#"
             (function() {

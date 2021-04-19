@@ -19,8 +19,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
     },
-    webview::WebViewBuilder,
-    RpcRequest,
+    webview::{RpcRequest, WebViewBuilder},
   };
 
   let event_loop = EventLoop::new();
