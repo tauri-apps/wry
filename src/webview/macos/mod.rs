@@ -38,12 +38,12 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
+  pub fn new(
     window: &Window,
     scripts: Vec<String>,
     url: Option<Url>,
     transparent: bool,
-    custom_protocols: Vec<(String, F)>,
+    custom_protocols: Vec<(String, Box<dyn Fn(&str) -> Result<Vec<u8>> + 'static>)>,
     rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse>>>,
     file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
     _user_data_path: Option<PathBuf>,

@@ -118,7 +118,7 @@ use winapi::{
 #[repr(C)]
 struct IDropTargetData {
   pub interface: NativeIDropTarget,
-  listener: Rc<FileDropHandler>,
+  listener: Rc<Box<dyn Fn(FileDropEvent) -> bool>>,
   refcount: AtomicUsize,
   window: HWND,
   cursor_effect: DWORD,
@@ -132,7 +132,7 @@ pub struct IDropTarget {
 
 #[allow(non_snake_case)]
 impl IDropTarget {
-  fn new(window: HWND, listener: Rc<FileDropHandler>) -> IDropTarget {
+  fn new(window: HWND, listener: Rc<Box<dyn Fn(FileDropEvent) -> bool>>) -> IDropTarget {
     let data = Box::new(IDropTargetData {
       listener,
       interface: NativeIDropTarget {
