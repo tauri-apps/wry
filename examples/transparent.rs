@@ -21,7 +21,7 @@ fn main() -> wry::Result<()> {
 
   let _webview = WebViewBuilder::new(window)?
     .transparent(true)
-    .load_url(
+    .with_url(
       r#"data:text/html,
             <!doctype html>
             <html>

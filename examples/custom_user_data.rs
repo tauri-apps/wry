@@ -30,7 +30,7 @@ fn main() -> wry::Result<()> {
     .unwrap();
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .load_url("https://tauri.studio")?
+    .with_url("https://tauri.studio")?
     .user_data_path(Some(test_path))
     .build()?;
 

@@ -70,10 +70,10 @@ fn main() -> wry::Result<()> {
   });
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .load_url(url)?
-    .set_rpc_handler(handler)
+    .with_url(url)?
+    .with_rpc_handler(handler)
     // inject the css after 500ms, otherwise it won't work as the `head` element isn't created yet.
-    .initialize_script(
+    .with_initialization_script(
       r#"
         setTimeout(() => {
           const style = document.createElement('style');

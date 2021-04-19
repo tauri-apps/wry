@@ -40,13 +40,13 @@ fn main() -> wry::Result<()> {
 
   let mut webview = WebViewBuilder::new(window)
     .unwrap()
-    .load_url("https://tauri.studio")?
-    .initialize_script(
+    .with_url("https://tauri.studio")?
+    .with_initialization_script(
       r#"async function openWindow() {
                 await window.rpc.notify("openWindow", "https://i.imgur.com/x6tXcr9.gif");
             }"#,
     )
-    .set_rpc_handler(handler)
+    .with_rpc_handler(handler)
     .build()?;
 
   let instant = Instant::now();
@@ -64,7 +64,7 @@ fn main() -> wry::Result<()> {
       new_webview = Some(
         WebViewBuilder::new(new_window)
           .unwrap()
-          .load_url(&url)
+          .with_url(&url)
           .unwrap()
           .build()
           .unwrap(),

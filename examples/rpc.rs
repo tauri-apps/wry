@@ -77,8 +77,8 @@ async function getAsyncRpcResult() {
   });
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .load_url(url)?
-    .set_rpc_handler(handler)
+    .with_url(url)?
+    .with_rpc_handler(handler)
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {
