@@ -12,7 +12,7 @@ use windows_webview2::Windows::Win32::{
   WindowsAndMessaging::{self, HWND, LPARAM},
 };
 
-use crate::{FileDropEvent, FileDropHandler};
+use crate::webview::FileDropEvent;
 
 // A silly implementation of file drop handling for Windows!
 // This can be pretty much entirely replaced when WebView2 SDK 1.0.721-prerelease becomes stable.
@@ -52,14 +52,14 @@ impl FileDropController {
     }
   }
 
-  pub(crate) fn listen(&mut self, hwnd: HWND, handler: FileDropHandler) {
+  pub(crate) fn listen(&mut self, hwnd: HWND, handler: Box<dyn Fn(FileDropEvent) -> bool>) {
     let listener = Rc::new(handler);
 
     // Enumerate child windows to find the WebView2 "window" and override!
     enumerate_child_windows(hwnd, |hwnd| self.inject(hwnd, listener.clone()));
   }
 
-  fn inject(&mut self, hwnd: HWND, listener: Rc<FileDropHandler>) -> bool {
+  fn inject(&mut self, hwnd: HWND, listener: Rc<Box<dyn Fn(FileDropEvent) -> bool>>) -> bool {
     // Safety: Win32 calls are unsafe
     unsafe {
       if com::RevokeDragDrop(hwnd).0 != SystemServices::DRAGDROP_E_INVALIDHWND.0 {
@@ -114,7 +114,7 @@ unsafe fn from_abi<I: Interface>(this: windows::RawPtr) -> windows::Result<I> {
 #[repr(C)]
 struct DropTarget {
   vtable: *const IDropTarget_vtable,
-  listener: Rc<FileDropHandler>,
+  listener: Rc<Box<dyn Fn(FileDropEvent) -> bool>>,
   refcount: AtomicU32,
   window: HWND,
   cursor_effect: u32,
@@ -123,7 +123,7 @@ struct DropTarget {
 
 #[allow(non_snake_case)]
 impl DropTarget {
-  fn new(window: HWND, listener: Rc<FileDropHandler>) -> DropTarget {
+  fn new(window: HWND, listener: Rc<Box<dyn Fn(FileDropEvent) -> bool>>) -> DropTarget {
     DropTarget {
       vtable: &DROP_TARGET_VTBL,
       listener,

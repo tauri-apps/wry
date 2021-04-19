@@ -14,7 +14,7 @@ use objc::{
 };
 use once_cell::sync::Lazy;
 
-use crate::{webview::FileDropHandler, FileDropEvent};
+use crate::webview::FileDropEvent;
 
 pub(crate) type NSDragOperation = cocoa::foundation::NSUInteger;
 #[allow(non_upper_case_globals)]
@@ -52,14 +52,17 @@ static OBJC_DRAGGING_UPDATED: Lazy<extern "C" fn(*const Object, Sel, id) -> NSDr
   });
 
 // Safety: objc runtime calls are unsafe
-pub(crate) unsafe fn set_file_drop_handler(webview: *mut Object, handler: FileDropHandler) {
+pub(crate) unsafe fn set_file_drop_handler(
+  webview: *mut Object,
+  handler: Box<dyn Fn(FileDropEvent) -> bool>,
+) {
   let listener = Box::into_raw(Box::new(handler));
   (*webview).set_ivar("FileDropHandler", listener as *mut _ as *mut c_void);
 }
 
-unsafe fn get_handler(this: &Object) -> &mut FileDropHandler {
+unsafe fn get_handler(this: &Object) -> &mut Box<dyn Fn(FileDropEvent) -> bool> {
   let delegate: *mut c_void = *this.get_ivar("FileDropHandler");
-  &mut *(delegate as *mut FileDropHandler)
+  &mut *(delegate as *mut Box<dyn Fn(FileDropEvent) -> bool>)
 }
 
 unsafe fn collect_paths(drag_info: id) -> Vec<PathBuf> {

@@ -17,8 +17,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
     },
-    webview::WebViewBuilder,
-    RpcRequest, RpcResponse,
+    webview::{RpcRequest, RpcResponse, WebViewBuilder},
   };
 
   let event_loop = EventLoop::new();
@@ -44,7 +43,7 @@ async function getAsyncRpcResult() {
 <div id="rpc-result"></div>
 "#;
 
-  let handler = Box::new(|mut req: RpcRequest| {
+  let handler = |mut req: RpcRequest| {
     let mut response = None;
     if &req.method == "fullscreen" {
       if let Some(params) = req.params.take() {
@@ -74,7 +73,7 @@ async function getAsyncRpcResult() {
     }
 
     response
-  });
+  };
   let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url(url)?

@@ -9,8 +9,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
     },
-    webview::WebViewBuilder,
-    RpcRequest,
+    webview::{RpcRequest, WebViewBuilder},
   };
 
   let event_loop = EventLoop::new();
@@ -50,7 +49,7 @@ fn main() -> wry::Result<()> {
         </script>
       "#;
 
-  let handler = Box::new(|mut _req: RpcRequest| {
+  let handler = |mut _req: RpcRequest| {
     /* TODO window setter
     if req.method == "minimize" {
       proxy.minimize().unwrap();
@@ -67,7 +66,7 @@ fn main() -> wry::Result<()> {
     }
     */
     None
-  });
+  };
   let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url(url)?

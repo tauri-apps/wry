@@ -26,8 +26,8 @@ use winit::{platform::macos::WindowExtMacOS, window::Window};
 use file_drop::{add_file_drop_methods, set_file_drop_handler};
 
 use crate::{
-  webview::{mimetype::MimeType, FileDropHandler},
-  Result, RpcHandler,
+  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  Result,
 };
 
 mod file_drop;
@@ -38,14 +38,14 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
+  pub fn new(
     window: &Window,
     scripts: Vec<String>,
     url: Option<Url>,
     transparent: bool,
-    custom_protocols: Vec<(String, F)>,
-    rpc_handler: Option<RpcHandler>,
-    file_drop_handler: Option<FileDropHandler>,
+    custom_protocols: Vec<(String, Box<dyn Fn(&str) -> Result<Vec<u8>> + 'static>)>,
+    rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse>>>,
+    file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
     _user_data_path: Option<PathBuf>,
   ) -> Result<Self> {
     // Function for rpc handler
@@ -53,7 +53,8 @@ impl InnerWebView {
       // Safety: objc runtime calls are unsafe
       unsafe {
         let function = this.get_ivar::<*mut c_void>("function");
-        let function: &mut RpcHandler = std::mem::transmute(*function);
+        let function: &mut Box<dyn Fn(RpcRequest) -> Option<RpcResponse>> =
+          std::mem::transmute(*function);
         let body: id = msg_send![msg, body];
         let utf8: *const c_char = msg_send![body, UTF8String];
         let js = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
@@ -190,7 +191,7 @@ impl InnerWebView {
           None => class!(WebViewDelegate),
         };
         let handler: id = msg_send![cls, new];
-        let function: Box<RpcHandler> = Box::new(rpc_handler);
+        let function = Box::new(rpc_handler);
 
         (*handler).set_ivar("function", Box::into_raw(function) as *mut _ as *mut c_void);
         let external = NSString::new("external");

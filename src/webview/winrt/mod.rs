@@ -16,7 +16,10 @@ use windows_webview2::{
   },
 };
 
-use crate::{webview::mimetype::MimeType, FileDropHandler, Result, RpcHandler};
+use crate::{
+  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  Result,
+};
 
 use file_drop::FileDropController;
 
@@ -46,16 +49,16 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
+  pub fn new(
     window: &Window,
     scripts: Vec<String>,
     url: Option<Url>,
     // TODO default background color option just adds to webview2 recently and it requires
     // canary build. Implement this once it's in official release.
     #[allow(unused_variables)] transparent: bool,
-    custom_protocols: Vec<(String, F)>,
-    rpc_handler: Option<RpcHandler>,
-    file_drop_handler: Option<FileDropHandler>,
+    custom_protocols: Vec<(String, Box<dyn Fn(&str) -> Result<Vec<u8>> + 'static>)>,
+    rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse>>>,
+    file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
     user_data_path: Option<PathBuf>,
   ) -> Result<Self> {
     let hwnd = HWND(window.hwnd() as _);

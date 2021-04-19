@@ -17,8 +17,8 @@ use webkit2gtk::{
 
 use crate::{
   application::window::Window,
-  webview::{mimetype::MimeType, FileDropHandler},
-  Error, Result, RpcHandler,
+  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  Error, Result,
 };
 
 mod file_drop;
@@ -28,14 +28,14 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new<F: 'static + Fn(&str) -> Result<Vec<u8>>>(
+  pub fn new(
     window: &Window,
     scripts: Vec<String>,
     url: Option<Url>,
     transparent: bool,
-    custom_protocols: Vec<(String, F)>,
-    rpc_handler: Option<RpcHandler>,
-    file_drop_handler: Option<FileDropHandler>,
+    custom_protocols: Vec<(String, Box<dyn Fn(&str) -> Result<Vec<u8>> + 'static>)>,
+    rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse>>>,
+    file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
     _user_data_path: Option<PathBuf>,
   ) -> Result<Self> {
     let window = &window.window;

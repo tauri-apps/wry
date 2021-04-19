@@ -27,7 +27,7 @@ mod win32;
 #[cfg(feature = "win32")]
 use win32::*;
 
-use crate::{Error, FileDropEvent, Result};
+use crate::{Error, Result};
 
 use std::{
   path::PathBuf,
@@ -44,35 +44,11 @@ use windows_webview2::Windows::Win32::WindowsAndMessaging::HWND;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
 
-/// The RPC handler to Communicate between the host Rust code and Javascript on webview.
-///
-/// The communication is done via [JSON-RPC](https://www.jsonrpc.org). This is the handler for lower
-/// level webview creation. For higher application level, please see [`WindowRpcHandler`](crate::WindowRpcHandler).
-/// Users can pass a `RpcHandler` to [`WebViewBuilder::set_rpc_handler`] to register an incoming
-/// request handler and reply with responses that are passed back to Javascript. On the Javascript
-/// side the client is exposed via `window.rpc` with two public methods:
-///
-/// 1. The `call()` function accepts a method name and parameters and expects a reply.
-/// 2. The `notify()` function accepts a method name and parameters but does not expect a reply.
-///
-/// Both functions return promises but `notify()` resolves immediately.
-pub type RpcHandler = Box<dyn Fn(RpcRequest) -> Option<RpcResponse> + Send>;
-
-/// A listener closure to process incoming [`FileDropEvent`] of the webview.
-///
-/// This is the handler for lower level webview creation. For higher application level, please see
-/// [`WindowFileDropHandler`](create::WindowFileDropHandler). Users can pass a `FileDropHandler` to
-/// [`WebViewBuilder::set_file_drop_handler`] to register an incoming file drop event to a closure.
-///
-/// # Blocking OS Default Behavior
-/// Return `true` in the callback to block the OS' default behavior of handling a file drop.
-///
-/// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
-/// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
-pub type FileDropHandler = Box<dyn Fn(FileDropEvent) -> bool + Send>;
-
 // Helper so all platforms handle RPC messages consistently.
-fn rpc_proxy(js: String, handler: &RpcHandler) -> Result<Option<String>> {
+fn rpc_proxy(
+  js: String,
+  handler: &dyn Fn(RpcRequest) -> Option<RpcResponse>,
+) -> Result<Option<String>> {
   let req = serde_json::from_str::<RpcRequest>(&js)
     .map_err(|e| Error::RpcScriptError(e.to_string(), js))?;
 
@@ -111,8 +87,8 @@ pub struct WebViewBuilder {
   window: Window,
   url: Option<Url>,
   custom_protocols: Vec<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
-  rpc_handler: Option<RpcHandler>,
-  file_drop_handler: Option<FileDropHandler>,
+  rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse>>>,
+  file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
   user_data_path: Option<PathBuf>,
 }
 
@@ -180,8 +156,20 @@ impl WebViewBuilder {
     self
   }
 
-  /// Set the RPC handler.
-  pub fn with_rpc_handler(mut self, handler: RpcHandler) -> Self {
+  /// Set the RPC handler to Communicate between the host Rust code and Javascript on webview.
+  ///
+  /// The communication is done via [JSON-RPC](https://www.jsonrpc.org). Users can use this to register an incoming
+  /// request handler and reply with responses that are passed back to Javascript. On the Javascript
+  /// side the client is exposed via `window.rpc` with two public methods:
+  ///
+  /// 1. The `call()` function accepts a method name and parameters and expects a reply.
+  /// 2. The `notify()` function accepts a method name and parameters but does not expect a reply.
+  ///
+  /// Both functions return promises but `notify()` resolves immediately.
+  pub fn with_rpc_handler<F>(mut self, handler: F) -> Self
+  where
+    F: Fn(RpcRequest) -> Option<RpcResponse> + 'static,
+  {
     let js = r#"
             (function() {
                 function Rpc() {
@@ -231,12 +219,23 @@ impl WebViewBuilder {
             "#;
 
     self.initialization_scripts.push(js.to_string());
-    self.rpc_handler = Some(handler);
+    self.rpc_handler = Some(Box::new(handler));
     self
   }
 
-  pub fn with_file_drop_handler(mut self, handler: FileDropHandler) -> Self {
-    self.file_drop_handler = Some(handler);
+  /// Set a handler closure to process incoming [`FileDropEvent`] of the webview.
+  ///
+  /// # Blocking OS Default Behavior
+  /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
+  ///
+  /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
+  /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
+  #[cfg(feature = "file-drop")]
+  pub fn with_file_drop_handler<F>(mut self, handler: F) -> Self
+  where
+    F: Fn(FileDropEvent) -> bool + 'static,
+  {
+    self.file_drop_handler = Some(Box::new(handler));
     self
   }
 
@@ -286,36 +285,9 @@ impl WebView {
   /// abilities to initialize scripts, add rpc handler, and many more before starting WebView. To
   /// benefit from above features, create a [`WebViewBuilder`] instead.
   pub fn new(window: Window) -> Result<Self> {
-    Self::new_with_configs(window, false)
+    WebViewBuilder::new(window)?.build()
   }
 
-  /// Create a [`WebView`] from provided [`Window`] along with several configurations.
-  /// Note that calling this directly loses abilities to initialize scripts, add rpc handler, and
-  /// many more before starting WebView. To benefit from above features, create a
-  /// [`WebViewBuilder`] instead.
-  pub fn new_with_configs(window: Window, transparent: bool) -> Result<Self> {
-    let picky_vec: Vec<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)> = Vec::new();
-
-    let webview = InnerWebView::new(
-      &window,
-      vec![],
-      None,
-      transparent,
-      picky_vec,
-      None,
-      None,
-      None,
-    )?;
-
-    let (tx, rx) = channel();
-
-    Ok(Self {
-      window,
-      webview,
-      tx,
-      rx,
-    })
-  }
   /// Dispatch javascript code to be evaluated later. Note this will not actually run the
   /// scripts being dispatched. Users need to call [`WebView::evaluate_script`] to execute them.
   pub fn dispatch_script(&mut self, js: &str) -> Result<()> {
@@ -437,4 +409,15 @@ impl RpcResponse {
       retval
     ))
   }
+}
+
+/// An event enumeration sent to [`FileDropHandler`].
+#[derive(Debug, Serialize, Clone)]
+pub enum FileDropEvent {
+  /// The file(s) have been dragged onto the window, but have not been dropped yet.
+  Hovered(Vec<PathBuf>),
+  /// The file(s) have been dropped onto the window.
+  Dropped(Vec<PathBuf>),
+  /// The file drop was aborted.
+  Cancelled,
 }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use crate::{FileDropEvent, FileDropHandler};
+use crate::webview::FileDropEvent;
 
 // A silly implementation of file drop handling for Windows!
 // This can be pretty much entirely replaced when WebView2 SDK 1.0.721-prerelease becomes stable.
@@ -41,14 +41,14 @@ impl FileDropController {
     }
   }
 
-  pub(crate) fn listen(&mut self, hwnd: HWND, handler: FileDropHandler) {
+  pub(crate) fn listen(&mut self, hwnd: HWND, handler: Box<dyn Fn(FileDropEvent) -> bool>) {
     let listener = Rc::new(handler);
 
     // Enumerate child windows to find the WebView2 "window" and override!
     enumerate_child_windows(hwnd, |hwnd| self.inject(hwnd, listener.clone()));
   }
 
-  fn inject(&mut self, hwnd: HWND, listener: Rc<FileDropHandler>) -> bool {
+  fn inject(&mut self, hwnd: HWND, listener: Rc<Box<dyn Fn(FileDropEvent) -> bool>>) -> bool {
     // Safety: WinAPI calls are unsafe
     unsafe {
       let file_drop_handler = IDropTarget::new(hwnd, listener);
@@ -118,7 +118,7 @@ use winapi::{
 #[repr(C)]
 struct IDropTargetData {
   pub interface: NativeIDropTarget,
-  listener: Rc<FileDropHandler>,
+  listener: Rc<Box<dyn Fn(FileDropEvent) -> bool>>,
   refcount: AtomicUsize,
   window: HWND,
   cursor_effect: DWORD,
@@ -132,7 +132,7 @@ pub struct IDropTarget {
 
 #[allow(non_snake_case)]
 impl IDropTarget {
-  fn new(window: HWND, listener: Rc<FileDropHandler>) -> IDropTarget {
+  fn new(window: HWND, listener: Rc<Box<dyn Fn(FileDropEvent) -> bool>>) -> IDropTarget {
     let data = Box::new(IDropTargetData {
       listener,
       interface: NativeIDropTarget {
