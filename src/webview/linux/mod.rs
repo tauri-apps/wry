@@ -36,7 +36,7 @@ impl InnerWebView {
     rpc_handler: Option<RpcHandler>,
     file_drop_handler: Option<FileDropHandler>,
     _user_data_path: Option<PathBuf>,
-    html: Option<String>
+    html: Option<String>,
   ) -> Result<Self> {
     // Webview widget
     let manager = UserContentManager::new();

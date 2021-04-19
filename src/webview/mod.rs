@@ -117,7 +117,7 @@ pub struct WebViewBuilder {
   rpc_handler: Option<RpcHandler>,
   file_drop_handler: Option<FileDropHandler>,
   user_data_path: Option<PathBuf>,
-  html: Option<String>
+  html: Option<String>,
 }
 
 impl WebViewBuilder {
@@ -256,7 +256,7 @@ impl WebViewBuilder {
   pub fn load_html(mut self, html: String) -> Result<Self> {
     self.html = Some(html);
     Ok(self)
-  } 
+  }
 
   /// Consume the builder and create the [`WebView`].
   pub fn build(self) -> Result<WebView> {
