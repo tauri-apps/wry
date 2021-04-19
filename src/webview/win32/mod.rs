@@ -37,6 +37,7 @@ impl InnerWebView {
     rpc_handler: Option<RpcHandler>,
     file_drop_handler: Option<FileDropHandler>,
     user_data_path: Option<PathBuf>,
+    html: Option<String>,
   ) -> Result<Self> {
     let hwnd = window.hwnd() as HWND;
 
@@ -177,6 +178,10 @@ impl InnerWebView {
             }
             w.navigate(&url_string)?;
           }
+        }
+
+        if let Some(html) = html {
+          w.navigate_to_string(html.as_str())?;
         }
 
         controller.put_is_visible(true)?;
