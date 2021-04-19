@@ -13,13 +13,13 @@ struct MessageParameters {
 
 fn main() -> wry::Result<()> {
   use wry::{
-    webview::WebViewBuilder,
-    window::{
+    application::{
       dpi::PhysicalSize,
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
     },
+    webview::WebViewBuilder,
     RpcRequest,
   };
 

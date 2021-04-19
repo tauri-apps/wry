@@ -84,20 +84,10 @@ use url::ParseError;
 #[cfg(not(target_os = "linux"))]
 use winit::window::BadIcon;
 
-/*
-#[cfg(feature = "protocol")]
-pub use application::CustomProtocol;
-#[cfg(not(feature = "protocol"))]
-pub(crate) use application::CustomProtocol;
-pub use application::{
-  Application, ApplicationProxy, Attributes, Event, Icon, Message, WindowEvent, WindowId,
-  WindowMessage, WindowProxy, WindowRpcHandler,
-};
-*/
 #[cfg(not(feature = "file-drop"))]
 pub(crate) use file_drop::FileDropEvent;
 #[cfg(feature = "file-drop")]
-pub use file_drop::FileDropEvent; //, WindowFileDropHandler};
+pub use file_drop::FileDropEvent;
 #[cfg(not(feature = "file-drop"))]
 pub(crate) use webview::FileDropHandler;
 #[cfg(feature = "file-drop")]
@@ -105,13 +95,12 @@ pub use webview::FileDropHandler;
 pub(crate) use webview::RpcHandler;
 pub use webview::{RpcRequest, RpcResponse};
 
-//mod application;
+#[cfg(target_os = "linux")]
+pub mod application;
 mod file_drop;
 pub mod webview;
-#[cfg(target_os = "linux")]
-pub mod window;
 #[cfg(not(target_os = "linux"))]
-pub use winit as window;
+pub use winit as application;
 
 /// Convenient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;

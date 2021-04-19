@@ -6,12 +6,12 @@ use std::{fs, path::PathBuf};
 
 fn main() -> wry::Result<()> {
   use wry::{
-    webview::WebViewBuilder,
-    window::{
+    application::{
       event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
     },
+    webview::WebViewBuilder,
   };
 
   // Use a sample directory at the root of the project

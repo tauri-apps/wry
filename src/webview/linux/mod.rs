@@ -16,8 +16,8 @@ use webkit2gtk::{
 };
 
 use crate::{
+  application::window::Window,
   webview::{mimetype::MimeType, FileDropHandler},
-  window::window::Window,
   Error, Result, RpcHandler,
 };
 

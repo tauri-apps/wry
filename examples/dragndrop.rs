@@ -10,12 +10,12 @@ Dropping files onto the following form is also possible:<br><br>
 
 fn main() -> wry::Result<()> {
   use wry::{
-    webview::WebViewBuilder,
-    window::{
+    application::{
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
     },
+    webview::WebViewBuilder,
   };
 
   let event_loop = EventLoop::new();

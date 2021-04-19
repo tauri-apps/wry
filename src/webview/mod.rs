@@ -37,7 +37,7 @@ use std::{
 use serde_json::Value;
 use url::Url;
 
-use crate::window::window::Window;
+use crate::application::window::Window;
 #[cfg(target_os = "windows")]
 #[cfg(feature = "winrt")]
 use windows_webview2::Windows::Win32::WindowsAndMessaging::HWND;
