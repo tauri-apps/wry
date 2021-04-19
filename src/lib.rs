@@ -84,18 +84,8 @@ use url::ParseError;
 #[cfg(not(target_os = "linux"))]
 use winit::window::BadIcon;
 
-#[cfg(not(feature = "file-drop"))]
-pub(crate) use file_drop::FileDropEvent;
-#[cfg(feature = "file-drop")]
-pub use file_drop::FileDropEvent;
-#[cfg(not(feature = "file-drop"))]
-pub(crate) use webview::FileDropHandler;
-#[cfg(feature = "file-drop")]
-pub use webview::FileDropHandler;
-
 #[cfg(target_os = "linux")]
 pub mod application;
-mod file_drop;
 pub mod webview;
 #[cfg(not(target_os = "linux"))]
 pub use winit as application;

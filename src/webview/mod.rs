@@ -27,7 +27,7 @@ mod win32;
 #[cfg(feature = "win32")]
 use win32::*;
 
-use crate::{Error, FileDropEvent, Result};
+use crate::{Error, Result};
 
 use std::{
   path::PathBuf,
@@ -236,6 +236,7 @@ impl WebViewBuilder {
     self
   }
 
+  #[cfg(feature = "file-drop")]
   pub fn with_file_drop_handler(mut self, handler: FileDropHandler) -> Self {
     self.file_drop_handler = Some(handler);
     self
@@ -411,4 +412,15 @@ impl RpcResponse {
       retval
     ))
   }
+}
+
+/// An event enumeration sent to [`FileDropHandler`].
+#[derive(Debug, Serialize, Clone)]
+pub enum FileDropEvent {
+  /// The file(s) have been dragged onto the window, but have not been dropped yet.
+  Hovered(Vec<PathBuf>),
+  /// The file(s) have been dropped onto the window.
+  Dropped(Vec<PathBuf>),
+  /// The file drop was aborted.
+  Cancelled,
 }

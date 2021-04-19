@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use crate::{FileDropEvent, FileDropHandler};
+use crate::webview::{FileDropEvent, FileDropHandler};
 
 // A silly implementation of file drop handling for Windows!
 // This can be pretty much entirely replaced when WebView2 SDK 1.0.721-prerelease becomes stable.
