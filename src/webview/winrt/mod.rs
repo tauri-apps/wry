@@ -17,7 +17,7 @@ use windows_webview2::{
 };
 
 use crate::{
-  webview::{mimetype::MimeType, RpcRequest, RpcResponse, FileDropEvent},
+  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
   Result,
 };
 
