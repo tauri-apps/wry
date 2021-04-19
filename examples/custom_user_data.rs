@@ -3,10 +3,16 @@
 // SPDX-License-Identifier: MIT
 
 use std::{fs, path::PathBuf};
-use wry::{Application, Attributes, Result};
 
-fn main() -> Result<()> {
-  let mut app = Application::new()?;
+fn main() -> wry::Result<()> {
+  use wry::{
+    application::{
+      event::{Event, StartCause, WindowEvent},
+      event_loop::{ControlFlow, EventLoop},
+      window::WindowBuilder,
+    },
+    webview::WebViewBuilder,
+  };
 
   // Use a sample directory at the root of the project
   let mut test_path = PathBuf::from("./target/webview_data");
@@ -17,15 +23,27 @@ fn main() -> Result<()> {
   // The directory need to exist or the Webview will panic
   println!("Webview storage path: {:#?}", &test_path);
 
-  let attributes = Attributes {
-    url: Some("https://tauri.studio/".to_string()),
-    title: String::from("Hello World!"),
-    // Currently supported only on Windows
-    user_data_path: Some(test_path),
-    ..Default::default()
-  };
+  let event_loop = EventLoop::new();
+  let window = WindowBuilder::new()
+    .with_title("Hello World")
+    .build(&event_loop)
+    .unwrap();
+  let _webview = WebViewBuilder::new(window)
+    .unwrap()
+    .with_url("https://tauri.studio")?
+    .user_data_path(Some(test_path))
+    .build()?;
 
-  app.add_window(attributes)?;
-  app.run();
-  Ok(())
+  event_loop.run(move |event, _, control_flow| {
+    *control_flow = ControlFlow::Poll;
+
+    match event {
+      Event::NewEvents(StartCause::Init) => println!("Wry application started!"),
+      Event::WindowEvent {
+        event: WindowEvent::CloseRequested,
+        ..
+      } => *control_flow = ControlFlow::Exit,
+      _ => (),
+    }
+  });
 }

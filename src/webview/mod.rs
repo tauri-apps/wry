@@ -37,15 +37,12 @@ use std::{
 use serde_json::Value;
 use url::Url;
 
-#[cfg(target_os = "linux")]
-use gtk::ApplicationWindow as Window;
+use crate::application::window::Window;
 #[cfg(target_os = "windows")]
 #[cfg(feature = "winrt")]
 use windows_webview2::Windows::Win32::WindowsAndMessaging::HWND;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
-#[cfg(not(target_os = "linux"))]
-use winit::window::Window;
 
 /// The RPC handler to Communicate between the host Rust code and Javascript on webview.
 ///
@@ -155,7 +152,7 @@ impl WebViewBuilder {
   /// Initialize javascript code when loading new pages. Everytime webview load a new page, this
   /// initialization code will be executed. It is guaranteed that code is executed before
   /// `window.onload`.
-  pub fn initialize_script(mut self, js: &str) -> Self {
+  pub fn with_initialization_script(mut self, js: &str) -> Self {
     self.initialization_scripts.push(js.to_string());
     self
   }
@@ -175,7 +172,7 @@ impl WebViewBuilder {
   }
 
   /// Register custom file loading protocol
-  pub fn register_protocol<F>(mut self, name: String, handler: F) -> Self
+  pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
     F: Fn(&str) -> Result<Vec<u8>> + 'static,
   {
@@ -184,7 +181,7 @@ impl WebViewBuilder {
   }
 
   /// Set the RPC handler.
-  pub fn set_rpc_handler(mut self, handler: RpcHandler) -> Self {
+  pub fn with_rpc_handler(mut self, handler: RpcHandler) -> Self {
     let js = r#"
             (function() {
                 function Rpc() {
@@ -238,14 +235,14 @@ impl WebViewBuilder {
     self
   }
 
-  pub fn set_file_drop_handler(mut self, handler: Option<FileDropHandler>) -> Self {
-    self.file_drop_handler = handler;
+  pub fn with_file_drop_handler(mut self, handler: FileDropHandler) -> Self {
+    self.file_drop_handler = Some(handler);
     self
   }
 
   /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the
   /// [`WebView`]. The provided URL must be valid.
-  pub fn load_url(mut self, url: &str) -> Result<Self> {
+  pub fn with_url(mut self, url: &str) -> Result<Self> {
     self.url = Some(Url::parse(url)?);
     Ok(self)
   }

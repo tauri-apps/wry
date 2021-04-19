@@ -2,15 +2,26 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use wry::{Application, Attributes, Result};
+fn main() -> wry::Result<()> {
+  use wry::{
+    application::{
+      event::{Event, WindowEvent},
+      event_loop::{ControlFlow, EventLoop},
+      window::WindowBuilder,
+    },
+    webview::WebViewBuilder,
+  };
 
-fn main() -> Result<()> {
-  let mut app = Application::new()?;
+  let event_loop = EventLoop::new();
+  let window = WindowBuilder::new()
+    .with_decorations(false)
+    .with_transparent(true)
+    .build(&event_loop)
+    .unwrap();
 
-  let attributes = Attributes {
-    decorations: false,
-    transparent: true,
-    url: Some(
+  let _webview = WebViewBuilder::new(window)?
+    .transparent(true)
+    .with_url(
       r#"data:text/html,
             <!doctype html>
             <html>
@@ -20,13 +31,19 @@ fn main() -> Result<()> {
                   document.body.innerText = `hello, ${navigator.userAgent}`;
                 };
               </script>
-            </html>"#
-        .to_string(),
-    ),
-    ..Default::default()
-  };
+            </html>"#,
+    )?
+    .build()?;
 
-  app.add_window(attributes)?;
-  app.run();
-  Ok(())
+  event_loop.run(move |event, _, control_flow| {
+    *control_flow = ControlFlow::Poll;
+
+    match event {
+      Event::WindowEvent {
+        event: WindowEvent::CloseRequested,
+        ..
+      } => *control_flow = ControlFlow::Exit,
+      _ => (),
+    }
+  });
 }
