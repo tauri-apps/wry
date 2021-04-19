@@ -34,7 +34,7 @@ impl InnerWebView {
     url: Option<Url>,
     transparent: bool,
     custom_protocols: Vec<(String, F)>,
-    rpc_handler: Option<impl Fn(RpcRequest) -> Option<RpcResponse> + 'static>,
+    rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse> + 'static>>,
     file_drop_handler: Option<FileDropHandler>,
     _user_data_path: Option<PathBuf>,
   ) -> Result<Self> {

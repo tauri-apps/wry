@@ -60,7 +60,7 @@ pub type FileDropHandler = Box<dyn Fn(FileDropEvent) -> bool + Send>;
 // Helper so all platforms handle RPC messages consistently.
 fn rpc_proxy(
   js: String,
-  handler: impl Fn(RpcRequest) -> Option<RpcResponse>,
+  handler: &dyn Fn(RpcRequest) -> Option<RpcResponse>,
 ) -> Result<Option<String>> {
   let req = serde_json::from_str::<RpcRequest>(&js)
     .map_err(|e| Error::RpcScriptError(e.to_string(), js))?;
