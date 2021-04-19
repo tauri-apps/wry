@@ -32,7 +32,7 @@ impl std::fmt::Display for MimeType {
       MimeType::JSONLD => "application/ld+json",
       MimeType::OCTETSTREAM => "application/octet-stream",
       MimeType::RTF => "application/rtf",
-      MimeType::SVG => "image/svg",
+      MimeType::SVG => "image/svg+xml",
     };
     write!(f, "{}", mime)
   }
