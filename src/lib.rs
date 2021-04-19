@@ -102,7 +102,7 @@ pub use file_drop::FileDropEvent; //, WindowFileDropHandler};
 pub(crate) use webview::FileDropHandler;
 #[cfg(feature = "file-drop")]
 pub use webview::FileDropHandler;
-pub(crate) use webview::{RpcHandler, WebView, WebViewBuilder};
+pub(crate) use webview::RpcHandler;
 pub use webview::{RpcRequest, RpcResponse};
 
 //mod application;

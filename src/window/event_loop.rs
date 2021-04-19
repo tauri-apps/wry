@@ -14,12 +14,18 @@
 //! [event_loop_proxy]: crate::event_loop::EventLoopProxy
 //! [send_event]: crate::event_loop::EventLoopProxy::send_event
 use std::{
-  cell::RefCell, collections::HashSet, error::Error, fmt, ops::Deref, process, rc::Rc,
-  sync::mpsc::SendError,
+  cell::RefCell,
+  collections::HashSet,
+  error::Error,
+  fmt,
+  ops::Deref,
+  process,
+  rc::Rc,
+  sync::mpsc::{channel, Receiver, SendError, Sender},
 };
 
 use gio::{prelude::*, Cancellable};
-use glib::{MainContext, Priority, Receiver, Sender};
+use glib::{source::idle_add_local, Continue, MainContext};
 use gtk::{prelude::*, Inhibit};
 pub use winit::event_loop::{ControlFlow, EventLoopClosed};
 
@@ -132,7 +138,7 @@ impl<T: 'static> EventLoop<T> {
     };
 
     // Create user event channel
-    let (user_event_tx, user_event_rx) = MainContext::channel(Priority::default());
+    let (user_event_tx, user_event_rx) = channel();
 
     // Create event loop itself.
     let event_loop = Self {
@@ -156,7 +162,7 @@ impl<T: 'static> EventLoop<T> {
   ///
   /// [`ControlFlow`]: crate::event_loop::ControlFlow
   #[inline]
-  pub fn run<F>(mut self, callback: F) -> !
+  pub fn run<F>(self, callback: F) -> !
   where
     F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T>, &mut ControlFlow) + 'static,
   {
@@ -164,13 +170,13 @@ impl<T: 'static> EventLoop<T> {
     process::exit(0)
   }
 
-  pub(crate) fn run_return<F>(mut self, mut callback: F)
+  pub(crate) fn run_return<F>(self, mut callback: F)
   where
     F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T>, &mut ControlFlow) + 'static,
   {
     let mut control_flow = ControlFlow::default();
     let app = &self.window_target.app;
-    let (event_tx, event_rx) = MainContext::channel::<Event<'_, T>>(Priority::default());
+    let (event_tx, event_rx) = channel::<Event<'_, T>>();
 
     // Send closed event when a window is removed
     let windows = self.window_target.windows.take();
@@ -200,29 +206,7 @@ impl<T: 'static> EventLoop<T> {
     });
     app.activate();
 
-    // Acquire the main context and set it as the current thread-default
-    // Local futures must be spawned on the thread owning the main context
-    let user_event_rx = self.user_event_rx;
-    let window_target = self.window_target;
-    let context = MainContext::default();
-    context.push_thread_default();
-    let keep_running = Rc::new(RefCell::new(true));
-    // Inner events
-    let keep_running_ = keep_running.clone();
-    event_rx.attach(Some(&context), move |event| {
-      callback(event, &window_target, &mut control_flow);
-      match control_flow {
-        ControlFlow::Exit => {
-          keep_running_.replace(false);
-          glib::Continue(false)
-        }
-        // It's the same for Poll and Wait since we spawn the local task in Gtk.
-        // MainContext of Gtk will handle the future for us.
-        // FIXME Maybe we should spawn to another thread and use GMutex/GCond?
-        _ => glib::Continue(true),
-      }
-    });
-
+    /*
     // User events
     let keep_running_ = keep_running.clone();
     let tx_clone = event_tx.clone();
@@ -232,6 +216,35 @@ impl<T: 'static> EventLoop<T> {
         glib::Continue(true)
       } else {
         glib::Continue(false)
+      }
+    });
+    */
+    let context = MainContext::default();
+    context.push_thread_default();
+    let window_target = self.window_target;
+    let keep_running = Rc::new(RefCell::new(true));
+    let keep_running_ = keep_running.clone();
+    let user_event_rx = self.user_event_rx;
+    idle_add_local(move || {
+      // User event
+      if let Ok(event) = user_event_rx.try_recv() {
+        let _ = event_tx.send(Event::UserEvent(event));
+      }
+
+      match control_flow {
+        ControlFlow::Exit => {
+          keep_running_.replace(false);
+          Continue(false)
+        }
+        // TODO better control flow handling
+        _ => {
+          if let Ok(event) = event_rx.try_recv() {
+            callback(event, &window_target, &mut control_flow);
+          } else {
+            callback(Event::MainEventsCleared, &window_target, &mut control_flow);
+          }
+          Continue(true)
+        }
       }
     });
     context.pop_thread_default();

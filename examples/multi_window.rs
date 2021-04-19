@@ -41,11 +41,17 @@ fn main() -> wry::Result<()> {
   let mut webview = WebViewBuilder::new(window)
     .unwrap()
     .load_url("https://tauri.studio")?
+    .initialize_script(
+      r#"async function openWindow() {
+                await window.rpc.notify("openWindow", "https://i.imgur.com/x6tXcr9.gif");
+            }"#,
+    )
     .set_rpc_handler(handler)
     .build()?;
 
   let instant = Instant::now();
   let eight_secs = Duration::from_secs(8);
+  let mut sent = true;
   event_loop.run(move |event, event_loop, control_flow| {
     *control_flow = ControlFlow::Poll;
 
@@ -61,10 +67,9 @@ fn main() -> wry::Result<()> {
         .unwrap()
         .build()
         .unwrap();
-    } else if instant.elapsed() < eight_secs {
-      println!("{} seconds have passed...", instant.elapsed().as_secs());
-    } else if instant.elapsed() == eight_secs {
+    } else if instant.elapsed() >= eight_secs && sent {
       webview.dispatch_script("openWindow()").unwrap();
+      sent = false;
     }
 
     match event {
@@ -72,10 +77,7 @@ fn main() -> wry::Result<()> {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      _ => (),
+      _ => webview.evaluate_script().unwrap(),
     }
-
-    webview.evaluate_script().unwrap();
   });
 }
-
