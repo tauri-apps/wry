@@ -2,14 +2,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use wry::{Application, Attributes, Result, RpcRequest, WindowProxy, WindowRpcHandler};
+fn main() -> wry::Result<()> {
+  use wry::{
+    webview::WebViewBuilder,
+    window::{
+      event::{Event, WindowEvent},
+      event_loop::{ControlFlow, EventLoop},
+      window::WindowBuilder,
+    },
+    RpcRequest,
+  };
 
-fn main() -> Result<()> {
-  let mut app = Application::new()?;
+  let event_loop = EventLoop::new();
+  let window = WindowBuilder::new()
+    .with_decorations(false)
+    .build(&event_loop)
+    .unwrap();
 
-  let attributes = Attributes {
-    url: Some(
-      r#"data:text/html,
+  let url = r#"data:text/html,
         <body>
           <div class='drag-region titlebar'>
             <div class="left">Awesome WRY Window</div>
@@ -38,10 +48,32 @@ fn main() -> Result<()> {
           });
           document.getElementById('close').addEventListener('click', () => rpc.notify('close'));
         </script>
-      "#.into(),
-    ),
+      "#;
+
+  let handler = Box::new(|mut _req: RpcRequest| {
+    /* TODO window setter
+    if req.method == "minimize" {
+      proxy.minimize().unwrap();
+    }
+    if req.method == "maximize" {
+      if req.params.unwrap().as_array().unwrap()[0] == true {
+        proxy.maximize().unwrap();
+      } else {
+        proxy.unmaximize().unwrap();
+      }
+    }
+    if req.method == "close" {
+      proxy.close().unwrap();
+    }
+    */
+    None
+  });
+  let _webview = WebViewBuilder::new(window)
+    .unwrap()
+    .load_url(url)?
+    .set_rpc_handler(handler)
     // inject the css after 500ms, otherwise it won't work as the `head` element isn't created yet.
-    initialization_scripts:vec![
+    .initialize_script(
       r#"
         setTimeout(() => {
           const style = document.createElement('style');
@@ -79,30 +111,19 @@ fn main() -> Result<()> {
           `;
           document.head.append(style);
         }, 500);
-      "#.into()],
-    decorations: false,
-    ..Default::default()
-  };
+      "#,
+    )
+    .build()?;
 
-  let handler: WindowRpcHandler = Box::new(|proxy: WindowProxy, req: RpcRequest| {
-    if req.method == "minimize" {
-      proxy.minimize().unwrap();
+  event_loop.run(move |event, _, control_flow| {
+    *control_flow = ControlFlow::Poll;
+
+    match event {
+      Event::WindowEvent {
+        event: WindowEvent::CloseRequested,
+        ..
+      } => *control_flow = ControlFlow::Exit,
+      _ => (),
     }
-    if req.method == "maximize" {
-      if req.params.unwrap().as_array().unwrap()[0] == true {
-        proxy.maximize().unwrap();
-      } else {
-        proxy.unmaximize().unwrap();
-      }
-    }
-    if req.method == "close" {
-      proxy.close().unwrap();
-    }
-    None
   });
-
-  let _window1 = app.add_window_with_configs(attributes, Some(handler), vec![], None)?;
-
-  app.run();
-  Ok(())
 }
