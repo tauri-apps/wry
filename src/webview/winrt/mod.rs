@@ -18,7 +18,7 @@ use windows_webview2::{
 
 use crate::{
   webview::{mimetype::MimeType, RpcRequest, RpcResponse},
-  FileDropHandler, Result,
+  Result,
 };
 
 use file_drop::FileDropController;
@@ -57,8 +57,8 @@ impl InnerWebView {
     // canary build. Implement this once it's in official release.
     #[allow(unused_variables)] transparent: bool,
     custom_protocols: Vec<(String, F)>,
-    rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse> + 'static>>,
-    file_drop_handler: Option<FileDropHandler>,
+    rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse>>>,
+    file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
     user_data_path: Option<PathBuf>,
   ) -> Result<Self> {
     let hwnd = HWND(window.hwnd() as _);

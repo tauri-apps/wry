@@ -44,19 +44,6 @@ use windows_webview2::Windows::Win32::WindowsAndMessaging::HWND;
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowExtWindows;
 
-/// A listener closure to process incoming [`FileDropEvent`] of the webview.
-///
-/// This is the handler for lower level webview creation. For higher application level, please see
-/// [`WindowFileDropHandler`](create::WindowFileDropHandler). Users can pass a `FileDropHandler` to
-/// [`WebViewBuilder::set_file_drop_handler`] to register an incoming file drop event to a closure.
-///
-/// # Blocking OS Default Behavior
-/// Return `true` in the callback to block the OS' default behavior of handling a file drop.
-///
-/// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
-/// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
-pub type FileDropHandler = Box<dyn Fn(FileDropEvent) -> bool + Send>;
-
 // Helper so all platforms handle RPC messages consistently.
 fn rpc_proxy(
   js: String,
@@ -101,7 +88,7 @@ pub struct WebViewBuilder {
   url: Option<Url>,
   custom_protocols: Vec<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
   rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse>>>,
-  file_drop_handler: Option<FileDropHandler>,
+  file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
   user_data_path: Option<PathBuf>,
 }
 
@@ -236,9 +223,19 @@ impl WebViewBuilder {
     self
   }
 
+  /// Set a handler closure to process incoming [`FileDropEvent`] of the webview.
+  ///
+  /// # Blocking OS Default Behavior
+  /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
+  ///
+  /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
+  /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
   #[cfg(feature = "file-drop")]
-  pub fn with_file_drop_handler(mut self, handler: FileDropHandler) -> Self {
-    self.file_drop_handler = Some(handler);
+  pub fn with_file_drop_handler<F>(mut self, handler: F) -> Self
+  where
+    F: Fn(FileDropEvent) -> bool + 'static,
+  {
+    self.file_drop_handler = Some(Box::new(handler));
     self
   }
 

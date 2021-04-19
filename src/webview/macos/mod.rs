@@ -26,7 +26,7 @@ use winit::{platform::macos::WindowExtMacOS, window::Window};
 use file_drop::{add_file_drop_methods, set_file_drop_handler};
 
 use crate::{
-  webview::{mimetype::MimeType, FileDropHandler, RpcRequest, RpcResponse},
+  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
   Result,
 };
 
@@ -44,8 +44,8 @@ impl InnerWebView {
     url: Option<Url>,
     transparent: bool,
     custom_protocols: Vec<(String, F)>,
-    rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse> + 'static>>,
-    file_drop_handler: Option<FileDropHandler>,
+    rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse>>>,
+    file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
     _user_data_path: Option<PathBuf>,
   ) -> Result<Self> {
     // Function for rpc handler
