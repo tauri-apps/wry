@@ -10,4 +10,4 @@ Run the `cargo run --example <file_name>` to see how each example works.
 - `dragndrop`: example for file drop handler.
 - `custom_titlebar`: A frameless window with custom title-bar to show `drag-region` class in action.
 - `custom_user_data`: uses a custom data directory (Windows only).
-
+- `custom_protocol`: uses a custom protocol to load files from bytes.
