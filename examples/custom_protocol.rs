@@ -20,9 +20,9 @@ fn main() -> wry::Result<()> {
 
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_custom_protocol("tauri.dev".into(), move |requested_asset_path| {
+    .with_custom_protocol("wry.dev".into(), move |requested_asset_path| {
       // remove the protocol from the path for easiest match
-      let requested_asset_path = requested_asset_path.replace("tauri.dev://", "");
+      let requested_asset_path = requested_asset_path.replace("wry.dev://", "");
 
       // sample index.html file
       // files can be bundled easilly into the binary
@@ -37,7 +37,7 @@ fn main() -> wry::Result<()> {
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         </head>
         <body>
-          <h1>Welcome to Tauri!</h1>
+          <h1>Welcome to WRY!</h1>
           <a href="/hello.html">Link</a>
           <script type="text/javascript" src="/hello.js"></script>
         </body>
@@ -73,7 +73,7 @@ fn main() -> wry::Result<()> {
       }
     })
     // tell the webview to load the custom protocol
-    .with_url("tauri.dev://")?
+    .with_url("wry.dev://")?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {
