@@ -66,19 +66,22 @@ unsafe fn get_handler(this: &Object) -> &mut Box<dyn Fn(FileDropEvent) -> bool> 
 }
 
 unsafe fn collect_paths(drag_info: id) -> Vec<PathBuf> {
-  use cocoa::foundation::{NSFastEnumeration, NSString};
+  use cocoa::{
+    appkit::{NSFilenamesPboardType, NSPasteboard},
+    foundation::{NSFastEnumeration, NSString},
+  };
 
   let pb: id = msg_send![drag_info, draggingPasteboard];
   let mut file_drop_paths = Vec::new();
-  for path in
-    cocoa::appkit::NSPasteboard::propertyListForType(pb, cocoa::appkit::NSFilenamesPboardType)
-      .iter()
-  {
-    file_drop_paths.push(PathBuf::from(
-      CStr::from_ptr(NSString::UTF8String(path))
-        .to_string_lossy()
-        .into_owned(),
-    ));
+  let types: id = msg_send![class!(NSArray), arrayWithObject: NSFilenamesPboardType];
+  if !NSPasteboard::availableTypeFromArray(pb, types).is_null() {
+    for path in NSPasteboard::propertyListForType(pb, NSFilenamesPboardType).iter() {
+      file_drop_paths.push(PathBuf::from(
+        CStr::from_ptr(NSString::UTF8String(path))
+          .to_string_lossy()
+          .into_owned(),
+      ));
+    }
   }
   file_drop_paths
 }
