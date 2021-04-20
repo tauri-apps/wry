@@ -32,7 +32,7 @@ impl std::fmt::Display for MimeType {
       MimeType::JSONLD => "application/ld+json",
       MimeType::OCTETSTREAM => "application/octet-stream",
       MimeType::RTF => "application/rtf",
-      MimeType::SVG => "image/svg",
+      MimeType::SVG => "image/svg+xml",
     };
     write!(f, "{}", mime)
   }
@@ -114,7 +114,7 @@ mod tests {
     assert_eq!(rtf, String::from("application/rtf"));
 
     let svg: String = MimeType::parse_from_uri("https://example.com/picture.svg").to_string();
-    assert_eq!(svg, String::from("image/svg"));
+    assert_eq!(svg, String::from("image/svg+xml"));
 
     let custom_scheme = MimeType::parse_from_uri("wry://tauri.studio").to_string();
     assert_eq!(custom_scheme, String::from("text/html"));
