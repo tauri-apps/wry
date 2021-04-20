@@ -194,7 +194,9 @@ impl WebViewBuilder {
 
                     // Call remote method and expect a reply from the handler
                     this.call = function(method) {
-                        const id = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+                        let array = new Uint32Array(1);
+                        window.crypto.getRandomValues(array);
+                        const id = array[0];
                         const params = Array.prototype.slice.call(arguments, 1);
                         const payload = {jsonrpc: "2.0", id, method, params};
                         const promise = new Promise((resolve, reject) => {
