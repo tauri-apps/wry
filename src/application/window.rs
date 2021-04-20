@@ -537,7 +537,10 @@ impl Window {
   }
 
   pub fn set_fullscreen(&self, fullscreen: Option<Fullscreen>) {
-    todo!()
+    match fullscreen {
+      Some(_) => self.window.fullscreen(),
+      None => self.window.unfullscreen(),
+    }
   }
 
   pub fn fullscreen(&self) -> Option<Fullscreen> {
@@ -555,7 +558,6 @@ impl Window {
   pub fn set_window_icon(&self, window_icon: Option<Icon>) {
     if let Some(icon) = window_icon {
       self.window.set_icon(Some(&icon.inner));
-      log::warn!("");
     }
   }
 
