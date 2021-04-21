@@ -5,6 +5,7 @@
 use std::{
   ffi::{c_void, CStr},
   path::PathBuf,
+  rc::Rc,
 };
 
 use cocoa::base::{id, BOOL, YES};
@@ -14,7 +15,7 @@ use objc::{
 };
 use once_cell::sync::Lazy;
 
-use crate::webview::FileDropEvent;
+use crate::{application::window::Window, webview::FileDropEvent};
 
 pub(crate) type NSDragOperation = cocoa::foundation::NSUInteger;
 #[allow(non_upper_case_globals)]
@@ -54,15 +55,18 @@ static OBJC_DRAGGING_UPDATED: Lazy<extern "C" fn(*const Object, Sel, id) -> NSDr
 // Safety: objc runtime calls are unsafe
 pub(crate) unsafe fn set_file_drop_handler(
   webview: *mut Object,
-  handler: Box<dyn Fn(FileDropEvent) -> bool>,
+  window: Rc<Window>,
+  handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>,
 ) {
-  let listener = Box::into_raw(Box::new(handler));
+  let listener = Box::into_raw(Box::new((handler, window)));
   (*webview).set_ivar("FileDropHandler", listener as *mut _ as *mut c_void);
 }
 
-unsafe fn get_handler(this: &Object) -> &mut Box<dyn Fn(FileDropEvent) -> bool> {
+unsafe fn get_handler(
+  this: &Object,
+) -> &mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>) {
   let delegate: *mut c_void = *this.get_ivar("FileDropHandler");
-  &mut *(delegate as *mut Box<dyn Fn(FileDropEvent) -> bool>)
+  &mut *(delegate as *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>))
 }
 
 unsafe fn collect_paths(drag_info: id) -> Vec<PathBuf> {
@@ -103,7 +107,7 @@ extern "C" fn dragging_entered(this: &mut Object, sel: Sel, drag_info: id) -> NS
   let listener = unsafe { get_handler(this) };
   let paths = unsafe { collect_paths(drag_info) };
 
-  if !listener(FileDropEvent::Hovered(paths)) {
+  if !listener.0(&listener.1, FileDropEvent::Hovered(paths)) {
     // Reject the Wry file drop (invoke the OS default behaviour)
     OBJC_DRAGGING_ENTERED(this, sel, drag_info)
   } else {
@@ -115,7 +119,7 @@ extern "C" fn perform_drag_operation(this: &mut Object, sel: Sel, drag_info: id)
   let listener = unsafe { get_handler(this) };
   let paths = unsafe { collect_paths(drag_info) };
 
-  if !listener(FileDropEvent::Dropped(paths)) {
+  if !listener.0(&listener.1, FileDropEvent::Dropped(paths)) {
     // Reject the Wry file drop (invoke the OS default behaviour)
     OBJC_PERFORM_DRAG_OPERATION(this, sel, drag_info)
   } else {
@@ -125,7 +129,7 @@ extern "C" fn perform_drag_operation(this: &mut Object, sel: Sel, drag_info: id)
 
 extern "C" fn dragging_exited(this: &mut Object, sel: Sel, drag_info: id) {
   let listener = unsafe { get_handler(this) };
-  if !listener(FileDropEvent::Cancelled) {
+  if !listener.0(&listener.1, FileDropEvent::Cancelled) {
     // Reject the Wry file drop (invoke the OS default behaviour)
     OBJC_DRAGGING_EXITED(this, sel, drag_info);
   }

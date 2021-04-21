@@ -31,6 +31,7 @@ use crate::{Error, Result};
 
 use std::{
   path::PathBuf,
+  rc::Rc,
   sync::mpsc::{channel, Receiver, Sender},
 };
 
@@ -46,13 +47,14 @@ use winit::platform::windows::WindowExtWindows;
 
 // Helper so all platforms handle RPC messages consistently.
 fn rpc_proxy(
+  window: &Window,
   js: String,
-  handler: &dyn Fn(RpcRequest) -> Option<RpcResponse>,
+  handler: &dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>,
 ) -> Result<Option<String>> {
   let req = serde_json::from_str::<RpcRequest>(&js)
     .map_err(|e| Error::RpcScriptError(e.to_string(), js))?;
 
-  let mut response = (handler)(req);
+  let mut response = (handler)(window, req);
   // Got a synchronous response so convert it to a script to be evaluated
   if let Some(mut response) = response.take() {
     if let Some(id) = response.id {
@@ -86,9 +88,9 @@ pub struct WebViewBuilder {
   initialization_scripts: Vec<String>,
   window: Window,
   url: Option<Url>,
-  custom_protocols: Vec<(String, Box<dyn Fn(&str) -> Result<Vec<u8>>>)>,
-  rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse>>>,
-  file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
+  custom_protocols: Vec<(String, Box<dyn Fn(&Window, &str) -> Result<Vec<u8>>>)>,
+  rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
+  file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
   user_data_path: Option<PathBuf>,
 }
 
@@ -150,7 +152,7 @@ impl WebViewBuilder {
   /// Register custom file loading protocol
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(&str) -> Result<Vec<u8>> + 'static,
+    F: Fn(&Window, &str) -> Result<Vec<u8>> + 'static,
   {
     self.custom_protocols.push((name, Box::new(handler)));
     self
@@ -168,7 +170,7 @@ impl WebViewBuilder {
   /// Both functions return promises but `notify()` resolves immediately.
   pub fn with_rpc_handler<F>(mut self, handler: F) -> Self
   where
-    F: Fn(RpcRequest) -> Option<RpcResponse> + 'static,
+    F: Fn(&Window, RpcRequest) -> Option<RpcResponse> + 'static,
   {
     let js = r#"
             (function() {
@@ -235,7 +237,7 @@ impl WebViewBuilder {
   #[cfg(feature = "file-drop")]
   pub fn with_file_drop_handler<F>(mut self, handler: F) -> Self
   where
-    F: Fn(FileDropEvent) -> bool + 'static,
+    F: Fn(&Window, FileDropEvent) -> bool + 'static,
   {
     self.file_drop_handler = Some(Box::new(handler));
     self
@@ -250,8 +252,9 @@ impl WebViewBuilder {
 
   /// Consume the builder and create the [`WebView`].
   pub fn build(self) -> Result<WebView> {
+    let window = Rc::new(self.window);
     let webview = InnerWebView::new(
-      &self.window,
+      window.clone(),
       self.initialization_scripts,
       self.url,
       self.transparent,
@@ -261,7 +264,7 @@ impl WebViewBuilder {
       self.user_data_path,
     )?;
     Ok(WebView {
-      window: self.window,
+      window,
       webview,
       tx: self.tx,
       rx: self.rx,
@@ -276,7 +279,7 @@ impl WebViewBuilder {
 /// [`WebView`] presents the actuall WebView window and let you still able to perform actions
 /// during event handling to it. [`WebView`] also contains the associate [`Window`] with it.
 pub struct WebView {
-  window: Window,
+  window: Rc<Window>,
   webview: InnerWebView,
   tx: Sender<String>,
   rx: Receiver<String>,

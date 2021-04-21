@@ -562,7 +562,7 @@ impl Window {
   }
 
   pub fn set_maximized(&self, maximized: bool) {
-    self.maximized.store(maximized, Ordering::Acquire);
+    self.maximized.store(maximized, Ordering::Release);
     if let Err(e) = self
       .window_requests_tx
       .send((self.window_id, WindowRequest::Maximized(maximized)))
@@ -572,7 +572,7 @@ impl Window {
   }
 
   pub fn is_maximized(&self) -> bool {
-    self.maximized.load(Ordering::Release)
+    self.maximized.load(Ordering::Acquire)
   }
 
   pub fn drag_window(&self) {

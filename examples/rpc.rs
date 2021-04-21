@@ -15,7 +15,7 @@ fn main() -> wry::Result<()> {
     application::{
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
-      window::WindowBuilder,
+      window::{Fullscreen, Window, WindowBuilder},
     },
     webview::{RpcRequest, RpcResponse, WebViewBuilder},
   };
@@ -43,15 +43,17 @@ async function getAsyncRpcResult() {
 <div id="rpc-result"></div>
 "#;
 
-  let handler = |mut req: RpcRequest| {
+  let handler = |window: &Window, mut req: RpcRequest| {
     let mut response = None;
     if &req.method == "fullscreen" {
       if let Some(params) = req.params.take() {
         if let Some(mut args) = serde_json::from_value::<Vec<bool>>(params).ok() {
           if args.len() > 0 {
-            let _flag = args.swap_remove(0);
-            // NOTE: in the real world we need to reply with an error
-            // TODO let _ = window.set_fullscreen(flag);
+            if args.swap_remove(0) {
+              window.set_fullscreen(Some(Fullscreen::Borderless(None)));
+            } else {
+              window.set_fullscreen(None);
+            }
           };
           response = Some(RpcResponse::new_result(req.id.take(), None));
         }
@@ -74,7 +76,7 @@ async function getAsyncRpcResult() {
 
     response
   };
-  let _webview = WebViewBuilder::new(window)
+  let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url(url)?
     .with_rpc_handler(handler)
@@ -88,7 +90,9 @@ async function getAsyncRpcResult() {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      _ => (),
+      _ => {
+        webview.resize();
+      }
     }
   });
 }
