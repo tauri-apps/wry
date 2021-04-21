@@ -31,7 +31,7 @@ pub use winit::event_loop::{ControlFlow, EventLoopClosed};
 
 use super::{
   event::{Event, StartCause, WindowEvent},
-  window::WindowId,
+  window::{WindowId, WindowRequest},
 };
 
 /// Target that associates windows with an `EventLoop`.
@@ -45,6 +45,10 @@ pub struct EventLoopWindowTarget<T> {
   pub(crate) app: gtk::Application,
   /// Window Ids of the application
   pub(crate) windows: Rc<RefCell<HashSet<WindowId>>>,
+  /// Window requests sender
+  pub(crate) window_requests_tx: Sender<(WindowId, WindowRequest)>,
+  /// Window requests receiver
+  pub(crate) window_requests_rx: Receiver<(WindowId, WindowRequest)>,
   _marker: std::marker::PhantomData<T>,
   _unsafe: std::marker::PhantomData<*mut ()>, // Not Send nor Sync
 }
@@ -130,9 +134,12 @@ impl<T: 'static> EventLoop<T> {
     app.register(cancellable)?;
 
     // Create event loop window target.
+    let (window_requests_tx, window_requests_rx) = channel();
     let window_target = EventLoopWindowTarget {
       app,
       windows: Rc::new(RefCell::new(HashSet::new())),
+      window_requests_tx,
+      window_requests_rx,
       _marker: std::marker::PhantomData,
       _unsafe: std::marker::PhantomData,
     };
@@ -175,25 +182,26 @@ impl<T: 'static> EventLoop<T> {
     F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T>, &mut ControlFlow) + 'static,
   {
     let mut control_flow = ControlFlow::default();
-    let app = &self.window_target.app;
+    let window_target = self.window_target;
     let (event_tx, event_rx) = channel::<Event<'_, T>>();
 
     // Send closed event when a window is removed
-    let windows = self.window_target.windows.take();
-    for id in windows {
-      let windows_rc = self.window_target.windows.clone();
+    let windows = window_target.windows.clone();
+    for id in windows.take() {
+      let windows_rc = window_target.windows.clone();
       let tx_clone = event_tx.clone();
-      let window = app
+      let window = window_target
+        .app
         .get_window_by_id(id.0)
         .expect("Window not found in the application!");
       window.connect_delete_event(move |_, _| {
         windows_rc.borrow_mut().remove(&id);
-        tx_clone
-          .send(Event::WindowEvent {
-            window_id: id,
-            event: WindowEvent::CloseRequested,
-          })
-          .expect("Failed to send closed window event!");
+        if let Err(e) = tx_clone.send(Event::WindowEvent {
+          window_id: id,
+          event: WindowEvent::CloseRequested,
+        }) {
+          log::warn!("Failed to send window close event to event channel: {}", e);
+        }
 
         Inhibit(false)
       });
@@ -201,36 +209,39 @@ impl<T: 'static> EventLoop<T> {
 
     // Send StartCause::Init event
     let tx_clone = event_tx.clone();
-    app.connect_activate(move |_| {
-      tx_clone.send(Event::NewEvents(StartCause::Init)).unwrap();
-    });
-    app.activate();
-
-    /*
-    // User events
-    let keep_running_ = keep_running.clone();
-    let tx_clone = event_tx.clone();
-    user_event_rx.attach(Some(&context), move |event| {
-      if *keep_running_.borrow() {
-        tx_clone.send(Event::UserEvent(event)).unwrap();
-        glib::Continue(true)
-      } else {
-        glib::Continue(false)
+    window_target.app.connect_activate(move |_| {
+      if let Err(e) = tx_clone.send(Event::NewEvents(StartCause::Init)) {
+        log::warn!("Failed to send init event to event channel: {}", e);
       }
     });
-    */
+    window_target.app.activate();
+
     let context = MainContext::default();
     context.push_thread_default();
-    let window_target = self.window_target;
     let keep_running = Rc::new(RefCell::new(true));
     let keep_running_ = keep_running.clone();
     let user_event_rx = self.user_event_rx;
     idle_add_local(move || {
       // User event
       if let Ok(event) = user_event_rx.try_recv() {
-        let _ = event_tx.send(Event::UserEvent(event));
+        if let Err(e) = event_tx.send(Event::UserEvent(event)) {
+          log::warn!("Failed to send user event to event channel: {}", e);
+        }
       }
 
+      // Widnow Request
+      if let Ok((id, request)) = window_target.window_requests_rx.try_recv() {
+        let window = window_target
+          .app
+          .get_window_by_id(id.0)
+          .expect("Failed to send closed window event!");
+
+        match request {
+          WindowRequest::Title(title) => window.set_title(&title),
+        }
+      }
+
+      // Event control flow
       match control_flow {
         ControlFlow::Exit => {
           keep_running_.replace(false);

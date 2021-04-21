@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::fmt;
+use std::{fmt, sync::mpsc::Sender};
 
 use gtk::{prelude::*, ApplicationWindow};
 use winit::{
@@ -298,6 +298,8 @@ pub struct Window {
   pub(crate) window_id: WindowId,
   /// Gtk application window.
   pub(crate) window: gtk::ApplicationWindow,
+  /// Window requests sender
+  window_requests_tx: Sender<(WindowId, WindowRequest)>,
 }
 
 impl Window {
@@ -397,7 +399,12 @@ impl Window {
 
     window.show_all();
 
-    Ok(Self { window_id, window })
+    let window_requests_tx = event_loop_window_target.window_requests_tx.clone();
+    Ok(Self {
+      window_id,
+      window,
+      window_requests_tx,
+    })
   }
 
   pub fn id(&self) -> WindowId {
@@ -493,7 +500,12 @@ impl Window {
   }
 
   pub fn set_title(&self, title: &str) {
-    self.window.set_title(title);
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Title(title.to_string())))
+    {
+      log::warn!("Fail to send window request: {}", e);
+    }
   }
 
   pub fn set_visible(&self, visible: bool) {
@@ -614,4 +626,8 @@ pub enum Fullscreen {
 pub enum Theme {
   Light,
   Dark,
+}
+
+pub(crate) enum WindowRequest {
+  Title(String),
 }
