@@ -2,7 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{fmt, sync::mpsc::Sender};
+use std::{
+  cell::RefCell,
+  fmt,
+  sync::{
+    atomic::{AtomicBool, AtomicI32, Ordering},
+    mpsc::Sender,
+  },
+};
 
 use gdk::{Cursor, CursorType, EventMask, WindowEdge, WindowExt};
 use gtk::{prelude::*, ApplicationWindow};
@@ -301,6 +308,11 @@ pub struct Window {
   pub(crate) window: gtk::ApplicationWindow,
   /// Window requests sender
   window_requests_tx: Sender<(WindowId, WindowRequest)>,
+  scale_factor: f64,
+  position: (AtomicI32, AtomicI32),
+  size: (AtomicI32, AtomicI32),
+  maximized: AtomicBool,
+  fullscreen: RefCell<Option<Fullscreen>>,
 }
 
 impl Window {
@@ -433,17 +445,25 @@ impl Window {
     }
 
     window.set_keep_above(attributes.always_on_top);
-    if let Some(icon) = attributes.window_icon {
+    if let Some(icon) = &attributes.window_icon {
       window.set_icon(Some(&icon.inner));
     }
 
     window.show_all();
 
     let window_requests_tx = event_loop_window_target.window_requests_tx.clone();
+    let scale_factor = scale_factor as f64;
+    let position = window.get_position();
+    let maximized = window.get_property_is_maximized().into();
     Ok(Self {
       window_id,
       window,
       window_requests_tx,
+      scale_factor,
+      position: (position.0.into(), position.1.into()),
+      size: (width.into(), height.into()),
+      maximized,
+      fullscreen: RefCell::new(attributes.fullscreen),
     })
   }
 
@@ -452,7 +472,7 @@ impl Window {
   }
 
   pub fn scale_factor(&self) -> f64 {
-    self.window.get_scale_factor() as f64
+    self.scale_factor
   }
 
   pub fn request_redraw(&self) {
@@ -460,13 +480,19 @@ impl Window {
   }
 
   pub fn inner_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
-    let (x, y) = self.window.get_position();
-    Ok(PhysicalPosition::new(x, y))
+    let (x, y) = &self.position;
+    Ok(PhysicalPosition::new(
+      x.load(Ordering::Acquire),
+      y.load(Ordering::Acquire),
+    ))
   }
 
   pub fn outer_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
-    let (x, y) = self.window.get_position();
-    Ok(PhysicalPosition::new(x, y))
+    let (x, y) = &self.position;
+    Ok(PhysicalPosition::new(
+      x.load(Ordering::Acquire),
+      y.load(Ordering::Acquire),
+    ))
   }
 
   pub fn set_outer_position<P: Into<Position>>(&self, position: P) {
@@ -474,68 +500,68 @@ impl Window {
       .into()
       .to_physical::<i32>(self.scale_factor())
       .into();
-    self.window.move_(x, y);
+    self.position.0.store(x, Ordering::Release);
+    self.position.1.store(y, Ordering::Release);
+
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Position((x, y))))
+    {
+      log::warn!("Fail to send position request: {}", e);
+    }
   }
 
   pub fn inner_size(&self) -> PhysicalSize<u32> {
-    let (width, height) = self.window.get_size();
-    PhysicalSize::new(width as u32, height as u32)
+    let (width, height) = &self.size;
+    PhysicalSize::new(
+      width.load(Ordering::Acquire) as u32,
+      height.load(Ordering::Acquire) as u32,
+    )
   }
 
   pub fn set_inner_size<S: Into<Size>>(&self, size: S) {
     let (width, height) = size.into().to_logical::<i32>(self.scale_factor()).into();
-    self.window.resize(width, height);
+    self.size.0.store(width, Ordering::Release);
+    self.size.1.store(height, Ordering::Release);
+
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Size((width, height))))
+    {
+      log::warn!("Fail to send size request: {}", e);
+    }
   }
 
   pub fn outer_size(&self) -> PhysicalSize<u32> {
-    let (width, height) = self.window.get_size();
-    PhysicalSize::new(width as u32, height as u32)
+    let (width, height) = &self.size;
+    PhysicalSize::new(
+      width.load(Ordering::Acquire) as u32,
+      height.load(Ordering::Acquire) as u32,
+    )
   }
 
   pub fn set_min_inner_size<S: Into<Size>>(&self, min_size: Option<S>) {
     if let Some(size) = min_size {
       let (min_width, min_height) = size.into().to_logical::<i32>(self.scale_factor()).into();
 
-      self.window.set_geometry_hints::<ApplicationWindow>(
-        None,
-        Some(&gdk::Geometry {
-          min_width,
-          min_height,
-          max_width: 0,
-          max_height: 0,
-          base_width: 0,
-          base_height: 0,
-          width_inc: 0,
-          height_inc: 0,
-          min_aspect: 0f64,
-          max_aspect: 0f64,
-          win_gravity: gdk::Gravity::Center,
-        }),
-        gdk::WindowHints::MIN_SIZE,
-      );
+      if let Err(e) = self.window_requests_tx.send((
+        self.window_id,
+        WindowRequest::MinSize((min_width, min_height)),
+      )) {
+        log::warn!("Fail to send min size request: {}", e);
+      }
     }
   }
   pub fn set_max_inner_size<S: Into<Size>>(&self, max_size: Option<S>) {
     if let Some(size) = max_size {
       let (max_width, max_height) = size.into().to_logical::<i32>(self.scale_factor()).into();
 
-      self.window.set_geometry_hints::<ApplicationWindow>(
-        None,
-        Some(&gdk::Geometry {
-          min_width: 0,
-          min_height: 0,
-          max_width,
-          max_height,
-          base_width: 0,
-          base_height: 0,
-          width_inc: 0,
-          height_inc: 0,
-          min_aspect: 0f64,
-          max_aspect: 0f64,
-          win_gravity: gdk::Gravity::Center,
-        }),
-        gdk::WindowHints::MAX_SIZE,
-      );
+      if let Err(e) = self.window_requests_tx.send((
+        self.window_id,
+        WindowRequest::MaxSize((max_width, max_height)),
+      )) {
+        log::warn!("Fail to send max size request: {}", e);
+      }
     }
   }
 
@@ -544,97 +570,123 @@ impl Window {
       .window_requests_tx
       .send((self.window_id, WindowRequest::Title(title.to_string())))
     {
-      log::warn!("Fail to send window request: {}", e);
+      log::warn!("Fail to send title request: {}", e);
     }
   }
 
   pub fn set_visible(&self, visible: bool) {
-    if visible {
-      self.window.show();
-    } else {
-      self.window.hide();
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Visible(visible)))
+    {
+      log::warn!("Fail to send visible request: {}", e);
     }
   }
 
   pub fn set_resizable(&self, resizable: bool) {
-    self.window.set_resizable(resizable);
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Resizable(resizable)))
+    {
+      log::warn!("Fail to send resizable request: {}", e);
+    }
   }
 
   pub fn set_minimized(&self, minimized: bool) {
-    if minimized {
-      self.window.iconify();
-    } else {
-      self.window.deiconify();
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Minimized(minimized)))
+    {
+      log::warn!("Fail to send minimized request: {}", e);
     }
   }
 
   pub fn set_maximized(&self, maximized: bool) {
-    if maximized {
-      self.window.maximize();
-    } else {
-      self.window.unmaximize();
+    self.maximized.store(maximized, Ordering::Acquire);
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Maximized(maximized)))
+    {
+      log::warn!("Fail to send maximized request: {}", e);
     }
   }
 
   pub fn is_maximized(&self) -> bool {
-    self.window.get_property_is_maximized()
+    self.maximized.load(Ordering::Release)
   }
 
   pub fn drag_window(&self) {
-    let display = self.window.get_display();
-    if let Some(cursor) = display
-      .get_device_manager()
-      .and_then(|device_manager| device_manager.get_client_pointer())
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::DragWindow))
     {
-      let (_, x, y) = cursor.get_position();
-      self.window.begin_move_drag(1, x, y, 0);
+      log::warn!("Fail to send drag window request: {}", e);
     }
   }
 
   pub fn set_fullscreen(&self, fullscreen: Option<Fullscreen>) {
-    match fullscreen {
-      Some(_) => self.window.fullscreen(),
-      None => self.window.unfullscreen(),
+    self.fullscreen.replace(fullscreen.clone());
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Fullscreen(fullscreen)))
+    {
+      log::warn!("Fail to send fullscreen request: {}", e);
     }
   }
 
   pub fn fullscreen(&self) -> Option<Fullscreen> {
-    todo!()
+    self.fullscreen.borrow().clone()
   }
 
   pub fn set_decorations(&self, decorations: bool) {
-    self.window.set_decorated(decorations);
-  }
-
-  pub fn set_always_on_top(&self, always_on_top: bool) {
-    self.window.set_keep_above(always_on_top);
-  }
-
-  pub fn set_window_icon(&self, window_icon: Option<Icon>) {
-    if let Some(icon) = window_icon {
-      self.window.set_icon(Some(&icon.inner));
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Decorations(decorations)))
+    {
+      log::warn!("Fail to send decorations request: {}", e);
     }
   }
 
-  pub fn set_ime_position<P: Into<Position>>(&self, position: P) {
+  pub fn set_always_on_top(&self, always_on_top: bool) {
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::AlwaysOnTop(always_on_top)))
+    {
+      log::warn!("Fail to send always on top request: {}", e);
+    }
+  }
+
+  pub fn set_window_icon(&self, window_icon: Option<Icon>) {
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::WindowIcon(window_icon)))
+    {
+      log::warn!("Fail to send window icon request: {}", e);
+    }
+  }
+
+  pub fn set_ime_position<P: Into<Position>>(&self, _position: P) {
     todo!()
   }
 
   pub fn request_user_attention(&self, request_type: Option<UserAttentionType>) {
-    if request_type.is_some() {
-      self.window.set_urgency_hint(true)
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::UserAttention(request_type)))
+    {
+      log::warn!("Fail to send user attention request: {}", e);
     }
   }
 
-  pub fn set_cursor_icon(&self, cursor: CursorIcon) {
+  pub fn set_cursor_icon(&self, _cursor: CursorIcon) {
     todo!()
   }
 
-  pub fn set_cursor_position<P: Into<Position>>(&self, position: P) -> Result<(), ExternalError> {
+  pub fn set_cursor_position<P: Into<Position>>(&self, _position: P) -> Result<(), ExternalError> {
     todo!()
   }
 
-  pub fn set_cursor_visible(&self, visible: bool) {
+  pub fn set_cursor_visible(&self, _visible: bool) {
     todo!()
   }
 
@@ -670,6 +722,20 @@ pub enum Theme {
 
 pub(crate) enum WindowRequest {
   Title(String),
+  Position((i32, i32)),
+  Size((i32, i32)),
+  MinSize((i32, i32)),
+  MaxSize((i32, i32)),
+  Visible(bool),
+  Resizable(bool),
+  Minimized(bool),
+  Maximized(bool),
+  DragWindow,
+  Fullscreen(Option<Fullscreen>),
+  Decorations(bool),
+  AlwaysOnTop(bool),
+  WindowIcon(Option<Icon>),
+  UserAttention(Option<UserAttentionType>),
 }
 
 fn hit_test(window: &ApplicationWindow, cx: i32, cy: i32) -> WindowEdge {
