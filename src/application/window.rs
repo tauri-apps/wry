@@ -5,10 +5,14 @@
 use std::fmt;
 
 use gtk::{prelude::*, ApplicationWindow};
+use winit::{
+  dpi::{PhysicalPosition, PhysicalSize, Position},
+  window::{CursorIcon, UserAttentionType},
+};
 
 use super::{
   dpi::Size,
-  error::OsError,
+  error::{ExternalError, NotSupportedError, OsError},
   event_loop::EventLoopWindowTarget,
   monitor::{MonitorHandle, VideoMode},
 };
@@ -398,6 +402,200 @@ impl Window {
 
   pub fn id(&self) -> WindowId {
     self.window_id
+  }
+
+  pub fn scale_factor(&self) -> f64 {
+    self.window.get_scale_factor() as f64
+  }
+
+  pub fn request_redraw(&self) {
+    todo!()
+  }
+
+  pub fn inner_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
+    let (x, y) = self.window.get_position();
+    Ok(PhysicalPosition::new(x, y))
+  }
+
+  pub fn outer_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
+    let (x, y) = self.window.get_position();
+    Ok(PhysicalPosition::new(x, y))
+  }
+
+  pub fn set_outer_position<P: Into<Position>>(&self, position: P) {
+    let (x, y): (i32, i32) = position
+      .into()
+      .to_physical::<i32>(self.scale_factor())
+      .into();
+    self.window.move_(x, y);
+  }
+
+  pub fn inner_size(&self) -> PhysicalSize<u32> {
+    let (width, height) = self.window.get_size();
+    PhysicalSize::new(width as u32, height as u32)
+  }
+
+  pub fn set_inner_size<S: Into<Size>>(&self, size: S) {
+    let (width, height) = size.into().to_logical::<i32>(self.scale_factor()).into();
+    self.window.resize(width, height);
+  }
+
+  pub fn outer_size(&self) -> PhysicalSize<u32> {
+    let (width, height) = self.window.get_size();
+    PhysicalSize::new(width as u32, height as u32)
+  }
+
+  pub fn set_min_inner_size<S: Into<Size>>(&self, min_size: Option<S>) {
+    if let Some(size) = min_size {
+      let (min_width, min_height) = size.into().to_logical::<i32>(self.scale_factor()).into();
+
+      self.window.set_geometry_hints::<ApplicationWindow>(
+        None,
+        Some(&gdk::Geometry {
+          min_width,
+          min_height,
+          max_width: 0,
+          max_height: 0,
+          base_width: 0,
+          base_height: 0,
+          width_inc: 0,
+          height_inc: 0,
+          min_aspect: 0f64,
+          max_aspect: 0f64,
+          win_gravity: gdk::Gravity::Center,
+        }),
+        gdk::WindowHints::MIN_SIZE,
+      );
+    }
+  }
+  pub fn set_max_inner_size<S: Into<Size>>(&self, max_size: Option<S>) {
+    if let Some(size) = max_size {
+      let (max_width, max_height) = size.into().to_logical::<i32>(self.scale_factor()).into();
+
+      self.window.set_geometry_hints::<ApplicationWindow>(
+        None,
+        Some(&gdk::Geometry {
+          min_width: 0,
+          min_height: 0,
+          max_width,
+          max_height,
+          base_width: 0,
+          base_height: 0,
+          width_inc: 0,
+          height_inc: 0,
+          min_aspect: 0f64,
+          max_aspect: 0f64,
+          win_gravity: gdk::Gravity::Center,
+        }),
+        gdk::WindowHints::MAX_SIZE,
+      );
+    }
+  }
+
+  pub fn set_title(&self, title: &str) {
+    self.window.set_title(title);
+  }
+
+  pub fn set_visible(&self, visible: bool) {
+    if visible {
+      self.window.show();
+    } else {
+      self.window.hide();
+    }
+  }
+
+  pub fn set_resizable(&self, resizable: bool) {
+    self.window.set_resizable(resizable);
+  }
+
+  pub fn set_minimized(&self, minimized: bool) {
+    if minimized {
+      self.window.iconify();
+    } else {
+      self.window.deiconify();
+    }
+  }
+
+  pub fn set_maximized(&self, maximized: bool) {
+    if maximized {
+      self.window.maximize();
+    } else {
+      self.window.unmaximize();
+    }
+  }
+
+  pub fn is_maximized(&self) -> bool {
+    self.window.get_property_is_maximized()
+  }
+
+  pub fn drag_window(&self) {
+    let display = self.window.get_display();
+    if let Some(cursor) = display
+      .get_device_manager()
+      .and_then(|device_manager| device_manager.get_client_pointer())
+    {
+      let (_, x, y) = cursor.get_position();
+      self.window.begin_move_drag(1, x, y, 0);
+    }
+  }
+
+  pub fn set_fullscreen(&self, fullscreen: Option<Fullscreen>) {
+    match fullscreen {
+      Some(_) => self.window.fullscreen(),
+      None => self.window.unfullscreen(),
+    }
+  }
+
+  pub fn fullscreen(&self) -> Option<Fullscreen> {
+    todo!()
+  }
+
+  pub fn set_decorations(&self, decorations: bool) {
+    self.window.set_decorated(decorations);
+  }
+
+  pub fn set_always_on_top(&self, always_on_top: bool) {
+    self.window.set_keep_above(always_on_top);
+  }
+
+  pub fn set_window_icon(&self, window_icon: Option<Icon>) {
+    if let Some(icon) = window_icon {
+      self.window.set_icon(Some(&icon.inner));
+    }
+  }
+
+  pub fn set_ime_position<P: Into<Position>>(&self, position: P) {
+    todo!()
+  }
+
+  pub fn request_user_attention(&self, request_type: Option<UserAttentionType>) {
+    if request_type.is_some() {
+      self.window.set_urgency_hint(true)
+    }
+  }
+
+  pub fn set_cursor_icon(&self, cursor: CursorIcon) {
+    todo!()
+  }
+
+  pub fn set_cursor_position<P: Into<Position>>(&self, position: P) -> Result<(), ExternalError> {
+    todo!()
+  }
+
+  pub fn set_cursor_visible(&self, visible: bool) {
+    todo!()
+  }
+
+  pub fn current_monitor(&self) -> Option<MonitorHandle> {
+    todo!()
+  }
+
+  // pub fn available_monitors(&self) -> impl Iterator<Item = MonitorHandle> {
+  //   todo!()
+  // }
+
+  pub fn primary_monitor(&self) -> Option<MonitorHandle> {
+    todo!()
   }
 
   //TODO other setters
