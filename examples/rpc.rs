@@ -76,7 +76,7 @@ async function getAsyncRpcResult() {
 
     response
   };
-  let _webview = WebViewBuilder::new(window)
+  let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url(url)?
     .with_rpc_handler(handler)
@@ -90,7 +90,7 @@ async function getAsyncRpcResult() {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      _ => (),
+      _ => {webview.resize();},
     }
   });
 }

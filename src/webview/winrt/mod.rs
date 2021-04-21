@@ -32,7 +32,8 @@ use std::{
 
 use once_cell::unsync::OnceCell;
 use url::Url;
-use winit::{
+
+use crate::application::{
   event_loop::{ControlFlow, EventLoop},
   platform::{run_return::EventLoopExtRunReturn, windows::WindowExtWindows},
   window::Window,
@@ -50,15 +51,15 @@ pub struct InnerWebView {
 
 impl InnerWebView {
   pub fn new(
-    window: &Window,
+    window: Rc<Window>,
     scripts: Vec<String>,
     url: Option<Url>,
     // TODO default background color option just adds to webview2 recently and it requires
     // canary build. Implement this once it's in official release.
     #[allow(unused_variables)] transparent: bool,
-    custom_protocols: Vec<(String, Box<dyn Fn(&str) -> Result<Vec<u8>> + 'static>)>,
-    rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse>>>,
-    file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
+    custom_protocols: Vec<(String, Box<dyn Fn(&Window, &str) -> Result<Vec<u8>> + 'static>)>,
+    rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
+    file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
     user_data_path: Option<PathBuf>,
   ) -> Result<Self> {
     let hwnd = HWND(window.hwnd() as _);
@@ -111,6 +112,7 @@ impl InnerWebView {
     }
 
     // Message handler
+    let window_ = window.clone();
     w.WebMessageReceived(TypedEventHandler::<
       webview2::CoreWebView2,
       webview2::CoreWebView2WebMessageReceivedEventArgs,
@@ -120,7 +122,7 @@ impl InnerWebView {
           String::from_utf16(args.TryGetWebMessageAsString()?.as_wide()),
           rpc_handler.as_ref(),
         ) {
-          match super::rpc_proxy(js, rpc_handler) {
+          match super::rpc_proxy(&window_, js, rpc_handler) {
             Ok(result) => {
               if let Some(ref script) = result {
                 let _ = webview.ExecuteScriptAsync(script.as_str())?;
@@ -145,6 +147,7 @@ impl InnerWebView {
         webview2::CoreWebView2WebResourceContext::All,
       )?;
       let env_ = env.clone();
+      let window_ = window.clone();
 
       w.WebResourceRequested(TypedEventHandler::<
         webview2::CoreWebView2,
@@ -158,7 +161,7 @@ impl InnerWebView {
               &format!("{}://", name),
             );
 
-            if let Ok(content) = function(&path) {
+            if let Ok(content) = function(&window_, &path) {
               let mime = MimeType::parse(&content, &uri);
               let stream = InMemoryRandomAccessStream::new()?;
               let writer = DataWriter::CreateDataWriter(stream.clone())?;
@@ -222,7 +225,7 @@ impl InnerWebView {
 
     if let Some(file_drop_handler) = file_drop_handler {
       let mut file_drop_controller = FileDropController::new();
-      file_drop_controller.listen(hwnd, file_drop_handler);
+      file_drop_controller.listen(hwnd, window.clone(), file_drop_handler);
       let _ = file_drop_controller_rc.set(file_drop_controller);
     }
 

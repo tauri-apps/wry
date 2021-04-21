@@ -13,6 +13,7 @@ use windows_webview2::Windows::Win32::{
 };
 
 use crate::webview::FileDropEvent;
+use crate::application::window::Window;
 
 // A silly implementation of file drop handling for Windows!
 // This can be pretty much entirely replaced when WebView2 SDK 1.0.721-prerelease becomes stable.
@@ -52,18 +53,18 @@ impl FileDropController {
     }
   }
 
-  pub(crate) fn listen(&mut self, hwnd: HWND, handler: Box<dyn Fn(FileDropEvent) -> bool>) {
+  pub(crate) fn listen(&mut self, hwnd: HWND, window: Rc<Window>, handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>) {
     let listener = Rc::new(handler);
 
     // Enumerate child windows to find the WebView2 "window" and override!
-    enumerate_child_windows(hwnd, |hwnd| self.inject(hwnd, listener.clone()));
+    enumerate_child_windows(hwnd, |hwnd| self.inject(hwnd, window.clone(), listener.clone()));
   }
 
-  fn inject(&mut self, hwnd: HWND, listener: Rc<Box<dyn Fn(FileDropEvent) -> bool>>) -> bool {
+  fn inject(&mut self, hwnd: HWND, window: Rc<Window>, listener: Rc<Box<dyn Fn(&Window, FileDropEvent) -> bool>>) -> bool {
     // Safety: Win32 calls are unsafe
     unsafe {
       if com::RevokeDragDrop(hwnd).0 != SystemServices::DRAGDROP_E_INVALIDHWND.0 {
-        let mut drop_target = Box::new(DropTarget::new(hwnd, listener));
+        let mut drop_target = Box::new(DropTarget::new(hwnd, window, listener));
         let interface: windows::Result<com::IDropTarget> =
           from_abi(drop_target.as_mut() as *mut _ as *mut _);
         if let Ok(interface) = interface {
@@ -114,20 +115,22 @@ unsafe fn from_abi<I: Interface>(this: windows::RawPtr) -> windows::Result<I> {
 #[repr(C)]
 struct DropTarget {
   vtable: *const IDropTarget_vtable,
-  listener: Rc<Box<dyn Fn(FileDropEvent) -> bool>>,
+  listener: Rc<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
   refcount: AtomicU32,
-  window: HWND,
+  hwnd: HWND,
+  window: Rc<Window>,
   cursor_effect: u32,
   hovered_is_valid: bool, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
 }
 
 #[allow(non_snake_case)]
 impl DropTarget {
-  fn new(window: HWND, listener: Rc<Box<dyn Fn(FileDropEvent) -> bool>>) -> DropTarget {
+  fn new(hwnd: HWND, window: Rc<Window>, listener: Rc<Box<dyn Fn(&Window, FileDropEvent) -> bool>>) -> DropTarget {
     DropTarget {
       vtable: &DROP_TARGET_VTBL,
       listener,
       refcount: AtomicU32::new(1),
+      hwnd,
       window,
       cursor_effect: com::DROPEFFECT_NONE,
       hovered_is_valid: false,
@@ -192,7 +195,7 @@ impl DropTarget {
       };
       *pdwEffect = drop_handler.cursor_effect;
 
-      (drop_handler.listener)(FileDropEvent::Hovered(paths));
+      (drop_handler.listener)(&drop_handler.window, FileDropEvent::Hovered(paths));
     }
 
     windows::ErrorCode::S_OK
@@ -213,7 +216,7 @@ impl DropTarget {
   pub unsafe extern "system" fn DragLeave(this: windows::RawPtr) -> windows::ErrorCode {
     let drop_handler = Self::from_interface(this);
     if drop_handler.hovered_is_valid {
-      (drop_handler.listener)(FileDropEvent::Cancelled);
+      (drop_handler.listener)(&drop_handler.window, FileDropEvent::Cancelled);
     }
 
     windows::ErrorCode::S_OK
@@ -237,7 +240,7 @@ impl DropTarget {
       }
     }
 
-    (drop_handler.listener)(FileDropEvent::Dropped(paths));
+    (drop_handler.listener)(&drop_handler.window, FileDropEvent::Dropped(paths));
 
     windows::ErrorCode::S_OK
   }

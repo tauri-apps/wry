@@ -20,6 +20,8 @@ use std::{
 
 use winapi::shared::windef::HWND;
 
+use crate::application::window::Window;
+
 pub(crate) struct FileDropController {
   drop_targets: Vec<*mut IDropTarget>,
 }
@@ -41,17 +43,17 @@ impl FileDropController {
     }
   }
 
-  pub(crate) fn listen(&mut self, hwnd: HWND, handler: Box<dyn Fn(FileDropEvent) -> bool>) {
+  pub(crate) fn listen(&mut self, hwnd: HWND, window: Rc<Window>, handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>) {
     let listener = Rc::new(handler);
 
     // Enumerate child windows to find the WebView2 "window" and override!
-    enumerate_child_windows(hwnd, |hwnd| self.inject(hwnd, listener.clone()));
+    enumerate_child_windows(hwnd, |hwnd| self.inject(hwnd, window.clone(), listener.clone()));
   }
 
-  fn inject(&mut self, hwnd: HWND, listener: Rc<Box<dyn Fn(FileDropEvent) -> bool>>) -> bool {
+  fn inject(&mut self, hwnd: HWND, window: Rc<Window>, listener: Rc<Box<dyn Fn(&Window, FileDropEvent) -> bool>>) -> bool {
     // Safety: WinAPI calls are unsafe
     unsafe {
-      let file_drop_handler = IDropTarget::new(hwnd, listener);
+      let file_drop_handler = IDropTarget::new(hwnd, window, listener);
       let handler_interface_ptr =
         &mut (*file_drop_handler.data).interface as winapi::um::oleidl::LPDROPTARGET;
 
@@ -118,9 +120,10 @@ use winapi::{
 #[repr(C)]
 struct IDropTargetData {
   pub interface: NativeIDropTarget,
-  listener: Rc<Box<dyn Fn(FileDropEvent) -> bool>>,
+  listener: Rc<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
   refcount: AtomicUsize,
-  window: HWND,
+  hwnd: HWND,
+  window: Rc<Window>,
   cursor_effect: DWORD,
   hovered_is_valid: bool, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
 }
@@ -132,13 +135,14 @@ pub struct IDropTarget {
 
 #[allow(non_snake_case)]
 impl IDropTarget {
-  fn new(window: HWND, listener: Rc<Box<dyn Fn(FileDropEvent) -> bool>>) -> IDropTarget {
+  fn new(hwnd: HWND, window: Rc<Window>, listener: Rc<Box<dyn Fn(&Window, FileDropEvent) -> bool>>) -> IDropTarget {
     let data = Box::new(IDropTargetData {
       listener,
       interface: NativeIDropTarget {
         lpVtbl: &DROP_TARGET_VTBL as *const IDropTargetVtbl,
       },
       refcount: AtomicUsize::new(1),
+      hwnd,
       window,
       cursor_effect: DROPEFFECT_NONE,
       hovered_is_valid: false,
@@ -194,7 +198,7 @@ impl IDropTarget {
     };
     *pdwEffect = drop_handler.cursor_effect;
 
-    (drop_handler.listener)(FileDropEvent::Hovered(paths));
+    (drop_handler.listener)(&drop_handler.window, FileDropEvent::Hovered(paths));
 
     S_OK
   }
@@ -214,7 +218,7 @@ impl IDropTarget {
   pub unsafe extern "system" fn DragLeave(this: *mut NativeIDropTarget) -> HRESULT {
     let drop_handler = Self::from_interface(this);
     if drop_handler.hovered_is_valid {
-      (drop_handler.listener)(FileDropEvent::Cancelled);
+      (drop_handler.listener)(&drop_handler.window, FileDropEvent::Cancelled);
     }
 
     S_OK
@@ -235,7 +239,7 @@ impl IDropTarget {
       shellapi::DragFinish(hdrop);
     }
 
-    (drop_handler.listener)(FileDropEvent::Dropped(paths));
+    (drop_handler.listener)(&drop_handler.window, FileDropEvent::Dropped(paths));
 
     S_OK
   }
