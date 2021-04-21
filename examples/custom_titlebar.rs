@@ -38,11 +38,6 @@ fn main() -> wry::Result<()> {
             WRYYYYYYYYYYYYYYYYYYYYYY!
           </div>
         </body>
-        <script>
-          document.getElementById('minimize').addEventListener('click', () => rpc.notify('minimize'));
-          document.getElementById('maximize').addEventListener('click', () => rpc.notify('maximize'));
-          document.getElementById('close').addEventListener('click', () => rpc.notify('close'));
-        </script>
       "#;
 
   let handler = |window: &Window, req: RpcRequest| {
@@ -67,10 +62,14 @@ fn main() -> wry::Result<()> {
     .unwrap()
     .with_url(url)?
     .with_rpc_handler(handler)
-    // inject the css after 500ms, otherwise it won't work as the `head` element isn't created yet.
     .with_initialization_script(
       r#"
-        setTimeout(() => {
+      (function () {
+        window.addEventListener('DOMContentLoaded', (event) => {
+          document.getElementById('minimize').addEventListener('click', () => rpc.notify('minimize'));
+          document.getElementById('maximize').addEventListener('click', () => rpc.notify('maximize'));
+          document.getElementById('close').addEventListener('click', () => rpc.notify('close'));
+
           const style = document.createElement('style');
           style.textContent = `
             * {
@@ -105,7 +104,8 @@ fn main() -> wry::Result<()> {
             }
           `;
           document.head.append(style);
-        }, 500);
+        });
+      })();
       "#,
     )
     .build()?;
