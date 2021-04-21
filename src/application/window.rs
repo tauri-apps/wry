@@ -11,6 +11,7 @@ use std::{
   },
 };
 
+use gdk::{Cursor, CursorType, EventMask, WindowEdge, WindowExt};
 use gtk::{prelude::*, ApplicationWindow};
 use winit::{
   dpi::{PhysicalPosition, PhysicalSize, Position},
@@ -404,6 +405,34 @@ impl Window {
     }
     window.set_visible(attributes.visible);
     window.set_decorated(attributes.decorations);
+
+    if !attributes.decorations && attributes.resizable {
+      window.add_events(EventMask::POINTER_MOTION_MASK | EventMask::BUTTON_MOTION_MASK);
+
+      window.connect_motion_notify_event(|window, event| {
+        if let Some(gdk_window) = window.get_window() {
+          let (cx, cy) = event.get_root();
+          hit_test(&gdk_window, cx, cy);
+        }
+        Inhibit(false)
+      });
+
+      window.connect_button_press_event(|window, event| {
+        if event.get_button() == 1 {
+          if let Some(gdk_window) = window.get_window() {
+            let (cx, cy) = event.get_root();
+            let result = hit_test(&gdk_window, cx, cy);
+
+            // this check is necessary, otherwise the window won't recieve the click properly when resize isn't needed
+            if result != WindowEdge::__Unknown(8) {
+              window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.get_time());
+            }
+          }
+        }
+        Inhibit(false)
+      });
+    }
+
     window.set_keep_above(attributes.always_on_top);
     if let Some(icon) = &attributes.window_icon {
       window.set_icon(Some(&icon.inner));
@@ -696,4 +725,78 @@ pub(crate) enum WindowRequest {
   AlwaysOnTop(bool),
   WindowIcon(Option<Icon>),
   UserAttention(Option<UserAttentionType>),
+}
+
+pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {
+  let (left, top) = window.get_position();
+  let (w, h) = (window.get_width(), window.get_height());
+  let (right, bottom) = (left + w, top + h);
+
+  let fake_border = 5; // change this to manipulate how far inside the window, the resize can happen
+
+  let display = window.get_display();
+
+  const LEFT: i32 = 00001;
+  const RIGHT: i32 = 0b0010;
+  const TOP: i32 = 0b0100;
+  const BOTTOM: i32 = 0b1000;
+  const TOPLEFT: i32 = TOP | LEFT;
+  const TOPRIGHT: i32 = TOP | RIGHT;
+  const BOTTOMLEFT: i32 = BOTTOM | LEFT;
+  const BOTTOMRIGHT: i32 = BOTTOM | RIGHT;
+
+  let result = LEFT
+    * (if (cx as i32) < (left + fake_border) {
+      1
+    } else {
+      0
+    })
+    | RIGHT
+      * (if (cx as i32) >= (right - fake_border) {
+        1
+      } else {
+        0
+      })
+    | TOP
+      * (if (cy as i32) < (top + fake_border) {
+        1
+      } else {
+        0
+      })
+    | BOTTOM
+      * (if (cy as i32) >= (bottom - fake_border) {
+        1
+      } else {
+        0
+      });
+
+  let edge = match result {
+    LEFT => WindowEdge::West,
+    TOP => WindowEdge::North,
+    RIGHT => WindowEdge::East,
+    BOTTOM => WindowEdge::South,
+    TOPLEFT => WindowEdge::NorthWest,
+    TOPRIGHT => WindowEdge::NorthEast,
+    BOTTOMLEFT => WindowEdge::SouthWest,
+    BOTTOMRIGHT => WindowEdge::SouthEast,
+    // has to be bigger than 7. otherwise it will match the number with a variant of WindowEdge enum and we don't want to do that
+    // also if the number ever change, makke sure to change it in the connect_button_press_event for window and webview
+    _ => WindowEdge::__Unknown(8),
+  };
+
+  // FIXME: calling `window.begin_resize_drag` seems to revert the cursor back to normal style
+  window.set_cursor(Some(&Cursor::new_for_display(
+    &display,
+    match edge {
+      WindowEdge::North | WindowEdge::South => CursorType::SbVDoubleArrow,
+      WindowEdge::East | WindowEdge::West => CursorType::SbHDoubleArrow,
+      WindowEdge::NorthWest => CursorType::TopLeftCorner,
+      WindowEdge::NorthEast => CursorType::TopRightCorner,
+      WindowEdge::SouthEast => CursorType::BottomRightCorner,
+      WindowEdge::SouthWest => CursorType::BottomLeftCorner,
+      _ => CursorType::LeftPtr,
+    },
+  )));
+
+  edge
 }

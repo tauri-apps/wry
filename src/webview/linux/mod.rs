@@ -4,9 +4,9 @@
 
 use std::{path::PathBuf, rc::Rc};
 
-use gdk::RGBA;
+use gdk::{WindowEdge, WindowExt, RGBA};
 use gio::Cancellable;
-use glib::{Bytes, FileError};
+use glib::{signal::Inhibit, Bytes, FileError};
 use gtk::{ContainerExt, WidgetExt};
 use url::Url;
 use webkit2gtk::{
@@ -72,6 +72,21 @@ impl InnerWebView {
           }
         }
       }
+    });
+
+    webview.connect_button_press_event(|webview, event| {
+      if event.get_button() == 1 {
+        let (cx, cy) = event.get_root();
+        if let Some(window) = webview.get_parent_window() {
+          let result = crate::application::window::hit_test(&window, cx, cy);
+
+          // this check is necessary, otherwise the webview won't recieve the click properly when resize isn't needed
+          if result != WindowEdge::__Unknown(8) {
+            window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.get_time());
+          }
+        }
+      }
+      Inhibit(false)
     });
 
     window.add(&*webview);
