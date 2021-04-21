@@ -17,7 +17,7 @@ fn main() -> wry::Result<()> {
       dpi::PhysicalSize,
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
-      window::WindowBuilder,
+      window::{Window, WindowBuilder},
     },
     webview::{RpcRequest, WebViewBuilder},
   };
@@ -26,7 +26,7 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
   let (window_tx, window_rx) = std::sync::mpsc::channel::<String>();
-  let handler = move |req: RpcRequest| {
+  let handler = move |_window: &Window, req: RpcRequest| {
     if &req.method == "openWindow" {
       if let Some(params) = req.params {
         if let Value::String(url) = &params[0] {

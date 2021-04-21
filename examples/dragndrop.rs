@@ -23,10 +23,10 @@ fn main() -> wry::Result<()> {
   let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url(HTML)?
-    .with_file_drop_handler(Box::new(|data| {
+    .with_file_drop_handler(|_, data| {
       println!("Window 1: {:?}", data);
       false // Returning true will block the OS default behaviour.
-    }))
+    })
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

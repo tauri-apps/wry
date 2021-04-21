@@ -7,7 +7,7 @@ fn main() -> wry::Result<()> {
     application::{
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
-      window::WindowBuilder,
+      window::{Window, WindowBuilder},
     },
     webview::{RpcRequest, WebViewBuilder},
   };
@@ -49,18 +49,18 @@ fn main() -> wry::Result<()> {
         </script>
       "#;
 
-  let handler = |mut _req: RpcRequest| {
-    /* TODO window setter
+  let handler = |window: &Window, req: RpcRequest| {
     if req.method == "minimize" {
-      proxy.minimize().unwrap();
+      window.set_minimized(true);
     }
     if req.method == "maximize" {
       if req.params.unwrap().as_array().unwrap()[0] == true {
-        proxy.maximize().unwrap();
+        window.set_maximized(true);
       } else {
-        proxy.unmaximize().unwrap();
+        window.set_maximized(false);
       }
     }
+    /* TODO handle close
     if req.method == "close" {
       proxy.close().unwrap();
     }
