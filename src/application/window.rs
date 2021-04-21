@@ -784,6 +784,7 @@ pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {
     _ => WindowEdge::__Unknown(8),
   };
 
+  // FIXME: calling `window.begin_resize_drag` seems to revert the cursor back to normal style
   window.set_cursor(Some(&Cursor::new_for_display(
     &display,
     match edge {
