@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: MIT
 
 use std::{
+  cell::RefCell,
   fmt,
   sync::{
-    atomic::{AtomicI32, Ordering},
+    atomic::{AtomicBool, AtomicI32, Ordering},
     mpsc::Sender,
   },
 };
@@ -309,6 +310,8 @@ pub struct Window {
   scale_factor: f64,
   position: (AtomicI32, AtomicI32),
   size: (AtomicI32, AtomicI32),
+  maximized: AtomicBool,
+  fullscreen: RefCell<Option<Fullscreen>>,
 }
 
 impl Window {
@@ -411,6 +414,7 @@ impl Window {
     let window_requests_tx = event_loop_window_target.window_requests_tx.clone();
     let scale_factor = scale_factor as f64;
     let position = window.get_position();
+    let maximized = window.get_property_is_maximized().into();
     Ok(Self {
       window_id,
       window,
@@ -418,6 +422,8 @@ impl Window {
       scale_factor,
       position: (position.0.into(), position.1.into()),
       size: (width.into(), height.into()),
+      maximized,
+      fullscreen: RefCell::new(attributes.fullscreen),
     })
   }
 
@@ -529,70 +535,93 @@ impl Window {
   }
 
   pub fn set_visible(&self, visible: bool) {
-    if visible {
-      self.window.show();
-    } else {
-      self.window.hide();
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Visible(visible)))
+    {
+      log::warn!("Fail to send visible request: {}", e);
     }
   }
 
   pub fn set_resizable(&self, resizable: bool) {
-    self.window.set_resizable(resizable);
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Resizable(resizable)))
+    {
+      log::warn!("Fail to send resizable request: {}", e);
+    }
   }
 
   pub fn set_minimized(&self, minimized: bool) {
-    if minimized {
-      self.window.iconify();
-    } else {
-      self.window.deiconify();
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Minimized(minimized)))
+    {
+      log::warn!("Fail to send minimized request: {}", e);
     }
   }
 
   pub fn set_maximized(&self, maximized: bool) {
-    if maximized {
-      self.window.maximize();
-    } else {
-      self.window.unmaximize();
+    self.maximized.store(maximized, Ordering::Acquire);
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Maximized(maximized)))
+    {
+      log::warn!("Fail to send maximized request: {}", e);
     }
   }
 
   pub fn is_maximized(&self) -> bool {
-    self.window.get_property_is_maximized()
+    self.maximized.load(Ordering::Release)
   }
 
   pub fn drag_window(&self) {
-    let display = self.window.get_display();
-    if let Some(cursor) = display
-      .get_device_manager()
-      .and_then(|device_manager| device_manager.get_client_pointer())
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::DragWindow))
     {
-      let (_, x, y) = cursor.get_position();
-      self.window.begin_move_drag(1, x, y, 0);
+      log::warn!("Fail to send drag window request: {}", e);
     }
   }
 
   pub fn set_fullscreen(&self, fullscreen: Option<Fullscreen>) {
-    match fullscreen {
-      Some(_) => self.window.fullscreen(),
-      None => self.window.unfullscreen(),
+    self.fullscreen.replace(fullscreen.clone());
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Fullscreen(fullscreen)))
+    {
+      log::warn!("Fail to send fullscreen request: {}", e);
     }
   }
 
   pub fn fullscreen(&self) -> Option<Fullscreen> {
-    todo!()
+    self.fullscreen.borrow().clone()
   }
 
   pub fn set_decorations(&self, decorations: bool) {
-    self.window.set_decorated(decorations);
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Decorations(decorations)))
+    {
+      log::warn!("Fail to send decorations request: {}", e);
+    }
   }
 
   pub fn set_always_on_top(&self, always_on_top: bool) {
-    self.window.set_keep_above(always_on_top);
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::AlwaysOnTop(always_on_top)))
+    {
+      log::warn!("Fail to send always on top request: {}", e);
+    }
   }
 
   pub fn set_window_icon(&self, window_icon: Option<Icon>) {
-    if let Some(icon) = window_icon {
-      self.window.set_icon(Some(&icon.inner));
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::WindowIcon(window_icon)))
+    {
+      log::warn!("Fail to send window icon request: {}", e);
     }
   }
 
@@ -601,8 +630,11 @@ impl Window {
   }
 
   pub fn request_user_attention(&self, request_type: Option<UserAttentionType>) {
-    if request_type.is_some() {
-      self.window.set_urgency_hint(true)
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::UserAttention(request_type)))
+    {
+      log::warn!("Fail to send user attention request: {}", e);
     }
   }
 
@@ -654,4 +686,14 @@ pub(crate) enum WindowRequest {
   Size((i32, i32)),
   MinSize((i32, i32)),
   MaxSize((i32, i32)),
+  Visible(bool),
+  Resizable(bool),
+  Minimized(bool),
+  Maximized(bool),
+  DragWindow,
+  Fullscreen(Option<Fullscreen>),
+  Decorations(bool),
+  AlwaysOnTop(bool),
+  WindowIcon(Option<Icon>),
+  UserAttention(Option<UserAttentionType>),
 }

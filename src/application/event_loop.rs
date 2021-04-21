@@ -276,6 +276,54 @@ impl<T: 'static> EventLoop<T> {
               }),
               gdk::WindowHints::MAX_SIZE,
             ),
+          WindowRequest::Visible(visible) => {
+            if visible {
+              window.show();
+            } else {
+              window.hide();
+            }
+          }
+          WindowRequest::Resizable(resizable) => window.set_resizable(resizable),
+          WindowRequest::Minimized(minimized) => {
+            if minimized {
+              window.iconify();
+            } else {
+              window.deiconify();
+            }
+          }
+          WindowRequest::Maximized(maximized) => {
+            if maximized {
+              window.maximize();
+            } else {
+              window.unmaximize();
+            }
+          }
+          WindowRequest::DragWindow => {
+            let display = window.get_display();
+            if let Some(cursor) = display
+              .get_device_manager()
+              .and_then(|device_manager| device_manager.get_client_pointer())
+            {
+              let (_, x, y) = cursor.get_position();
+              window.begin_move_drag(1, x, y, 0);
+            }
+          }
+          WindowRequest::Fullscreen(fullscreen) => match fullscreen {
+            Some(_) => window.fullscreen(),
+            None => window.unfullscreen(),
+          },
+          WindowRequest::Decorations(decorations) => window.set_decorated(decorations),
+          WindowRequest::AlwaysOnTop(always_on_top) => window.set_keep_above(always_on_top),
+          WindowRequest::WindowIcon(window_icon) => {
+            if let Some(icon) = window_icon {
+              window.set_icon(Some(&icon.inner));
+            }
+          }
+          WindowRequest::UserAttention(request_type) => {
+            if request_type.is_some() {
+              window.set_urgency_hint(true)
+            }
+          }
         }
       }
 
