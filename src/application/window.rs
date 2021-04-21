@@ -422,6 +422,8 @@ impl Window {
           if let Some(gdk_window) = window.get_window() {
             let (cx, cy) = event.get_root();
             let result = hit_test(&gdk_window, cx, cy);
+
+            // this check is necessary, otherwise the window won't recieve the click properly when resize isn't needed
             if result != WindowEdge::__Unknown(8) {
               window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.get_time());
             }
