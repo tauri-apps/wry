@@ -39,12 +39,8 @@ fn main() -> wry::Result<()> {
           </div>
         </body>
         <script>
-          let maximized = false;
           document.getElementById('minimize').addEventListener('click', () => rpc.notify('minimize'));
-          document.getElementById('maximize').addEventListener('click', () => {
-            maximized = !maximized;
-            rpc.notify('maximize', maximized);
-          });
+          document.getElementById('maximize').addEventListener('click', () => rpc.notify('maximize'));
           document.getElementById('close').addEventListener('click', () => rpc.notify('close'));
         </script>
       "#;
@@ -54,10 +50,10 @@ fn main() -> wry::Result<()> {
       window.set_minimized(true);
     }
     if req.method == "maximize" {
-      if req.params.unwrap().as_array().unwrap()[0] == true {
-        window.set_maximized(true);
-      } else {
+      if window.is_maximized() {
         window.set_maximized(false);
+      } else {
+        window.set_maximized(true);
       }
     }
     /* TODO handle close
@@ -67,7 +63,7 @@ fn main() -> wry::Result<()> {
     */
     None
   };
-  let _webview = WebViewBuilder::new(window)
+  let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url(url)?
     .with_rpc_handler(handler)
@@ -122,7 +118,9 @@ fn main() -> wry::Result<()> {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      _ => (),
+      _ => {
+        let _ = webview.resize();
+      }
     }
   });
 }
