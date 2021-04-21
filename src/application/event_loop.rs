@@ -26,7 +26,7 @@ use std::{
 
 use gio::{prelude::*, Cancellable};
 use glib::{source::idle_add_local, Continue, MainContext};
-use gtk::{prelude::*, Inhibit};
+use gtk::{prelude::*, ApplicationWindow, Inhibit};
 pub use winit::event_loop::{ControlFlow, EventLoopClosed};
 
 use super::{
@@ -238,6 +238,44 @@ impl<T: 'static> EventLoop<T> {
 
         match request {
           WindowRequest::Title(title) => window.set_title(&title),
+          WindowRequest::Position((x, y)) => window.move_(x, y),
+          WindowRequest::Size((w, h)) => window.resize(w, h),
+          WindowRequest::MinSize((min_width, min_height)) => window
+            .set_geometry_hints::<ApplicationWindow>(
+              None,
+              Some(&gdk::Geometry {
+                min_width,
+                min_height,
+                max_width: 0,
+                max_height: 0,
+                base_width: 0,
+                base_height: 0,
+                width_inc: 0,
+                height_inc: 0,
+                min_aspect: 0f64,
+                max_aspect: 0f64,
+                win_gravity: gdk::Gravity::Center,
+              }),
+              gdk::WindowHints::MIN_SIZE,
+            ),
+          WindowRequest::MaxSize((max_width, max_height)) => window
+            .set_geometry_hints::<ApplicationWindow>(
+              None,
+              Some(&gdk::Geometry {
+                min_width: 0,
+                min_height: 0,
+                max_width,
+                max_height,
+                base_width: 0,
+                base_height: 0,
+                width_inc: 0,
+                height_inc: 0,
+                min_aspect: 0f64,
+                max_aspect: 0f64,
+                win_gravity: gdk::Gravity::Center,
+              }),
+              gdk::WindowHints::MAX_SIZE,
+            ),
         }
       }
 

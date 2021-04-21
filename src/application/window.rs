@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{fmt, sync::mpsc::Sender};
+use std::{
+  fmt,
+  sync::{
+    atomic::{AtomicI32, Ordering},
+    mpsc::Sender,
+  },
+};
 
 use gtk::{prelude::*, ApplicationWindow};
 use winit::{
@@ -300,6 +306,9 @@ pub struct Window {
   pub(crate) window: gtk::ApplicationWindow,
   /// Window requests sender
   window_requests_tx: Sender<(WindowId, WindowRequest)>,
+  scale_factor: f64,
+  position: (AtomicI32, AtomicI32),
+  size: (AtomicI32, AtomicI32),
 }
 
 impl Window {
@@ -393,17 +402,22 @@ impl Window {
     window.set_visible(attributes.visible);
     window.set_decorated(attributes.decorations);
     window.set_keep_above(attributes.always_on_top);
-    if let Some(icon) = attributes.window_icon {
+    if let Some(icon) = &attributes.window_icon {
       window.set_icon(Some(&icon.inner));
     }
 
     window.show_all();
 
     let window_requests_tx = event_loop_window_target.window_requests_tx.clone();
+    let scale_factor = scale_factor as f64;
+    let position = window.get_position();
     Ok(Self {
       window_id,
       window,
       window_requests_tx,
+      scale_factor,
+      position: (position.0.into(), position.1.into()),
+      size: (width.into(), height.into()),
     })
   }
 
@@ -412,7 +426,7 @@ impl Window {
   }
 
   pub fn scale_factor(&self) -> f64 {
-    self.window.get_scale_factor() as f64
+    self.scale_factor
   }
 
   pub fn request_redraw(&self) {
@@ -420,13 +434,19 @@ impl Window {
   }
 
   pub fn inner_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
-    let (x, y) = self.window.get_position();
-    Ok(PhysicalPosition::new(x, y))
+    let (x, y) = &self.position;
+    Ok(PhysicalPosition::new(
+      x.load(Ordering::Acquire),
+      y.load(Ordering::Acquire),
+    ))
   }
 
   pub fn outer_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
-    let (x, y) = self.window.get_position();
-    Ok(PhysicalPosition::new(x, y))
+    let (x, y) = &self.position;
+    Ok(PhysicalPosition::new(
+      x.load(Ordering::Acquire),
+      y.load(Ordering::Acquire),
+    ))
   }
 
   pub fn set_outer_position<P: Into<Position>>(&self, position: P) {
@@ -434,68 +454,68 @@ impl Window {
       .into()
       .to_physical::<i32>(self.scale_factor())
       .into();
-    self.window.move_(x, y);
+    self.position.0.store(x, Ordering::Release);
+    self.position.1.store(y, Ordering::Release);
+
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Position((x, y))))
+    {
+      log::warn!("Fail to send position request: {}", e);
+    }
   }
 
   pub fn inner_size(&self) -> PhysicalSize<u32> {
-    let (width, height) = self.window.get_size();
-    PhysicalSize::new(width as u32, height as u32)
+    let (width, height) = &self.size;
+    PhysicalSize::new(
+      width.load(Ordering::Acquire) as u32,
+      height.load(Ordering::Acquire) as u32,
+    )
   }
 
   pub fn set_inner_size<S: Into<Size>>(&self, size: S) {
     let (width, height) = size.into().to_logical::<i32>(self.scale_factor()).into();
-    self.window.resize(width, height);
+    self.size.0.store(width, Ordering::Release);
+    self.size.1.store(height, Ordering::Release);
+
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Size((width, height))))
+    {
+      log::warn!("Fail to send size request: {}", e);
+    }
   }
 
   pub fn outer_size(&self) -> PhysicalSize<u32> {
-    let (width, height) = self.window.get_size();
-    PhysicalSize::new(width as u32, height as u32)
+    let (width, height) = &self.size;
+    PhysicalSize::new(
+      width.load(Ordering::Acquire) as u32,
+      height.load(Ordering::Acquire) as u32,
+    )
   }
 
   pub fn set_min_inner_size<S: Into<Size>>(&self, min_size: Option<S>) {
     if let Some(size) = min_size {
       let (min_width, min_height) = size.into().to_logical::<i32>(self.scale_factor()).into();
 
-      self.window.set_geometry_hints::<ApplicationWindow>(
-        None,
-        Some(&gdk::Geometry {
-          min_width,
-          min_height,
-          max_width: 0,
-          max_height: 0,
-          base_width: 0,
-          base_height: 0,
-          width_inc: 0,
-          height_inc: 0,
-          min_aspect: 0f64,
-          max_aspect: 0f64,
-          win_gravity: gdk::Gravity::Center,
-        }),
-        gdk::WindowHints::MIN_SIZE,
-      );
+      if let Err(e) = self.window_requests_tx.send((
+        self.window_id,
+        WindowRequest::MinSize((min_width, min_height)),
+      )) {
+        log::warn!("Fail to send min size request: {}", e);
+      }
     }
   }
   pub fn set_max_inner_size<S: Into<Size>>(&self, max_size: Option<S>) {
     if let Some(size) = max_size {
       let (max_width, max_height) = size.into().to_logical::<i32>(self.scale_factor()).into();
 
-      self.window.set_geometry_hints::<ApplicationWindow>(
-        None,
-        Some(&gdk::Geometry {
-          min_width: 0,
-          min_height: 0,
-          max_width,
-          max_height,
-          base_width: 0,
-          base_height: 0,
-          width_inc: 0,
-          height_inc: 0,
-          min_aspect: 0f64,
-          max_aspect: 0f64,
-          win_gravity: gdk::Gravity::Center,
-        }),
-        gdk::WindowHints::MAX_SIZE,
-      );
+      if let Err(e) = self.window_requests_tx.send((
+        self.window_id,
+        WindowRequest::MaxSize((max_width, max_height)),
+      )) {
+        log::warn!("Fail to send max size request: {}", e);
+      }
     }
   }
 
@@ -504,7 +524,7 @@ impl Window {
       .window_requests_tx
       .send((self.window_id, WindowRequest::Title(title.to_string())))
     {
-      log::warn!("Fail to send window request: {}", e);
+      log::warn!("Fail to send title request: {}", e);
     }
   }
 
@@ -576,7 +596,7 @@ impl Window {
     }
   }
 
-  pub fn set_ime_position<P: Into<Position>>(&self, position: P) {
+  pub fn set_ime_position<P: Into<Position>>(&self, _position: P) {
     todo!()
   }
 
@@ -586,15 +606,15 @@ impl Window {
     }
   }
 
-  pub fn set_cursor_icon(&self, cursor: CursorIcon) {
+  pub fn set_cursor_icon(&self, _cursor: CursorIcon) {
     todo!()
   }
 
-  pub fn set_cursor_position<P: Into<Position>>(&self, position: P) -> Result<(), ExternalError> {
+  pub fn set_cursor_position<P: Into<Position>>(&self, _position: P) -> Result<(), ExternalError> {
     todo!()
   }
 
-  pub fn set_cursor_visible(&self, visible: bool) {
+  pub fn set_cursor_visible(&self, _visible: bool) {
     todo!()
   }
 
@@ -630,4 +650,8 @@ pub enum Theme {
 
 pub(crate) enum WindowRequest {
   Title(String),
+  Position((i32, i32)),
+  Size((i32, i32)),
+  MinSize((i32, i32)),
+  MaxSize((i32, i32)),
 }
