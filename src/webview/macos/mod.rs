@@ -199,9 +199,12 @@ impl InnerWebView {
       }
 
       // File drop handling
-      if let Some(file_drop_handler) = file_drop_handler {
-        set_file_drop_handler(webview, file_drop_handler)
-      };
+      match file_drop_handler {
+        // if we have a file_drop_handler defined, use the defined handler
+        Some(file_drop_handler) => set_file_drop_handler(webview, file_drop_handler),
+        // prevent panic by using a blank handler
+        None => set_file_drop_handler(webview, Box::new(|_event| false)),
+      }
 
       let w = Self {
         webview: Id::from_ptr(webview),
