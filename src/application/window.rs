@@ -529,11 +529,14 @@ impl Window {
   }
 
   pub fn drag_window(&self) {
-    let display = gdk::Display::get_default().unwrap();
-    let device_manager = display.get_device_manager().unwrap();
-    let cursor = device_manager.get_client_pointer().unwrap();
-    let (_, x, y) = cursor.get_position();
-    self.window.begin_move_drag(1, x, y, 0);
+    let display = self.window.get_display();
+    if let Some(cursor) = display
+      .get_device_manager()
+      .and_then(|device_manager| device_manager.get_client_pointer())
+    {
+      let (_, x, y) = cursor.get_position();
+      self.window.begin_move_drag(1, x, y, 0);
+    }
   }
 
   pub fn set_fullscreen(&self, fullscreen: Option<Fullscreen>) {
@@ -587,7 +590,6 @@ impl Window {
     todo!()
   }
 
-  // TODO
   // pub fn available_monitors(&self) -> impl Iterator<Item = MonitorHandle> {
   //   todo!()
   // }
