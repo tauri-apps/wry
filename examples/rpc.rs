@@ -90,7 +90,9 @@ async function getAsyncRpcResult() {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      _ => {webview.resize();},
+      _ => {
+        webview.resize();
+      }
     }
   });
 }

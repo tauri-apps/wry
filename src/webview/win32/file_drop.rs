@@ -43,14 +43,26 @@ impl FileDropController {
     }
   }
 
-  pub(crate) fn listen(&mut self, hwnd: HWND, window: Rc<Window>, handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>) {
+  pub(crate) fn listen(
+    &mut self,
+    hwnd: HWND,
+    window: Rc<Window>,
+    handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>,
+  ) {
     let listener = Rc::new(handler);
 
     // Enumerate child windows to find the WebView2 "window" and override!
-    enumerate_child_windows(hwnd, |hwnd| self.inject(hwnd, window.clone(), listener.clone()));
+    enumerate_child_windows(hwnd, |hwnd| {
+      self.inject(hwnd, window.clone(), listener.clone())
+    });
   }
 
-  fn inject(&mut self, hwnd: HWND, window: Rc<Window>, listener: Rc<Box<dyn Fn(&Window, FileDropEvent) -> bool>>) -> bool {
+  fn inject(
+    &mut self,
+    hwnd: HWND,
+    window: Rc<Window>,
+    listener: Rc<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+  ) -> bool {
     // Safety: WinAPI calls are unsafe
     unsafe {
       let file_drop_handler = IDropTarget::new(hwnd, window, listener);
@@ -135,7 +147,11 @@ pub struct IDropTarget {
 
 #[allow(non_snake_case)]
 impl IDropTarget {
-  fn new(hwnd: HWND, window: Rc<Window>, listener: Rc<Box<dyn Fn(&Window, FileDropEvent) -> bool>>) -> IDropTarget {
+  fn new(
+    hwnd: HWND,
+    window: Rc<Window>,
+    listener: Rc<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+  ) -> IDropTarget {
     let data = Box::new(IDropTargetData {
       listener,
       interface: NativeIDropTarget {

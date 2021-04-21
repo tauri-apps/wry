@@ -37,7 +37,10 @@ impl InnerWebView {
     // TODO default background color option just adds to webview2 recently and it requires
     // canary build. Implement this once it's in official release.
     _transparent: bool,
-    custom_protocols: Vec<(String, Box<dyn Fn(&Window, &str) -> Result<Vec<u8>> + 'static>)>,
+    custom_protocols: Vec<(
+      String,
+      Box<dyn Fn(&Window, &str) -> Result<Vec<u8>> + 'static>,
+    )>,
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
     user_data_path: Option<PathBuf>,
@@ -190,7 +193,7 @@ impl InnerWebView {
 
         if let Some(file_drop_handler) = file_drop_handler {
           let mut file_drop_controller = FileDropController::new();
-          file_drop_controller.listen(hwnd,window.clone(), file_drop_handler);
+          file_drop_controller.listen(hwnd, window.clone(), file_drop_handler);
           let _ = file_drop_controller_clone.set(file_drop_controller);
         }
 
