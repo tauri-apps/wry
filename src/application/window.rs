@@ -4,6 +4,7 @@
 
 use std::{fmt, sync::mpsc::Sender};
 
+use gdk::{Cursor, CursorType, EventMask, WindowEdge, WindowExt};
 use gtk::{prelude::*, ApplicationWindow};
 use winit::{
   dpi::{PhysicalPosition, PhysicalSize, Position},
@@ -392,6 +393,45 @@ impl Window {
     }
     window.set_visible(attributes.visible);
     window.set_decorated(attributes.decorations);
+
+    if !attributes.decorations && attributes.resizable {
+      window.add_events(EventMask::POINTER_MOTION_MASK | EventMask::BUTTON_MOTION_MASK);
+      window.connect_motion_notify_event(|window, event| {
+        if let Some(gdk_window) = window.get_window() {
+          let (cx, cy) = event.get_root();
+          let display = window.get_display();
+          gdk_window.set_cursor(Some(&Cursor::new_for_display(
+            &display,
+            match hit_test(&window, cx as i32, cy as i32) {
+              WindowEdge::North | WindowEdge::South => CursorType::SbVDoubleArrow,
+              WindowEdge::East | WindowEdge::West => CursorType::SbHDoubleArrow,
+              WindowEdge::NorthWest => CursorType::TopLeftCorner,
+              WindowEdge::NorthEast => CursorType::TopRightCorner,
+              WindowEdge::SouthEast => CursorType::BottomRightCorner,
+              WindowEdge::SouthWest => CursorType::BottomLeftCorner,
+              _ => CursorType::LeftPtr,
+            },
+          )));
+        }
+        Inhibit(false)
+      });
+
+      window.connect_button_press_event(|window, event| {
+        if event.get_button() == 1 {
+          let (cx, cy) = event.get_root();
+
+          window.begin_resize_drag(
+            hit_test(window, cx as i32, cy as i32),
+            event.get_button() as i32,
+            cx as i32,
+            cy as i32,
+            event.get_time(),
+          );
+        }
+        Inhibit(false)
+      });
+    }
+
     window.set_keep_above(attributes.always_on_top);
     if let Some(icon) = attributes.window_icon {
       window.set_icon(Some(&icon.inner));
@@ -630,4 +670,38 @@ pub enum Theme {
 
 pub(crate) enum WindowRequest {
   Title(String),
+}
+
+fn hit_test(window: &ApplicationWindow, cx: i32, cy: i32) -> WindowEdge {
+  let (left, top) = window.get_position();
+  let (w, h) = window.get_size();
+  let (right, bottom) = (left + w, top + h);
+  let fake_border = 10; // change this to manipulate how far inside the window, the resize can happen
+
+  const LEFT: i32 = 00001;
+  const RIGHT: i32 = 0b0010;
+  const TOP: i32 = 0b0100;
+  const BOTTOM: i32 = 0b1000;
+  const TOPLEFT: i32 = TOP | LEFT;
+  const TOPRIGHT: i32 = TOP | RIGHT;
+  const BOTTOMLEFT: i32 = BOTTOM | LEFT;
+  const BOTTOMRIGHT: i32 = BOTTOM | RIGHT;
+
+  let result = LEFT * (if cx < (left + fake_border) { 1 } else { 0 })
+    | RIGHT * (if cx >= (right - fake_border) { 1 } else { 0 })
+    | TOP * (if cy < (top + fake_border) { 1 } else { 0 })
+    | BOTTOM * (if cy >= (bottom - fake_border) { 1 } else { 0 });
+
+  match result {
+    LEFT => WindowEdge::West,
+    RIGHT => WindowEdge::East,
+    TOP => WindowEdge::North,
+    BOTTOM => WindowEdge::South,
+    TOPLEFT => WindowEdge::NorthWest,
+    TOPRIGHT => WindowEdge::NorthEast,
+    BOTTOMLEFT => WindowEdge::SouthWest,
+    BOTTOMRIGHT => WindowEdge::SouthEast,
+    // has to be bigger than 7. otherwise it will match the number with a variant of WindowEdge enum and we don't want to do that
+    _ => WindowEdge::__Unknown(8),
+  }
 }
