@@ -73,12 +73,7 @@ impl InnerWebView {
       if event.get_button() == 1 {
         let (cx, cy) = event.get_root();
         if let Some(window) = webview.get_parent_window() {
-          let (left, top) = window.get_position();
-          let (w, h) = (window.get_width(), window.get_height());
-          let (right, bottom) = (left + w, top + h);
-
-          let result =
-            crate::application::window::hit_test(left, top, right, bottom, cx as i32, cy as i32);
+          let result = crate::application::window::hit_test(&window, cx, cy);
           if result != WindowEdge::__Unknown(8) {
             window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.get_time());
           }

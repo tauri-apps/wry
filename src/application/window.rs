@@ -412,37 +412,19 @@ impl Window {
       window.connect_motion_notify_event(|window, event| {
         if let Some(gdk_window) = window.get_window() {
           let (cx, cy) = event.get_root();
-          let (left, top) = window.get_position();
-          let (w, h) = window.get_size();
-          let (right, bottom) = (left + w, top + h);
-
-          let display = window.get_display();
-          gdk_window.set_cursor(Some(&Cursor::new_for_display(
-            &display,
-            match hit_test(left, top, right, bottom, cx as i32, cy as i32) {
-              WindowEdge::North | WindowEdge::South => CursorType::SbVDoubleArrow,
-              WindowEdge::East | WindowEdge::West => CursorType::SbHDoubleArrow,
-              WindowEdge::NorthWest => CursorType::TopLeftCorner,
-              WindowEdge::NorthEast => CursorType::TopRightCorner,
-              WindowEdge::SouthEast => CursorType::BottomRightCorner,
-              WindowEdge::SouthWest => CursorType::BottomLeftCorner,
-              _ => CursorType::LeftPtr,
-            },
-          )));
+          hit_test(&gdk_window, cx, cy);
         }
         Inhibit(false)
       });
 
       window.connect_button_press_event(|window, event| {
         if event.get_button() == 1 {
-          let (cx, cy) = event.get_root();
-          let (left, top) = window.get_position();
-          let (w, h) = window.get_size();
-          let (right, bottom) = (left + w, top + h);
-
-          let result = hit_test(left, top, right, bottom, cx as i32, cy as i32);
-          if result != WindowEdge::__Unknown(8) {
-            window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.get_time());
+          if let Some(gdk_window) = window.get_window() {
+            let (cx, cy) = event.get_root();
+            let result = hit_test(&gdk_window, cx, cy);
+            if result != WindowEdge::__Unknown(8) {
+              window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.get_time());
+            }
           }
         }
         Inhibit(false)
@@ -743,15 +725,14 @@ pub(crate) enum WindowRequest {
   UserAttention(Option<UserAttentionType>),
 }
 
-pub(crate) fn hit_test(
-  left: i32,
-  top: i32,
-  right: i32,
-  bottom: i32,
-  cx: i32,
-  cy: i32,
-) -> WindowEdge {
+pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {
+  let (left, top) = window.get_position();
+  let (w, h) = (window.get_width(), window.get_height());
+  let (right, bottom) = (left + w, top + h);
+
   let fake_border = 5; // change this to manipulate how far inside the window, the resize can happen
+
+  let display = window.get_display();
 
   const LEFT: i32 = 00001;
   const RIGHT: i32 = 0b0010;
@@ -762,12 +743,32 @@ pub(crate) fn hit_test(
   const BOTTOMLEFT: i32 = BOTTOM | LEFT;
   const BOTTOMRIGHT: i32 = BOTTOM | RIGHT;
 
-  let result = LEFT * (if cx < (left + fake_border) { 1 } else { 0 })
-    | RIGHT * (if cx >= (right - fake_border) { 1 } else { 0 })
-    | TOP * (if cy < (top + fake_border) { 1 } else { 0 })
-    | BOTTOM * (if cy >= (bottom - fake_border) { 1 } else { 0 });
+  let result = LEFT
+    * (if (cx as i32) < (left + fake_border) {
+      1
+    } else {
+      0
+    })
+    | RIGHT
+      * (if (cx as i32) >= (right - fake_border) {
+        1
+      } else {
+        0
+      })
+    | TOP
+      * (if (cy as i32) < (top + fake_border) {
+        1
+      } else {
+        0
+      })
+    | BOTTOM
+      * (if (cy as i32) >= (bottom - fake_border) {
+        1
+      } else {
+        0
+      });
 
-  match result {
+  let edge = match result {
     LEFT => WindowEdge::West,
     TOP => WindowEdge::North,
     RIGHT => WindowEdge::East,
@@ -779,5 +780,20 @@ pub(crate) fn hit_test(
     // has to be bigger than 7. otherwise it will match the number with a variant of WindowEdge enum and we don't want to do that
     // also if the number ever change, makke sure to change it in the connect_button_press_event for window and webview
     _ => WindowEdge::__Unknown(8),
-  }
+  };
+
+  window.set_cursor(Some(&Cursor::new_for_display(
+    &display,
+    match edge {
+      WindowEdge::North | WindowEdge::South => CursorType::SbVDoubleArrow,
+      WindowEdge::East | WindowEdge::West => CursorType::SbHDoubleArrow,
+      WindowEdge::NorthWest => CursorType::TopLeftCorner,
+      WindowEdge::NorthEast => CursorType::TopRightCorner,
+      WindowEdge::SouthEast => CursorType::BottomRightCorner,
+      WindowEdge::SouthWest => CursorType::BottomLeftCorner,
+      _ => CursorType::LeftPtr,
+    },
+  )));
+
+  edge
 }
