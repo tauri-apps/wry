@@ -222,7 +222,7 @@ impl InnerWebView {
 
       // create menu, custom menu will ne to be sent
       // to this function to crate the menu from the struct
-      create_menu(window);
+      create_menu(&window);
 
       let w = Self {
         webview: Id::from_ptr(webview),
