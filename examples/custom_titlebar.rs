@@ -7,7 +7,7 @@ fn main() -> wry::Result<()> {
     application::{
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
-      window::WindowBuilder,
+      window::{Window, WindowBuilder},
     },
     webview::{RpcRequest, WebViewBuilder},
   };
@@ -38,43 +38,38 @@ fn main() -> wry::Result<()> {
             WRYYYYYYYYYYYYYYYYYYYYYY!
           </div>
         </body>
-        <script>
-          let maximized = false;
-          document.getElementById('minimize').addEventListener('click', () => rpc.notify('minimize'));
-          document.getElementById('maximize').addEventListener('click', () => {
-            maximized = !maximized;
-            rpc.notify('maximize', maximized);
-          });
-          document.getElementById('close').addEventListener('click', () => rpc.notify('close'));
-        </script>
       "#;
 
-  let handler = |mut _req: RpcRequest| {
-    /* TODO window setter
+  let handler = |window: &Window, req: RpcRequest| {
     if req.method == "minimize" {
-      proxy.minimize().unwrap();
+      window.set_minimized(true);
     }
     if req.method == "maximize" {
-      if req.params.unwrap().as_array().unwrap()[0] == true {
-        proxy.maximize().unwrap();
+      if window.is_maximized() {
+        window.set_maximized(false);
       } else {
-        proxy.unmaximize().unwrap();
+        window.set_maximized(true);
       }
     }
+    /* TODO handle close
     if req.method == "close" {
       proxy.close().unwrap();
     }
     */
     None
   };
-  let _webview = WebViewBuilder::new(window)
+  let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url(url)?
     .with_rpc_handler(handler)
-    // inject the css after 500ms, otherwise it won't work as the `head` element isn't created yet.
     .with_initialization_script(
       r#"
-        setTimeout(() => {
+      (function () {
+        window.addEventListener('DOMContentLoaded', (event) => {
+          document.getElementById('minimize').addEventListener('click', () => rpc.notify('minimize'));
+          document.getElementById('maximize').addEventListener('click', () => rpc.notify('maximize'));
+          document.getElementById('close').addEventListener('click', () => rpc.notify('close'));
+
           const style = document.createElement('style');
           style.textContent = `
             * {
@@ -109,7 +104,8 @@ fn main() -> wry::Result<()> {
             }
           `;
           document.head.append(style);
-        }, 500);
+        });
+      })();
       "#,
     )
     .build()?;
@@ -122,7 +118,9 @@ fn main() -> wry::Result<()> {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      _ => (),
+      _ => {
+        let _ = webview.resize();
+      }
     }
   });
 }

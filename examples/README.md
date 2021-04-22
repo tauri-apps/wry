@@ -11,3 +11,4 @@ Run the `cargo run --example <file_name>` to see how each example works.
 - `custom_titlebar`: A frameless window with custom title-bar to show `drag-region` class in action.
 - `custom_user_data`: uses a custom data directory (Windows only).
 - `custom_protocol`: uses a custom protocol to load files from bytes.
+- `detect_js_ecma`: detects which versions of ECMAScript is supported by the webview.

@@ -20,7 +20,7 @@ fn main() -> wry::Result<()> {
 
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_custom_protocol("wry.dev".into(), move |requested_asset_path| {
+    .with_custom_protocol("wry.dev".into(), move |_, requested_asset_path| {
       // remove the protocol from the path for easiest match
       let requested_asset_path = requested_asset_path.replace("wry.dev://", "");
 

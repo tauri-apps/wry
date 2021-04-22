@@ -7,15 +7,17 @@ use std::{cell::Cell, path::PathBuf, rc::Rc};
 use gtk::WidgetExt;
 use webkit2gtk::WebView;
 
-use crate::webview::FileDropEvent;
+use crate::{application::window::Window, webview::FileDropEvent};
 
 pub(crate) fn connect_drag_event(
   webview: Rc<WebView>,
-  handler: Box<dyn Fn(FileDropEvent) -> bool>,
+  window: Rc<Window>,
+  handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>,
 ) {
   let listener = Rc::new((handler, Cell::new(None)));
 
   let listener_ref = listener.clone();
+  let w = window.clone();
   webview.connect_drag_data_received(move |_, _, _, _, data, info, _| {
     if info == 2 {
       let uris = data
@@ -28,27 +30,29 @@ pub(crate) fn connect_drag_event(
         .collect::<Vec<PathBuf>>();
 
       listener_ref.1.set(Some(uris.clone()));
-      listener_ref.0(FileDropEvent::Hovered(uris));
+      listener_ref.0(&w, FileDropEvent::Hovered(uris));
     } else {
       // drag_data_received is called twice, so we can ignore this signal
     }
   });
 
   let listener_ref = listener.clone();
+  let w = window.clone();
   webview.connect_drag_drop(move |_, _, _, _, _| {
     let uris = listener_ref.1.take();
     if let Some(uris) = uris {
-      gtk::Inhibit(listener_ref.0(FileDropEvent::Dropped(uris)))
+      gtk::Inhibit(listener_ref.0(&w, FileDropEvent::Dropped(uris)))
     } else {
       gtk::Inhibit(false)
     }
   });
 
   let listener_ref = listener.clone();
+  let w = window.clone();
   webview.connect_drag_leave(move |_, _, time| {
     if time == 0 {
       // The user cancelled the drag n drop
-      listener_ref.0(FileDropEvent::Cancelled);
+      listener_ref.0(&w, FileDropEvent::Cancelled);
     } else {
       // The user dropped the file on the window, but this will be handled in connect_drag_drop instead
     }
@@ -56,6 +60,7 @@ pub(crate) fn connect_drag_event(
 
   // Called when a drag "fails" - we'll just emit a Cancelled event.
   let listener_ref = listener.clone();
+  let w = window.clone();
   webview
-    .connect_drag_failed(move |_, _, _| gtk::Inhibit(listener_ref.0(FileDropEvent::Cancelled)));
+    .connect_drag_failed(move |_, _, _| gtk::Inhibit(listener_ref.0(&w, FileDropEvent::Cancelled)));
 }

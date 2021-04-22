@@ -7,6 +7,7 @@ use std::{
   os::raw::c_char,
   path::PathBuf,
   ptr::null,
+  rc::Rc,
   slice, str,
 };
 
@@ -21,12 +22,12 @@ use objc::{
 };
 use objc_id::Id;
 use url::Url;
-use winit::{platform::macos::WindowExtMacOS, window::Window};
 
 use file_drop::{add_file_drop_methods, set_file_drop_handler};
 use menu_bar::{add_menu_methods, create_menu};
 
 use crate::{
+  application::{platform::macos::WindowExtMacOS, window::Window},
   webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
   Result,
 };
@@ -41,13 +42,16 @@ pub struct InnerWebView {
 
 impl InnerWebView {
   pub fn new(
-    window: &Window,
+    window: Rc<Window>,
     scripts: Vec<String>,
     url: Option<Url>,
     transparent: bool,
-    custom_protocols: Vec<(String, Box<dyn Fn(&str) -> Result<Vec<u8>> + 'static>)>,
-    rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse>>>,
-    file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
+    custom_protocols: Vec<(
+      String,
+      Box<dyn Fn(&Window, &str) -> Result<Vec<u8>> + 'static>,
+    )>,
+    rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
+    file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
     _user_data_path: Option<PathBuf>,
   ) -> Result<Self> {
     // Function for rpc handler
@@ -55,13 +59,15 @@ impl InnerWebView {
       // Safety: objc runtime calls are unsafe
       unsafe {
         let function = this.get_ivar::<*mut c_void>("function");
-        let function: &mut Box<dyn Fn(RpcRequest) -> Option<RpcResponse>> =
-          std::mem::transmute(*function);
+        let function: &mut (
+          Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>,
+          Rc<Window>,
+        ) = std::mem::transmute(*function);
         let body: id = msg_send![msg, body];
         let utf8: *const c_char = msg_send![body, UTF8String];
         let js = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
 
-        match super::rpc_proxy(js.to_string(), function) {
+        match super::rpc_proxy(&function.1, js.to_string(), &function.0) {
           Ok(result) => {
             if let Some(ref script) = result {
               let wv: id = msg_send![msg, webView];
@@ -81,7 +87,8 @@ impl InnerWebView {
     extern "C" fn start_task(this: &Object, _: Sel, _webview: id, task: id) {
       unsafe {
         let function = this.get_ivar::<*mut c_void>("function");
-        let function: &mut Box<dyn Fn(&str) -> Result<Vec<u8>>> = std::mem::transmute(*function);
+        let function: &mut (Box<(dyn Fn(&Window, &str) -> Result<Vec<u8>>)>, Rc<Window>) =
+          std::mem::transmute(*function);
 
         // Get url request
         let request: id = msg_send![task, request];
@@ -93,7 +100,7 @@ impl InnerWebView {
         let uri = nsstring.to_str();
 
         // Send response
-        if let Ok(content) = function(uri) {
+        if let Ok(content) = function.0(&function.1, uri) {
           let mime = MimeType::parse(&content, uri);
           let nsurlresponse: id = msg_send![class!(NSURLResponse), alloc];
           let response: id = msg_send![nsurlresponse, initWithURL:url MIMEType:NSString::new(&mime)
@@ -136,7 +143,9 @@ impl InnerWebView {
           None => class!(scheme_name),
         };
         let handler: id = msg_send![cls, new];
-        let function: Box<Box<dyn Fn(&str) -> Result<Vec<u8>>>> = Box::new(Box::new(function));
+        let w = window.clone();
+        let function: Box<(Box<dyn Fn(&Window, &str) -> Result<Vec<u8>>>, Rc<Window>)> =
+          Box::new((Box::new(function), w));
 
         (*handler).set_ivar("function", Box::into_raw(function) as *mut _ as *mut c_void);
         let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:NSString::new(&name)];
@@ -194,7 +203,7 @@ impl InnerWebView {
           None => class!(WebViewDelegate),
         };
         let handler: id = msg_send![cls, new];
-        let function = Box::new(rpc_handler);
+        let function = Box::new((rpc_handler, window.clone()));
 
         (*handler).set_ivar("function", Box::into_raw(function) as *mut _ as *mut c_void);
         let external = NSString::new("external");
@@ -202,9 +211,14 @@ impl InnerWebView {
       }
 
       // File drop handling
-      if let Some(file_drop_handler) = file_drop_handler {
-        set_file_drop_handler(webview, file_drop_handler)
-      };
+      match file_drop_handler {
+        // if we have a file_drop_handler defined, use the defined handler
+        Some(file_drop_handler) => {
+          set_file_drop_handler(webview, window.clone(), file_drop_handler)
+        }
+        // prevent panic by using a blank handler
+        None => set_file_drop_handler(webview, window.clone(), Box::new(|_, _| false)),
+      }
 
       // create menu, custom menu will ne to be sent
       // to this function to crate the menu from the struct

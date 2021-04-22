@@ -17,7 +17,7 @@ fn main() -> wry::Result<()> {
       dpi::PhysicalSize,
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
-      window::WindowBuilder,
+      window::{Window, WindowBuilder},
     },
     webview::{RpcRequest, WebViewBuilder},
   };
@@ -26,7 +26,7 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
   let (window_tx, window_rx) = std::sync::mpsc::channel::<String>();
-  let handler = move |req: RpcRequest| {
+  let handler = move |_window: &Window, req: RpcRequest| {
     if &req.method == "openWindow" {
       if let Some(params) = req.params {
         if let Value::String(url) = &params[0] {
@@ -50,7 +50,8 @@ fn main() -> wry::Result<()> {
 
   let instant = Instant::now();
   let eight_secs = Duration::from_secs(8);
-  let mut new_webview = None;
+  let mut trigger = true;
+  let mut _new_webview = None;
   event_loop.run(move |event, event_loop, control_flow| {
     *control_flow = ControlFlow::Poll;
 
@@ -60,7 +61,7 @@ fn main() -> wry::Result<()> {
         .with_inner_size(PhysicalSize::new(426, 197))
         .build(&event_loop)
         .unwrap();
-      new_webview = Some(
+      _new_webview = Some(
         WebViewBuilder::new(new_window)
           .unwrap()
           .with_url(&url)
@@ -68,9 +69,10 @@ fn main() -> wry::Result<()> {
           .build()
           .unwrap(),
       );
-    } else if let None = new_webview {
+    } else if trigger {
       if instant.elapsed() >= eight_secs {
         webview.dispatch_script("openWindow()").unwrap();
+        trigger = false;
       }
     }
 

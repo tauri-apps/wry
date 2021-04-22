@@ -2,13 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::fmt;
+use std::{
+  cell::RefCell,
+  fmt,
+  sync::{
+    atomic::{AtomicBool, AtomicI32, Ordering},
+    mpsc::Sender,
+  },
+};
 
+use gdk::{Cursor, CursorType, EventMask, WindowEdge, WindowExt};
 use gtk::{prelude::*, ApplicationWindow};
+use winit::{
+  dpi::{PhysicalPosition, PhysicalSize, Position},
+  window::{CursorIcon, UserAttentionType},
+};
 
 use super::{
   dpi::Size,
-  error::OsError,
+  error::{ExternalError, NotSupportedError, OsError},
   event_loop::EventLoopWindowTarget,
   monitor::{MonitorHandle, VideoMode},
 };
@@ -294,6 +306,13 @@ pub struct Window {
   pub(crate) window_id: WindowId,
   /// Gtk application window.
   pub(crate) window: gtk::ApplicationWindow,
+  /// Window requests sender
+  window_requests_tx: Sender<(WindowId, WindowRequest)>,
+  scale_factor: f64,
+  position: (AtomicI32, AtomicI32),
+  size: (AtomicI32, AtomicI32),
+  maximized: AtomicBool,
+  fullscreen: RefCell<Option<Fullscreen>>,
 }
 
 impl Window {
@@ -386,18 +405,290 @@ impl Window {
     }
     window.set_visible(attributes.visible);
     window.set_decorated(attributes.decorations);
+
+    if !attributes.decorations && attributes.resizable {
+      window.add_events(EventMask::POINTER_MOTION_MASK | EventMask::BUTTON_MOTION_MASK);
+
+      window.connect_motion_notify_event(|window, event| {
+        if let Some(gdk_window) = window.get_window() {
+          let (cx, cy) = event.get_root();
+          hit_test(&gdk_window, cx, cy);
+        }
+        Inhibit(false)
+      });
+
+      window.connect_button_press_event(|window, event| {
+        if event.get_button() == 1 {
+          if let Some(gdk_window) = window.get_window() {
+            let (cx, cy) = event.get_root();
+            let result = hit_test(&gdk_window, cx, cy);
+
+            // this check is necessary, otherwise the window won't recieve the click properly when resize isn't needed
+            if result != WindowEdge::__Unknown(8) {
+              window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.get_time());
+            }
+          }
+        }
+        Inhibit(false)
+      });
+    }
+
     window.set_keep_above(attributes.always_on_top);
-    if let Some(icon) = attributes.window_icon {
+    if let Some(icon) = &attributes.window_icon {
       window.set_icon(Some(&icon.inner));
     }
 
     window.show_all();
 
-    Ok(Self { window_id, window })
+    let window_requests_tx = event_loop_window_target.window_requests_tx.clone();
+    let scale_factor = scale_factor as f64;
+    let position = window.get_position();
+    let maximized = window.get_property_is_maximized().into();
+    Ok(Self {
+      window_id,
+      window,
+      window_requests_tx,
+      scale_factor,
+      position: (position.0.into(), position.1.into()),
+      size: (width.into(), height.into()),
+      maximized,
+      fullscreen: RefCell::new(attributes.fullscreen),
+    })
   }
 
   pub fn id(&self) -> WindowId {
     self.window_id
+  }
+
+  pub fn scale_factor(&self) -> f64 {
+    self.scale_factor
+  }
+
+  pub fn request_redraw(&self) {
+    todo!()
+  }
+
+  pub fn inner_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
+    let (x, y) = &self.position;
+    Ok(PhysicalPosition::new(
+      x.load(Ordering::Acquire),
+      y.load(Ordering::Acquire),
+    ))
+  }
+
+  pub fn outer_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
+    let (x, y) = &self.position;
+    Ok(PhysicalPosition::new(
+      x.load(Ordering::Acquire),
+      y.load(Ordering::Acquire),
+    ))
+  }
+
+  pub fn set_outer_position<P: Into<Position>>(&self, position: P) {
+    let (x, y): (i32, i32) = position
+      .into()
+      .to_physical::<i32>(self.scale_factor())
+      .into();
+    self.position.0.store(x, Ordering::Release);
+    self.position.1.store(y, Ordering::Release);
+
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Position((x, y))))
+    {
+      log::warn!("Fail to send position request: {}", e);
+    }
+  }
+
+  pub fn inner_size(&self) -> PhysicalSize<u32> {
+    let (width, height) = &self.size;
+    PhysicalSize::new(
+      width.load(Ordering::Acquire) as u32,
+      height.load(Ordering::Acquire) as u32,
+    )
+  }
+
+  pub fn set_inner_size<S: Into<Size>>(&self, size: S) {
+    let (width, height) = size.into().to_logical::<i32>(self.scale_factor()).into();
+    self.size.0.store(width, Ordering::Release);
+    self.size.1.store(height, Ordering::Release);
+
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Size((width, height))))
+    {
+      log::warn!("Fail to send size request: {}", e);
+    }
+  }
+
+  pub fn outer_size(&self) -> PhysicalSize<u32> {
+    let (width, height) = &self.size;
+    PhysicalSize::new(
+      width.load(Ordering::Acquire) as u32,
+      height.load(Ordering::Acquire) as u32,
+    )
+  }
+
+  pub fn set_min_inner_size<S: Into<Size>>(&self, min_size: Option<S>) {
+    if let Some(size) = min_size {
+      let (min_width, min_height) = size.into().to_logical::<i32>(self.scale_factor()).into();
+
+      if let Err(e) = self.window_requests_tx.send((
+        self.window_id,
+        WindowRequest::MinSize((min_width, min_height)),
+      )) {
+        log::warn!("Fail to send min size request: {}", e);
+      }
+    }
+  }
+  pub fn set_max_inner_size<S: Into<Size>>(&self, max_size: Option<S>) {
+    if let Some(size) = max_size {
+      let (max_width, max_height) = size.into().to_logical::<i32>(self.scale_factor()).into();
+
+      if let Err(e) = self.window_requests_tx.send((
+        self.window_id,
+        WindowRequest::MaxSize((max_width, max_height)),
+      )) {
+        log::warn!("Fail to send max size request: {}", e);
+      }
+    }
+  }
+
+  pub fn set_title(&self, title: &str) {
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Title(title.to_string())))
+    {
+      log::warn!("Fail to send title request: {}", e);
+    }
+  }
+
+  pub fn set_visible(&self, visible: bool) {
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Visible(visible)))
+    {
+      log::warn!("Fail to send visible request: {}", e);
+    }
+  }
+
+  pub fn set_resizable(&self, resizable: bool) {
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Resizable(resizable)))
+    {
+      log::warn!("Fail to send resizable request: {}", e);
+    }
+  }
+
+  pub fn set_minimized(&self, minimized: bool) {
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Minimized(minimized)))
+    {
+      log::warn!("Fail to send minimized request: {}", e);
+    }
+  }
+
+  pub fn set_maximized(&self, maximized: bool) {
+    self.maximized.store(maximized, Ordering::Release);
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Maximized(maximized)))
+    {
+      log::warn!("Fail to send maximized request: {}", e);
+    }
+  }
+
+  pub fn is_maximized(&self) -> bool {
+    self.maximized.load(Ordering::Acquire)
+  }
+
+  pub fn drag_window(&self) {
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::DragWindow))
+    {
+      log::warn!("Fail to send drag window request: {}", e);
+    }
+  }
+
+  pub fn set_fullscreen(&self, fullscreen: Option<Fullscreen>) {
+    self.fullscreen.replace(fullscreen.clone());
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Fullscreen(fullscreen)))
+    {
+      log::warn!("Fail to send fullscreen request: {}", e);
+    }
+  }
+
+  pub fn fullscreen(&self) -> Option<Fullscreen> {
+    self.fullscreen.borrow().clone()
+  }
+
+  pub fn set_decorations(&self, decorations: bool) {
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Decorations(decorations)))
+    {
+      log::warn!("Fail to send decorations request: {}", e);
+    }
+  }
+
+  pub fn set_always_on_top(&self, always_on_top: bool) {
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::AlwaysOnTop(always_on_top)))
+    {
+      log::warn!("Fail to send always on top request: {}", e);
+    }
+  }
+
+  pub fn set_window_icon(&self, window_icon: Option<Icon>) {
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::WindowIcon(window_icon)))
+    {
+      log::warn!("Fail to send window icon request: {}", e);
+    }
+  }
+
+  pub fn set_ime_position<P: Into<Position>>(&self, _position: P) {
+    todo!()
+  }
+
+  pub fn request_user_attention(&self, request_type: Option<UserAttentionType>) {
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::UserAttention(request_type)))
+    {
+      log::warn!("Fail to send user attention request: {}", e);
+    }
+  }
+
+  pub fn set_cursor_icon(&self, _cursor: CursorIcon) {
+    todo!()
+  }
+
+  pub fn set_cursor_position<P: Into<Position>>(&self, _position: P) -> Result<(), ExternalError> {
+    todo!()
+  }
+
+  pub fn set_cursor_visible(&self, _visible: bool) {
+    todo!()
+  }
+
+  pub fn current_monitor(&self) -> Option<MonitorHandle> {
+    todo!()
+  }
+
+  // pub fn available_monitors(&self) -> impl Iterator<Item = MonitorHandle> {
+  //   todo!()
+  // }
+
+  pub fn primary_monitor(&self) -> Option<MonitorHandle> {
+    todo!()
   }
 
   //TODO other setters
@@ -416,4 +707,96 @@ pub enum Fullscreen {
 pub enum Theme {
   Light,
   Dark,
+}
+
+pub(crate) enum WindowRequest {
+  Title(String),
+  Position((i32, i32)),
+  Size((i32, i32)),
+  MinSize((i32, i32)),
+  MaxSize((i32, i32)),
+  Visible(bool),
+  Resizable(bool),
+  Minimized(bool),
+  Maximized(bool),
+  DragWindow,
+  Fullscreen(Option<Fullscreen>),
+  Decorations(bool),
+  AlwaysOnTop(bool),
+  WindowIcon(Option<Icon>),
+  UserAttention(Option<UserAttentionType>),
+}
+
+pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {
+  let (left, top) = window.get_position();
+  let (w, h) = (window.get_width(), window.get_height());
+  let (right, bottom) = (left + w, top + h);
+
+  let fake_border = 5; // change this to manipulate how far inside the window, the resize can happen
+
+  let display = window.get_display();
+
+  const LEFT: i32 = 00001;
+  const RIGHT: i32 = 0b0010;
+  const TOP: i32 = 0b0100;
+  const BOTTOM: i32 = 0b1000;
+  const TOPLEFT: i32 = TOP | LEFT;
+  const TOPRIGHT: i32 = TOP | RIGHT;
+  const BOTTOMLEFT: i32 = BOTTOM | LEFT;
+  const BOTTOMRIGHT: i32 = BOTTOM | RIGHT;
+
+  let result = LEFT
+    * (if (cx as i32) < (left + fake_border) {
+      1
+    } else {
+      0
+    })
+    | RIGHT
+      * (if (cx as i32) >= (right - fake_border) {
+        1
+      } else {
+        0
+      })
+    | TOP
+      * (if (cy as i32) < (top + fake_border) {
+        1
+      } else {
+        0
+      })
+    | BOTTOM
+      * (if (cy as i32) >= (bottom - fake_border) {
+        1
+      } else {
+        0
+      });
+
+  let edge = match result {
+    LEFT => WindowEdge::West,
+    TOP => WindowEdge::North,
+    RIGHT => WindowEdge::East,
+    BOTTOM => WindowEdge::South,
+    TOPLEFT => WindowEdge::NorthWest,
+    TOPRIGHT => WindowEdge::NorthEast,
+    BOTTOMLEFT => WindowEdge::SouthWest,
+    BOTTOMRIGHT => WindowEdge::SouthEast,
+    // has to be bigger than 7. otherwise it will match the number with a variant of WindowEdge enum and we don't want to do that
+    // also if the number ever change, makke sure to change it in the connect_button_press_event for window and webview
+    _ => WindowEdge::__Unknown(8),
+  };
+
+  // FIXME: calling `window.begin_resize_drag` seems to revert the cursor back to normal style
+  window.set_cursor(Some(&Cursor::new_for_display(
+    &display,
+    match edge {
+      WindowEdge::North | WindowEdge::South => CursorType::SbVDoubleArrow,
+      WindowEdge::East | WindowEdge::West => CursorType::SbHDoubleArrow,
+      WindowEdge::NorthWest => CursorType::TopLeftCorner,
+      WindowEdge::NorthEast => CursorType::TopRightCorner,
+      WindowEdge::SouthEast => CursorType::BottomRightCorner,
+      WindowEdge::SouthWest => CursorType::BottomLeftCorner,
+      _ => CursorType::LeftPtr,
+    },
+  )));
+
+  edge
 }

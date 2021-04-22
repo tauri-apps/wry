@@ -17,7 +17,8 @@ use once_cell::unsync::OnceCell;
 use url::Url;
 use webview2::{Controller, PermissionKind, PermissionState};
 use winapi::{shared::windef::HWND, um::winuser::GetClientRect};
-use winit::{platform::windows::WindowExtWindows, window::Window};
+
+use crate::application::{platform::windows::WindowExtWindows, window::Window};
 
 pub struct InnerWebView {
   controller: Rc<OnceCell<Controller>>,
@@ -30,15 +31,18 @@ pub struct InnerWebView {
 
 impl InnerWebView {
   pub fn new(
-    window: &Window,
+    window: Rc<Window>,
     scripts: Vec<String>,
     url: Option<Url>,
     // TODO default background color option just adds to webview2 recently and it requires
     // canary build. Implement this once it's in official release.
     _transparent: bool,
-    custom_protocols: Vec<(String, Box<dyn Fn(&str) -> Result<Vec<u8>> + 'static>)>,
-    rpc_handler: Option<Box<dyn Fn(RpcRequest) -> Option<RpcResponse>>>,
-    file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
+    custom_protocols: Vec<(
+      String,
+      Box<dyn Fn(&Window, &str) -> Result<Vec<u8>> + 'static>,
+    )>,
+    rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
+    file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
     user_data_path: Option<PathBuf>,
   ) -> Result<Self> {
     let hwnd = window.hwnd() as HWND;
@@ -94,10 +98,11 @@ impl InnerWebView {
         }
 
         // Message handler
+        let window_ = window.clone();
         w.add_web_message_received(move |webview, args| {
           let js = args.try_get_web_message_as_string()?;
           if let Some(rpc_handler) = rpc_handler.as_ref() {
-            match super::rpc_proxy(js, rpc_handler) {
+            match super::rpc_proxy(&window_, js, rpc_handler) {
               Ok(result) => {
                 if let Some(ref script) = result {
                   webview.execute_script(script, |_| (Ok(())))?;
@@ -117,19 +122,20 @@ impl InnerWebView {
           // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
           custom_protocol_names.insert(name.clone());
           w.add_web_resource_requested_filter(
-            &format!("http://custom-protocol-{}*", name),
+            &format!("https://custom-protocol-{}*", name),
             webview2::WebResourceContext::All,
           )?;
           let env_clone = env_.clone();
+          let window_ = window.clone();
           w.add_web_resource_requested(move |_, args| {
             let uri = args.get_request()?.get_uri()?;
             // Undo the protocol workaround when giving path to resolver
             let path = &uri.replace(
-              &format!("http://custom-protocol-{}", name),
+              &format!("https://custom-protocol-{}", name),
               &format!("{}://", name),
             );
 
-            match function(path) {
+            match function(&window_, path) {
               Ok(content) => {
                 let mime = MimeType::parse(&content, &uri);
                 let stream = webview2::Stream::from_bytes(&content);
@@ -175,7 +181,7 @@ impl InnerWebView {
               // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
               url_string = url.as_str().replace(
                 &format!("{}://", name),
-                &format!("http://custom-protocol-{}", name),
+                &format!("https://custom-protocol-{}", name),
               )
             }
             w.navigate(&url_string)?;
@@ -187,7 +193,7 @@ impl InnerWebView {
 
         if let Some(file_drop_handler) = file_drop_handler {
           let mut file_drop_controller = FileDropController::new();
-          file_drop_controller.listen(hwnd, file_drop_handler);
+          file_drop_controller.listen(hwnd, window.clone(), file_drop_handler);
           let _ = file_drop_controller_clone.set(file_drop_controller);
         }
 
