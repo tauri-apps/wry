@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use cocoa::base::nil;
 use cocoa::{
   appkit::{NSApplication, NSEventModifierFlags, NSMenu, NSMenuItem},
-  base::{id, selector},
+  base::{id, nil, selector},
   foundation::{NSAutoreleasePool, NSProcessInfo, NSString},
 };
-
-use objc::{declare::ClassDecl, runtime::Object, runtime::Sel};
+use objc::{
+  declare::ClassDecl,
+  runtime::{Object, Sel},
+};
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use std::os::raw::c_void;
 use winit::window::Window;
