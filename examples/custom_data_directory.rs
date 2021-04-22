@@ -31,7 +31,7 @@ fn main() -> wry::Result<()> {
   let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url("https://tauri.studio")?
-    .user_data_path(Some(test_path))
+    .with_data_directory(Some(test_path))
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

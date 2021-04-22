@@ -40,23 +40,23 @@ impl InnerWebView {
     )>,
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-    user_data_path: Option<PathBuf>,
+    data_directory: Option<PathBuf>,
   ) -> Result<Self> {
     let window_rc = Rc::clone(&window);
     let window = &window.window;
     // Webview widget
     let manager = UserContentManager::new();
     let mut context_builder = WebContextBuilder::new();
-    if let Some(data_path) = user_data_path {
+    if let Some(data_directory) = data_directory {
       let data_manager = WebsiteDataManagerBuilder::new()
         .local_storage_directory(
-          &data_path
+          &data_directory
             .join("localstorage")
             .to_string_lossy()
             .into_owned(),
         )
         .indexeddb_directory(
-          &data_path
+          &data_directory
             .join("databases")
             .join("indexeddb")
             .to_string_lossy()

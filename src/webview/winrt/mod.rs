@@ -63,7 +63,7 @@ impl InnerWebView {
     )>,
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-    user_data_path: Option<PathBuf>,
+    data_directory: Option<PathBuf>,
   ) -> Result<Self> {
     let hwnd = HWND(window.hwnd() as _);
 
@@ -71,10 +71,10 @@ impl InnerWebView {
     let webview_rc: Rc<OnceCell<webview2::CoreWebView2>> = Rc::new(OnceCell::new());
     let file_drop_controller_rc: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
 
-    let env = wait_for_async_operation(match user_data_path {
-      Some(user_data_path_provided) => webview2::CoreWebView2Environment::CreateWithOptionsAsync(
+    let env = wait_for_async_operation(match data_directory {
+      Some(data_directory_provided) => webview2::CoreWebView2Environment::CreateWithOptionsAsync(
         "",
-        user_data_path_provided.to_str().unwrap_or(""),
+        data_directory_provided.to_str().unwrap_or(""),
         webview2::CoreWebView2EnvironmentOptions::new()?,
       )?,
       None => webview2::CoreWebView2Environment::CreateAsync()?,

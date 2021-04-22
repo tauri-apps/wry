@@ -91,7 +91,7 @@ pub struct WebViewBuilder {
   custom_protocols: Vec<(String, Box<dyn Fn(&Window, &str) -> Result<Vec<u8>>>)>,
   rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
   file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-  user_data_path: Option<PathBuf>,
+  data_directory: Option<PathBuf>,
 }
 
 impl WebViewBuilder {
@@ -116,7 +116,7 @@ impl WebViewBuilder {
       custom_protocols: vec![],
       rpc_handler: None,
       file_drop_handler: None,
-      user_data_path: None,
+      data_directory: None,
     })
   }
 
@@ -137,8 +137,8 @@ impl WebViewBuilder {
 
   /// Whether the WebView window should have a custom user data path. This is usefull in Windows
   /// when a bundled application can't have the webview data inside `Program Files`.
-  pub fn user_data_path(mut self, user_data_path: Option<PathBuf>) -> Self {
-    self.user_data_path = user_data_path;
+  pub fn with_data_directory(mut self, data_directory: PathBuf) -> Self {
+    self.data_directory.replace(data_directory);
     self
   }
 
@@ -261,7 +261,7 @@ impl WebViewBuilder {
       self.custom_protocols,
       self.rpc_handler,
       self.file_drop_handler,
-      self.user_data_path,
+      self.data_directory,
     )?;
     Ok(WebView {
       window,
