@@ -43,7 +43,7 @@ impl InnerWebView {
     )>,
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-    user_data_path: Option<PathBuf>,
+    data_directory: Option<PathBuf>,
   ) -> Result<Self> {
     let hwnd = window.hwnd() as HWND;
 
@@ -54,13 +54,12 @@ impl InnerWebView {
     let file_drop_controller_clone = file_drop_controller.clone();
 
     let webview_builder: webview2::EnvironmentBuilder;
-    let user_data_path_provided: PathBuf;
+    let data_directory_provided: PathBuf;
 
-    if user_data_path.is_some() {
-      // Safe to unwrap since this is already checked.
-      user_data_path_provided = user_data_path.unwrap();
+    if let Some(data_directory) = data_directory {
+      data_directory_provided = data_directory;
       webview_builder =
-        webview2::EnvironmentBuilder::new().with_user_data_folder(&user_data_path_provided);
+        webview2::EnvironmentBuilder::new().with_user_data_folder(&data_directory_provided);
     } else {
       webview_builder = webview2::EnvironmentBuilder::new();
     }
