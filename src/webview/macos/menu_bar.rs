@@ -34,7 +34,8 @@ pub(crate) unsafe fn add_menu_methods(decl: &mut ClassDecl) {
     selector("handleCustomMenu:"),
     handle_menu as extern "C" fn(&Object, _cmd: Sel, item: id),
   );
-  decl.add_ivar::<*mut c_void>("eventProxy");
+  // will be required for our custom menu handler
+  // decl.add_ivar::<*mut c_void>("eventProxy");
 }
 
 // Safety: objc runtime calls are unsafe
