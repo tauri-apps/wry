@@ -20,7 +20,7 @@ fn main() -> wry::Result<()> {
 
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
-  let _webview = WebViewBuilder::new(window)
+  let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url(HTML)?
     .with_file_drop_handler(|_, data| {
@@ -37,7 +37,9 @@ fn main() -> wry::Result<()> {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      _ => (),
+      _ => {
+        let _ = webview.resize();
+      },
     }
   });
 }
