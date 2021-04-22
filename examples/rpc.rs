@@ -91,7 +91,7 @@ async function getAsyncRpcResult() {
         ..
       } => *control_flow = ControlFlow::Exit,
       _ => {
-        webview.resize();
+        let _ = webview.resize();
       }
     }
   });
