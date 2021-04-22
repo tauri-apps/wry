@@ -12,7 +12,6 @@ use objc::{
   runtime::{Object, Sel},
 };
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-use std::os::raw::c_void;
 use winit::window::Window;
 
 struct KeyEquivalent<'a> {
