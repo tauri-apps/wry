@@ -228,7 +228,7 @@ impl InnerWebView {
 
     if let Some(file_drop_handler) = file_drop_handler {
       let mut file_drop_controller = FileDropController::new();
-      file_drop_controller.listen(hwnd, window.clone(), file_drop_handler);
+      file_drop_controller.listen(hwnd, window, file_drop_handler);
       let _ = file_drop_controller_rc.set(file_drop_controller);
     }
 
