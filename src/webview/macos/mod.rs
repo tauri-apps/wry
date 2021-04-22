@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use std::{
+  collections::HashSet,
   ffi::{c_void, CStr},
   os::raw::c_char,
   path::PathBuf,
@@ -95,11 +96,11 @@ impl InnerWebView {
           let s: id = msg_send![url, absoluteString];
           NSString(Id::from_ptr(s))
         };
-        let uri = nsstring.to_str();
+        let uri = nsstring.to_str().replace("localhost", "");
 
         // Send response
-        if let Ok(content) = function.0(&function.1, uri) {
-          let mime = MimeType::parse(&content, uri);
+        if let Ok(content) = function.0(&function.1, &uri) {
+          let mime = MimeType::parse(&content, &uri);
           let nsurlresponse: id = msg_send![class!(NSURLResponse), alloc];
           let response: id = msg_send![nsurlresponse, initWithURL:url MIMEType:NSString::new(&mime)
                         expectedContentLength:content.len() textEncodingName:null::<c_void>()];
@@ -122,7 +123,9 @@ impl InnerWebView {
     unsafe {
       // Config and custom protocol
       let config: id = msg_send![class!(WKWebViewConfiguration), new];
+      let mut custom_protocol_names = HashSet::new();
       for (name, function) in custom_protocols {
+        custom_protocol_names.insert(name.clone());
         let scheme_name = format!("{}URLSchemeHandler", name);
         let cls = ClassDecl::new(&scheme_name, class!(NSObject));
         let cls = match cls {
@@ -268,7 +271,16 @@ impl InnerWebView {
             w.navigate_to_string(path);
           }
         } else {
-          w.navigate(url.as_str());
+          let mut url_string = String::from(url.as_str());
+          let name = url.scheme();
+          if custom_protocol_names.contains(name) {
+            url_string = url.as_str().replace(
+              // Some features like WebRTC require localhost as path in custom url scheme
+              &format!("{}://", name),
+              &format!("{}://localhost/", name),
+            )
+          }
+          w.navigate(&url_string);
         }
       }
 
