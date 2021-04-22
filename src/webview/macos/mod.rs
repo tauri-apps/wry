@@ -24,6 +24,7 @@ use url::Url;
 use winit::{platform::macos::WindowExtMacOS, window::Window};
 
 use file_drop::{add_file_drop_methods, set_file_drop_handler};
+use menu_bar::{add_menu_methods, create_menu};
 
 use crate::{
   webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
@@ -31,6 +32,7 @@ use crate::{
 };
 
 mod file_drop;
+mod menu_bar;
 
 pub struct InnerWebView {
   webview: Id<Object>,
@@ -145,6 +147,7 @@ impl InnerWebView {
       let cls = match ClassDecl::new("WryWebView", class!(WKWebView)) {
         Some(mut decl) => {
           add_file_drop_methods(&mut decl);
+          add_menu_methods(&mut decl);
           decl.register()
         }
         _ => class!(WryWebView),
@@ -202,6 +205,10 @@ impl InnerWebView {
       if let Some(file_drop_handler) = file_drop_handler {
         set_file_drop_handler(webview, file_drop_handler)
       };
+
+      // create menu, custom menu will ne to be sent
+      // to this function to crate the menu from the struct
+      create_menu(window);
 
       let w = Self {
         webview: Id::from_ptr(webview),
