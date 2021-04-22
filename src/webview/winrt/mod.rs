@@ -17,7 +17,7 @@ use windows_webview2::{
 };
 
 use crate::{
-  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse, StatusBar},
   Result,
 };
 
@@ -64,6 +64,7 @@ impl InnerWebView {
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
     data_directory: Option<PathBuf>,
+    _status_bar: Option<StatusBar>,
   ) -> Result<Self> {
     let hwnd = HWND(window.hwnd() as _);
 

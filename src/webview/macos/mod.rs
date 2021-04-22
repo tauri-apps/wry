@@ -24,14 +24,16 @@ use objc_id::Id;
 use url::Url;
 
 use file_drop::{add_file_drop_methods, set_file_drop_handler};
+use status_bar::{add_status_bar_methods, create_status_bar};
 
 use crate::{
   application::{platform::macos::WindowExtMacOS, window::Window},
-  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse, StatusBar},
   Result,
 };
 
 mod file_drop;
+mod status_bar;
 
 pub struct InnerWebView {
   webview: Id<Object>,
@@ -51,6 +53,7 @@ impl InnerWebView {
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
     _data_directory: Option<PathBuf>,
+    status_bar: Option<StatusBar>,
   ) -> Result<Self> {
     // Function for rpc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
@@ -154,6 +157,7 @@ impl InnerWebView {
       let cls = match ClassDecl::new("WryWebView", class!(WKWebView)) {
         Some(mut decl) => {
           add_file_drop_methods(&mut decl);
+          add_status_bar_methods(&mut decl);
           decl.register()
         }
         _ => class!(WryWebView),
@@ -215,6 +219,12 @@ impl InnerWebView {
         }
         // prevent panic by using a blank handler
         None => set_file_drop_handler(webview, window.clone(), Box::new(|_, _| false)),
+      }
+
+      // create status bar icon, custom menu will need to be sent
+      // to this function to create the menu from the struct
+      if let Some(status_bar) = status_bar {
+        create_status_bar(webview, status_bar.label.as_ref(), &status_bar.icon);
       }
 
       let w = Self {

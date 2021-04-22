@@ -92,6 +92,13 @@ pub struct WebViewBuilder {
   rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
   file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
   data_directory: Option<PathBuf>,
+  status_bar: Option<StatusBar>,
+}
+
+/// Status bar (tray icon) currently only support macOS.
+pub struct StatusBar {
+  label: String,
+  icon: Vec<u8>,
 }
 
 impl WebViewBuilder {
@@ -117,6 +124,7 @@ impl WebViewBuilder {
       rpc_handler: None,
       file_drop_handler: None,
       data_directory: None,
+      status_bar: None,
     })
   }
 
@@ -139,6 +147,16 @@ impl WebViewBuilder {
   /// when a bundled application can't have the webview data inside `Program Files`.
   pub fn with_data_directory(mut self, data_directory: PathBuf) -> Self {
     self.data_directory.replace(data_directory);
+    self
+  }
+
+  /// Whether the WebView window should have a status bar. Event loop should be adjusted
+  /// to hide the window when close is requested.
+  pub fn with_status_bar(mut self, app_name: &str, status_bar_icon: &[u8]) -> Self {
+    self.status_bar = Some(StatusBar {
+      icon: status_bar_icon.into(),
+      label: app_name.into(),
+    });
     self
   }
 
@@ -262,6 +280,7 @@ impl WebViewBuilder {
       self.rpc_handler,
       self.file_drop_handler,
       self.data_directory,
+      self.status_bar,
     )?;
     Ok(WebView {
       window,
