@@ -11,8 +11,9 @@ use gtk::{ContainerExt, WidgetExt};
 use url::Url;
 use webkit2gtk::{
   SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
-  UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime, WebContext,
-  WebContextExt, WebView, WebViewExt, WebViewExtManual,
+  UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime,
+  WebContextBuilder, WebContextExt, WebView, WebViewExt, WebViewExtManual,
+  WebsiteDataManagerBuilder,
 };
 
 use crate::{
@@ -39,13 +40,33 @@ impl InnerWebView {
     )>,
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-    _user_data_path: Option<PathBuf>,
+    user_data_path: Option<PathBuf>,
   ) -> Result<Self> {
     let window_rc = Rc::clone(&window);
     let window = &window.window;
     // Webview widget
     let manager = UserContentManager::new();
-    let context = WebContext::new();
+    let mut context_builder = WebContextBuilder::new();
+    if let Some(data_path) = user_data_path {
+      let data_manager = WebsiteDataManagerBuilder::new()
+        .local_storage_directory(
+          &data_path
+            .join("localstorage")
+            .to_string_lossy()
+            .into_owned(),
+        )
+        .indexeddb_directory(
+          &data_path
+            .join("databases")
+            .join("indexeddb")
+            .to_string_lossy()
+            .into_owned(),
+        )
+        .build();
+      context_builder = context_builder.website_data_manager(&data_manager);
+    }
+    let context = context_builder.build();
+
     let webview = Rc::new(WebView::new_with_context_and_user_content_manager(
       &context, &manager,
     ));

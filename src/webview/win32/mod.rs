@@ -56,9 +56,7 @@ impl InnerWebView {
     let webview_builder: webview2::EnvironmentBuilder;
     let user_data_path_provided: PathBuf;
 
-    if user_data_path.is_some() {
-      // Safe to unwrap since this is already checked.
-      user_data_path_provided = user_data_path.unwrap();
+    if let Some(user_data_path_provided) = user_data_path {
       webview_builder =
         webview2::EnvironmentBuilder::new().with_user_data_folder(&user_data_path_provided);
     } else {
