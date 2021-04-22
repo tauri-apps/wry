@@ -50,7 +50,7 @@ fn main() -> wry::Result<()> {
         webview.window().set_visible(false);
 
         // todo(lemarier): Once custom menu is implemented, we should
-        // be able to update our menu bar items. By example, we could remove the 
+        // be able to update our menu bar items. By example, we could remove the
         // `hide` and put `show` with the right calback
       }
       _ => (),
