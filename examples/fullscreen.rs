@@ -33,7 +33,7 @@ fn main() -> wry::Result<()> {
       } => *control_flow = ControlFlow::Exit,
       _ => {
         let _ = webview.resize();
-      },
+      }
     }
   });
 }

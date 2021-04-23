@@ -24,9 +24,9 @@ use std::{
   mem,
   os::{raw::c_void, windows::ffi::OsStringExt},
   path::PathBuf,
+  ptr::null_mut,
   rc::Rc,
   sync::atomic::{AtomicU32, Ordering},
-  ptr::null_mut,
 };
 
 pub(crate) struct FileDropController {

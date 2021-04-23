@@ -70,8 +70,8 @@ fn main() -> wry::Result<()> {
           .unwrap(),
       );
     } else if trigger && instant.elapsed() >= eight_secs {
-        webview.dispatch_script("openWindow()").unwrap();
-        trigger = false;
+      webview.dispatch_script("openWindow()").unwrap();
+      trigger = false;
     }
 
     match event {
