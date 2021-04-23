@@ -11,11 +11,12 @@ use std::{
   },
 };
 
-use gdk::{Cursor, CursorType, EventMask, WindowEdge, WindowExt};
+use gdk::{Cursor, EventMask, WindowEdge, WindowExt};
 use gtk::{prelude::*, ApplicationWindow};
+pub use winit::window::CursorIcon;
 use winit::{
   dpi::{PhysicalPosition, PhysicalSize, Position},
-  window::{CursorIcon, UserAttentionType},
+  window::UserAttentionType,
 };
 
 use super::{
@@ -668,16 +669,31 @@ impl Window {
     }
   }
 
-  pub fn set_cursor_icon(&self, _cursor: CursorIcon) {
-    todo!()
+  pub fn set_cursor_icon(&self, cursor: CursorIcon) {
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::CursorIcon(Some(cursor))))
+    {
+      log::warn!("Fail to send cursor icon request: {}", e);
+    }
   }
 
   pub fn set_cursor_position<P: Into<Position>>(&self, _position: P) -> Result<(), ExternalError> {
     todo!()
   }
 
-  pub fn set_cursor_visible(&self, _visible: bool) {
-    todo!()
+  pub fn set_cursor_visible(&self, visible: bool) {
+    let cursor = if visible {
+      Some(CursorIcon::Default)
+    } else {
+      None
+    };
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::CursorIcon(cursor)))
+    {
+      log::warn!("Fail to send cursor visibility request: {}", e);
+    }
   }
 
   pub fn current_monitor(&self) -> Option<MonitorHandle> {
@@ -691,8 +707,6 @@ impl Window {
   pub fn primary_monitor(&self) -> Option<MonitorHandle> {
     todo!()
   }
-
-  //TODO other setters
 }
 
 /// Fullscreen modes.
@@ -727,6 +741,7 @@ pub(crate) enum WindowRequest {
   WindowIcon(Option<Icon>),
   UserAttention(Option<UserAttentionType>),
   SkipTaskbar,
+  CursorIcon(Option<CursorIcon>),
 }
 
 pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {
@@ -787,18 +802,24 @@ pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {
   };
 
   // FIXME: calling `window.begin_resize_drag` seems to revert the cursor back to normal style
-  window.set_cursor(Some(&Cursor::new_for_display(
-    &display,
-    match edge {
-      WindowEdge::North | WindowEdge::South => CursorType::SbVDoubleArrow,
-      WindowEdge::East | WindowEdge::West => CursorType::SbHDoubleArrow,
-      WindowEdge::NorthWest => CursorType::TopLeftCorner,
-      WindowEdge::NorthEast => CursorType::TopRightCorner,
-      WindowEdge::SouthEast => CursorType::BottomRightCorner,
-      WindowEdge::SouthWest => CursorType::BottomLeftCorner,
-      _ => CursorType::LeftPtr,
-    },
-  )));
-
+  if edge != WindowEdge::__Unknown(8) {
+    window.set_cursor(
+      Cursor::from_name(
+        &display,
+        match edge {
+          WindowEdge::North => "n-resize",
+          WindowEdge::South => "s-resize",
+          WindowEdge::East => "e-resize",
+          WindowEdge::West => "w-resize",
+          WindowEdge::NorthWest => "nw-resize",
+          WindowEdge::NorthEast => "ne-resize",
+          WindowEdge::SouthEast => "se-resize",
+          WindowEdge::SouthWest => "sw-resize",
+          _ => "default",
+        },
+      )
+      .as_ref(),
+    );
+  }
   edge
 }
