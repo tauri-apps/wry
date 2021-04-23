@@ -15,11 +15,8 @@ fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new()
     .with_title("Hello World")
-    .build(&event_loop)
-    .unwrap();
-  let _webview = WebViewBuilder::new(window)
-    .unwrap()
-    .with_initialization_script("menacing = 'ゴ';")
+    .build(&event_loop)?;
+  let _webview = WebViewBuilder::new(window)?
     .with_url("https://tauri.studio")?
     .build()?;
 
@@ -27,7 +24,7 @@ fn main() -> wry::Result<()> {
     *control_flow = ControlFlow::Poll;
 
     match event {
-      Event::NewEvents(StartCause::Init) => println!("Wry application started!"),
+      Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         ..

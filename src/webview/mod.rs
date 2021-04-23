@@ -122,7 +122,7 @@ impl WebViewBuilder {
 
   /// Whether the WebView window should be transparent. If this is true, writing colors
   /// with alpha values different than `1.0` will produce a transparent window.
-  pub fn transparent(mut self, transparent: bool) -> Self {
+  pub fn with_transparent(mut self, transparent: bool) -> Self {
     self.transparent = transparent;
     self
   }
@@ -150,6 +150,7 @@ impl WebViewBuilder {
   }
 
   /// Register custom file loading protocol
+  #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
     F: Fn(&Window, &str) -> Result<Vec<u8>> + 'static,
@@ -296,6 +297,13 @@ impl WebView {
   /// Create a [`WebView`] from provided [`Window`]. Note that calling this directly loses
   /// abilities to initialize scripts, add rpc handler, and many more before starting WebView. To
   /// benefit from above features, create a [`WebViewBuilder`] instead.
+  ///
+  /// Platform-specific behavior:
+  ///
+  /// - **Unix:** This method must be called in a gtk thread. Usually this means it should be
+  /// called in the same thread with the [`EventLoop`] you create.
+  ///
+  /// [`EventLoop`]: crate::application::event_loop::EventLoop
   pub fn new(window: Window) -> Result<Self> {
     WebViewBuilder::new(window)?.build()
   }

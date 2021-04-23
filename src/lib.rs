@@ -4,57 +4,52 @@
 
 //! Wry is a Cross-platform WebView rendering library.
 //!
-//! There are two main ways to build WebView windows: [`Application`] and build by yourself.
+//! To build a Window with WebView embedded, we could use [`application`] module to create
+//! [`EventLoop`] and the window. It's a module that re-exports APIs from [winit]. Then
+//! use [`webview`] module to create the [`WebView`] from the [`Window`]. Here's a minimum example
+//! showing how to create a hello world window and load the url to Tauri website.
 //!
-//! # Building WebView windows through [`Application`]
+//! ```no_run
+//! fn main() -> wry::Result<()> {
+//!   use wry::{
+//!     application::{
+//!       event::{Event, StartCause, WindowEvent},
+//!       event_loop::{ControlFlow, EventLoop},
+//!       window::WindowBuilder,
+//!     },
+//!     webview::WebViewBuilder,
+//!   };
+//!  
+//!   let event_loop = EventLoop::new();
+//!   let window = WindowBuilder::new()
+//!     .with_title("Hello World")
+//!     .build(&event_loop)?;
+//!   let _webview = WebViewBuilder::new(window)?
+//!     .with_url("https://tauri.studio")?
+//!     .build()?;
 //!
-//! [`Application`] is the recommended way to build the WebView windows. It provides ergonomic and
-//! unified APIs across all platforms. To get started, you simply create an [`Application`] first:
+//!   event_loop.run(move |event, _, control_flow| {
+//!     *control_flow = ControlFlow::Poll;
 //!
-//! ```ignore
-//! let application = Application::new()?;
+//!     match event {
+//!       Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
+//!       Event::WindowEvent {
+//!         event: WindowEvent::CloseRequested,
+//!         ..
+//!       } => *control_flow = ControlFlow::Exit,
+//!       _ => (),
+//!     }
+//!   });
+//! }
 //! ```
-//!
-//! Once you have your application instance, you can create the WebView window by calling
-//! [`Application::add_window`] with [`Attributes`] as the argument to configure the WebView window.
-//! If you don't have any preference, you could just set it with `Default::default()`.
-//!
-//! ```ignore
-//! let attributes = Attributes {
-//!     url: Some("https://tauri.studio".to_string()),
-//!     title: String::from("Hello World!"),
-//!     // Initialization scripts can be used to define javascript functions and variables.
-//!     initialization_scripts: vec![
-//!         String::from("breads = NaN"),
-//!         String::from("menacing = 'ゴ'"),
-//!     ],
-//!     ..Default::default()
-//! };
-//!
-//! let window = app.add_window(attributes)?;
-//! ```
-//!
-//! Run the application with run in the end. This will consume the instance and run the application
-//! on current thread.
-//!
-//! ```ignore
-//! application.run();
-//! ```
-//!
-//! # Building WebView windows by yourself
-//!
-//! If you want to control whole windows creation and events handling, you can use
-//! [`WebViewBuilder`] / [`WebView`] under [webview] module to build it all by yourself. You need
-//! [winit] for you to build the window across all platforms except Linux. We still need Gtk's
-//! library to build the WebView, so it's [gtk-rs] on Linux.
 //!
 //! ## Feature flags
 //!
 //! Wry uses a set of feature flags to toggle several advanced features.
 //!
-//! - `file-drop`: Enable [`FileDropHandler`] to control the behaviour when there are files
+//! - `file-drop`: Enable [`with_file_drop_handler`] to control the behaviour when there are files
 //! interacting with the window.
-//! - `protocol`: Enable [`CustomProtocol`] to define custom URL scheme for handling tasks like
+//! - `protocol`: Enable [`with_custom_protocol`] to define custom URL scheme for handling tasks like
 //! loading assets.
 //!
 //! ## Debug build
@@ -63,8 +58,11 @@
 //! private APIs on macOS.
 //!
 //! [winit]: https://crates.io/crates/winit
-//! [gtk-rs]: https://crates.io/crates/gtk
-//!
+//! [`EventLoop`]: crate::application::event_loop::EventLoop
+//! [`Window`]: crate::application::window::Window
+//! [`WebView`]: crate::webview::WebView
+//! [`with_file_drop_handler`]: crate::webview::WebView::with_file_drop_handler
+//! [`with_custom_protocol`]: crate::webview::WebView::with_custom_protocol
 
 #![allow(clippy::new_without_default)]
 #![allow(clippy::wrong_self_convention)]
@@ -115,9 +113,8 @@ pub enum Error {
   RpcScriptError(String, String),
   #[error(transparent)]
   NulError(#[from] std::ffi::NulError),
-  #[cfg(not(target_os = "linux"))]
   #[error(transparent)]
-  OsError(#[from] winit::error::OsError),
+  OsError(#[from] crate::application::error::OsError),
   #[error(transparent)]
   ReceiverError(#[from] RecvError),
   #[error(transparent)]

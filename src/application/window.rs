@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+//! The `Window` struct and associated types.
+
 use std::{
   cell::RefCell,
   fmt,
@@ -303,6 +305,32 @@ impl WindowBuilder {
   }
 }
 
+/// Represents a window.
+///
+/// # Example
+///
+/// ```no_run
+/// use winit::{
+///     event::{Event, WindowEvent},
+///     event_loop::{ControlFlow, EventLoop},
+///     window::Window,
+/// };
+///
+/// let mut event_loop = EventLoop::new();
+/// let window = Window::new(&event_loop).unwrap();
+///
+/// event_loop.run(move |event, _, control_flow| {
+///     *control_flow = ControlFlow::Wait;
+///
+///     match event {
+///         Event::WindowEvent {
+///             event: WindowEvent::CloseRequested,
+///             ..
+///         } => *control_flow = ControlFlow::Exit,
+///         _ => (),
+///     }
+/// });
+/// ```
 pub struct Window {
   /// Window id.
   pub(crate) window_id: WindowId,
