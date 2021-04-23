@@ -17,7 +17,7 @@ jobs:
             profile: minimal
             toolchain: nightly
             override: true
-            components: rustfmt clippy
+            components: rustfmt, clippy
       - name: clippy check
         uses: actions-rs/clippy-check@v1
         with:
