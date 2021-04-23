@@ -21,7 +21,7 @@ targets = [
 ]
 
 [features]
-default = [ "file-drop", "protocol", "win32" ]
+default = [ "file-drop", "protocol", "winrt" ]
 file-drop = [ ]
 protocol = [ ]
 winrt = [ "windows-webview2", "windows" ]
