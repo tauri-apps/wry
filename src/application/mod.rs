@@ -15,6 +15,8 @@ mod icon;
 #[cfg(target_os = "linux")]
 pub mod monitor;
 #[cfg(target_os = "linux")]
+pub mod platform;
+#[cfg(target_os = "linux")]
 pub mod window;
 
 #[cfg(not(target_os = "linux"))]

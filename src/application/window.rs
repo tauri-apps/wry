@@ -307,7 +307,7 @@ pub struct Window {
   /// Gtk application window.
   pub(crate) window: gtk::ApplicationWindow,
   /// Window requests sender
-  window_requests_tx: Sender<(WindowId, WindowRequest)>,
+  pub(crate) window_requests_tx: Sender<(WindowId, WindowRequest)>,
   scale_factor: f64,
   position: (AtomicI32, AtomicI32),
   size: (AtomicI32, AtomicI32),
@@ -725,6 +725,7 @@ pub(crate) enum WindowRequest {
   AlwaysOnTop(bool),
   WindowIcon(Option<Icon>),
   UserAttention(Option<UserAttentionType>),
+  SkipTaskbar,
 }
 
 pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {
