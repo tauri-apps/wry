@@ -20,7 +20,7 @@ fn main() -> wry::Result<()> {
     .unwrap();
 
   let webview = WebViewBuilder::new(window)?
-    .transparent(true)
+    .with_transparent(true)
     .with_url(
       r#"data:text/html,
             <!doctype html>

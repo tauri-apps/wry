@@ -150,6 +150,7 @@ impl WebViewBuilder {
   }
 
   /// Register custom file loading protocol
+  #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
     F: Fn(&Window, &str) -> Result<Vec<u8>> + 'static,

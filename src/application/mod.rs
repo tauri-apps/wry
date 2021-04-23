@@ -16,7 +16,7 @@
 //! we want to cover most use cases in Tauri first. If you find there's a function you need but is
 //! missing. Feel free to open an issue or PR.
 //!
-//! [winit]: https://crates.io/crates/winit 
+//! [winit]: https://crates.io/crates/winit
 #[cfg(target_os = "linux")]
 pub use winit::dpi;
 #[cfg(target_os = "linux")]
