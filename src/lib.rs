@@ -84,11 +84,8 @@ use url::ParseError;
 #[cfg(not(target_os = "linux"))]
 use winit::window::BadIcon;
 
-#[cfg(target_os = "linux")]
 pub mod application;
 pub mod webview;
-#[cfg(not(target_os = "linux"))]
-pub use winit as application;
 
 /// Convenient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;
