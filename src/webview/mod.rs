@@ -59,13 +59,13 @@ fn rpc_proxy(
   if let Some(mut response) = response.take() {
     if let Some(id) = response.id {
       let js = if let Some(error) = response.error.take() {
-        RpcResponse::into_error_script(id, error)?
+        RpcResponse::get_error_script(id, error)?
       } else if let Some(result) = response.result.take() {
-        RpcResponse::into_result_script(id, result)?
+        RpcResponse::get_result_script(id, result)?
       } else {
         // No error or result, assume a positive response
         // with empty result (ACK)
-        RpcResponse::into_result_script(id, Value::Null)?
+        RpcResponse::get_result_script(id, Value::Null)?
       };
       Ok(Some(js))
     } else {
@@ -396,7 +396,7 @@ impl RpcResponse {
   }
 
   /// Get a script that resolves the promise with a result.
-  pub fn into_result_script(id: Value, result: Value) -> Result<String> {
+  pub fn get_result_script(id: Value, result: Value) -> Result<String> {
     let retval = serde_json::to_string(&result)?;
     Ok(format!(
       "window.external.rpc._result({}, {})",
@@ -406,7 +406,7 @@ impl RpcResponse {
   }
 
   /// Get a script that rejects the promise with an error.
-  pub fn into_error_script(id: Value, result: Value) -> Result<String> {
+  pub fn get_error_script(id: Value, result: Value) -> Result<String> {
     let retval = serde_json::to_string(&result)?;
     Ok(format!(
       "window.external.rpc._error({}, {})",

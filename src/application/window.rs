@@ -41,6 +41,7 @@ impl WindowId {
   /// value of this function is that it will always be equal to itself and to future values returned
   /// by this function.  No other guarantees are made. This may be equal to a real `WindowId`.
   ///
+  /// # Safety
   /// **Passing this into a winit function will result in undefined behavior.**
   pub unsafe fn dummy() -> Self {
     WindowId(0)
@@ -737,7 +738,7 @@ pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {
 
   let display = window.get_display();
 
-  const LEFT: i32 = 00001;
+  const LEFT: i32 = 0b00001;
   const RIGHT: i32 = 0b0010;
   const TOP: i32 = 0b0100;
   const BOTTOM: i32 = 0b1000;
@@ -746,30 +747,30 @@ pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {
   const BOTTOMLEFT: i32 = BOTTOM | LEFT;
   const BOTTOMRIGHT: i32 = BOTTOM | RIGHT;
 
-  let result = LEFT
+  let result = (LEFT
     * (if (cx as i32) < (left + fake_border) {
       1
     } else {
       0
-    })
-    | RIGHT
+    }))
+    | (RIGHT
       * (if (cx as i32) >= (right - fake_border) {
         1
       } else {
         0
-      })
-    | TOP
+      }))
+    | (TOP
       * (if (cy as i32) < (top + fake_border) {
         1
       } else {
         0
-      })
-    | BOTTOM
+      }))
+    | (BOTTOM
       * (if (cy as i32) >= (bottom - fake_border) {
         1
       } else {
         0
-      });
+      }));
 
   let edge = match result {
     LEFT => WindowEdge::West,
