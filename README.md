@@ -2,11 +2,11 @@
 
 [![](https://img.shields.io/crates/v/wry?style=flat-square)](https://crates.io/crates/wry) [![](https://img.shields.io/docsrs/wry?style=flat-square)](https://docs.rs/wry/) ![](https://img.shields.io/crates/l/wry?style=flat-square)
 
-Cross-platfrom WebView rendering library in Rust that supports all major desktop platforms like Windows 10, macOS, and Linux.
+Cross-platfrom WebView rendering library in Rust that supports all major desktop platforms like Windows, macOS, and Linux.
 
 ```toml
 [dependencies]
-wry = "0.6"
+wry = "0.9"
 ```
 
 <div align="center">
@@ -17,24 +17,46 @@ wry = "0.6"
 
 ## Overview
 
-Wry connects the web engine on each platform and provides easy to use and unified interface to render WebView. It uses
-[winit] on most platforms and [gtk-rs] on Linux for windows creation.
+Wry connects the web engine on each platform and provides easy to use and unified interface to render WebView. It also
+re-export [winit] as a module for event loop and window creation.
 
 [winit]: https://crates.io/crates/winit
-[gtk-rs]: https://crates.io/crates/gtk
 
 ## Usage
 
-The minimum example looks like following:
+The minimum example to create a Window and browse a website looks like following:
 
 ```rust
-use wry::{Application, Result};
+fn main() -> wry::Result<()> {
+  use wry::{
+    application::{
+      event::{Event, StartCause, WindowEvent},
+      event_loop::{ControlFlow, EventLoop},
+      window::WindowBuilder,
+    },
+    webview::WebViewBuilder,
+  };
 
-fn main() -> Result<()> {
-    let mut app = Application::new()?;
-    app.add_window(Default::default())?;
-    app.run();
-    Ok(())
+  let event_loop = EventLoop::new();
+  let window = WindowBuilder::new()
+    .with_title("Hello World")
+    .build(&event_loop)?;
+  let _webview = WebViewBuilder::new(window)?
+    .with_url("https://tauri.studio")?
+    .build()?;
+
+  event_loop.run(move |event, _, control_flow| {
+    *control_flow = ControlFlow::Poll;
+
+    match event {
+      Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
+      Event::WindowEvent {
+        event: WindowEvent::CloseRequested,
+        ..
+      } => *control_flow = ControlFlow::Exit,
+      _ => (),
+    }
+  });
 }
 ```
 
@@ -50,7 +72,9 @@ For more information, please read the documentation below.
 
 ## Platform-specific notes
 
-All platforms uses [winit](https://github.com/rust-windowing/winit) to build the window except Linux. Here are the underlying web engine each platfrom uses and some dependencies you might need to install.
+All platforms uses [winit](https://github.com/rust-windowing/winit) to build the window. But since Linux needs to use Gtk under the hood, we recommend use wry's application module. It implements a winit APIs on top of Gtk and simplu re-export winit on other platforms.
+
+Here are the underlying web engine each platfrom uses and some dependencies you might need to install.
 
 ### Linux
 
