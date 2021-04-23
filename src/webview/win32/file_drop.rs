@@ -61,7 +61,7 @@ impl FileDropController {
     &mut self,
     hwnd: HWND,
     window: Rc<Window>,
-    listener: Rc<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+    listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
   ) -> bool {
     // Safety: WinAPI calls are unsafe
     unsafe {
@@ -101,7 +101,7 @@ unsafe extern "system" fn enumerate_callback(
   hwnd: HWND,
   lparam: winapi::shared::minwindef::LPARAM,
 ) -> winapi::shared::minwindef::BOOL {
-  let closure: &mut &mut dyn FnMut(HWND) -> bool = std::mem::transmute(lparam as *mut c_void);
+  let closure = &mut *(lparam as *mut c_void as *mut &mut dyn FnMut(HWND) -> bool);
   if closure(hwnd) {
     winapi::shared::minwindef::TRUE
   } else {
@@ -132,7 +132,7 @@ use winapi::{
 #[repr(C)]
 struct IDropTargetData {
   pub interface: NativeIDropTarget,
-  listener: Rc<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+  listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
   refcount: AtomicUsize,
   hwnd: HWND,
   window: Rc<Window>,
@@ -150,7 +150,7 @@ impl IDropTarget {
   fn new(
     hwnd: HWND,
     window: Rc<Window>,
-    listener: Rc<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+    listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
   ) -> IDropTarget {
     let data = Box::new(IDropTargetData {
       listener,
@@ -280,7 +280,7 @@ impl IDropTarget {
       },
     };
 
-    let mut drop_format = FORMATETC {
+    let drop_format = FORMATETC {
       cfFormat: CF_HDROP as CLIPFORMAT,
       ptd: ptr::null(),
       dwAspect: DVASPECT_CONTENT,
@@ -289,7 +289,7 @@ impl IDropTarget {
     };
 
     let mut medium = std::mem::zeroed();
-    let get_data_result = (*data_obj).GetData(&mut drop_format, &mut medium);
+    let get_data_result = (*data_obj).GetData(&drop_format, &mut medium);
     if SUCCEEDED(get_data_result) {
       let hglobal = (*medium.u).hGlobal();
       let hdrop = (*hglobal) as shellapi::HDROP;
@@ -312,15 +312,15 @@ impl IDropTarget {
         paths.push(OsString::from_wide(&path_buf[0..character_count]).into());
       }
 
-      return Some(hdrop);
+      Some(hdrop)
     } else if get_data_result == DV_E_FORMATETC {
       // If the dropped item is not a file this error will occur.
       // In this case it is OK to return without taking further action.
       log::warn!("Error occured while processing dropped/hovered item: item is not a file.");
-      return None;
+      None
     } else {
       log::warn!("Unexpected error occured while processing dropped/hovered item.");
-      return None;
+      None
     }
   }
 }

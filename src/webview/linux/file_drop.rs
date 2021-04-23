@@ -60,7 +60,7 @@ pub(crate) fn connect_drag_event(
 
   // Called when a drag "fails" - we'll just emit a Cancelled event.
   let listener_ref = listener.clone();
-  let w = window.clone();
+  let w = window;
   webview
     .connect_drag_failed(move |_, _, _| gtk::Inhibit(listener_ref.0(&w, FileDropEvent::Cancelled)));
 }

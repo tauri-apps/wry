@@ -47,8 +47,8 @@ async function getAsyncRpcResult() {
     let mut response = None;
     if &req.method == "fullscreen" {
       if let Some(params) = req.params.take() {
-        if let Some(mut args) = serde_json::from_value::<Vec<bool>>(params).ok() {
-          if args.len() > 0 {
+        if let Ok(mut args) = serde_json::from_value::<Vec<bool>>(params) {
+          if !args.is_empty() {
             if args.swap_remove(0) {
               window.set_fullscreen(Some(Fullscreen::Borderless(None)));
             } else {
@@ -60,8 +60,8 @@ async function getAsyncRpcResult() {
       }
     } else if &req.method == "send-parameters" {
       if let Some(params) = req.params.take() {
-        if let Some(mut args) = serde_json::from_value::<Vec<MessageParameters>>(params).ok() {
-          let result = if args.len() > 0 {
+        if let Ok(mut args) = serde_json::from_value::<Vec<MessageParameters>>(params) {
+          let result = if !args.is_empty() {
             let msg = args.swap_remove(0);
             Some(Value::String(format!("Hello, {}!", msg.message)))
           } else {

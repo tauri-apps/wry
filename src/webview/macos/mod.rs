@@ -57,10 +57,11 @@ impl InnerWebView {
       // Safety: objc runtime calls are unsafe
       unsafe {
         let function = this.get_ivar::<*mut c_void>("function");
-        let function: &mut (
-          Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>,
-          Rc<Window>,
-        ) = std::mem::transmute(*function);
+        let function = &mut *(*function
+          as *mut (
+            Box<dyn for<'r> Fn(&'r Window, RpcRequest) -> Option<RpcResponse>>,
+            Rc<Window>,
+          ));
         let body: id = msg_send![msg, body];
         let utf8: *const c_char = msg_send![body, UTF8String];
         let js = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
@@ -85,8 +86,11 @@ impl InnerWebView {
     extern "C" fn start_task(this: &Object, _: Sel, _webview: id, task: id) {
       unsafe {
         let function = this.get_ivar::<*mut c_void>("function");
-        let function: &mut (Box<(dyn Fn(&Window, &str) -> Result<Vec<u8>>)>, Rc<Window>) =
-          std::mem::transmute(*function);
+        let function = &mut *(*function
+          as *mut (
+            Box<dyn for<'r, 's> Fn(&'r Window, &'s str) -> Result<Vec<u8>>>,
+            Rc<Window>,
+          ));
 
         // Get url request
         let request: id = msg_send![task, request];

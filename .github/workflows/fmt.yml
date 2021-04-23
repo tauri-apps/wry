@@ -17,8 +17,14 @@ jobs:
             profile: minimal
             toolchain: nightly
             override: true
-            components: rustfmt
-      - uses: actions-rs/cargo@v1
+            components: rustfmt, clippy
+      - name: clippy check
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-targets -- -D warnings
+      - name: fmt
+        uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check

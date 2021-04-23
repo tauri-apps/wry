@@ -41,7 +41,7 @@ impl std::fmt::Display for MimeType {
 impl MimeType {
   /// parse a URI suffix to convert text/plain mimeType to their actual web compatible mimeType.
   pub fn parse_from_uri(uri: &str) -> MimeType {
-    let suffix = uri.split(".").last();
+    let suffix = uri.split('.').last();
     match suffix {
       Some("bin") => Self::OCTETSTREAM,
       Some("css") => Self::CSS,
@@ -62,7 +62,7 @@ impl MimeType {
   }
 
   /// infer mimetype from content (or) URI if needed.
-  pub fn parse(content: &Vec<u8>, uri: &str) -> String {
+  pub fn parse(content: &[u8], uri: &str) -> String {
     let mime = match infer::get(&content) {
       Some(info) => info.mime_type(),
       None => MIMETYPE_PLAIN,
