@@ -251,6 +251,13 @@ impl WebViewBuilder {
   }
 
   /// Consume the builder and create the [`WebView`].
+  ///
+  /// Platform-specific behavior:
+  ///
+  /// - **Unix:** This method must be called in a gtk thread. Usually this means it should be
+  /// called in the same thread with the [`EventLoop`] you create.
+  ///
+  /// [`EventLoop`]: crate::application::event_loop::EventLoop
   pub fn build(self) -> Result<WebView> {
     let window = Rc::new(self.window);
     let webview = InnerWebView::new(

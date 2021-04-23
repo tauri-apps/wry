@@ -709,6 +709,11 @@ impl Window {
   }
 }
 
+// We need GtkWindow to initialize WebView, so we have to keep it in the field.
+// It is called on any method.
+unsafe impl Send for Window {}
+unsafe impl Sync for Window {}
+
 /// Fullscreen modes.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Fullscreen {
