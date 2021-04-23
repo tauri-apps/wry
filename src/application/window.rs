@@ -7,13 +7,14 @@
 use std::{
   cell::RefCell,
   fmt,
+  rc::Rc,
   sync::{
     atomic::{AtomicBool, AtomicI32, Ordering},
     mpsc::Sender,
   },
 };
 
-use gdk::{Cursor, EventMask, WindowEdge, WindowExt};
+use gdk::{Cursor, EventMask, WindowEdge, WindowExt, WindowState};
 use gtk::{prelude::*, ApplicationWindow};
 pub use winit::window::CursorIcon;
 use winit::{
@@ -338,10 +339,10 @@ pub struct Window {
   pub(crate) window: gtk::ApplicationWindow,
   /// Window requests sender
   pub(crate) window_requests_tx: Sender<(WindowId, WindowRequest)>,
-  scale_factor: f64,
-  position: (AtomicI32, AtomicI32),
-  size: (AtomicI32, AtomicI32),
-  maximized: AtomicBool,
+  scale_factor: Rc<AtomicI32>,
+  position: Rc<(AtomicI32, AtomicI32)>,
+  size: Rc<(AtomicI32, AtomicI32)>,
+  maximized: Rc<AtomicBool>,
   fullscreen: RefCell<Option<Fullscreen>>,
 }
 
@@ -359,10 +360,10 @@ impl Window {
       .insert(window_id);
 
     // Set Width/Height & Resizable
-    let scale_factor = window.get_scale_factor();
+    let win_scale_factor = window.get_scale_factor();
     let (width, height) = attributes
       .inner_size
-      .map(|size| size.to_logical::<f64>(scale_factor as f64).into())
+      .map(|size| size.to_logical::<f64>(win_scale_factor as f64).into())
       .unwrap_or((800, 600));
     window.set_resizable(attributes.resizable);
     if attributes.resizable {
@@ -383,11 +384,11 @@ impl Window {
     });
     let (min_width, min_height) = attributes
       .min_inner_size
-      .map(|size| size.to_logical::<f64>(scale_factor as f64).into())
+      .map(|size| size.to_logical::<f64>(win_scale_factor as f64).into())
       .unwrap_or_default();
     let (max_width, max_height) = attributes
       .max_inner_size
-      .map(|size| size.to_logical::<f64>(scale_factor as f64).into())
+      .map(|size| size.to_logical::<f64>(win_scale_factor as f64).into())
       .unwrap_or_default();
     window.set_geometry_hints::<ApplicationWindow>(
       None,
@@ -471,16 +472,52 @@ impl Window {
     window.show_all();
 
     let window_requests_tx = event_loop_window_target.window_requests_tx.clone();
-    let scale_factor = scale_factor as f64;
-    let position = window.get_position();
-    let maximized = window.get_property_is_maximized().into();
+
+    let w_pos = window.get_position();
+    let position: Rc<(AtomicI32, AtomicI32)> = Rc::new((w_pos.0.into(), w_pos.1.into()));
+    let position_clone = position.clone();
+
+    let w_size = window.get_size();
+    let size: Rc<(AtomicI32, AtomicI32)> = Rc::new((w_size.0.into(), w_size.1.into()));
+    let size_clone = size.clone();
+
+    window.connect_configure_event(move |_window, event| {
+      let (x, y) = event.get_position();
+      position_clone.0.store(x, Ordering::Release);
+      position_clone.1.store(y, Ordering::Release);
+
+      let (w, h) = event.get_size();
+      size_clone.0.store(w as i32, Ordering::Release);
+      size_clone.1.store(h as i32, Ordering::Release);
+
+      false
+    });
+
+    let w_max = window.get_property_is_maximized();
+    let maximized: Rc<AtomicBool> = Rc::new(w_max.into());
+    let max_clone = maximized.clone();
+
+    window.connect_window_state_event(move |_window, event| {
+      let state = event.get_new_window_state();
+      println!("{:?}", state.contains(WindowState::MAXIMIZED));
+      max_clone.store(state.contains(WindowState::MAXIMIZED), Ordering::Release);
+
+      Inhibit(false)
+    });
+
+    let scale_factor: Rc<AtomicI32> = Rc::new(win_scale_factor.into());
+    let scale_factor_clone = scale_factor.clone();
+    window.connect_property_scale_factor_notify(move |window| {
+      scale_factor_clone.store(window.get_scale_factor(), Ordering::Release);
+    });
+
     Ok(Self {
       window_id,
       window,
       window_requests_tx,
       scale_factor,
-      position: (position.0.into(), position.1.into()),
-      size: (width.into(), height.into()),
+      position,
+      size,
       maximized,
       fullscreen: RefCell::new(attributes.fullscreen),
     })
@@ -491,7 +528,7 @@ impl Window {
   }
 
   pub fn scale_factor(&self) -> f64 {
-    self.scale_factor
+    self.scale_factor.load(Ordering::Acquire) as f64
   }
 
   pub fn request_redraw(&self) {
@@ -499,7 +536,7 @@ impl Window {
   }
 
   pub fn inner_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
-    let (x, y) = &self.position;
+    let (x, y) = (&self.position.0, &self.position.1);
     Ok(PhysicalPosition::new(
       x.load(Ordering::Acquire),
       y.load(Ordering::Acquire),
@@ -507,7 +544,7 @@ impl Window {
   }
 
   pub fn outer_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
-    let (x, y) = &self.position;
+    let (x, y) = (&self.position.0, &self.position.1);
     Ok(PhysicalPosition::new(
       x.load(Ordering::Acquire),
       y.load(Ordering::Acquire),
@@ -519,8 +556,6 @@ impl Window {
       .into()
       .to_physical::<i32>(self.scale_factor())
       .into();
-    self.position.0.store(x, Ordering::Release);
-    self.position.1.store(y, Ordering::Release);
 
     if let Err(e) = self
       .window_requests_tx
@@ -531,7 +566,8 @@ impl Window {
   }
 
   pub fn inner_size(&self) -> PhysicalSize<u32> {
-    let (width, height) = &self.size;
+    let (width, height) = (&self.size.0, &self.size.1);
+
     PhysicalSize::new(
       width.load(Ordering::Acquire) as u32,
       height.load(Ordering::Acquire) as u32,
@@ -540,8 +576,6 @@ impl Window {
 
   pub fn set_inner_size<S: Into<Size>>(&self, size: S) {
     let (width, height) = size.into().to_logical::<i32>(self.scale_factor()).into();
-    self.size.0.store(width, Ordering::Release);
-    self.size.1.store(height, Ordering::Release);
 
     if let Err(e) = self
       .window_requests_tx
@@ -552,7 +586,8 @@ impl Window {
   }
 
   pub fn outer_size(&self) -> PhysicalSize<u32> {
-    let (width, height) = &self.size;
+    let (width, height) = (&self.size.0, &self.size.1);
+
     PhysicalSize::new(
       width.load(Ordering::Acquire) as u32,
       height.load(Ordering::Acquire) as u32,
@@ -621,7 +656,6 @@ impl Window {
   }
 
   pub fn set_maximized(&self, maximized: bool) {
-    self.maximized.store(maximized, Ordering::Release);
     if let Err(e) = self
       .window_requests_tx
       .send((self.window_id, WindowRequest::Maximized(maximized)))
@@ -781,6 +815,7 @@ pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {
   let (left, top) = window.get_position();
   let (w, h) = (window.get_width(), window.get_height());
   let (right, bottom) = (left + w, top + h);
+  let (cx, cy) = (cx as i32, cy as i32);
 
   let fake_border = 5; // change this to manipulate how far inside the window, the resize can happen
 
@@ -795,30 +830,10 @@ pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {
   const BOTTOMLEFT: i32 = BOTTOM | LEFT;
   const BOTTOMRIGHT: i32 = BOTTOM | RIGHT;
 
-  let result = (LEFT
-    * (if (cx as i32) < (left + fake_border) {
-      1
-    } else {
-      0
-    }))
-    | (RIGHT
-      * (if (cx as i32) >= (right - fake_border) {
-        1
-      } else {
-        0
-      }))
-    | (TOP
-      * (if (cy as i32) < (top + fake_border) {
-        1
-      } else {
-        0
-      }))
-    | (BOTTOM
-      * (if (cy as i32) >= (bottom - fake_border) {
-        1
-      } else {
-        0
-      }));
+  let result = (LEFT * (if cx < (left + fake_border) { 1 } else { 0 }))
+    | (RIGHT * (if cx >= (right - fake_border) { 1 } else { 0 }))
+    | (TOP * (if cy < (top + fake_border) { 1 } else { 0 }))
+    | (BOTTOM * (if cy >= (bottom - fake_border) { 1 } else { 0 }));
 
   let edge = match result {
     LEFT => WindowEdge::West,
