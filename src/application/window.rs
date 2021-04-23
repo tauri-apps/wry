@@ -802,24 +802,23 @@ pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {
   };
 
   // FIXME: calling `window.begin_resize_drag` seems to revert the cursor back to normal style
-  if edge != WindowEdge::__Unknown(8) {
-    window.set_cursor(
-      Cursor::from_name(
-        &display,
-        match edge {
-          WindowEdge::North => "n-resize",
-          WindowEdge::South => "s-resize",
-          WindowEdge::East => "e-resize",
-          WindowEdge::West => "w-resize",
-          WindowEdge::NorthWest => "nw-resize",
-          WindowEdge::NorthEast => "ne-resize",
-          WindowEdge::SouthEast => "se-resize",
-          WindowEdge::SouthWest => "sw-resize",
-          _ => "default",
-        },
-      )
-      .as_ref(),
-    );
-  }
+  window.set_cursor(
+    Cursor::from_name(
+      &display,
+      match edge {
+        WindowEdge::North => "n-resize",
+        WindowEdge::South => "s-resize",
+        WindowEdge::East => "e-resize",
+        WindowEdge::West => "w-resize",
+        WindowEdge::NorthWest => "nw-resize",
+        WindowEdge::NorthEast => "ne-resize",
+        WindowEdge::SouthEast => "se-resize",
+        WindowEdge::SouthWest => "sw-resize",
+        _ => "default",
+      },
+    )
+    .as_ref(),
+  );
+
   edge
 }
