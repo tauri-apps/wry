@@ -499,7 +499,6 @@ impl Window {
 
     window.connect_window_state_event(move |_window, event| {
       let state = event.get_new_window_state();
-      println!("{:?}", state.contains(WindowState::MAXIMIZED));
       max_clone.store(state.contains(WindowState::MAXIMIZED), Ordering::Release);
 
       Inhibit(false)
@@ -536,7 +535,7 @@ impl Window {
   }
 
   pub fn inner_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
-    let (x, y) = (&self.position.0, &self.position.1);
+    let (x, y) = &*self.position;
     Ok(PhysicalPosition::new(
       x.load(Ordering::Acquire),
       y.load(Ordering::Acquire),
@@ -544,7 +543,7 @@ impl Window {
   }
 
   pub fn outer_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
-    let (x, y) = (&self.position.0, &self.position.1);
+    let (x, y) = &*self.position;
     Ok(PhysicalPosition::new(
       x.load(Ordering::Acquire),
       y.load(Ordering::Acquire),
@@ -566,7 +565,7 @@ impl Window {
   }
 
   pub fn inner_size(&self) -> PhysicalSize<u32> {
-    let (width, height) = (&self.size.0, &self.size.1);
+    let (width, height) = &*self.size;
 
     PhysicalSize::new(
       width.load(Ordering::Acquire) as u32,
@@ -586,7 +585,7 @@ impl Window {
   }
 
   pub fn outer_size(&self) -> PhysicalSize<u32> {
-    let (width, height) = (&self.size.0, &self.size.1);
+    let (width, height) = &*self.size;
 
     PhysicalSize::new(
       width.load(Ordering::Acquire) as u32,
