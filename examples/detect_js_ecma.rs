@@ -32,6 +32,9 @@ fn main() -> wry::Result<()> {
                 addEntry("ECMAScript 2016", Array.prototype.includes)
                 addEntry("ECMAScript 2017", Object.entries)
                 addEntry("ECMAScript 2018", Promise.prototype.finally)
+                addEntry("ECMAScript 2019", Object.fromEntries)
+                addEntry("ECMAScript 2020", BigInt)
+                addEntry("ECMAScript 2021", WeakRef)
             });
         })();
         "#)
