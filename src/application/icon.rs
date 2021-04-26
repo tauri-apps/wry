@@ -2,20 +2,31 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{fmt, io};
+use std::io;
 
 use gdk_pixbuf::Pixbuf;
 pub use winit::window::BadIcon;
 
 /// An icon used for the window titlebar, taskbar, etc.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Icon {
-  pub(crate) inner: Pixbuf,
+  raw: Vec<u8>,
+  width: i32,
+  height: i32,
+  row_stride: i32,
 }
 
-impl fmt::Debug for Icon {
-  fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-    fmt::Debug::fmt(&self.inner, formatter)
+impl From<Icon> for Pixbuf {
+  fn from(icon: Icon) -> Self {
+    Pixbuf::from_mut_slice(
+      icon.raw,
+      gdk_pixbuf::Colorspace::Rgb,
+      true,
+      8,
+      icon.width,
+      icon.height,
+      icon.row_stride,
+    )
   }
 }
 
@@ -35,15 +46,10 @@ impl Icon {
       .into_rgba8();
     let row_stride = image.sample_layout().height_stride;
     Ok(Icon {
-      inner: gdk_pixbuf::Pixbuf::from_mut_slice(
-        image.into_raw(),
-        gdk_pixbuf::Colorspace::Rgb,
-        true,
-        8,
-        width as i32,
-        height as i32,
-        row_stride as i32,
-      ),
+      raw: image.into_raw(),
+      width: width as i32,
+      height: height as i32,
+      row_stride: row_stride as i32,
     })
   }
 }

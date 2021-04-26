@@ -318,7 +318,7 @@ impl<T: 'static> EventLoop<T> {
           WindowRequest::AlwaysOnTop(always_on_top) => window.set_keep_above(always_on_top),
           WindowRequest::WindowIcon(window_icon) => {
             if let Some(icon) = window_icon {
-              window.set_icon(Some(&icon.inner));
+              window.set_icon(Some(&icon.into()));
             }
           }
           WindowRequest::UserAttention(request_type) => {

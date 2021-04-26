@@ -465,8 +465,8 @@ impl Window {
     }
 
     window.set_keep_above(attributes.always_on_top);
-    if let Some(icon) = &attributes.window_icon {
-      window.set_icon(Some(&icon.inner));
+    if let Some(icon) = attributes.window_icon {
+      window.set_icon(Some(&icon.into()));
     }
 
     window.show_all();
