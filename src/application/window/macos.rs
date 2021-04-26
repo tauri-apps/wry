@@ -31,7 +31,9 @@ use crate::application::{
   dpi::Size,
   error::{ExternalError, NotSupportedError, OsError},
   event::Event,
+  event::StartCause,
   event::WindowEvent,
+  event_loop::EventLoop,
   event_loop::dispatch,
   event_loop::ControlFlow,
   event_loop::EventLoopWindowTarget,
@@ -46,7 +48,7 @@ where
 {
   content: WebView<WebViewInstance>,
   _control_flow: Mutex<ControlFlow>,
-  _window_target: Option<Rc<&'static EventLoopWindowTarget<T, AppWindow<T>>>>,
+  _window_target: Option<Rc<EventLoopWindowTarget<T, AppWindow<T>>>>,
   _callback: Option<
     Weak<RefCell<dyn FnMut(Event<T>, &EventLoopWindowTarget<T, AppWindow<T>>, &mut ControlFlow)>>,
   >,
@@ -59,20 +61,20 @@ impl<T: 'static> Dispatcher for AppWindow<T> {
 
   /// Handles a message that came over on the main thread.
   fn on_ui_message(&self, event: Self::Message) {
+    println!("MESSAGE");
     if let Some(callback) = &self._callback {
-      if let Some(window_target) = &self._window_target {
-        if let Some(callback) = callback.upgrade() {
-          let mut callback = callback.borrow_mut();
-          let mut control_flow = self._control_flow.lock().unwrap();
-
-          (callback)(event, &window_target, &mut control_flow);
-        } else {
-          panic!(
-            "Tried to dispatch an event, but the event loop that \
-              owned the event handler callback seems to be destroyed"
-          );
-        }
+      if let Some(callback) = callback.upgrade() {
+        let mut callback = callback.borrow_mut();
+        let mut control_flow = self._control_flow.lock().unwrap();
+        let window_target = EventLoop::<T>::with_user_event();
+        (callback)(event, &window_target, &mut control_flow);
+      } else {
+        panic!(
+          "Tried to dispatch an event, but the event loop that \
+            owned the event handler callback seems to be destroyed"
+        );
       }
+      
     }
   }
 }
@@ -83,9 +85,10 @@ impl<T: 'static> AppDelegate for AppWindow<T> {
   }
   fn did_finish_launching(&self) {
     App::activate();
+    dispatch::<T>(Event::NewEvents(StartCause::Init));
   }
   fn should_terminate_after_last_window_closed(&self) -> bool {
-    true
+    false
   }
   fn will_update(&self) {}
 }
@@ -94,11 +97,7 @@ impl<T: 'static> WindowDelegate for AppWindow<T> {
   const NAME: &'static str = "WindowDelegate";
 
   fn will_close(&self) {
-    dispatch::<T>(Event::WindowEvent {
-      // todo get real ID
-      window_id: unsafe { WindowId::dummy() },
-      event: WindowEvent::CloseRequested,
-    })
+    dispatch::<T>(Event::WindowEvent { event: WindowEvent::CloseRequested, window_id: unsafe { WindowId::dummy() }});
   }
 
   fn did_load(&mut self, window: CacaoWindow) {
@@ -143,7 +142,8 @@ impl<T: 'static> AppWindow<T> {
   ) where T: 'static {
 
     //todo: MAKE SURE WE CAN SET THE EVENT LOOP
-
+    //let event_loop = EventLoop::<T>::with_user_event();
+    //self._window_target = Some(Rc::new(event_loop));
     //self._window_target = Some(event_loop);
   }
 
@@ -333,50 +333,19 @@ impl<T> Window<T> {
 
     let window_requests_tx = event_loop_window_target.window_requests_tx.clone();
     if let Some(delegate) = window.delegate.as_mut() {
+
+      //todo: do not work
       delegate.set_window_target(Rc::new(event_loop_window_target));
 
       let w_pos = delegate.get_position();
 
       let position: Rc<(AtomicI32, AtomicI32)> = Rc::new((w_pos.0.into(), w_pos.1.into()));
-      let position_clone = position.clone();
-
       let w_size = delegate.get_size();
       let size: Rc<(AtomicI32, AtomicI32)> = Rc::new((w_size.0.into(), w_size.1.into()));
-      let size_clone = size.clone();
-      /*
-      window.connect_configure_event(move |_window, event| {
-        let (x, y) = event.get_position();
-        position_clone.0.store(x, Ordering::Release);
-        position_clone.1.store(y, Ordering::Release);
-
-        let (w, h) = event.get_size();
-        size_clone.0.store(w as i32, Ordering::Release);
-        size_clone.1.store(h as i32, Ordering::Release);
-
-        false
-      });
-      */
-
       let w_max = !window.is_miniaturized();
       let maximized: Rc<AtomicBool> = Rc::new(w_max.into());
-      let max_clone = maximized.clone();
-      /*
-      window.connect_window_state_event(move |_window, event| {
-        let state = event.get_new_window_state();
-        //max_clone.store(state.contains(WindowState::MAXIMIZED), Ordering::Release);
-
-        //Inhibit(false)
-      });
-      */
-
       let win_scale_factor = win_scale_factor as i32;
       let scale_factor: Rc<AtomicI32> = Rc::new(win_scale_factor.into());
-      let scale_factor_clone = scale_factor.clone();
-      /*
-      window.connect_property_scale_factor_notify(move |window| {
-        scale_factor_clone.store(window.get_scale_factor(), Ordering::Release);
-      });
-      */
 
       return Ok(Self {
         window_id,

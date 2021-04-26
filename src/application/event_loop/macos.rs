@@ -82,7 +82,7 @@ impl<T: 'static> EventLoop<T> {
   /// ## Platform-specific
   ///
   /// - **iOS:** Can only be called on the main thread.
-  pub fn with_user_event() -> EventLoop<()> {
+  pub fn with_user_event() -> EventLoop<T> {
     EventLoop::new_cacao_thread().expect("Unable to launch cacao thread")
   }
 
@@ -159,7 +159,7 @@ impl<T: 'static> EventLoop<T> {
     };
 
     let weak_cb: Weak<_> = Rc::downgrade(&callback);
-    mem::drop(callback);
+    //mem::drop(callback);
 
     window_target.app.delegate.set_event_loop_callback(weak_cb);
 
