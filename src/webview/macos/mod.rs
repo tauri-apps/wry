@@ -18,7 +18,7 @@ use cocoa::{
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use objc::{
   declare::ClassDecl,
-  runtime::{Object, Sel},
+  runtime::{Class, Object, Sel},
 };
 use objc_id::Id;
 use url::Url;
@@ -142,7 +142,7 @@ impl InnerWebView {
             );
             cls.register()
           }
-          None => class!(scheme_name),
+          None => Class::get(&scheme_name).expect("Failed to get the class definition"),
         };
         let handler: id = msg_send![cls, new];
         let w = window.clone();
