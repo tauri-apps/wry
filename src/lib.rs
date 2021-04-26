@@ -71,7 +71,7 @@
 #![allow(clippy::unit_cmp)]
 #![allow(clippy::upper_case_acronyms)]
 
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "windows"))]
 #[macro_use]
 extern crate bitflags;
 #[macro_use]

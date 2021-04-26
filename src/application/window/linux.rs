@@ -27,116 +27,10 @@ use super::{
   error::{ExternalError, NotSupportedError, OsError},
   event_loop::EventLoopWindowTarget,
   monitor::{MonitorHandle, VideoMode},
+  Fullscreen, WindowAttributes, WindowId,
 };
 
 pub use super::icon::{BadIcon, Icon};
-
-/// Identifier of a window. Unique for each window.
-///
-/// Can be obtained with `window.id()`.
-///
-/// Whenever you receive an event specific to a window, this event contains a `WindowId` which you
-/// can then compare to the ids of your windows.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct WindowId(pub(crate) u32);
-
-impl WindowId {
-  /// Returns a dummy `WindowId`, useful for unit testing. The only guarantee made about the return
-  /// value of this function is that it will always be equal to itself and to future values returned
-  /// by this function.  No other guarantees are made. This may be equal to a real `WindowId`.
-  ///
-  /// # Safety
-  /// **Passing this into a winit function will result in undefined behavior.**
-  pub unsafe fn dummy() -> Self {
-    WindowId(0)
-  }
-}
-
-/// Attributes to use when creating a window.
-#[derive(Debug, Clone)]
-pub struct WindowAttributes {
-  /// The dimensions of the window. If this is `None`, some platform-specific dimensions will be
-  /// used.
-  ///
-  /// The default is `None`.
-  pub inner_size: Option<Size>,
-
-  /// The minimum dimensions a window can be, If this is `None`, the window will have no minimum dimensions (aside from reserved).
-  ///
-  /// The default is `None`.
-  pub min_inner_size: Option<Size>,
-
-  /// The maximum dimensions a window can be, If this is `None`, the maximum will have no maximum or will be set to the primary monitor's dimensions by the platform.
-  ///
-  /// The default is `None`.
-  pub max_inner_size: Option<Size>,
-
-  /// Whether the window is resizable or not.
-  ///
-  /// The default is `true`.
-  pub resizable: bool,
-
-  /// Whether the window should be set as fullscreen upon creation.
-  ///
-  /// The default is `None`.
-  pub fullscreen: Option<Fullscreen>,
-
-  /// The title of the window in the title bar.
-  ///
-  /// The default is `"winit window"`.
-  pub title: String,
-
-  /// Whether the window should be maximized upon creation.
-  ///
-  /// The default is `false`.
-  pub maximized: bool,
-
-  /// Whether the window should be immediately visible upon creation.
-  ///
-  /// The default is `true`.
-  pub visible: bool,
-
-  /// Whether the the window should be transparent. If this is true, writing colors
-  /// with alpha values different than `1.0` will produce a transparent window.
-  ///
-  /// The default is `false`.
-  pub transparent: bool,
-
-  /// Whether the window should have borders and bars.
-  ///
-  /// The default is `true`.
-  pub decorations: bool,
-
-  /// Whether the window should always be on top of other windows.
-  ///
-  /// The default is `false`.
-  pub always_on_top: bool,
-
-  /// The window icon.
-  ///
-  /// The default is `None`.
-  pub window_icon: Option<Icon>,
-}
-
-impl Default for WindowAttributes {
-  #[inline]
-  fn default() -> WindowAttributes {
-    WindowAttributes {
-      inner_size: None,
-      min_inner_size: None,
-      max_inner_size: None,
-      resizable: true,
-      title: "winit window".to_owned(),
-      maximized: false,
-      fullscreen: None,
-      visible: true,
-      transparent: false,
-      decorations: true,
-      always_on_top: false,
-      window_icon: None,
-    }
-  }
-}
 
 /// Object that allows you to build windows.
 #[derive(Clone, Default)]
@@ -774,21 +668,6 @@ impl Window {
 // It is called on any method.
 unsafe impl Send for Window {}
 unsafe impl Sync for Window {}
-
-/// Fullscreen modes.
-#[derive(Clone, Debug, PartialEq)]
-pub enum Fullscreen {
-  Exclusive(VideoMode),
-
-  /// Providing `None` to `Borderless` will fullscreen on the current monitor.
-  Borderless(Option<MonitorHandle>),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Theme {
-  Light,
-  Dark,
-}
 
 pub(crate) enum WindowRequest {
   Title(String),

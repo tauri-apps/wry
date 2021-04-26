@@ -17,32 +17,30 @@
 //! missing. Feel free to open an issue or PR.
 //!
 //! [winit]: https://crates.io/crates/winit
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "windows"))]
 pub use winit::dpi;
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "windows"))]
 pub mod error;
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "windows"))]
 pub mod event;
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "windows"))]
 pub mod event_loop;
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "windows"))]
 mod icon;
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "windows"))]
 pub mod monitor;
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "windows"))]
 pub mod platform;
-#[cfg(target_os = "linux")]
+#[cfg(not(target_os = "windows"))]
 pub mod window;
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "windows")]
 pub use original::*;
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "windows")]
 mod original {
   pub use winit::{dpi, error, event, event_loop, monitor, window};
 
-  #[cfg(target_os = "macos")]
   pub use winit::platform;
-  #[cfg(target_os = "windows")]
   pub mod platform {
     pub use winit::platform::run_return;
 

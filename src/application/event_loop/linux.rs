@@ -28,7 +28,6 @@ use gdk::{Cursor, CursorType, WindowExt};
 use gio::{prelude::*, Cancellable};
 use glib::{source::idle_add_local, Continue, MainContext};
 use gtk::{prelude::*, ApplicationWindow, Inhibit};
-pub use winit::event_loop::{ControlFlow, EventLoopClosed};
 use winit::window::CursorIcon;
 
 use super::{
@@ -425,26 +424,6 @@ impl<T> Deref for EventLoop<T> {
   type Target = EventLoopWindowTarget<T>;
   fn deref(&self) -> &EventLoopWindowTarget<T> {
     self.window_target()
-  }
-}
-
-/// Used to send custom events to `EventLoop`.
-#[derive(Debug, Clone)]
-pub struct EventLoopProxy<T: 'static> {
-  user_event_tx: Sender<T>,
-}
-
-impl<T: 'static> EventLoopProxy<T> {
-  /// Send an event to the `EventLoop` from which this proxy was created. This emits a
-  /// `UserEvent(event)` event in the event loop, where `event` is the value passed to this
-  /// function.
-  ///
-  /// Returns an `Err` if the associated `EventLoop` no longer exists.
-  pub fn send_event(&self, event: T) -> Result<(), EventLoopClosed<T>> {
-    self
-      .user_event_tx
-      .send(event)
-      .map_err(|SendError(error)| EventLoopClosed(error))
   }
 }
 

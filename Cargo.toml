@@ -60,3 +60,6 @@ cocoa = "0.24"
 core-graphics = "0.22"
 objc = "0.2"
 objc_id = "0.1"
+cacao = { git = "https://github.com/ryanmcgrath/cacao", branch = "trunk", features = ["webview"] }
+bitflags = "1.2"
+
