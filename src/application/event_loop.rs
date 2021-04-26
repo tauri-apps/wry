@@ -24,7 +24,7 @@ use std::{
   sync::mpsc::{channel, Receiver, SendError, Sender},
 };
 
-use gdk::{Cursor, CursorType, EventType, WindowExt, WindowState};
+use gdk::{Cursor, CursorType, WindowExt, WindowState};
 use gio::{prelude::*, Cancellable};
 use glib::{source::idle_add_local, Continue, MainContext};
 use gtk::{prelude::*, ApplicationWindow, Inhibit};
@@ -35,7 +35,7 @@ use winit::{
 };
 
 use super::{
-  event::{DeviceId, Event, StartCause, WindowEvent},
+  event::{Event, StartCause, WindowEvent},
   window::{WindowId, WindowRequest},
 };
 
