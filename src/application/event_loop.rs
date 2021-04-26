@@ -121,7 +121,7 @@ impl<T: 'static> EventLoop<T> {
   /// ## Platform-specific
   ///
   /// - **iOS:** Can only be called on the main thread.
-  pub fn with_user_event() -> EventLoop<()> {
+  pub fn with_user_event() -> EventLoop<T> {
     assert_is_main_thread("new_any_thread");
     EventLoop::new_any_thread()
   }
