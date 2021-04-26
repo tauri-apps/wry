@@ -29,7 +29,7 @@ pub mod event_loop;
 mod icon;
 #[cfg(not(target_os = "windows"))]
 pub mod monitor;
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "linux")]
 pub mod platform;
 #[cfg(not(target_os = "windows"))]
 pub mod window;

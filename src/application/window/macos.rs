@@ -8,17 +8,19 @@ use std::{
   cell::RefCell,
   fmt,
   rc::Rc,
+  rc::Weak,
   sync::{
     atomic::{AtomicBool, AtomicI32, Ordering},
     mpsc::Sender,
+    Mutex,
   },
 };
 
+use super::{CursorIcon, Fullscreen, WindowAttributes, WindowId, WindowRequest};
 use cacao::macos::window::{Window as CacaoWindow, WindowConfig, WindowDelegate, WindowStyle};
 use cacao::macos::{App, AppDelegate};
+use cacao::notification_center::Dispatcher;
 use cacao::webview::{WebView, WebViewConfig, WebViewDelegate};
-
-use super::{CursorIcon, Fullscreen, WindowAttributes, WindowId, WindowRequest};
 
 use winit::{
   dpi::{PhysicalPosition, PhysicalSize, Position},
@@ -28,17 +30,54 @@ use winit::{
 use crate::application::{
   dpi::Size,
   error::{ExternalError, NotSupportedError, OsError},
+  event::Event,
+  event::WindowEvent,
+  event_loop::dispatch,
+  event_loop::ControlFlow,
   event_loop::EventLoopWindowTarget,
   monitor::{MonitorHandle, VideoMode},
 };
 
 use crate::application::icon::{BadIcon, Icon};
 
-pub struct AppWindow {
+pub struct AppWindow<T = ()>
+where
+  T: 'static,
+{
   content: WebView<WebViewInstance>,
+  _control_flow: Mutex<ControlFlow>,
+  _window_target: Option<Rc<&'static EventLoopWindowTarget<T, AppWindow<T>>>>,
+  _callback: Option<
+    Weak<RefCell<dyn FnMut(Event<T>, &EventLoopWindowTarget<T, AppWindow<T>>, &mut ControlFlow)>>,
+  >,
 }
 
-impl AppDelegate for AppWindow {
+impl<T: 'static> Dispatcher for AppWindow<T> {
+  // it need to be thread safe
+  // so sending the type isnt supported yet
+  type Message = Event<'static, T>;
+
+  /// Handles a message that came over on the main thread.
+  fn on_ui_message(&self, event: Self::Message) {
+    if let Some(callback) = &self._callback {
+      if let Some(window_target) = &self._window_target {
+        if let Some(callback) = callback.upgrade() {
+          let mut callback = callback.borrow_mut();
+          let mut control_flow = self._control_flow.lock().unwrap();
+
+          (callback)(event, &window_target, &mut control_flow);
+        } else {
+          panic!(
+            "Tried to dispatch an event, but the event loop that \
+              owned the event handler callback seems to be destroyed"
+          );
+        }
+      }
+    }
+  }
+}
+
+impl<T: 'static> AppDelegate for AppWindow<T> {
   fn did_unhide(&self) {
     println!("unhidden")
   }
@@ -51,11 +90,15 @@ impl AppDelegate for AppWindow {
   fn will_update(&self) {}
 }
 
-impl WindowDelegate for AppWindow {
+impl<T: 'static> WindowDelegate for AppWindow<T> {
   const NAME: &'static str = "WindowDelegate";
 
-  fn did_move(&self) {
-    println!("moved");
+  fn will_close(&self) {
+    dispatch::<T>(Event::WindowEvent {
+      // todo get real ID
+      window_id: unsafe { WindowId::dummy() },
+      event: WindowEvent::CloseRequested,
+    })
   }
 
   fn did_load(&mut self, window: CacaoWindow) {
@@ -66,7 +109,7 @@ impl WindowDelegate for AppWindow {
 #[derive(Default)]
 pub struct WebViewInstance;
 
-impl AppWindow {
+impl<T: 'static> AppWindow<T> {
   pub fn new() -> Self {
     let mut webview_config = WebViewConfig::default();
 
@@ -75,11 +118,33 @@ impl AppWindow {
 
     AppWindow {
       content: WebView::with(webview_config, WebViewInstance::default()),
+      _control_flow: Mutex::new(ControlFlow::default()),
+      _window_target: None,
+      _callback: None,
     }
   }
 
   pub fn load_url(&self, url: &str) {
     self.content.load_url(url);
+  }
+
+  pub fn set_event_loop_callback(
+    &mut self,
+    callback: Weak<
+      RefCell<dyn FnMut(Event<T>, &EventLoopWindowTarget<T, AppWindow<T>>, &mut ControlFlow)>,
+    >,
+  ) {
+    self._callback = Some(callback);
+  }
+
+  pub fn set_window_target(
+    &mut self,
+    event_loop: Rc<&EventLoopWindowTarget<T, AppWindow<T>>>,
+  ) where T: 'static {
+
+    //todo: MAKE SURE WE CAN SET THE EVENT LOOP
+
+    //self._window_target = Some(event_loop);
   }
 
   pub fn get_position(&self) -> (i32, i32) {
@@ -156,11 +221,14 @@ impl WebViewDelegate for WebViewInstance {
 ///     }
 /// });
 /// ```
-pub struct Window {
+pub struct Window<T = ()>
+where
+  T: 'static,
+{
   /// Window id.
   pub(crate) window_id: WindowId,
   /// Gtk application window.
-  pub(crate) window: CacaoWindow<AppWindow>,
+  pub(crate) window: CacaoWindow<AppWindow<T>>,
   /// Window requests sender
   pub(crate) window_requests_tx: Sender<(WindowId, WindowRequest)>,
   scale_factor: Rc<AtomicI32>,
@@ -170,9 +238,9 @@ pub struct Window {
   fullscreen: RefCell<Option<Fullscreen>>,
 }
 
-impl Window {
-  pub(crate) fn new<T>(
-    event_loop_window_target: &EventLoopWindowTarget<T, AppWindow>,
+impl<T> Window<T> {
+  pub(crate) fn new(
+    event_loop_window_target: &EventLoopWindowTarget<T, AppWindow<T>>,
     attributes: WindowAttributes,
   ) -> Result<Self, OsError> {
     let app = &event_loop_window_target.app;
@@ -192,7 +260,7 @@ impl Window {
 
     config.set_styles(&default_styles);
 
-    let window = CacaoWindow::with(WindowConfig::default(), AppWindow::new());
+    let mut window = CacaoWindow::with(WindowConfig::default(), AppWindow::new());
 
     // todo get window id
     let window_id = WindowId(0);
@@ -264,7 +332,9 @@ impl Window {
     };
 
     let window_requests_tx = event_loop_window_target.window_requests_tx.clone();
-    if let Some(delegate) = &window.delegate {
+    if let Some(delegate) = window.delegate.as_mut() {
+      delegate.set_window_target(Rc::new(event_loop_window_target));
+
       let w_pos = delegate.get_position();
 
       let position: Rc<(AtomicI32, AtomicI32)> = Rc::new((w_pos.0.into(), w_pos.1.into()));
@@ -570,8 +640,3 @@ impl Window {
     todo!()
   }
 }
-
-// We need GtkWindow to initialize WebView, so we have to keep it in the field.
-// It is called on any method.
-unsafe impl Send for Window {}
-unsafe impl Sync for Window {}

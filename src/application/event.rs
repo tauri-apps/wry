@@ -1069,3 +1069,9 @@ mod modifiers_serde {
     }
   }
 }
+
+// Allow dispatch of event between thread
+#[cfg(target_os = "macos")]
+unsafe impl<'a, T: 'static> Send for Event<'a, T> {}
+#[cfg(target_os = "macos")]
+unsafe impl<'a, T: 'static> Sync for Event<'a, T> {}

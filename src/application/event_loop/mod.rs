@@ -5,7 +5,7 @@ pub use linux::{EventLoop, EventLoopWindowTarget};
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(target_os = "macos")]
-pub use macos::{EventLoop, EventLoopWindowTarget};
+pub use macos::{dispatch, EventLoop, EventLoopWindowTarget};
 
 use std::sync::mpsc::{SendError, Sender};
 pub use winit::event_loop::{ControlFlow, EventLoopClosed};

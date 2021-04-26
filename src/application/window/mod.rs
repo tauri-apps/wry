@@ -1,7 +1,7 @@
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
-pub use linux::{Window, hit_test};
+pub use linux::{hit_test, Window};
 #[cfg(target_os = "macos")]
 pub mod macos;
 #[cfg(target_os = "macos")]
@@ -313,9 +313,9 @@ impl WindowBuilder {
   /// see the web platform module for more information.
   #[cfg(target_os = "macos")]
   #[inline]
-  pub fn build<T: 'static>(
+  pub fn build(
     self,
-    window_target: &EventLoopWindowTarget<T, AppWindow>,
+    window_target: &EventLoopWindowTarget<(), AppWindow>,
   ) -> Result<Window, OsError> {
     Window::new(window_target, self.window)
     // TODO request redraw

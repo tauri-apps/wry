@@ -2,10 +2,11 @@ use std::{
   cell::RefCell,
   collections::HashSet,
   error::Error,
-  fmt,
+  fmt, mem,
   ops::Deref,
   process,
   rc::Rc,
+  rc::Weak,
   sync::mpsc::{channel, Receiver, Sender},
 };
 
@@ -30,7 +31,7 @@ pub struct EventLoopWindowTarget<T, A> {
 
 pub struct EventLoop<T: 'static> {
   /// Window target.
-  window_target: EventLoopWindowTarget<T, AppWindow>,
+  window_target: EventLoopWindowTarget<T, AppWindow<T>>,
   /// User event sender for EventLoopProxy
   user_event_tx: Sender<T>,
   /// User event receiver
@@ -126,7 +127,7 @@ impl<T: 'static> EventLoop<T> {
   #[inline]
   pub fn run<F>(self, callback: F) -> !
   where
-    F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T, AppWindow>, &mut ControlFlow) + 'static,
+    F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T, AppWindow<T>>, &mut ControlFlow) + 'static,
   {
     self.run_return(callback);
     process::exit(0)
@@ -134,17 +135,39 @@ impl<T: 'static> EventLoop<T> {
 
   pub(crate) fn run_return<F>(self, mut callback: F)
   where
-    F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T, AppWindow>, &mut ControlFlow) + 'static,
+    F: FnMut(Event<'_, T>, &EventLoopWindowTarget<T, AppWindow<T>>, &mut ControlFlow) + 'static,
   {
-    let mut control_flow = ControlFlow::default();
-    let window_target = self.window_target;
+    let mut window_target = self.window_target;
     let (event_tx, event_rx) = channel::<Event<'_, T>>();
+
+    let user_event_rx = self.user_event_rx;
+
+    // set our callback
+    let callback = unsafe {
+      mem::transmute::<
+        Rc<
+          RefCell<
+            dyn FnMut(Event<'_, T>, &EventLoopWindowTarget<T, AppWindow<T>>, &mut ControlFlow),
+          >,
+        >,
+        Rc<
+          RefCell<
+            dyn FnMut(Event<'_, T>, &EventLoopWindowTarget<T, AppWindow<T>>, &mut ControlFlow),
+          >,
+        >,
+      >(Rc::new(RefCell::new(callback)))
+    };
+
+    let weak_cb: Weak<_> = Rc::downgrade(&callback);
+    mem::drop(callback);
+
+    window_target.app.delegate.set_event_loop_callback(weak_cb);
 
     window_target.app.run();
   }
 
   #[inline]
-  pub fn window_target(&self) -> &EventLoopWindowTarget<T, AppWindow> {
+  pub fn window_target(&self) -> &EventLoopWindowTarget<T, AppWindow<T>> {
     &self.window_target
   }
 
@@ -157,8 +180,13 @@ impl<T: 'static> EventLoop<T> {
 }
 
 impl<T> Deref for EventLoop<T> {
-  type Target = EventLoopWindowTarget<T, AppWindow>;
-  fn deref(&self) -> &EventLoopWindowTarget<T, AppWindow> {
+  type Target = EventLoopWindowTarget<T, AppWindow<T>>;
+  fn deref(&self) -> &EventLoopWindowTarget<T, AppWindow<T>> {
     self.window_target()
   }
+}
+
+/// Dispatch a message on a background thread.
+pub fn dispatch<T>(event: Event<'static, T>) {
+  CacaoApp::<AppWindow<T>, Event<T>>::dispatch_main(event);
 }
