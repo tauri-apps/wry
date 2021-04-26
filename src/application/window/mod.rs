@@ -1,7 +1,7 @@
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
-pub use linux::Window;
+pub use linux::{Window, hit_test};
 #[cfg(target_os = "macos")]
 pub mod macos;
 #[cfg(target_os = "macos")]
