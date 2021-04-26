@@ -46,11 +46,9 @@ impl AppDelegate for AppWindow {
     App::activate();
   }
   fn should_terminate_after_last_window_closed(&self) -> bool {
-      true
+    true
   }
-  fn will_update(&self) {
-      
-  }
+  fn will_update(&self) {}
 }
 
 impl WindowDelegate for AppWindow {

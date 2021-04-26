@@ -39,8 +39,6 @@ pub use original::*;
 #[cfg(target_os = "windows")]
 mod original {
   pub use winit::{dpi, error, event, event_loop, monitor, window};
-
-  pub use winit::platform;
   pub mod platform {
     pub use winit::platform::run_return;
 

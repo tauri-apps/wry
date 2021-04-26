@@ -21,7 +21,7 @@ use std::{
   ops::Deref,
   process,
   rc::Rc,
-  sync::mpsc::{channel, Receiver, SendError, Sender},
+  sync::mpsc::{channel, Receiver, Sender},
 };
 
 use gdk::{Cursor, CursorType, WindowExt};
@@ -30,10 +30,9 @@ use glib::{source::idle_add_local, Continue, MainContext};
 use gtk::{prelude::*, ApplicationWindow, Inhibit};
 use winit::window::CursorIcon;
 
-use super::{
-  event::{Event, StartCause, WindowEvent},
-  window::{WindowId, WindowRequest},
-};
+use crate::application::event::{Event, StartCause, WindowEvent};
+use crate::application::event_loop::{ControlFlow, EventLoopProxy};
+use crate::application::window::{WindowId, WindowRequest};
 
 /// Target that associates windows with an `EventLoop`.
 ///

@@ -25,14 +25,16 @@ use url::Url;
 
 use file_drop::{add_file_drop_methods, set_file_drop_handler};
 
-use crate::{Error, Result, application::window::Window, webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse}};
-
-
+use crate::{
+  application::window::Window,
+  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  Error, Result,
+};
 
 mod file_drop;
 
 pub struct InnerWebView {
-  window: Rc<Window>
+  window: Rc<Window>,
 }
 
 impl InnerWebView {
@@ -51,21 +53,16 @@ impl InnerWebView {
   ) -> Result<Self> {
     let window = window.clone();
     //let window = &window.window;
-    
+
     if let Some(delegate) = &window.window.delegate {
       delegate.load_url("https://google.com");
 
       let delegate = Rc::new(delegate);
-      return Ok(InnerWebView {
-        window,
-      });
-
+      return Ok(InnerWebView { window });
     }
 
-    
-
     // todo better handling
-    return Err(Error::MessageSender)
+    return Err(Error::MessageSender);
   }
 
   pub fn eval(&self, js: &str) -> Result<()> {
