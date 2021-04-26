@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{io};
+use std::io;
 
 use gdk_pixbuf::Pixbuf;
 pub use winit::window::BadIcon;
