@@ -57,9 +57,10 @@ pub(crate) unsafe fn set_file_drop_handler(
   webview: *mut Object,
   window: Rc<Window>,
   handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>,
-) {
+) -> *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>) {
   let listener = Box::into_raw(Box::new((handler, window)));
   (*webview).set_ivar("FileDropHandler", listener as *mut _ as *mut c_void);
+  listener
 }
 
 #[allow(clippy::mut_from_ref)]
