@@ -13,6 +13,7 @@ fn main() -> wry::Result<()> {
   };
 
   let event_loop = EventLoop::new();
+  let mut webviews = std::collections::HashMap::new();
   let window = WindowBuilder::new()
     .with_decorations(false)
     .build(&event_loop)
@@ -91,7 +92,9 @@ fn main() -> wry::Result<()> {
   })();
   "#;
 
-  let handler = |window: &Window, req: RpcRequest| {
+  let (window_tx, window_rx) = std::sync::mpsc::channel();
+
+  let handler = move |window: &Window, req: RpcRequest| {
     if req.method == "minimize" {
       window.set_minimized(true);
     }
@@ -102,11 +105,9 @@ fn main() -> wry::Result<()> {
         window.set_maximized(true);
       }
     }
-    /* TODO handle close
     if req.method == "close" {
-      proxy.close().unwrap();
+      let _ = window_tx.send(window.id());
     }
-    */
     if req.method == "drag_window" {
       let _ = window.drag_window();
     }
@@ -119,18 +120,31 @@ fn main() -> wry::Result<()> {
     .with_initialization_script(script)
     .with_rpc_handler(handler)
     .build()?;
+  webviews.insert(webview.window().id(), webview);
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Poll;
+    if let Ok(id) = window_rx.try_recv() {
+      webviews.remove(&id);
+      if webviews.is_empty() {
+        *control_flow = ControlFlow::Exit
+      }
+    }
 
     match event {
-      Event::WindowEvent {
-        event: WindowEvent::CloseRequested,
-        ..
-      } => *control_flow = ControlFlow::Exit,
-      _ => {
-        let _ = webview.resize();
-      }
+      Event::WindowEvent { event, window_id } => match event {
+        WindowEvent::CloseRequested => {
+          webviews.remove(&window_id);
+          if webviews.is_empty() {
+            *control_flow = ControlFlow::Exit
+          }
+        }
+        WindowEvent::Resized(_) => {
+          let _ = webviews[&window_id].resize();
+        }
+        _ => (),
+      },
+      _ => (),
     }
   });
 }
