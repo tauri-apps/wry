@@ -34,9 +34,7 @@ impl InnerWebView {
     window: Rc<Window>,
     scripts: Vec<String>,
     url: Option<Url>,
-    // TODO default background color option just adds to webview2 recently and it requires
-    // canary build. Implement this once it's in official release.
-    _transparent: bool,
+    transparent: bool,
     custom_protocols: Vec<(
       String,
       Box<dyn Fn(&Window, &str) -> Result<Vec<u8>> + 'static>,
@@ -71,6 +69,18 @@ impl InnerWebView {
       env.create_controller(hwnd, move |controller| {
         let controller = controller?;
         let w = controller.get_webview()?;
+
+        // Transparent
+        if transparent {
+          if let Ok(c2) = controller.get_controller2() {
+            c2.put_default_background_color(webview2_sys::Color {
+              r: 0,
+              g: 0,
+              b: 0,
+              a: 0,
+            }).unwrap();
+          }
+        }
 
         // Enable sensible defaults
         let settings = w.get_settings()?;
