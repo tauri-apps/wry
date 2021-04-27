@@ -4,8 +4,10 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::time::{Duration, Instant};
-use std::collections::HashMap;
+use std::{
+  collections::HashMap,
+  time::{Duration, Instant},
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MessageParameters {
@@ -65,21 +67,24 @@ fn main() -> wry::Result<()> {
         .build(&event_loop)
         .unwrap();
       let id = window2.id();
-      let webview2 =
-        WebViewBuilder::new(window2)
-          .unwrap()
-          .with_url(&url)
-          .unwrap()
-          .build()
-          .unwrap();
+      let webview2 = WebViewBuilder::new(window2)
+        .unwrap()
+        .with_url(&url)
+        .unwrap()
+        .build()
+        .unwrap();
       webviews.insert(id, webview2);
     } else if trigger && instant.elapsed() >= eight_secs {
-      webviews.get_mut(&id).unwrap().dispatch_script("openWindow()").unwrap();
+      webviews
+        .get_mut(&id)
+        .unwrap()
+        .dispatch_script("openWindow()")
+        .unwrap();
       trigger = false;
     }
 
     for webview in webviews.values() {
-        webview.evaluate_script().unwrap();
+      webview.evaluate_script().unwrap();
     }
 
     match event {
@@ -87,10 +92,10 @@ fn main() -> wry::Result<()> {
         window_id,
         event: WindowEvent::CloseRequested,
       } => {
-          webviews.remove(&window_id);
-          if webviews.is_empty() {
-            *control_flow = ControlFlow::Exit;
-          }
+        webviews.remove(&window_id);
+        if webviews.is_empty() {
+          *control_flow = ControlFlow::Exit;
+        }
       }
       _ => (),
     }

@@ -6,7 +6,7 @@ use std::{
   ffi::{c_void, CStr},
   os::raw::c_char,
   path::PathBuf,
-  ptr::null,
+  ptr::{null, null_mut},
   rc::Rc,
   slice, str,
 };
@@ -36,6 +36,12 @@ mod file_drop;
 pub struct InnerWebView {
   webview: Id<Object>,
   manager: id,
+  rpc_handler_ptr: *mut (
+    Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>,
+    Rc<Window>,
+  ),
+  file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
+  protocol_ptrs: Vec<*mut (Box<dyn Fn(&Window, &str) -> Result<Vec<u8>>>, Rc<Window>)>,
 }
 
 impl InnerWebView {
@@ -126,6 +132,7 @@ impl InnerWebView {
     unsafe {
       // Config and custom protocol
       let config: id = msg_send![class!(WKWebViewConfiguration), new];
+      let mut protocol_ptrs = Vec::new();
       for (name, function) in custom_protocols {
         let scheme_name = format!("{}URLSchemeHandler", name);
         let cls = ClassDecl::new(&scheme_name, class!(NSObject));
@@ -146,10 +153,10 @@ impl InnerWebView {
         };
         let handler: id = msg_send![cls, new];
         let w = window.clone();
-        let function: Box<(Box<dyn Fn(&Window, &str) -> Result<Vec<u8>>>, Rc<Window>)> =
-          Box::new((Box::new(function), w));
+        let function = Box::into_raw(Box::new((function, w)));
+        protocol_ptrs.push(function);
 
-        (*handler).set_ivar("function", Box::into_raw(function) as *mut _ as *mut c_void);
+        (*handler).set_ivar("function", function as *mut _ as *mut c_void);
         let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:NSString::new(&name)];
       }
 
@@ -190,7 +197,7 @@ impl InnerWebView {
       webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
 
       // Message handler
-      if let Some(rpc_handler) = rpc_handler {
+      let rpc_handler_ptr = if let Some(rpc_handler) = rpc_handler {
         let cls = ClassDecl::new("WebViewDelegate", class!(NSObject));
         let cls = match cls {
           Some(mut cls) => {
@@ -204,26 +211,32 @@ impl InnerWebView {
           None => class!(WebViewDelegate),
         };
         let handler: id = msg_send![cls, new];
-        let function = Box::new((rpc_handler, window.clone()));
+        let rpc_handler_ptr = Box::into_raw(Box::new((rpc_handler, window.clone())));
 
-        (*handler).set_ivar("function", Box::into_raw(function) as *mut _ as *mut c_void);
+        (*handler).set_ivar("function", rpc_handler_ptr as *mut _ as *mut c_void);
         let external = NSString::new("external");
         let _: () = msg_send![manager, addScriptMessageHandler:handler name:external];
-      }
+        rpc_handler_ptr
+      } else {
+        null_mut()
+      };
 
       // File drop handling
-      match file_drop_handler {
+      let file_drop_ptr = match file_drop_handler {
         // if we have a file_drop_handler defined, use the defined handler
         Some(file_drop_handler) => {
           set_file_drop_handler(webview, window.clone(), file_drop_handler)
         }
         // prevent panic by using a blank handler
         None => set_file_drop_handler(webview, window.clone(), Box::new(|_, _| false)),
-      }
+      };
 
       let w = Self {
         webview: Id::from_ptr(webview),
         manager,
+        rpc_handler_ptr,
+        file_drop_ptr,
+        protocol_ptrs,
       };
 
       // Initialize scripts
@@ -317,6 +330,27 @@ impl InnerWebView {
     unsafe {
       let empty: id = msg_send![class!(NSURL), URLWithString: NSString::new("")];
       let () = msg_send![self.webview, loadHTMLString:NSString::new(url) baseURL:empty];
+    }
+  }
+}
+
+impl Drop for InnerWebView {
+  fn drop(&mut self) {
+    // We need to drop handler closures here
+    unsafe {
+      if !self.rpc_handler_ptr.is_null() {
+        let _ = Box::from_raw(self.rpc_handler_ptr);
+      }
+
+      if !self.file_drop_ptr.is_null() {
+        let _ = Box::from_raw(self.file_drop_ptr);
+      }
+
+      for ptr in self.protocol_ptrs.iter() {
+        if !ptr.is_null() {
+          let _ = Box::from_raw(*ptr);
+        }
+      }
     }
   }
 }
