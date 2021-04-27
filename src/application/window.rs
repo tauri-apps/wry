@@ -510,6 +510,10 @@ impl Window {
       scale_factor_clone.store(window.get_scale_factor(), Ordering::Release);
     });
 
+    if let Err(e) = window_requests_tx.send((window_id, WindowRequest::WireUpEvents)) {
+      log::warn!("Fail to send wire up events request: {}", e);
+    }
+
     Ok(Self {
       window_id,
       window,
@@ -808,6 +812,7 @@ pub(crate) enum WindowRequest {
   UserAttention(Option<UserAttentionType>),
   SkipTaskbar,
   CursorIcon(Option<CursorIcon>),
+  WireUpEvents,
 }
 
 pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {
