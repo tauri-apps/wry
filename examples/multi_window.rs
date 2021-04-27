@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::{Duration, Instant};
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MessageParameters {
@@ -17,13 +18,13 @@ fn main() -> wry::Result<()> {
       dpi::PhysicalSize,
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
-      window::{Window, WindowBuilder},
+      window::{Window, WindowBuilder, WindowId},
     },
     webview::{RpcRequest, WebViewBuilder},
   };
 
   let event_loop = EventLoop::new();
-  let window = WindowBuilder::new().build(&event_loop).unwrap();
+  let window1 = WindowBuilder::new().build(&event_loop).unwrap();
 
   let (window_tx, window_rx) = std::sync::mpsc::channel::<String>();
   let handler = move |_window: &Window, req: RpcRequest| {
@@ -37,7 +38,8 @@ fn main() -> wry::Result<()> {
     None
   };
 
-  let mut webview = WebViewBuilder::new(window)
+  let id = window1.id();
+  let webview1 = WebViewBuilder::new(window1)
     .unwrap()
     .with_url("https://tauri.studio")?
     .with_initialization_script(
@@ -47,39 +49,50 @@ fn main() -> wry::Result<()> {
     )
     .with_rpc_handler(handler)
     .build()?;
+  let mut webviews = HashMap::new();
+  webviews.insert(id.clone(), webview1);
 
   let instant = Instant::now();
   let eight_secs = Duration::from_secs(8);
   let mut trigger = true;
-  let mut _new_webview = None;
   event_loop.run(move |event, event_loop, control_flow| {
     *control_flow = ControlFlow::Poll;
 
     if let Ok(url) = window_rx.try_recv() {
-      let new_window = WindowBuilder::new()
+      let window2 = WindowBuilder::new()
         .with_title("RODA RORA DA")
         .with_inner_size(PhysicalSize::new(426, 197))
         .build(&event_loop)
         .unwrap();
-      _new_webview = Some(
-        WebViewBuilder::new(new_window)
+      let id = window2.id();
+      let webview2 =
+        WebViewBuilder::new(window2)
           .unwrap()
           .with_url(&url)
           .unwrap()
           .build()
-          .unwrap(),
-      );
+          .unwrap();
+      webviews.insert(id, webview2);
     } else if trigger && instant.elapsed() >= eight_secs {
-      webview.dispatch_script("openWindow()").unwrap();
+      webviews.get_mut(&id).unwrap().dispatch_script("openWindow()").unwrap();
       trigger = false;
+    }
+
+    for webview in webviews.values() {
+        webview.evaluate_script().unwrap();
     }
 
     match event {
       Event::WindowEvent {
+        window_id,
         event: WindowEvent::CloseRequested,
-        ..
-      } => *control_flow = ControlFlow::Exit,
-      _ => webview.evaluate_script().unwrap(),
+      } => {
+          webviews.remove(&window_id);
+          if webviews.is_empty() {
+            *control_flow = ControlFlow::Exit;
+          }
+      }
+      _ => (),
     }
   });
 }
