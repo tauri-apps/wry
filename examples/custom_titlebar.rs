@@ -131,8 +131,8 @@ fn main() -> wry::Result<()> {
       }
     }
 
-    match event {
-      Event::WindowEvent { event, window_id } => match event {
+    if let Event::WindowEvent { event, window_id } = event {
+      match event {
         WindowEvent::CloseRequested => {
           webviews.remove(&window_id);
           if webviews.is_empty() {
@@ -143,8 +143,7 @@ fn main() -> wry::Result<()> {
           let _ = webviews[&window_id].resize();
         }
         _ => (),
-      },
-      _ => (),
+      }
     }
   });
 }
