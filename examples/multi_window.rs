@@ -52,7 +52,7 @@ fn main() -> wry::Result<()> {
     .with_rpc_handler(handler)
     .build()?;
   let mut webviews = HashMap::new();
-  webviews.insert(id.clone(), webview1);
+  webviews.insert(id, webview1);
 
   let instant = Instant::now();
   let eight_secs = Duration::from_secs(8);
@@ -87,17 +87,15 @@ fn main() -> wry::Result<()> {
       webview.evaluate_script().unwrap();
     }
 
-    match event {
-      Event::WindowEvent {
-        window_id,
-        event: WindowEvent::CloseRequested,
-      } => {
-        webviews.remove(&window_id);
-        if webviews.is_empty() {
-          *control_flow = ControlFlow::Exit;
-        }
+    if let Event::WindowEvent {
+      window_id,
+      event: WindowEvent::CloseRequested,
+    } = event
+    {
+      webviews.remove(&window_id);
+      if webviews.is_empty() {
+        *control_flow = ControlFlow::Exit;
       }
-      _ => (),
     }
   });
 }
