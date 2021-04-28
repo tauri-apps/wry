@@ -24,11 +24,15 @@ use std::{
   sync::mpsc::{channel, Receiver, Sender},
 };
 
-use gdk::{Cursor, CursorType, WindowExt};
+use gdk::{Cursor, CursorType, WindowExt, WindowState};
 use gio::{prelude::*, Cancellable};
 use glib::{source::idle_add_local, Continue, MainContext};
 use gtk::{prelude::*, ApplicationWindow, Inhibit};
-use winit::window::CursorIcon;
+pub use winit::event_loop::{ControlFlow, EventLoopClosed};
+use winit::{
+  dpi::{PhysicalPosition, PhysicalSize},
+  window::CursorIcon,
+};
 
 use crate::application::event::{Event, StartCause, WindowEvent};
 use crate::application::event_loop::{ControlFlow, EventLoopProxy};
@@ -119,7 +123,7 @@ impl<T: 'static> EventLoop<T> {
   /// ## Platform-specific
   ///
   /// - **iOS:** Can only be called on the main thread.
-  pub fn with_user_event() -> EventLoop<()> {
+  pub fn with_user_event() -> EventLoop<T> {
     assert_is_main_thread("new_any_thread");
     EventLoop::new_any_thread()
   }
@@ -184,28 +188,6 @@ impl<T: 'static> EventLoop<T> {
     let mut control_flow = ControlFlow::default();
     let window_target = self.window_target;
     let (event_tx, event_rx) = channel::<Event<'_, T>>();
-
-    // Send closed event when a window is removed
-    let windows = window_target.windows.clone();
-    for id in windows.take() {
-      let windows_rc = window_target.windows.clone();
-      let tx_clone = event_tx.clone();
-      let window = window_target
-        .app
-        .get_window_by_id(id.0)
-        .expect("Window not found in the application!");
-      window.connect_delete_event(move |_, _| {
-        windows_rc.borrow_mut().remove(&id);
-        if let Err(e) = tx_clone.send(Event::WindowEvent {
-          window_id: id,
-          event: WindowEvent::CloseRequested,
-        }) {
-          log::warn!("Failed to send window close event to event channel: {}", e);
-        }
-
-        Inhibit(false)
-      });
-    }
 
     // Send StartCause::Init event
     let tx_clone = event_tx.clone();
@@ -316,7 +298,7 @@ impl<T: 'static> EventLoop<T> {
           WindowRequest::AlwaysOnTop(always_on_top) => window.set_keep_above(always_on_top),
           WindowRequest::WindowIcon(window_icon) => {
             if let Some(icon) = window_icon {
-              window.set_icon(Some(&icon.inner));
+              window.set_icon(Some(&icon.into()));
             }
           }
           WindowRequest::UserAttention(request_type) => {
@@ -378,6 +360,74 @@ impl<T: 'static> EventLoop<T> {
                 ))),
               }
             };
+          }
+          WindowRequest::WireUpEvents => {
+            let windows_rc = window_target.windows.clone();
+            let tx_clone = event_tx.clone();
+
+            window.connect_delete_event(move |_, _| {
+              windows_rc.borrow_mut().remove(&id);
+              if let Err(e) = tx_clone.send(Event::WindowEvent {
+                window_id: id,
+                event: WindowEvent::CloseRequested,
+              }) {
+                log::warn!("Failed to send window close event to event channel: {}", e);
+              }
+              Inhibit(false)
+            });
+
+            let tx_clone = event_tx.clone();
+            window.connect_configure_event(move |_, event| {
+              let (x, y) = event.get_position();
+              if let Err(e) = tx_clone.send(Event::WindowEvent {
+                window_id: id,
+                event: WindowEvent::Moved(PhysicalPosition::new(x, y)),
+              }) {
+                log::warn!("Failed to send window moved event to event channel: {}", e);
+              }
+
+              let (w, h) = event.get_size();
+              if let Err(e) = tx_clone.send(Event::WindowEvent {
+                window_id: id,
+                event: WindowEvent::Resized(PhysicalSize::new(w, h)),
+              }) {
+                log::warn!(
+                  "Failed to send window resized event to event channel: {}",
+                  e
+                );
+              }
+              false
+            });
+
+            let tx_clone = event_tx.clone();
+            window.connect_window_state_event(move |_window, event| {
+              let state = event.get_new_window_state();
+
+              if let Err(e) = tx_clone.send(Event::WindowEvent {
+                window_id: id,
+                event: WindowEvent::Focused(state.contains(WindowState::FOCUSED)),
+              }) {
+                log::warn!(
+                  "Failed to send window focused event to event channel: {}",
+                  e
+                );
+              }
+              Inhibit(false)
+            });
+
+            let tx_clone = event_tx.clone();
+            window.connect_destroy_event(move |_, _| {
+              if let Err(e) = tx_clone.send(Event::WindowEvent {
+                window_id: id,
+                event: WindowEvent::Destroyed,
+              }) {
+                log::warn!(
+                  "Failed to send window destroyed event to event channel: {}",
+                  e
+                );
+              }
+              Inhibit(false)
+            });
           }
         }
       }

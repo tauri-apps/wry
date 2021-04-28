@@ -32,6 +32,139 @@ use super::{
 
 pub use super::icon::{BadIcon, Icon};
 
+/// Identifier of a window. Unique for each window.
+///
+/// Can be obtained with `window.id()`.
+///
+/// Whenever you receive an event specific to a window, this event contains a `WindowId` which you
+/// can then compare to the ids of your windows.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct WindowId(pub(crate) u32);
+
+impl WindowId {
+  /// Returns a dummy `WindowId`, useful for unit testing. The only guarantee made about the return
+  /// value of this function is that it will always be equal to itself and to future values returned
+  /// by this function.  No other guarantees are made. This may be equal to a real `WindowId`.
+  ///
+  /// # Safety
+  /// **Passing this into a winit function will result in undefined behavior.**
+  pub unsafe fn dummy() -> Self {
+    WindowId(0)
+  }
+}
+
+/// Attributes to use when creating a window.
+#[derive(Debug, Clone)]
+pub struct WindowAttributes {
+  /// The dimensions of the window. If this is `None`, some platform-specific dimensions will be
+  /// used.
+  ///
+  /// The default is `None`.
+  pub inner_size: Option<Size>,
+
+  /// The minimum dimensions a window can be, If this is `None`, the window will have no minimum dimensions (aside from reserved).
+  ///
+  /// The default is `None`.
+  pub min_inner_size: Option<Size>,
+
+  /// The maximum dimensions a window can be, If this is `None`, the maximum will have no maximum or will be set to the primary monitor's dimensions by the platform.
+  ///
+  /// The default is `None`.
+  pub max_inner_size: Option<Size>,
+
+  /// The desired position of the window. If this is `None`, some platform-specific position
+  /// will be chosen.
+  ///
+  /// The default is `None`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **macOS**: The top left corner position of the window content, the window's "inner"
+  /// position. The window title bar will be placed above it.
+  /// The window will be positioned such that it fits on screen, maintaining
+  /// set `inner_size` if any.
+  /// If you need to precisely position the top left corner of the whole window you have to
+  /// use [`Window::set_outer_position`] after creating the window.
+  /// - **Windows**: The top left corner position of the window title bar, the window's "outer"
+  /// position.
+  /// There may be a small gap between this position and the window due to the specifics of the
+  /// Window Manager.
+  /// - **X11**: The top left corner of the window, the window's "outer" position.
+  /// - **Others**: Ignored.
+  ///
+  /// See [`Window::set_outer_position`].
+  ///
+  /// [`Window::set_outer_position`]: crate::window::Window::set_outer_position
+  pub position: Option<Position>,
+
+  /// Whether the window is resizable or not.
+  ///
+  /// The default is `true`.
+  pub resizable: bool,
+
+  /// Whether the window should be set as fullscreen upon creation.
+  ///
+  /// The default is `None`.
+  pub fullscreen: Option<Fullscreen>,
+
+  /// The title of the window in the title bar.
+  ///
+  /// The default is `"winit window"`.
+  pub title: String,
+
+  /// Whether the window should be maximized upon creation.
+  ///
+  /// The default is `false`.
+  pub maximized: bool,
+
+  /// Whether the window should be immediately visible upon creation.
+  ///
+  /// The default is `true`.
+  pub visible: bool,
+
+  /// Whether the the window should be transparent. If this is true, writing colors
+  /// with alpha values different than `1.0` will produce a transparent window.
+  ///
+  /// The default is `false`.
+  pub transparent: bool,
+
+  /// Whether the window should have borders and bars.
+  ///
+  /// The default is `true`.
+  pub decorations: bool,
+
+  /// Whether the window should always be on top of other windows.
+  ///
+  /// The default is `false`.
+  pub always_on_top: bool,
+
+  /// The window icon.
+  ///
+  /// The default is `None`.
+  pub window_icon: Option<Icon>,
+}
+
+impl Default for WindowAttributes {
+  #[inline]
+  fn default() -> WindowAttributes {
+    WindowAttributes {
+      inner_size: None,
+      min_inner_size: None,
+      max_inner_size: None,
+      position: None,
+      resizable: true,
+      title: "winit window".to_owned(),
+      maximized: false,
+      fullscreen: None,
+      visible: true,
+      transparent: false,
+      decorations: true,
+      always_on_top: false,
+      window_icon: None,
+    }
+  }
+}
+
 /// Object that allows you to build windows.
 #[derive(Clone, Default)]
 pub struct WindowBuilder {
@@ -85,6 +218,17 @@ impl WindowBuilder {
   #[inline]
   pub fn with_max_inner_size<S: Into<Size>>(mut self, max_size: S) -> Self {
     self.window.max_inner_size = Some(max_size.into());
+    self
+  }
+
+  /// Sets a desired initial position for the window.
+  ///
+  /// See [`WindowAttributes::position`] for details.
+  ///
+  /// [`WindowAttributes::position`]: crate::window::WindowAttributes::position
+  #[inline]
+  pub fn with_position<P: Into<Position>>(mut self, position: P) -> Self {
+    self.window.position = Some(position.into());
     self
   }
 
@@ -302,6 +446,12 @@ impl Window {
       geom_mask,
     );
 
+    // Set Position
+    if let Some(position) = attributes.position {
+      let (x, y): (i32, i32) = position.to_physical::<i32>(win_scale_factor as f64).into();
+      window.move_(x, y);
+    }
+
     // Set Transparent
     if attributes.transparent {
       if let Some(screen) = window.get_screen() {
@@ -359,8 +509,8 @@ impl Window {
     }
 
     window.set_keep_above(attributes.always_on_top);
-    if let Some(icon) = &attributes.window_icon {
-      window.set_icon(Some(&icon.inner));
+    if let Some(icon) = attributes.window_icon {
+      window.set_icon(Some(&icon.into()));
     }
 
     window.show_all();
@@ -403,6 +553,10 @@ impl Window {
     window.connect_property_scale_factor_notify(move |window| {
       scale_factor_clone.store(window.get_scale_factor(), Ordering::Release);
     });
+
+    if let Err(e) = window_requests_tx.send((window_id, WindowRequest::WireUpEvents)) {
+      log::warn!("Fail to send wire up events request: {}", e);
+    }
 
     Ok(Self {
       window_id,
@@ -687,6 +841,7 @@ pub(crate) enum WindowRequest {
   UserAttention(Option<UserAttentionType>),
   SkipTaskbar,
   CursorIcon(Option<CursorIcon>),
+  WireUpEvents,
 }
 
 pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {

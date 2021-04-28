@@ -43,6 +43,7 @@ mod original {
     pub use winit::platform::run_return;
 
     pub mod windows {
+      use winapi::Interface;
       use winit::platform::windows::WindowExtWindows as WindowExtWindows_;
       pub use winit::platform::windows::{
         DeviceIdExtWindows, EventLoopExtWindows, IconExtWindows, MonitorHandleExtWindows,
@@ -54,7 +55,6 @@ mod original {
       use winit::window::{Icon, Theme, Window};
       #[cfg(feature = "win32")]
       use {
-        libc::c_void,
         std::ptr,
         winapi::{
           shared::windef::HWND,
@@ -62,7 +62,6 @@ mod original {
             combaseapi::{CoCreateInstance, CLSCTX_SERVER},
             shobjidl_core::{CLSID_TaskbarList, ITaskbarList},
           },
-          DEFINE_GUID,
         },
       };
 
@@ -114,13 +113,12 @@ mod original {
           #[cfg(feature = "win32")]
           unsafe {
             let mut taskbar_list: *mut ITaskbarList = std::mem::zeroed();
-            DEFINE_GUID! {IID_ITASKBAR_LIST, 0x56FDF342, 0xfd6d, 0x11d0, 0x95, 0x8a, 0x00, 0x60, 0x97, 0xc9, 0xa0, 0x90}
             CoCreateInstance(
               &CLSID_TaskbarList,
               ptr::null_mut(),
               CLSCTX_SERVER,
-              &IID_ITASKBAR_LIST,
-              &mut taskbar_list as *mut *mut ITaskbarList as *mut *mut c_void,
+              &ITaskbarList::uuidof(),
+              &mut taskbar_list as *mut _ as *mut _,
             );
             (*taskbar_list).DeleteTab(WindowExtWindows_::hwnd(self) as HWND);
             (*taskbar_list).Release();
