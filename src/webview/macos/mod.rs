@@ -288,10 +288,10 @@ impl InnerWebView {
         }
       }
       // Tell the webview we use layers
-      let _: () = msg_send![webview, setWantsLayer:YES];
+      let _: () = msg_send![webview, setWantsLayer: YES];
       // Inject the web view into the window as main content
       let ns_window = window.ns_window() as id;
-      let _: () = msg_send![ns_window, setContentView:webview];
+      let _: () = msg_send![ns_window, setContentView: webview];
 
       Ok(w)
     }
