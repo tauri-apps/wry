@@ -25,10 +25,73 @@ use file_drop::{add_file_drop_methods, set_file_drop_handler};
 use crate::{Error, Result, application::{platform::macos::WindowExtMacOS, window::Window}, webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse}};
 
 mod file_drop;
-#[derive(Default)]
-pub struct WebViewInstance;
+pub struct WebViewInstance {
+  window: Rc<Window>,
+  rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
+  custom_protocols: Vec<(
+    String,
+    Box<dyn Fn(&Window, &str) -> Result<Vec<u8>> + 'static>,
+  )>,
+}
+
+impl WebViewInstance {
+  fn new(window: Rc<Window>, rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>, custom_protocols: Vec<(
+    String,
+    Box<dyn Fn(&Window, &str) -> Result<Vec<u8>> + 'static>,
+  )>) -> Self {
+    Self {
+      window,
+      rpc_handler,
+      custom_protocols,
+    }
+  }
+
+  fn execute_script() {}
+}
 
 impl WebViewDelegate for WebViewInstance {
+
+
+  fn on_message(&self, name: &str, body: &str) {
+      match name {
+        // RPC
+        "external" => {
+          if let Some(handler) = &self.rpc_handler {
+            match super::rpc_proxy(&self.window.clone(), body.to_string(), &handler) {
+              Ok(result) => {
+                if let Some(ref script) = result {
+                  // TODO: ALLOW SEND SCRIPT BACK TO WEBVIEW
+                  //let wv: id = msg_send![msg, webView];
+                  //let js = NSString::new(script);
+                  //let _: id =
+                    //msg_send![wv, evaluateJavaScript:js completionHandler:null::<*const c_void>()];
+                }
+              }
+              Err(e) => {
+                eprintln!("{}", e);
+              }
+            }
+          }
+        },
+        _ => {
+
+        }
+      }
+  }
+
+  fn on_custom_protocol_request(&self, path: &str) -> Option<Vec<u8>> {
+    for (protocol, callback) in &self.custom_protocols {
+      let protocol_len = protocol.len();
+      let matched_path = path.chars().into_iter().take(protocol_len).collect::<String>();
+      if matched_path.as_str() == protocol {
+        if let Ok(result) = callback(&self.window, path) {
+          return Some(result);
+        }
+      }
+    }
+
+    None
+  }
 }
 
 pub struct InnerWebView {
@@ -50,9 +113,56 @@ impl InnerWebView {
     _data_directory: Option<PathBuf>,
   ) -> Result<Self> {
    
-    let webview_config = WebViewConfig::default();
-    let webview = WebView::with(webview_config, WebViewInstance::default());
+    let mut webview_config = WebViewConfig::default();
 
+    // intialize scripts
+    let script =  r#"window.external = {
+          invoke: function(s) {
+              window.webkit.messageHandlers.external.postMessage(s);
+          },
+      };
+      window.addEventListener("keydown", function(e) {
+          if (e.defaultPrevented) {
+              return;
+          }
+        if (e.metaKey) {
+              switch(e.key) {
+                  case "x":
+                      document.execCommand("cut");
+                      e.preventDefault();
+                      break;
+                  case "c":
+                      document.execCommand("copy");
+                      e.preventDefault();
+                      break;
+                  case "v":
+                      document.execCommand("paste");
+                      e.preventDefault();
+                      break;
+                  default:
+                      return;
+              }
+          }
+      }, true);"#;
+    webview_config.add_user_script(script, cacao::webview::InjectAt::Start, true);
+
+    // add user scripts
+    for js in scripts {
+      webview_config.add_user_script(&js, cacao::webview::InjectAt::Start, false);
+    }
+
+    // register custom protocols
+    for (protocol,_) in &custom_protocols  {
+      webview_config.add_custom_protocol(&protocol);
+    }
+
+    // regiser `external` (rpc handler)
+    webview_config.add_handler("external");
+
+    let webview_instance = WebViewInstance::new(window.clone(), rpc_handler, custom_protocols);
+
+    let webview = WebView::with(webview_config, webview_instance);
+    
     // Safety: objc runtime calls are unsafe
       webview.objc.with_mut(move |webview_obj| {
         unsafe {
@@ -68,8 +178,12 @@ impl InnerWebView {
         webview.load_url(url.as_str());
       }
 
+      let final_webview = Self { 
+        webview,
+      };
+  
  
-    Ok(Self { webview })
+    Ok(final_webview)
   }
 
   pub fn eval(&self, js: &str) -> Result<()> {
