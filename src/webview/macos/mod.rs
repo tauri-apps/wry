@@ -230,9 +230,6 @@ impl InnerWebView {
         None => set_file_drop_handler(webview, window.clone(), Box::new(|_, _| false)),
       };
 
-      // use layer
-      let _: () = msg_send![webview, setWantsLayer: YES];
-
       let w = Self {
         webview: Id::from_ptr(webview),
         manager,
@@ -290,9 +287,11 @@ impl InnerWebView {
           w.navigate(url.as_str());
         }
       }
-
-      let ns_windows = window.ns_window() as id;
-      let _: () = msg_send![ns_windows, setContentView: webview];
+      // Tell the webview we use layers
+      let _: () = msg_send![webview, setWantsLayer:YES];
+      // Inject the web view into the window as main content
+      let ns_window = window.ns_window() as id;
+      let _: () = msg_send![ns_window, setContentView:webview];
 
       Ok(w)
     }
