@@ -35,9 +35,7 @@ use winit::{
 };
 
 use super::{
-  event::{
-    DeviceId, ElementState, Event, ModifiersState, MouseButton, StartCause, TouchPhase, WindowEvent,
-  },
+  event::{DeviceId, ElementState, Event, ModifiersState, MouseButton, StartCause, WindowEvent},
   window::{WindowId, WindowRequest},
 };
 
