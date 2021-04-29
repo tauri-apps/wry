@@ -13,7 +13,7 @@ use std::{
 
 use cocoa::{
   appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable},
-  base::id,
+  base::{id, YES},
 };
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use objc::{
@@ -191,9 +191,8 @@ impl InnerWebView {
       }
 
       // Resize
-      let size = window.inner_size().to_logical(window.scale_factor());
-      let rect = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(size.width, size.height));
-      let _: () = msg_send![webview, initWithFrame:rect configuration:config];
+      let zero = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(0., 0.));
+      let _: () = msg_send![webview, initWithFrame:zero configuration:config];
       webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
 
       // Message handler
@@ -288,9 +287,11 @@ impl InnerWebView {
           w.navigate(url.as_str());
         }
       }
-
-      let view = window.ns_view() as id;
-      view.addSubview_(webview);
+      // Tell the webview we use layers
+      let _: () = msg_send![webview, setWantsLayer: YES];
+      // Inject the web view into the window as main content
+      let ns_window = window.ns_window() as id;
+      let _: () = msg_send![ns_window, setContentView: webview];
 
       Ok(w)
     }
