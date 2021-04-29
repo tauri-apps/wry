@@ -35,7 +35,9 @@ use winit::{
 };
 
 use super::{
-  event::{Event, StartCause, WindowEvent},
+  event::{
+    DeviceId, ElementState, Event, ModifiersState, MouseButton, StartCause, TouchPhase, WindowEvent,
+  },
   window::{WindowId, WindowRequest},
 };
 
@@ -424,6 +426,115 @@ impl<T: 'static> EventLoop<T> {
               }) {
                 log::warn!(
                   "Failed to send window destroyed event to event channel: {}",
+                  e
+                );
+              }
+              Inhibit(false)
+            });
+
+            let tx_clone = event_tx.clone();
+            window.connect_enter_notify_event(move |_, _| {
+              if let Err(e) = tx_clone.send(Event::WindowEvent {
+                window_id: id,
+                event: WindowEvent::CursorEntered {
+                  // FIXME: currently we use a dummy device id, find if we can get device id from gtk
+                  device_id: DeviceId(0),
+                },
+              }) {
+                log::warn!(
+                  "Failed to send cursor entered event to event channel: {}",
+                  e
+                );
+              }
+              Inhibit(false)
+            });
+
+            let tx_clone = event_tx.clone();
+            window.connect_motion_notify_event(move |window, _| {
+              let display = window.get_display();
+              if let Some(cursor) = display
+                .get_device_manager()
+                .and_then(|device_manager| device_manager.get_client_pointer())
+              {
+                let (_, x, y) = cursor.get_position();
+                if let Err(e) = tx_clone.send(Event::WindowEvent {
+                  window_id: id,
+                  event: WindowEvent::CursorMoved {
+                    position: PhysicalPosition::new(x as f64, y as f64),
+                    // FIXME: currently we use a dummy device id, find if we can get device id from gtk
+                    device_id: DeviceId(0),
+                    // this field is depracted so it is fine to pass empty state
+                    modifiers: ModifiersState::empty(),
+                  },
+                }) {
+                  log::warn!("Failed to send cursor moved event to event channel: {}", e);
+                }
+              }
+              Inhibit(false)
+            });
+
+            let tx_clone = event_tx.clone();
+            window.connect_leave_notify_event(move |_, _| {
+              if let Err(e) = tx_clone.send(Event::WindowEvent {
+                window_id: id,
+                event: WindowEvent::CursorLeft {
+                  // FIXME: currently we use a dummy device id, find if we can get device id from gtk
+                  device_id: DeviceId(0),
+                },
+              }) {
+                log::warn!("Failed to send cursor left event to event channel: {}", e);
+              }
+              Inhibit(false)
+            });
+
+            let tx_clone = event_tx.clone();
+            window.connect_button_press_event(move |_, event| {
+              let button = event.get_button();
+              if let Err(e) = tx_clone.send(Event::WindowEvent {
+                window_id: id,
+                event: WindowEvent::MouseInput {
+                  button: match button {
+                    1 => MouseButton::Left,
+                    2 => MouseButton::Middle,
+                    3 => MouseButton::Right,
+                    _ => MouseButton::Other(button as u16),
+                  },
+                  state: ElementState::Pressed,
+                  // FIXME: currently we use a dummy device id, find if we can get device id from gtk
+                  device_id: DeviceId(0),
+                  // this field is depracted so it is fine to pass empty state
+                  modifiers: ModifiersState::empty(),
+                },
+              }) {
+                log::warn!(
+                  "Failed to send mouse input preseed event to event channel: {}",
+                  e
+                );
+              }
+              Inhibit(false)
+            });
+
+            let tx_clone = event_tx.clone();
+            window.connect_button_release_event(move |_, event| {
+              let button = event.get_button();
+              if let Err(e) = tx_clone.send(Event::WindowEvent {
+                window_id: id,
+                event: WindowEvent::MouseInput {
+                  button: match button {
+                    1 => MouseButton::Left,
+                    2 => MouseButton::Middle,
+                    3 => MouseButton::Right,
+                    _ => MouseButton::Other(button as u16),
+                  },
+                  state: ElementState::Released,
+                  // FIXME: currently we use a dummy device id, find if we can get device id from gtk
+                  device_id: DeviceId(0),
+                  // this field is depracted so it is fine to pass empty state
+                  modifiers: ModifiersState::empty(),
+                },
+              }) {
+                log::warn!(
+                  "Failed to send mouse input released event to event channel: {}",
                   e
                 );
               }
