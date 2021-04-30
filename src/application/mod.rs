@@ -18,7 +18,7 @@
 //!
 //! [winit]: https://crates.io/crates/winit
 #[cfg(target_os = "linux")]
-pub use winit::dpi;
+pub mod dpi;
 #[cfg(target_os = "linux")]
 pub mod error;
 #[cfg(target_os = "linux")]
