@@ -539,6 +539,7 @@ impl<T: 'static> EventLoop<T> {
               Inhibit(false)
             });
           }
+          WindowRequest::Redraw => window.queue_draw(),
         }
       }
 

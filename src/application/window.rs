@@ -339,7 +339,6 @@ impl WindowBuilder {
     window_target: &EventLoopWindowTarget<T>,
   ) -> Result<Window, OsError> {
     Window::new(window_target, self.window)
-    // TODO request redraw
   }
 }
 
@@ -557,6 +556,7 @@ impl Window {
       log::warn!("Fail to send wire up events request: {}", e);
     }
 
+    window.queue_draw();
     Ok(Self {
       window_id,
       window,
@@ -578,7 +578,12 @@ impl Window {
   }
 
   pub fn request_redraw(&self) {
-    todo!()
+    if let Err(e) = self
+      .window_requests_tx
+      .send((self.window_id, WindowRequest::Redraw))
+    {
+      log::warn!("Fail to send redraw request: {}", e);
+    }
   }
 
   pub fn inner_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
@@ -857,6 +862,7 @@ pub(crate) enum WindowRequest {
   SkipTaskbar,
   CursorIcon(Option<CursorIcon>),
   WireUpEvents,
+  Redraw,
 }
 
 pub(crate) fn hit_test(window: &gdk::Window, cx: f64, cy: f64) -> WindowEdge {
