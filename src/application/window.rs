@@ -714,13 +714,14 @@ impl Window {
     self.maximized.load(Ordering::Acquire)
   }
 
-  pub fn drag_window(&self) {
+  pub fn drag_window(&self) -> Result<(), ExternalError> {
     if let Err(e) = self
       .window_requests_tx
       .send((self.window_id, WindowRequest::DragWindow))
     {
       log::warn!("Fail to send drag window request: {}", e);
     }
+    Ok(())
   }
 
   pub fn set_fullscreen(&self, fullscreen: Option<Fullscreen>) {
