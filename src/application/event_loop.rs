@@ -22,21 +22,18 @@ use std::{
   process,
   rc::Rc,
   sync::mpsc::{channel, Receiver, SendError, Sender},
+  time::Instant,
 };
 
 use gdk::{Cursor, CursorType, WindowExt, WindowState};
 use gio::{prelude::*, Cancellable};
 use glib::{source::idle_add_local, Continue, MainContext};
 use gtk::{prelude::*, ApplicationWindow, Inhibit};
-pub use winit::event_loop::{ControlFlow, EventLoopClosed};
-use winit::{
-  dpi::{PhysicalPosition, PhysicalSize},
-  window::CursorIcon,
-};
 
 use super::{
+  dpi::{PhysicalPosition, PhysicalSize},
   event::{DeviceId, ElementState, Event, ModifiersState, MouseButton, StartCause, WindowEvent},
-  window::{WindowId, WindowRequest},
+  window::{CursorIcon, WindowId, WindowRequest},
 };
 
 /// Target that associates windows with an `EventLoop`.
@@ -90,6 +87,47 @@ impl<T> fmt::Debug for EventLoop<T> {
 impl<T> fmt::Debug for EventLoopWindowTarget<T> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.pad("EventLoopWindowTarget { .. }")
+  }
+}
+
+/// Set by the user callback given to the `EventLoop::run` method.
+///
+/// Indicates the desired behavior of the event loop after [`Event::RedrawEventsCleared`][events_cleared]
+/// is emitted. Defaults to `Poll`.
+///
+/// ## Persistency
+/// Almost every change is persistent between multiple calls to the event loop closure within a
+/// given run loop. The only exception to this is `Exit` which, once set, cannot be unset. Changes
+/// are **not** persistent between multiple calls to `run_return` - issuing a new call will reset
+/// the control flow to `Poll`.
+///
+/// [events_cleared]: crate::event::Event::RedrawEventsCleared
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ControlFlow {
+  /// When the current loop iteration finishes, immediately begin a new iteration regardless of
+  /// whether or not new events are available to process.
+  ///
+  /// ## Platform-specific
+  /// - **Web:** Events are queued and usually sent when `requestAnimationFrame` fires but sometimes
+  ///   the events in the queue may be sent before the next `requestAnimationFrame` callback, for
+  ///   example when the scaling of the page has changed. This should be treated as an implementation
+  ///   detail which should not be relied on.
+  Poll,
+  /// When the current loop iteration finishes, suspend the thread until another event arrives.
+  Wait,
+  /// When the current loop iteration finishes, suspend the thread until either another event
+  /// arrives or the given time is reached.
+  WaitUntil(Instant),
+  /// Send a `LoopDestroyed` event and stop the event loop. This variant is *sticky* - once set,
+  /// `control_flow` cannot be changed from `Exit`, and any future attempts to do so will result
+  /// in the `control_flow` parameter being reset to `Exit`.
+  Exit,
+}
+
+impl Default for ControlFlow {
+  #[inline(always)]
+  fn default() -> ControlFlow {
+    ControlFlow::Poll
   }
 }
 
@@ -636,3 +674,16 @@ fn is_main_thread() -> bool {
 fn is_main_thread() -> bool {
   std::thread::current().name() == Some("main")
 }
+
+/// The error that is returned when an `EventLoopProxy` attempts to wake up an `EventLoop` that
+/// no longer exists. Contains the original event given to `send_event`.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct EventLoopClosed<T>(pub T);
+
+impl<T> fmt::Display for EventLoopClosed<T> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.write_str("Tried to wake up a closed `EventLoop`")
+  }
+}
+
+impl<T: fmt::Debug> Error for EventLoopClosed<T> {}
