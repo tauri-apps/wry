@@ -288,10 +288,15 @@ pub struct WebView {
 
 // The Window implementation on Windows/macOS automatically closes the window on drop
 // So we only handle this on Linux.
-#[cfg(target_os = "linux")]
 impl Drop for WebView {
   fn drop(&mut self) {
+    #[cfg(target_os = "linux")]
     self.window.close();
+    #[cfg(target_os = "windows")]
+    unsafe {
+      use winapi::{shared::windef::HWND, um::winuser::DestroyWindow};
+      DestroyWindow(self.window.hwnd() as HWND);
+    }
   }
 }
 
