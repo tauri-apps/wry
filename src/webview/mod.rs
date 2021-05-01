@@ -286,8 +286,8 @@ pub struct WebView {
   rx: Receiver<String>,
 }
 
-// The Window implementation on Windows/macOS automatically closes the window on drop
-// So we only handle this on Linux.
+// Signal the Window to drop on Linux and Windows. On mac, we need to handle several unsafe code
+// blocks and raw pointer properly.
 impl Drop for WebView {
   fn drop(&mut self) {
     #[cfg(target_os = "linux")]
