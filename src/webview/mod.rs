@@ -286,6 +286,15 @@ pub struct WebView {
   rx: Receiver<String>,
 }
 
+// The Window implementation on Windows/macOS automatically closes the window on drop
+// So we only handle this on Linux.
+#[cfg(target_os = "linux")]
+impl Drop for WebView {
+  fn drop(&mut self) {
+    self.window.close();
+  }
+}
+
 impl WebView {
   /// Create a [`WebView`] from provided [`Window`]. Note that calling this directly loses
   /// abilities to initialize scripts, add rpc handler, and many more before starting WebView. To
