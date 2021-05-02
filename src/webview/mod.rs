@@ -286,6 +286,20 @@ pub struct WebView {
   rx: Receiver<String>,
 }
 
+// Signal the Window to drop on Linux and Windows. On mac, we need to handle several unsafe code
+// blocks and raw pointer properly.
+impl Drop for WebView {
+  fn drop(&mut self) {
+    #[cfg(target_os = "linux")]
+    self.window.close();
+    #[cfg(target_os = "windows")]
+    unsafe {
+      use winapi::{shared::windef::HWND, um::winuser::DestroyWindow};
+      DestroyWindow(self.window.hwnd() as HWND);
+    }
+  }
+}
+
 impl WebView {
   /// Create a [`WebView`] from provided [`Window`]. Note that calling this directly loses
   /// abilities to initialize scripts, add rpc handler, and many more before starting WebView. To

@@ -550,6 +550,10 @@ impl Window {
     self.scale_factor.load(Ordering::Acquire) as f64
   }
 
+  pub(crate) fn close(&self) {
+    self.window.close();
+  }
+
   pub fn request_redraw(&self) {
     if let Err(e) = self
       .window_requests_tx
