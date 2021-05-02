@@ -446,7 +446,6 @@ impl Window {
     if attributes.maximized {
       window.maximize();
     }
-    window.set_visible(attributes.visible);
     window.set_decorated(attributes.decorations);
 
     if !attributes.decorations && attributes.resizable {
@@ -481,7 +480,11 @@ impl Window {
       window.set_icon(Some(&icon.into()));
     }
 
-    window.show_all();
+    if attributes.visible {
+      window.show_all();
+    } else {
+      window.hide();
+    }
 
     let window_requests_tx = event_loop_window_target.window_requests_tx.clone();
 
