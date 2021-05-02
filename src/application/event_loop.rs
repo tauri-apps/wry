@@ -299,7 +299,7 @@ impl<T: 'static> EventLoop<T> {
             ),
           WindowRequest::Visible(visible) => {
             if visible {
-              window.show();
+              window.show_all();
             } else {
               window.hide();
             }
