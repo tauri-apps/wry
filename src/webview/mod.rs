@@ -43,7 +43,7 @@ use crate::application::window::Window;
 #[cfg(feature = "winrt")]
 use windows_webview2::Windows::Win32::WindowsAndMessaging::HWND;
 #[cfg(target_os = "windows")]
-use winit::platform::windows::WindowExtWindows;
+use crate::application::platform::windows::WindowExtWindows;
 
 // Helper so all platforms handle RPC messages consistently.
 fn rpc_proxy(
