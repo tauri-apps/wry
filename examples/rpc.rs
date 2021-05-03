@@ -83,7 +83,7 @@ async function getAsyncRpcResult() {
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {
-    *control_flow = ControlFlow::Poll;
+    *control_flow = ControlFlow::Wait;
 
     match event {
       Event::WindowEvent {

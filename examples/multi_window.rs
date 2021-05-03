@@ -58,7 +58,7 @@ fn main() -> wry::Result<()> {
   let eight_secs = Duration::from_secs(8);
   let mut trigger = true;
   event_loop.run(move |event, event_loop, control_flow| {
-    *control_flow = ControlFlow::Poll;
+    *control_flow = ControlFlow::Wait;
 
     if let Ok(url) = window_rx.try_recv() {
       let window2 = WindowBuilder::new()
