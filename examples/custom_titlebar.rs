@@ -123,7 +123,7 @@ fn main() -> wry::Result<()> {
   webviews.insert(webview.window().id(), webview);
 
   event_loop.run(move |event, _, control_flow| {
-    *control_flow = ControlFlow::Poll;
+    *control_flow = ControlFlow::Wait;
     if let Ok(id) = window_rx.try_recv() {
       webviews.remove(&id);
       if webviews.is_empty() {
