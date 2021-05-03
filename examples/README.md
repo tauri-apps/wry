@@ -2,7 +2,7 @@
 
 Run the `cargo run --example <file_name>` to see how each example works.
 
-- `webview_fixed`: a basic example which set a temporary environment variable to use the fixed version of the webview runtime.
+- `webview_fixed`: a basic example which sets a temporary environment variable to use the fixed version of the webview runtime.
 - `icon`: a basic example demonstrating how to set an icon for the application.
 - `hello_world`: the basic example to show the types and methods to create an application.
 - `fullscreen`: full screen example demonstrates how to configure the window with attributes.
