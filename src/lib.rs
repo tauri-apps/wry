@@ -81,10 +81,10 @@ extern crate objc;
 
 use std::sync::mpsc::{RecvError, SendError};
 
+#[cfg(not(target_os = "linux"))]
+use crate::application::window::BadIcon;
 pub use serde_json::Value;
 use url::ParseError;
-#[cfg(not(target_os = "linux"))]
-use winit::window::BadIcon;
 
 pub mod application;
 pub mod webview;
