@@ -17,7 +17,7 @@ use webkit2gtk::{
 };
 
 use crate::{
-  application::window::Window,
+  application::{platform::unix::*, window::Window},
   webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
   Error, Result,
 };
@@ -43,7 +43,7 @@ impl InnerWebView {
     data_directory: Option<PathBuf>,
   ) -> Result<Self> {
     let window_rc = Rc::clone(&window);
-    let window = &window.window;
+    let window = &window.gtk_window();
     // Webview widget
     let manager = UserContentManager::new();
     let mut context_builder = WebContextBuilder::new();
@@ -99,7 +99,7 @@ impl InnerWebView {
       if event.get_button() == 1 {
         let (cx, cy) = event.get_root();
         if let Some(window) = webview.get_parent_window() {
-          let result = crate::application::window::hit_test(&window, cx, cy);
+          let result = crate::application::platform::unix::hit_test(&window, cx, cy);
 
           // this check is necessary, otherwise the webview won't recieve the click properly when resize isn't needed
           if result != WindowEdge::__Unknown(8) {
