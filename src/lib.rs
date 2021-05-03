@@ -71,9 +71,6 @@
 #![allow(clippy::unit_cmp)]
 #![allow(clippy::upper_case_acronyms)]
 
-#[cfg(target_os = "linux")]
-#[macro_use]
-extern crate bitflags;
 #[macro_use]
 extern crate serde;
 #[macro_use]
@@ -84,10 +81,10 @@ extern crate objc;
 
 use std::sync::mpsc::{RecvError, SendError};
 
+#[cfg(not(target_os = "linux"))]
+use crate::application::window::BadIcon;
 pub use serde_json::Value;
 use url::ParseError;
-#[cfg(not(target_os = "linux"))]
-use winit::window::BadIcon;
 
 pub mod application;
 pub mod webview;

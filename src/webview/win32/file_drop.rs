@@ -172,7 +172,7 @@ impl IDropTarget {
   pub unsafe extern "system" fn QueryInterface(
     _this: *mut unknwnbase::IUnknown,
     _riid: REFIID,
-    _ppvObject: *mut *mut c_void,
+    _ppvObject: *mut *mut winapi::ctypes::c_void,
   ) -> HRESULT {
     // This function doesn't appear to be required for an `IDropTarget`.
     // An implementation would be nice however.
