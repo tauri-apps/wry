@@ -2,8 +2,6 @@
 
 Run the `cargo run --example <file_name>` to see how each example works.
 
-- `webview_fixed`: a basic example which sets a temporary environment variable to use the fixed version of the webview runtime.
-- `icon`: a basic example demonstrating how to set an icon for the application.
 - `hello_world`: the basic example to show the types and methods to create an application.
 - `fullscreen`: full screen example demonstrates how to configure the window with attributes.
 - `transparent`: transparent example that also show how to create a valid data URI.
@@ -14,3 +12,5 @@ Run the `cargo run --example <file_name>` to see how each example works.
 - `custom_data_directory`: uses a custom data directory (Windows and Linux only).
 - `custom_protocol`: uses a custom protocol to load files from bytes.
 - `detect_js_ecma`: detects which versions of ECMAScript is supported by the webview.
+- `webview_fixed`: a basic example which sets a temporary environment variable to use the fixed version of the webview runtime.
+- `icon`: a basic example demonstrating how to set an icon for the application.
