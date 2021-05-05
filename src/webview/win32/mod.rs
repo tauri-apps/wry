@@ -217,6 +217,9 @@ impl InnerWebView {
     })
   }
 
+  // not supported yet
+  pub fn print(&self) {}
+
   pub fn eval(&self, js: &str) -> Result<()> {
     if let Some(c) = self.controller.get() {
       let webview = c.get_webview()?;

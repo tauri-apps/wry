@@ -201,6 +201,9 @@ impl InnerWebView {
     Ok(w)
   }
 
+  // not supported yet
+  pub fn print(&self) {}
+
   pub fn eval(&self, js: &str) -> Result<()> {
     let cancellable: Option<&Cancellable> = None;
     self.webview.run_javascript(js, cancellable, |_| ());
