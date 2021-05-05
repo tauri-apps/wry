@@ -75,7 +75,7 @@
 extern crate serde;
 #[macro_use]
 extern crate thiserror;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 #[macro_use]
 extern crate objc;
 
