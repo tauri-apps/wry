@@ -239,6 +239,9 @@ impl InnerWebView {
     })
   }
 
+  // not supported yet
+  pub fn print(&self) {}
+
   pub fn eval(&self, js: &str) -> Result<()> {
     if let Some(w) = self.webview.get() {
       let _ = w.ExecuteScriptAsync(js)?;
