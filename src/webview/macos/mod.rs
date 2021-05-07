@@ -296,6 +296,10 @@ impl InnerWebView {
       let _: () = msg_send![webview, setWantsLayer: YES];
       // Inject the web view into the window as main content
       let _: () = msg_send![ns_window, setContentView: webview];
+      // make sure the window is always on top when we create a new webview
+      let app_class = class!(NSApplication);
+      let app: id = msg_send![app_class, sharedApplication];
+      let _: () = msg_send![app, activateIgnoringOtherApps: YES];
 
       Ok(w)
     }
