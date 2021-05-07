@@ -66,7 +66,7 @@ fn main() -> wry::Result<()> {
             .unwrap()
             .build()
             .unwrap();
-            webviews.insert(id, webview);
+          webviews.insert(id, webview);
         }
         println!("Clicked on {:?}", menu_id);
       }
