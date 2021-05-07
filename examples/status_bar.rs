@@ -23,6 +23,7 @@ fn main() -> wry::Result<()> {
 
   // Create sample menu item
   let open_new_window = MenuItem::new("Open new window");
+  let open_new_window_id = open_new_window.id();
 
   // Windows require Vec<u8> ICO file
   #[cfg(target_os = "windows")]
@@ -34,7 +35,7 @@ fn main() -> wry::Result<()> {
   #[cfg(target_os = "linux")]
   let icon = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/icon.png");
 
-  let _statusbar = StatusbarBuilder::new(icon, vec![open_new_window.clone()])
+  let _statusbar = StatusbarBuilder::new(icon, vec![open_new_window])
     .build(&event_loop)
     .unwrap();
 
@@ -57,7 +58,7 @@ fn main() -> wry::Result<()> {
         menu_id,
         origin: MenuType::Statusbar,
       } => {
-        if menu_id == open_new_window.clone().id() {
+        if menu_id == open_new_window_id {
           let window = Window::new(&event_loop).unwrap();
           let id = window.id();
           let webview = WebViewBuilder::new(window)
