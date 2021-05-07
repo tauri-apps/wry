@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: MIT
 
 fn main() -> wry::Result<()> {
-  use std::{collections::HashMap, path::Path};
+  use std::collections::HashMap;
+  #[cfg(target_os = "linux")]
+  use std::path::Path;
   use wry::{
     application::{
       event::{Event, StartCause, WindowEvent},
@@ -22,10 +24,14 @@ fn main() -> wry::Result<()> {
   // Create sample menu item
   let open_new_window = MenuItem::new("Open new window");
 
-  // Windows always need his special touch!
+  // Windows require Vec<u8> ICO file
   #[cfg(target_os = "windows")]
-  let icon = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/icon.ico");
-  #[cfg(not(target_os = "windows"))]
+  let icon = include_bytes!("icon.ico").to_vec();
+  // macOS require Vec<u8> PNG file
+  #[cfg(target_os = "macos")]
+  let icon = include_bytes!("icon.png").to_vec();
+  // Linux require Pathbuf to PNG file
+  #[cfg(target_os = "linux")]
   let icon = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/icon.png");
 
   let _statusbar = StatusbarBuilder::new(icon, vec![open_new_window])
