@@ -5,7 +5,7 @@
 //! Wry is a Cross-platform WebView rendering library.
 //!
 //! To build a Window with WebView embedded, we could use [`application`] module to create
-//! [`EventLoop`] and the window. It's a module that re-exports APIs from [winit]. Then
+//! [`EventLoop`] and the window. It's a module that re-exports APIs from [tao]. Then
 //! use [`webview`] module to create the [`WebView`] from the [`Window`]. Here's a minimum example
 //! showing how to create a hello world window and load the url to Tauri website.
 //!
@@ -57,7 +57,7 @@
 //! Debug profile enables tools like inspector for development or debug usage. Note this will call
 //! private APIs on macOS.
 //!
-//! [winit]: https://crates.io/crates/winit
+//! [tao]: https://crates.io/crates/tao
 //! [`EventLoop`]: crate::application::event_loop::EventLoop
 //! [`Window`]: crate::application::window::Window
 //! [`WebView`]: crate::webview::WebView

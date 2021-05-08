@@ -109,7 +109,7 @@ unsafe extern "system" fn enumerate_callback(
   }
 }
 
-// The below code has been ripped from Winit - if only they'd `pub use` this!
+// The below code has been ripped from tao - if only they'd `pub use` this!
 // https://github.com/rust-windowing/winit/blob/b9f3d333e41464457f6e42640793bf88b9563727/src/platform_impl/windows/drop_handler.rs
 // Safety: WinAPI calls are unsafe
 

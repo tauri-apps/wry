@@ -19,6 +19,8 @@ fn main() -> wry::Result<()> {
   let custom_print_menu = MenuItem::new("Print").with_accelerators("<Primary>p");
   let other_test_menu = MenuItem::new("Custom").with_accelerators("<Primary>M");
   let quit_menu = MenuItem::new("Quit").with_accelerators("<Primary>q");
+  let custom_print_menu_id = custom_print_menu.id();
+  let quit_menu_id = quit_menu.id();
 
   // macOS require to have at least Copy, Paste, Select all etc..
   // to works fine. You should always add them.
@@ -37,13 +39,13 @@ fn main() -> wry::Result<()> {
         MenuItem::HideOthers,
         MenuItem::ShowAll,
         MenuItem::Separator,
-        quit_menu.clone(),
+        quit_menu,
       ],
     ),
     Menu::new(
       "File",
       vec![
-        custom_print_menu.clone(),
+        custom_print_menu,
         MenuItem::Separator,
         other_test_menu,
         MenuItem::CloseWindow,
@@ -107,11 +109,11 @@ fn main() -> wry::Result<()> {
         origin: MenuType::Menubar,
       } => {
         // The custom menu expose an `id()` function to match with `menu_id` from the Event
-        if menu_id == custom_print_menu.clone().id() {
+        if menu_id == custom_print_menu_id {
           // the webview.print() is only working on macOS for now
           webview.print().expect("Unable to print");
         }
-        if menu_id == quit_menu.clone().id() {
+        if menu_id == quit_menu_id {
           // when we click on quit, let's close the app
           *control_flow = ControlFlow::Exit;
         }
