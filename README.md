@@ -2,7 +2,7 @@
 
 [![](https://img.shields.io/crates/v/wry?style=flat-square)](https://crates.io/crates/wry) [![](https://img.shields.io/docsrs/wry?style=flat-square)](https://docs.rs/wry/) ![](https://img.shields.io/crates/l/wry?style=flat-square)
 
-Cross-platfrom WebView rendering library in Rust that supports all major desktop platforms like Windows, macOS, and Linux.
+Cross-platform WebView rendering library in Rust that supports all major desktop platforms like Windows, macOS, and Linux.
 
 ```toml
 [dependencies]
@@ -17,10 +17,9 @@ wry = "0.9"
 
 ## Overview
 
-Wry connects the web engine on each platform and provides easy to use and unified interface to render WebView. It also
-re-export [winit] as a module for event loop and window creation.
+Wry connects the web engine on each platform and provides easy to use and unified interface to render WebView. It also re-exports [tao] as a module for event loop and window creation.
 
-[winit]: https://crates.io/crates/winit
+[tao]: https://crates.io/crates/tao
 
 ## Usage
 
@@ -72,24 +71,22 @@ For more information, please read the documentation below.
 
 ## Platform-specific notes
 
-All platforms uses [winit](https://github.com/rust-windowing/winit) to build the window. But since Linux needs to use Gtk under the hood, we recommend use wry's application module. It implements a winit APIs on top of Gtk and simplu re-export winit on other platforms.
-
-Here are the underlying web engine each platfrom uses and some dependencies you might need to install.
+All platforms uses [tao](https://github.com/rust-windowing/tao) to build the window, and wry re-export it as application module. Here are the underlying web engine each platform uses, and some dependencies you might need to install.
 
 ### Linux
 
-Unlike other platforms, [gtk-rs](https://gtk-rs.org/) is used to build the window instead of winit. Because wry needs [WebKitGTK](https://webkitgtk.org/) and winit provides lower level of interface like x11 or wayland. Please make sure WebKitGTK is installed. If not, run the following command:
+Tao uses [gtk-rs](https://gtk-rs.org/) and its related libraries for window creation and wry also needs [WebKitGTK](https://webkitgtk.org/) for WebView. So please make sure following packages are installed:
 
 #### Arch Linux / Manjaro:
 
 ```bash
-sudo pacman -S webkit2gtk
+sudo pacman -S webkit2gtk gtksourceview3 libappindicator-gtk3
 ```
 
 #### Debian / Ubuntu:
 
 ```bash
-sudo apt install libwebkit2gtk-4.0-dev
+sudo apt install libwebkit2gtk-4.0-dev libgtksourceview-3.0-dev libappindicator3-dev
 ```
 
 ### macOS
