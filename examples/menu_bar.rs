@@ -30,20 +30,20 @@ fn main() -> wry::Result<()> {
       vec![
         // All's non-custom menu, do NOT return event's
         // they are handled by the system automatically
-        MenuItem::About("Todos"),
+        MenuItem::About("Todos".to_string()),
         MenuItem::Services,
         MenuItem::Separator,
         MenuItem::Hide,
         MenuItem::HideOthers,
         MenuItem::ShowAll,
         MenuItem::Separator,
-        quit_menu,
+        quit_menu.clone(),
       ],
     ),
     Menu::new(
       "File",
       vec![
-        custom_print_menu,
+        custom_print_menu.clone(),
         MenuItem::Separator,
         other_test_menu,
         MenuItem::CloseWindow,
@@ -107,11 +107,11 @@ fn main() -> wry::Result<()> {
         origin: MenuType::Menubar,
       } => {
         // The custom menu expose an `id()` function to match with `menu_id` from the Event
-        if menu_id == custom_print_menu.id() {
+        if menu_id == custom_print_menu.clone().id() {
           // the webview.print() is only working on macOS for now
           webview.print().expect("Unable to print");
         }
-        if menu_id == quit_menu.id() {
+        if menu_id == quit_menu.clone().id() {
           // when we click on quit, let's close the app
           *control_flow = ControlFlow::Exit;
         }

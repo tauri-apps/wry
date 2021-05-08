@@ -6,8 +6,8 @@ use std::{path::PathBuf, rc::Rc};
 
 use gdk::{WindowEdge, WindowExt, RGBA};
 use gio::Cancellable;
-use glib::{signal::Inhibit, Bytes, FileError};
-use gtk::{ContainerExt, WidgetExt};
+use glib::{signal::Inhibit, Bytes, Cast, FileError};
+use gtk::{BoxExt, ContainerExt, WidgetExt};
 use url::Url;
 use webkit2gtk::{
   SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
@@ -110,7 +110,15 @@ impl InnerWebView {
       Inhibit(false)
     });
 
-    window.add(&*webview);
+    // Gtk application window can only contain one widget at a time.
+    // In tao, we add a gtk box if menu bar is required. So we check if
+    // there's a box widget here.
+    if let Some(widget) = window.get_children().pop() {
+      let vbox = widget.downcast::<gtk::Box>().unwrap();
+      vbox.pack_start(&*webview, true, true, 0);
+    } else {
+      window.add(&*webview);
+    }
     webview.grab_focus();
 
     // Enable webgl, webaudio, canvas features and others as default.
