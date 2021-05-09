@@ -13,6 +13,7 @@ documentation = "https://docs.rs/wry"
 categories = [ "gui" ]
 
 [package.metadata.docs.rs]
+features = [ "dox" ]
 default-target = "x86_64-unknown-linux-gnu"
 targets = [
   "x86_64-pc-windows-msvc",
@@ -21,9 +22,11 @@ targets = [
 ]
 
 [features]
-default = [ "file-drop", "protocol", "win32" ]
+default = [ "file-drop", "protocol", "win32", "menu" ]
 file-drop = [ ]
 protocol = [ ]
+dox = [ "tao/dox" ]
+menu = [ "tao/menu" ]
 winrt = [ "windows-webview2", "windows" ]
 win32 = [ "webview2", "winapi", "webview2-sys" ]
 
@@ -37,7 +40,7 @@ thiserror = "1.0"
 url = "2.2"
 image = "0.23"
 infer = "0.4"
-tao = { git = "https://github.com/tauri-apps/tao", branch = "dev" }
+tao = { version = "0.2", default-features = false, features = [ "serde" ] }
 
 [target."cfg(target_os = \"linux\")".dependencies]
 webkit2gtk = { version = "0.11", features = [ "v2_10" ] }
