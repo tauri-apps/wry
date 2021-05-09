@@ -11,7 +11,7 @@ fn main() -> wry::Result<()> {
       event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       menu::{MenuItem, MenuType},
-      platform::status_bar::StatusbarBuilder,
+      platform::system_tray::SystemTrayBuilder,
       window::Window,
     },
     webview::WebViewBuilder,
@@ -35,7 +35,7 @@ fn main() -> wry::Result<()> {
   #[cfg(target_os = "linux")]
   let icon = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/icon.png");
 
-  let _statusbar = StatusbarBuilder::new(icon, vec![open_new_window])
+  let _system_tray = SystemTrayBuilder::new(icon, vec![open_new_window])
     .build(&event_loop)
     .unwrap();
 
@@ -56,7 +56,7 @@ fn main() -> wry::Result<()> {
       // Catch menu events
       Event::MenuEvent {
         menu_id,
-        origin: MenuType::Statusbar,
+        origin: MenuType::SystemTray,
       } => {
         if menu_id == open_new_window_id {
           let window = Window::new(&event_loop).unwrap();
