@@ -46,16 +46,20 @@
 //! ## Feature flags
 //!
 //! Wry uses a set of feature flags to toggle several advanced features. `file-drop`, `protocol`,
-//! `menu`, and `win32` are enabled by default.
+//! `tray`, and `win32` are enabled by default.
 //!
 //! - `file-drop`: Enables [`with_file_drop_handler`] to control the behaviour when there are files
 //! interacting with the window.
 //! - `protocol`: Enables [`with_custom_protocol`] to define custom URL scheme for handling tasks like
 //! loading assets.
-//! - `menu`: Enables system tray and more menu item variants on **Linux**. You can still create
+//! - `tray`: Enables system tray and more menu item variants on **Linux**. You can still create
 //! those types if you disable it. They just don't create the actual objects. We set this flag
-//! because some implementations require more installed packages. Disable this if you don't want to
-//! install those additional packages.
+//! because some implementations require more installed packages. Disable this if you don't want
+//! to install `libappindicator` and `sourceview` package.
+//! - `menu`: Enables menu item variants on **Linux**. You can still create those types if you
+//! you disable it. They just don't create the actual objects. We set this flag  because some
+//! implementations require more installed packages. Disable this if you don't want to install
+//! `sourceview` package.
 //! - `win32`: Enables purely Win32 APIs to build the WebView on **Windows**. This makes backward
 //! compatibility down to Windows 7 possible.
 //! - `winrt`: Enables up-to-date Windows Runtime support to build the WebView on **Windows**. WinRT
