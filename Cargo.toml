@@ -22,11 +22,12 @@ targets = [
 ]
 
 [features]
-default = [ "file-drop", "protocol", "win32", "menu" ]
+default = [ "file-drop", "protocol", "win32", "tray" ]
 file-drop = [ ]
 protocol = [ ]
 dox = [ "tao/dox" ]
 menu = [ "tao/menu" ]
+tray = [ "tao/tray" ]
 winrt = [ "windows-webview2", "windows" ]
 win32 = [ "webview2", "winapi", "webview2-sys" ]
 
