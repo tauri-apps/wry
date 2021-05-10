@@ -15,14 +15,18 @@ use std::{collections::HashSet, os::raw::c_void, path::PathBuf, rc::Rc};
 
 use once_cell::unsync::OnceCell;
 use url::Url;
-use webview2::{Controller, PermissionKind, PermissionState};
+use webview2::{Controller, PermissionKind, PermissionState, WebView};
 use winapi::{shared::windef::HWND, um::winuser::GetClientRect};
 
-use crate::application::{platform::windows::WindowExtWindows, window::Window};
+use crate::application::{
+  event_loop::{ControlFlow, EventLoop},
+  platform::{run_return::EventLoopExtRunReturn, windows::WindowExtWindows},
+  window::Window,
+};
 
 pub struct InnerWebView {
   controller: Rc<OnceCell<Controller>>,
-
+  webview: Rc<OnceCell<WebView>>,
   // Store FileDropController in here to make sure it gets dropped when
   // the webview gets dropped, otherwise we'll have a memory leak
   #[allow(dead_code)]
@@ -210,9 +214,25 @@ impl InnerWebView {
       })
     })?;
 
+    // Wait until webview is actually created
+    let mut event_loop = EventLoop::new();
+    let controller_clone = controller.clone();
+    let webview: Rc<OnceCell<WebView>> = Rc::new(OnceCell::new());
+    let webview_clone = webview.clone();
+    event_loop.run_return(|_, _, control_flow| {
+      if let Some(c) = controller_clone.get() {
+        if let Ok(wv) = c.get_webview() {
+          *control_flow = ControlFlow::Exit;
+          let _ = webview_clone.set(wv);
+        } else {
+          *control_flow = ControlFlow::Poll;
+        }
+      }
+    });
+
     Ok(Self {
       controller,
-
+      webview,
       file_drop_controller,
     })
   }
@@ -221,9 +241,8 @@ impl InnerWebView {
   pub fn print(&self) {}
 
   pub fn eval(&self, js: &str) -> Result<()> {
-    if let Some(c) = self.controller.get() {
-      let webview = c.get_webview()?;
-      webview.execute_script(js, |_| (Ok(())))?;
+    if let Some(w) = self.webview.get() {
+      w.execute_script(js, |_| (Ok(())))?;
     }
     Ok(())
   }
