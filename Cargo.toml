@@ -22,7 +22,7 @@ targets = [
 ]
 
 [features]
-default = [ "file-drop", "protocol", "win32", "menu" ]
+default = [ "file-drop", "protocol", "win32", "tray" ]
 file-drop = [ ]
 protocol = [ ]
 dox = [ "tao/dox" ]
