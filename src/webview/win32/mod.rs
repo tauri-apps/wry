@@ -18,7 +18,11 @@ use url::Url;
 use webview2::{Controller, PermissionKind, PermissionState, WebView};
 use winapi::{shared::windef::HWND, um::winuser::GetClientRect};
 
-use crate::application::{platform::{run_return::EventLoopExtRunReturn, windows::WindowExtWindows}, window::Window, event_loop::{EventLoop, ControlFlow}};
+use crate::application::{
+  event_loop::{ControlFlow, EventLoop},
+  platform::{run_return::EventLoopExtRunReturn, windows::WindowExtWindows},
+  window::Window,
+};
 
 pub struct InnerWebView {
   controller: Rc<OnceCell<Controller>>,
