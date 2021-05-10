@@ -240,9 +240,12 @@ impl InnerWebView {
   // not supported yet
   pub fn print(&self) {}
 
-  // not supported yet
   pub fn version(&self) -> Result<String> {
-    Ok("Unknown".into())
+    let webview_builder = webview2::EnvironmentBuilder::new();
+    let version = webview_builder
+      .get_available_browser_version_string()
+      .expect("Unable to get webview2 version");
+    Ok(version)
   }
 
   pub fn eval(&self, js: &str) -> Result<()> {
