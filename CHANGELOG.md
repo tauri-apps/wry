@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.9.2]
+
+- Add `tray` feature flag from tao.
+  - [093c25e](https://github.com/tauri-apps/wry/commit/093c25ee68d51849b95a1a3b9341e5ad6021cecf) feat: expose tray feature flag ([#256](https://github.com/tauri-apps/wry/pull/256)) on 2021-05-10
+
 ## \[0.9.1]
 
 - Correctly set visibilty when building `Window` on gtk-backend
