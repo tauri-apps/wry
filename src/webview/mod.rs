@@ -355,6 +355,11 @@ impl WebView {
     Ok(())
   }
 
+  /// Get Webview/Webkit version on current platform.
+  pub fn version(&self) -> Result<String> {
+    self.webview.version()
+  }
+
   /// Resize the WebView manually. This is required on Windows because its WebView API doesn't
   /// provide a way to resize automatically.
   pub fn resize(&self) -> Result<()> {

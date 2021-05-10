@@ -240,6 +240,11 @@ impl InnerWebView {
   // not supported yet
   pub fn print(&self) {}
 
+  // not supported yet
+  pub fn version(&self) -> Result<String> {
+    Ok("Unknown".into())
+  }
+
   pub fn eval(&self, js: &str) -> Result<()> {
     if let Some(w) = self.webview.get() {
       w.execute_script(js, |_| (Ok(())))?;
