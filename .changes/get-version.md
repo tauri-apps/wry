@@ -2,4 +2,4 @@
 "wry": patch
 ---
 
-Add `version()` on `Webview` to get webview/webkit version on current platform.
+Expose `webview_version` function in the `webview` module.
