@@ -9,6 +9,7 @@ use gio::Cancellable;
 use glib::{signal::Inhibit, Bytes, Cast, FileError};
 use gtk::{BoxExt, ContainerExt, WidgetExt};
 use url::Url;
+use webkit2gtk_sys::{webkit_get_major_version, webkit_get_minor_version, webkit_get_micro_version};
 use webkit2gtk::{
   SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
   UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime,
@@ -212,9 +213,15 @@ impl InnerWebView {
   // not supported yet
   pub fn print(&self) {}
 
-  // not supported yet
   pub fn version(&self) -> Result<String> {
-    Ok("Unknown".into())
+    let (major, minor, patch) = unsafe {
+      (
+        webkit_get_major_version(),
+        webkit_get_minor_version(),
+        webkit_get_micro_version(),
+      )
+    };
+    Ok(format!("{}.{}.{}", major, minor, patch).into())
   }
 
   pub fn eval(&self, js: &str) -> Result<()> {
