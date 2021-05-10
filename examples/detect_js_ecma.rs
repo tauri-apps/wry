@@ -94,16 +94,19 @@ fn main() -> wry::Result<()> {
                   }
                 ];
 
+                var tableElement = document.getElementById('table');
+                var summaryListElement = document.getElementById('summary');
+
                 for (var i = 0; i < featureSupport.length; i++) {
                   var versionDetails = featureSupport[i];
                   var versionSupported = true;
-                  document.getElementById("table").innerHTML += `<tr> <td style="width: 200px; font-weight: bold">${versionDetails.version}</td> </tr>`
+                  tableElement.innerHTML += `<tr> <td style="width: 200px; font-weight: bold">${versionDetails.version}</td> </tr>`
                   for (var j = 0; j < versionDetails.features.length; j++) {
                     var feature = versionDetails.features[j];
-                    document.getElementById("table").innerHTML += `<tr> <td style="width: 200px">${feature.name}</td> <td>${feature.supported ? '✔' : '❌'} </td> </tr>`
+                    tableElement.innerHTML += `<tr> <td style="width: 200px">${feature.name}</td> <td>${feature.supported ? '✔' : '❌'} </td> </tr>`
                     if (!feature.supported) versionSupported = false; 
                   }
-                  document.getElementById("summary").innerHTML += `<li> ${versionDetails.version}: ${versionSupported ? '✔' : '❌'}`
+                  summaryListElement.innerHTML += `<li> ${versionDetails.version}: ${versionSupported ? '✔' : '❌'}`
                 }
 
             });
