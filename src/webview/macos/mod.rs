@@ -356,17 +356,17 @@ impl InnerWebView {
       let () = msg_send![print_operation, runOperationModalForWindow: self.ns_window delegate: null::<*const c_void>() didRunSelector: null::<*const c_void>() contextInfo: null::<*const c_void>()];
     }
   }
+}
 
-  pub fn version(&self) -> Result<String> {
-    unsafe {
-      let bundle: id =
-        msg_send![class!(NSBundle), bundleWithIdentifier: NSString::new("com.apple.WebKit")];
-      let dict: id = msg_send![bundle, infoDictionary];
-      let webkit_version: id = msg_send![dict, objectForKey: NSString::new("CFBundleVersion")];
-      let nsstring = NSString(Id::from_ptr(webkit_version));
-      let () = msg_send![bundle, unload];
-      Ok(nsstring.to_str().to_string())
-    }
+pub fn platform_webview_version() -> Result<String> {
+  unsafe {
+    let bundle: id =
+      msg_send![class!(NSBundle), bundleWithIdentifier: NSString::new("com.apple.WebKit")];
+    let dict: id = msg_send![bundle, infoDictionary];
+    let webkit_version: id = msg_send![dict, objectForKey: NSString::new("CFBundleVersion")];
+    let nsstring = NSString(Id::from_ptr(webkit_version));
+    let () = msg_send![bundle, unload];
+    Ok(nsstring.to_str().to_string())
   }
 }
 

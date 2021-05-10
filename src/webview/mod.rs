@@ -355,11 +355,6 @@ impl WebView {
     Ok(())
   }
 
-  /// Get Webview/Webkit version on current platform.
-  pub fn version(&self) -> Result<String> {
-    self.webview.version()
-  }
-
   /// Resize the WebView manually. This is required on Windows because its WebView API doesn't
   /// provide a way to resize automatically.
   pub fn resize(&self) -> Result<()> {
@@ -463,4 +458,9 @@ pub enum FileDropEvent {
   Dropped(Vec<PathBuf>),
   /// The file drop was aborted.
   Cancelled,
+}
+
+/// Get Webview/Webkit version on current platform.
+pub fn webview_version() -> Result<String> {
+  platform_webview_version()
 }

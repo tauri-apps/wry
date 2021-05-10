@@ -240,14 +240,6 @@ impl InnerWebView {
   // not supported yet
   pub fn print(&self) {}
 
-  pub fn version(&self) -> Result<String> {
-    let webview_builder = webview2::EnvironmentBuilder::new();
-    let version = webview_builder
-      .get_available_browser_version_string()
-      .expect("Unable to get webview2 version");
-    Ok(version)
-  }
-
   pub fn eval(&self, js: &str) -> Result<()> {
     if let Some(w) = self.webview.get() {
       w.execute_script(js, |_| (Ok(())))?;
@@ -269,4 +261,12 @@ impl InnerWebView {
 
     Ok(())
   }
+}
+
+pub fn platform_webview_version() -> Result<String> {
+  let webview_builder = webview2::EnvironmentBuilder::new();
+  let version = webview_builder
+    .get_available_browser_version_string()
+    .expect("Unable to get webview2 version");
+  Ok(version)
 }
