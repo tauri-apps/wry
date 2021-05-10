@@ -23,18 +23,89 @@ fn main() -> wry::Result<()> {
     r#"
         (function () {
             window.addEventListener('DOMContentLoaded', (event) => {
-                function addEntry(title, available) {
-                    document.getElementById("table").innerHTML += `<tr> <td style="width: 200px">${title}</td> <td>${available ? '✔' : '❌'} </td> </tr>`
+
+                var featureSupport = [
+                  {
+                    version: "ECMAScript 5 (2009)",
+                    features: [
+                      {name: "String.trim", supported: String.prototype.trim},
+                      {name: "Array.isArray", supported: Array.isArray},
+                      {name: "Array.forEach", supported: Array.prototype.forEach},
+                      {name: "Array.map", supported: Array.prototype.map},
+                      {name: "Array.filter", supported: Array.prototype.filter},
+                      {name: "Array.reduce", supported: Array.prototype.reduce},
+                      {name: "JSON.parse", supported: JSON.parse},
+                      {name: "Date.now", supported: Date.now}
+                    ]
+                  },
+                  {
+                    version: "ECMAScript 6 (2015)",
+                    features: [
+                      {name: "Array.find", supported: Array.prototype.find},
+                      {name: "Math.trunc", supported: Math.trunc},
+                      {name: "Number.isInteger", supported: Number.isInteger}
+                    ]
+                  },
+                  {
+                    version: "ECMAScript 2016",
+                    features: [
+                      {name: "Array.includes", supported: Array.prototype.includes}
+                    ]
+                  },
+                  {
+                    version: "ECMAScript 2017",
+                    features: [
+                      {name: "String.padStart", supported: String.prototype.padStart},
+                      {name: "String.padEnd", supported: String.prototype.padEnd},
+                      {name: "Object.entries", supported: Object.entries},
+                      {name: "Object.values", supported: Object.values},
+                    ]
+                  },
+                  {
+                    version: "ECMAScript 2018",
+                    features: [
+                      {name: "Promise.finally", supported: Promise.prototype.finally}
+                    ]
+                  },
+                  {
+                    version: "ECMAScript 2019",
+                    features: [
+                      {name: "Array.flat", supported: Array.prototype.flat},
+                      {name: "Array.flatMap", supported: Array.prototype.flatMap},
+                      {name: "Object.fromEntries", supported: Object.fromEntries},
+                      {name: "String.trimStart", supported: String.prototype.trimStart},
+                      {name: "String.trimEnd", supported: String.prototype.trimEnd},
+                      {name: "Function.toString", supported: Function.prototype.toString}
+                    ]
+                  },
+                  {
+                    version: "ECMAScript 2020",
+                    features: [
+                      {name: "Promise.allSettled", supported: Promise.allSettled},
+                      {name: "String.matchAll", supported: String.prototype.matchAll}
+                    ]
+                  },
+                  {
+                    version: "ECMAScript 2021",
+                    features: [
+                      {name: "String.replaceAll", supported: String.prototype.replaceAll},
+                      {name: "Promise.any", supported: Promise.any}
+                    ]
+                  }
+                ];
+
+                for (var i = 0; i < featureSupport.length; i++) {
+                  var versionDetails = featureSupport[i];
+                  var versionSupported = true;
+                  document.getElementById("table").innerHTML += `<tr> <td style="width: 200px; font-weight: bold">${versionDetails.version}</td> </tr>`
+                  for (var j = 0; j < versionDetails.features.length; j++) {
+                    var feature = versionDetails.features[j];
+                    document.getElementById("table").innerHTML += `<tr> <td style="width: 200px">${feature.name}</td> <td>${feature.supported ? '✔' : '❌'} </td> </tr>`
+                    if (!feature.supported) versionSupported = false; 
+                  }
+                  document.getElementById("summary").innerHTML += `<li> ${versionDetails.version}: ${versionSupported ? '✔' : '❌'}`
                 }
 
-                addEntry("ECMAScript 5 (2009)", Array.isArray)
-                addEntry("ECMAScript 6 (2015)", Array.prototype.find)
-                addEntry("ECMAScript 2016", Array.prototype.includes)
-                addEntry("ECMAScript 2017", Object.entries)
-                addEntry("ECMAScript 2018", Promise.prototype.finally)
-                addEntry("ECMAScript 2019", Object.fromEntries)
-                addEntry("ECMAScript 2020", BigInt)
-                addEntry("ECMAScript 2021", WeakRef)
             });
         })();
         "#)
@@ -42,9 +113,11 @@ fn main() -> wry::Result<()> {
     r#"data:text/html,
     </html>
         <body>
+            <h1>ECMAScript support list:</h1>
+            <ul id="summary"></ul>
             <table>
                 <thead>
-                    <h3>ECMAScript support list:<h3>
+                    <h3>Details:<h3>
                 </thead>
                 <tbody id="table"></tbody>
             </table>
