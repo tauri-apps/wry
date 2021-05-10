@@ -14,3 +14,4 @@ Run the `cargo run --example <file_name>` to see how each example works.
 - `detect_js_ecma`: detects which versions of ECMAScript is supported by the webview.
 - `menu_bar`: uses a custom menu for the application in macOS and the Window and Linux/Windows.
 - `status_bar`: launch the application with tray icon and custom menu.
+- `html_test`: launch html5tests.com for debugging purpose.
