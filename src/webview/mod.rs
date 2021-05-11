@@ -10,14 +10,10 @@ mod mimetype;
 mod linux;
 #[cfg(target_os = "linux")]
 use linux::*;
-#[cfg(target_os = "macos")]
-mod ios;
-#[cfg(target_os = "macos")]
-use ios::*;
-#[cfg(target_os = "ios")]
-mod ios;
-#[cfg(target_os = "ios")]
-use ios::*;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+mod macos;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use macos::*;
 #[cfg(target_os = "windows")]
 #[cfg(feature = "winrt")]
 mod winrt;
