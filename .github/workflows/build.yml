@@ -25,7 +25,7 @@ jobs:
           target: ${{ matrix.platform.target }}
 
       - name: install webkit2gtk (ubuntu only)
-        if: matrix.platform == 'ubuntu-latest'
+        if: matrix.platform.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.0 libgtksourceview-3.0-dev libappindicator3-dev
