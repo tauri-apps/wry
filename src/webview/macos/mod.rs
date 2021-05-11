@@ -44,6 +44,7 @@ mod file_drop;
 
 pub struct InnerWebView {
   webview: Id<Object>,
+  #[cfg(target_os = "macos")]
   ns_window: id,
   manager: id,
   rpc_handler_ptr: *mut (
@@ -254,10 +255,12 @@ impl InnerWebView {
       };
 
       // ns window is required for the print operation
+      #[cfg(target_os = "macos")]
       let ns_window = window.ns_window() as id;
 
       let w = Self {
         webview: Id::from_ptr(webview),
+        #[cfg(target_os = "macos")]
         ns_window,
         manager,
         rpc_handler_ptr,
@@ -383,6 +386,7 @@ impl InnerWebView {
 
   pub fn print(&self) {
     // Safety: objc runtime calls are unsafe
+    #[cfg(target_os = "macos")]
     unsafe {
       // Create a shared print info
       let print_info: id = msg_send![class!(NSPrintInfo), sharedPrintInfo];
