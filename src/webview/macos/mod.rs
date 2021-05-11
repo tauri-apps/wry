@@ -214,8 +214,6 @@ impl InnerWebView {
       // Auto-resize on macOS
       #[cfg(target_os = "macos")]
       {
-        let zero = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(0., 0.));
-        let _: () = msg_send![webview, initWithFrame:zero configuration:config];
         webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
       }
 
@@ -337,13 +335,12 @@ impl InnerWebView {
 
       #[cfg(target_os = "ios")]
       {
-        let _: () = msg_send![webview, setTranslatesAutoresizingMaskIntoConstraints: NO];
+        // let _: () = msg_send![webview, setTranslatesAutoresizingMaskIntoConstraints: NO];
         // inject the webview into the window
         let ui_window = window.ui_window() as id;
-        // if we inject the webview into the UIWindow, we got our webview
-        // layout correctly aligned, tao events works for touch,
-        // but the webview do NOT seems to receive the touch event
-        // scroll, buttons click etc dont works.
+        // if we init the webview once the window is ready it seems better
+        // we not got a trace when we drag but click works fine, something we should
+        // check at tao level
         let _: () = msg_send![ui_window, setContentView: webview];
       }
 
