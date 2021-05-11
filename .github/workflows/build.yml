@@ -30,8 +30,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.0 libgtksourceview-3.0-dev libappindicator3-dev
 
-      - name: build
+      - name: build wry
         run: cargo build --target ${{ matrix.platform.target }}
-      - name: test
+
+      - name: build tests and examples
+        shell: bash
+        run: cargo test --no-run --verbose --target ${{ matrix.platform.target }}
+
+      - name: run tests
         if: (!contains(matrix.platform.target, 'ios'))
-        run: cargo test --target ${{ matrix.platform.target }}
+        run: cargo test --verbose --target ${{ matrix.platform.target }}

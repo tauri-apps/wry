@@ -207,18 +207,16 @@ impl InnerWebView {
         let _: id = msg_send![config, setValue:no forKey:NSString::new("drawsBackground")];
       }
 
-      // Resize
+      // Initialize webview with zero point
+      let zero = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(0., 0.));
+      let _: () = msg_send![webview, initWithFrame:zero configuration:config];
+
+      // Auto-resize on macOS
       #[cfg(target_os = "macos")]
       {
         let zero = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(0., 0.));
         let _: () = msg_send![webview, initWithFrame:zero configuration:config];
         webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
-      }
-
-      #[cfg(target_os = "ios")]
-      {
-        let zero = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(200., 200.));
-        let _: () = msg_send![webview, initWithFrame:zero configuration:config];
       }
 
       // Message handler
