@@ -348,6 +348,13 @@ impl WebView {
     Ok(())
   }
 
+  /// Launch print modal for the webview content.
+  /// Works only on macOS for now.
+  pub fn print(&self) -> Result<()> {
+    self.webview.print();
+    Ok(())
+  }
+
   /// Resize the WebView manually. This is required on Windows because its WebView API doesn't
   /// provide a way to resize automatically.
   pub fn resize(&self) -> Result<()> {

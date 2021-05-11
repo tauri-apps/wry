@@ -44,6 +44,7 @@ mod file_drop;
 
 pub struct InnerWebView {
   webview: Id<Object>,
+  ns_window: id,
   manager: id,
   rpc_handler_ptr: *mut (
     Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>,
@@ -252,8 +253,12 @@ impl InnerWebView {
         None => set_file_drop_handler(webview, window.clone(), Box::new(|_, _| false)),
       };
 
+      // ns window is required for the print operation
+      let ns_window = window.ns_window() as id;
+
       let w = Self {
         webview: Id::from_ptr(webview),
+        ns_window,
         manager,
         rpc_handler_ptr,
         #[cfg(target_os = "macos")]
@@ -310,6 +315,7 @@ impl InnerWebView {
           w.navigate(url.as_str());
         }
       }
+      
       // Inject the web view into the window as main content
       #[cfg(target_os = "macos")]
       {
@@ -318,6 +324,12 @@ impl InnerWebView {
         // inject the webview into the window
         let ns_window = window.ns_window() as id;
         let _: () = msg_send![ns_window, setContentView: webview];
+
+        // make sure the window is always on top when we create a new webview
+        let app_class = class!(NSApplication);
+        let app: id = msg_send![app_class, sharedApplication];
+        let _: () = msg_send![app, activateIgnoringOtherApps: YES];
+
       }
 
       #[cfg(target_os = "ios")]
@@ -366,6 +378,21 @@ impl InnerWebView {
     unsafe {
       let empty: id = msg_send![class!(NSURL), URLWithString: NSString::new("")];
       let () = msg_send![self.webview, loadHTMLString:NSString::new(url) baseURL:empty];
+    }
+  }
+
+  pub fn print(&self) {
+    // Safety: objc runtime calls are unsafe
+    unsafe {
+      // Create a shared print info
+      let print_info: id = msg_send![class!(NSPrintInfo), sharedPrintInfo];
+      let print_info: id = msg_send![print_info, init];
+      // Create new print operation from the webview content
+      let print_operation: id = msg_send![self.webview, printOperationWithPrintInfo: print_info];
+      // Allow the modal to detach from the current thread and be non-blocker
+      let () = msg_send![print_operation, setCanSpawnSeparateThread: YES];
+      // Launch the modal
+      let () = msg_send![print_operation, runOperationModalForWindow: self.ns_window delegate: null::<*const c_void>() didRunSelector: null::<*const c_void>() contextInfo: null::<*const c_void>()];
     }
   }
 }
