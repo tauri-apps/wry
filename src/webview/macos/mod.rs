@@ -12,10 +12,13 @@ use std::{
 };
 
 use cocoa::base::id;
-#[cfg(target_os = "macos")]
-use cocoa::{appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable}, base::YES};
 #[cfg(target_os = "ios")]
 use cocoa::base::NO;
+#[cfg(target_os = "macos")]
+use cocoa::{
+  appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable},
+  base::YES,
+};
 
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use objc::{
@@ -318,7 +321,7 @@ impl InnerWebView {
           w.navigate(url.as_str());
         }
       }
-      
+
       // Inject the web view into the window as main content
       #[cfg(target_os = "macos")]
       {
@@ -332,7 +335,6 @@ impl InnerWebView {
         let app_class = class!(NSApplication);
         let app: id = msg_send![app_class, sharedApplication];
         let _: () = msg_send![app, activateIgnoringOtherApps: YES];
-
       }
 
       #[cfg(target_os = "ios")]

@@ -4,12 +4,17 @@ on: [pull_request]
 
 jobs:
   test:
-    runs-on: ${{ matrix.platform }}
-
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        rust_version: [stable]
+        platform:
+          - { target: x86_64-pc-windows-msvc, os: windows-latest }
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
+          - { target: x86_64-apple-darwin, os: macos-latest }
+          - { target: aarch64-apple-ios, os: macos-latest }
+
+    runs-on: ${{ matrix.platform.os }}
 
     steps:
       - uses: actions/checkout@v2
@@ -17,6 +22,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: ${{ matrix.platform.target }}
 
       - name: install webkit2gtk (ubuntu only)
         if: matrix.platform == 'ubuntu-latest'
@@ -25,6 +31,7 @@ jobs:
           sudo apt-get install -y webkit2gtk-4.0 libgtksourceview-3.0-dev libappindicator3-dev
 
       - name: build
-        run: cargo build
+        run: cargo build --target ${{ matrix.platform.target }}
       - name: test
-        run: cargo test
+        if: (!contains(matrix.platform.target, 'ios'))
+        run: cargo test --target ${{ matrix.platform.target }}
