@@ -83,5 +83,5 @@ fn main() -> wry::Result<()> {
 
 #[cfg(target_os = "ios")]
 fn main() {
-  println!("This platform doesn't support menu_bar.");
+  println!("This platform doesn't support system_tray.");
 }
