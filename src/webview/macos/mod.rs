@@ -337,9 +337,13 @@ impl InnerWebView {
 
       #[cfg(target_os = "ios")]
       {
-        // inject the webview into the window
         let _: () = msg_send![webview, setTranslatesAutoresizingMaskIntoConstraints: NO];
+        // inject the webview into the window
         let ui_window = window.ui_window() as id;
+        // if we inject the webview into the UIWindow, we got our webview
+        // layout correctly aligned, tao events works for touch,
+        // but the webview do NOT seems to receive the touch event
+        // scroll, buttons click etc dont works.
         let _: () = msg_send![ui_window, setContentView: webview];
       }
 
