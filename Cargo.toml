@@ -45,6 +45,7 @@ tao = { version = "0.2", default-features = false, features = [ "serde" ] }
 
 [target."cfg(target_os = \"linux\")".dependencies]
 webkit2gtk = { version = "0.11", features = [ "v2_10" ] }
+webkit2gtk-sys = "0.13.0"
 gio = "0.9"
 glib = "0.10"
 gtk = "0.9"

@@ -459,3 +459,20 @@ pub enum FileDropEvent {
   /// The file drop was aborted.
   Cancelled,
 }
+
+/// Get Webview/Webkit version on current platform.
+pub fn webview_version() -> Result<String> {
+  platform_webview_version()
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn should_get_webview_version() {
+    if let Err(error) = webview_version() {
+      panic!("{}", error);
+    }
+  }
+}

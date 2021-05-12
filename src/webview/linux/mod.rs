@@ -15,6 +15,9 @@ use webkit2gtk::{
   WebContextBuilder, WebContextExt, WebView, WebViewExt, WebViewExtManual,
   WebsiteDataManagerBuilder,
 };
+use webkit2gtk_sys::{
+  webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
+};
 
 use crate::{
   application::{platform::unix::*, window::Window},
@@ -233,4 +236,15 @@ impl InnerWebView {
     }
     Ok(())
   }
+}
+
+pub fn platform_webview_version() -> Result<String> {
+  let (major, minor, patch) = unsafe {
+    (
+      webkit_get_major_version(),
+      webkit_get_minor_version(),
+      webkit_get_micro_version(),
+    )
+  };
+  Ok(format!("{}.{}.{}", major, minor, patch).into())
 }

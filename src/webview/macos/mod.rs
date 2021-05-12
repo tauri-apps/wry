@@ -358,6 +358,18 @@ impl InnerWebView {
   }
 }
 
+pub fn platform_webview_version() -> Result<String> {
+  unsafe {
+    let bundle: id =
+      msg_send![class!(NSBundle), bundleWithIdentifier: NSString::new("com.apple.WebKit")];
+    let dict: id = msg_send![bundle, infoDictionary];
+    let webkit_version: id = msg_send![dict, objectForKey: NSString::new("CFBundleVersion")];
+    let nsstring = NSString(Id::from_ptr(webkit_version));
+    let () = msg_send![bundle, unload];
+    Ok(nsstring.to_str().to_string())
+  }
+}
+
 impl Drop for InnerWebView {
   fn drop(&mut self) {
     // We need to drop handler closures here
