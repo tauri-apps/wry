@@ -1,0 +1,5 @@
+[target.arm-unknown-linux-gnueabihf]
+image = "phnz/tauri:arm-unknown-linux-gnueabihf"
+
+[target.armv7-unknown-linux-gnueabihf]
+image = "phnz/tauri:armv7-unknown-linux-gnueabihf"

@@ -4,12 +4,29 @@ on: [pull_request]
 
 jobs:
   test:
-    runs-on: ${{ matrix.platform }}
-
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        rust_version: [stable]
+        platform:
+          - { target: x86_64-pc-windows-msvc, os: windows-latest, cmd: cargo }
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, cmd: cargo }
+          - {
+              target: arm-unknown-linux-gnueabihf,
+              os: ubuntu-latest,
+              cmd: cross,
+            }
+          - {
+              target: armv7-unknown-linux-gnueabihf,
+              os: ubuntu-latest,
+              cmd: cross,
+            }
+          - { target: x86_64-apple-darwin, os: macos-latest, cmd: cargo }
+
+    env:
+      CMD: ${{ matrix.platform.cmd }}
+
+    runs-on: ${{ matrix.platform.os }}
 
     steps:
       - uses: actions/checkout@v2
@@ -17,14 +34,33 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: ${{ matrix.platform.target }}
 
       - name: install webkit2gtk (ubuntu only)
-        if: matrix.platform == 'ubuntu-latest'
+        if: matrix.platform.os == 'ubuntu-latest' && matrix.platform.cmd == 'cargo'
         run: |
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.0 libgtksourceview-3.0-dev libappindicator3-dev
 
-      - name: build
-        run: cargo build
-      - name: test
-        run: cargo test
+      - name: install webview2 (windows only)
+        if: matrix.platform.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://go.microsoft.com/fwlink/p/?LinkId=2124703 -OutFile installwebview.exe -UseBasicParsing
+          cmd /C start /wait installwebview.exe /silent /install
+
+      - name: install cross (if required)
+        if: matrix.platform.cmd == 'cross'
+        run: |
+          cargo install cross
+
+      - name: build wry
+        run: $CMD build --target ${{ matrix.platform.target }}
+
+      - name: build tests and examples
+        shell: bash
+        run: $CMD test --no-run --verbose --target ${{ matrix.platform.target }}
+
+      - name: run tests
+        if: (!contains(matrix.platform.target, 'arm'))
+        run: $CMD test --verbose --target ${{ matrix.platform.target }}
