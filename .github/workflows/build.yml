@@ -63,5 +63,5 @@ jobs:
         run: $CMD test --no-run --verbose --target ${{ matrix.platform.target }}
 
       - name: run tests
-        if: (!contains(matrix.platform.target, 'arm'))
+        if: (!contains(matrix.platform.target, 'arm') && !contains(matrix.platform.target, 'arch'))
         run: $CMD test --verbose --target ${{ matrix.platform.target }}
