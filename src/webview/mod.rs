@@ -464,3 +464,16 @@ pub enum FileDropEvent {
 pub fn webview_version() -> Result<String> {
   platform_webview_version()
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn should_get_webview_version() {
+    match webview_version() {
+      Ok(_version) => assert!(true),
+      Err(error) => assert!(false, "{}", error),
+    }
+  }
+}
