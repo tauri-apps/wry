@@ -24,6 +24,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.0 libgtksourceview-3.0-dev libappindicator3-dev
 
+      - name: install webview2 (windows only)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://go.microsoft.com/fwlink/p/?LinkId=2124703 -OutFile installwebview.exe -UseBasicParsing
+          cmd /C start /wait installwebview.exe /silent /install
+
       - name: build
         run: cargo build
       - name: test
