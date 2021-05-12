@@ -471,9 +471,9 @@ mod tests {
 
   #[test]
   fn should_get_webview_version() {
-    match webview_version() {
-      Ok(_version) => assert!(true),
-      Err(error) => assert!(false, "{}", error),
+    if let Err(error) = webview_version() {
+      dbg!(error);
+      panic!();
     }
   }
 }
