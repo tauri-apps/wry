@@ -472,8 +472,7 @@ mod tests {
   #[test]
   fn should_get_webview_version() {
     if let Err(error) = webview_version() {
-      dbg!(error);
-      panic!();
+      panic!("{}", error);
     }
   }
 }
