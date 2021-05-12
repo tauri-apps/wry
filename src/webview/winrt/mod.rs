@@ -299,3 +299,8 @@ where
 
   result
 }
+
+// not supported yet
+pub fn platform_webview_version() -> Result<String> {
+  Ok("Unknown".into())
+}
