@@ -9,4 +9,72 @@
 //!
 //! [tao]: https://crates.io/crates/tao
 
+use std::path::PathBuf;
 pub use tao::*;
+
+/// A single browser context.
+///
+/// Think of this like a browser session. Incognito mode would be a single context even though
+/// it has multiple tab/windows.
+pub struct Application {
+  inner: ApplicationInner,
+}
+
+impl Application {
+  pub fn new(data_directory: Option<PathBuf>) -> Self {
+    Self {
+      inner: ApplicationInner::new(data_directory),
+    }
+  }
+}
+
+#[cfg(target_os = "linux")]
+use self::gtk::{ApplicationGtkExt, ApplicationInner};
+
+#[cfg(target_os = "linux")]
+pub(crate) mod gtk {
+  use std::path::PathBuf;
+  use webkit2gtk::{WebContext, WebContextBuilder, WebsiteDataManagerBuilder};
+
+  pub struct ApplicationInner {
+    context: WebContext,
+  }
+
+  impl ApplicationInner {
+    pub fn new(data_directory: Option<PathBuf>) -> Self {
+      let mut context_builder = WebContextBuilder::new();
+      if let Some(data_directory) = data_directory {
+        let data_manager = WebsiteDataManagerBuilder::new()
+          .local_storage_directory(
+            &data_directory
+              .join("localstorage")
+              .to_string_lossy()
+              .into_owned(),
+          )
+          .indexeddb_directory(
+            &data_directory
+              .join("databases")
+              .join("indexeddb")
+              .to_string_lossy()
+              .into_owned(),
+          )
+          .build();
+        context_builder = context_builder.website_data_manager(&data_manager);
+      }
+
+      Self {
+        context: context_builder.build(),
+      }
+    }
+  }
+
+  pub trait ApplicationGtkExt {
+    fn context(&self) -> &WebContext;
+  }
+
+  impl ApplicationGtkExt for super::Application {
+    fn context(&self) -> &WebContext {
+      &self.inner.context
+    }
+  }
+}

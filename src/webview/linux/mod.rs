@@ -9,6 +9,7 @@ use gio::Cancellable;
 use glib::{signal::Inhibit, Bytes, Cast, FileError};
 use gtk::{BoxExt, ContainerExt, WidgetExt};
 use url::Url;
+use uuid::Uuid;
 use webkit2gtk::{
   SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
   UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime,
@@ -20,7 +21,7 @@ use webkit2gtk_sys::{
 };
 
 use crate::{
-  application::{platform::unix::*, window::Window},
+  application::{gtk::ApplicationGtkExt, platform::unix::*, window::Window, Application},
   webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
   Error, Result,
 };
@@ -33,6 +34,7 @@ pub struct InnerWebView {
 
 impl InnerWebView {
   pub fn new(
+    application: &Application,
     window: Rc<Window>,
     scripts: Vec<String>,
     url: Option<Url>,
@@ -43,42 +45,23 @@ impl InnerWebView {
     )>,
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-    data_directory: Option<PathBuf>,
   ) -> Result<Self> {
+    let id = Uuid::new_v4().to_string();
     let window_rc = Rc::clone(&window);
     let window = &window.gtk_window();
+
     // Webview widget
     let manager = UserContentManager::new();
-    let mut context_builder = WebContextBuilder::new();
-    if let Some(data_directory) = data_directory {
-      let data_manager = WebsiteDataManagerBuilder::new()
-        .local_storage_directory(
-          &data_directory
-            .join("localstorage")
-            .to_string_lossy()
-            .into_owned(),
-        )
-        .indexeddb_directory(
-          &data_directory
-            .join("databases")
-            .join("indexeddb")
-            .to_string_lossy()
-            .into_owned(),
-        )
-        .build();
-      context_builder = context_builder.website_data_manager(&data_manager);
-    }
-    let context = context_builder.build();
-
+    let context = application.context();
     let webview = Rc::new(WebView::new_with_context_and_user_content_manager(
-      &context, &manager,
+      context, &manager,
     ));
 
     // Message handler
     let wv = Rc::clone(&webview);
     let w = window_rc.clone();
-    manager.register_script_message_handler("external");
-    manager.connect_script_message_received(move |_m, msg| {
+    manager.register_script_message_handler(&id);
+    manager.connect_script_message_received(move |m2, msg| {
       if let (Some(js), Some(context)) = (msg.get_value(), msg.get_global_context()) {
         if let Some(js) = js.to_string(&context) {
           if let Some(rpc_handler) = rpc_handler.as_ref() {
@@ -167,8 +150,13 @@ impl InnerWebView {
 
     let w = Self { webview };
 
+    let mut init = String::with_capacity(67 + 36 + 20);
+    init.push_str("window.external={invoke:function(x){window.webkit.messageHandlers[\"");
+    init.push_str(&id);
+    init.push_str("\"].postMessage(x);}}");
+
     // Initialize scripts
-    w.init("window.external={invoke:function(x){window.webkit.messageHandlers.external.postMessage(x);}}")?;
+    w.init(&init)?;
     for js in scripts {
       w.init(&js)?;
     }

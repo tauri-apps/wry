@@ -17,6 +17,7 @@ struct MessageParameters {
 fn main() -> wry::Result<()> {
   use wry::{
     application::{
+      Application,
       dpi::PhysicalSize,
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
@@ -26,6 +27,7 @@ fn main() -> wry::Result<()> {
   };
 
   let event_loop = EventLoop::new();
+  let application = Application::new(None);
   let window1 = WindowBuilder::new().build(&event_loop).unwrap();
 
   let (window_tx, window_rx) = std::sync::mpsc::channel::<String>();
@@ -41,7 +43,7 @@ fn main() -> wry::Result<()> {
   };
 
   let id = window1.id();
-  let webview1 = WebViewBuilder::new(window1)
+  let webview1 = WebViewBuilder::new(window1, &application)
     .unwrap()
     .with_url("https://tauri.studio")?
     .with_initialization_script(
@@ -67,7 +69,7 @@ fn main() -> wry::Result<()> {
         .build(&event_loop)
         .unwrap();
       let id = window2.id();
-      let webview2 = WebViewBuilder::new(window2)
+      let webview2 = WebViewBuilder::new(window2, &application)
         .unwrap()
         .with_url(&url)
         .unwrap()

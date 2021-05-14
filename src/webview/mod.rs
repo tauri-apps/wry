@@ -44,6 +44,7 @@ use crate::application::window::Window;
 #[cfg(target_os = "windows")]
 #[cfg(feature = "winrt")]
 use windows_webview2::Windows::Win32::WindowsAndMessaging::HWND;
+use crate::application::Application;
 
 // Helper so all platforms handle RPC messages consistently.
 fn rpc_proxy(
@@ -81,7 +82,8 @@ fn rpc_proxy(
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
 /// [`WebViewBuilder`] privides ability to setup initialization before web engine starts.
-pub struct WebViewBuilder {
+pub struct WebViewBuilder<'a> {
+  application: &'a Application,
   transparent: bool,
   tx: Sender<String>,
   rx: Receiver<String>,
@@ -91,15 +93,15 @@ pub struct WebViewBuilder {
   custom_protocols: Vec<(String, Box<dyn Fn(&Window, &str) -> Result<Vec<u8>>>)>,
   rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
   file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-  data_directory: Option<PathBuf>,
 }
 
-impl WebViewBuilder {
+impl<'a> WebViewBuilder<'a> {
   /// Create [`WebViewBuilder`] from provided [`Window`].
-  pub fn new(window: Window) -> Result<Self> {
+  pub fn new(window: Window, application: &'a Application) -> Result<Self> {
     let (tx, rx) = channel();
 
     Ok(Self {
+      application,
       tx,
       rx,
       initialization_scripts: vec![],
@@ -109,7 +111,6 @@ impl WebViewBuilder {
       custom_protocols: vec![],
       rpc_handler: None,
       file_drop_handler: None,
-      data_directory: None,
     })
   }
 
@@ -125,13 +126,6 @@ impl WebViewBuilder {
   /// `window.onload`.
   pub fn with_initialization_script(mut self, js: &str) -> Self {
     self.initialization_scripts.push(js.to_string());
-    self
-  }
-
-  /// Whether the WebView window should have a custom user data path. This is usefull in Windows
-  /// when a bundled application can't have the webview data inside `Program Files`.
-  pub fn with_data_directory(mut self, data_directory: PathBuf) -> Self {
-    self.data_directory.replace(data_directory);
     self
   }
 
@@ -255,6 +249,7 @@ impl WebViewBuilder {
   pub fn build(self) -> Result<WebView> {
     let window = Rc::new(self.window);
     let webview = InnerWebView::new(
+      self.application,
       window.clone(),
       self.initialization_scripts,
       self.url,
@@ -262,7 +257,6 @@ impl WebViewBuilder {
       self.custom_protocols,
       self.rpc_handler,
       self.file_drop_handler,
-      self.data_directory,
     )?;
     Ok(WebView {
       window,
@@ -315,8 +309,8 @@ impl WebView {
   /// called in the same thread with the [`EventLoop`] you create.
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
-  pub fn new(window: Window) -> Result<Self> {
-    WebViewBuilder::new(window)?.build()
+  pub fn new(window: Window, application: &Application) -> Result<Self> {
+    WebViewBuilder::new(window, application)?.build()
   }
 
   /// Dispatch javascript code to be evaluated later. Note this will not actually run the
