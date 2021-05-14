@@ -29,12 +29,17 @@ impl Application {
 }
 
 #[cfg(target_os = "linux")]
-use self::gtk::{ApplicationGtkExt, ApplicationInner};
+use self::gtk::{ApplicationInner};
+
 
 #[cfg(target_os = "linux")]
 pub(crate) mod gtk {
+  use std::env::var;
   use std::path::PathBuf;
-  use webkit2gtk::{WebContext, WebContextBuilder, WebsiteDataManagerBuilder};
+  use webkit2gtk::{
+    AutomationSessionBuilder, AutomationSessionExt, UserContentManager,
+    WebContext, WebContextBuilder, WebContextExt, WebViewExtManual, WebsiteDataManagerBuilder,
+  };
 
   pub struct ApplicationInner {
     context: WebContext,
@@ -62,9 +67,13 @@ pub(crate) mod gtk {
         context_builder = context_builder.website_data_manager(&data_manager);
       }
 
-      Self {
-        context: context_builder.build(),
-      }
+      let context = context_builder.build();
+
+      let automation = var("TAURI_AUTOMATION_MODE").as_deref() == Ok("1");
+      dbg!(automation);
+      context.set_automation_allowed(automation);
+
+      Self { context }
     }
   }
 

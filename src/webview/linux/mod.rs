@@ -10,12 +10,7 @@ use glib::{signal::Inhibit, Bytes, Cast, FileError};
 use gtk::{BoxExt, ContainerExt, WidgetExt};
 use url::Url;
 use uuid::Uuid;
-use webkit2gtk::{
-  SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
-  UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime,
-  WebContextBuilder, WebContextExt, WebView, WebViewExt, WebViewExtManual,
-  WebsiteDataManagerBuilder,
-};
+use webkit2gtk::{ApplicationInfo, AutomationSessionExt, SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime, WebContextBuilder, WebContextExt, WebView, WebViewExt, WebViewExtManual, WebsiteDataManagerBuilder, WebViewBuilder};
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
 };
@@ -25,6 +20,7 @@ use crate::{
   webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
   Error, Result,
 };
+use std::env::var;
 
 mod file_drop;
 
@@ -53,11 +49,28 @@ impl InnerWebView {
     // Webview widget
     let manager = UserContentManager::new();
     let context = application.context();
-    let webview = Rc::new(WebView::new_with_context_and_user_content_manager(
-      context, &manager,
-    ));
+
+    let automation = var("TAURI_AUTOMATION_MODE").as_deref() == Ok("1");
+    let mut webview = WebViewBuilder::new();
+    webview = webview.web_context(context);
+    webview = webview.user_content_manager(&manager);
+    webview = webview.is_controlled_by_automation(automation);
+    let webview = webview.build();
+
+    let auto_webview = webview.clone();
+    context.connect_automation_started(move |_, auto| {
+      let webview = auto_webview.clone();
+      let app_into = ApplicationInfo::new();
+      app_into.set_name("wry");
+      app_into.set_version(0, 9, 0);
+      auto.set_application_info(&app_into);
+      auto.connect_create_web_view(move |auto| {
+        webview.clone()
+      });
+    });
 
     // Message handler
+    let webview = Rc::new(webview);
     let wv = Rc::clone(&webview);
     let w = window_rc.clone();
     manager.register_script_message_handler(&id);

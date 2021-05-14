@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use wry::application::Application;
+
 fn main() -> wry::Result<()> {
   use wry::{
     application::{
@@ -17,7 +19,8 @@ fn main() -> wry::Result<()> {
     .with_title("Detect ECMAScript")
     .build(&event_loop)
     .unwrap();
-  let _webview = WebViewBuilder::new(window)
+  let app = Application::new(None);
+  let _webview = WebViewBuilder::new(window, &app)
     .unwrap()
     .with_initialization_script(
     r#"
