@@ -17,11 +17,11 @@ struct MessageParameters {
 fn main() -> wry::Result<()> {
   use wry::{
     application::{
-      Application,
       dpi::PhysicalSize,
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::{Window, WindowBuilder},
+      Application,
     },
     webview::{RpcRequest, WebViewBuilder},
   };

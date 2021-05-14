@@ -10,7 +10,12 @@ use glib::{signal::Inhibit, Bytes, Cast, FileError};
 use gtk::{BoxExt, ContainerExt, WidgetExt};
 use url::Url;
 use uuid::Uuid;
-use webkit2gtk::{ApplicationInfo, AutomationSessionExt, SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime, WebContextBuilder, WebContextExt, WebView, WebViewExt, WebViewExtManual, WebsiteDataManagerBuilder, WebViewBuilder};
+use webkit2gtk::{
+  ApplicationInfo, AutomationSessionExt, SecurityManagerExt, SettingsExt, URISchemeRequestExt,
+  UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
+  UserScriptInjectionTime, WebContextBuilder, WebContextExt, WebView, WebViewBuilder, WebViewExt,
+  WebViewExtManual, WebsiteDataManagerBuilder,
+};
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
 };
@@ -64,9 +69,7 @@ impl InnerWebView {
       app_into.set_name("wry");
       app_into.set_version(0, 9, 0);
       auto.set_application_info(&app_into);
-      auto.connect_create_web_view(move |auto| {
-        webview.clone()
-      });
+      auto.connect_create_web_view(move |auto| webview.clone());
     });
 
     // Message handler

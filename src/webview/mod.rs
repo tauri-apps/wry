@@ -40,11 +40,10 @@ use url::Url;
 
 #[cfg(target_os = "windows")]
 use crate::application::platform::windows::WindowExtWindows;
-use crate::application::window::Window;
+use crate::application::{window::Window, Application};
 #[cfg(target_os = "windows")]
 #[cfg(feature = "winrt")]
 use windows_webview2::Windows::Win32::WindowsAndMessaging::HWND;
-use crate::application::Application;
 
 // Helper so all platforms handle RPC messages consistently.
 fn rpc_proxy(

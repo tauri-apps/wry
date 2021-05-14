@@ -29,16 +29,14 @@ impl Application {
 }
 
 #[cfg(target_os = "linux")]
-use self::gtk::{ApplicationInner};
-
+use self::gtk::ApplicationInner;
 
 #[cfg(target_os = "linux")]
 pub(crate) mod gtk {
-  use std::env::var;
-  use std::path::PathBuf;
+  use std::{env::var, path::PathBuf};
   use webkit2gtk::{
-    AutomationSessionBuilder, AutomationSessionExt, UserContentManager,
-    WebContext, WebContextBuilder, WebContextExt, WebViewExtManual, WebsiteDataManagerBuilder,
+    AutomationSessionBuilder, AutomationSessionExt, UserContentManager, WebContext,
+    WebContextBuilder, WebContextExt, WebViewExtManual, WebsiteDataManagerBuilder,
   };
 
   pub struct ApplicationInner {
