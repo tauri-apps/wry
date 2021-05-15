@@ -89,6 +89,12 @@ sudo pacman -S webkit2gtk gtksourceview3 libappindicator-gtk3
 sudo apt install libwebkit2gtk-4.0-dev libgtksourceview-3.0-dev libappindicator3-dev
 ```
 
+#### Fedora
+
+```bash
+sudo dnf install clang gtk3-devel webkit2gtk3-devel gtksourceview3-devel libappindicator-gtk3-devel
+```
+
 ### macOS
 
 WebKit is native on macOS so everything should be fine.
