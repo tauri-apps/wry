@@ -67,7 +67,7 @@ pub(crate) mod gtk {
 
       let context = context_builder.build();
 
-      let automation = var("TAURI_AUTOMATION_MODE").as_deref() == Ok("1");
+      let automation = dbg!(var("TAURI_AUTOMATION_MODE")).as_deref() == Ok("TRUE");
       dbg!(automation);
       context.set_automation_allowed(automation);
 

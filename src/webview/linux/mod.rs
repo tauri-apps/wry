@@ -55,7 +55,7 @@ impl InnerWebView {
     let manager = UserContentManager::new();
     let context = application.context();
 
-    let automation = var("TAURI_AUTOMATION_MODE").as_deref() == Ok("1");
+    let automation = var("TAURI_AUTOMATION_MODE").as_deref() == Ok("TRUE");
     let mut webview = WebViewBuilder::new();
     webview = webview.web_context(context);
     webview = webview.user_content_manager(&manager);
