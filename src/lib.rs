@@ -55,7 +55,7 @@
 //! - `tray`: Enables system tray and more menu item variants on **Linux**. You can still create
 //! those types if you disable it. They just don't create the actual objects. We set this flag
 //! because some implementations require more installed packages. Disable this if you don't want
-//! to install `libappindicator` and `sourceview` package.
+//! to install `libappindicator`, `sourceview`, and `clang` package.
 //! - `menu`: Enables menu item variants on **Linux**. You can still create those types if you
 //! you disable it. They just don't create the actual objects. We set this flag  because some
 //! implementations require more installed packages. Disable this if you don't want to install
