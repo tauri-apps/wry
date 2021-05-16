@@ -355,6 +355,13 @@ impl WebView {
     Ok(())
   }
 
+  pub fn screenshot<F>(&self, region: ScreenshotRegion, handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
+  {
+    self.webview.screenshot(region, handler)
+  }
+
   /// Resize the WebView manually. This is required on Windows because its WebView API doesn't
   /// provide a way to resize automatically.
   pub fn resize(&self) -> Result<()> {
@@ -447,6 +454,13 @@ impl RpcResponse {
       retval
     ))
   }
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum ScreenshotRegion {
+  Visible,
+  FullDocument,
 }
 
 /// An event enumeration sent to [`FileDropHandler`].

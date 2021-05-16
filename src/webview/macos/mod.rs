@@ -356,6 +356,13 @@ impl InnerWebView {
       let () = msg_send![print_operation, runOperationModalForWindow: self.ns_window delegate: null::<*const c_void>() didRunSelector: null::<*const c_void>() contextInfo: null::<*const c_void>()];
     }
   }
+
+  pub fn screenshot<F>(&self, region: ScreenshotRegion, handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
+  {
+    todo!();
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {
