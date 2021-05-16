@@ -212,8 +212,9 @@ impl InnerWebView {
     Ok(w)
   }
 
-  // not supported yet
-  pub fn print(&self) {}
+  pub fn print(&self) {
+    let _ = self.eval("window.print()");
+  }
 
   pub fn eval(&self, js: &str) -> Result<()> {
     let cancellable: Option<&Cancellable> = None;
