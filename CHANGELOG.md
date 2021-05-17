@@ -1,5 +1,14 @@
 # Changelog
 
+## \[0.9.3]
+
+- Expose `webview_version` function in the `webview` module.
+  - [4df310e](https://github.com/tauri-apps/wry/commit/4df310e6bb508854ffc17ec915b3d0ab7c11f03d) feat: get webview version ([#259](https://github.com/tauri-apps/wry/pull/259)) on 2021-05-12
+- Add print method on Linux and Windows.
+  - [54c5ec7](https://github.com/tauri-apps/wry/commit/54c5ec7ae6166da5ce670ccd2ceaa108233bb845) Implement print method on Linux and Windows ([#264](https://github.com/tauri-apps/wry/pull/264)) on 2021-05-17
+- Disable smooth scrolling on Linux to match bahaviour on browsers.
+  - [3e786bb](https://github.com/tauri-apps/wry/commit/3e786bb28793e939c00ebf0c6758d4f6cf4d3b28) Disable smooth scrolling on Linux ([#268](https://github.com/tauri-apps/wry/pull/268)) on 2021-05-17
+
 ## \[0.9.2]
 
 - Add `tray` feature flag from tao.
