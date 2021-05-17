@@ -122,6 +122,12 @@ fn get_binary_sizes(target_dir: &Path) -> Result<HashMap<String, u64>> {
   println!("tao {} bytes", tao_size);
   sizes.insert("tao_rlib".to_string(), tao_size);
 
+  // add size for all EXEC_TIME_BENCHMARKS
+  for (name, example_exe, _) in EXEC_TIME_BENCHMARKS {
+    let meta = std::fs::metadata(example_exe).unwrap();
+    sizes.insert(name.to_string(), meta.len());
+  }
+
   Ok(sizes)
 }
 
@@ -211,13 +217,10 @@ struct BenchResult {
   thread_count: HashMap<String, u64>,
   syscall_count: HashMap<String, u64>,
   cargo_deps: usize,
-  //max_latency: HashMap<String, f64>,
-  //req_per_sec: HashMap<String, u64>,
-  //throughput: HashMap<String, f64>,
 }
 
 fn main() -> Result<()> {
-  if env::args().find(|s| s == "--bench").is_none() {
+  if !env::args().any(|s| s == "--bench") {
     return Ok(());
   }
 
@@ -234,7 +237,6 @@ fn main() -> Result<()> {
       .to_string(),
     exec_time: run_exec_time(&target_dir)?,
     binary_size: get_binary_sizes(&target_dir)?,
-    //bundle_size: bundle_benchmark(&wry_exe)?,
     cargo_deps: cargo_deps(),
     ..Default::default()
   };
