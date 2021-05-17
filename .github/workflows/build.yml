@@ -30,10 +30,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.0 libgtksourceview-3.0-dev libappindicator3-dev
 
-      - name: install xvfb (bench only)
+      - name: install xvfb and hyperfine (bench only)
         if: matrix.platform.kind == 'bench'
         run: |
           sudo apt-get install -y xvfb
+          wget https://github.com/sharkdp/hyperfine/releases/download/v1.11.0/hyperfine_1.11.0_amd64.deb
+          sudo dpkg -i hyperfine_1.11.0_amd64.deb
 
       - name: build wry
         if: matrix.platform.kind != 'bench'
@@ -49,7 +51,7 @@ jobs:
       - name: bench
         if: matrix.platform.kind == 'bench'
         run: |
-          cargo build --release --example bench_start_time
+          cargo build --release --example bench_hello_world
           xvfb-run --auto-servernum cargo bench
 
       - name: Worker info

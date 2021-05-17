@@ -5,7 +5,6 @@
 use std::process::exit;
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MessageParameters {
@@ -17,9 +16,9 @@ fn main() -> wry::Result<()> {
     application::{
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
-      window::{Fullscreen, Window, WindowBuilder},
+      window::{Window, WindowBuilder},
     },
-    webview::{RpcRequest, RpcResponse, WebViewBuilder},
+    webview::{RpcRequest, WebViewBuilder},
   };
 
   let event_loop = EventLoop::new();
@@ -33,7 +32,7 @@ fn main() -> wry::Result<()> {
     </script>
     "#;
 
-  let handler = |window: &Window, mut req: RpcRequest| {
+  let handler = |_window: &Window, req: RpcRequest| {
     if &req.method == "dom-loaded" {
       exit(0);
     }

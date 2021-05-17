@@ -6,7 +6,6 @@ use std::{
   env, fs,
   path::Path,
   process::{Command, Stdio},
-  time::SystemTime,
 };
 
 mod utils;
@@ -23,8 +22,11 @@ fn write_json(filename: &str, value: &Value) -> Result<()> {
 }
 
 /// The list of the examples of the benchmark name, arguments and return code
-const EXEC_TIME_BENCHMARKS: &[(&str, &str, Option<i32>)] =
-  &[("bench_start_time", "target/release/examples/bench_start_time", None)];
+const EXEC_TIME_BENCHMARKS: &[(&str, &str, Option<i32>)] = &[(
+  "hello_world",
+  "target/release/examples/bench_hello_world",
+  None,
+)];
 
 fn run_strace_benchmarks(new_data: &mut BenchResult) -> Result<()> {
   use std::io::Read;
@@ -138,19 +140,78 @@ fn cargo_deps() -> usize {
   count
 }
 
+const RESULT_KEYS: &[&str] = &["mean", "stddev", "user", "system", "min", "max"];
+
+fn run_exec_time(target_dir: &Path) -> Result<HashMap<String, HashMap<String, f64>>> {
+  let benchmark_file = target_dir.join("hyperfine_results.json");
+  let benchmark_file = benchmark_file.to_str().unwrap();
+
+  let mut command = [
+    "hyperfine",
+    "--export-json",
+    benchmark_file,
+    "--warmup",
+    "3",
+  ]
+  .iter()
+  .map(|s| s.to_string())
+  .collect::<Vec<_>>();
+
+  for (_, example_exe, _return_code) in EXEC_TIME_BENCHMARKS {
+    command.push(
+      utils::root_path()
+        .join(example_exe)
+        .to_str()
+        .unwrap()
+        .to_string(),
+    );
+  }
+
+  utils::run(
+    &command.iter().map(|s| s.as_ref()).collect::<Vec<_>>(),
+    None,
+    None,
+    None,
+    true,
+  );
+
+  let mut results = HashMap::<String, HashMap<String, f64>>::new();
+  let hyperfine_results = read_json(benchmark_file)?;
+  for ((name, _, _), data) in EXEC_TIME_BENCHMARKS.iter().zip(
+    hyperfine_results
+      .as_object()
+      .unwrap()
+      .get("results")
+      .unwrap()
+      .as_array()
+      .unwrap(),
+  ) {
+    let data = data.as_object().unwrap().clone();
+    results.insert(
+      name.to_string(),
+      data
+        .into_iter()
+        .filter(|(key, _)| RESULT_KEYS.contains(&key.as_str()))
+        .map(|(key, val)| (key, val.as_f64().unwrap()))
+        .collect(),
+    );
+  }
+
+  Ok(results)
+}
+
 #[derive(Default, Serialize, Debug)]
 struct BenchResult {
   created_at: String,
   sha1: String,
 
-  //exec_time: HashMap<String, HashMap<String, f64>>,
+  exec_time: HashMap<String, HashMap<String, f64>>,
   binary_size: HashMap<String, u64>,
   max_memory: HashMap<String, u64>,
   thread_count: HashMap<String, u64>,
   syscall_count: HashMap<String, u64>,
   cargo_deps: usize,
   //max_latency: HashMap<String, f64>,
-  //lsp_exec_time: HashMap<String, u64>,
   //req_per_sec: HashMap<String, u64>,
   //throughput: HashMap<String, f64>,
 }
@@ -171,11 +232,10 @@ fn main() -> Result<()> {
       .0
       .trim()
       .to_string(),
-    //exec_time: run_exec_time(&deno_exe, &target_dir)?,
+    exec_time: run_exec_time(&target_dir)?,
     binary_size: get_binary_sizes(&target_dir)?,
     //bundle_size: bundle_benchmark(&wry_exe)?,
     cargo_deps: cargo_deps(),
-    //lsp_exec_time: lsp::benchmarks(&deno_exe)?,
     ..Default::default()
   };
 

@@ -12,14 +12,6 @@ pub fn target_dir() -> PathBuf {
   target_dir.into()
 }
 
-pub fn wry_exe_path() -> PathBuf {
-  let mut p = target_dir().join("wry");
-  if cfg!(windows) {
-    p.set_extension("exe");
-  }
-  p
-}
-
 pub fn root_path() -> PathBuf {
   PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
@@ -142,4 +134,33 @@ pub fn parse_strace_output(output: &str) -> HashMap<String, StraceOutput> {
   );
 
   summary
+}
+
+pub fn run(
+  cmd: &[&str],
+  input: Option<&[&str]>,
+  envs: Option<Vec<(String, String)>>,
+  current_dir: Option<&str>,
+  expect_success: bool,
+) {
+  let mut process_builder = Command::new(cmd[0]);
+  process_builder.args(&cmd[1..]).stdin(Stdio::piped());
+
+  if let Some(dir) = current_dir {
+    process_builder.current_dir(dir);
+  }
+  if let Some(envs) = envs {
+    process_builder.envs(envs);
+  }
+  let mut prog = process_builder.spawn().expect("failed to spawn script");
+  if let Some(lines) = input {
+    let stdin = prog.stdin.as_mut().expect("failed to get stdin");
+    stdin
+      .write_all(lines.join("\n").as_bytes())
+      .expect("failed to write to stdin");
+  }
+  let status = prog.wait().expect("failed to wait on child");
+  if expect_success != status.success() {
+    panic!("Unexpected exit code: {:?}", status.code());
+  }
 }
