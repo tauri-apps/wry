@@ -24,7 +24,7 @@ fn write_json(filename: &str, value: &Value) -> Result<()> {
 
 /// The list of the examples of the benchmark name, arguments and return code
 const EXEC_TIME_BENCHMARKS: &[(&str, &str, Option<i32>)] =
-  &[("hello_world", "target/release/examples/hello_world", None)];
+  &[("bench_start_time", "target/release/examples/bench_start_time", None)];
 
 fn run_strace_benchmarks(new_data: &mut BenchResult) -> Result<()> {
   use std::io::Read;
@@ -37,7 +37,13 @@ fn run_strace_benchmarks(new_data: &mut BenchResult) -> Result<()> {
 
     println!("Starting {}", example_exe);
     Command::new("strace")
-      .args(&["-c", "-f", "-o", file.path().to_str().unwrap(), utils::root_path().join(example_exe).to_str().unwrap()])
+      .args(&[
+        "-c",
+        "-f",
+        "-o",
+        file.path().to_str().unwrap(),
+        utils::root_path().join(example_exe).to_str().unwrap(),
+      ])
       .stdout(Stdio::inherit())
       .spawn()?
       .wait()?;
