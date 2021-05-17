@@ -49,7 +49,7 @@ jobs:
       - name: bench
         if: matrix.platform.kind == 'bench'
         run: |
-          cargo build --release --example hello_world
+          cargo build --release --example bench_start_time
           xvfb-run --auto-servernum cargo bench
 
       - name: Worker info
