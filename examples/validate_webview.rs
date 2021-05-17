@@ -15,8 +15,10 @@ fn main() -> wry::Result<()> {
   // make sure webview is available
   match webview_version() {
     Ok(current_version) => {
-
-      println!("Webview ({}) available, initializing wry...", current_version);
+      println!(
+        "Webview ({}) available, initializing wry...",
+        current_version
+      );
 
       let event_loop = EventLoop::new();
       let window = WindowBuilder::new()
