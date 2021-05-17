@@ -43,6 +43,11 @@ image = "0.23"
 infer = "0.4"
 tao = { version = "0.2", default-features = false, features = [ "serde" ] }
 
+[dev-dependencies]
+anyhow = "1.0.40"
+chrono = "0.4.19"
+tempfile = "3.2.0"
+
 [target."cfg(target_os = \"linux\")".dependencies]
 webkit2gtk = { version = "0.11", features = [ "v2_10" ] }
 webkit2gtk-sys = "0.13.0"
@@ -63,3 +68,8 @@ cocoa = "0.24"
 core-graphics = "0.22"
 objc = "0.2"
 objc_id = "0.1"
+
+[[bench]]
+name = "wry_bench"
+harness = false
+path = "./bench/main.rs"
