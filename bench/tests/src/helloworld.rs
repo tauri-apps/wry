@@ -5,7 +5,6 @@
 use std::process::exit;
 
 use serde::{Deserialize, Serialize};
-
 #[derive(Debug, Serialize, Deserialize)]
 struct MessageParameters {
   message: String,

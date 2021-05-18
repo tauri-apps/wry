@@ -24,7 +24,7 @@ fn write_json(filename: &str, value: &Value) -> Result<()> {
 /// The list of the examples of the benchmark name, arguments and return code
 const EXEC_TIME_BENCHMARKS: &[(&str, &str, Option<i32>)] = &[(
   "hello_world",
-  "target/release/examples/bench_hello_world",
+  "target/release/bench_helloworld",
   None,
 )];
 
@@ -37,7 +37,6 @@ fn run_strace_benchmarks(new_data: &mut BenchResult) -> Result<()> {
   for (name, example_exe, _) in EXEC_TIME_BENCHMARKS {
     let mut file = tempfile::NamedTempFile::new()?;
 
-    println!("Starting {}", example_exe);
     Command::new("strace")
       .args(&[
         "-c",

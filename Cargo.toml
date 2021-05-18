@@ -1,4 +1,8 @@
-workspace = { }
+[workspace]
+members = [
+  ".",
+  "bench/tests",
+]
 
 [package]
 name = "wry"
