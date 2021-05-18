@@ -65,7 +65,7 @@ jobs:
         uses: actions/checkout@v2
         if: matrix.platform.kind == 'bench'
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.BENCH_PAT }}
           path: gh-pages
           repository: tauri-apps/benchmark_results
 
@@ -74,8 +74,8 @@ jobs:
         run: |
           cargo run --manifest-path ./bench/tools/Cargo.toml --bin build_benchmark_jsons
           cd gh-pages
-          git config user.name "tauri-bot"
-          git config user.email "tauri-bot@tauri.studio"
+          git config user.name "tauri-bench"
+          git config user.email "gh.tauribot@gmail.com"
           git add .
           git commit --message "Update benchmarks"
           git push origin gh-pages
