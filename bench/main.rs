@@ -22,11 +22,8 @@ fn write_json(filename: &str, value: &Value) -> Result<()> {
 }
 
 /// The list of the examples of the benchmark name, arguments and return code
-const EXEC_TIME_BENCHMARKS: &[(&str, &str, Option<i32>)] = &[(
-  "hello_world",
-  "target/release/bench_helloworld",
-  None,
-)];
+const EXEC_TIME_BENCHMARKS: &[(&str, &str, Option<i32>)] =
+  &[("hello_world", "target/release/bench_helloworld", None)];
 
 fn run_strace_benchmarks(new_data: &mut BenchResult) -> Result<()> {
   use std::io::Read;
