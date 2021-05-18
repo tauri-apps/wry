@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::process::exit;
 use serde::{Deserialize, Serialize};
+use std::process::exit;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MessageParameters {
