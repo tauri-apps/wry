@@ -55,8 +55,7 @@ jobs:
           xvfb-run --auto-servernum cargo bench
 
       - name: post benchmarks
-        if: |
-          matrix.kind == 'bench'
+        if: matrix.platform.kind == 'bench'
         env:
           ORG_TAURI_BOT: ${{ secrets.ORG_TAURI_BOT }}
         run: |
