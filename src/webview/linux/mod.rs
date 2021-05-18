@@ -2,19 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{path::PathBuf, rc::Rc};
-
 use gdk::{WindowEdge, WindowExt, RGBA};
 use gio::Cancellable;
 use glib::{signal::Inhibit, Bytes, Cast, FileError};
-use gtk::{BoxExt, ContainerExt, WidgetExt};
+use gtk::{BoxExt, ContainerExt, GtkWindowExt, WidgetExt};
+use std::rc::Rc;
 use url::Url;
 use uuid::Uuid;
 use webkit2gtk::{
   ApplicationInfo, AutomationSessionExt, SecurityManagerExt, SettingsExt, URISchemeRequestExt,
   UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
-  UserScriptInjectionTime, WebContextBuilder, WebContextExt, WebView, WebViewBuilder, WebViewExt,
-  WebViewExtManual, WebsiteDataManagerBuilder,
+  UserScriptInjectionTime, WebContextExt, WebView, WebViewBuilder, WebViewExt,
+
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -25,7 +24,6 @@ use crate::{
   webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
   Error, Result,
 };
-use std::env::var;
 
 mod file_drop;
 
@@ -55,11 +53,10 @@ impl InnerWebView {
     let manager = UserContentManager::new();
     let context = application.context();
 
-    let automation = var("TAURI_AUTOMATION_MODE").as_deref() == Ok("TRUE");
     let mut webview = WebViewBuilder::new();
     webview = webview.web_context(context);
     webview = webview.user_content_manager(&manager);
-    webview = webview.is_controlled_by_automation(automation);
+    webview = webview.is_controlled_by_automation(application.is_automated());
     let webview = webview.build();
 
     let auto_webview = webview.clone();
@@ -69,7 +66,7 @@ impl InnerWebView {
       app_into.set_name("wry");
       app_into.set_version(0, 9, 0);
       auto.set_application_info(&app_into);
-      auto.connect_create_web_view(move |auto| webview.clone());
+      auto.connect_create_web_view(move |_| webview.clone());
     });
 
     // Message handler
@@ -77,7 +74,7 @@ impl InnerWebView {
     let wv = Rc::clone(&webview);
     let w = window_rc.clone();
     manager.register_script_message_handler(&id);
-    manager.connect_script_message_received(move |m2, msg| {
+    manager.connect_script_message_received(move |_, msg| {
       if let (Some(js), Some(context)) = (msg.get_value(), msg.get_global_context()) {
         if let Some(js) = js.to_string(&context) {
           if let Some(rpc_handler) = rpc_handler.as_ref() {
@@ -95,6 +92,11 @@ impl InnerWebView {
           }
         }
       }
+    });
+
+    let close_window = window_rc.clone();
+    webview.connect_close(move |_| {
+      close_window.gtk_window().close();
     });
 
     webview.connect_button_press_event(|webview, event| {
