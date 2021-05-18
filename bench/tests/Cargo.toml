@@ -15,3 +15,7 @@ path = "src/hello_world.rs"
 [[bin]]
 name = "bench_cpu_intensive"
 path = "src/cpu_intensive.rs"
+
+[[bin]]
+name = "bench_custom_protocol"
+path = "src/custom_protocol.rs"
