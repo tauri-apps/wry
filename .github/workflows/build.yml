@@ -63,6 +63,7 @@ jobs:
           cargo run --manifest-path ./bench/tools/Cargo.toml --bin build_benchmark_jsons
           cd gh-pages
           git config user.name "tauri-bot"
+          git config user.email "tauri-bot@tauri.studio"
           git add .
           git commit --message "Update benchmarks"
           git push origin gh-pages
