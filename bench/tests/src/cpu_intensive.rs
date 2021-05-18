@@ -2,13 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use serde::{Deserialize, Serialize};
 use std::process::exit;
-
-#[derive(Debug, Serialize, Deserialize)]
-struct MessageParameters {
-  message: String,
-}
 
 fn main() -> wry::Result<()> {
   use wry::{
