@@ -1,3 +1,7 @@
+// Copyright 2019-2021 Tauri Programme within The Commons Conservancy
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
+
 use anyhow::Result;
 use serde::Serialize;
 use serde_json::Value;
@@ -23,7 +27,7 @@ fn write_json(filename: &str, value: &Value) -> Result<()> {
 
 /// The list of the examples of the benchmark name, arguments and return code
 const EXEC_TIME_BENCHMARKS: &[(&str, &str, Option<i32>)] =
-  &[("hello_world", "target/release/bench_helloworld", None)];
+  &[("hello_world", "target/release/bench_hello_world", None)];
 
 fn run_strace_benchmarks(new_data: &mut BenchResult) -> Result<()> {
   use std::io::Read;
