@@ -2,6 +2,7 @@
 members = [
   ".",
   "bench/tests",
+  "bench/tools",
 ]
 
 [package]
