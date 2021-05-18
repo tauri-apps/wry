@@ -6,7 +6,7 @@ use anyhow::Result;
 use serde::Serialize;
 use serde_json::Value;
 use std::{
-  collections::HashMap,
+  collections::{HashMap, HashSet},
   env, fs,
   path::Path,
   process::{Command, Stdio},
@@ -137,19 +137,50 @@ fn get_binary_sizes(target_dir: &Path) -> Result<HashMap<String, u64>> {
   Ok(sizes)
 }
 
-fn cargo_deps() -> usize {
-  let cargo_lock = utils::root_path().join("Cargo.lock");
-  let mut count = 0;
-  let file = std::fs::File::open(cargo_lock).unwrap();
-  use std::io::BufRead;
-  for line in std::io::BufReader::new(file).lines() {
-    if line.unwrap().starts_with("[[package]]") {
-      count += 1
+/// (target OS, target triple)
+const TARGETS: &[(&str, &[&str])] = &[
+  (
+    "Windows",
+    &[
+      "x86_64-pc-windows-gnu",
+      "i686-pc-windows-gnu",
+      "i686-pc-windows-msvc",
+      "x86_64-pc-windows-msvc",
+    ],
+  ),
+  (
+    "Linux",
+    &[
+      "x86_64-unknown-linux-gnu",
+      "i686-unknown-linux-gnu",
+      "aarch64-unknown-linux-gnu",
+    ],
+  ),
+  ("macOS", &["x86_64-apple-darwin", "aarch64-apple-darwin"]),
+];
+
+fn cargo_deps() -> HashMap<&'static str, usize> {
+  let mut results = HashMap::new();
+  for (os, targets) in TARGETS {
+    for target in *targets {
+      let mut cmd = Command::new("cargo");
+      cmd.arg("tree");
+      cmd.arg("--no-dedupe");
+      cmd.args(&["--edges", "normal"]);
+      cmd.args(&["--prefix", "none"]);
+      cmd.args(&["--target", target]);
+
+      let full_deps = cmd.output().expect("failed to run cargo tree").stdout;
+      let full_deps = String::from_utf8(full_deps).expect("cargo tree output not utf-8");
+      let count = full_deps.lines().collect::<HashSet<_>>().len() - 1; // output includes wry itself
+
+      // set the count to the highest count seen for this OS
+      let existing = results.entry(*os).or_default();
+      *existing = count.max(*existing);
+      assert!(count > 10); // sanity check
     }
   }
-  println!("cargo_deps {}", count);
-  assert!(count > 10); // Sanity check.
-  count
+  results
 }
 
 const RESULT_KEYS: &[&str] = &["mean", "stddev", "user", "system", "min", "max"];
@@ -216,7 +247,7 @@ struct BenchResult {
   max_memory: HashMap<String, u64>,
   thread_count: HashMap<String, u64>,
   syscall_count: HashMap<String, u64>,
-  cargo_deps: usize,
+  cargo_deps: HashMap<&'static str, usize>,
 }
 
 fn main() -> Result<()> {
