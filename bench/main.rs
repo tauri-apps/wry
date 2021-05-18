@@ -210,7 +210,6 @@ fn run_exec_time(target_dir: &Path) -> Result<HashMap<String, HashMap<String, f6
 struct BenchResult {
   created_at: String,
   sha1: String,
-
   exec_time: HashMap<String, HashMap<String, f64>>,
   binary_size: HashMap<String, u64>,
   max_memory: HashMap<String, u64>,
