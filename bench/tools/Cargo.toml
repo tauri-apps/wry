@@ -1,7 +1,7 @@
 [package]
 name = "bench_tools"
 version = "0.1.0"
-description = "Bench tools for WRY"
+description = "Bench tools for wry"
 edition = "2018"
 
 [dependencies]
