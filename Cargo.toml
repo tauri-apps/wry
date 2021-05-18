@@ -41,7 +41,7 @@ thiserror = "1.0"
 url = "2.2"
 image = "0.23"
 infer = "0.4"
-tao = { version = "0.2", default-features = false, features = [ "serde" ] }
+tao = { version = "0.2.6", default-features = false, features = [ "serde" ] }
 
 [target."cfg(target_os = \"linux\")".dependencies]
 webkit2gtk = { version = "0.11", features = [ "v2_10" ] }
