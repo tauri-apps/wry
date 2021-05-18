@@ -29,7 +29,7 @@ fn main() -> wry::Result<()> {
       rpc.call('dom-loaded')
     })
     </script>
-    "#;
+  "#;
 
   let handler = |_window: &Window, req: RpcRequest| {
     if &req.method == "dom-loaded" {
