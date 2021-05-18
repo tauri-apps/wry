@@ -173,13 +173,7 @@ fn run_exec_time(target_dir: &Path) -> Result<HashMap<String, HashMap<String, f6
     );
   }
 
-  utils::run(
-    &command.iter().map(|s| s.as_ref()).collect::<Vec<_>>(),
-    None,
-    None,
-    None,
-    true,
-  );
+  utils::run(&command.iter().map(|s| s.as_ref()).collect::<Vec<_>>());
 
   let mut results = HashMap::<String, HashMap<String, f64>>::new();
   let hyperfine_results = read_json(benchmark_file)?;
@@ -231,7 +225,7 @@ fn main() -> Result<()> {
 
   let mut new_data = BenchResult {
     created_at: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-    sha1: utils::run_collect(&["git", "rev-parse", "HEAD"], None, None, None, true)
+    sha1: utils::run_collect(&["git", "rev-parse", "HEAD"])
       .0
       .trim()
       .to_string(),

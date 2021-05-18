@@ -5,7 +5,6 @@
 use serde::Serialize;
 use std::{
   collections::HashMap,
-  io::Write,
   path::PathBuf,
   process::{Command, Output, Stdio},
 };
@@ -20,32 +19,14 @@ pub fn root_path() -> PathBuf {
   PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-pub fn run_collect(
-  cmd: &[&str],
-  input: Option<&[&str]>,
-  envs: Option<Vec<(String, String)>>,
-  current_dir: Option<&str>,
-  expect_success: bool,
-) -> (String, String) {
+pub fn run_collect(cmd: &[&str]) -> (String, String) {
   let mut process_builder = Command::new(cmd[0]);
   process_builder
     .args(&cmd[1..])
     .stdin(Stdio::piped())
     .stdout(Stdio::piped())
     .stderr(Stdio::piped());
-  if let Some(dir) = current_dir {
-    process_builder.current_dir(dir);
-  }
-  if let Some(envs) = envs {
-    process_builder.envs(envs);
-  }
-  let mut prog = process_builder.spawn().expect("failed to spawn script");
-  if let Some(lines) = input {
-    let stdin = prog.stdin.as_mut().expect("failed to get stdin");
-    stdin
-      .write_all(lines.join("\n").as_bytes())
-      .expect("failed to write to stdin");
-  }
+  let prog = process_builder.spawn().expect("failed to spawn script");
   let Output {
     stdout,
     stderr,
@@ -53,7 +34,7 @@ pub fn run_collect(
   } = prog.wait_with_output().expect("failed to wait on child");
   let stdout = String::from_utf8(stdout).unwrap();
   let stderr = String::from_utf8(stderr).unwrap();
-  if expect_success != status.success() {
+  if !status.success() {
     eprintln!("stdout: <<<{}>>>", stdout);
     eprintln!("stderr: <<<{}>>>", stderr);
     panic!("Unexpected exit code: {:?}", status.code());
@@ -140,31 +121,12 @@ pub fn parse_strace_output(output: &str) -> HashMap<String, StraceOutput> {
   summary
 }
 
-pub fn run(
-  cmd: &[&str],
-  input: Option<&[&str]>,
-  envs: Option<Vec<(String, String)>>,
-  current_dir: Option<&str>,
-  expect_success: bool,
-) {
+pub fn run(cmd: &[&str]) {
   let mut process_builder = Command::new(cmd[0]);
   process_builder.args(&cmd[1..]).stdin(Stdio::piped());
-
-  if let Some(dir) = current_dir {
-    process_builder.current_dir(dir);
-  }
-  if let Some(envs) = envs {
-    process_builder.envs(envs);
-  }
   let mut prog = process_builder.spawn().expect("failed to spawn script");
-  if let Some(lines) = input {
-    let stdin = prog.stdin.as_mut().expect("failed to get stdin");
-    stdin
-      .write_all(lines.join("\n").as_bytes())
-      .expect("failed to write to stdin");
-  }
   let status = prog.wait().expect("failed to wait on child");
-  if expect_success != status.success() {
+  if !status.success() {
     panic!("Unexpected exit code: {:?}", status.code());
   }
 }
