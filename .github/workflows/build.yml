@@ -61,12 +61,19 @@ jobs:
           cargo build --release --manifest-path bench/tests/Cargo.toml
           xvfb-run --auto-servernum cargo bench
 
+      - name: clone current benchmarks
+        uses: actions/checkout@v2
+        if: matrix.platform.kind == 'bench'
+        with:
+          token: ${{ secrets.ORG_TAURI_BOT }}
+          path: gh-pages
+          repository: tauri-apps/benchmark_results
+
       - name: post benchmarks
         if: matrix.platform.kind == 'bench'
         env:
           ORG_TAURI_BOT: ${{ secrets.ORG_TAURI_BOT }}
         run: |
-          git clone --depth 1 -b gh-pages https://tauri-bot:${ORG_TAURI_BOT}@github.com/tauri-apps/benchmark_results.git gh-pages
           cargo run --manifest-path ./bench/tools/Cargo.toml --bin build_benchmark_jsons
           cd gh-pages
           git config user.name "tauri-bot"
