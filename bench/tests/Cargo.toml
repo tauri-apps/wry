@@ -11,3 +11,7 @@ serde = { version = "1.0", features = [ "derive" ] }
 [[bin]]
 name = "bench_hello_world"
 path = "src/hello_world.rs"
+
+[[bin]]
+name = "bench_cpu_intensive"
+path = "src/cpu_intensive.rs"
