@@ -38,6 +38,7 @@ impl InnerWebView {
     window: Rc<Window>,
     scripts: Vec<String>,
     url: Option<Url>,
+    user_agent: Option<String>,
     transparent: bool,
     custom_protocols: Vec<(
       String,

@@ -88,6 +88,7 @@ pub struct WebViewBuilder {
   initialization_scripts: Vec<String>,
   window: Window,
   url: Option<Url>,
+  user_agent: Option<String>,
   custom_protocols: Vec<(String, Box<dyn Fn(&Window, &str) -> Result<Vec<u8>>>)>,
   rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
   file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
@@ -105,6 +106,7 @@ impl WebViewBuilder {
       initialization_scripts: vec![],
       window,
       url: None,
+      user_agent: None,
       transparent: false,
       custom_protocols: vec![],
       rpc_handler: None,
@@ -244,6 +246,12 @@ impl WebViewBuilder {
     Ok(self)
   }
 
+  /// Set the user agent to use used by the created [`WebView`].
+  pub fn with_user_agent(mut self, url: &str) -> Self {
+    self.user_agent = Some(url.to_string());
+    self
+  }
+
   /// Consume the builder and create the [`WebView`].
   ///
   /// Platform-specific behavior:
@@ -258,6 +266,7 @@ impl WebViewBuilder {
       window.clone(),
       self.initialization_scripts,
       self.url,
+      self.user_agent,
       self.transparent,
       self.custom_protocols,
       self.rpc_handler,

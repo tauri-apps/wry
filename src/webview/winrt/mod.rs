@@ -54,6 +54,7 @@ impl InnerWebView {
     window: Rc<Window>,
     scripts: Vec<String>,
     url: Option<Url>,
+    user_agent: Option<String>,
     // TODO default background color option just adds to webview2 recently and it requires
     // canary build. Implement this once it's in official release.
     #[allow(unused_variables)] transparent: bool,
