@@ -140,8 +140,6 @@ pub enum Error {
   UrlError(#[from] ParseError),
   #[error("IO error: {0}")]
   Io(#[from] std::io::Error),
-  #[error("image error: {0}")]
-  Image(#[from] image::ImageError),
   #[cfg(not(target_os = "linux"))]
   #[error("Icon error: {0}")]
   Icon(#[from] BadIcon),
