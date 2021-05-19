@@ -29,12 +29,12 @@ fn write_json(filename: &str, value: &Value) -> Result<()> {
 const EXEC_TIME_BENCHMARKS: &[(&str, &str, Option<i32>)] = &[
   ("hello_world", "target/release/bench_hello_world", None),
   (
-    "custom_protocol",
+    "wry_custom_protocol",
     "target/release/bench_custom_protocol",
     None,
   ),
   (
-    "cpu_intensive",
+    "wry_cpu_intensive",
     "target/release/bench_cpu_intensive",
     None,
   ),
