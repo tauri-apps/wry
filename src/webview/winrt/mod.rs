@@ -199,6 +199,11 @@ impl InnerWebView {
       Ok(())
     }))?;
 
+    // Set user agent
+    if let Some(user_agent) = user_agent {
+      w.Settings()?.SetUserAgent(user_agent)?;
+    }
+    
     // Navigation
     if let Some(url) = url {
       if url.cannot_be_a_base() {

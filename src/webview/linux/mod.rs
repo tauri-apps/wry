@@ -202,6 +202,11 @@ impl InnerWebView {
       });
     }
 
+    // Set user agent
+    if let Some(user_agent) = user_agent {
+      w.webview.set_property(&self, "user-agent", user_agent)
+    }
+
     // Navigation
     if let Some(url) = url {
       w.webview.load_uri(url.as_str());
