@@ -471,6 +471,13 @@ impl InnerWebView {
       }
     }
 
+    // Set user agent
+    if let Some(user_agent) = attributes.user_agent {
+      unsafe {
+        webview.Settings()?.SetUserAgent(String::from(user_agent.as_str()));
+      }
+    }
+
     // Navigation
     if let Some(url) = attributes.url {
       if url.cannot_be_a_base() {
