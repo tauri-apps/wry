@@ -26,10 +26,17 @@ impl Application {
       inner: ApplicationInner::new(data_directory),
     }
   }
+
+  pub fn is_automated(&self) -> bool {
+    self.inner.is_automated()
+  }
 }
 
 #[cfg(target_os = "linux")]
 use self::gtk::ApplicationInner;
+
+#[cfg(target_os = "windows")]
+use self::windows::ApplicationInner;
 
 #[cfg(target_os = "linux")]
 pub(crate) mod gtk {
@@ -73,20 +80,56 @@ pub(crate) mod gtk {
         automation,
       }
     }
+
+    pub fn is_automated(&self) -> bool {
+      self.automation
+    }
   }
 
   pub trait ApplicationGtkExt {
     fn context(&self) -> &WebContext;
-    fn is_automated(&self) -> bool;
   }
 
   impl ApplicationGtkExt for super::Application {
     fn context(&self) -> &WebContext {
       &self.inner.context
     }
+  }
+}
 
-    fn is_automated(&self) -> bool {
-      self.inner.automation
+#[cfg(target_os = "windows")]
+pub(crate) mod windows {
+  use std::{
+    env::var,
+    path::{Path, PathBuf},
+  };
+
+  pub struct ApplicationInner {
+    data_directory: Option<PathBuf>,
+    automation: bool,
+  }
+
+  impl ApplicationInner {
+    pub fn new(data_directory: Option<PathBuf>) -> Self {
+      let automation = var("TAURI_AUTOMATION_MODE").as_deref() == Ok("TRUE");
+      Self {
+        data_directory,
+        automation,
+      }
+    }
+
+    pub fn is_automated(&self) -> bool {
+      self.automation
+    }
+  }
+
+  pub trait ApplicationWinExt {
+    fn data_directory(&self) -> Option<&Path>;
+  }
+
+  impl ApplicationWinExt for super::Application {
+    fn data_directory(&self) -> Option<&Path> {
+      self.inner.data_directory.as_deref()
     }
   }
 }

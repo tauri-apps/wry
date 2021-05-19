@@ -13,7 +13,6 @@ use webkit2gtk::{
   ApplicationInfo, AutomationSessionExt, SecurityManagerExt, SettingsExt, URISchemeRequestExt,
   UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
   UserScriptInjectionTime, WebContextExt, WebView, WebViewBuilder, WebViewExt,
-
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -94,6 +93,7 @@ impl InnerWebView {
       }
     });
 
+    // todo: is this leaking memory when having programs longer than window close?
     let close_window = window_rc.clone();
     webview.connect_close(move |_| {
       close_window.gtk_window().close();
