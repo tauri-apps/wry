@@ -27,7 +27,7 @@ fn write_json(filename: &str, value: &Value) -> Result<()> {
 
 /// The list of the examples of the benchmark name, arguments and return code
 const EXEC_TIME_BENCHMARKS: &[(&str, &str, Option<i32>)] = &[
-  ("hello_world", "target/release/bench_hello_world", None),
+  ("wry_hello_world", "target/release/bench_hello_world", None),
   (
     "wry_custom_protocol",
     "target/release/bench_custom_protocol",
