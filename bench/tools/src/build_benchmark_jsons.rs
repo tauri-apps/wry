@@ -65,6 +65,7 @@ fn main() {
     recent = all_data.clone();
   }
 
+  // write json's
   write_json(
     &wry_data,
     &serde_json::to_value(&all_data).expect("Unable to build final json (alls)"),
