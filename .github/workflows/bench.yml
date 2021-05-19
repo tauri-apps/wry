@@ -1,9 +1,9 @@
-name: test
+name: benches
 
 on: [push, pull_request]
 
 jobs:
-  test:
+  bench:
     strategy:
       fail-fast: false
       matrix:
