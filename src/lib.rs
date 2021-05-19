@@ -62,9 +62,6 @@
 //! `sourceview` package.
 //! - `win32`: Enables purely Win32 APIs to build the WebView on **Windows**. This makes backward
 //! compatibility down to Windows 7 possible.
-//! - `winrt`: Enables up-to-date Windows Runtime support to build the WebView on **Windows**. WinRT
-//! is actively supported by Microsoft, so it's more efficient and less likely encoutered unexpected
-//! bugs.
 //! - `dox`: Enables this in `package.metadata.docs.rs` section to skip linking some **Linux**
 //! libraries and prevent from building documentation on doc.rs fails.
 //!

@@ -28,7 +28,9 @@ protocol = [ ]
 dox = [ "tao/dox" ]
 menu = [ "tao/menu" ]
 tray = [ "tao/tray" ]
-winrt = [ "windows-webview2", "windows" ]
+# There are lots of things need to be updated on winrt backends
+# See https://github.com/tauri-apps/wry/issues/247 for more information
+# winrt = [ "windows-webview2", "windows" ]
 win32 = [ "webview2", "winapi", "webview2-sys" ]
 
 [dependencies]
