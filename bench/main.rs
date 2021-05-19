@@ -33,6 +33,11 @@ const EXEC_TIME_BENCHMARKS: &[(&str, &str, Option<i32>)] = &[
     "target/release/bench_custom_protocol",
     None,
   ),
+  (
+    "cpu_intensive",
+    "target/release/bench_cpu_intensive",
+    None,
+  ),
 ];
 
 fn run_strace_benchmarks(new_data: &mut BenchResult) -> Result<()> {

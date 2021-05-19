@@ -28,9 +28,9 @@ fn main() -> wry::Result<()> {
     .with_custom_protocol("wry.bench".into(), move |_, requested_asset_path| {
       let requested_asset_path = requested_asset_path.replace("wry.bench://", "");
       match requested_asset_path.as_str() {
-        "index.css" => Ok(include_bytes!("static/index.css").to_vec()),
-        "site.js" => Ok(include_bytes!("static/site.js").to_vec()),
-        "worker.js" => Ok(include_bytes!("static/worker.js").to_vec()),
+        "/index.css" => Ok(include_bytes!("static/index.css").to_vec()),
+        "/site.js" => Ok(include_bytes!("static/site.js").to_vec()),
+        "/worker.js" => Ok(include_bytes!("static/worker.js").to_vec()),
         _ => Ok(include_bytes!("static/index.html").to_vec()),
       }
     })
