@@ -111,9 +111,12 @@ impl InnerWebView {
         // Send response
         if let Ok(content) = function.0(&function.1, uri) {
           let mime = MimeType::parse(&content, uri);
-          let nsurlresponse: id = msg_send![class!(NSURLResponse), alloc];
-          let response: id = msg_send![nsurlresponse, initWithURL:url MIMEType:NSString::new(&mime)
-                        expectedContentLength:content.len() textEncodingName:null::<c_void>()];
+          let dictionary: id = msg_send![class!(NSMutableDictionary), alloc];
+          let headers: id = msg_send![dictionary, initWithCapacity:1];
+          let () = msg_send![headers, setObject:NSString::new(&mime) forKey: NSString::new("content-type")];
+          let () = msg_send![headers, setObject:NSString::new(&content.len().to_string()) forKey: NSString::new("content-length")];
+          let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
+          let response: id = msg_send![urlresponse, initWithURL:url statusCode:200 HTTPVersion:NSString::new("HTTP/1.1") headerFields:headers];
           let () = msg_send![task, didReceiveResponse: response];
 
           // Send data
@@ -121,10 +124,13 @@ impl InnerWebView {
           let data: id = msg_send![class!(NSData), alloc];
           let data: id = msg_send![data, initWithBytes:bytes length:content.len()];
           let () = msg_send![task, didReceiveData: data];
-
-          // Finish
-          let () = msg_send![task, didFinish];
+        } else {
+          let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
+          let response: id = msg_send![urlresponse, initWithURL:url statusCode:404 HTTPVersion:NSString::new("HTTP/1.1") headerFields:null::<c_void>()];
+          let () = msg_send![task, didReceiveResponse: response];
         }
+        // Finish
+        let () = msg_send![task, didFinish];
       }
     }
     extern "C" fn stop_task(_: &Object, _: Sel, _webview: id, _task: id) {}
