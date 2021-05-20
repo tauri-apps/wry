@@ -25,7 +25,7 @@ use crate::application::{
   event_loop::{ControlFlow, EventLoop},
   platform::{run_return::EventLoopExtRunReturn, windows::WindowExtWindows},
   window::Window,
-  windows::ApplicationWinExt,
+  windows::ApplicationExt,
   Application,
 };
 

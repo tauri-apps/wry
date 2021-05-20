@@ -80,6 +80,8 @@
 //! [`with_file_drop_handler`]: crate::webview::WebView::with_file_drop_handler
 //! [`with_custom_protocol`]: crate::webview::WebView::with_custom_protocol
 
+#![cfg_attr(doc_cfg, feature(doc_cfg))]
+
 #![allow(clippy::new_without_default)]
 #![allow(clippy::wrong_self_convention)]
 #![allow(clippy::too_many_arguments)]

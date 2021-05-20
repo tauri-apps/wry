@@ -19,7 +19,7 @@ use webkit2gtk_sys::{
 };
 
 use crate::{
-  application::{gtk::ApplicationGtkExt, platform::unix::*, window::Window, Application},
+  application::{unix::ApplicationExt, platform::unix::*, window::Window, Application},
   webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
   Error, Result,
 };
@@ -55,7 +55,7 @@ impl InnerWebView {
     let mut webview = WebViewBuilder::new();
     webview = webview.web_context(context);
     webview = webview.user_content_manager(&manager);
-    webview = webview.is_controlled_by_automation(application.is_automated());
+    webview = webview.is_controlled_by_automation(application.allows_automation());
     let webview = webview.build();
 
     let auto_webview = webview.clone();
