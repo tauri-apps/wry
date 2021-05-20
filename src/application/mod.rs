@@ -40,8 +40,8 @@ use self::macos::ApplicationInner;
 #[cfg_attr(doc_cfg, doc(cfg(target_os = "linux")))]
 pub mod unix {
   //! Unix platform extensions for [`Application`](super::Application).
-  use std::{path::PathBuf};
-  use webkit2gtk::{WebContext, WebContextBuilder,  WebsiteDataManagerBuilder};
+  use std::path::PathBuf;
+  use webkit2gtk::{WebContext, WebContextBuilder, WebsiteDataManagerBuilder};
 
   pub(crate) struct ApplicationInner {
     context: WebContext,

@@ -13,7 +13,7 @@ fn main() -> wry::Result<()> {
       menu::{MenuItem, MenuType},
       platform::system_tray::SystemTrayBuilder,
       window::Window,
-      Application
+      Application,
     },
     webview::WebViewBuilder,
   };

@@ -9,7 +9,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       menu::{Menu, MenuItem, MenuType},
       window::WindowBuilder,
-      Application
+      Application,
     },
     webview::WebViewBuilder,
   };

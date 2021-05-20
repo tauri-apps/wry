@@ -18,7 +18,7 @@ use webkit2gtk_sys::{
 };
 
 use crate::{
-  application::{unix::ApplicationExt, platform::unix::*, window::Window, Application},
+  application::{platform::unix::*, unix::ApplicationExt, window::Window, Application},
   webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
   Error, Result,
 };

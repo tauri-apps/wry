@@ -14,7 +14,7 @@ fn main() -> wry::Result<()> {
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
-      Application
+      Application,
     },
     webview::WebViewBuilder,
   };
