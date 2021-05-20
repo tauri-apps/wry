@@ -38,6 +38,9 @@ use self::gtk::ApplicationInner;
 #[cfg(target_os = "windows")]
 use self::windows::ApplicationInner;
 
+#[cfg(target_os = "macos")]
+use self::macos::ApplicationInner;
+
 #[cfg(target_os = "linux")]
 pub(crate) mod gtk {
   use std::{env::var, path::PathBuf};
@@ -130,6 +133,26 @@ pub(crate) mod windows {
   impl ApplicationWinExt for super::Application {
     fn data_directory(&self) -> Option<&Path> {
       self.inner.data_directory.as_deref()
+    }
+  }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) mod macos {
+  use std::{env::var, path::PathBuf};
+
+  pub struct ApplicationInner {
+    automation: bool,
+  }
+
+  impl ApplicationInner {
+    pub fn new(_data_directory: Option<PathBuf>) -> Self {
+      let automation = var("TAURI_AUTOMATION_MODE").as_deref() == Ok("TRUE");
+      Self { automation }
+    }
+
+    pub fn is_automated(&self) -> bool {
+      self.automation
     }
   }
 }
