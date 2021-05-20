@@ -9,6 +9,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       menu::{Menu, MenuItem, MenuType},
       window::WindowBuilder,
+      Application
     },
     webview::WebViewBuilder,
   };
@@ -84,13 +85,17 @@ fn main() -> wry::Result<()> {
 
   // Build our event loop
   let event_loop = EventLoop::new();
+
+  // Build our application context
+  let application = Application::new(None);
+
   // Build the window
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .with_menu(menu)
     .build(&event_loop)?;
   // Build the webview
-  let webview = WebViewBuilder::new(window)?
+  let webview = WebViewBuilder::new(window, &application)?
     .with_url("https://tauri.studio")?
     .build()?;
   // launch WRY process

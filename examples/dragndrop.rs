@@ -14,13 +14,15 @@ fn main() -> wry::Result<()> {
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
+      Application
     },
     webview::WebViewBuilder,
   };
 
   let event_loop = EventLoop::new();
+  let application = Application::new(None);
   let window = WindowBuilder::new().build(&event_loop).unwrap();
-  let webview = WebViewBuilder::new(window)
+  let webview = WebViewBuilder::new(window, &application)
     .unwrap()
     .with_url(HTML)?
     .with_file_drop_handler(|_, data| {

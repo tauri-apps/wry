@@ -10,6 +10,7 @@ fn main() -> wry::Result<()> {
       event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
+      Application
     },
     webview::WebViewBuilder,
   };
@@ -24,14 +25,14 @@ fn main() -> wry::Result<()> {
   println!("Webview storage path: {:#?}", &test_path);
 
   let event_loop = EventLoop::new();
+  let application = Application::new(Some(test_path));
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)
     .unwrap();
-  let _webview = WebViewBuilder::new(window)
+  let _webview = WebViewBuilder::new(window, &application)
     .unwrap()
     .with_url("https://tauri.studio")?
-    .with_data_directory(test_path)
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

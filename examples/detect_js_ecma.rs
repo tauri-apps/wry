@@ -15,12 +15,12 @@ fn main() -> wry::Result<()> {
   };
 
   let event_loop = EventLoop::new();
+  let application = Application::new(None);
   let window = WindowBuilder::new()
     .with_title("Detect ECMAScript")
     .build(&event_loop)
     .unwrap();
-  let app = Application::new(None);
-  let _webview = WebViewBuilder::new(window, &app)
+  let _webview = WebViewBuilder::new(window, &application)
     .unwrap()
     .with_initialization_script(
     r#"

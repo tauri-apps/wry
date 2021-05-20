@@ -13,12 +13,14 @@ fn main() -> wry::Result<()> {
       menu::{MenuItem, MenuType},
       platform::system_tray::SystemTrayBuilder,
       window::Window,
+      Application
     },
     webview::WebViewBuilder,
   };
 
   // Build our event loop
   let event_loop = EventLoop::new();
+  let application = Application::new(None);
   let mut webviews = HashMap::new();
 
   // Create sample menu item
@@ -61,7 +63,7 @@ fn main() -> wry::Result<()> {
         if menu_id == open_new_window_id {
           let window = Window::new(&event_loop).unwrap();
           let id = window.id();
-          let webview = WebViewBuilder::new(window)
+          let webview = WebViewBuilder::new(window, &application)
             .unwrap()
             .with_url("https://tauri.studio")
             .unwrap()
