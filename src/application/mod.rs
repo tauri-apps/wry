@@ -16,6 +16,7 @@ pub use tao::*;
 /// Think of this like a browser session. Incognito mode would be a single context even though
 /// it has multiple tab/windows.
 pub struct Application {
+  #[allow(dead_code)]
   inner: ApplicationInner,
 }
 
