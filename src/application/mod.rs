@@ -121,9 +121,7 @@ pub(crate) mod windows {
 
   impl ApplicationInner {
     pub fn new(data_directory: Option<PathBuf>) -> Self {
-      Self {
-        data_directory,
-      }
+      Self { data_directory }
     }
   }
 
