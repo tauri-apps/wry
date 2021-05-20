@@ -26,18 +26,13 @@ fn write_json(filename: &str, value: &Value) -> Result<()> {
 }
 
 /// The list of the examples of the benchmark name, arguments and return code
-const EXEC_TIME_BENCHMARKS: &[(&str, &str, Option<i32>)] = &[
-  ("wry_hello_world", "target/release/bench_hello_world", None),
+const EXEC_TIME_BENCHMARKS: &[(&str, &str)] = &[
+  ("wry_hello_world", "target/release/bench_hello_world"),
   (
     "wry_custom_protocol",
     "target/release/bench_custom_protocol",
-    None,
   ),
-  (
-    "wry_cpu_intensive",
-    "target/release/bench_cpu_intensive",
-    None,
-  ),
+  ("wry_cpu_intensive", "target/release/bench_cpu_intensive"),
 ];
 
 fn run_strace_benchmarks(new_data: &mut BenchResult) -> Result<()> {
@@ -46,7 +41,7 @@ fn run_strace_benchmarks(new_data: &mut BenchResult) -> Result<()> {
   let mut thread_count = HashMap::<String, u64>::new();
   let mut syscall_count = HashMap::<String, u64>::new();
 
-  for (name, example_exe, _) in EXEC_TIME_BENCHMARKS {
+  for (name, example_exe) in EXEC_TIME_BENCHMARKS {
     let mut file = tempfile::NamedTempFile::new()?;
 
     Command::new("strace")
@@ -80,7 +75,7 @@ fn run_strace_benchmarks(new_data: &mut BenchResult) -> Result<()> {
 fn run_max_mem_benchmark() -> Result<HashMap<String, u64>> {
   let mut results = HashMap::<String, u64>::new();
 
-  for (name, example_exe, return_code) in EXEC_TIME_BENCHMARKS {
+  for (name, example_exe) in EXEC_TIME_BENCHMARKS {
     let proc = Command::new("time")
       .args(&["-v", utils::root_path().join(example_exe).to_str().unwrap()])
       .stdout(Stdio::null())
@@ -88,9 +83,12 @@ fn run_max_mem_benchmark() -> Result<HashMap<String, u64>> {
       .spawn()?;
 
     let proc_result = proc.wait_with_output()?;
+    /*
+    Validate process result code
     if let Some(code) = return_code {
       assert_eq!(proc_result.status.code().unwrap(), *code);
     }
+    */
     let out = String::from_utf8(proc_result.stderr)?;
 
     results.insert(name.to_string(), utils::parse_max_mem(&out).unwrap());
@@ -134,7 +132,7 @@ fn get_binary_sizes(target_dir: &Path) -> Result<HashMap<String, u64>> {
   sizes.insert("tao_rlib".to_string(), tao_size);
 
   // add size for all EXEC_TIME_BENCHMARKS
-  for (name, example_exe, _) in EXEC_TIME_BENCHMARKS {
+  for (name, example_exe) in EXEC_TIME_BENCHMARKS {
     let meta = std::fs::metadata(example_exe).unwrap();
     sizes.insert(name.to_string(), meta.len());
   }
@@ -205,7 +203,7 @@ fn run_exec_time(target_dir: &Path) -> Result<HashMap<String, HashMap<String, f6
   .map(|s| s.to_string())
   .collect::<Vec<_>>();
 
-  for (_, example_exe, _return_code) in EXEC_TIME_BENCHMARKS {
+  for (_, example_exe) in EXEC_TIME_BENCHMARKS {
     command.push(
       utils::root_path()
         .join(example_exe)
@@ -219,7 +217,7 @@ fn run_exec_time(target_dir: &Path) -> Result<HashMap<String, HashMap<String, f6
 
   let mut results = HashMap::<String, HashMap<String, f64>>::new();
   let hyperfine_results = read_json(benchmark_file)?;
-  for ((name, _, _), data) in EXEC_TIME_BENCHMARKS.iter().zip(
+  for ((name, _), data) in EXEC_TIME_BENCHMARKS.iter().zip(
     hyperfine_results
       .as_object()
       .unwrap()

@@ -1,6 +1,10 @@
 name: benches
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
 
 jobs:
   bench:
@@ -39,9 +43,6 @@ jobs:
           xvfb-run --auto-servernum cargo bench
 
       - name: clone current benchmarks
-        if: |
-          github.repository == 'tauri-apps/wry' &&
-          (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/feat/benches')
         uses: actions/checkout@v2
         with:
           token: ${{ secrets.BENCH_PAT }}
@@ -49,9 +50,6 @@ jobs:
           repository: tauri-apps/benchmark_results
 
       - name: post benchmarks
-        if: |
-          github.repository == 'tauri-apps/wry' &&
-          (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/feat/benches')
         run: |
           cargo run --manifest-path ./bench/tools/Cargo.toml --bin build_benchmark_jsons
           cd gh-pages
