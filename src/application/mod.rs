@@ -122,7 +122,6 @@ pub(crate) mod windows {
     pub fn new(data_directory: Option<PathBuf>) -> Self {
       Self {
         data_directory,
-        automation,
       }
     }
   }
@@ -142,16 +141,13 @@ pub(crate) mod windows {
 #[cfg(target_os = "macos")]
 #[cfg_attr(doc_cfg, doc(cfg(target_os = "macos")))]
 pub(crate) mod macos {
-  use std::{env::var, path::PathBuf};
+  use std::path::PathBuf;
 
-  pub struct ApplicationInner {
-    automation: bool,
-  }
+  pub struct ApplicationInner;
 
   impl ApplicationInner {
     pub fn new(_data_directory: Option<PathBuf>) -> Self {
-      let automation = var("TAURI_AUTOMATION_MODE").as_deref() == Ok("TRUE");
-      Self { automation }
+      Self
     }
   }
 }
