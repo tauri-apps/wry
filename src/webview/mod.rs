@@ -342,7 +342,6 @@ impl WebView {
   }
 
   /// Launch print modal for the webview content.
-  /// Works only on macOS for now.
   pub fn print(&self) -> Result<()> {
     self.webview.print();
     Ok(())

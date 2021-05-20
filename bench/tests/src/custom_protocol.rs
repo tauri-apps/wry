@@ -1,0 +1,71 @@
+// Copyright 2019-2021 Tauri Programme within The Commons Conservancy
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
+
+use serde::{Deserialize, Serialize};
+use std::process::exit;
+
+#[derive(Debug, Serialize, Deserialize)]
+struct MessageParameters {
+  message: String,
+}
+
+fn main() -> wry::Result<()> {
+  use wry::{
+    application::{
+      event::{Event, WindowEvent},
+      event_loop::{ControlFlow, EventLoop},
+      window::{Window, WindowBuilder},
+    },
+    webview::{RpcRequest, WebViewBuilder},
+  };
+
+  let event_loop = EventLoop::new();
+  let window = WindowBuilder::new().build(&event_loop).unwrap();
+
+  let handler = |_window: &Window, req: RpcRequest| {
+    if &req.method == "dom-loaded" {
+      exit(0);
+    }
+    None
+  };
+  let webview = WebViewBuilder::new(window)
+    .unwrap()
+    .with_rpc_handler(handler)
+    .with_custom_protocol("wry.bench".into(), move |_, _| {
+      let index_html = r#"
+      <!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="UTF-8" />
+          <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        </head>
+        <body>
+          <h1>Welcome to WRY!</h1>
+          <script>
+            document.addEventListener('DOMContentLoaded', () => {
+              rpc.call('dom-loaded')
+            })
+          </script>
+        </body>
+      </html>"#;
+      Ok(index_html.into())
+    })
+    .with_url("wry.bench://")?
+    .build()?;
+
+  event_loop.run(move |event, _, control_flow| {
+    *control_flow = ControlFlow::Wait;
+
+    match event {
+      Event::WindowEvent {
+        event: WindowEvent::CloseRequested,
+        ..
+      } => *control_flow = ControlFlow::Exit,
+      _ => {
+        let _ = webview.resize();
+      }
+    }
+  });
+}

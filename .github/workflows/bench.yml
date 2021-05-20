@@ -1,0 +1,61 @@
+name: benches
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+jobs:
+  bench:
+    strategy:
+      fail-fast: false
+      matrix:
+        rust_version: [stable]
+        platform:
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
+
+    runs-on: ${{ matrix.platform.os }}
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: install stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.platform.target }}
+
+      - name: install depedencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y webkit2gtk-4.0 libgtksourceview-3.0-dev libappindicator3-dev xvfb
+          wget https://github.com/sharkdp/hyperfine/releases/download/v1.11.0/hyperfine_1.11.0_amd64.deb
+          sudo dpkg -i hyperfine_1.11.0_amd64.deb
+
+      - name: run benchmarks
+        run: |
+          cargo build --release --manifest-path bench/tests/Cargo.toml
+          xvfb-run --auto-servernum cargo bench
+
+      - name: clone benchmarks_results
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.BENCH_PAT }}
+          path: gh-pages
+          repository: tauri-apps/benchmark_results
+
+      - name: push new benchmarks
+        run: |
+          cargo run --manifest-path ./bench/tools/Cargo.toml --bin build_benchmark_jsons
+          cd gh-pages
+          git pull
+          git config user.name "tauri-bench"
+          git config user.email "gh.tauribot@gmail.com"
+          git add .
+          git commit --message "Update WRY benchmarks"
+          git push origin gh-pages
+
+      - name: worker info
+        run: |
+          cat /proc/cpuinfo
+          cat /proc/meminfo
