@@ -25,7 +25,7 @@ fn write_json(filename: &str, value: &Value) -> Result<()> {
   Ok(())
 }
 
-/// The list of the examples of the benchmark name, arguments and return code
+/// The list of the examples of the benchmark name and binary relative path
 const EXEC_TIME_BENCHMARKS: &[(&str, &str)] = &[
   ("wry_hello_world", "target/release/bench_hello_world"),
   (
