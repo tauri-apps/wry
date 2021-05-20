@@ -8,7 +8,6 @@ use glib::{signal::Inhibit, Bytes, Cast, FileError};
 use gtk::{BoxExt, ContainerExt, GtkWindowExt, WidgetExt};
 use std::rc::Rc;
 use url::Url;
-use uuid::Uuid;
 use webkit2gtk::{
   ApplicationInfo, AutomationSessionExt, SecurityManagerExt, SettingsExt, URISchemeRequestExt,
   UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
@@ -44,7 +43,6 @@ impl InnerWebView {
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
   ) -> Result<Self> {
-    let id = Uuid::new_v4().to_string();
     let window_rc = Rc::clone(&window);
     let window = &window.gtk_window();
 
@@ -72,8 +70,8 @@ impl InnerWebView {
     let webview = Rc::new(webview);
     let wv = Rc::clone(&webview);
     let w = window_rc.clone();
-    manager.register_script_message_handler(&id);
-    manager.connect_script_message_received(move |_, msg| {
+    manager.register_script_message_handler("external");
+    manager.connect_script_message_received(move |_m, msg| {
       if let (Some(js), Some(context)) = (msg.get_value(), msg.get_global_context()) {
         if let Some(js) = js.to_string(&context) {
           if let Some(rpc_handler) = rpc_handler.as_ref() {
@@ -165,13 +163,8 @@ impl InnerWebView {
 
     let w = Self { webview };
 
-    let mut init = String::with_capacity(67 + 36 + 20);
-    init.push_str("window.external={invoke:function(x){window.webkit.messageHandlers[\"");
-    init.push_str(&id);
-    init.push_str("\"].postMessage(x);}}");
-
     // Initialize scripts
-    w.init(&init)?;
+    w.init("window.external={invoke:function(x){window.webkit.messageHandlers.external.postMessage(x);}}")?;
     for js in scripts {
       w.init(&js)?;
     }

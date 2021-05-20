@@ -49,7 +49,6 @@ thiserror = "1.0"
 url = "2.2"
 infer = "0.4"
 tao = { version = "0.2.6", default-features = false, features = [ "serde" ] }
-uuid = { version = "0.8.2", features = [ "v4" ] }
 
 [dev-dependencies]
 anyhow = "1.0.40"
