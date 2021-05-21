@@ -1,4 +1,4 @@
 target
-Cargo.lock
+/Cargo.lock
 gh-pages
 .DS_Store

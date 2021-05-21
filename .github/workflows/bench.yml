@@ -34,10 +34,10 @@ jobs:
           wget https://github.com/sharkdp/hyperfine/releases/download/v1.11.0/hyperfine_1.11.0_amd64.deb
           sudo dpkg -i hyperfine_1.11.0_amd64.deb
 
-      - name: Get current date
+      - name: get current date
         run: echo "CURRENT_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
-      - name: Cache cargo registry
+      - name: cache cargo registry
         uses: actions/cache@v2.1.4
         with:
           path: ~/.cargo/registry
@@ -48,7 +48,7 @@ jobs:
             ${{ matrix.platform }}-stable-cargo-registry-${{ hashFiles('Cargo.toml') }}
             ${{ matrix.platform }}-stable-cargo-registry-
 
-      - name: Cache cargo index
+      - name: cache cargo index
         uses: actions/cache@v2.1.4
         with:
           path: ~/.cargo/git
@@ -59,7 +59,7 @@ jobs:
             ${{ matrix.platform }}-stable-cargo-index-${{ hashFiles('Cargo.toml') }}
             ${{ matrix.platform }}-stable-cargo-index-
 
-      - name: Cache cargo target
+      - name: cache cargo target
         uses: actions/cache@v2
         with:
           path: target
@@ -69,6 +69,17 @@ jobs:
           restore-keys: |
             ${{ matrix.platform }}-stable-cargo-core-${{ hashFiles('Cargo.toml') }}
             ${{ matrix.platform }}-stable-cargo-core-
+
+      - name: cache cargo `bench/tests` target
+        uses: actions/cache@v2
+        with:
+          path: bench/tests/target
+          # Add date to the cache to keep it up to date
+          key: ubuntu-latest-nightly-cargo-benches-${{ hashFiles('bench/tests/Cargo.lock') }}-${{ env.CURRENT_DATE }}
+          # Restore from outdated cache for speed
+          restore-keys: |
+            ${{ matrix.platform }}-stable-cargo-benches-${{ hashFiles('bench/tests/Cargo.lock') }}
+            ${{ matrix.platform }}-stable-cargo-benches-
 
       - name: run benchmarks
         run: |
