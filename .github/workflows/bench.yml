@@ -22,7 +22,9 @@ jobs:
       - name: install stable
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
+          override: true
+          components: rust-src
           target: ${{ matrix.platform.target }}
 
       - name: install depedencies
@@ -34,8 +36,8 @@ jobs:
 
       - name: run benchmarks
         run: |
-          cargo build --release --manifest-path bench/tests/Cargo.toml
-          xvfb-run --auto-servernum cargo bench
+          cargo +nightly build --release -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --target ${{ matrix.platform.target }} --manifest-path bench/tests/Cargo.toml
+          xvfb-run --auto-servernum cargo run --manifest-path ./bench/Cargo.toml --bin run_benchmark
 
       - name: clone benchmarks_results
         uses: actions/checkout@v2
@@ -46,7 +48,7 @@ jobs:
 
       - name: push new benchmarks
         run: |
-          cargo run --manifest-path ./bench/tools/Cargo.toml --bin build_benchmark_jsons
+          cargo run --manifest-path ./bench/Cargo.toml --bin build_benchmark_jsons
           cd gh-pages
           git pull
           git config user.name "tauri-bench"
