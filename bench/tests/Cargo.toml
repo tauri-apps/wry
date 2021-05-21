@@ -1,3 +1,5 @@
+workspace = {}
+
 [package]
 name = "hello_world"
 version = "0.1.0"
@@ -19,3 +21,10 @@ path = "src/cpu_intensive.rs"
 [[bin]]
 name = "bench_custom_protocol"
 path = "src/custom_protocol.rs"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+incremental = false
+opt-level = "s"
