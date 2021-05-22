@@ -2,23 +2,68 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use serde::Serialize;
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::{
   collections::HashMap,
+  fs,
+  io::{BufRead, BufReader},
   path::PathBuf,
   process::{Command, Output, Stdio},
+  u64,
 };
 
+#[derive(Default, Clone, Serialize, Deserialize, Debug)]
+pub struct BenchResult {
+  pub created_at: String,
+  pub sha1: String,
+  pub exec_time: HashMap<String, HashMap<String, f64>>,
+  pub binary_size: HashMap<String, u64>,
+  pub max_memory: HashMap<String, u64>,
+  pub thread_count: HashMap<String, u64>,
+  pub syscall_count: HashMap<String, u64>,
+  pub cargo_deps: HashMap<String, usize>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize)]
+pub struct StraceOutput {
+  pub percent_time: f64,
+  pub seconds: f64,
+  pub usecs_per_call: Option<u64>,
+  pub calls: u64,
+  pub errors: u64,
+}
+
+pub fn get_target() -> &'static str {
+  #[cfg(target_os = "macos")]
+  return "x86_64-apple-darwin";
+  #[cfg(target_os = "linux")]
+  return "x86_64-unknown-linux-gnu";
+  #[cfg(target_os = "windows")]
+  return unimplemented!();
+}
+
 pub fn target_dir() -> PathBuf {
-  let current_exe = std::env::current_exe().unwrap();
-  let target_dir = current_exe.parent().unwrap().parent().unwrap();
+  let target_dir = bench_root_path()
+    .join("tests")
+    .join("target")
+    .join(get_target())
+    .join("release");
   target_dir.into()
 }
 
-pub fn root_path() -> PathBuf {
+pub fn bench_root_path() -> PathBuf {
   PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
+#[allow(dead_code)]
+pub fn wry_root_path() -> PathBuf {
+  bench_root_path().parent().unwrap().to_path_buf()
+}
+
+#[allow(dead_code)]
 pub fn run_collect(cmd: &[&str]) -> (String, String) {
   let mut process_builder = Command::new(cmd[0]);
   process_builder
@@ -42,31 +87,36 @@ pub fn run_collect(cmd: &[&str]) -> (String, String) {
   (stdout, stderr)
 }
 
-pub fn parse_max_mem(output: &str) -> Option<u64> {
-  // Takes the output from "time -v" as input and extracts the 'maximum
-  // resident set size' and returns it in bytes.
+#[allow(dead_code)]
+pub fn parse_max_mem(file_path: &str) -> Option<u64> {
+  let file = fs::File::open(file_path).unwrap();
+  let output = BufReader::new(file);
+  let mut highest: u64 = 0;
+  // MEM 203.437500 1621617192.4123
   for line in output.lines() {
-    if line
-      .to_lowercase()
-      .contains("maximum resident set size (kbytes)")
-    {
-      let value = line.split(": ").nth(1).unwrap();
-      return Some(str::parse::<u64>(value).unwrap() * 1024);
+    if let Ok(line) = line {
+      // split line by space
+      let split = line.split(" ").collect::<Vec<_>>();
+      if split.len() == 3 {
+        // mprof generate result in MB
+        let current_bytes = str::parse::<f64>(split[1]).unwrap() as u64 * 1024 * 1024;
+        if current_bytes > highest {
+          highest = current_bytes;
+        }
+      }
     }
+  }
+
+  fs::remove_file(file_path).unwrap();
+
+  if highest > 0 {
+    return Some(highest);
   }
 
   None
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct StraceOutput {
-  pub percent_time: f64,
-  pub seconds: f64,
-  pub usecs_per_call: Option<u64>,
-  pub calls: u64,
-  pub errors: u64,
-}
-
+#[allow(dead_code)]
 pub fn parse_strace_output(output: &str) -> HashMap<String, StraceOutput> {
   let mut summary = HashMap::new();
 
@@ -121,6 +171,7 @@ pub fn parse_strace_output(output: &str) -> HashMap<String, StraceOutput> {
   summary
 }
 
+#[allow(dead_code)]
 pub fn run(cmd: &[&str]) {
   let mut process_builder = Command::new(cmd[0]);
   process_builder.args(&cmd[1..]).stdin(Stdio::piped());
@@ -129,4 +180,17 @@ pub fn run(cmd: &[&str]) {
   if !status.success() {
     panic!("Unexpected exit code: {:?}", status.code());
   }
+}
+
+#[allow(dead_code)]
+pub fn read_json(filename: &str) -> Result<Value> {
+  let f = fs::File::open(filename)?;
+  Ok(serde_json::from_reader(f)?)
+}
+
+#[allow(dead_code)]
+pub fn write_json(filename: &str, value: &Value) -> Result<()> {
+  let f = fs::File::create(filename)?;
+  serde_json::to_writer(f, value)?;
+  Ok(())
 }

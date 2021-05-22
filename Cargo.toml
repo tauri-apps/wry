@@ -1,9 +1,4 @@
-[workspace]
-members = [
-  ".",
-  "bench/tests",
-  "bench/tools",
-]
+workspace = {}
 
 [package]
 name = "wry"
@@ -74,8 +69,3 @@ cocoa = "0.24"
 core-graphics = "0.22"
 objc = "0.2"
 objc_id = "0.1"
-
-[[bench]]
-name = "wry_bench"
-harness = false
-path = "./bench/main.rs"
