@@ -83,10 +83,10 @@ jobs:
         with:
           path: bench/tests/target
           # Add date to the cache to keep it up to date
-          key: ubuntu-latest-nightly-cargo-benches-${{ hashFiles('bench/tests/Cargo.lock') }}-${{ env.CURRENT_DATE }}
+          key: ubuntu-latest-nightly-cargo-benches-${{ hashFiles('bench/tests/Cargo.toml') }}-${{ env.CURRENT_DATE }}
           # Restore from outdated cache for speed
           restore-keys: |
-            ${{ matrix.platform }}-stable-cargo-benches-${{ hashFiles('bench/tests/Cargo.lock') }}
+            ${{ matrix.platform }}-stable-cargo-benches-${{ hashFiles('bench/tests/Cargo.toml') }}
             ${{ matrix.platform }}-stable-cargo-benches-
 
       - name: run benchmarks
