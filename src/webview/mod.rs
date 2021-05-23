@@ -349,7 +349,6 @@ impl WebView {
   }
 
   /// Launch print modal for the webview content.
-  /// Works only on macOS for now.
   pub fn print(&self) -> Result<()> {
     self.webview.print();
     Ok(())
@@ -458,4 +457,21 @@ pub enum FileDropEvent {
   Dropped(Vec<PathBuf>),
   /// The file drop was aborted.
   Cancelled,
+}
+
+/// Get Webview/Webkit version on current platform.
+pub fn webview_version() -> Result<String> {
+  platform_webview_version()
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn should_get_webview_version() {
+    if let Err(error) = webview_version() {
+      panic!("{}", error);
+    }
+  }
 }

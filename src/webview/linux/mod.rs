@@ -15,6 +15,9 @@ use webkit2gtk::{
   WebContextBuilder, WebContextExt, WebView, WebViewExt, WebViewExtManual,
   WebsiteDataManagerBuilder,
 };
+use webkit2gtk_sys::{
+  webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
+};
 
 use crate::{
   application::{platform::unix::*, window::Window},
@@ -132,9 +135,6 @@ impl InnerWebView {
       settings.set_enable_offline_web_application_cache(true);
       settings.set_enable_page_cache(true);
 
-      // Enable Smooth scrooling
-      settings.set_enable_smooth_scrolling(true);
-
       debug_assert_eq!(
         {
           settings.set_enable_developer_extras(true);
@@ -209,8 +209,9 @@ impl InnerWebView {
     Ok(w)
   }
 
-  // not supported yet
-  pub fn print(&self) {}
+  pub fn print(&self) {
+    let _ = self.eval("window.print()");
+  }
 
   pub fn eval(&self, js: &str) -> Result<()> {
     let cancellable: Option<&Cancellable> = None;
@@ -233,4 +234,15 @@ impl InnerWebView {
     }
     Ok(())
   }
+}
+
+pub fn platform_webview_version() -> Result<String> {
+  let (major, minor, patch) = unsafe {
+    (
+      webkit_get_major_version(),
+      webkit_get_minor_version(),
+      webkit_get_micro_version(),
+    )
+  };
+  Ok(format!("{}.{}.{}", major, minor, patch).into())
 }

@@ -239,8 +239,9 @@ impl InnerWebView {
     })
   }
 
-  // not supported yet
-  pub fn print(&self) {}
+  pub fn print(&self) {
+    let _ = self.eval("window.print()");
+  }
 
   pub fn eval(&self, js: &str) -> Result<()> {
     if let Some(w) = self.webview.get() {
@@ -298,4 +299,9 @@ where
   });
 
   result
+}
+
+// not supported yet
+pub fn platform_webview_version() -> Result<String> {
+  Ok("Unknown".into())
 }

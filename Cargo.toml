@@ -1,8 +1,8 @@
-workspace = { }
+workspace = {}
 
 [package]
 name = "wry"
-version = "0.9.2"
+version = "0.9.4"
 authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2018"
 license = "Apache-2.0 OR MIT"
@@ -28,7 +28,9 @@ protocol = [ ]
 dox = [ "tao/dox" ]
 menu = [ "tao/menu" ]
 tray = [ "tao/tray" ]
-winrt = [ "windows-webview2", "windows" ]
+# There are lots of things need to be updated on winrt backends
+# See https://github.com/tauri-apps/wry/issues/247 for more information
+# winrt = [ "windows-webview2", "windows" ]
 win32 = [ "webview2", "winapi", "webview2-sys" ]
 
 [dependencies]
@@ -39,12 +41,17 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.2"
-image = "0.23"
 infer = "0.4"
-tao = { version = "0.2", default-features = false, features = [ "serde" ] }
+tao = { version = "0.2.6", default-features = false, features = [ "serde" ] }
+
+[dev-dependencies]
+anyhow = "1.0.40"
+chrono = "0.4.19"
+tempfile = "3.2.0"
 
 [target."cfg(target_os = \"linux\")".dependencies]
 webkit2gtk = { version = "0.11", features = [ "v2_10" ] }
+webkit2gtk-sys = "0.13.0"
 gio = "0.9"
 glib = "0.10"
 gtk = "0.9"
