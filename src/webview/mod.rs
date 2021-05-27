@@ -17,7 +17,7 @@ use wkwebview::*;
 #[cfg(target_os = "windows")]
 mod webview2;
 #[cfg(target_os = "windows")]
-use webview2::*;
+use self::webview2::*;
 
 use crate::{Error, Result};
 
