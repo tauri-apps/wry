@@ -7,9 +7,9 @@
 mod mimetype;
 
 #[cfg(target_os = "linux")]
-mod gtkwebview;
+mod webkitgtk;
 #[cfg(target_os = "linux")]
-use gtkwebview::*;
+use webkitgtk::*;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 mod wkwebview;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
