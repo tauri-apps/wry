@@ -7,25 +7,17 @@
 mod mimetype;
 
 #[cfg(target_os = "linux")]
-mod linux;
+mod gtkwebview;
 #[cfg(target_os = "linux")]
-use linux::*;
+use gtkwebview::*;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-mod macos;
+mod wkwebview;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-use macos::*;
+use wkwebview::*;
 #[cfg(target_os = "windows")]
-#[cfg(feature = "winrt")]
-mod winrt;
+mod webview2;
 #[cfg(target_os = "windows")]
-#[cfg(feature = "winrt")]
-use winrt::*;
-#[cfg(target_os = "windows")]
-#[cfg(feature = "win32")]
-mod win32;
-#[cfg(target_os = "windows")]
-#[cfg(feature = "win32")]
-use win32::*;
+use webview2::*;
 
 use crate::{Error, Result};
 
