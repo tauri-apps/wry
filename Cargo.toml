@@ -66,6 +66,7 @@ windows-webview2 = { version = "0.1", optional = true }
 windows = { version = "0.7", optional = true }
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
+block = "0.1"
 cocoa = "0.24"
 core-graphics = "0.22"
 objc = "0.2"

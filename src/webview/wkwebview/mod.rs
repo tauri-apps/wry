@@ -11,6 +11,7 @@ use std::{
   slice, str,
 };
 
+use block::{Block, ConcreteBlock};
 use cocoa::base::id;
 #[cfg(target_os = "macos")]
 use cocoa::{
@@ -36,7 +37,7 @@ use crate::application::platform::ios::WindowExtIOS;
 
 use crate::{
   application::window::Window,
-  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse, ScreenshotRegion},
   Result,
 };
 
@@ -404,7 +405,17 @@ impl InnerWebView {
   where
     F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
   {
-    todo!();
+    unsafe {
+      let config: id = msg_send![class!(WKSnapshotConfiguration), new];
+      let handler = ConcreteBlock::new(|_image: id, _error: id| {
+        println!("Hello World!");
+      });
+      let handler = handler.copy();
+      let handler: &Block<(id, id), ()> = &handler;
+      let () =
+        msg_send![self.webview, takeSnapshotWithConfiguration:config completionHandler:handler];
+    }
+    Ok(())
   }
 }
 
