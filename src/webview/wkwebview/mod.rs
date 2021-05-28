@@ -16,7 +16,7 @@ use cocoa::base::id;
 #[cfg(target_os = "macos")]
 use cocoa::{
   appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable},
-  base::YES,
+  base::{nil, YES},
 };
 
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
@@ -407,8 +407,18 @@ impl InnerWebView {
   {
     unsafe {
       let config: id = msg_send![class!(WKSnapshotConfiguration), new];
-      let handler = ConcreteBlock::new(|_image: id, _error: id| {
-        println!("Hello World!");
+      let handler = ConcreteBlock::new(move |image: id, _error: id| {
+        let cgref: id =
+          msg_send![image, CGImageForProposedRect:null::<*const c_void>() context:nil hints:nil];
+        let bitmap_image_ref: id = msg_send![class!(NSBitmapImageRep), alloc];
+        let newrep: id = msg_send![bitmap_image_ref, initWithCGImage: cgref];
+        let size: id = msg_send![image, size];
+        let () = msg_send![newrep, setSize: size];
+        let nsdata: id = msg_send![newrep, representationUsingType:4 properties:nil];
+        let bytes: *const u8 = msg_send![nsdata, bytes];
+        let len: usize = msg_send![nsdata, length];
+        let vector = slice::from_raw_parts(bytes, len).to_vec();
+        handler(Ok(vector));
       });
       let handler = handler.copy();
       let handler: &Block<(id, id), ()> = &handler;
