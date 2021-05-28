@@ -138,9 +138,6 @@ impl InnerWebView {
       settings.set_enable_offline_web_application_cache(true);
       settings.set_enable_page_cache(true);
 
-      // Enable Smooth scrooling
-      settings.set_enable_smooth_scrolling(true);
-
       debug_assert_eq!(
         {
           settings.set_enable_developer_extras(true);
@@ -215,8 +212,9 @@ impl InnerWebView {
     Ok(w)
   }
 
-  // not supported yet
-  pub fn print(&self) {}
+  pub fn print(&self) {
+    let _ = self.eval("window.print()");
+  }
 
   pub fn screenshot<F>(&self, region: ScreenshotRegion, handler: F) -> Result<()>
   where

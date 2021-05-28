@@ -242,8 +242,9 @@ impl InnerWebView {
     })
   }
 
-  // not supported yet
-  pub fn print(&self) {}
+  pub fn print(&self) {
+    let _ = self.eval("window.print()");
+  }
 
   pub fn screenshot<F>(&self, region: ScreenshotRegion, handler: F) -> Result<()>
   where

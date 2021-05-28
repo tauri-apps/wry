@@ -11,10 +11,13 @@ use std::{
   slice, str,
 };
 
+use cocoa::base::id;
+#[cfg(target_os = "macos")]
 use cocoa::{
   appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable},
-  base::{id, YES},
+  base::YES,
 };
+
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use objc::{
   declare::ClassDecl,
@@ -23,24 +26,33 @@ use objc::{
 use objc_id::Id;
 use url::Url;
 
+#[cfg(target_os = "macos")]
+use crate::application::platform::macos::WindowExtMacOS;
+#[cfg(target_os = "macos")]
 use file_drop::{add_file_drop_methods, set_file_drop_handler};
 
+#[cfg(target_os = "ios")]
+use crate::application::platform::ios::WindowExtIOS;
+
 use crate::{
-  application::{platform::macos::WindowExtMacOS, window::Window},
+  application::window::Window,
   webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
   Result,
 };
 
+#[cfg(target_os = "macos")]
 mod file_drop;
 
 pub struct InnerWebView {
   webview: Id<Object>,
+  #[cfg(target_os = "macos")]
   ns_window: id,
   manager: id,
   rpc_handler_ptr: *mut (
     Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>,
     Rc<Window>,
   ),
+  #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
   protocol_ptrs: Vec<*mut (Box<dyn Fn(&Window, &str) -> Result<Vec<u8>>>, Rc<Window>)>,
 }
@@ -56,7 +68,7 @@ impl InnerWebView {
       Box<dyn Fn(&Window, &str) -> Result<Vec<u8>> + 'static>,
     )>,
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
-    file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+    _file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
     _data_directory: Option<PathBuf>,
   ) -> Result<Self> {
     // Function for rpc handler
@@ -111,9 +123,12 @@ impl InnerWebView {
         // Send response
         if let Ok(content) = function.0(&function.1, uri) {
           let mime = MimeType::parse(&content, uri);
-          let nsurlresponse: id = msg_send![class!(NSURLResponse), alloc];
-          let response: id = msg_send![nsurlresponse, initWithURL:url MIMEType:NSString::new(&mime)
-                        expectedContentLength:content.len() textEncodingName:null::<c_void>()];
+          let dictionary: id = msg_send![class!(NSMutableDictionary), alloc];
+          let headers: id = msg_send![dictionary, initWithCapacity:1];
+          let () = msg_send![headers, setObject:NSString::new(&mime) forKey: NSString::new("content-type")];
+          let () = msg_send![headers, setObject:NSString::new(&content.len().to_string()) forKey: NSString::new("content-length")];
+          let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
+          let response: id = msg_send![urlresponse, initWithURL:url statusCode:200 HTTPVersion:NSString::new("HTTP/1.1") headerFields:headers];
           let () = msg_send![task, didReceiveResponse: response];
 
           // Send data
@@ -121,10 +136,13 @@ impl InnerWebView {
           let data: id = msg_send![class!(NSData), alloc];
           let data: id = msg_send![data, initWithBytes:bytes length:content.len()];
           let () = msg_send![task, didReceiveData: data];
-
-          // Finish
-          let () = msg_send![task, didFinish];
+        } else {
+          let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
+          let response: id = msg_send![urlresponse, initWithURL:url statusCode:404 HTTPVersion:NSString::new("HTTP/1.1") headerFields:null::<c_void>()];
+          let () = msg_send![task, didReceiveResponse: response];
         }
+        // Finish
+        let () = msg_send![task, didFinish];
       }
     }
     extern "C" fn stop_task(_: &Object, _: Sel, _webview: id, _task: id) {}
@@ -164,7 +182,9 @@ impl InnerWebView {
       // Webview and manager
       let manager: id = msg_send![config, userContentController];
       let cls = match ClassDecl::new("WryWebView", class!(WKWebView)) {
+        #[allow(unused_mut)]
         Some(mut decl) => {
+          #[cfg(target_os = "macos")]
           add_file_drop_methods(&mut decl);
           decl.register()
         }
@@ -191,10 +211,15 @@ impl InnerWebView {
         let _: id = msg_send![config, setValue:no forKey:NSString::new("drawsBackground")];
       }
 
-      // Resize
+      // Initialize webview with zero point
       let zero = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(0., 0.));
       let _: () = msg_send![webview, initWithFrame:zero configuration:config];
-      webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
+
+      // Auto-resize on macOS
+      #[cfg(target_os = "macos")]
+      {
+        webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
+      }
 
       // Message handler
       let rpc_handler_ptr = if let Some(rpc_handler) = rpc_handler {
@@ -222,7 +247,8 @@ impl InnerWebView {
       };
 
       // File drop handling
-      let file_drop_ptr = match file_drop_handler {
+      #[cfg(target_os = "macos")]
+      let file_drop_ptr = match _file_drop_handler {
         // if we have a file_drop_handler defined, use the defined handler
         Some(file_drop_handler) => {
           set_file_drop_handler(webview, window.clone(), file_drop_handler)
@@ -232,13 +258,16 @@ impl InnerWebView {
       };
 
       // ns window is required for the print operation
+      #[cfg(target_os = "macos")]
       let ns_window = window.ns_window() as id;
 
       let w = Self {
         webview: Id::from_ptr(webview),
+        #[cfg(target_os = "macos")]
         ns_window,
         manager,
         rpc_handler_ptr,
+        #[cfg(target_os = "macos")]
         file_drop_ptr,
         protocol_ptrs,
       };
@@ -292,14 +321,27 @@ impl InnerWebView {
           w.navigate(url.as_str());
         }
       }
-      // Tell the webview we use layers
-      let _: () = msg_send![webview, setWantsLayer: YES];
+
       // Inject the web view into the window as main content
-      let _: () = msg_send![ns_window, setContentView: webview];
-      // make sure the window is always on top when we create a new webview
-      let app_class = class!(NSApplication);
-      let app: id = msg_send![app_class, sharedApplication];
-      let _: () = msg_send![app, activateIgnoringOtherApps: YES];
+      #[cfg(target_os = "macos")]
+      {
+        // Tell the webview we use layers (macOS only)
+        let _: () = msg_send![webview, setWantsLayer: YES];
+        // inject the webview into the window
+        let ns_window = window.ns_window() as id;
+        let _: () = msg_send![ns_window, setContentView: webview];
+
+        // make sure the window is always on top when we create a new webview
+        let app_class = class!(NSApplication);
+        let app: id = msg_send![app_class, sharedApplication];
+        let _: () = msg_send![app, activateIgnoringOtherApps: YES];
+      }
+
+      #[cfg(target_os = "ios")]
+      {
+        let ui_window = window.ui_window() as id;
+        let _: () = msg_send![ui_window, setContentView: webview];
+      }
 
       Ok(w)
     }
@@ -344,6 +386,7 @@ impl InnerWebView {
 
   pub fn print(&self) {
     // Safety: objc runtime calls are unsafe
+    #[cfg(target_os = "macos")]
     unsafe {
       // Create a shared print info
       let print_info: id = msg_send![class!(NSPrintInfo), sharedPrintInfo];
@@ -385,6 +428,7 @@ impl Drop for InnerWebView {
         let _ = Box::from_raw(self.rpc_handler_ptr);
       }
 
+      #[cfg(target_os = "macos")]
       if !self.file_drop_ptr.is_null() {
         let _ = Box::from_raw(self.file_drop_ptr);
       }

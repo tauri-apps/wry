@@ -7,25 +7,17 @@
 mod mimetype;
 
 #[cfg(target_os = "linux")]
-mod linux;
+mod webkitgtk;
 #[cfg(target_os = "linux")]
-use linux::*;
-#[cfg(target_os = "macos")]
-mod macos;
-#[cfg(target_os = "macos")]
-use macos::*;
+use webkitgtk::*;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+mod wkwebview;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use wkwebview::*;
 #[cfg(target_os = "windows")]
-#[cfg(feature = "winrt")]
-mod winrt;
+mod webview2;
 #[cfg(target_os = "windows")]
-#[cfg(feature = "winrt")]
-use winrt::*;
-#[cfg(target_os = "windows")]
-#[cfg(feature = "win32")]
-mod win32;
-#[cfg(target_os = "windows")]
-#[cfg(feature = "win32")]
-use win32::*;
+use self::webview2::*;
 
 use crate::{Error, Result};
 
@@ -349,7 +341,6 @@ impl WebView {
   }
 
   /// Launch print modal for the webview content.
-  /// Works only on macOS for now.
   pub fn print(&self) -> Result<()> {
     self.webview.print();
     Ok(())
