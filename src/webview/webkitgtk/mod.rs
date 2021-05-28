@@ -2,17 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use std::convert::TryFrom;
+
 use std::{path::PathBuf, rc::Rc};
 
+use cairo::ImageSurface;
 use gdk::{WindowEdge, WindowExt, RGBA};
 use gio::Cancellable;
 use glib::{signal::Inhibit, Bytes, Cast, FileError};
 use gtk::{BoxExt, ContainerExt, WidgetExt};
 use url::Url;
 use webkit2gtk::{
-  SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
-  UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime,
-  WebContextBuilder, WebContextExt, WebView, WebViewExt, WebViewExtManual,
+  SecurityManagerExt, SettingsExt, SnapshotOptions, SnapshotRegion, URISchemeRequestExt,
+  UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
+  UserScriptInjectionTime, WebContextBuilder, WebContextExt, WebView, WebViewExt, WebViewExtManual,
   WebsiteDataManagerBuilder,
 };
 use webkit2gtk_sys::{
@@ -21,7 +24,7 @@ use webkit2gtk_sys::{
 
 use crate::{
   application::{platform::unix::*, window::Window},
-  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse, ScreenshotRegion},
   Error, Result,
 };
 
@@ -211,6 +214,47 @@ impl InnerWebView {
 
   pub fn print(&self) {
     let _ = self.eval("window.print()");
+  }
+
+  pub fn screenshot<F>(&self, region: ScreenshotRegion, handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
+  {
+    let cancellable: Option<&Cancellable> = None;
+    let cb = move |result: std::result::Result<cairo::Surface, glib::Error>| match result {
+      Ok(surface) => match ImageSurface::try_from(surface) {
+        Ok(image) => {
+          let mut bytes = Vec::new();
+          match image.write_to_png(&mut bytes) {
+            Ok(_) => handler(Ok(bytes)),
+            Err(err) => handler(Err(Error::CairoIoError(err))),
+          }
+        }
+        Err(_) => handler(Err(Error::CairoError(cairo::Error::SurfaceTypeMismatch))),
+      },
+      Err(err) => handler(Err(Error::GlibError(err))),
+    };
+
+    match region {
+      ScreenshotRegion::FullDocument => {
+        self.webview.get_snapshot(
+          SnapshotRegion::FullDocument,
+          SnapshotOptions::NONE,
+          cancellable,
+          cb,
+        );
+      }
+      ScreenshotRegion::Visible => {
+        self.webview.get_snapshot(
+          SnapshotRegion::Visible,
+          SnapshotOptions::NONE,
+          cancellable,
+          cb,
+        );
+      }
+    };
+
+    Ok(())
   }
 
   pub fn eval(&self, js: &str) -> Result<()> {

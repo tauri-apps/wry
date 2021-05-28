@@ -110,6 +110,12 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
   #[cfg(target_os = "linux")]
   #[error(transparent)]
+  CairoError(#[from] cairo::Error),
+  #[cfg(target_os = "linux")]
+  #[error(transparent)]
+  CairoIoError(#[from] cairo::IoError),
+  #[cfg(target_os = "linux")]
+  #[error(transparent)]
   GlibError(#[from] glib::Error),
   #[cfg(target_os = "linux")]
   #[error(transparent)]

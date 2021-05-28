@@ -243,6 +243,13 @@ impl InnerWebView {
     let _ = self.eval("window.print()");
   }
 
+  pub fn screenshot<F>(&self, region: ScreenshotRegion, handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
+  {
+    todo!();
+  }
+
   pub fn eval(&self, js: &str) -> Result<()> {
     if let Some(w) = self.webview.get() {
       let _ = w.ExecuteScriptAsync(js)?;

@@ -11,11 +11,12 @@ use std::{
   slice, str,
 };
 
+use block::{Block, ConcreteBlock};
 use cocoa::base::id;
 #[cfg(target_os = "macos")]
 use cocoa::{
   appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable},
-  base::YES,
+  base::{nil, YES},
 };
 
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
@@ -36,7 +37,7 @@ use crate::application::platform::ios::WindowExtIOS;
 
 use crate::{
   application::window::Window,
-  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse, ScreenshotRegion},
   Result,
 };
 
@@ -398,6 +399,33 @@ impl InnerWebView {
       // Launch the modal
       let () = msg_send![print_operation, runOperationModalForWindow: self.ns_window delegate: null::<*const c_void>() didRunSelector: null::<*const c_void>() contextInfo: null::<*const c_void>()];
     }
+  }
+
+  pub fn screenshot<F>(&self, region: ScreenshotRegion, handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
+  {
+    unsafe {
+      let config: id = msg_send![class!(WKSnapshotConfiguration), new];
+      let handler = ConcreteBlock::new(move |image: id, _error: id| {
+        let cgref: id =
+          msg_send![image, CGImageForProposedRect:null::<*const c_void>() context:nil hints:nil];
+        let bitmap_image_ref: id = msg_send![class!(NSBitmapImageRep), alloc];
+        let newrep: id = msg_send![bitmap_image_ref, initWithCGImage: cgref];
+        let size: id = msg_send![image, size];
+        let () = msg_send![newrep, setSize: size];
+        let nsdata: id = msg_send![newrep, representationUsingType:4 properties:nil];
+        let bytes: *const u8 = msg_send![nsdata, bytes];
+        let len: usize = msg_send![nsdata, length];
+        let vector = slice::from_raw_parts(bytes, len).to_vec();
+        handler(Ok(vector));
+      });
+      let handler = handler.copy();
+      let handler: &Block<(id, id), ()> = &handler;
+      let () =
+        msg_send![self.webview, takeSnapshotWithConfiguration:config completionHandler:handler];
+    }
+    Ok(())
   }
 }
 
