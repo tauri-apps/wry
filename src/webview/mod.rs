@@ -81,36 +81,32 @@ fn rpc_proxy(
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
 /// [`WebViewBuilder`] privides ability to setup initialization before web engine starts.
-pub struct WebViewBuilder<'a> {
-  application: &'a Application,
+pub struct WebViewBuilder {
   transparent: bool,
   tx: Sender<String>,
   rx: Receiver<String>,
   initialization_scripts: Vec<String>,
-  window: Window,
   url: Option<Url>,
   custom_protocols: Vec<(String, Box<dyn Fn(&Window, &str) -> Result<Vec<u8>>>)>,
   rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
   file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
 }
 
-impl<'a> WebViewBuilder<'a> {
+impl WebViewBuilder {
   /// Create [`WebViewBuilder`] from provided [`Window`].
-  pub fn new(window: Window, application: &'a Application) -> Result<Self> {
+  pub fn new() -> Self {
     let (tx, rx) = channel();
 
-    Ok(Self {
-      application,
+    Self {
       tx,
       rx,
       initialization_scripts: vec![],
-      window,
       url: None,
       transparent: false,
       custom_protocols: vec![],
       rpc_handler: None,
       file_drop_handler: None,
-    })
+    }
   }
 
   /// Whether the WebView window should be transparent. If this is true, writing colors
@@ -245,10 +241,10 @@ impl<'a> WebViewBuilder<'a> {
   /// called in the same thread with the [`EventLoop`] you create.
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
-  pub fn build(self) -> Result<WebView> {
-    let window = Rc::new(self.window);
+  pub fn build(self, window: Window, application: &Application) -> Result<WebView> {
+    let window = Rc::new(window);
     let webview = InnerWebView::new(
-      self.application,
+      application,
       window.clone(),
       self.initialization_scripts,
       self.url,
@@ -309,7 +305,7 @@ impl WebView {
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
   pub fn new(window: Window, application: &Application) -> Result<Self> {
-    WebViewBuilder::new(window, application)?.build()
+    WebViewBuilder::new().build(window, application)
   }
 
   /// Dispatch javascript code to be evaluated later. Note this will not actually run the
