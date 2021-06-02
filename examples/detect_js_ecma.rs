@@ -5,16 +5,14 @@
 use wry::application::Application;
 
 fn main() -> wry::Result<()> {
-  use wry::{
-    application::{
-      event::{Event, StartCause, WindowEvent},
-      event_loop::{ControlFlow, EventLoop},
-      window::WindowBuilder,
-    },
+  use wry::application::{
+    event::{Event, StartCause, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
   };
 
+  let event_loop = EventLoop::new();
   let application = Application::new(None);
-  let _webview = wry::Builder::new()
+  let _webview = wry::Builder::new(&event_loop)
       .title("Detect ECMAScript")
       .initialization_script(r#"
         (function () {
