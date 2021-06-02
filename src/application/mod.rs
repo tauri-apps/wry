@@ -42,7 +42,7 @@ use self::macos::ApplicationInner;
 pub mod unix {
   //! Unix platform extensions for [`Application`](super::Application).
   use std::path::PathBuf;
-  use webkit2gtk::{WebContext, WebContextBuilder, WebsiteDataManagerBuilder};
+  use webkit2gtk::{WebContext, WebContextBuilder, WebContextExt, WebsiteDataManagerBuilder};
 
   pub(crate) struct ApplicationInner {
     context: WebContext,
@@ -71,9 +71,13 @@ pub mod unix {
         context_builder = context_builder.website_data_manager(&data_manager);
       }
 
+      let context = context_builder.build();
+      let automation = automation_flag(true);
+      context.set_automation_allowed(automation);
+
       Self {
-        context: context_builder.build(),
-        automation: true,
+        context,
+        automation,
       }
     }
   }
@@ -88,8 +92,10 @@ pub mod unix {
     /// **Note:** `libwebkit2gtk` only allows 1 automation context at a time.
     fn allows_automation(&self) -> bool;
 
-    /// Set if this context allows automation (default: `true`).
-    fn set_automation_mode(&mut self, flag: bool);
+    /// Set if this context allows automation.
+    ///
+    /// **Note:** This has no effect if `ENABLE_WEBDRIVER=true` was not set during build time.
+    fn set_automation_allowed(&mut self, flag: bool);
   }
 
   impl ApplicationExt for super::Application {
@@ -101,8 +107,21 @@ pub mod unix {
       self.inner.automation
     }
 
-    fn set_automation_mode(&mut self, flag: bool) {
-      self.inner.automation = flag;
+    fn set_automation_allowed(&mut self, flag: bool) {
+      let original = self.inner.automation;
+      let new = automation_flag(flag);
+      if new != original {
+        self.inner.automation = flag;
+        self.inner.context.set_automation_allowed(flag);
+      }
+    }
+  }
+
+  /// Set the automation flag if the build time environmental variable is set.
+  fn automation_flag(flag: bool) -> bool {
+    match option_env!("ENABLE_WEBDRIVER") {
+      Some("true") => flag,
+      _ => false,
     }
   }
 }
