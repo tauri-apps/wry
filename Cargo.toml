@@ -33,6 +33,7 @@ tray = [ "tao/tray" ]
 # See https://github.com/tauri-apps/wry/issues/247 for more information
 # winrt = [ "windows-webview2", "windows" ]
 win32 = [ "webview2", "winapi", "webview2-sys" ]
+webdriver = [ ]
 
 [dependencies]
 libc = "0.2"

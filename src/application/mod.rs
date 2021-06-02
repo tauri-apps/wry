@@ -117,10 +117,10 @@ pub mod unix {
     }
   }
 
-  /// Set the automation flag if the build time environmental variable is set.
+  /// Set the automation flag if the the `webdriver` feature is set.
   fn automation_flag(flag: bool) -> bool {
-    match option_env!("ENABLE_WEBDRIVER") {
-      Some("true") => flag,
+    match cfg!(feature = "webdriver") {
+      true => flag,
       _ => false,
     }
   }
