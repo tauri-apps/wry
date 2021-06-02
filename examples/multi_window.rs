@@ -20,7 +20,7 @@ fn main() -> wry::Result<()> {
       dpi::PhysicalSize,
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
-      window::{Window, WindowBuilder},
+      window::Window,
       Application,
     },
     webview::RpcRequest,

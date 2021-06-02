@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 fn main() -> wry::Result<()> {
   use std::collections::HashMap;
   #[cfg(target_os = "linux")]
@@ -76,4 +77,9 @@ fn main() -> wry::Result<()> {
       _ => (),
     }
   });
+}
+
+#[cfg(target_os = "ios")]
+fn main() {
+  println!("This platform doesn't support system_tray.");
 }
