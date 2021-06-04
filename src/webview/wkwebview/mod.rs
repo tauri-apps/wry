@@ -36,7 +36,7 @@ use crate::application::platform::ios::WindowExtIOS;
 
 use crate::{
   application::window::Window,
-  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse, WebContext},
   Result,
 };
 
@@ -69,7 +69,7 @@ impl InnerWebView {
     )>,
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     _file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-    _data_directory: Option<PathBuf>,
+    _web_context: &WebContext,
   ) -> Result<Self> {
     // Function for rpc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {

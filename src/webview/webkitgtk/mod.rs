@@ -2,18 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{path::PathBuf, rc::Rc};
+use std::rc::Rc;
 
 use gdk::{WindowEdge, WindowExt, RGBA};
 use gio::Cancellable;
 use glib::{signal::Inhibit, Bytes, Cast, FileError};
-use gtk::{BoxExt, ContainerExt, WidgetExt};
+use gtk::{BoxExt, ContainerExt, GtkWindowExt, WidgetExt};
 use url::Url;
 use webkit2gtk::{
-  SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
-  UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime,
-  WebContextBuilder, WebContextExt, WebView, WebViewExt, WebViewExtManual,
-  WebsiteDataManagerBuilder,
+  AutomationSessionExt, SecurityManagerExt, SettingsExt, URISchemeRequestExt,
+  UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
+  UserScriptInjectionTime, WebContextExt as WebKitWebContextExt, WebView, WebViewBuilder,
+  WebViewExt,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -21,7 +21,11 @@ use webkit2gtk_sys::{
 
 use crate::{
   application::{platform::unix::*, window::Window},
-  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  webview::{
+    mimetype::MimeType,
+    web_context::{unix::WebContextExt, WebContext},
+    FileDropEvent, RpcRequest, RpcResponse,
+  },
   Error, Result,
 };
 
@@ -43,38 +47,30 @@ impl InnerWebView {
     )>,
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-    data_directory: Option<PathBuf>,
+    web_context: &WebContext,
   ) -> Result<Self> {
     let window_rc = Rc::clone(&window);
     let window = &window.gtk_window();
     // Webview widget
     let manager = UserContentManager::new();
-    let mut context_builder = WebContextBuilder::new();
-    if let Some(data_directory) = data_directory {
-      let data_manager = WebsiteDataManagerBuilder::new()
-        .local_storage_directory(
-          &data_directory
-            .join("localstorage")
-            .to_string_lossy()
-            .into_owned(),
-        )
-        .indexeddb_directory(
-          &data_directory
-            .join("databases")
-            .join("indexeddb")
-            .to_string_lossy()
-            .into_owned(),
-        )
-        .build();
-      context_builder = context_builder.website_data_manager(&data_manager);
-    }
-    let context = context_builder.build();
 
-    let webview = Rc::new(WebView::new_with_context_and_user_content_manager(
-      &context, &manager,
-    ));
+    let context = web_context.context();
+    let mut webview = WebViewBuilder::new();
+    webview = webview.web_context(context);
+    webview = webview.user_content_manager(&manager);
+    webview = webview.is_controlled_by_automation(web_context.allows_automation());
+    let webview = webview.build();
+
+    let automation_webview = webview.clone();
+    let app_info = web_context.app_info().clone();
+    context.connect_automation_started(move |_, auto| {
+      let webview = automation_webview.clone();
+      auto.set_application_info(&app_info);
+      auto.connect_create_web_view(move |_| webview.clone());
+    });
 
     // Message handler
+    let webview = Rc::new(webview);
     let wv = Rc::clone(&webview);
     let w = window_rc.clone();
     manager.register_script_message_handler("external");
@@ -96,6 +92,11 @@ impl InnerWebView {
           }
         }
       }
+    });
+
+    let close_window = window_rc.clone();
+    webview.connect_close(move |_| {
+      close_window.gtk_window().close();
     });
 
     webview.connect_button_press_event(|webview, event| {
