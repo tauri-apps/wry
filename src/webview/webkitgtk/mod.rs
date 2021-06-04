@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{path::PathBuf, rc::Rc};
+use std::rc::Rc;
 
 use gdk::{WindowEdge, WindowExt, RGBA};
 use gio::Cancellable;
 use glib::{signal::Inhibit, Bytes, Cast, FileError};
 use gtk::{BoxExt, ContainerExt, WidgetExt};
-use url::Url;
 use webkit2gtk::{
   SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
   UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime,
@@ -21,7 +20,7 @@ use webkit2gtk_sys::{
 
 use crate::{
   application::{platform::unix::*, window::Window},
-  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  webview::{mimetype::MimeType, WebViewAttributes},
   Error, Result,
 };
 
@@ -32,25 +31,13 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new(
-    window: Rc<Window>,
-    scripts: Vec<String>,
-    url: Option<Url>,
-    transparent: bool,
-    custom_protocols: Vec<(
-      String,
-      Box<dyn Fn(&Window, &str) -> Result<Vec<u8>> + 'static>,
-    )>,
-    rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
-    file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-    data_directory: Option<PathBuf>,
-  ) -> Result<Self> {
+  pub fn new(window: Rc<Window>, mut attributes: WebViewAttributes) -> Result<Self> {
     let window_rc = Rc::clone(&window);
     let window = &window.gtk_window();
     // Webview widget
     let manager = UserContentManager::new();
     let mut context_builder = WebContextBuilder::new();
-    if let Some(data_directory) = data_directory {
+    if let Some(data_directory) = attributes.data_directory {
       let data_manager = WebsiteDataManagerBuilder::new()
         .local_storage_directory(
           &data_directory
@@ -77,11 +64,12 @@ impl InnerWebView {
     // Message handler
     let wv = Rc::clone(&webview);
     let w = window_rc.clone();
+    let rpc_handler = attributes.rpc_handler.take();
     manager.register_script_message_handler("external");
     manager.connect_script_message_received(move |_m, msg| {
       if let (Some(js), Some(context)) = (msg.get_value(), msg.get_global_context()) {
         if let Some(js) = js.to_string(&context) {
-          if let Some(rpc_handler) = rpc_handler.as_ref() {
+          if let Some(rpc_handler) = &rpc_handler {
             match super::rpc_proxy(&w, js, rpc_handler) {
               Ok(result) => {
                 if let Some(ref script) = result {
@@ -144,7 +132,7 @@ impl InnerWebView {
     }
 
     // Transparent
-    if transparent {
+    if attributes.transparent {
       webview.set_background_color(&RGBA {
         red: 0.,
         green: 0.,
@@ -154,7 +142,7 @@ impl InnerWebView {
     }
 
     // File drop handling
-    if let Some(file_drop_handler) = file_drop_handler {
+    if let Some(file_drop_handler) = attributes.file_drop_handler {
       file_drop::connect_drag_event(webview.clone(), window_rc.clone(), file_drop_handler);
     }
 
@@ -166,12 +154,12 @@ impl InnerWebView {
 
     // Initialize scripts
     w.init("window.external={invoke:function(x){window.webkit.messageHandlers.external.postMessage(x);}}")?;
-    for js in scripts {
+    for js in attributes.initialization_scripts {
       w.init(&js)?;
     }
 
     // Custom protocol
-    for (name, handler) in custom_protocols {
+    for (name, handler) in attributes.custom_protocols {
       context
         .get_security_manager()
         .ok_or(Error::MissingManager)?
@@ -202,7 +190,7 @@ impl InnerWebView {
     }
 
     // Navigation
-    if let Some(url) = url {
+    if let Some(url) = attributes.url {
       w.webview.load_uri(url.as_str());
     }
 
@@ -244,5 +232,5 @@ pub fn platform_webview_version() -> Result<String> {
       webkit_get_micro_version(),
     )
   };
-  Ok(format!("{}.{}.{}", major, minor, patch).into())
+  Ok(format!("{}.{}.{}", major, minor, patch))
 }

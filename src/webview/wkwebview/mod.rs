@@ -5,7 +5,6 @@
 use std::{
   ffi::{c_void, CStr},
   os::raw::c_char,
-  path::PathBuf,
   ptr::{null, null_mut},
   rc::Rc,
   slice, str,
@@ -24,7 +23,6 @@ use objc::{
   runtime::{Class, Object, Sel},
 };
 use objc_id::Id;
-use url::Url;
 
 #[cfg(target_os = "macos")]
 use crate::application::platform::macos::WindowExtMacOS;
@@ -36,7 +34,7 @@ use crate::application::platform::ios::WindowExtIOS;
 
 use crate::{
   application::window::Window,
-  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse, WebViewAttributes},
   Result,
 };
 
@@ -58,19 +56,7 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new(
-    window: Rc<Window>,
-    scripts: Vec<String>,
-    url: Option<Url>,
-    transparent: bool,
-    custom_protocols: Vec<(
-      String,
-      Box<dyn Fn(&Window, &str) -> Result<Vec<u8>> + 'static>,
-    )>,
-    rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
-    _file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-    _data_directory: Option<PathBuf>,
-  ) -> Result<Self> {
+  pub fn new(window: Rc<Window>, attributes: WebViewAttributes) -> Result<Self> {
     // Function for rpc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
       // Safety: objc runtime calls are unsafe
@@ -152,7 +138,7 @@ impl InnerWebView {
       // Config and custom protocol
       let config: id = msg_send![class!(WKWebViewConfiguration), new];
       let mut protocol_ptrs = Vec::new();
-      for (name, function) in custom_protocols {
+      for (name, function) in attributes.custom_protocols {
         let scheme_name = format!("{}URLSchemeHandler", name);
         let cls = ClassDecl::new(&scheme_name, class!(NSObject));
         let cls = match cls {
@@ -205,7 +191,7 @@ impl InnerWebView {
         ()
       );
 
-      if transparent {
+      if attributes.transparent {
         // Equivalent Obj-C:
         // [config setValue:@NO forKey:@"drawsBackground"];
         let _: id = msg_send![config, setValue:no forKey:NSString::new("drawsBackground")];
@@ -222,7 +208,7 @@ impl InnerWebView {
       }
 
       // Message handler
-      let rpc_handler_ptr = if let Some(rpc_handler) = rpc_handler {
+      let rpc_handler_ptr = if let Some(rpc_handler) = attributes.rpc_handler {
         let cls = ClassDecl::new("WebViewDelegate", class!(NSObject));
         let cls = match cls {
           Some(mut cls) => {
@@ -248,7 +234,7 @@ impl InnerWebView {
 
       // File drop handling
       #[cfg(target_os = "macos")]
-      let file_drop_ptr = match _file_drop_handler {
+      let file_drop_ptr = match attributes.file_drop_handler {
         // if we have a file_drop_handler defined, use the defined handler
         Some(file_drop_handler) => {
           set_file_drop_handler(webview, window.clone(), file_drop_handler)
@@ -305,12 +291,12 @@ impl InnerWebView {
                     }
                 }, true);"#,
       );
-      for js in scripts {
+      for js in attributes.initialization_scripts {
         w.init(&js);
       }
 
       // Navigation
-      if let Some(url) = url {
+      if let Some(url) = attributes.url {
         if url.cannot_be_a_base() {
           let s = url.as_str();
           if let Some(pos) = s.find(',') {
