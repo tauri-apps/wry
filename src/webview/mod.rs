@@ -158,7 +158,10 @@ impl WebViewBuilder {
   where
     F: Fn(&Window, &str) -> Result<Vec<u8>> + 'static,
   {
-    self.webview.custom_protocols.push((name, Box::new(handler)));
+    self
+      .webview
+      .custom_protocols
+      .push((name, Box::new(handler)));
     self
   }
 
@@ -266,10 +269,7 @@ impl WebViewBuilder {
       self.webview.initialization_scripts.push(js.to_string());
     }
     let window = Rc::new(self.window);
-    let webview = InnerWebView::new(
-      window.clone(),
-      self.webview
-    )?;
+    let webview = InnerWebView::new(window.clone(), self.webview)?;
     Ok(WebView {
       window,
       webview,
@@ -396,7 +396,7 @@ fn rpc_proxy(
   handler: &dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>,
 ) -> Result<Option<String>> {
   let req = serde_json::from_str::<RpcRequest>(&js)
-      .map_err(|e| Error::RpcScriptError(e.to_string(), js))?;
+    .map_err(|e| Error::RpcScriptError(e.to_string(), js))?;
 
   let mut response = (handler)(window, req);
   // Got a synchronous response so convert it to a script to be evaluated

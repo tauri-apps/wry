@@ -31,10 +31,7 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new(
-    window: Rc<Window>,
-    mut attributes: WebViewAttributes,
-  ) -> Result<Self> {
+  pub fn new(window: Rc<Window>, mut attributes: WebViewAttributes) -> Result<Self> {
     let window_rc = Rc::clone(&window);
     let window = &window.gtk_window();
     // Webview widget

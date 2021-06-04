@@ -33,10 +33,7 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new(
-    window: Rc<Window>,
-    mut attributes: WebViewAttributes,
-  ) -> Result<Self> {
+  pub fn new(window: Rc<Window>, mut attributes: WebViewAttributes) -> Result<Self> {
     let hwnd = window.hwnd() as HWND;
 
     let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());

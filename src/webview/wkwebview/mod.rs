@@ -56,10 +56,7 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new(
-    window: Rc<Window>,
-    attributes: WebViewAttributes,
-  ) -> Result<Self> {
+  pub fn new(window: Rc<Window>, attributes: WebViewAttributes) -> Result<Self> {
     // Function for rpc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
       // Safety: objc runtime calls are unsafe
