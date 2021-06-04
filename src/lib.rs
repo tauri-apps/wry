@@ -26,7 +26,7 @@
 //!     .build(&event_loop)?;
 //!   let _webview = WebViewBuilder::new(window)?
 //!     .with_url("https://tauri.studio")?
-//!     .build()?;
+//!     .build(&Default::default())?;
 //!
 //!   event_loop.run(move |event, _, control_flow| {
 //!     *control_flow = ControlFlow::Wait;
