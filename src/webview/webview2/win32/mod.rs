@@ -11,7 +11,7 @@ use crate::{
 
 use file_drop::FileDropController;
 
-use std::{collections::HashSet, os::raw::c_void, path::PathBuf, rc::Rc};
+use std::{collections::HashSet, os::raw::c_void, rc::Rc};
 
 use once_cell::unsync::OnceCell;
 use webview2::{Controller, PermissionKind, PermissionState, WebView};
@@ -49,7 +49,7 @@ impl InnerWebView {
     let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
     let file_drop_controller_clone = file_drop_controller.clone();
 
-    let mut webview_builder: webview2::EnvironmentBuilder::new();
+    let mut webview_builder = webview2::EnvironmentBuilder::new();
 
     if let Some(data_directory) = web_context.data_directory() {
       webview_builder = webview_builder.with_user_data_folder(&data_directory);
