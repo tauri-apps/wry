@@ -29,8 +29,11 @@ macro_rules! window_builder {
     #[doc = ""]
     #[doc = "_**Note:** if the [`Builder`] was created with [`Builder::with_window`] then this method will have no effect._"]
     pub fn $method $($(<T: $generic>)?)? (mut self $(, $arg: $type)? ) -> Self {
-      if let BuilderWindowBuilder::Builder(builder) = self.window {
-        self.window = BuilderWindowBuilder::Builder(builder.$original($($arg)?));
+      if let BuilderWindowBuilder::Builder { builder, event_loop } = self.window {
+        self.window = BuilderWindowBuilder::Builder {
+          builder: builder.$original($($arg)?),
+          event_loop
+        };
       }
 
       self
@@ -39,29 +42,43 @@ macro_rules! window_builder {
 }
 
 /// lol what do i call this
-enum BuilderWindowBuilder {
+enum BuilderWindowBuilder<'event, Event: 'static> {
   Window(Window),
-  Builder(WindowBuilder),
+  Builder {
+    builder: WindowBuilder,
+    event_loop: &'event EventLoopWindowTarget<Event>,
+  },
 }
 
+/// A streamlined builder to create a [`WebView`](crate::webview::WebView).
+///
+/// You can instead use [`WindowBuilder`] and [`WebViewBuilder`] if you wish to separate the
+/// builders.
 pub struct Builder<'event, Event: 'static> {
-  event_loop: &'event EventLoopWindowTarget<Event>,
-  window: BuilderWindowBuilder,
+  window: BuilderWindowBuilder<'event, Event>,
   webview: WebViewBuilder,
 }
 
 impl<'event, Event: 'static> Builder<'event, Event> {
+  /// Create a new [`Builder`] attached to an existing [`EventLoop`](tao::event_loop::EventLoop).
   pub fn new(event_loop: &'event EventLoopWindowTarget<Event>) -> Self {
     Builder {
-      event_loop,
-      window: BuilderWindowBuilder::Builder(WindowBuilder::new()),
+      window: BuilderWindowBuilder::Builder {
+        builder: WindowBuilder::new(),
+        event_loop,
+      },
       webview: WebViewBuilder::new(),
     }
   }
 
-  pub fn with_window(event_loop: &'event EventLoopWindowTarget<Event>, window: Window) -> Self {
+  /// Create a new [`Builder`] with an already built [`Window`].
+  ///
+  /// You should still have the [`EventLoop`] you created the [`Window`] with if you want to control
+  /// the [`WebView`] resulting from this [`Builder`].
+  ///
+  /// [`EventLoop`]: tao::event_loop::EventLoop
+  pub fn with_window(window: Window) -> Self {
     Self {
-      event_loop,
       window: BuilderWindowBuilder::Window(window),
       webview: WebViewBuilder::new(),
     }
@@ -285,7 +302,10 @@ impl<'event, Event: 'static> Builder<'event, Event> {
   pub fn build(self, application: &Application) -> crate::Result<WebView> {
     let window = match self.window {
       BuilderWindowBuilder::Window(window) => window,
-      BuilderWindowBuilder::Builder(builder) => builder.build(self.event_loop)?,
+      BuilderWindowBuilder::Builder {
+        builder,
+        event_loop,
+      } => builder.build(event_loop)?,
     };
 
     self.webview.build(window, application)
