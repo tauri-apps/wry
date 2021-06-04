@@ -28,6 +28,7 @@ macro_rules! window_builder {
     $(#[$meta])+
     #[doc = ""]
     #[doc = "_**Note:** if the [`Builder`] was created with [`Builder::with_window`] then this method will have no effect._"]
+    #[inline]
     pub fn $method $($(<T: $generic>)?)? (mut self $(, $arg: $type)? ) -> Self {
       if let BuilderWindowBuilder::Builder { builder, event_loop } = self.window {
         self.window = BuilderWindowBuilder::Builder {
@@ -61,6 +62,7 @@ pub struct Builder<'event, Event: 'static> {
 
 impl<'event, Event: 'static> Builder<'event, Event> {
   /// Create a new [`Builder`] attached to an existing [`EventLoop`](tao::event_loop::EventLoop).
+  #[inline]
   pub fn new(event_loop: &'event EventLoopWindowTarget<Event>) -> Self {
     Builder {
       window: BuilderWindowBuilder::Builder {
@@ -77,6 +79,7 @@ impl<'event, Event: 'static> Builder<'event, Event> {
   /// the [`WebView`] resulting from this [`Builder`].
   ///
   /// [`EventLoop`]: tao::event_loop::EventLoop
+  #[inline]
   pub fn with_window(window: Window) -> Self {
     Self {
       window: BuilderWindowBuilder::Window(window),
@@ -228,6 +231,7 @@ impl<'event, Event: 'static> Builder<'event, Event> {
   /// Whether the [`WebView`] should be transparent.
   ///
   /// See [`WebViewBuilder::with_transparent`] for details.
+  #[inline]
   pub fn transparent_webview(mut self, transparent: bool) -> Self {
     self.webview = self.webview.with_transparent(transparent);
     self
@@ -236,6 +240,7 @@ impl<'event, Event: 'static> Builder<'event, Event> {
   /// Set both the [`Window`] and [`WebView`] to be transparent.
   ///
   /// See [`Builder::transparent_window`] and [`Builder::transparent_webview`] for details.
+  #[inline]
   pub fn transparent(self, transparent: bool) -> Self {
     self
       .transparent_window(transparent)
@@ -245,6 +250,7 @@ impl<'event, Event: 'static> Builder<'event, Event> {
   /// Initialize javascript code when loading new pages.
   ///
   /// See [`WebViewBuilder::with_initialization_script`] for details.
+  #[inline]
   pub fn initialization_script(mut self, js: &str) -> Self {
     self.webview = self.webview.with_initialization_script(js);
     self
@@ -253,6 +259,7 @@ impl<'event, Event: 'static> Builder<'event, Event> {
   /// Create a [`Dispatcher`] to send evaluation scripts to the [`WebView`].
   ///
   /// See [`WebViewBuilder::dispatcher`] for details.
+  #[inline]
   pub fn dispatcher(&self) -> Dispatcher {
     self.webview.dispatcher()
   }
@@ -260,6 +267,7 @@ impl<'event, Event: 'static> Builder<'event, Event> {
   /// Register custom file loading protocol.
   ///
   /// See [`WebViewBuilder::with_custom_protocol`] for details.
+  #[inline]
   pub fn custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
     F: Fn(&Window, &str) -> crate::Result<Vec<u8>> + 'static,
@@ -271,6 +279,7 @@ impl<'event, Event: 'static> Builder<'event, Event> {
   /// Set the RPC handler to Communicate between the host Rust code and Javascript on [`WebView`].
   ///
   /// See [`WebViewBuilder::with_rpc_handler`] for details.
+  #[inline]
   pub fn rpc_handler<F>(mut self, handler: F) -> Self
   where
     F: Fn(&Window, RpcRequest) -> Option<RpcResponse> + 'static,
@@ -282,6 +291,7 @@ impl<'event, Event: 'static> Builder<'event, Event> {
   /// Set a handler closure to process incoming [`FileDropEvent`] of the [`WebView`].
   ///
   /// See [`WebViewBuilder::with_file_drop_handler`] for details.
+  #[inline]
   pub fn file_drop_handler<F>(mut self, handler: F) -> Self
   where
     F: Fn(&Window, FileDropEvent) -> bool + 'static,
@@ -293,12 +303,14 @@ impl<'event, Event: 'static> Builder<'event, Event> {
   /// The URL to initialize the [`WebView`] with.
   ///
   /// See [`WebViewBuilder::with_url`] for details.
+  #[inline]
   pub fn url(mut self, url: &str) -> crate::Result<Self> {
     self.webview = self.webview.with_url(url)?;
     Ok(self)
   }
 
   /// Build the resulting [`WebView`].
+  #[inline]
   pub fn build(self, application: &Application) -> crate::Result<WebView> {
     let window = match self.window {
       BuilderWindowBuilder::Window(window) => window,
