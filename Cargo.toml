@@ -14,6 +14,7 @@ categories = [ "gui" ]
 
 [package.metadata.docs.rs]
 features = [ "dox" ]
+rustdoc-args = [ "--cfg", "doc_cfg" ]
 default-target = "x86_64-unknown-linux-gnu"
 targets = [
   "x86_64-pc-windows-msvc",
