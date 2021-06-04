@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 /// private/incognito tabs.
 pub struct WebContext {
   data: WebContextData,
+  #[allow(dead_code)]
   os: WebContextImpl,
 }
 
