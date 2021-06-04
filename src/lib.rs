@@ -79,7 +79,6 @@
 
 #![allow(clippy::new_without_default)]
 #![allow(clippy::wrong_self_convention)]
-#![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::unit_cmp)]
 #![allow(clippy::upper_case_acronyms)]

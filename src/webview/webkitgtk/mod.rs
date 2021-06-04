@@ -232,5 +232,5 @@ pub fn platform_webview_version() -> Result<String> {
       webkit_get_micro_version(),
     )
   };
-  Ok(format!("{}.{}.{}", major, minor, patch).into())
+  Ok(format!("{}.{}.{}", major, minor, patch))
 }

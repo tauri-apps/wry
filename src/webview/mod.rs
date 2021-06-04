@@ -215,7 +215,7 @@ impl WebViewBuilder {
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
   pub fn build(mut self) -> Result<WebView> {
-    if let Some(_) = &self.webview.rpc_handler {
+    if self.webview.rpc_handler.is_some() {
       let js = r#"
             (function() {
                 function Rpc() {
