@@ -55,7 +55,7 @@ pub struct WebContextImpl;
 #[cfg(not(target_os = "linux"))]
 #[cfg_attr(doc_cfg, doc(cfg(not(target_os = "linux"))))]
 impl WebContextImpl {
-  pub fn new(_data: &super::WebContextData) -> Self {
+  pub fn new(_data: &WebContextData) -> Self {
     Self
   }
 }
