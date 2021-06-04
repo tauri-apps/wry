@@ -40,34 +40,58 @@ use crate::application::window::Window;
 #[cfg(feature = "winrt")]
 use windows_webview2::Windows::Win32::WindowsAndMessaging::HWND;
 
-// Helper so all platforms handle RPC messages consistently.
-fn rpc_proxy(
-  window: &Window,
-  js: String,
-  handler: &dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>,
-) -> Result<Option<String>> {
-  let req = serde_json::from_str::<RpcRequest>(&js)
-    .map_err(|e| Error::RpcScriptError(e.to_string(), js))?;
+pub struct WebViewAttributes {
+  /// Whether the WebView window should be visible.
+  pub visible: bool,
+  /// Whether the WebView should be transparent.
+  pub transparent: bool,
+  /// Whether load the provided URL to [`WebView`].
+  pub url: Option<Url>,
+  /// Initialize javascript code when loading new pages. When webview load a new page, this
+  /// initialization code will be executed. It is guaranteed that code is executed before
+  /// `window.onload`.
+  pub initialization_scripts: Vec<String>,
+  /// Register custom file loading protocol
+  pub custom_protocols: Vec<(String, Box<dyn Fn(&Window, &str) -> Result<Vec<u8>>>)>,
+  /// Set the RPC handler to Communicate between the host Rust code and Javascript on webview.
+  ///
+  /// The communication is done via [JSON-RPC](https://www.jsonrpc.org). Users can use this to register an incoming
+  /// request handler and reply with responses that are passed back to Javascript. On the Javascript
+  /// side the client is exposed via `window.rpc` with two public methods:
+  ///
+  /// 1. The `call()` function accepts a method name and parameters and expects a reply.
+  /// 2. The `notify()` function accepts a method name and parameters but does not expect a reply.
+  ///
+  /// Both functions return promises but `notify()` resolves immediately.
+  pub rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
+  /// Set a handler closure to process incoming [`FileDropEvent`] of the webview.
+  ///
+  /// # Blocking OS Default Behavior
+  /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
+  ///
+  /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
+  /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
+  #[cfg(feature = "file-drop")]
+  pub file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+  #[cfg(not(feature = "file-drop"))]
+  file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+  /// Whether the WebView window should have a custom user data path. This is useful in Windows
+  /// when a bundled application can't have the webview data inside `Program Files`.
+  pub data_directory: Option<PathBuf>,
+}
 
-  let mut response = (handler)(window, req);
-  // Got a synchronous response so convert it to a script to be evaluated
-  if let Some(mut response) = response.take() {
-    if let Some(id) = response.id {
-      let js = if let Some(error) = response.error.take() {
-        RpcResponse::get_error_script(id, error)?
-      } else if let Some(result) = response.result.take() {
-        RpcResponse::get_result_script(id, result)?
-      } else {
-        // No error or result, assume a positive response
-        // with empty result (ACK)
-        RpcResponse::get_result_script(id, Value::Null)?
-      };
-      Ok(Some(js))
-    } else {
-      Ok(None)
+impl Default for WebViewAttributes {
+  fn default() -> Self {
+    Self {
+      visible: true,
+      transparent: false,
+      url: None,
+      initialization_scripts: vec![],
+      custom_protocols: vec![],
+      rpc_handler: None,
+      file_drop_handler: None,
+      data_directory: None,
     }
-  } else {
-    Ok(None)
   }
 }
 
@@ -76,50 +100,44 @@ fn rpc_proxy(
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
 /// [`WebViewBuilder`] privides ability to setup initialization before web engine starts.
-pub struct WebViewBuilder<'ctx> {
-  transparent: bool,
+pub struct WebViewBuilder {
+  pub webview: WebViewAttributes,
+  window: Window,
   tx: Sender<String>,
   rx: Receiver<String>,
-  initialization_scripts: Vec<String>,
-  window: Window,
-  url: Option<Url>,
-  custom_protocols: Vec<(String, Box<dyn Fn(&Window, &str) -> Result<Vec<u8>>>)>,
-  rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
-  file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-  web_context: &'ctx WebContext,
 }
 
-impl<'ctx> WebViewBuilder<'ctx> {
+impl WebViewBuilder {
   /// Create [`WebViewBuilder`] from provided [`Window`].
-  pub fn new(window: Window, web_context: &'ctx WebContext) -> Result<Self> {
+  pub fn new(window: Window) -> Result<Self> {
     let (tx, rx) = channel();
+    let webview = WebViewAttributes::default();
 
     Ok(Self {
+      webview,
+      window,
       tx,
       rx,
-      initialization_scripts: vec![],
-      window,
-      url: None,
-      transparent: false,
-      custom_protocols: vec![],
-      rpc_handler: None,
-      file_drop_handler: None,
-      web_context,
     })
   }
 
-  /// Whether the WebView window should be transparent. If this is true, writing colors
-  /// with alpha values different than `1.0` will produce a transparent window.
+  /// Sets whether the WebView should be transparent.
   pub fn with_transparent(mut self, transparent: bool) -> Self {
-    self.transparent = transparent;
+    self.webview.transparent = transparent;
     self
   }
 
-  /// Initialize javascript code when loading new pages. Everytime webview load a new page, this
+  /// Sets whether the WebView should be transparent.
+  pub fn with_visible(mut self, visible: bool) -> Self {
+    self.webview.visible = visible;
+    self
+  }
+
+  /// Initialize javascript code when loading new pages. When webview load a new page, this
   /// initialization code will be executed. It is guaranteed that code is executed before
   /// `window.onload`.
   pub fn with_initialization_script(mut self, js: &str) -> Self {
-    self.initialization_scripts.push(js.to_string());
+    self.webview.initialization_scripts.push(js.to_string());
     self
   }
 
@@ -136,7 +154,10 @@ impl<'ctx> WebViewBuilder<'ctx> {
   where
     F: Fn(&Window, &str) -> Result<Vec<u8>> + 'static,
   {
-    self.custom_protocols.push((name, Box::new(handler)));
+    self
+      .webview
+      .custom_protocols
+      .push((name, Box::new(handler)));
     self
   }
 
@@ -154,7 +175,44 @@ impl<'ctx> WebViewBuilder<'ctx> {
   where
     F: Fn(&Window, RpcRequest) -> Option<RpcResponse> + 'static,
   {
-    let js = r#"
+    self.webview.rpc_handler = Some(Box::new(handler));
+    self
+  }
+
+  /// Set a handler closure to process incoming [`FileDropEvent`] of the webview.
+  ///
+  /// # Blocking OS Default Behavior
+  /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
+  ///
+  /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
+  /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
+  #[cfg(feature = "file-drop")]
+  pub fn with_file_drop_handler<F>(mut self, handler: F) -> Self
+  where
+    F: Fn(&Window, FileDropEvent) -> bool + 'static,
+  {
+    self.webview.file_drop_handler = Some(Box::new(handler));
+    self
+  }
+
+  /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the
+  /// [`WebView`]. The provided URL must be valid.
+  pub fn with_url(mut self, url: &str) -> Result<Self> {
+    self.webview.url = Some(Url::parse(url)?);
+    Ok(self)
+  }
+
+  /// Consume the builder and create the [`WebView`].
+  ///
+  /// Platform-specific behavior:
+  ///
+  /// - **Unix:** This method must be called in a gtk thread. Usually this means it should be
+  /// called in the same thread with the [`EventLoop`] you create.
+  ///
+  /// [`EventLoop`]: crate::application::event_loop::EventLoop
+  pub fn build(mut self, web_context: &WebContext) -> Result<WebView> {
+    if self.webview.rpc_handler.is_some() {
+      let js = r#"
             (function() {
                 function Rpc() {
                     const self = this;
@@ -204,54 +262,10 @@ impl<'ctx> WebViewBuilder<'ctx> {
             })();
             "#;
 
-    self.initialization_scripts.push(js.to_string());
-    self.rpc_handler = Some(Box::new(handler));
-    self
-  }
-
-  /// Set a handler closure to process incoming [`FileDropEvent`] of the webview.
-  ///
-  /// # Blocking OS Default Behavior
-  /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
-  ///
-  /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
-  /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
-  #[cfg(feature = "file-drop")]
-  pub fn with_file_drop_handler<F>(mut self, handler: F) -> Self
-  where
-    F: Fn(&Window, FileDropEvent) -> bool + 'static,
-  {
-    self.file_drop_handler = Some(Box::new(handler));
-    self
-  }
-
-  /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the
-  /// [`WebView`]. The provided URL must be valid.
-  pub fn with_url(mut self, url: &str) -> Result<Self> {
-    self.url = Some(Url::parse(url)?);
-    Ok(self)
-  }
-
-  /// Consume the builder and create the [`WebView`].
-  ///
-  /// Platform-specific behavior:
-  ///
-  /// - **Unix:** This method must be called in a gtk thread. Usually this means it should be
-  /// called in the same thread with the [`EventLoop`] you create.
-  ///
-  /// [`EventLoop`]: crate::application::event_loop::EventLoop
-  pub fn build(self) -> Result<WebView> {
+      self.webview.initialization_scripts.push(js.to_string());
+    }
     let window = Rc::new(self.window);
-    let webview = InnerWebView::new(
-      window.clone(),
-      self.initialization_scripts,
-      self.url,
-      self.transparent,
-      self.custom_protocols,
-      self.rpc_handler,
-      self.file_drop_handler,
-      self.web_context,
-    )?;
+    let webview = InnerWebView::new(window.clone(), self.webview, web_context)?;
     Ok(WebView {
       window,
       webview,
@@ -368,6 +382,37 @@ impl Dispatcher {
   pub fn dispatch_script(&self, js: &str) -> Result<()> {
     self.0.send(js.to_string())?;
     Ok(())
+  }
+}
+
+// Helper so all platforms handle RPC messages consistently.
+fn rpc_proxy(
+  window: &Window,
+  js: String,
+  handler: &dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>,
+) -> Result<Option<String>> {
+  let req = serde_json::from_str::<RpcRequest>(&js)
+    .map_err(|e| Error::RpcScriptError(e.to_string(), js))?;
+
+  let mut response = (handler)(window, req);
+  // Got a synchronous response so convert it to a script to be evaluated
+  if let Some(mut response) = response.take() {
+    if let Some(id) = response.id {
+      let js = if let Some(error) = response.error.take() {
+        RpcResponse::get_error_script(id, error)?
+      } else if let Some(result) = response.result.take() {
+        RpcResponse::get_result_script(id, result)?
+      } else {
+        // No error or result, assume a positive response
+        // with empty result (ACK)
+        RpcResponse::get_result_script(id, Value::Null)?
+      };
+      Ok(Some(js))
+    } else {
+      Ok(None)
+    }
+  } else {
+    Ok(None)
   }
 }
 
