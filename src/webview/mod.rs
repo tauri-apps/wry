@@ -318,7 +318,7 @@ impl WebView {
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
   pub fn new(window: Window, web_context: &WebContext) -> Result<Self> {
-    WebViewBuilder::new(window, web_context)?.build()
+    WebViewBuilder::new(window)?.build(web_context)
   }
 
   /// Dispatch javascript code to be evaluated later. Note this will not actually run the
