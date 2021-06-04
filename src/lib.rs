@@ -103,8 +103,8 @@ pub use serde_json::Value;
 use url::ParseError;
 
 pub mod application;
-pub mod webview;
 mod builder;
+pub mod webview;
 
 // expose the builder on the root namespace so it can be used as wry::Builder
 pub use builder::Builder;
