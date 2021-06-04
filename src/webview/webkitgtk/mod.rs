@@ -2,23 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use std::{path::PathBuf, rc::Rc};
+
 use gdk::{WindowEdge, WindowExt, RGBA};
 use gio::Cancellable;
 use glib::{signal::Inhibit, Bytes, Cast, FileError};
-use gtk::{BoxExt, ContainerExt, GtkWindowExt, WidgetExt};
-use std::rc::Rc;
+use gtk::{BoxExt, ContainerExt, WidgetExt};
 use url::Url;
 use webkit2gtk::{
-  ApplicationInfo, AutomationSessionExt, SecurityManagerExt, SettingsExt, URISchemeRequestExt,
-  UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
-  UserScriptInjectionTime, WebContextExt, WebView, WebViewBuilder, WebViewExt,
+  SecurityManagerExt, SettingsExt, URISchemeRequestExt, UserContentInjectedFrames,
+  UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime,
+  WebContextBuilder, WebContextExt, WebView, WebViewExt, WebViewExtManual,
+  WebsiteDataManagerBuilder,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
 };
 
 use crate::{
-  application::{platform::unix::*, unix::ApplicationExt, window::Window, Application},
+  application::{platform::unix::*, window::Window},
   webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
   Error, Result,
 };
@@ -31,7 +33,6 @@ pub struct InnerWebView {
 
 impl InnerWebView {
   pub fn new(
-    application: &Application,
     window: Rc<Window>,
     scripts: Vec<String>,
     url: Option<Url>,
@@ -42,32 +43,38 @@ impl InnerWebView {
     )>,
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+    data_directory: Option<PathBuf>,
   ) -> Result<Self> {
     let window_rc = Rc::clone(&window);
     let window = &window.gtk_window();
-
     // Webview widget
     let manager = UserContentManager::new();
-    let context = application.context();
+    let mut context_builder = WebContextBuilder::new();
+    if let Some(data_directory) = data_directory {
+      let data_manager = WebsiteDataManagerBuilder::new()
+        .local_storage_directory(
+          &data_directory
+            .join("localstorage")
+            .to_string_lossy()
+            .into_owned(),
+        )
+        .indexeddb_directory(
+          &data_directory
+            .join("databases")
+            .join("indexeddb")
+            .to_string_lossy()
+            .into_owned(),
+        )
+        .build();
+      context_builder = context_builder.website_data_manager(&data_manager);
+    }
+    let context = context_builder.build();
 
-    let mut webview = WebViewBuilder::new();
-    webview = webview.web_context(context);
-    webview = webview.user_content_manager(&manager);
-    webview = webview.is_controlled_by_automation(application.allows_automation());
-    let webview = webview.build();
-
-    let auto_webview = webview.clone();
-    context.connect_automation_started(move |_, auto| {
-      let webview = auto_webview.clone();
-      let app_into = ApplicationInfo::new();
-      app_into.set_name("wry");
-      app_into.set_version(0, 9, 0);
-      auto.set_application_info(&app_into);
-      auto.connect_create_web_view(move |_| webview.clone());
-    });
+    let webview = Rc::new(WebView::new_with_context_and_user_content_manager(
+      &context, &manager,
+    ));
 
     // Message handler
-    let webview = Rc::new(webview);
     let wv = Rc::clone(&webview);
     let w = window_rc.clone();
     manager.register_script_message_handler("external");
@@ -89,12 +96,6 @@ impl InnerWebView {
           }
         }
       }
-    });
-
-    // todo: is this leaking memory when having programs longer than window close?
-    let close_window = window_rc.clone();
-    webview.connect_close(move |_| {
-      close_window.gtk_window().close();
     });
 
     webview.connect_button_press_event(|webview, event| {

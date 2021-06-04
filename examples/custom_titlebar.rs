@@ -8,13 +8,11 @@ fn main() -> wry::Result<()> {
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::{Window, WindowBuilder},
-      Application,
     },
     webview::{RpcRequest, WebViewBuilder},
   };
 
   let event_loop = EventLoop::new();
-  let application = Application::new(None);
   let mut webviews = std::collections::HashMap::new();
   let window = WindowBuilder::new()
     .with_decorations(false)
@@ -116,7 +114,7 @@ fn main() -> wry::Result<()> {
     None
   };
 
-  let webview = WebViewBuilder::new(window, &application)
+  let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url(url)?
     .with_initialization_script(script)

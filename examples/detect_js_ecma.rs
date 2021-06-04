@@ -2,19 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use wry::application::Application;
-
 fn main() -> wry::Result<()> {
-  use wry::application::{
-    event::{Event, StartCause, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+  use wry::{
+    application::{
+      event::{Event, StartCause, WindowEvent},
+      event_loop::{ControlFlow, EventLoop},
+      window::WindowBuilder,
+    },
+    webview::WebViewBuilder,
   };
 
   let event_loop = EventLoop::new();
-  let application = Application::new(None);
-  let _webview = wry::Builder::new(&event_loop)
-      .title("Detect ECMAScript")
-      .initialization_script(r#"
+  let window = WindowBuilder::new()
+    .with_title("Detect ECMAScript")
+    .build(&event_loop)
+    .unwrap();
+  let _webview = WebViewBuilder::new(window)
+    .unwrap()
+    .with_initialization_script(
+    r#"
         (function () {
             window.addEventListener('DOMContentLoaded', (event) => {
 
@@ -98,7 +104,7 @@ fn main() -> wry::Result<()> {
                   for (var j = 0; j < versionDetails.features.length; j++) {
                     var feature = versionDetails.features[j];
                     tableElement.innerHTML += `<tr> <td style="width: 200px">${feature.name}</td> <td>${feature.supported ? '✔' : '❌'} </td> </tr>`
-                    if (!feature.supported) versionSupported = false;
+                    if (!feature.supported) versionSupported = false; 
                   }
                   summaryListElement.innerHTML += `<li> ${versionDetails.version}: ${versionSupported ? '✔' : '❌'}`
                 }
@@ -106,8 +112,8 @@ fn main() -> wry::Result<()> {
             });
         })();
         "#)
-      .url(
-        r#"data:text/html,
+    .with_url(
+    r#"data:text/html,
     </html>
         <body>
             <h1>ECMAScript support list:</h1>
@@ -121,7 +127,8 @@ fn main() -> wry::Result<()> {
         </body>
     </html>
     "#,
-      )?.build(&application)?;
+    )?
+    .build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

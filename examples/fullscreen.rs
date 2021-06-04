@@ -8,19 +8,17 @@ fn main() -> wry::Result<()> {
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::{Fullscreen, WindowBuilder},
-      Application,
     },
     webview::WebViewBuilder,
   };
 
   let event_loop = EventLoop::new();
-  let application = Application::new(None);
   let window = WindowBuilder::new()
     .with_title("3D Render Test")
     .with_fullscreen(Some(Fullscreen::Borderless(None)))
     .build(&event_loop)
     .unwrap();
-  let webview = WebViewBuilder::new(window, &application)
+  let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url("https://www.wirple.com/")?
     .build()?;

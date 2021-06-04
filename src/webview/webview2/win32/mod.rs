@@ -11,22 +11,17 @@ use crate::{
 
 use file_drop::FileDropController;
 
-use std::{collections::HashSet, os::raw::c_void, rc::Rc};
+use std::{collections::HashSet, os::raw::c_void, path::PathBuf, rc::Rc};
 
 use once_cell::unsync::OnceCell;
 use url::Url;
 use webview2::{Controller, PermissionKind, PermissionState, WebView};
-use winapi::{
-  shared::{windef::HWND, winerror::E_FAIL},
-  um::winuser::{DestroyWindow, GetClientRect},
-};
+use winapi::{shared::windef::HWND, um::winuser::GetClientRect};
 
 use crate::application::{
   event_loop::{ControlFlow, EventLoop},
   platform::{run_return::EventLoopExtRunReturn, windows::WindowExtWindows},
   window::Window,
-  windows::ApplicationExt,
-  Application,
 };
 
 pub struct InnerWebView {
@@ -40,7 +35,6 @@ pub struct InnerWebView {
 
 impl InnerWebView {
   pub fn new(
-    application: &Application,
     window: Rc<Window>,
     scripts: Vec<String>,
     url: Option<Url>,
@@ -51,6 +45,7 @@ impl InnerWebView {
     )>,
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+    data_directory: Option<PathBuf>,
   ) -> Result<Self> {
     let hwnd = window.hwnd() as HWND;
 
@@ -61,9 +56,12 @@ impl InnerWebView {
     let file_drop_controller_clone = file_drop_controller.clone();
 
     let webview_builder: webview2::EnvironmentBuilder;
+    let data_directory_provided: PathBuf;
 
-    if let Some(data_directory) = application.data_directory() {
-      webview_builder = webview2::EnvironmentBuilder::new().with_user_data_folder(&data_directory);
+    if let Some(data_directory) = data_directory {
+      data_directory_provided = data_directory;
+      webview_builder =
+        webview2::EnvironmentBuilder::new().with_user_data_folder(&data_directory_provided);
     } else {
       webview_builder = webview2::EnvironmentBuilder::new();
     }
@@ -75,15 +73,6 @@ impl InnerWebView {
       env.create_controller(hwnd, move |controller| {
         let controller = controller?;
         let w = controller.get_webview()?;
-
-        // todo: is this leaking memory when having programs longer than window close?
-        w.add_window_close_requested(move |_| {
-          if unsafe { DestroyWindow(hwnd as HWND) } != 0 {
-            Ok(())
-          } else {
-            Err(webview2::Error::new(E_FAIL))
-          }
-        })?;
 
         // Transparent
         if transparent {

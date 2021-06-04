@@ -8,7 +8,6 @@ fn main() -> wry::Result<()> {
       event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
-      Application,
     },
     webview::{webview_version, WebViewBuilder},
   };
@@ -22,11 +21,10 @@ fn main() -> wry::Result<()> {
       );
 
       let event_loop = EventLoop::new();
-      let application = Application::new(None);
       let window = WindowBuilder::new()
         .with_title("Hello World")
         .build(&event_loop)?;
-      let _webview = WebViewBuilder::new(window, &application)?
+      let _webview = WebViewBuilder::new(window)?
         .with_url("https://tauri.studio")?
         .build()?;
 

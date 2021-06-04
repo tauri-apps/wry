@@ -5,6 +5,7 @@
 use std::{
   ffi::{c_void, CStr},
   os::raw::c_char,
+  path::PathBuf,
   ptr::{null, null_mut},
   rc::Rc,
   slice, str,
@@ -34,7 +35,7 @@ use file_drop::{add_file_drop_methods, set_file_drop_handler};
 use crate::application::platform::ios::WindowExtIOS;
 
 use crate::{
-  application::{window::Window, Application},
+  application::window::Window,
   webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
   Result,
 };
@@ -58,7 +59,6 @@ pub struct InnerWebView {
 
 impl InnerWebView {
   pub fn new(
-    _application: &Application,
     window: Rc<Window>,
     scripts: Vec<String>,
     url: Option<Url>,
@@ -69,6 +69,7 @@ impl InnerWebView {
     )>,
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     _file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+    _data_directory: Option<PathBuf>,
   ) -> Result<Self> {
     // Function for rpc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {

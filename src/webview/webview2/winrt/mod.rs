@@ -37,8 +37,6 @@ use crate::application::{
   event_loop::{ControlFlow, EventLoop},
   platform::{run_return::EventLoopExtRunReturn, windows::WindowExtWindows},
   window::Window,
-  windows::ApplicationWinExt,
-  Application,
 };
 
 pub struct InnerWebView {
@@ -53,7 +51,6 @@ pub struct InnerWebView {
 
 impl InnerWebView {
   pub fn new(
-    application: &Application,
     window: Rc<Window>,
     scripts: Vec<String>,
     url: Option<Url>,
@@ -66,6 +63,7 @@ impl InnerWebView {
     )>,
     rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
     file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+    data_directory: Option<PathBuf>,
   ) -> Result<Self> {
     let hwnd = HWND(window.hwnd() as _);
 
@@ -73,7 +71,7 @@ impl InnerWebView {
     let webview_rc: Rc<OnceCell<webview2::CoreWebView2>> = Rc::new(OnceCell::new());
     let file_drop_controller_rc: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
 
-    let env = wait_for_async_operation(match application.data_directory() {
+    let env = wait_for_async_operation(match data_directory {
       Some(data_directory_provided) => webview2::CoreWebView2Environment::CreateWithOptionsAsync(
         "",
         data_directory_provided.to_str().unwrap_or(""),
@@ -107,8 +105,6 @@ impl InnerWebView {
         Height: height as f32,
       })?;
     }
-
-    // TODO: close window upon request like win32 add_window_close_requested
 
     // Initialize scripts
     wait_for_async_operation(w.AddScriptToExecuteOnDocumentCreatedAsync(

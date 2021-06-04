@@ -8,13 +8,11 @@ fn main() -> wry::Result<()> {
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
-      Application,
     },
     webview::WebViewBuilder,
   };
 
   let event_loop = EventLoop::new();
-  let application = Application::new(None);
   let window = WindowBuilder::new()
     .with_decorations(false)
     // There are actually three layer of background color when creating webview window.
@@ -23,7 +21,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  let webview = WebViewBuilder::new(window, &application)?
+  let webview = WebViewBuilder::new(window)?
     // The second is on webview...
     .with_transparent(true)
     // And the last is in html.

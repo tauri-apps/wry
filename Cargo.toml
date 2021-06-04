@@ -14,7 +14,6 @@ categories = [ "gui" ]
 
 [package.metadata.docs.rs]
 features = [ "dox" ]
-rustdoc-args = [ "--cfg", "doc_cfg" ]
 default-target = "x86_64-unknown-linux-gnu"
 targets = [
   "x86_64-pc-windows-msvc",
@@ -33,7 +32,6 @@ tray = [ "tao/tray" ]
 # See https://github.com/tauri-apps/wry/issues/247 for more information
 # winrt = [ "windows-webview2", "windows" ]
 win32 = [ "webview2", "winapi", "webview2-sys" ]
-webdriver = [ ]
 
 [dependencies]
 libc = "0.2"
@@ -52,7 +50,7 @@ chrono = "0.4.19"
 tempfile = "3.2.0"
 
 [target."cfg(target_os = \"linux\")".dependencies]
-webkit2gtk = { version = "0.11", features = [ "v2_18" ] }
+webkit2gtk = { version = "0.11", features = [ "v2_10" ] }
 webkit2gtk-sys = "0.13.0"
 gio = "0.9"
 glib = "0.10"

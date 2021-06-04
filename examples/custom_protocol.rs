@@ -8,19 +8,17 @@ fn main() -> wry::Result<()> {
       event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
-      Application,
     },
     webview::WebViewBuilder,
   };
 
   let event_loop = EventLoop::new();
-  let application = Application::new(None);
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)
     .unwrap();
 
-  let _webview = WebViewBuilder::new(window, &application)
+  let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_custom_protocol("wry.dev".into(), move |_, requested_asset_path| {
       // remove the protocol from the path for easiest match

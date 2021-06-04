@@ -20,14 +20,13 @@ fn main() -> wry::Result<()> {
       dpi::PhysicalSize,
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
-      window::Window,
-      Application,
+      window::{Window, WindowBuilder},
     },
-    webview::RpcRequest,
+    webview::{RpcRequest, WebViewBuilder},
   };
 
   let event_loop = EventLoop::new();
-  let application = Application::new(None);
+  let window1 = WindowBuilder::new().build(&event_loop).unwrap();
 
   let (window_tx, window_rx) = std::sync::mpsc::channel::<String>();
   let handler = move |_window: &Window, req: RpcRequest| {
@@ -41,17 +40,17 @@ fn main() -> wry::Result<()> {
     None
   };
 
-  let webview1 = wry::Builder::new(&event_loop)
-    .url("https://tauri.studio")?
-    .initialization_script(
+  let id = window1.id();
+  let webview1 = WebViewBuilder::new(window1)
+    .unwrap()
+    .with_url("https://tauri.studio")?
+    .with_initialization_script(
       r#"async function openWindow() {
                 await window.rpc.notify("openWindow", "https://i.imgur.com/x6tXcr9.gif");
             }"#,
     )
-    .rpc_handler(handler)
-    .build(&application)?;
-  let id = webview1.window().id();
-
+    .with_rpc_handler(handler)
+    .build()?;
   let mut webviews = HashMap::new();
   webviews.insert(id, webview1);
 
@@ -62,14 +61,18 @@ fn main() -> wry::Result<()> {
     *control_flow = ControlFlow::Wait;
 
     if let Ok(url) = window_rx.try_recv() {
-      let webview2 = wry::Builder::new(&event_loop)
-        .title("RODA RORA DA")
-        .inner_size(PhysicalSize::new(426, 197))
-        .url(&url)
-        .unwrap()
-        .build(&application)
+      let window2 = WindowBuilder::new()
+        .with_title("RODA RORA DA")
+        .with_inner_size(PhysicalSize::new(426, 197))
+        .build(&event_loop)
         .unwrap();
-      let id = webview2.window().id();
+      let id = window2.id();
+      let webview2 = WebViewBuilder::new(window2)
+        .unwrap()
+        .with_url(&url)
+        .unwrap()
+        .build()
+        .unwrap();
       webviews.insert(id, webview2);
     } else if trigger && instant.elapsed() >= eight_secs {
       webviews

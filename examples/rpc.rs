@@ -16,13 +16,11 @@ fn main() -> wry::Result<()> {
       event::{Event, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::{Fullscreen, Window, WindowBuilder},
-      Application,
     },
     webview::{RpcRequest, RpcResponse, WebViewBuilder},
   };
 
   let event_loop = EventLoop::new();
-  let application = Application::new(None);
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
   let url = r#"data:text/html,
@@ -78,7 +76,7 @@ async function getAsyncRpcResult() {
 
     response
   };
-  let webview = WebViewBuilder::new(window, &application)
+  let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url(url)?
     .with_rpc_handler(handler)

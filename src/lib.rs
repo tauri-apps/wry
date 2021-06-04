@@ -16,17 +16,15 @@
 //!       event::{Event, StartCause, WindowEvent},
 //!       event_loop::{ControlFlow, EventLoop},
 //!       window::WindowBuilder,
-//!       Application
 //!     },
 //!     webview::WebViewBuilder,
 //!   };
 //!  
 //!   let event_loop = EventLoop::new();
-//!   let application = Application::new(None);
 //!   let window = WindowBuilder::new()
 //!     .with_title("Hello World")
 //!     .build(&event_loop)?;
-//!   let _webview = WebViewBuilder::new(window, &application)?
+//!   let _webview = WebViewBuilder::new(window)?
 //!     .with_url("https://tauri.studio")?
 //!     .build()?;
 //!
@@ -79,7 +77,6 @@
 //! [`with_file_drop_handler`]: crate::webview::WebView::with_file_drop_handler
 //! [`with_custom_protocol`]: crate::webview::WebView::with_custom_protocol
 
-#![cfg_attr(doc_cfg, feature(doc_cfg))]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::wrong_self_convention)]
 #![allow(clippy::too_many_arguments)]
@@ -103,11 +100,7 @@ pub use serde_json::Value;
 use url::ParseError;
 
 pub mod application;
-mod builder;
 pub mod webview;
-
-// expose the builder on the root namespace so it can be used as wry::Builder
-pub use builder::Builder;
 
 /// Convenient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;
