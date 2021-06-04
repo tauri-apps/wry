@@ -5,7 +5,7 @@
 mod file_drop;
 
 use crate::{
-  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  webview::{mimetype::MimeType, WebViewAttributes},
   Result,
 };
 
@@ -14,7 +14,6 @@ use file_drop::FileDropController;
 use std::{collections::HashSet, os::raw::c_void, path::PathBuf, rc::Rc};
 
 use once_cell::unsync::OnceCell;
-use url::Url;
 use webview2::{Controller, PermissionKind, PermissionState, WebView};
 use winapi::{shared::windef::HWND, um::winuser::GetClientRect};
 
@@ -36,16 +35,7 @@ pub struct InnerWebView {
 impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
-    scripts: Vec<String>,
-    url: Option<Url>,
-    transparent: bool,
-    custom_protocols: Vec<(
-      String,
-      Box<dyn Fn(&Window, &str) -> Result<Vec<u8>> + 'static>,
-    )>,
-    rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
-    file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-    data_directory: Option<PathBuf>,
+    mut attributes: WebViewAttributes,
   ) -> Result<Self> {
     let hwnd = window.hwnd() as HWND;
 
@@ -58,6 +48,7 @@ impl InnerWebView {
     let webview_builder: webview2::EnvironmentBuilder;
     let data_directory_provided: PathBuf;
 
+    let data_directory = attributes.data_directory.take();
     if let Some(data_directory) = data_directory {
       data_directory_provided = data_directory;
       webview_builder =
@@ -75,7 +66,7 @@ impl InnerWebView {
         let w = controller.get_webview()?;
 
         // Transparent
-        if transparent {
+        if attributes.transparent {
           if let Ok(c2) = controller.get_controller2() {
             c2.put_default_background_color(webview2_sys::Color {
               r: 0,
@@ -106,15 +97,17 @@ impl InnerWebView {
           "window.external={invoke:s=>window.chrome.webview.postMessage(s)}",
           |_| (Ok(())),
         )?;
-        for js in scripts {
+        for js in attributes.initialization_scripts {
           w.add_script_to_execute_on_document_created(&js, |_| (Ok(())))?;
         }
 
         // Message handler
         let window_ = window.clone();
+
+        let rpc_handler = attributes.rpc_handler.take();
         w.add_web_message_received(move |webview, args| {
           let js = args.try_get_web_message_as_string()?;
-          if let Some(rpc_handler) = rpc_handler.as_ref() {
+          if let Some(rpc_handler) = &rpc_handler {
             match super::rpc_proxy(&window_, js, rpc_handler) {
               Ok(result) => {
                 if let Some(ref script) = result {
@@ -130,7 +123,7 @@ impl InnerWebView {
         })?;
 
         let mut custom_protocol_names = HashSet::new();
-        for (name, function) in custom_protocols {
+        for (name, function) in attributes.custom_protocols {
           // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
           // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
           custom_protocol_names.insert(name.clone());
@@ -179,7 +172,7 @@ impl InnerWebView {
         })?;
 
         // Navigation
-        if let Some(url) = url {
+        if let Some(url) = attributes.url {
           if url.cannot_be_a_base() {
             let s = url.as_str();
             if let Some(pos) = s.find(',') {
@@ -204,7 +197,7 @@ impl InnerWebView {
         controller.put_is_visible(true)?;
         let _ = controller_clone.set(controller);
 
-        if let Some(file_drop_handler) = file_drop_handler {
+        if let Some(file_drop_handler) = attributes.file_drop_handler {
           let mut file_drop_controller = FileDropController::new();
           file_drop_controller.listen(hwnd, window.clone(), file_drop_handler);
           let _ = file_drop_controller_clone.set(file_drop_controller);

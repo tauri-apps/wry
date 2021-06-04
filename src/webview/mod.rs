@@ -268,13 +268,7 @@ impl WebViewBuilder {
     let window = Rc::new(self.window);
     let webview = InnerWebView::new(
       window.clone(),
-      self.webview.initialization_scripts,
-      self.webview.url,
-      self.webview.transparent,
-      self.webview.custom_protocols,
-      self.webview.rpc_handler,
-      self.webview.file_drop_handler,
-      self.webview.data_directory,
+      self.webview
     )?;
     Ok(WebView {
       window,
