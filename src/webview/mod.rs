@@ -354,6 +354,11 @@ impl WebView {
     Ok(())
   }
 
+  /// Evaluate javascript code immediately.
+  pub fn eval(&self, js: &str) -> Result<()> {
+    self.webview.eval(js)
+  }
+
   /// Launch print modal for the webview content.
   pub fn print(&self) -> Result<()> {
     self.webview.print();
