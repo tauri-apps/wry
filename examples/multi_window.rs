@@ -75,16 +75,8 @@ fn main() -> wry::Result<()> {
         .unwrap();
       webviews.insert(id, webview2);
     } else if trigger && instant.elapsed() >= eight_secs {
-      webviews
-        .get_mut(&id)
-        .unwrap()
-        .dispatch_script("openWindow()")
-        .unwrap();
+      webviews.get_mut(&id).unwrap().eval("openWindow()").unwrap();
       trigger = false;
-    }
-
-    for webview in webviews.values() {
-      webview.evaluate_script().unwrap();
     }
 
     if let Event::WindowEvent {
