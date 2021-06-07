@@ -354,7 +354,10 @@ impl WebView {
     Ok(())
   }
 
-  /// Evaluate javascript code immediately.
+  /// Evaluate and run javascript code. Must be called on the same thread who created the
+  /// [`WebView`]. Use [`EventLoopProxy`] and a custom event to send scripts from other threads.
+  ///
+  /// [`EventLoopProxy`]: crate::application::event_loop::EventLoopProxy
   pub fn eval(&self, js: &str) -> Result<()> {
     self.webview.eval(js)
   }
