@@ -2,4 +2,4 @@
 "wry": minor
 ---
 
-Remove `Dispatcher` struct and `dispatch_script`, `evaluate_script`, and `dispatcher` methods in the `webview` module.
+Remove `Dispatcher`, `dispatch_script` and `dispatcher` in the `webview` module and add a `js` parameter to `evaluate_script`.
