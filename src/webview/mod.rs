@@ -309,7 +309,7 @@ impl WebView {
   /// [`WebView`]. Use [`EventLoopProxy`] and a custom event to send scripts from other threads.
   ///
   /// [`EventLoopProxy`]: crate::application::event_loop::EventLoopProxy
-  pub fn eval(&self, js: &str) -> Result<()> {
+  pub fn evaluate_script(&self, js: &str) -> Result<()> {
     self.webview.eval(js)
   }
 
