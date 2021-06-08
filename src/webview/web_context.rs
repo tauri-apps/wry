@@ -1,10 +1,11 @@
 use std::path::{Path, PathBuf};
 
 /// A context that is shared between multiple [`WebView`]s.
-/// [`WebView`]: crate::webview::WebView
 ///
 /// A browser would have a context for all the normal tabs and a different context for all the
 /// private/incognito tabs.
+///
+/// [`WebView`]: crate::webview::WebView
 pub struct WebContext {
   data: WebContextData,
   #[allow(dead_code)]
