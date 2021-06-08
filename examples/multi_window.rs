@@ -65,7 +65,7 @@ fn main() -> wry::Result<()> {
       let window2 = WindowBuilder::new()
         .with_title("RODA RORA DA")
         .with_inner_size(PhysicalSize::new(426, 197))
-        .build(&event_loop)
+        .build(event_loop)
         .unwrap();
       let id = window2.id();
       let webview2 = WebViewBuilder::new(window2)
