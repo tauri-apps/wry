@@ -63,7 +63,7 @@ impl MimeType {
 
   /// infer mimetype from content (or) URI if needed.
   pub fn parse(content: &[u8], uri: &str) -> String {
-    let mime = match infer::get(&content) {
+    let mime = match infer::get(content) {
       Some(info) => info.mime_type(),
       None => MIMETYPE_PLAIN,
     };
