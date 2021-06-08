@@ -52,11 +52,9 @@ impl WebContextData {
 }
 
 #[cfg(not(target_os = "linux"))]
-#[cfg_attr(doc_cfg, doc(cfg(not(target_os = "linux"))))]
 struct WebContextImpl;
 
 #[cfg(not(target_os = "linux"))]
-#[cfg_attr(doc_cfg, doc(cfg(not(target_os = "linux"))))]
 impl WebContextImpl {
   fn new(_data: &WebContextData) -> Self {
     Self
