@@ -27,7 +27,7 @@ fn main() -> wry::Result<()> {
       println!("Window 1: {:?}", data);
       false // Returning true will block the OS default behaviour.
     })
-    .build(&Default::default())?;
+    .build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

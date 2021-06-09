@@ -66,7 +66,7 @@ fn main() -> wry::Result<()> {
             .unwrap()
             .with_url("https://tauri.studio")
             .unwrap()
-            .build(&Default::default())
+            .build()
             .unwrap();
           webviews.insert(id, webview);
         }

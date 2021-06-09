@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 /// [`WebView`]: crate::webview::WebView
 pub struct WebContext {
   data: WebContextData,
-  #[allow(dead_code)]
+  #[allow(dead_code)] // It's no need on Windows and macOS.
   os: WebContextImpl,
 }
 
