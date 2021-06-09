@@ -193,7 +193,7 @@ impl<'a> WebViewBuilder<'a> {
   pub fn with_url(mut self, url: &str) -> Result<Self> {
     self.webview.url = Some(Url::parse(url)?);
     Ok(self)
-  } 
+  }
 
   /// Set the web context that can share with multiple [`WebView`]s.
   pub fn with_web_context(mut self, web_context: &'a WebContext) -> Self {
