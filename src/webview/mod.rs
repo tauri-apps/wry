@@ -24,11 +24,7 @@ use self::webview2::*;
 
 use crate::{Error, Result};
 
-use std::{
-  path::PathBuf,
-  rc::Rc,
-  sync::mpsc::{channel, Receiver, Sender},
-};
+use std::{path::PathBuf, rc::Rc};
 
 use serde_json::Value;
 use url::Url;
@@ -103,22 +99,14 @@ impl Default for WebViewAttributes {
 pub struct WebViewBuilder {
   pub webview: WebViewAttributes,
   window: Window,
-  tx: Sender<String>,
-  rx: Receiver<String>,
 }
 
 impl WebViewBuilder {
   /// Create [`WebViewBuilder`] from provided [`Window`].
   pub fn new(window: Window) -> Result<Self> {
-    let (tx, rx) = channel();
     let webview = WebViewAttributes::default();
 
-    Ok(Self {
-      webview,
-      window,
-      tx,
-      rx,
-    })
+    Ok(Self { webview, window })
   }
 
   /// Sets whether the WebView should be transparent.
@@ -139,13 +127,6 @@ impl WebViewBuilder {
   pub fn with_initialization_script(mut self, js: &str) -> Self {
     self.webview.initialization_scripts.push(js.to_string());
     self
-  }
-
-  /// Create a [`Dispatcher`] to send evaluation scripts to the WebView. [`WebView`] is not thread
-  /// safe because it must be run on the main thread who creates it. [`Dispatcher`] can let you
-  /// send the scripts from other threads.
-  pub fn dispatcher(&self) -> Dispatcher {
-    Dispatcher(self.tx.clone())
   }
 
   /// Register custom file loading protocol
@@ -266,12 +247,7 @@ impl WebViewBuilder {
     }
     let window = Rc::new(self.window);
     let webview = InnerWebView::new(window.clone(), self.webview, web_context)?;
-    Ok(WebView {
-      window,
-      webview,
-      tx: self.tx,
-      rx: self.rx,
-    })
+    Ok(WebView { window, webview })
   }
 }
 
@@ -284,8 +260,6 @@ impl WebViewBuilder {
 pub struct WebView {
   window: Rc<Window>,
   webview: InnerWebView,
-  tx: Sender<String>,
-  rx: Receiver<String>,
 }
 
 // Signal the Window to drop on Linux and Windows. On mac, we need to handle several unsafe code
@@ -321,33 +295,18 @@ impl WebView {
     WebViewBuilder::new(window)?.build(web_context)
   }
 
-  /// Dispatch javascript code to be evaluated later. Note this will not actually run the
-  /// scripts being dispatched. Users need to call [`WebView::evaluate_script`] to execute them.
-  pub fn dispatch_script(&mut self, js: &str) -> Result<()> {
-    self.tx.send(js.to_string())?;
-    Ok(())
-  }
-
-  /// Create a [`Dispatcher`] to send evaluation scripts to the WebView. [`WebView`] is not thread
-  /// safe because it must be run on the main thread who creates it. [`Dispatcher`] can let you
-  /// send the scripts from other threads.
-  pub fn dispatcher(&self) -> Dispatcher {
-    Dispatcher(self.tx.clone())
-  }
-
   /// Get the [`Window`] associate with the [`WebView`]. This can let you perform window related
   /// actions.
   pub fn window(&self) -> &Window {
     &self.window
   }
 
-  /// Evaluate the scripts sent from [`Dispatcher`]s.
-  pub fn evaluate_script(&self) -> Result<()> {
-    while let Ok(js) = self.rx.try_recv() {
-      self.webview.eval(&js)?;
-    }
-
-    Ok(())
+  /// Evaluate and run javascript code. Must be called on the same thread who created the
+  /// [`WebView`]. Use [`EventLoopProxy`] and a custom event to send scripts from other threads.
+  ///
+  /// [`EventLoopProxy`]: crate::application::event_loop::EventLoopProxy
+  pub fn evaluate_script(&self, js: &str) -> Result<()> {
+    self.webview.eval(js)
   }
 
   /// Launch print modal for the webview content.
@@ -365,22 +324,6 @@ impl WebView {
     #[cfg(target_os = "windows")]
     #[cfg(feature = "win32")]
     self.webview.resize(self.window.hwnd())?;
-    Ok(())
-  }
-}
-
-#[derive(Clone)]
-/// A channel sender to dispatch javascript code to for the [`WebView`] to evaluate it.
-///
-/// [`WebView`] is not thread safe because it must be run on main thread who creates it.
-/// [`Dispatcher`] can let you send scripts from other thread.
-pub struct Dispatcher(Sender<String>);
-
-impl Dispatcher {
-  /// Dispatch javascript code to be evaluated later. Note this will not actually run the
-  /// scripts being dispatched. Users need to call [`WebView::evaluate_script`] to execute them.
-  pub fn dispatch_script(&self, js: &str) -> Result<()> {
-    self.0.send(js.to_string())?;
     Ok(())
   }
 }
