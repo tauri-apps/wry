@@ -5,17 +5,20 @@
 mod file_drop;
 
 use crate::{
-  webview::{mimetype::MimeType, WebViewAttributes},
+  webview::{mimetype::MimeType, WebContext, WebViewAttributes},
   Result,
 };
 
 use file_drop::FileDropController;
 
-use std::{collections::HashSet, os::raw::c_void, path::PathBuf, rc::Rc};
+use std::{collections::HashSet, os::raw::c_void, rc::Rc};
 
 use once_cell::unsync::OnceCell;
 use webview2::{Controller, PermissionKind, PermissionState, WebView};
-use winapi::{shared::windef::HWND, um::winuser::GetClientRect};
+use winapi::{
+  shared::{windef::HWND, winerror::E_FAIL},
+  um::winuser::{DestroyWindow, GetClientRect},
+};
 
 use crate::application::{
   event_loop::{ControlFlow, EventLoop},
@@ -33,7 +36,11 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new(window: Rc<Window>, mut attributes: WebViewAttributes) -> Result<Self> {
+  pub fn new(
+    window: Rc<Window>,
+    mut attributes: WebViewAttributes,
+    web_context: &WebContext,
+  ) -> Result<Self> {
     let hwnd = window.hwnd() as HWND;
 
     let controller: Rc<OnceCell<Controller>> = Rc::new(OnceCell::new());
@@ -42,16 +49,10 @@ impl InnerWebView {
     let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
     let file_drop_controller_clone = file_drop_controller.clone();
 
-    let webview_builder: webview2::EnvironmentBuilder;
-    let data_directory_provided: PathBuf;
+    let mut webview_builder = webview2::EnvironmentBuilder::new();
 
-    let data_directory = attributes.data_directory.take();
-    if let Some(data_directory) = data_directory {
-      data_directory_provided = data_directory;
-      webview_builder =
-        webview2::EnvironmentBuilder::new().with_user_data_folder(&data_directory_provided);
-    } else {
-      webview_builder = webview2::EnvironmentBuilder::new();
+    if let Some(data_directory) = web_context.data_directory() {
+      webview_builder = webview_builder.with_user_data_folder(&data_directory);
     }
 
     // Webview controller
@@ -61,6 +62,14 @@ impl InnerWebView {
       env.create_controller(hwnd, move |controller| {
         let controller = controller?;
         let w = controller.get_webview()?;
+
+        w.add_window_close_requested(move |_| {
+          if unsafe { DestroyWindow(hwnd as HWND) } != 0 {
+            Ok(())
+          } else {
+            Err(webview2::Error::new(E_FAIL))
+          }
+        })?;
 
         // Transparent
         if attributes.transparent {

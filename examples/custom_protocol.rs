@@ -74,7 +74,7 @@ fn main() -> wry::Result<()> {
     })
     // tell the webview to load the custom protocol
     .with_url("wry.dev://")?
-    .build()?;
+    .build(&Default::default())?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

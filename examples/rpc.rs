@@ -80,7 +80,7 @@ async function getAsyncRpcResult() {
     .unwrap()
     .with_url(url)?
     .with_rpc_handler(handler)
-    .build()?;
+    .build(&Default::default())?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

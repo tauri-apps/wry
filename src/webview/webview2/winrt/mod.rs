@@ -93,6 +93,8 @@ impl InnerWebView {
     settings.SetAreDevToolsEnabled(false)?;
     debug_assert_eq!(settings.SetAreDevToolsEnabled(true)?, ());
 
+    // todo: add close window event handler like win32's add_window_close_requested
+
     // Safety: System calls are unsafe
     unsafe {
       let mut rect = RECT::default();

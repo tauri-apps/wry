@@ -22,10 +22,11 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::{Window, WindowBuilder},
     },
-    webview::{RpcRequest, WebViewBuilder},
+    webview::{RpcRequest, WebContext, WebViewBuilder},
   };
 
   let event_loop = EventLoop::new();
+  let web_context = WebContext::default();
   let window1 = WindowBuilder::new().build(&event_loop).unwrap();
 
   let (window_tx, window_rx) = std::sync::mpsc::channel::<String>();
@@ -50,7 +51,7 @@ fn main() -> wry::Result<()> {
             }"#,
     )
     .with_rpc_handler(handler)
-    .build()?;
+    .build(&web_context)?;
   let mut webviews = HashMap::new();
   webviews.insert(id, webview1);
 
@@ -64,14 +65,14 @@ fn main() -> wry::Result<()> {
       let window2 = WindowBuilder::new()
         .with_title("RODA RORA DA")
         .with_inner_size(PhysicalSize::new(426, 197))
-        .build(&event_loop)
+        .build(event_loop)
         .unwrap();
       let id = window2.id();
       let webview2 = WebViewBuilder::new(window2)
         .unwrap()
         .with_url(&url)
         .unwrap()
-        .build()
+        .build(&web_context)
         .unwrap();
       webviews.insert(id, webview2);
     } else if trigger && instant.elapsed() >= eight_secs {

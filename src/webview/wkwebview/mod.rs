@@ -34,7 +34,9 @@ use crate::application::platform::ios::WindowExtIOS;
 
 use crate::{
   application::window::Window,
-  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse, WebViewAttributes},
+  webview::{
+    mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse, WebContext, WebViewAttributes,
+  },
   Result,
 };
 
@@ -56,7 +58,11 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new(window: Rc<Window>, attributes: WebViewAttributes) -> Result<Self> {
+  pub fn new(
+    window: Rc<Window>,
+    attributes: WebViewAttributes,
+    _web_context: &WebContext,
+  ) -> Result<Self> {
     // Function for rpc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
       // Safety: objc runtime calls are unsafe

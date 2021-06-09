@@ -60,13 +60,13 @@ fn main() -> wry::Result<()> {
         origin: MenuType::SystemTray,
       } => {
         if menu_id == open_new_window_id {
-          let window = Window::new(&event_loop).unwrap();
+          let window = Window::new(event_loop).unwrap();
           let id = window.id();
           let webview = WebViewBuilder::new(window)
             .unwrap()
             .with_url("https://tauri.studio")
             .unwrap()
-            .build()
+            .build(&Default::default())
             .unwrap();
           webviews.insert(id, webview);
         }

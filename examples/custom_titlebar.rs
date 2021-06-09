@@ -119,7 +119,7 @@ fn main() -> wry::Result<()> {
     .with_url(url)?
     .with_initialization_script(script)
     .with_rpc_handler(handler)
-    .build()?;
+    .build(&Default::default())?;
   webviews.insert(webview.window().id(), webview);
 
   event_loop.run(move |event, _, control_flow| {

@@ -5,6 +5,9 @@
 //! [`WebView`] struct and associated types.
 
 mod mimetype;
+mod web_context;
+
+pub use web_context::WebContext;
 
 #[cfg(target_os = "linux")]
 mod webkitgtk;
@@ -126,13 +129,6 @@ impl WebViewBuilder {
     self
   }
 
-  /// Whether the WebView window should have a custom user data path. This is useful in Windows
-  /// when a bundled application can't have the webview data inside `Program Files`.
-  pub fn with_data_directory(mut self, data_directory: PathBuf) -> Self {
-    self.webview.data_directory.replace(data_directory);
-    self
-  }
-
   /// Register custom file loading protocol
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
@@ -195,7 +191,7 @@ impl WebViewBuilder {
   /// called in the same thread with the [`EventLoop`] you create.
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
-  pub fn build(mut self) -> Result<WebView> {
+  pub fn build(mut self, web_context: &WebContext) -> Result<WebView> {
     if self.webview.rpc_handler.is_some() {
       let js = r#"
             (function() {
@@ -250,7 +246,7 @@ impl WebViewBuilder {
       self.webview.initialization_scripts.push(js.to_string());
     }
     let window = Rc::new(self.window);
-    let webview = InnerWebView::new(window.clone(), self.webview)?;
+    let webview = InnerWebView::new(window.clone(), self.webview, web_context)?;
     Ok(WebView { window, webview })
   }
 }
@@ -295,8 +291,8 @@ impl WebView {
   /// called in the same thread with the [`EventLoop`] you create.
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
-  pub fn new(window: Window) -> Result<Self> {
-    WebViewBuilder::new(window)?.build()
+  pub fn new(window: Window, web_context: &WebContext) -> Result<Self> {
+    WebViewBuilder::new(window)?.build(web_context)
   }
 
   /// Get the [`Window`] associate with the [`WebView`]. This can let you perform window related
