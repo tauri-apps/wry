@@ -11,8 +11,6 @@ fn main() -> wry::Result<()> {
   use tao::menu::{ContextMenu, MenuItemAttributes};
   #[cfg(target_os = "macos")]
   use wry::application::platform::macos::{ActivationPolicy, EventLoopExtMacOS};
-  #[cfg(target_os = "windows")]
-  use wry::application::platform::windows::SystemTrayExtWindows;
   use wry::{
     application::{
       dpi::{LogicalSize, PhysicalPosition},
@@ -94,7 +92,7 @@ fn main() -> wry::Result<()> {
     // position Y axis (Windows only)
     #[cfg(target_os = "windows")]
     {
-      rectangle.position.y = rectangle.position.y - window_size.height;
+      rectangle.position.y = rectangle.position.y - window_size.height - rectangle.size.height;
     }
 
     (*rectangle).position
