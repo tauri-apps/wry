@@ -4,91 +4,70 @@
 
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 fn main() -> wry::Result<()> {
+  use std::str::FromStr;
   use wry::{
     application::{
+      accelerator::{Accelerator, SysMods},
       event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
-      menu::{Menu, MenuItem, MenuType},
+      keyboard::KeyCode,
+      menu::{MenuBar as Menu, MenuItem, MenuItemAttributes, MenuType},
       window::WindowBuilder,
     },
     webview::WebViewBuilder,
   };
-
-  // `Primary` is a platform-agnostic accelerator modifier.
-  // On Windows and Linux, `Primary` maps to the `Ctrl` key,
-  // and on macOS it maps to the `command` key.
-  let custom_print_menu = MenuItem::new("Print").with_accelerators("<Primary>p");
-  let other_test_menu = MenuItem::new("Custom").with_accelerators("<Primary>M");
-  let quit_menu = MenuItem::new("Quit").with_accelerators("<Primary>q");
-  let custom_print_menu_id = custom_print_menu.id();
-  let quit_menu_id = quit_menu.id();
-
-  // macOS require to have at least Copy, Paste, Select all etc..
-  // to works fine. You should always add them.
-  #[cfg(any(target_os = "linux", target_os = "macos"))]
-  let menu = vec![
-    Menu::new(
-      // on macOS first menu is always app name
-      "my custom app",
-      vec![
-        // All's non-custom menu, do NOT return event's
-        // they are handled by the system automatically
-        MenuItem::About("Todos".to_string()),
-        MenuItem::Services,
-        MenuItem::Separator,
-        MenuItem::Hide,
-        MenuItem::HideOthers,
-        MenuItem::ShowAll,
-        MenuItem::Separator,
-        quit_menu,
-      ],
-    ),
-    Menu::new(
-      "File",
-      vec![
-        custom_print_menu,
-        MenuItem::Separator,
-        other_test_menu,
-        MenuItem::CloseWindow,
-      ],
-    ),
-    Menu::new(
-      "Edit",
-      vec![
-        MenuItem::Undo,
-        MenuItem::Redo,
-        MenuItem::Separator,
-        MenuItem::Cut,
-        MenuItem::Copy,
-        MenuItem::Paste,
-        MenuItem::Separator,
-        MenuItem::SelectAll,
-      ],
-    ),
-    Menu::new("View", vec![MenuItem::EnterFullScreen]),
-    Menu::new("Window", vec![MenuItem::Minimize, MenuItem::Zoom]),
-    Menu::new(
-      "Help",
-      vec![MenuItem::new("Custom help").with_accelerators("<Primary><Shift>h")],
-    ),
-  ];
-
-  // Attention, Windows only support custom menu for now.
-  // If we add any `MenuItem::*` they'll not render
-  // We need to use custom menu with `Menu::new()` and catch
-  // the events in the EventLoop.
-  #[cfg(target_os = "windows")]
-  let menu = vec![
-    Menu::new("File", vec![other_test_menu]),
-    Menu::new("Other menu", vec![quit_menu]),
-  ];
-
   // Build our event loop
   let event_loop = EventLoop::new();
+
+  // create main menubar menu
+  let mut menu_bar_menu = Menu::new();
+
+  // create `first_menu`
+  let mut first_menu = Menu::new();
+
+  // create second menu
+  let mut second_menu = Menu::new();
+
+  // create third menu
+  let mut third_menu = Menu::new();
+
+  // create an empty menu to be used as submenu
+  let mut my_sub_menu = Menu::new();
+
+  let mut print_item = my_sub_menu.add_item(
+    MenuItemAttributes::new("Print")
+      .with_accelerators(&Accelerator::from_str("COMMANDORCONTROL+P")?),
+  );
+
+  first_menu.add_native_item(MenuItem::About("Todos".to_string()));
+  first_menu.add_native_item(MenuItem::Services);
+  first_menu.add_native_item(MenuItem::Separator);
+  first_menu.add_native_item(MenuItem::Hide);
+  first_menu.add_native_item(MenuItem::HideOthers);
+  first_menu.add_native_item(MenuItem::ShowAll);
+  let quit_item = first_menu.add_item(
+    MenuItemAttributes::new("Quit")
+      .with_accelerators(&Accelerator::new(SysMods::Cmd, KeyCode::KeyQ)),
+  );
+
+  third_menu.add_item(
+    MenuItemAttributes::new("Custom help")
+      .with_accelerators(&Accelerator::from_str("COMMANDORCONTROL+SHIFT+H")?),
+  );
+
+  second_menu.add_submenu("Sub menu", true, my_sub_menu);
+  second_menu.add_native_item(MenuItem::Copy);
+  second_menu.add_native_item(MenuItem::Paste);
+  second_menu.add_native_item(MenuItem::SelectAll);
+
+  menu_bar_menu.add_submenu("First menu", true, first_menu);
+  menu_bar_menu.add_submenu("Second menu", true, second_menu);
+  menu_bar_menu.add_submenu("Help", true, third_menu);
+
   // Build the window
   let window = WindowBuilder::new()
     .with_title("Hello World")
-    .with_menu(menu)
+    .with_menu(menu_bar_menu)
     .build(&event_loop)?;
   // Build the webview
   let webview = WebViewBuilder::new(window)?
@@ -107,14 +86,16 @@ fn main() -> wry::Result<()> {
       // Catch menu events
       Event::MenuEvent {
         menu_id,
-        origin: MenuType::Menubar,
+        origin: MenuType::MenuBar,
       } => {
         // The custom menu expose an `id()` function to match with `menu_id` from the Event
-        if menu_id == custom_print_menu_id {
+        if menu_id == print_item.clone().id() {
           // the webview.print() is only working on macOS for now
           webview.print().expect("Unable to print");
+          // limit print to a single-use
+          print_item.set_enabled(false);
         }
-        if menu_id == quit_menu_id {
+        if menu_id == quit_item.clone().id() {
           // when we click on quit, let's close the app
           *control_flow = ControlFlow::Exit;
         }
