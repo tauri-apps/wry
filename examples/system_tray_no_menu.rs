@@ -73,7 +73,8 @@ fn main() -> wry::Result<()> {
       .build(&event_loop)
       .unwrap();
   }
-
+  
+  #[cfg(any(target_os = "macos", target_os = "windows"))]
   let _system_tray = SystemTrayBuilder::new(icon, None)
     .build(&event_loop)
     .unwrap();
