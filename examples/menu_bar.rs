@@ -93,7 +93,7 @@ fn main() -> wry::Result<()> {
   // Build the webview
   let webview = WebViewBuilder::new(window)?
     .with_url("https://tauri.studio")?
-    .build(&Default::default())?;
+    .build()?;
   // launch WRY process
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

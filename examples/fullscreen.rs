@@ -21,7 +21,7 @@ fn main() -> wry::Result<()> {
   let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url("https://www.wirple.com/")?
-    .build(&Default::default())?;
+    .build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

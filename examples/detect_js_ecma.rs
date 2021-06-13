@@ -128,7 +128,7 @@ fn main() -> wry::Result<()> {
     </html>
     "#,
     )?
-    .build(&Default::default())?;
+    .build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

@@ -77,9 +77,6 @@ pub struct WebViewAttributes {
   pub file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
   #[cfg(not(feature = "file-drop"))]
   file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-  /// Whether the WebView window should have a custom user data path. This is useful in Windows
-  /// when a bundled application can't have the webview data inside `Program Files`.
-  pub data_directory: Option<PathBuf>,
 }
 
 impl Default for WebViewAttributes {
@@ -92,7 +89,6 @@ impl Default for WebViewAttributes {
       custom_protocols: vec![],
       rpc_handler: None,
       file_drop_handler: None,
-      data_directory: None,
     }
   }
 }
@@ -102,17 +98,23 @@ impl Default for WebViewAttributes {
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
 /// [`WebViewBuilder`] privides ability to setup initialization before web engine starts.
-pub struct WebViewBuilder {
+pub struct WebViewBuilder<'a> {
   pub webview: WebViewAttributes,
+  web_context: Option<&'a WebContext>,
   window: Window,
 }
 
-impl WebViewBuilder {
+impl<'a> WebViewBuilder<'a> {
   /// Create [`WebViewBuilder`] from provided [`Window`].
   pub fn new(window: Window) -> Result<Self> {
     let webview = WebViewAttributes::default();
+    let web_context = None;
 
-    Ok(Self { webview, window })
+    Ok(Self {
+      webview,
+      web_context,
+      window,
+    })
   }
 
   /// Sets whether the WebView should be transparent.
@@ -193,6 +195,12 @@ impl WebViewBuilder {
     Ok(self)
   }
 
+  /// Set the web context that can share with multiple [`WebView`]s.
+  pub fn with_web_context(mut self, web_context: &'a WebContext) -> Self {
+    self.web_context = Some(web_context);
+    self
+  }
+
   /// Consume the builder and create the [`WebView`].
   ///
   /// Platform-specific behavior:
@@ -201,7 +209,7 @@ impl WebViewBuilder {
   /// called in the same thread with the [`EventLoop`] you create.
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
-  pub fn build(mut self, web_context: &WebContext) -> Result<WebView> {
+  pub fn build(mut self) -> Result<WebView> {
     if self.webview.rpc_handler.is_some() {
       let js = r#"
             (function() {
@@ -256,7 +264,7 @@ impl WebViewBuilder {
       self.webview.initialization_scripts.push(js.to_string());
     }
     let window = Rc::new(self.window);
-    let webview = InnerWebView::new(window.clone(), self.webview, web_context)?;
+    let webview = InnerWebView::new(window.clone(), self.webview, self.web_context)?;
     Ok(WebView { window, webview })
   }
 }
@@ -301,8 +309,8 @@ impl WebView {
   /// called in the same thread with the [`EventLoop`] you create.
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
-  pub fn new(window: Window, web_context: &WebContext) -> Result<Self> {
-    WebViewBuilder::new(window)?.build(web_context)
+  pub fn new(window: Window) -> Result<Self> {
+    WebViewBuilder::new(window)?.build()
   }
 
   /// Get the [`Window`] associate with the [`WebView`]. This can let you perform window related
