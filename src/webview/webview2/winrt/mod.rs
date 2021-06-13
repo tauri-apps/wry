@@ -17,7 +17,7 @@ use windows_webview2::{
 };
 
 use crate::{
-  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  webview::{FileDropEvent, RpcRequest, RpcResponse},
   Result,
 };
 
@@ -166,8 +166,7 @@ impl InnerWebView {
               &format!("{}://", name),
             );
 
-            if let Ok(content) = function(&window_, &path) {
-              let mime = MimeType::parse(&content, &uri);
+            if let Ok((content, mime)) = function(&window_, &path) {
               let stream = InMemoryRandomAccessStream::new()?;
               let writer = DataWriter::CreateDataWriter(stream.clone())?;
               writer.WriteBytes(&content)?;
