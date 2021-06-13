@@ -5,7 +5,7 @@
 mod file_drop;
 
 use crate::{
-  webview::{mimetype::MimeType, WebContext, WebViewAttributes},
+  webview::{WebContext, WebViewAttributes},
   Result,
 };
 
@@ -148,8 +148,7 @@ impl InnerWebView {
             );
 
             match function(&window_, path) {
-              Ok(content) => {
-                let mime = MimeType::parse(&content, &uri);
+              Ok((content, mime)) => {
                 let stream = webview2::Stream::from_bytes(&content);
                 let response = env_clone.create_web_resource_response(
                   stream,

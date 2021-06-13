@@ -4,7 +4,6 @@
 
 //! [`WebView`] struct and associated types.
 
-mod mimetype;
 mod web_context;
 
 pub use web_context::WebContext;
@@ -47,8 +46,15 @@ pub struct WebViewAttributes {
   /// initialization code will be executed. It is guaranteed that code is executed before
   /// `window.onload`.
   pub initialization_scripts: Vec<String>,
-  /// Register custom file loading protocol
-  pub custom_protocols: Vec<(String, Box<dyn Fn(&Window, &str) -> Result<Vec<u8>>>)>,
+  /// Register custom file loading protocols with pairs of scheme uri string and a handling
+  /// closure.
+  ///
+  /// The closure takes the `Window` and a url string slice as parameters, and returns a tuple of a
+  /// vector of bytes which is the content and a mimetype string of the conten.
+  pub custom_protocols: Vec<(
+    String,
+    Box<dyn Fn(&Window, &str) -> Result<(Vec<u8>, String)>>,
+  )>,
   /// Set the RPC handler to Communicate between the host Rust code and Javascript on webview.
   ///
   /// The communication is done via [JSON-RPC](https://www.jsonrpc.org). Users can use this to register an incoming
@@ -129,11 +135,15 @@ impl WebViewBuilder {
     self
   }
 
-  /// Register custom file loading protocol
+  /// Register custom file loading protocols with pairs of scheme uri string and a handling
+  /// closure.
+  ///
+  /// The closure takes the `Window` and a url string slice as parameters, and returns a tuple of a
+  /// vector of bytes which is the content and a mimetype string of the conten.
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(&Window, &str) -> Result<Vec<u8>> + 'static,
+    F: Fn(&Window, &str) -> Result<(Vec<u8>, String)> + 'static,
   {
     self
       .webview
