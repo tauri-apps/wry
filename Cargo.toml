@@ -44,7 +44,7 @@ url = "2.2"
 tao = { version = "0.2.6", default-features = false, features = [ "serde" ] }
 
 [dev-dependencies]
-anyhow = "1.0.40"
+anyhow = "1.0.41"
 chrono = "0.4.19"
 tempfile = "3.2.0"
 
