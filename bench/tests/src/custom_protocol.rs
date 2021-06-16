@@ -50,7 +50,7 @@ fn main() -> wry::Result<()> {
           </script>
         </body>
       </html>"#;
-      Ok(index_html.into())
+      Ok((index_html.into(), "text/html".into()))
     })
     .with_url("wry.bench://")?
     .build()?;
