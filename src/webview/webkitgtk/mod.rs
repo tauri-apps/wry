@@ -21,7 +21,6 @@ use webkit2gtk_sys::{
 use crate::{
   application::{platform::unix::*, window::Window},
   webview::{
-    mimetype::MimeType,
     web_context::{unix::WebContextExt, WebContext},
     WebViewAttributes,
   },
@@ -38,13 +37,21 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     mut attributes: WebViewAttributes,
-    web_context: &WebContext,
+    web_context: Option<&WebContext>,
   ) -> Result<Self> {
     let window_rc = Rc::clone(&window);
     let window = &window.gtk_window();
     // Webview widget
     let manager = UserContentManager::new();
 
+    let default_context;
+    let web_context = match web_context {
+      Some(w) => w,
+      None => {
+        default_context = Default::default();
+        &default_context
+      }
+    };
     let context = web_context.context();
     let mut webview = WebViewBuilder::new();
     webview = webview.web_context(context);
@@ -175,8 +182,7 @@ impl InnerWebView {
           let uri = uri.as_str();
 
           match handler(&w, uri) {
-            Ok(buffer) => {
-              let mime = MimeType::parse(&buffer, uri);
+            Ok((buffer, mime)) => {
               let input = gio::MemoryInputStream::from_bytes(&Bytes::from(&buffer));
               request.finish(&input, buffer.len() as i64, Some(&mime))
             }

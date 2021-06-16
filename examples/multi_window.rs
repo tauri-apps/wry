@@ -51,7 +51,8 @@ fn main() -> wry::Result<()> {
             }"#,
     )
     .with_rpc_handler(handler)
-    .build(&web_context)?;
+    .with_web_context(&web_context)
+    .build()?;
   let mut webviews = HashMap::new();
   webviews.insert(id, webview1);
 
@@ -72,7 +73,8 @@ fn main() -> wry::Result<()> {
         .unwrap()
         .with_url(&url)
         .unwrap()
-        .build(&web_context)
+        .with_web_context(&web_context)
+        .build()
         .unwrap();
       webviews.insert(id, webview2);
     } else if trigger && instant.elapsed() >= eight_secs {

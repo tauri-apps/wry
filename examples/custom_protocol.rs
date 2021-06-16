@@ -64,17 +64,17 @@ fn main() -> wry::Result<()> {
 
       match requested_asset_path.as_str() {
         // if our path match /hello.html
-        "/hello.html" => Ok(hello_html.as_bytes().into()),
+        "/hello.html" => Ok((hello_html.as_bytes().into(), "text/html".into())),
         // if our path match /hello.js
-        "/hello.js" => Ok(hello_js.as_bytes().into()),
+        "/hello.js" => Ok((hello_js.as_bytes().into(), "text/javascript".into())),
         // other paths should resolve index
         // more logic can be applied here
-        _ => Ok(index_html.as_bytes().into()),
+        _ => Ok((index_html.as_bytes().into(), "text/html".into())),
       }
     })
     // tell the webview to load the custom protocol
     .with_url("wry.dev://")?
-    .build(&Default::default())?;
+    .build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

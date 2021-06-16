@@ -32,7 +32,8 @@ fn main() -> wry::Result<()> {
   let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url("https://tauri.studio")?
-    .build(&web_context)?;
+    .with_web_context(&web_context)
+    .build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

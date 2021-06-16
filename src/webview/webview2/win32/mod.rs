@@ -5,7 +5,7 @@
 mod file_drop;
 
 use crate::{
-  webview::{mimetype::MimeType, WebContext, WebViewAttributes},
+  webview::{WebContext, WebViewAttributes},
   Result,
 };
 
@@ -39,7 +39,7 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     mut attributes: WebViewAttributes,
-    web_context: &WebContext,
+    web_context: Option<&WebContext>,
   ) -> Result<Self> {
     let hwnd = window.hwnd() as HWND;
 
@@ -51,8 +51,10 @@ impl InnerWebView {
 
     let mut webview_builder = webview2::EnvironmentBuilder::new();
 
-    if let Some(data_directory) = web_context.data_directory() {
-      webview_builder = webview_builder.with_user_data_folder(&data_directory);
+    if let Some(web_context) = web_context {
+      if let Some(data_directory) = web_context.data_directory() {
+        webview_builder = webview_builder.with_user_data_folder(&data_directory);
+      }
     }
 
     // Webview controller
@@ -148,8 +150,7 @@ impl InnerWebView {
             );
 
             match function(&window_, path) {
-              Ok(content) => {
-                let mime = MimeType::parse(&content, &uri);
+              Ok((content, mime)) => {
                 let stream = webview2::Stream::from_bytes(&content);
                 let response = env_clone.create_web_resource_response(
                   stream,

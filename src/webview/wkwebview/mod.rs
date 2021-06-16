@@ -34,9 +34,7 @@ use crate::application::platform::ios::WindowExtIOS;
 
 use crate::{
   application::window::Window,
-  webview::{
-    mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse, WebContext, WebViewAttributes,
-  },
+  webview::{FileDropEvent, RpcRequest, RpcResponse, WebContext, WebViewAttributes},
   Result,
 };
 
@@ -54,14 +52,17 @@ pub struct InnerWebView {
   ),
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
-  protocol_ptrs: Vec<*mut (Box<dyn Fn(&Window, &str) -> Result<Vec<u8>>>, Rc<Window>)>,
+  protocol_ptrs: Vec<*mut (
+    Box<dyn Fn(&Window, &str) -> Result<(Vec<u8>, String)>>,
+    Rc<Window>,
+  )>,
 }
 
 impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     attributes: WebViewAttributes,
-    _web_context: &WebContext,
+    _web_context: Option<&WebContext>,
   ) -> Result<Self> {
     // Function for rpc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
@@ -99,7 +100,7 @@ impl InnerWebView {
         let function = this.get_ivar::<*mut c_void>("function");
         let function = &mut *(*function
           as *mut (
-            Box<dyn for<'r, 's> Fn(&'r Window, &'s str) -> Result<Vec<u8>>>,
+            Box<dyn for<'r, 's> Fn(&'r Window, &'s str) -> Result<(Vec<u8>, String)>>,
             Rc<Window>,
           ));
 
@@ -113,8 +114,7 @@ impl InnerWebView {
         let uri = nsstring.to_str();
 
         // Send response
-        if let Ok(content) = function.0(&function.1, uri) {
-          let mime = MimeType::parse(&content, uri);
+        if let Ok((content, mime)) = function.0(&function.1, uri) {
           let dictionary: id = msg_send![class!(NSMutableDictionary), alloc];
           let headers: id = msg_send![dictionary, initWithCapacity:1];
           let () = msg_send![headers, setObject:NSString::new(&mime) forKey: NSString::new("content-type")];

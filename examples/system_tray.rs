@@ -124,11 +124,11 @@ fn main() -> wry::Result<()> {
       let webview = WebViewBuilder::new(window)
         .unwrap()
         .with_custom_protocol("wry.dev".into(), move |_, _| {
-          Ok(index_html.as_bytes().into())
+          Ok((index_html.as_bytes().into(), "text/html".into()))
         })
         .with_url("wry.dev://")
         .unwrap()
-        .build(&Default::default())
+        .build()
         .unwrap();
 
       webviews.insert(id, webview);

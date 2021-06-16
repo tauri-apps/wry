@@ -26,7 +26,7 @@
 //!     .build(&event_loop)?;
 //!   let _webview = WebViewBuilder::new(window)?
 //!     .with_url("https://tauri.studio")?
-//!     .build(&Default::default())?;
+//!     .build()?;
 //!
 //!   event_loop.run(move |event, _, control_flow| {
 //!     *control_flow = ControlFlow::Wait;
@@ -77,7 +77,6 @@
 //! [`with_file_drop_handler`]: crate::webview::WebView::with_file_drop_handler
 //! [`with_custom_protocol`]: crate::webview::WebView::with_custom_protocol
 
-#![cfg_attr(doc_cfg, feature(doc_cfg))]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::wrong_self_convention)]
 #![allow(clippy::type_complexity)]
