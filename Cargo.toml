@@ -1,8 +1,8 @@
-workspace = {}
+workspace = { }
 
 [package]
 name = "wry"
-version = "0.9.4"
+version = "0.10.0"
 authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2018"
 license = "Apache-2.0 OR MIT"
@@ -28,9 +28,6 @@ protocol = [ ]
 dox = [ "tao/dox" ]
 menu = [ "tao/menu" ]
 tray = [ "tao/tray" ]
-# There are lots of things need to be updated on winrt backends
-# See https://github.com/tauri-apps/wry/issues/247 for more information
-# winrt = [ "windows-webview2", "windows" ]
 win32 = [ "webview2", "winapi", "webview2-sys" ]
 
 [dependencies]

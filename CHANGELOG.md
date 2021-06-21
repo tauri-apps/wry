@@ -1,5 +1,29 @@
 # Changelog
 
+## \[0.10.0]
+
+- Add WebViewAttributes
+  - [81f3218](https://github.com/tauri-apps/wry/commit/81f3218d9ac55a987b050f574774afcaa0b5c2f7) Add WebViewAttributes ([#286](https://github.com/tauri-apps/wry/pull/286)) on 2021-06-04
+- Add `with_web_context` method that can work well with builder pattern.
+  - [48f53a3](https://github.com/tauri-apps/wry/commit/48f53a3393b0c016a972a72dec45691959ac9e3b) Add `with_web_context` method ([#292](https://github.com/tauri-apps/wry/pull/292)) on 2021-06-13
+- Change the custom protocol handler on macOS so it returns a response on error and a status code on success.
+  - [6b869b1](https://github.com/tauri-apps/wry/commit/6b869b1ad5de9c8e9f36c1fc1b7040e10b033b52) fix(macos): custom protocol response with status code + error response ([#279](https://github.com/tauri-apps/wry/pull/279)) on 2021-05-20
+- Update signature of custom protocol closure. It should return a mime type string now.
+  - [cc9fc4b](https://github.com/tauri-apps/wry/commit/cc9fc4b43df79834c1b8f2c1347accba50356604) Add mimetype to return type of custom protocol ([#296](https://github.com/tauri-apps/wry/pull/296)) on 2021-06-13
+- Fix webview creation when using new_any_thread of event loop.
+  - [4d62cf5](https://github.com/tauri-apps/wry/commit/4d62cf5a3ddcbed06afb93d9503424a9b8110d57) Fix webview creation when using new_any_thread on Windows ([#298](https://github.com/tauri-apps/wry/pull/298)) on 2021-06-18
+- Remove `Dispatcher`, `dispatch_script` and `dispatcher` in the `webview` module and add a `js` parameter to `evaluate_script`.
+  - [de4a5fa](https://github.com/tauri-apps/wry/commit/de4a5fa820b1938532223677913e73720885cb54) refactor: remove `Dispatcher` and related methods, closes [#290](https://github.com/tauri-apps/wry/pull/290) ([#291](https://github.com/tauri-apps/wry/pull/291)) on 2021-06-09
+- Removes the `image` dependency.
+  - [1d5cc59](https://github.com/tauri-apps/wry/commit/1d5cc590856e1be1428f8516595ace6d8099f41f) chore(deps): remove `image` dependency ([#274](https://github.com/tauri-apps/wry/pull/274)) on 2021-05-19
+- Bump tao to `0.3` and add more examples.
+
+*For more details, please refer to `tao` changelog.*
+
+- [cd4697e](https://github.com/tauri-apps/wry/commit/cd4697ebdb8eb955f0ed2be4aefea82d2c263a52) bump `tao` to 0.3 with examples ([#294](https://github.com/tauri-apps/wry/pull/294)) on 2021-06-21
+- Add `wry::webview::WebContext`. It's now a required argument on `WebViewBuilder::build`.
+  - [761b2b5](https://github.com/tauri-apps/wry/commit/761b2b59fe0434b3458d99ed599394af0e1e3962) webdriver support ([#281](https://github.com/tauri-apps/wry/pull/281)) on 2021-06-08
+
 ## \[0.9.4]
 
 - Update tao to v0.2.6
