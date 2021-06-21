@@ -41,7 +41,7 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.2"
-tao = { version = "0.2.6", default-features = false, features = [ "serde" ] }
+tao = { version = "0.3.0", default-features = false, features = [ "serde" ] }
 
 [dev-dependencies]
 anyhow = "1.0.41"
@@ -68,6 +68,3 @@ cocoa = "0.24"
 core-graphics = "0.22"
 objc = "0.2"
 objc_id = "0.1"
-
-[patch.crates-io]
-tao = { git = "https://github.com/tauri-apps/tao", rev = "d1065e3d9e4f0f48b366ce9736a57b5866c003db" }
