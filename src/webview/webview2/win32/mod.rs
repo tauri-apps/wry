@@ -5,6 +5,7 @@
 mod file_drop;
 
 use crate::{
+  application::platform::windows::EventLoopExtWindows,
   webview::{WebContext, WebViewAttributes},
   Result,
 };
@@ -215,7 +216,7 @@ impl InnerWebView {
     })?;
 
     // Wait until webview is actually created
-    let mut event_loop = EventLoop::new();
+    let mut event_loop: EventLoop<()> = EventLoop::new_any_thread();
     let controller_clone = controller.clone();
     let webview: Rc<OnceCell<WebView>> = Rc::new(OnceCell::new());
     let webview_clone = webview.clone();
