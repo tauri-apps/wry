@@ -4,7 +4,6 @@
 
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 fn main() -> wry::Result<()> {
-  use std::str::FromStr;
   use wry::{
     application::{
       accelerator::{Accelerator, SysMods},
@@ -36,7 +35,7 @@ fn main() -> wry::Result<()> {
 
   let mut print_item = my_sub_menu.add_item(
     MenuItemAttributes::new("Print")
-      .with_accelerators(&Accelerator::from_str("COMMANDORCONTROL+P")?),
+      .with_accelerators(&Accelerator::new(SysMods::Cmd, KeyCode::KeyP)),
   );
 
   first_menu.add_native_item(MenuItem::About("Todos".to_string()));
@@ -52,7 +51,7 @@ fn main() -> wry::Result<()> {
 
   third_menu.add_item(
     MenuItemAttributes::new("Custom help")
-      .with_accelerators(&Accelerator::from_str("COMMANDORCONTROL+SHIFT+H")?),
+      .with_accelerators(&Accelerator::new(SysMods::CmdShift, KeyCode::KeyH)),
   );
 
   second_menu.add_submenu("Sub menu", true, my_sub_menu);

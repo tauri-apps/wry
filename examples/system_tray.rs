@@ -4,9 +4,9 @@
 
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 fn main() -> wry::Result<()> {
+  use std::collections::HashMap;
   #[cfg(target_os = "linux")]
   use std::path::Path;
-  use std::{collections::HashMap, str::FromStr};
   #[cfg(target_os = "macos")]
   use wry::application::platform::macos::{
     ActivationPolicy, CustomMenuItemExtMacOS, EventLoopExtMacOS, NativeImage,
@@ -15,9 +15,10 @@ fn main() -> wry::Result<()> {
   use wry::application::platform::windows::SystemTrayExtWindows;
   use wry::{
     application::{
-      accelerator::Accelerator,
+      accelerator::{Accelerator, SysMods},
       event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
+      keyboard::KeyCode,
       menu::{ContextMenu, MenuItemAttributes, MenuType},
       platform::global_shortcut::ShortcutManager,
       system_tray::SystemTrayBuilder,
@@ -56,7 +57,8 @@ fn main() -> wry::Result<()> {
 
   // Create global shortcut
   let mut shortcut_manager = ShortcutManager::new(&event_loop);
-  let my_accelerator = Accelerator::from_str("COMMANDORCONTROL+SHIFT+0")?;
+  // SysMods::CmdShift; Command + Shift on macOS, Ctrl + Shift on windows/linux
+  let my_accelerator = Accelerator::new(SysMods::CmdShift, KeyCode::Digit0);
   let global_shortcut = shortcut_manager.register(my_accelerator.clone()).unwrap();
 
   // Create sample menu item
