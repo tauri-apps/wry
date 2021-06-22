@@ -50,7 +50,7 @@ webkit2gtk = { version = "0.11", features = [ "v2_18" ] }
 webkit2gtk-sys = "0.13.0"
 gio = "0.9"
 glib = "0.10"
-gtk = "0.9"
+gtk = "0.14"
 gdk = "0.13"
 
 [target."cfg(target_os = \"windows\")".dependencies]
