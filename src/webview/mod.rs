@@ -443,6 +443,7 @@ impl RpcResponse {
 }
 
 /// An event enumeration sent to [`FileDropHandler`].
+#[non_exhaustive]
 #[derive(Debug, Serialize, Clone)]
 pub enum FileDropEvent {
   /// The file(s) have been dragged onto the window, but have not been dropped yet.
