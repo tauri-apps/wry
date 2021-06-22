@@ -34,7 +34,7 @@ impl WebContext {
   /// **Note:** This is currently only enforced on Linux, and has the stipulation that
   /// only 1 context allows automation at a time.
   pub fn set_allows_automation(&mut self, flag: bool) {
-      self.os.set_allows_automation(flag);
+    self.os.set_allows_automation(flag);
   }
 }
 
@@ -141,8 +141,8 @@ pub mod unix {
     }
 
     pub fn set_allows_automation(&mut self, flag: bool) {
-        self.automation = flag;
-        self.context.set_automation_allowed(flag);
+      self.automation = flag;
+      self.context.set_automation_allowed(flag);
     }
   }
 
