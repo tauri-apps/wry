@@ -1,5 +1,0 @@
----
-"wry": patch
----
-
-Add WebViewAttributes
