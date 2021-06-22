@@ -49,7 +49,7 @@ tempfile = "3.2.0"
 webkit2gtk = { version = "0.11", features = [ "v2_18" ] }
 webkit2gtk-sys = "0.13.0"
 gio = "0.9"
-glib = "0.10"
+glib = "0.14"
 gtk = "0.9"
 gdk = "0.13"
 
