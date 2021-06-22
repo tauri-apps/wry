@@ -28,6 +28,14 @@ impl WebContext {
   pub fn data_directory(&self) -> Option<&Path> {
     self.data.data_directory()
   }
+
+  /// Set if this context allows automation.
+  ///
+  /// **Note:** This is currently only enforced on Linux, and has the stipulation that
+  /// only 1 context allows automation at a time.
+  pub fn set_allows_automation(&mut self, flag: bool) {
+    self.os.set_allows_automation(flag);
+  }
 }
 
 impl Default for WebContext {
@@ -59,6 +67,8 @@ impl WebContextImpl {
   fn new(_data: &WebContextData) -> Self {
     Self
   }
+
+  fn set_allows_automation(&mut self, _flag: bool) {}
 }
 
 #[cfg(target_os = "linux")]
@@ -129,6 +139,11 @@ pub mod unix {
         automation,
       }
     }
+
+    pub fn set_allows_automation(&mut self, flag: bool) {
+      self.automation = flag;
+      self.context.set_automation_allowed(flag);
+    }
   }
 
   /// [`WebContext`](super::WebContext) items that only matter on unix.
@@ -143,11 +158,6 @@ pub mod unix {
     ///
     /// **Note:** `libwebkit2gtk` only allows 1 automation context at a time.
     fn allows_automation(&self) -> bool;
-
-    /// Set if this context allows automation.
-    ///
-    /// **Note:** `libwebkit2gtk` only allows 1 automation context at a time.
-    fn set_allows_automation(&mut self, flag: bool);
   }
 
   impl WebContextExt for super::WebContext {
@@ -161,11 +171,6 @@ pub mod unix {
 
     fn allows_automation(&self) -> bool {
       self.os.automation
-    }
-
-    fn set_allows_automation(&mut self, flag: bool) {
-      self.os.automation = flag;
-      self.os.context.set_automation_allowed(flag);
     }
   }
 }
