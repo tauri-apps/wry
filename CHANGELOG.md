@@ -1,5 +1,11 @@
 # Changelog
 
+## \[0.10.1]
+
+- `WebContext::set_allows_automation` is now available to specify if the context should allow automation (e.g. WebDriver).
+  It is only enforced on Linux, but may expand platforms in the future.
+  - [4ad0bf1](https://github.com/tauri-apps/wry/commit/4ad0bf12d186b3c313131060316aef371f45d455) move set_allows_automation to WebContext method ([#302](https://github.com/tauri-apps/wry/pull/302)) on 2021-06-21
+
 ## \[0.10.0]
 
 - Add WebViewAttributes
