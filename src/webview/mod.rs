@@ -4,7 +4,7 @@
 
 //! [`WebView`] struct and associated types.
 
-mod web_context;
+pub mod web_context;
 
 pub use web_context::WebContext;
 
