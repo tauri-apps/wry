@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.10.2]
+
+- Fix file explorer getting blocked by automation.
+  - [0c5cdd8](https://github.com/tauri-apps/wry/commit/0c5cdd8f2a6f4d07d87c6c4d1c51540ff9abfd97) Fix file explorer getting blocked by automation ([#310](https://github.com/tauri-apps/wry/pull/310)) on 2021-06-23
+
 ## \[0.10.1]
 
 - `WebContext::set_allows_automation` is now available to specify if the context should allow automation (e.g. WebDriver).
