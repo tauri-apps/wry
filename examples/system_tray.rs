@@ -186,6 +186,7 @@ fn main() -> wry::Result<()> {
         menu_id,
         // specify only context menu's
         origin: MenuType::ContextMenu,
+        ..
       } => {
         // Click on Open new window or focus item
         if menu_id == open_new_window.clone().id() {
