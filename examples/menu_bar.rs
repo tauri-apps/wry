@@ -86,6 +86,7 @@ fn main() -> wry::Result<()> {
       Event::MenuEvent {
         menu_id,
         origin: MenuType::MenuBar,
+        ..
       } => {
         // The custom menu expose an `id()` function to match with `menu_id` from the Event
         if menu_id == print_item.clone().id() {
