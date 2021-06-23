@@ -114,8 +114,7 @@ pub mod unix {
 
       let context = context_builder.build();
 
-      // default to true since other platforms don't have a way to disable it (yet)
-      let automation = true;
+      let automation = false;
       context.set_automation_allowed(automation);
 
       // e.g. wry 0.9.4
