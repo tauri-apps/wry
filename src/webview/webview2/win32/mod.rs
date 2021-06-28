@@ -129,7 +129,7 @@ impl InnerWebView {
                 HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTLEFT, HTRIGHT,
                 HTTOP, HTTOPLEFT, HTTOPRIGHT, HTCLIENT, GetCursorPos,
               };
-              use crate::application::{window::CursorIcon,platform::windows::{hit_test,begin_resize_drag}};
+              use crate::application::{window::CursorIcon,platform::windows::hit_test};
 
               let (cx, cy);
               unsafe {
@@ -155,7 +155,7 @@ impl InnerWebView {
               if js == "__WEBVIEW_LEFT_MOUSE_DOWN__"  {
                 // this check is necessary, otherwise any window dragging implementation won't work
                 if result != HTCLIENT {
-                  begin_resize_drag(window_.hwnd() as _, result);
+                  window_.begin_resize_drag(result);
                 }
               }
             }
