@@ -137,7 +137,7 @@ impl InnerWebView {
           // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
           custom_protocol_names.insert(name.clone());
           w.add_web_resource_requested_filter(
-            &format!("https://custom-protocol-{}*", name),
+            &format!("https://custom.protocol.{}*", name),
             webview2::WebResourceContext::All,
           )?;
           let env_clone = env_.clone();
@@ -146,7 +146,7 @@ impl InnerWebView {
             let uri = args.get_request()?.get_uri()?;
             // Undo the protocol workaround when giving path to resolver
             let path = &uri.replace(
-              &format!("https://custom-protocol-{}", name),
+              &format!("https://custom.protocol.{}", name),
               &format!("{}://", name),
             );
 
@@ -195,7 +195,7 @@ impl InnerWebView {
               // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
               url_string = url.as_str().replace(
                 &format!("{}://", name),
-                &format!("https://custom-protocol-{}", name),
+                &format!("https://custom.protocol.{}", name),
               )
             }
             w.navigate(&url_string)?;
