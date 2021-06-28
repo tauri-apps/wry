@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: MIT
 
 fn main() -> wry::Result<()> {
+  use std::fs::{read, canonicalize};
+
   use wry::{
     application::{
       event::{Event, StartCause, WindowEvent},
@@ -20,60 +22,25 @@ fn main() -> wry::Result<()> {
 
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_custom_protocol("wry.dev".into(), move |_, requested_asset_path| {
-      // remove the protocol from the path for easiest match
-      let requested_asset_path = requested_asset_path.replace("wry.dev://", "");
+    .with_custom_protocol("wry".into(), move |_, requested_asset_path| {
+      // Remove url scheme
+      let path = requested_asset_path.replace("wry://", "");
+      // Read the file content from file path
+      let content = read(canonicalize(&path)?)?;
 
-      // sample index.html file
-      // files can be bundled easilly into the binary
-      // with https://doc.rust-lang.org/std/macro.include_bytes.html
-
-      let index_html = r#"
-      <!DOCTYPE html>
-      <html lang="en">
-        <head>
-          <meta charset="UTF-8" />
-          <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        </head>
-        <body>
-          <h1>Welcome to WRY!</h1>
-          <a href="/hello.html">Link</a>
-          <script type="text/javascript" src="/hello.js"></script>
-        </body>
-      </html>"#;
-
-      // sample hello.js file
-      let hello_js = "console.log(\"hello from javascript\");";
-
-      // sample hello.html file
-      let hello_html = r#"
-      <!DOCTYPE html>
-      <html lang="en">
-        <head>
-          <meta charset="UTF-8" />
-          <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        </head>
-        <body>
-          <h1>Sample page!</h1>
-          <a href="/index.html">Back home</a>
-          <script type="text/javascript" src="/hello.js"></script>
-        </body>
-      </html>"#;
-
-      match requested_asset_path.as_str() {
-        // if our path match /hello.html
-        "/hello.html" => Ok((hello_html.as_bytes().into(), "text/html".into())),
-        // if our path match /hello.js
-        "/hello.js" => Ok((hello_js.as_bytes().into(), "text/javascript".into())),
-        // other paths should resolve index
-        // more logic can be applied here
-        _ => Ok((index_html.as_bytes().into(), "text/html".into())),
+      // Return asset contents and mime types based on file extentions
+      // If you don't want to do this manually, there are some crates for you.
+      // Such as `infer` and `mime_guess`.
+      if path.ends_with(".html") {
+          Ok((content, String::from("text/html")))
+      } else if path.ends_with(".js") {
+          Ok((content, String::from("text/javascript")))
+      } else {
+          unimplemented!();
       }
     })
     // tell the webview to load the custom protocol
-    .with_url("wry.dev://")?
+    .with_url("wry://examples/index.html")?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {
