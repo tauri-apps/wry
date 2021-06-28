@@ -103,7 +103,14 @@ impl InnerWebView {
 
         // Initialize scripts
         w.add_script_to_execute_on_document_created(
-          "window.external={invoke:s=>window.chrome.webview.postMessage(s)}",
+          r#"
+            window.external={invoke:s=>window.chrome.webview.postMessage(s)};
+
+            window.addEventListener('mousedown', (e) => {
+              if (e.buttons === 1) window.chrome.webview.postMessage('__WEBVIEW_LEFT_MOUSE_DOWN__')
+            });
+            window.addEventListener('mousemove', () => window.chrome.webview.postMessage('__WEBVIEW_MOUSE_MOVE__'));
+          "#,
           |_| (Ok(())),
         )?;
         for js in attributes.initialization_scripts {
@@ -116,6 +123,46 @@ impl InnerWebView {
         let rpc_handler = attributes.rpc_handler.take();
         w.add_web_message_received(move |webview, args| {
           let js = args.try_get_web_message_as_string()?;
+          if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_MOUSE_MOVE__" {
+            if !window_.is_decorated() && window_.is_resizable() {
+              use winapi::um::winuser::{
+                HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTLEFT, HTRIGHT,
+                HTTOP, HTTOPLEFT, HTTOPRIGHT, HTCLIENT, GetCursorPos,
+              };
+              use crate::application::{window::CursorIcon,platform::windows::{hit_test,begin_resize_drag}};
+
+              let (cx, cy);
+              unsafe {
+                let mut point = std::mem::zeroed();
+                GetCursorPos(&mut point);
+                cx = point.x;
+                cy = point.y;
+              };
+              let result = hit_test(window_.hwnd() as _, cx, cy);
+              let cursor = match result {
+                    HTLEFT => CursorIcon::WResize,
+                    HTTOP => CursorIcon::NResize,
+                    HTRIGHT => CursorIcon::EResize,
+                    HTBOTTOM => CursorIcon::SResize,
+                    HTTOPLEFT => CursorIcon::NwResize,
+                    HTTOPRIGHT => CursorIcon::NeResize,
+                    HTBOTTOMLEFT => CursorIcon::SwResize,
+                    HTBOTTOMRIGHT => CursorIcon::SeResize,
+                    _ => CursorIcon::Arrow,
+              };
+              window_.set_cursor_icon(cursor);
+
+              if js == "__WEBVIEW_LEFT_MOUSE_DOWN__"  {
+                // this check is necessary, otherwise any window dragging implementation won't work
+                if result != HTCLIENT {
+                  begin_resize_drag(window_.hwnd() as _, result);
+                }
+              }
+            }
+            // these are internal messages, rpc_handlers don't need it so exit early
+            return Ok(());
+          }
+
           if let Some(rpc_handler) = &rpc_handler {
             match super::rpc_proxy(&window_, js, rpc_handler) {
               Ok(result) => {
