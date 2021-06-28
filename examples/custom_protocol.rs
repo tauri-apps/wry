@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 fn main() -> wry::Result<()> {
-  use std::fs::{read, canonicalize};
+  use std::fs::{canonicalize, read};
 
   use wry::{
     application::{
@@ -32,11 +32,11 @@ fn main() -> wry::Result<()> {
       // If you don't want to do this manually, there are some crates for you.
       // Such as `infer` and `mime_guess`.
       if path.ends_with(".html") {
-          Ok((content, String::from("text/html")))
+        Ok((content, String::from("text/html")))
       } else if path.ends_with(".js") {
-          Ok((content, String::from("text/javascript")))
+        Ok((content, String::from("text/javascript")))
       } else {
-          unimplemented!();
+        unimplemented!();
       }
     })
     // tell the webview to load the custom protocol
