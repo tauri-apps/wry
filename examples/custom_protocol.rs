@@ -35,6 +35,8 @@ fn main() -> wry::Result<()> {
         Ok((content, String::from("text/html")))
       } else if path.ends_with(".js") {
         Ok((content, String::from("text/javascript")))
+      } else if path.ends_with(".png") {
+        Ok((content, String::from("image/png")))
       } else {
         unimplemented!();
       }
