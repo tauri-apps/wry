@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.10.3]
+
+- [#315](https://github.com/tauri-apps/wry/pull/315) fixed Webview2 runtime performance issues.
+  - [d3c9b16](https://github.com/tauri-apps/wry/commit/d3c9b169d81fd8b79e6695d91b3a1d0e8042a81f) Fix Webview2 runtime performance issues ([#316](https://github.com/tauri-apps/wry/pull/316)) on 2021-06-29
+
 ## \[0.10.2]
 
 - Fix file explorer getting blocked by automation.
