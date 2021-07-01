@@ -257,6 +257,9 @@ impl InnerWebView {
       let mut rect = std::mem::zeroed();
       GetClientRect(hwnd, &mut rect);
       if let Some(c) = self.controller.get() {
+        rect.left = rect.left + 1;
+        c.put_bounds(rect)?;
+        rect.left = rect.left - 1;
         c.put_bounds(rect)?;
       }
     }
