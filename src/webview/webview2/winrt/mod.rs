@@ -261,6 +261,12 @@ impl InnerWebView {
         c.SetBounds(Rect {
           X: 0f32,
           Y: 0f32,
+          Width: width + 1 as f32,
+          Height: height as f32,
+        })?;
+        c.SetBounds(Rect {
+          X: 0f32,
+          Y: 0f32,
           Width: width as f32,
           Height: height as f32,
         })?;
