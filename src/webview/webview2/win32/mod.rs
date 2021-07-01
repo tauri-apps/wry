@@ -259,7 +259,7 @@ impl InnerWebView {
       if let Some(c) = self.controller.get() {
         rect.left = rect.left + 1;
         c.put_bounds(rect)?;
-         rect.left = rect.left - 1;
+        rect.left = rect.left - 1;
         c.put_bounds(rect)?;
       }
     }
