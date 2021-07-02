@@ -143,14 +143,17 @@ impl InnerWebView {
     }))?;
 
     let mut custom_protocol_names = HashSet::new();
-    for (name, function) in custom_protocols {
-      // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
-      // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-      custom_protocol_names.insert(name.clone());
-      w.AddWebResourceRequestedFilter(
-        format!("https://custom-protocol-{}*", name).as_str(),
-        webview2::CoreWebView2WebResourceContext::All,
-      )?;
+    if !custom_protocols.is_empty() {
+      for (name, _) in &custom_protocols {
+        // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
+        // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
+        custom_protocol_names.insert(name.clone());
+        w.AddWebResourceRequestedFilter(
+          format!("https://custom.protocol.{}_*", name).as_str(),
+          webview2::CoreWebView2WebResourceContext::All,
+        )?;
+      }
+
       let env_ = env.clone();
       let window_ = window.clone();
 
@@ -161,12 +164,18 @@ impl InnerWebView {
         if let Some(args) = args {
           if let Ok(uri) = String::from_utf16(args.Request()?.Uri()?.as_wide()) {
             // Undo the protocol workaround when giving path to resolver
-            let path = uri.replace(
-              &format!("https://custom-protocol-{}", name),
-              &format!("{}://", name),
-            );
+            // Undo the protocol workaround when giving path to resolver
+            let path = uri
+              .replace("https://custom.protocol.", "")
+              .replacen("_", "://", 1);
+            let scheme = path.split("://").next().unwrap();
 
-            if let Ok((content, mime)) = function(&window_, &path) {
+            if let Ok((content, mime)) = (custom_protocols
+              .iter()
+              .find(|(name, _)| name == &scheme)
+              .unwrap()
+              .1)(&window_, &path)
+            {
               let stream = InMemoryRandomAccessStream::new()?;
               let writer = DataWriter::CreateDataWriter(stream.clone())?;
               writer.WriteBytes(&content)?;
@@ -215,7 +224,7 @@ impl InnerWebView {
           // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
           url_string = url.as_str().replace(
             &format!("{}://", name),
-            &format!("https://custom-protocol-{}", name),
+            &format!("https://custom.protocol.{}_", name),
           )
         }
         w.Navigate(url_string.as_str())?;

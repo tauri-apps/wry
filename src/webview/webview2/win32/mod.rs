@@ -132,25 +132,34 @@ impl InnerWebView {
         })?;
 
         let mut custom_protocol_names = HashSet::new();
-        for (name, function) in attributes.custom_protocols {
-          // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
-          // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-          custom_protocol_names.insert(name.clone());
-          w.add_web_resource_requested_filter(
-            &format!("https://custom.protocol.{}*", name),
-            webview2::WebResourceContext::All,
-          )?;
+        if !attributes.custom_protocols.is_empty() {
+          for (name, _) in &attributes.custom_protocols {
+            // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
+            // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
+            custom_protocol_names.insert(name.clone());
+            w.add_web_resource_requested_filter(
+              &format!("https://custom.protocol.{}_*", name),
+              webview2::WebResourceContext::All,
+            )?;
+          }
+
+          let custom_protocols = attributes.custom_protocols;
           let env_clone = env_.clone();
           let window_ = window.clone();
           w.add_web_resource_requested(move |_, args| {
             let uri = args.get_request()?.get_uri()?;
             // Undo the protocol workaround when giving path to resolver
-            let path = &uri.replace(
-              &format!("https://custom.protocol.{}", name),
-              &format!("{}://", name),
-            );
+            let path = uri
+              .replace("https://custom.protocol.", "")
+              .replacen("_", "://", 1);
+            let scheme = path.split("://").next().unwrap();
 
-            match function(&window_, path) {
+            match (custom_protocols
+              .iter()
+              .find(|(name, _)| name == &scheme)
+              .unwrap()
+              .1)(&window_, &path)
+            {
               Ok((content, mime)) => {
                 let stream = webview2::Stream::from_bytes(&content);
                 let response = env_clone.create_web_resource_response(
@@ -195,7 +204,7 @@ impl InnerWebView {
               // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
               url_string = url.as_str().replace(
                 &format!("{}://", name),
-                &format!("https://custom.protocol.{}", name),
+                &format!("https://custom.protocol.{}_", name),
               )
             }
             w.navigate(&url_string)?;
