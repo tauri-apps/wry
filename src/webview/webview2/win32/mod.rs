@@ -280,12 +280,11 @@ impl InnerWebView {
     if let Some(c) = self.controller.get() {
       let _ = c.move_focus(webview2::MoveFocusReason::Programmatic);
     }
-    Ok(())
   }
 
   pub fn add_got_focus(&self, f: impl Fn() + 'static) {
     if let Some(c) = self.controller.get() {
-     let _ =  c.add_got_focus(move |_| {
+      let _ = c.add_got_focus(move |_| {
         f();
         Ok(())
       });

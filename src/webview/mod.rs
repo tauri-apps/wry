@@ -346,18 +346,18 @@ impl WebView {
   }
 
   /// Moves Focus to the Webview control.
-  pub fn focus(&self) -> Result<()> {
-    self.webview.focus()
+  pub fn focus(&self) {
+    self.webview.focus();
   }
 
   /// Add got focus callback for webview
-  pub fn add_got_focus(&self, f: impl Fn() + 'static) -> Result<()> {
-    self.webview.add_got_focus(f)
+  pub fn add_got_focus(&self, f: impl Fn() + 'static) {
+    self.webview.add_got_focus(f);
   }
 
   /// Add lost focus callback for webview
-  pub fn add_lost_focus(&self, f: impl Fn() + 'static) -> Result<()> {
-    self.webview.add_lost_focus(f)
+  pub fn add_lost_focus(&self, f: impl Fn() + 'static) {
+    self.webview.add_lost_focus(f);
   }
 }
 

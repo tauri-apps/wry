@@ -52,16 +52,12 @@ fn main() -> wry::Result<()> {
   // so tauri should hook into webview focus events and use these instead of `WindowEvent::Focus`, it will be more accurate
   let proxy = event_loop.create_proxy();
   let proxy_c = proxy.clone();
-  webview
-    .add_got_focus(move || {
-      proxy_c.send_event(WebviewEvent::Focus(true));
-    })
-    .unwrap();
-  webview
-    .add_lost_focus(move || {
-      proxy.send_event(WebviewEvent::Focus(false));
-    })
-    .unwrap();
+  webview.add_got_focus(move || {
+    let _ = proxy_c.send_event(WebviewEvent::Focus(true));
+  });
+  webview.add_lost_focus(move || {
+    let _ = proxy.send_event(WebviewEvent::Focus(false));
+  });
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
