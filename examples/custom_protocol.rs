@@ -14,7 +14,7 @@ fn main() -> wry::Result<()> {
     webview::WebViewBuilder,
   };
 
-  #[cfg(target_os = "windows")]
+  #[allow(dead_code)]
   enum WebviewEvent {
     Focus(bool),
   }
