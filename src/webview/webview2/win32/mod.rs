@@ -276,31 +276,29 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn focus(&self) -> Result<()> {
+  pub fn focus(&self) {
     if let Some(c) = self.controller.get() {
-      c.move_focus(webview2::MoveFocusReason::Programmatic)?;
+      let _ = c.move_focus(webview2::MoveFocusReason::Programmatic);
     }
     Ok(())
   }
 
-  pub fn add_got_focus(&self, f: impl Fn() + 'static) -> Result<()> {
+  pub fn add_got_focus(&self, f: impl Fn() + 'static) {
     if let Some(c) = self.controller.get() {
-      c.add_got_focus(move |_| {
+     let _ =  c.add_got_focus(move |_| {
         f();
         Ok(())
-      })?;
+      });
     }
-    Ok(())
   }
 
-  pub fn add_lost_focus(&self, f: impl Fn() + 'static) -> Result<()> {
+  pub fn add_lost_focus(&self, f: impl Fn() + 'static) {
     if let Some(c) = self.controller.get() {
-      c.add_lost_focus(move |_| {
+      let _ = c.add_lost_focus(move |_| {
         f();
         Ok(())
-      })?;
+      });
     }
-    Ok(())
   }
 }
 

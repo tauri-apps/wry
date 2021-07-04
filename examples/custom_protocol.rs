@@ -14,7 +14,6 @@ fn main() -> wry::Result<()> {
     webview::WebViewBuilder,
   };
 
-  #[allow(dead_code)]
   enum WebviewEvent {
     Focus(bool),
   }
@@ -24,7 +23,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  let _webview = WebViewBuilder::new(window)
+  let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_custom_protocol("wry".into(), move |_, requested_asset_path| {
       // Remove url scheme
@@ -49,21 +48,18 @@ fn main() -> wry::Result<()> {
     .with_url("wry://examples/index.html")?
     .build()?;
 
-  #[cfg(target_os = "windows")]
-  {
-    let proxy = event_loop.create_proxy();
-    let proxy_c = proxy.clone();
-    _webview
-      .add_got_focus(move || {
-        let _ = proxy_c.send_event(WebviewEvent::Focus(true));
-      })
-      .unwrap();
-    _webview
-      .add_lost_focus(move || {
-        let _ = proxy.send_event(WebviewEvent::Focus(false));
-      })
-      .unwrap();
-  }
+  let proxy = event_loop.create_proxy();
+  let proxy_c = proxy.clone();
+  webview
+    .add_got_focus(move || {
+       proxy_c.send_event(WebviewEvent::Focus(true));
+    })
+    .unwrap();
+  webview
+    .add_lost_focus(move || {
+       proxy.send_event(WebviewEvent::Focus(false));
+    })
+    .unwrap();
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
@@ -72,9 +68,8 @@ fn main() -> wry::Result<()> {
       Event::NewEvents(StartCause::Init) => {
         println!("Wry application started!");
 
-        // we also need to call `.focus()` at the start so the webview control gains focus
-        #[cfg(target_os = "windows")]
-        let _ = _webview.focus();
+        // we also need to call `.focus()` at the start so the webview control gains focus, proabably for webview2 only
+         webview.focus();
       }
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
@@ -85,8 +80,8 @@ fn main() -> wry::Result<()> {
         ..
       } => {
         if focus {
-          #[cfg(target_os = "windows")]
-          let _ = _webview.focus();
+          // probably webview2 only
+           webview.focus();
         }
       }
       Event::UserEvent(event) => match event {

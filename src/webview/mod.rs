@@ -346,19 +346,16 @@ impl WebView {
   }
 
   /// Moves Focus to the Webview control.
-  #[cfg(target_os = "windows")]
   pub fn focus(&self) -> Result<()> {
     self.webview.focus()
   }
 
   /// Add got focus callback for webview
-  #[cfg(target_os = "windows")]
   pub fn add_got_focus(&self, f: impl Fn() + 'static) -> Result<()> {
     self.webview.add_got_focus(f)
   }
 
   /// Add lost focus callback for webview
-  #[cfg(target_os = "windows")]
   pub fn add_lost_focus(&self, f: impl Fn() + 'static) -> Result<()> {
     self.webview.add_lost_focus(f)
   }
