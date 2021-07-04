@@ -14,16 +14,13 @@ fn main() -> wry::Result<()> {
     webview::WebViewBuilder,
   };
 
-  enum WebviewEvent {
-    Focus(bool),
-  }
-  let event_loop = EventLoop::<WebviewEvent>::with_user_event();
+  let event_loop = EventLoop::new();
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)
     .unwrap();
 
-  let webview = WebViewBuilder::new(window)
+  let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_custom_protocol("wry".into(), move |_, requested_asset_path| {
       // Remove url scheme
@@ -48,49 +45,17 @@ fn main() -> wry::Result<()> {
     .with_url("wry://examples/index.html")?
     .build()?;
 
-  // On Windows, when we focus the Webview2 control, the host window loses focus and `WindowEvent::Focus` will be fired with value of `false`
-  // so tauri should hook into webview focus events and use these instead of `WindowEvent::Focus`, it will be more accurate
-  let proxy = event_loop.create_proxy();
-  let proxy_c = proxy.clone();
-  webview.add_got_focus(move || {
-    let _ = proxy_c.send_event(WebviewEvent::Focus(true));
-  });
-  webview.add_lost_focus(move || {
-    let _ = proxy.send_event(WebviewEvent::Focus(false));
-  });
-
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
     match event {
       Event::NewEvents(StartCause::Init) => {
         println!("Wry application started!");
-
-        // tauri needs to call `.focus()` at the start so the webview control gains focus, proabably for webview2 only
-        webview.focus();
       }
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      Event::WindowEvent {
-        event: WindowEvent::Focused(focus),
-        ..
-      } => {
-        if focus {
-          // tauri needs to call `.focus` on `WindowEvent::Focus` ,probably for webview2 only
-          webview.focus();
-        }
-      }
-      Event::UserEvent(event) => match event {
-        WebviewEvent::Focus(focus) => {
-          if focus {
-            println!("Got Focus")
-          } else {
-            println!("Lost Focus")
-          }
-        }
-      },
       _ => (),
     }
   });

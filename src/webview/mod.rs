@@ -349,16 +349,6 @@ impl WebView {
   pub fn focus(&self) {
     self.webview.focus();
   }
-
-  /// Add got focus callback for webview
-  pub fn add_got_focus(&self, f: impl Fn() + 'static) {
-    self.webview.add_got_focus(f);
-  }
-
-  /// Add lost focus callback for webview
-  pub fn add_lost_focus(&self, f: impl Fn() + 'static) {
-    self.webview.add_lost_focus(f);
-  }
 }
 
 // Helper so all platforms handle RPC messages consistently.
