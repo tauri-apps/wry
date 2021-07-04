@@ -14,7 +14,11 @@ fn main() -> wry::Result<()> {
     webview::WebViewBuilder,
   };
 
-  let event_loop = EventLoop::new();
+  #[cfg(target_os = "windows")]
+  enum WebviewEvent {
+    Focus(bool),
+  }
+  let event_loop = EventLoop::<WebviewEvent>::with_user_event();
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)
@@ -45,15 +49,55 @@ fn main() -> wry::Result<()> {
     .with_url("wry://examples/index.html")?
     .build()?;
 
+  #[cfg(target_os = "windows")]
+  {
+    let proxy = event_loop.create_proxy();
+    let proxy_c = proxy.clone();
+    _webview
+      .add_got_focus(move || {
+        let _ = proxy_c.send_event(WebviewEvent::Focus(true));
+      })
+      .unwrap();
+    _webview
+      .add_lost_focus(move || {
+        let _ = proxy.send_event(WebviewEvent::Focus(false));
+      })
+      .unwrap();
+  }
+
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
     match event {
-      Event::NewEvents(StartCause::Init) => println!("Wry application started!"),
+      Event::NewEvents(StartCause::Init) => {
+        println!("Wry application started!");
+
+        // we also need to call `.focus()` at the start so the webview control gains focus
+        #[cfg(target_os = "windows")]
+        let _ = _webview.focus();
+      }
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
+      Event::WindowEvent {
+        event: WindowEvent::Focused(focus),
+        ..
+      } => {
+        if focus {
+          #[cfg(target_os = "windows")]
+          let _ = _webview.focus();
+        }
+      }
+      Event::UserEvent(event) => match event {
+        WebviewEvent::Focus(focus) => {
+          if focus {
+            println!("Got Focus")
+          } else {
+            println!("Lost Focus")
+          }
+        }
+      },
       _ => (),
     }
   });
