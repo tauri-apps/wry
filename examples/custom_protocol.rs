@@ -48,16 +48,18 @@ fn main() -> wry::Result<()> {
     .with_url("wry://examples/index.html")?
     .build()?;
 
+  // On Windows, when we focus the Webview2 control, the host window loses focus and `WindowEvent::Focus` will be fired with value of `false`
+  // so tauri should hook into webview focus events and use these instead of `WindowEvent::Focus`, it will be more accurate
   let proxy = event_loop.create_proxy();
   let proxy_c = proxy.clone();
   webview
     .add_got_focus(move || {
-       proxy_c.send_event(WebviewEvent::Focus(true));
+      proxy_c.send_event(WebviewEvent::Focus(true));
     })
     .unwrap();
   webview
     .add_lost_focus(move || {
-       proxy.send_event(WebviewEvent::Focus(false));
+      proxy.send_event(WebviewEvent::Focus(false));
     })
     .unwrap();
 
@@ -68,8 +70,8 @@ fn main() -> wry::Result<()> {
       Event::NewEvents(StartCause::Init) => {
         println!("Wry application started!");
 
-        // we also need to call `.focus()` at the start so the webview control gains focus, proabably for webview2 only
-         webview.focus();
+        // tauri needs to call `.focus()` at the start so the webview control gains focus, proabably for webview2 only
+        webview.focus();
       }
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
@@ -80,8 +82,8 @@ fn main() -> wry::Result<()> {
         ..
       } => {
         if focus {
-          // probably webview2 only
-           webview.focus();
+          // tauri needs to call `.focus` on `WindowEvent::Focus` ,probably for webview2 only
+          webview.focus();
         }
       }
       Event::UserEvent(event) => match event {
