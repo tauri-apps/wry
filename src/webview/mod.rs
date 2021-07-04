@@ -463,6 +463,7 @@ pub fn webview_version() -> Result<String> {
   platform_webview_version()
 }
 
+#[cfg(target_os = "windows")]
 pub trait WebviewExtWindows {
   /// Hook into webview2 got_focus event
   fn on_focus(&self, f: impl Fn() + 'static);
@@ -471,6 +472,7 @@ pub trait WebviewExtWindows {
   fn on_blur(&self, f: impl Fn() + 'static);
 }
 
+#[cfg(target_os = "windows")]
 impl WebviewExtWindows for WebView {
   fn on_focus(&self, f: impl Fn() + 'static) {
     self.webview.on_focus(f);
