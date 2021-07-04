@@ -237,20 +237,6 @@ impl InnerWebView {
   pub fn focus(&self) {
     self.webview.grab_focus();
   }
-
-  pub fn add_got_focus(&self, f: impl Fn() + 'static) {
-    self.webview.connect_focus_in_event(move |_,_|{
-      f();
-      Inhibit(true)
-    });
-  }
-
-  pub fn add_lost_focus(&self, f: impl Fn() + 'static) {
-    self.webview.connect_focus_out_event(move |_,_|{
-      f();
-      Inhibit(true)
-    });
-  }
 }
 
 pub fn platform_webview_version() -> Result<String> {
