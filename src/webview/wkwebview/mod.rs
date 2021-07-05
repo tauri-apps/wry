@@ -391,6 +391,8 @@ impl InnerWebView {
       let () = msg_send![print_operation, runOperationModalForWindow: self.ns_window delegate: null::<*const c_void>() didRunSelector: null::<*const c_void>() contextInfo: null::<*const c_void>()];
     }
   }
+
+  pub fn focus(&self) {}
 }
 
 pub fn platform_webview_version() -> Result<String> {
