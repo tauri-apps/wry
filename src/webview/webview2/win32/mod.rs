@@ -28,7 +28,7 @@ use crate::application::{
 };
 
 pub struct InnerWebView {
-  controller: Rc<OnceCell<Controller>>,
+  pub(crate) controller: Rc<OnceCell<Controller>>,
   webview: Rc<OnceCell<WebView>>,
   // Store FileDropController in here to make sure it gets dropped when
   // the webview gets dropped, otherwise we'll have a memory leak
@@ -280,23 +280,6 @@ impl InnerWebView {
   pub fn focus(&self) {
     if let Some(c) = self.controller.get() {
       let _ = c.move_focus(webview2::MoveFocusReason::Programmatic);
-    }
-  }
-  pub fn on_focus(&self, f: impl Fn() + 'static) {
-    if let Some(c) = self.controller.get() {
-      let _ = c.add_got_focus(move |_| {
-        f();
-        Ok(())
-      });
-    }
-  }
-
-  pub fn on_blur(&self, f: impl Fn() + 'static) {
-    if let Some(c) = self.controller.get() {
-      let _ = c.add_lost_focus(move |_| {
-        f();
-        Ok(())
-      });
     }
   }
 }
