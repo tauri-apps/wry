@@ -212,6 +212,7 @@ impl InnerWebView {
         }
 
         controller.put_is_visible(true)?;
+        controller.move_focus(webview2::MoveFocusReason::Programmatic)?;
         let _ = controller_clone.set(controller);
 
         if let Some(file_drop_handler) = attributes.file_drop_handler {
@@ -274,6 +275,29 @@ impl InnerWebView {
     }
 
     Ok(())
+  }
+
+  pub fn focus(&self) {
+    if let Some(c) = self.controller.get() {
+      let _ = c.move_focus(webview2::MoveFocusReason::Programmatic);
+    }
+  }
+  pub fn on_focus(&self, f: impl Fn() + 'static) {
+    if let Some(c) = self.controller.get() {
+      let _ = c.add_got_focus(move |_| {
+        f();
+        Ok(())
+      });
+    }
+  }
+
+  pub fn on_blur(&self, f: impl Fn() + 'static) {
+    if let Some(c) = self.controller.get() {
+      let _ = c.add_lost_focus(move |_| {
+        f();
+        Ok(())
+      });
+    }
   }
 }
 

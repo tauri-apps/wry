@@ -233,6 +233,10 @@ impl InnerWebView {
     }
     Ok(())
   }
+
+  pub fn focus(&self) {
+    self.webview.grab_focus();
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {

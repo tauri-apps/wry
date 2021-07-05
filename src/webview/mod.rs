@@ -344,6 +344,11 @@ impl WebView {
     self.webview.resize(self.window.hwnd())?;
     Ok(())
   }
+
+  /// Moves Focus to the Webview control.
+  pub fn focus(&self) {
+    self.webview.focus();
+  }
 }
 
 // Helper so all platforms handle RPC messages consistently.
@@ -456,6 +461,26 @@ pub enum FileDropEvent {
 /// Get Webview/Webkit version on current platform.
 pub fn webview_version() -> Result<String> {
   platform_webview_version()
+}
+
+#[cfg(target_os = "windows")]
+pub trait WebviewExtWindows {
+  /// Hook into webview2 got_focus event
+  fn on_focus(&self, f: impl Fn() + 'static);
+
+  /// Hook into webview2 lost_focus event
+  fn on_blur(&self, f: impl Fn() + 'static);
+}
+
+#[cfg(target_os = "windows")]
+impl WebviewExtWindows for WebView {
+  fn on_focus(&self, f: impl Fn() + 'static) {
+    self.webview.on_focus(f);
+  }
+
+  fn on_blur(&self, f: impl Fn() + 'static) {
+    self.webview.on_blur(f);
+  }
 }
 
 #[cfg(test)]
