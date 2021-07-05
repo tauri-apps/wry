@@ -285,10 +285,10 @@ pub struct WebView {
 impl Drop for WebView {
   fn drop(&mut self) {
     #[cfg(target_os = "linux")]
-    {
+    unsafe {
       use crate::application::platform::unix::WindowExtUnix;
-      use gtk::GtkWindowExt;
-      self.window.gtk_window().close();
+      use gtk::prelude::WidgetExtManual;
+      self.window().gtk_window().destroy();
     }
     #[cfg(target_os = "windows")]
     unsafe {
