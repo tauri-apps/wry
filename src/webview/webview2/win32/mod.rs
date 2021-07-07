@@ -5,18 +5,21 @@
 mod file_drop;
 
 use crate::{
-  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  application::platform::windows::EventLoopExtWindows,
+  webview::{WebContext, WebViewAttributes},
   Result,
 };
 
 use file_drop::FileDropController;
 
-use std::{collections::HashSet, os::raw::c_void, path::PathBuf, rc::Rc};
+use std::{collections::HashSet, os::raw::c_void, rc::Rc};
 
 use once_cell::unsync::OnceCell;
-use url::Url;
 use webview2::{Controller, PermissionKind, PermissionState, WebView};
-use winapi::{shared::windef::HWND, um::winuser::GetClientRect};
+use winapi::{
+  shared::{windef::HWND, winerror::E_FAIL},
+  um::winuser::{DestroyWindow, GetClientRect},
+};
 
 use crate::application::{
   event_loop::{ControlFlow, EventLoop},
@@ -25,7 +28,7 @@ use crate::application::{
 };
 
 pub struct InnerWebView {
-  controller: Rc<OnceCell<Controller>>,
+  pub(crate) controller: Rc<OnceCell<Controller>>,
   webview: Rc<OnceCell<WebView>>,
   // Store FileDropController in here to make sure it gets dropped when
   // the webview gets dropped, otherwise we'll have a memory leak
@@ -36,17 +39,8 @@ pub struct InnerWebView {
 impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
-    scripts: Vec<String>,
-    url: Option<Url>,
-    user_agent: Option<String>,
-    transparent: bool,
-    custom_protocols: Vec<(
-      String,
-      Box<dyn Fn(&Window, &str) -> Result<Vec<u8>> + 'static>,
-    )>,
-    rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
-    file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-    data_directory: Option<PathBuf>,
+    mut attributes: WebViewAttributes,
+    web_context: Option<&WebContext>,
   ) -> Result<Self> {
     let hwnd = window.hwnd() as HWND;
 
@@ -56,15 +50,12 @@ impl InnerWebView {
     let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
     let file_drop_controller_clone = file_drop_controller.clone();
 
-    let webview_builder: webview2::EnvironmentBuilder;
-    let data_directory_provided: PathBuf;
+    let mut webview_builder = webview2::EnvironmentBuilder::new();
 
-    if let Some(data_directory) = data_directory {
-      data_directory_provided = data_directory;
-      webview_builder =
-        webview2::EnvironmentBuilder::new().with_user_data_folder(&data_directory_provided);
-    } else {
-      webview_builder = webview2::EnvironmentBuilder::new();
+    if let Some(web_context) = web_context {
+      if let Some(data_directory) = web_context.data_directory() {
+        webview_builder = webview_builder.with_user_data_folder(&data_directory);
+      }
     }
 
     // Webview controller
@@ -75,8 +66,16 @@ impl InnerWebView {
         let controller = controller?;
         let w = controller.get_webview()?;
 
+        w.add_window_close_requested(move |_| {
+          if unsafe { DestroyWindow(hwnd as HWND) } != 0 {
+            Ok(())
+          } else {
+            Err(webview2::Error::new(E_FAIL))
+          }
+        })?;
+
         // Transparent
-        if transparent {
+        if attributes.transparent {
           if let Ok(c2) = controller.get_controller2() {
             c2.put_default_background_color(webview2_sys::Color {
               r: 0,
@@ -107,15 +106,17 @@ impl InnerWebView {
           "window.external={invoke:s=>window.chrome.webview.postMessage(s)}",
           |_| (Ok(())),
         )?;
-        for js in scripts {
+        for js in attributes.initialization_scripts {
           w.add_script_to_execute_on_document_created(&js, |_| (Ok(())))?;
         }
 
         // Message handler
         let window_ = window.clone();
+
+        let rpc_handler = attributes.rpc_handler.take();
         w.add_web_message_received(move |webview, args| {
           let js = args.try_get_web_message_as_string()?;
-          if let Some(rpc_handler) = rpc_handler.as_ref() {
+          if let Some(rpc_handler) = &rpc_handler {
             match super::rpc_proxy(&window_, js, rpc_handler) {
               Ok(result) => {
                 if let Some(ref script) = result {
@@ -131,27 +132,35 @@ impl InnerWebView {
         })?;
 
         let mut custom_protocol_names = HashSet::new();
-        for (name, function) in custom_protocols {
-          // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
-          // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-          custom_protocol_names.insert(name.clone());
-          w.add_web_resource_requested_filter(
-            &format!("https://custom-protocol-{}*", name),
-            webview2::WebResourceContext::All,
-          )?;
+        if !attributes.custom_protocols.is_empty() {
+          for (name, _) in &attributes.custom_protocols {
+            // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
+            // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
+            custom_protocol_names.insert(name.clone());
+            w.add_web_resource_requested_filter(
+              &format!("https://custom.protocol.{}_*", name),
+              webview2::WebResourceContext::All,
+            )?;
+          }
+
+          let custom_protocols = attributes.custom_protocols;
           let env_clone = env_.clone();
           let window_ = window.clone();
           w.add_web_resource_requested(move |_, args| {
             let uri = args.get_request()?.get_uri()?;
             // Undo the protocol workaround when giving path to resolver
-            let path = &uri.replace(
-              &format!("https://custom-protocol-{}", name),
-              &format!("{}://", name),
-            );
+            let path = uri
+              .replace("https://custom.protocol.", "")
+              .replacen("_", "://", 1);
+            let scheme = path.split("://").next().unwrap();
 
-            match function(&window_, path) {
-              Ok(content) => {
-                let mime = MimeType::parse(&content, &uri);
+            match (custom_protocols
+              .iter()
+              .find(|(name, _)| name == &scheme)
+              .unwrap()
+              .1)(&window_, &path)
+            {
+              Ok((content, mime)) => {
                 let stream = webview2::Stream::from_bytes(&content);
                 let response = env_clone.create_web_resource_response(
                   stream,
@@ -186,7 +195,7 @@ impl InnerWebView {
         }
 
         // Navigation
-        if let Some(url) = url {
+        if let Some(url) = attributes.url {
           if url.cannot_be_a_base() {
             let s = url.as_str();
             if let Some(pos) = s.find(',') {
@@ -201,7 +210,7 @@ impl InnerWebView {
               // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
               url_string = url.as_str().replace(
                 &format!("{}://", name),
-                &format!("https://custom-protocol-{}", name),
+                &format!("https://custom.protocol.{}_", name),
               )
             }
             w.navigate(&url_string)?;
@@ -209,9 +218,10 @@ impl InnerWebView {
         }
 
         controller.put_is_visible(true)?;
+        controller.move_focus(webview2::MoveFocusReason::Programmatic)?;
         let _ = controller_clone.set(controller);
 
-        if let Some(file_drop_handler) = file_drop_handler {
+        if let Some(file_drop_handler) = attributes.file_drop_handler {
           let mut file_drop_controller = FileDropController::new();
           file_drop_controller.listen(hwnd, window.clone(), file_drop_handler);
           let _ = file_drop_controller_clone.set(file_drop_controller);
@@ -222,7 +232,7 @@ impl InnerWebView {
     })?;
 
     // Wait until webview is actually created
-    let mut event_loop = EventLoop::new();
+    let mut event_loop: EventLoop<()> = EventLoop::new_any_thread();
     let controller_clone = controller.clone();
     let webview: Rc<OnceCell<WebView>> = Rc::new(OnceCell::new());
     let webview_clone = webview.clone();
@@ -263,11 +273,20 @@ impl InnerWebView {
       let mut rect = std::mem::zeroed();
       GetClientRect(hwnd, &mut rect);
       if let Some(c) = self.controller.get() {
+        rect.left = rect.left + 1;
+        c.put_bounds(rect)?;
+        rect.left = rect.left - 1;
         c.put_bounds(rect)?;
       }
     }
 
     Ok(())
+  }
+
+  pub fn focus(&self) {
+    if let Some(c) = self.controller.get() {
+      let _ = c.move_focus(webview2::MoveFocusReason::Programmatic);
+    }
   }
 }
 

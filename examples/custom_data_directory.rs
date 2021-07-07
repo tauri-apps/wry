@@ -11,7 +11,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
     },
-    webview::WebViewBuilder,
+    webview::{WebContext, WebViewBuilder},
   };
 
   // Use a sample directory at the root of the project
@@ -24,6 +24,7 @@ fn main() -> wry::Result<()> {
   println!("Webview storage path: {:#?}", &test_path);
 
   let event_loop = EventLoop::new();
+  let web_context = WebContext::new(Some(test_path));
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)
@@ -31,7 +32,7 @@ fn main() -> wry::Result<()> {
   let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url("https://tauri.studio")?
-    .with_data_directory(test_path)
+    .with_web_context(&web_context)
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

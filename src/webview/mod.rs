@@ -4,36 +4,26 @@
 
 //! [`WebView`] struct and associated types.
 
-mod mimetype;
+mod web_context;
+
+pub use web_context::WebContext;
 
 #[cfg(target_os = "linux")]
-mod linux;
+mod webkitgtk;
 #[cfg(target_os = "linux")]
-use linux::*;
-#[cfg(target_os = "macos")]
-mod macos;
-#[cfg(target_os = "macos")]
-use macos::*;
+use webkitgtk::*;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+mod wkwebview;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use wkwebview::*;
 #[cfg(target_os = "windows")]
-#[cfg(feature = "winrt")]
-mod winrt;
+mod webview2;
 #[cfg(target_os = "windows")]
-#[cfg(feature = "winrt")]
-use winrt::*;
-#[cfg(target_os = "windows")]
-#[cfg(feature = "win32")]
-mod win32;
-#[cfg(target_os = "windows")]
-#[cfg(feature = "win32")]
-use win32::*;
+use self::webview2::*;
 
 use crate::{Error, Result};
 
-use std::{
-  path::PathBuf,
-  rc::Rc,
-  sync::mpsc::{channel, Receiver, Sender},
-};
+use std::{path::PathBuf, rc::Rc};
 
 use serde_json::Value;
 use url::Url;
@@ -45,34 +35,61 @@ use crate::application::window::Window;
 #[cfg(feature = "winrt")]
 use windows_webview2::Windows::Win32::WindowsAndMessaging::HWND;
 
-// Helper so all platforms handle RPC messages consistently.
-fn rpc_proxy(
-  window: &Window,
-  js: String,
-  handler: &dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>,
-) -> Result<Option<String>> {
-  let req = serde_json::from_str::<RpcRequest>(&js)
-    .map_err(|e| Error::RpcScriptError(e.to_string(), js))?;
+pub struct WebViewAttributes {
+  /// Whether the WebView window should be visible.
+  pub visible: bool,
+  /// Whether the WebView should be transparent.
+  pub transparent: bool,
+  /// Whether load the provided URL to [`WebView`].
+  pub url: Option<Url>,
+  /// Initialize javascript code when loading new pages. When webview load a new page, this
+  /// initialization code will be executed. It is guaranteed that code is executed before
+  /// `window.onload`.
+  pub initialization_scripts: Vec<String>,
+  /// Register custom file loading protocols with pairs of scheme uri string and a handling
+  /// closure.
+  ///
+  /// The closure takes the `Window` and a url string slice as parameters, and returns a tuple of a
+  /// vector of bytes which is the content and a mimetype string of the conten.
+  pub custom_protocols: Vec<(
+    String,
+    Box<dyn Fn(&Window, &str) -> Result<(Vec<u8>, String)>>,
+  )>,
+  /// Set the RPC handler to Communicate between the host Rust code and Javascript on webview.
+  ///
+  /// The communication is done via [JSON-RPC](https://www.jsonrpc.org). Users can use this to register an incoming
+  /// request handler and reply with responses that are passed back to Javascript. On the Javascript
+  /// side the client is exposed via `window.rpc` with two public methods:
+  ///
+  /// 1. The `call()` function accepts a method name and parameters and expects a reply.
+  /// 2. The `notify()` function accepts a method name and parameters but does not expect a reply.
+  ///
+  /// Both functions return promises but `notify()` resolves immediately.
+  pub rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
+  /// Set a handler closure to process incoming [`FileDropEvent`] of the webview.
+  ///
+  /// # Blocking OS Default Behavior
+  /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
+  ///
+  /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
+  /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
+  #[cfg(feature = "file-drop")]
+  pub file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+  #[cfg(not(feature = "file-drop"))]
+  file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+}
 
-  let mut response = (handler)(window, req);
-  // Got a synchronous response so convert it to a script to be evaluated
-  if let Some(mut response) = response.take() {
-    if let Some(id) = response.id {
-      let js = if let Some(error) = response.error.take() {
-        RpcResponse::get_error_script(id, error)?
-      } else if let Some(result) = response.result.take() {
-        RpcResponse::get_result_script(id, result)?
-      } else {
-        // No error or result, assume a positive response
-        // with empty result (ACK)
-        RpcResponse::get_result_script(id, Value::Null)?
-      };
-      Ok(Some(js))
-    } else {
-      Ok(None)
+impl Default for WebViewAttributes {
+  fn default() -> Self {
+    Self {
+      visible: true,
+      transparent: false,
+      url: None,
+      initialization_scripts: vec![],
+      custom_protocols: vec![],
+      rpc_handler: None,
+      file_drop_handler: None,
     }
-  } else {
-    Ok(None)
   }
 }
 
@@ -81,76 +98,59 @@ fn rpc_proxy(
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
 /// [`WebViewBuilder`] privides ability to setup initialization before web engine starts.
-pub struct WebViewBuilder {
-  transparent: bool,
-  tx: Sender<String>,
-  rx: Receiver<String>,
-  initialization_scripts: Vec<String>,
+pub struct WebViewBuilder<'a> {
+  pub webview: WebViewAttributes,
+  web_context: Option<&'a WebContext>,
   window: Window,
-  url: Option<Url>,
-  user_agent: Option<String>,
-  custom_protocols: Vec<(String, Box<dyn Fn(&Window, &str) -> Result<Vec<u8>>>)>,
-  rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
-  file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
-  data_directory: Option<PathBuf>,
 }
 
-impl WebViewBuilder {
+impl<'a> WebViewBuilder<'a> {
   /// Create [`WebViewBuilder`] from provided [`Window`].
   pub fn new(window: Window) -> Result<Self> {
-    let (tx, rx) = channel();
+    let webview = WebViewAttributes::default();
+    let web_context = None;
 
     Ok(Self {
-      tx,
-      rx,
-      initialization_scripts: vec![],
+      webview,
+      web_context,
       window,
-      url: None,
-      user_agent: None,
-      transparent: false,
-      custom_protocols: vec![],
-      rpc_handler: None,
-      file_drop_handler: None,
-      data_directory: None,
     })
   }
 
-  /// Whether the WebView window should be transparent. If this is true, writing colors
-  /// with alpha values different than `1.0` will produce a transparent window.
+  /// Sets whether the WebView should be transparent.
   pub fn with_transparent(mut self, transparent: bool) -> Self {
-    self.transparent = transparent;
+    self.webview.transparent = transparent;
     self
   }
 
-  /// Initialize javascript code when loading new pages. Everytime webview load a new page, this
+  /// Sets whether the WebView should be transparent.
+  pub fn with_visible(mut self, visible: bool) -> Self {
+    self.webview.visible = visible;
+    self
+  }
+
+  /// Initialize javascript code when loading new pages. When webview load a new page, this
   /// initialization code will be executed. It is guaranteed that code is executed before
   /// `window.onload`.
   pub fn with_initialization_script(mut self, js: &str) -> Self {
-    self.initialization_scripts.push(js.to_string());
+    self.webview.initialization_scripts.push(js.to_string());
     self
   }
 
-  /// Whether the WebView window should have a custom user data path. This is usefull in Windows
-  /// when a bundled application can't have the webview data inside `Program Files`.
-  pub fn with_data_directory(mut self, data_directory: PathBuf) -> Self {
-    self.data_directory.replace(data_directory);
-    self
-  }
-
-  /// Create a [`Dispatcher`] to send evaluation scripts to the WebView. [`WebView`] is not thread
-  /// safe because it must be run on the main thread who creates it. [`Dispatcher`] can let you
-  /// send the scripts from other threads.
-  pub fn dispatcher(&self) -> Dispatcher {
-    Dispatcher(self.tx.clone())
-  }
-
-  /// Register custom file loading protocol
+  /// Register custom file loading protocols with pairs of scheme uri string and a handling
+  /// closure.
+  ///
+  /// The closure takes the `Window` and a url string slice as parameters, and returns a tuple of a
+  /// vector of bytes which is the content and a mimetype string of the conten.
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(&Window, &str) -> Result<Vec<u8>> + 'static,
+    F: Fn(&Window, &str) -> Result<(Vec<u8>, String)> + 'static,
   {
-    self.custom_protocols.push((name, Box::new(handler)));
+    self
+      .webview
+      .custom_protocols
+      .push((name, Box::new(handler)));
     self
   }
 
@@ -168,7 +168,50 @@ impl WebViewBuilder {
   where
     F: Fn(&Window, RpcRequest) -> Option<RpcResponse> + 'static,
   {
-    let js = r#"
+    self.webview.rpc_handler = Some(Box::new(handler));
+    self
+  }
+
+  /// Set a handler closure to process incoming [`FileDropEvent`] of the webview.
+  ///
+  /// # Blocking OS Default Behavior
+  /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
+  ///
+  /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
+  /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
+  #[cfg(feature = "file-drop")]
+  pub fn with_file_drop_handler<F>(mut self, handler: F) -> Self
+  where
+    F: Fn(&Window, FileDropEvent) -> bool + 'static,
+  {
+    self.webview.file_drop_handler = Some(Box::new(handler));
+    self
+  }
+
+  /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the
+  /// [`WebView`]. The provided URL must be valid.
+  pub fn with_url(mut self, url: &str) -> Result<Self> {
+    self.webview.url = Some(Url::parse(url)?);
+    Ok(self)
+  }
+
+  /// Set the web context that can share with multiple [`WebView`]s.
+  pub fn with_web_context(mut self, web_context: &'a WebContext) -> Self {
+    self.web_context = Some(web_context);
+    self
+  }
+
+  /// Consume the builder and create the [`WebView`].
+  ///
+  /// Platform-specific behavior:
+  ///
+  /// - **Unix:** This method must be called in a gtk thread. Usually this means it should be
+  /// called in the same thread with the [`EventLoop`] you create.
+  ///
+  /// [`EventLoop`]: crate::application::event_loop::EventLoop
+  pub fn build(mut self) -> Result<WebView> {
+    if self.webview.rpc_handler.is_some() {
+      let js = r#"
             (function() {
                 function Rpc() {
                     const self = this;
@@ -218,67 +261,11 @@ impl WebViewBuilder {
             })();
             "#;
 
-    self.initialization_scripts.push(js.to_string());
-    self.rpc_handler = Some(Box::new(handler));
-    self
-  }
-
-  /// Set a handler closure to process incoming [`FileDropEvent`] of the webview.
-  ///
-  /// # Blocking OS Default Behavior
-  /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
-  ///
-  /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
-  /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
-  #[cfg(feature = "file-drop")]
-  pub fn with_file_drop_handler<F>(mut self, handler: F) -> Self
-  where
-    F: Fn(&Window, FileDropEvent) -> bool + 'static,
-  {
-    self.file_drop_handler = Some(Box::new(handler));
-    self
-  }
-
-  /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the
-  /// [`WebView`]. The provided URL must be valid.
-  pub fn with_url(mut self, url: &str) -> Result<Self> {
-    self.url = Some(Url::parse(url)?);
-    Ok(self)
-  }
-
-  /// Set the user agent to use used by the created [`WebView`].
-  pub fn with_user_agent(mut self, url: &str) -> Self {
-    self.user_agent = Some(url.to_string());
-    self
-  }
-
-  /// Consume the builder and create the [`WebView`].
-  ///
-  /// Platform-specific behavior:
-  ///
-  /// - **Unix:** This method must be called in a gtk thread. Usually this means it should be
-  /// called in the same thread with the [`EventLoop`] you create.
-  ///
-  /// [`EventLoop`]: crate::application::event_loop::EventLoop
-  pub fn build(self) -> Result<WebView> {
+      self.webview.initialization_scripts.push(js.to_string());
+    }
     let window = Rc::new(self.window);
-    let webview = InnerWebView::new(
-      window.clone(),
-      self.initialization_scripts,
-      self.url,
-      self.user_agent,
-      self.transparent,
-      self.custom_protocols,
-      self.rpc_handler,
-      self.file_drop_handler,
-      self.data_directory,
-    )?;
-    Ok(WebView {
-      window,
-      webview,
-      tx: self.tx,
-      rx: self.rx,
-    })
+    let webview = InnerWebView::new(window.clone(), self.webview, self.web_context)?;
+    Ok(WebView { window, webview })
   }
 }
 
@@ -291,8 +278,6 @@ impl WebViewBuilder {
 pub struct WebView {
   window: Rc<Window>,
   webview: InnerWebView,
-  tx: Sender<String>,
-  rx: Receiver<String>,
 }
 
 // Signal the Window to drop on Linux and Windows. On mac, we need to handle several unsafe code
@@ -300,10 +285,10 @@ pub struct WebView {
 impl Drop for WebView {
   fn drop(&mut self) {
     #[cfg(target_os = "linux")]
-    {
+    unsafe {
       use crate::application::platform::unix::WindowExtUnix;
-      use gtk::GtkWindowExt;
-      self.window.gtk_window().close();
+      use gtk::prelude::WidgetExtManual;
+      self.window().gtk_window().destroy();
     }
     #[cfg(target_os = "windows")]
     unsafe {
@@ -328,33 +313,18 @@ impl WebView {
     WebViewBuilder::new(window)?.build()
   }
 
-  /// Dispatch javascript code to be evaluated later. Note this will not actually run the
-  /// scripts being dispatched. Users need to call [`WebView::evaluate_script`] to execute them.
-  pub fn dispatch_script(&mut self, js: &str) -> Result<()> {
-    self.tx.send(js.to_string())?;
-    Ok(())
-  }
-
-  /// Create a [`Dispatcher`] to send evaluation scripts to the WebView. [`WebView`] is not thread
-  /// safe because it must be run on the main thread who creates it. [`Dispatcher`] can let you
-  /// send the scripts from other threads.
-  pub fn dispatcher(&self) -> Dispatcher {
-    Dispatcher(self.tx.clone())
-  }
-
   /// Get the [`Window`] associate with the [`WebView`]. This can let you perform window related
   /// actions.
   pub fn window(&self) -> &Window {
     &self.window
   }
 
-  /// Evaluate the scripts sent from [`Dispatcher`]s.
-  pub fn evaluate_script(&self) -> Result<()> {
-    while let Ok(js) = self.rx.try_recv() {
-      self.webview.eval(&js)?;
-    }
-
-    Ok(())
+  /// Evaluate and run javascript code. Must be called on the same thread who created the
+  /// [`WebView`]. Use [`EventLoopProxy`] and a custom event to send scripts from other threads.
+  ///
+  /// [`EventLoopProxy`]: crate::application::event_loop::EventLoopProxy
+  pub fn evaluate_script(&self, js: &str) -> Result<()> {
+    self.webview.eval(js)
   }
 
   /// Launch print modal for the webview content.
@@ -374,21 +344,46 @@ impl WebView {
     self.webview.resize(self.window.hwnd())?;
     Ok(())
   }
+
+  /// Moves Focus to the Webview control.
+  ///
+  /// It's usually safe to call `focus` method on `Window` which would also focus to `WebView` except Windows.
+  /// Focussing to `Window` doesn't mean focussing to `WebView` on Windows. For example, if you have
+  /// an input field on webview and lost focus, you will have to explicitly click the field even you
+  /// re-focus the window. And if you focus to `WebView`, it will lost focus to the `Window`.
+  pub fn focus(&self) {
+    self.webview.focus();
+  }
 }
 
-#[derive(Clone)]
-/// A channel sender to dispatch javascript code to for the [`WebView`] to evaluate it.
-///
-/// [`WebView`] is not thread safe because it must be run on main thread who creates it.
-/// [`Dispatcher`] can let you send scripts from other thread.
-pub struct Dispatcher(Sender<String>);
+// Helper so all platforms handle RPC messages consistently.
+fn rpc_proxy(
+  window: &Window,
+  js: String,
+  handler: &dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>,
+) -> Result<Option<String>> {
+  let req = serde_json::from_str::<RpcRequest>(&js)
+    .map_err(|e| Error::RpcScriptError(e.to_string(), js))?;
 
-impl Dispatcher {
-  /// Dispatch javascript code to be evaluated later. Note this will not actually run the
-  /// scripts being dispatched. Users need to call [`WebView::evaluate_script`] to execute them.
-  pub fn dispatch_script(&self, js: &str) -> Result<()> {
-    self.0.send(js.to_string())?;
-    Ok(())
+  let mut response = (handler)(window, req);
+  // Got a synchronous response so convert it to a script to be evaluated
+  if let Some(mut response) = response.take() {
+    if let Some(id) = response.id {
+      let js = if let Some(error) = response.error.take() {
+        RpcResponse::get_error_script(id, error)?
+      } else if let Some(result) = response.result.take() {
+        RpcResponse::get_result_script(id, result)?
+      } else {
+        // No error or result, assume a positive response
+        // with empty result (ACK)
+        RpcResponse::get_result_script(id, Value::Null)?
+      };
+      Ok(Some(js))
+    } else {
+      Ok(None)
+    }
+  } else {
+    Ok(None)
   }
 }
 
@@ -471,6 +466,20 @@ pub enum FileDropEvent {
 /// Get Webview/Webkit version on current platform.
 pub fn webview_version() -> Result<String> {
   platform_webview_version()
+}
+
+/// Additional methods on `WebView` that are specific to Windows.
+#[cfg(target_os = "windows")]
+pub trait WebviewExtWindows {
+  /// Returns WebView2 Controller
+  fn controller(&self) -> Option<&::webview2::Controller>;
+}
+
+#[cfg(target_os = "windows")]
+impl WebviewExtWindows for WebView {
+  fn controller(&self) -> Option<&::webview2::Controller> {
+    self.webview.controller.get()
+  }
 }
 
 #[cfg(test)]

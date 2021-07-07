@@ -62,9 +62,6 @@
 //! `sourceview` package.
 //! - `win32`: Enables purely Win32 APIs to build the WebView on **Windows**. This makes backward
 //! compatibility down to Windows 7 possible.
-//! - `winrt`: Enables up-to-date Windows Runtime support to build the WebView on **Windows**. WinRT
-//! is actively supported by Microsoft, so it's more efficient and less likely encoutered unexpected
-//! bugs.
 //! - `dox`: Enables this in `package.metadata.docs.rs` section to skip linking some **Linux**
 //! libraries and prevent from building documentation on doc.rs fails.
 //!
@@ -82,7 +79,6 @@
 
 #![allow(clippy::new_without_default)]
 #![allow(clippy::wrong_self_convention)]
-#![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::unit_cmp)]
 #![allow(clippy::upper_case_acronyms)]
@@ -91,7 +87,7 @@
 extern crate serde;
 #[macro_use]
 extern crate thiserror;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 #[macro_use]
 extern crate objc;
 

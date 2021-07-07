@@ -17,7 +17,7 @@ use windows_webview2::{
 };
 
 use crate::{
-  webview::{mimetype::MimeType, FileDropEvent, RpcRequest, RpcResponse},
+  webview::{FileDropEvent, RpcRequest, RpcResponse},
   Result,
 };
 
@@ -94,6 +94,8 @@ impl InnerWebView {
     settings.SetAreDevToolsEnabled(false)?;
     debug_assert_eq!(settings.SetAreDevToolsEnabled(true)?, ());
 
+    // todo: add close window event handler like win32's add_window_close_requested
+
     // Safety: System calls are unsafe
     unsafe {
       let mut rect = RECT::default();
@@ -142,14 +144,17 @@ impl InnerWebView {
     }))?;
 
     let mut custom_protocol_names = HashSet::new();
-    for (name, function) in custom_protocols {
-      // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
-      // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-      custom_protocol_names.insert(name.clone());
-      w.AddWebResourceRequestedFilter(
-        format!("https://custom-protocol-{}*", name).as_str(),
-        webview2::CoreWebView2WebResourceContext::All,
-      )?;
+    if !custom_protocols.is_empty() {
+      for (name, _) in &custom_protocols {
+        // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
+        // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
+        custom_protocol_names.insert(name.clone());
+        w.AddWebResourceRequestedFilter(
+          format!("https://custom.protocol.{}_*", name).as_str(),
+          webview2::CoreWebView2WebResourceContext::All,
+        )?;
+      }
+
       let env_ = env.clone();
       let window_ = window.clone();
 
@@ -160,13 +165,18 @@ impl InnerWebView {
         if let Some(args) = args {
           if let Ok(uri) = String::from_utf16(args.Request()?.Uri()?.as_wide()) {
             // Undo the protocol workaround when giving path to resolver
-            let path = uri.replace(
-              &format!("https://custom-protocol-{}", name),
-              &format!("{}://", name),
-            );
+            // Undo the protocol workaround when giving path to resolver
+            let path = uri
+              .replace("https://custom.protocol.", "")
+              .replacen("_", "://", 1);
+            let scheme = path.split("://").next().unwrap();
 
-            if let Ok(content) = function(&window_, &path) {
-              let mime = MimeType::parse(&content, &uri);
+            if let Ok((content, mime)) = (custom_protocols
+              .iter()
+              .find(|(name, _)| name == &scheme)
+              .unwrap()
+              .1)(&window_, &path)
+            {
               let stream = InMemoryRandomAccessStream::new()?;
               let writer = DataWriter::CreateDataWriter(stream.clone())?;
               writer.WriteBytes(&content)?;
@@ -220,7 +230,7 @@ impl InnerWebView {
           // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
           url_string = url.as_str().replace(
             &format!("{}://", name),
-            &format!("https://custom-protocol-{}", name),
+            &format!("https://custom.protocol.{}_", name),
           )
         }
         w.Navigate(url_string.as_str())?;
@@ -263,6 +273,12 @@ impl InnerWebView {
       WindowsAndMessaging::GetClientRect(hwnd, &mut rect);
       if let Some(c) = self.controller.get() {
         let (width, height) = (rect.right - rect.left, rect.bottom - rect.top);
+        c.SetBounds(Rect {
+          X: 0f32,
+          Y: 0f32,
+          Width: width + 1 as f32,
+          Height: height as f32,
+        })?;
         c.SetBounds(Rect {
           X: 0f32,
           Y: 0f32,
