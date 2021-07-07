@@ -10,7 +10,7 @@ fn main() -> wry::Result<()> {
   #[cfg(target_os = "linux")]
   use tao::menu::{ContextMenu, MenuItemAttributes};
   #[cfg(target_os = "linux")]
-  use wry::application::platform::linux::WindowExtLinux;
+  use wry::application::platform::unix::WindowExtUnix;
   #[cfg(target_os = "macos")]
   use wry::application::platform::macos::{ActivationPolicy, EventLoopExtMacOS};
   #[cfg(target_os = "windows")]
