@@ -346,6 +346,11 @@ impl WebView {
   }
 
   /// Moves Focus to the Webview control.
+  ///
+  /// It's usually safe to call `focus` method on `Window` which would also focus to `WebView` except Windows.
+  /// Focussing to `Window` doesn't mean focussing to `WebView` on Windows. For example, if you have
+  /// an input field on webview and lost focus, you will have to explicitly click the field even you
+  /// re-focus the window. And if you focus to `WebView`, it will lost focus to the `Window`.
   pub fn focus(&self) {
     self.webview.focus();
   }
@@ -463,23 +468,17 @@ pub fn webview_version() -> Result<String> {
   platform_webview_version()
 }
 
+/// Additional methods on `WebView` that are specific to Windows.
 #[cfg(target_os = "windows")]
 pub trait WebviewExtWindows {
-  /// Hook into webview2 got_focus event
-  fn on_focus(&self, f: impl Fn() + 'static);
-
-  /// Hook into webview2 lost_focus event
-  fn on_blur(&self, f: impl Fn() + 'static);
+  /// Returns WebView2 Controller
+  fn controller(&self) -> Option<&::webview2::Controller>;
 }
 
 #[cfg(target_os = "windows")]
 impl WebviewExtWindows for WebView {
-  fn on_focus(&self, f: impl Fn() + 'static) {
-    self.webview.on_focus(f);
-  }
-
-  fn on_blur(&self, f: impl Fn() + 'static) {
-    self.webview.on_blur(f);
+  fn controller(&self) -> Option<&::webview2::Controller> {
+    self.webview.controller.get()
   }
 }
 
