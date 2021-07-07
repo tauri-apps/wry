@@ -189,7 +189,7 @@ impl InnerWebView {
         })?;
 
         // Set user agent
-        if let Some(_user_agent) = user_agent {
+        if let Some(_user_agent) = attributes.user_agent {
           // Not yet implemented in WebView2 Win32
           // https://docs.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2experimentalsettings?view=webview2-1.0.865-prerelease
         }

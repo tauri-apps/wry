@@ -201,7 +201,7 @@ impl InnerWebView {
     }
 
     // Set user agent
-    if let Some(user_agent) = user_agent {
+    if let Some(user_agent) = attributes.user_agent {
       w.webview.set_property(&self, "user-agent", user_agent)
     }
 
