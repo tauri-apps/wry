@@ -134,6 +134,8 @@ impl InnerWebView {
       // Enable App cache
       settings.set_enable_offline_web_application_cache(true);
       settings.set_enable_page_cache(true);
+      // Set user agent
+      settings.set_user_agent(attributes.user_agent.as_deref());
 
       debug_assert_eq!(
         {
@@ -198,11 +200,6 @@ impl InnerWebView {
           ));
         }
       });
-    }
-
-    // Set user agent
-    if let Some(user_agent) = attributes.user_agent {
-      w.webview.set_property(&self, "user-agent", user_agent)
     }
 
     // Navigation

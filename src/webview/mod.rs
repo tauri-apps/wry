@@ -204,7 +204,7 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set a custom user agent for the WebView.
+  /// Set a custom [user-agent](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent) for the WebView.
   pub fn with_user_agent(mut self, user_agent: &str) -> Self {
     self.webview.user_agent = Some(user_agent.to_string());
     self
