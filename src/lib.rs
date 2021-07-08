@@ -105,6 +105,7 @@ pub mod webview;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Errors returned by wry.
+#[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum Error {
   #[cfg(target_os = "linux")]
