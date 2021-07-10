@@ -1,5 +1,20 @@
 # Changelog
 
+## \[0.11.0]
+
+- Mark enums as `#[non_exhaustive]` to prevent breaking changes on enum update.
+  - [f07ae14](https://github.com/tauri-apps/wry/commit/f07ae144197933c28f8302105b313c2a2afc62af) refactor: add `#[non_exhaustive]` attributes to enums ([#304](https://github.com/tauri-apps/wry/pull/304)) on 2021-07-08
+- - Add `focus` method to `Webview`
+- Add `WebviewExtWindows` trait with `controller` method
+- [621ed1f](https://github.com/tauri-apps/wry/commit/621ed1fff35d9389d88664d8084e1a678dfbfc36) feat: add `.focus()` to `Webview` ([#325](https://github.com/tauri-apps/wry/pull/325)) on 2021-07-05
+- [96b7b94](https://github.com/tauri-apps/wry/commit/96b7b943da34ab81872553e65d2f2cd138531a62) Add controller method instead ([#326](https://github.com/tauri-apps/wry/pull/326)) on 2021-07-07
+- macOS: Remove handler in the webview as it should be handled with the menu.
+  - [5a9df15](https://github.com/tauri-apps/wry/commit/5a9df156f04789d4c89fdb8edf72b301667df127) fix(macos): Remove keypress handler in the webview for copy/paste/cut ([#328](https://github.com/tauri-apps/wry/pull/328)) on 2021-07-07
+- Force webview to refresh on `Webview#resize` even if the window size did not change, allowing a fix to https://github.com/tauri-apps/tauri/issues/1911.
+  - [070f332](https://github.com/tauri-apps/wry/commit/070f332b65a0859437b372c7e0970e4837efb38e) feat(windows): force refresh on `webview.resize()` ([#319](https://github.com/tauri-apps/wry/pull/319)) on 2021-06-30
+- Fixes multiple custom protocols registration on Windows.
+  - [923d346](https://github.com/tauri-apps/wry/commit/923d3461ce93846af8dd548d4e43ebd0fd6111a3) fix(windows): multiple custom protocols, closes [#323](https://github.com/tauri-apps/wry/pull/323) ([#324](https://github.com/tauri-apps/wry/pull/324)) on 2021-07-02
+
 ## \[0.10.3]
 
 - [#315](https://github.com/tauri-apps/wry/pull/315) fixed Webview2 runtime performance issues.
