@@ -36,6 +36,8 @@ use crate::application::window::Window;
 use windows_webview2::Windows::Win32::WindowsAndMessaging::HWND;
 
 pub struct WebViewAttributes {
+  /// Whether the WebView should have a custom user-agent.
+  pub user_agent: Option<String>,
   /// Whether the WebView window should be visible.
   pub visible: bool,
   /// Whether the WebView should be transparent.
@@ -82,6 +84,7 @@ pub struct WebViewAttributes {
 impl Default for WebViewAttributes {
   fn default() -> Self {
     Self {
+      user_agent: None,
       visible: true,
       transparent: false,
       url: None,
@@ -198,6 +201,12 @@ impl<'a> WebViewBuilder<'a> {
   /// Set the web context that can share with multiple [`WebView`]s.
   pub fn with_web_context(mut self, web_context: &'a WebContext) -> Self {
     self.web_context = Some(web_context);
+    self
+  }
+
+  /// Set a custom [user-agent](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent) for the WebView.
+  pub fn with_user_agent(mut self, user_agent: &str) -> Self {
+    self.webview.user_agent = Some(user_agent.to_string());
     self
   }
 

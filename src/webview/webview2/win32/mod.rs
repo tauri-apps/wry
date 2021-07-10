@@ -188,6 +188,12 @@ impl InnerWebView {
           Ok(())
         })?;
 
+        // Set user agent
+        if let Some(_user_agent) = attributes.user_agent {
+          // Not yet implemented in WebView2 Win32
+          // https://docs.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2experimentalsettings?view=webview2-1.0.865-prerelease
+        }
+
         // Navigation
         if let Some(url) = attributes.url {
           if url.cannot_be_a_base() {

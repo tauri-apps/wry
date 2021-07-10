@@ -54,6 +54,7 @@ impl InnerWebView {
     window: Rc<Window>,
     scripts: Vec<String>,
     url: Option<Url>,
+    user_agent: Option<String>,
     // TODO default background color option just adds to webview2 recently and it requires
     // canary build. Implement this once it's in official release.
     #[allow(unused_variables)] transparent: bool,
@@ -208,6 +209,11 @@ impl InnerWebView {
       Ok(())
     }))?;
 
+    // Set user agent
+    if let Some(user_agent) = user_agent {
+      w.Settings()?.SetUserAgent(user_agent)?;
+    }
+    
     // Navigation
     if let Some(url) = url {
       if url.cannot_be_a_base() {

@@ -276,6 +276,11 @@ impl InnerWebView {
         w.init(&js);
       }
 
+      // Set user agent
+      if let Some(user_agent) = attributes.user_agent {
+        w.set_user_agent(user_agent.as_str())
+      }
+
       // Navigation
       if let Some(url) = attributes.url {
         if url.cannot_be_a_base() {
@@ -348,6 +353,12 @@ impl InnerWebView {
     unsafe {
       let empty: id = msg_send![class!(NSURL), URLWithString: NSString::new("")];
       let () = msg_send![self.webview, loadHTMLString:NSString::new(url) baseURL:empty];
+    }
+  }
+
+  fn set_user_agent(&self, user_agent: &str) {
+    unsafe {
+      let () = msg_send![self.webview, setCustomUserAgent: NSString::new(user_agent)];
     }
   }
 
