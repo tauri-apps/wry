@@ -7,12 +7,16 @@ fn main() -> wry::Result<()> {
   use std::collections::HashMap;
   #[cfg(target_os = "linux")]
   use std::path::Path;
+  #[cfg(target_os = "linux")]
+  use wry::application::platform::unix::WindowExtUnix;
   #[cfg(target_os = "macos")]
   use wry::application::platform::macos::{
     ActivationPolicy, CustomMenuItemExtMacOS, EventLoopExtMacOS, NativeImage,
   };
   #[cfg(target_os = "windows")]
   use wry::application::platform::windows::SystemTrayExtWindows;
+  #[cfg(target_os = "windows")]
+  use wry::application::platform::windows::WindowExtWindows;
   use wry::{
     application::{
       accelerator::{Accelerator, SysMods},
@@ -49,7 +53,7 @@ fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
 
   // launch macos app without menu and without dock icon
-  // shouold be set at launch
+  // should be set at launch
   #[cfg(target_os = "macos")]
   event_loop.set_activation_policy(ActivationPolicy::Accessory);
 
@@ -116,10 +120,10 @@ fn main() -> wry::Result<()> {
         .unwrap();
 
       // create our new window / webview instance
-      let window = WindowBuilder::new()
-        .with_skip_taskbar(true)
-        .build(event_loop)
-        .unwrap();
+      let window = WindowBuilder::new().build(event_loop).unwrap();
+
+      #[cfg(any(target_os = "windows", target_os = "linux"))]
+      window.set_skip_taskbar(true);
 
       let id = window.id();
 

@@ -9,8 +9,12 @@ fn main() -> wry::Result<()> {
   use std::path::Path;
   #[cfg(target_os = "linux")]
   use tao::menu::{ContextMenu, MenuItemAttributes};
+  #[cfg(target_os = "linux")]
+  use wry::application::platform::unix::WindowExtUnix;
   #[cfg(target_os = "macos")]
   use wry::application::platform::macos::{ActivationPolicy, EventLoopExtMacOS};
+  #[cfg(target_os = "windows")]
+  use wry::application::platform::windows::WindowExtWindows;
   use wry::{
     application::{
       dpi::{LogicalSize, PhysicalPosition},
@@ -45,7 +49,7 @@ fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
 
   // launch macos app without menu and without dock icon
-  // shouold be set at launch
+  // should be set at launch
   #[cfg(target_os = "macos")]
   event_loop.set_activation_policy(ActivationPolicy::Accessory);
 
@@ -114,11 +118,13 @@ fn main() -> wry::Result<()> {
         }
         // create our new window / webview instance
         let window = WindowBuilder::new()
-          .with_skip_taskbar(true)
           .with_position(window_position)
           .with_inner_size(window_size)
           .build(event_loop)
           .unwrap();
+
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        window.set_skip_taskbar(true);
 
         let id = window.id();
 
