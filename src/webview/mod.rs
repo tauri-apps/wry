@@ -50,7 +50,7 @@ pub struct WebViewAttributes {
   /// closure.
   ///
   /// The closure takes the `Window` and a url string slice as parameters, and returns a tuple of a
-  /// vector of bytes which is the content and a mimetype string of the conten.
+  /// vector of bytes which is the content and a mimetype string of the content.
   pub custom_protocols: Vec<(
     String,
     Box<dyn Fn(&Window, &str) -> Result<(Vec<u8>, String)>>,
@@ -141,7 +141,7 @@ impl<'a> WebViewBuilder<'a> {
   /// closure.
   ///
   /// The closure takes the `Window` and a url string slice as parameters, and returns a tuple of a
-  /// vector of bytes which is the content and a mimetype string of the conten.
+  /// vector of bytes which is the content and a mimetype string of the content.
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
