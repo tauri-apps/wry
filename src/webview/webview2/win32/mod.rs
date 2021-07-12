@@ -18,7 +18,7 @@ use once_cell::unsync::OnceCell;
 use webview2::{Controller, PermissionKind, PermissionState, WebView};
 use winapi::{
   shared::{
-    windef::{HWND, RECT},
+    windef::HWND,
     winerror::E_FAIL,
   },
   um::winuser::{DestroyWindow, GetClientRect},
@@ -318,18 +318,7 @@ impl InnerWebView {
       let mut rect = std::mem::zeroed();
       GetClientRect(hwnd, &mut rect);
       if let Some(c) = self.controller.get() {
-        if let Ok(bound) = c.get_bounds() {
-          if bound.left != rect.left
-            && bound.top != rect.top
-            && bound.right != rect.right
-            && bound.bottom != rect.bottom
-          {
-            rect.left = rect.left + 1;
-            c.put_bounds(rect)?;
-            rect.left = rect.left - 1;
-            c.put_bounds(rect)?;
-          }
-        }
+        c.put_bounds(rect)?;
       }
     }
     Ok(())
