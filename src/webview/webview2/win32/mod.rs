@@ -17,7 +17,10 @@ use std::{collections::HashSet, os::raw::c_void, rc::Rc};
 use once_cell::unsync::OnceCell;
 use webview2::{Controller, PermissionKind, PermissionState, WebView};
 use winapi::{
-  shared::{windef::HWND, winerror::E_FAIL},
+  shared::{
+    windef::{HWND, RECT},
+    winerror::E_FAIL,
+  },
   um::winuser::{DestroyWindow, GetClientRect},
 };
 
@@ -287,6 +290,7 @@ impl InnerWebView {
         }
       }
     });
+    // TODO: OnceCell into_inner for controller
 
     Ok(Self {
       controller,
@@ -314,13 +318,20 @@ impl InnerWebView {
       let mut rect = std::mem::zeroed();
       GetClientRect(hwnd, &mut rect);
       if let Some(c) = self.controller.get() {
-        rect.left = rect.left + 1;
-        c.put_bounds(rect)?;
-        rect.left = rect.left - 1;
-        c.put_bounds(rect)?;
+        if let Ok(bound) = c.get_bounds() {
+          if bound.left != rect.left
+            && bound.top != rect.top
+            && bound.right != rect.right
+            && bound.bottom != rect.bottom
+          {
+            rect.left = rect.left + 1;
+            c.put_bounds(rect)?;
+            rect.left = rect.left - 1;
+            c.put_bounds(rect)?;
+          }
+        }
       }
     }
-
     Ok(())
   }
 
