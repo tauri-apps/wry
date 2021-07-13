@@ -117,7 +117,6 @@ fn main() -> wry::Result<()> {
 
       // create our new window / webview instance
       let window = WindowBuilder::new()
-        .with_skip_taskbar(true)
         .build(event_loop)
         .unwrap();
 
@@ -155,6 +154,7 @@ fn main() -> wry::Result<()> {
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         window_id,
+        ..
       } => {
         println!("Window {:?} has received the signal to close", window_id);
         let mut open_new_window = open_new_window.clone();

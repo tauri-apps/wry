@@ -114,7 +114,6 @@ fn main() -> wry::Result<()> {
         }
         // create our new window / webview instance
         let window = WindowBuilder::new()
-          .with_skip_taskbar(true)
           .with_position(window_position)
           .with_inner_size(window_size)
           .build(event_loop)
@@ -140,6 +139,7 @@ fn main() -> wry::Result<()> {
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         window_id,
+        ..
       } => {
         println!("Window {:?} has received the signal to close", window_id);
         // Remove webview from our hashmap
