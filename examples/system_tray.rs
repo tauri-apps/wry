@@ -116,9 +116,7 @@ fn main() -> wry::Result<()> {
         .unwrap();
 
       // create our new window / webview instance
-      let window = WindowBuilder::new()
-        .build(event_loop)
-        .unwrap();
+      let window = WindowBuilder::new().build(event_loop).unwrap();
 
       let id = window.id();
 

@@ -17,10 +17,7 @@ use std::{collections::HashSet, os::raw::c_void, rc::Rc};
 use once_cell::unsync::OnceCell;
 use webview2::{Controller, PermissionKind, PermissionState, WebView};
 use winapi::{
-  shared::{
-    windef::HWND,
-    winerror::E_FAIL,
-  },
+  shared::{windef::HWND, winerror::E_FAIL},
   um::winuser::{DestroyWindow, GetClientRect},
 };
 
