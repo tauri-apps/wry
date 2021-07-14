@@ -89,6 +89,7 @@ fn main() -> wry::Result<()> {
     if let Event::WindowEvent {
       window_id,
       event: WindowEvent::CloseRequested,
+      ..
     } = event
     {
       webviews.remove(&window_id);

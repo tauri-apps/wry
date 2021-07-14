@@ -9,12 +9,12 @@ fn main() -> wry::Result<()> {
   use std::path::Path;
   #[cfg(target_os = "linux")]
   use tao::menu::{ContextMenu, MenuItemAttributes};
-  #[cfg(target_os = "linux")]
-  use wry::application::platform::unix::WindowExtUnix;
   #[cfg(target_os = "macos")]
   use wry::application::platform::macos::{ActivationPolicy, EventLoopExtMacOS};
+  #[cfg(target_os = "linux")]
+  use wry::application::platform::unix::WindowBuilderExtUnix;
   #[cfg(target_os = "windows")]
-  use wry::application::platform::windows::WindowExtWindows;
+  use wry::application::platform::windows::WindowBuilderExtWindows;
   use wry::{
     application::{
       dpi::{LogicalSize, PhysicalPosition},
@@ -116,15 +116,19 @@ fn main() -> wry::Result<()> {
           }
           return;
         }
+
         // create our new window / webview instance
-        let window = WindowBuilder::new()
+        let mut window_builder = WindowBuilder::new();
+        window_builder = window_builder
           .with_position(window_position)
-          .with_inner_size(window_size)
-          .build(event_loop)
-          .unwrap();
+          .with_inner_size(window_size);
 
         #[cfg(any(target_os = "windows", target_os = "linux"))]
-        window.set_skip_taskbar(true);
+        {
+          window_builder = window_builder.with_skip_taskbar(true);
+        }
+
+        let window = window_builder.build(event_loop).unwrap();
 
         let id = window.id();
 
@@ -146,6 +150,7 @@ fn main() -> wry::Result<()> {
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         window_id,
+        ..
       } => {
         println!("Window {:?} has received the signal to close", window_id);
         // Remove webview from our hashmap
