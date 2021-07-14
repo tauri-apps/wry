@@ -50,7 +50,9 @@ fn main() -> wry::Result<()> {
 
       document.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('drag-region') && e.buttons === 1) {
-          window.rpc.notify('drag_window');
+          e.detail === 2
+            ? window.rpc.notify('maximize')
+            : window.rpc.notify('drag_window');
         }
       })
 
@@ -131,7 +133,10 @@ fn main() -> wry::Result<()> {
       }
     }
 
-    if let Event::WindowEvent { event, window_id } = event {
+    if let Event::WindowEvent {
+      event, window_id, ..
+    } = event
+    {
       match event {
         WindowEvent::CloseRequested => {
           webviews.remove(&window_id);
