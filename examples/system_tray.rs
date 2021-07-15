@@ -11,8 +11,12 @@ fn main() -> wry::Result<()> {
   use wry::application::platform::macos::{
     ActivationPolicy, CustomMenuItemExtMacOS, EventLoopExtMacOS, NativeImage,
   };
+  #[cfg(target_os = "linux")]
+  use wry::application::platform::unix::WindowBuilderExtUnix;
   #[cfg(target_os = "windows")]
   use wry::application::platform::windows::SystemTrayExtWindows;
+  #[cfg(target_os = "windows")]
+  use wry::application::platform::windows::WindowBuilderExtWindows;
   use wry::{
     application::{
       accelerator::{Accelerator, SysMods},
@@ -49,7 +53,7 @@ fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
 
   // launch macos app without menu and without dock icon
-  // shouold be set at launch
+  // should be set at launch
   #[cfg(target_os = "macos")]
   event_loop.set_activation_policy(ActivationPolicy::Accessory);
 
@@ -116,10 +120,12 @@ fn main() -> wry::Result<()> {
         .unwrap();
 
       // create our new window / webview instance
-      let window = WindowBuilder::new()
-        .with_skip_taskbar(true)
-        .build(event_loop)
-        .unwrap();
+      #[cfg(any(target_os = "windows", target_os = "linux"))]
+      let window_builder = WindowBuilder::new().with_skip_taskbar(true);
+      #[cfg(target_os = "macos")]
+      let window_builder = WindowBuilder::new();
+
+      let window = window_builder.build(event_loop).unwrap();
 
       let id = window.id();
 
@@ -155,6 +161,7 @@ fn main() -> wry::Result<()> {
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         window_id,
+        ..
       } => {
         println!("Window {:?} has received the signal to close", window_id);
         let mut open_new_window = open_new_window.clone();
