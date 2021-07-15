@@ -4,7 +4,7 @@
 
 use std::rc::Rc;
 
-use gdk::{WindowEdge, WindowExt, RGBA};
+use gdk::{WindowEdge, RGBA};
 use gio::Cancellable;
 use glib::{signal::Inhibit, Bytes, Cast, FileError};
 use gtk::{BoxExt, ContainerExt, GtkWindowExt, WidgetExt};
@@ -101,12 +101,21 @@ impl InnerWebView {
     webview.connect_button_press_event(|webview, event| {
       if event.get_button() == 1 {
         let (cx, cy) = event.get_root();
-        if let Some(window) = webview.get_parent_window() {
-          let result = crate::application::platform::unix::hit_test(&window, cx, cy);
+        // This one should be GtkBox
+        if let Some(widget) = webview.get_parent() {
+          // This one should be GtkWindow
+          if let Some(window) = widget.get_parent() {
+            // Safe to unwrap unless this is not from tao
+            let window: gtk::Window = window.downcast().unwrap();
+            if !window.get_decorated() && window.get_resizable() {
+              // Safe to unwrap since it's a valide GtkWindow
+              let result = hit_test(&window.get_window().unwrap(), cx, cy);
 
-          // this check is necessary, otherwise the webview won't recieve the click properly when resize isn't needed
-          if result != WindowEdge::__Unknown(8) {
-            window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.get_time());
+              // this check is necessary, otherwise the webview won't recieve the click properly when resize isn't needed
+              if result != WindowEdge::__Unknown(8) {
+                window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.get_time());
+              }
+            }
           }
         }
       }
@@ -114,13 +123,11 @@ impl InnerWebView {
     });
 
     // Gtk application window can only contain one widget at a time.
-    // In tao, we add a gtk box if menu bar is required. So we check if
+    // In tao, we add a GtkBox to pack menu bar. So we check if
     // there's a box widget here.
     if let Some(widget) = window.get_children().pop() {
       let vbox = widget.downcast::<gtk::Box>().unwrap();
       vbox.pack_start(&*webview, true, true, 0);
-    } else {
-      window.add(&*webview);
     }
     webview.grab_focus();
 
