@@ -311,6 +311,7 @@ impl InnerWebView {
     let hwnd = hwnd as HWND;
 
     // Safety: System calls are unsafe
+    // XXX: Resizing on Windows is usually sluggish. Many other applications share same behavior.
     unsafe {
       let mut rect = std::mem::zeroed();
       GetClientRect(hwnd, &mut rect);
