@@ -144,7 +144,7 @@ fn main() -> wry::Result<()> {
             *control_flow = ControlFlow::Exit
           }
         }
-        WindowEvent::Resized(_) | WindowEvent::Moved(_) => {
+        WindowEvent::Resized(_) => {
           let _ = webviews[&window_id].resize();
         }
         _ => (),

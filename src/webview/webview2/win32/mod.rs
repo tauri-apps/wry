@@ -153,7 +153,8 @@ impl InnerWebView {
               window_.set_cursor_icon(cursor);
 
               if js == "__WEBVIEW_LEFT_MOUSE_DOWN__"  {
-                // this check is necessary, otherwise any window dragging implementation won't work
+                // we don't want to call begin_resize_drag with `HTCLIENT`, otherwise the webview won't receives clicks properly and
+                // `tao::window::drag_window` won't work.
                 if result != HTCLIENT {
                   window_.begin_resize_drag(result);
                 }
