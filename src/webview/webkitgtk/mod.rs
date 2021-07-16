@@ -111,7 +111,7 @@ impl InnerWebView {
               // Safe to unwrap since it's a valide GtkWindow
               let result = hit_test(&window.get_window().unwrap(), cx, cy);
 
-              // we ignore the `__Unknown` variant so the window receives the click properly when it is not in the edges
+              // we ignore the `__Unknown` variant so the webview receives the click correctly if it is not on the edges.
               match result {
                 WindowEdge::__Unknown(_) => (),
                 _ => window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.get_time()),
