@@ -17,7 +17,7 @@ fn main() -> wry::Result<()> {
     .with_title("Hello World")
     .build(&event_loop)?;
   let _webview = WebViewBuilder::new(window)?
-    .with_url("https://tauri.studio")?
+    .with_url("https://html5test.com")?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

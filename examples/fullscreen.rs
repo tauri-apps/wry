@@ -20,7 +20,7 @@ fn main() -> wry::Result<()> {
     .unwrap();
   let webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_url("https://www.wirple.com/")?
+    .with_url("https://browserbench.org/MotionMark1.2/")?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {
