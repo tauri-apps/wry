@@ -150,7 +150,7 @@ impl InnerWebView {
                     HTBOTTOMRIGHT => CursorIcon::SeResize,
                     _ => CursorIcon::Arrow,
               };
-              // don't use CursorIcon::Arrow variant, other wise cursor manipulation using css will flicker
+              // don't use `CursorIcon::Arrow` variant or cursor manipulation using css will cause cursor flickering
               if cursor != CursorIcon::Arrow {
                 window_.set_cursor_icon(cursor);
               }
