@@ -36,7 +36,8 @@ fn main() -> wry::Result<()> {
             </div>
           </div>
           <div>
-            WRYYYYYYYYYYYYYYYYYYYYYY!
+            <p> WRYYYYYYYYYYYYYYYYYYYYYY! </p>
+            <button style="cursor: pointer"> Hover me! </button>
           </div>
         </body>
       "#;

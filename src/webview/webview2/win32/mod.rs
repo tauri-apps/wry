@@ -150,7 +150,10 @@ impl InnerWebView {
                     HTBOTTOMRIGHT => CursorIcon::SeResize,
                     _ => CursorIcon::Arrow,
               };
-              window_.set_cursor_icon(cursor);
+              // don't use CursorIcon::Arrow variant, other wise cursor manipulation using css will flicker
+              if cursor != CursorIcon::Arrow {
+                window_.set_cursor_icon(cursor);
+              }
 
               if js == "__WEBVIEW_LEFT_MOUSE_DOWN__"  {
                 // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
