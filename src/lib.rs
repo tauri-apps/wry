@@ -93,7 +93,6 @@ extern crate objc;
 
 use std::sync::mpsc::{RecvError, SendError};
 
-#[cfg(not(target_os = "linux"))]
 use crate::application::window::BadIcon;
 pub use serde_json::Value;
 use url::ParseError;
@@ -108,13 +107,31 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum Error {
-  #[cfg(target_os = "linux")]
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+  ))]
   #[error(transparent)]
   GlibError(#[from] glib::Error),
-  #[cfg(target_os = "linux")]
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+  ))]
   #[error(transparent)]
   GlibBoolError(#[from] glib::BoolError),
-  #[cfg(target_os = "linux")]
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+  ))]
   #[error("Fail to fetch security manager")]
   MissingManager,
   #[error("Failed to initialize the script")]
@@ -137,7 +154,6 @@ pub enum Error {
   UrlError(#[from] ParseError),
   #[error("IO error: {0}")]
   Io(#[from] std::io::Error),
-  #[cfg(not(target_os = "linux"))]
   #[error("Icon error: {0}")]
   Icon(#[from] BadIcon),
   #[cfg(target_os = "windows")]
