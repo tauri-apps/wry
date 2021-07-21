@@ -24,7 +24,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       keyboard::KeyCode,
       menu::{ContextMenu, MenuItemAttributes, MenuType},
-      platform::global_shortcut::ShortcutManager,
+      global_shortcut::ShortcutManager,
       system_tray::SystemTrayBuilder,
       window::{WindowBuilder, WindowId},
     },
