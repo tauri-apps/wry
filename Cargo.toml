@@ -26,7 +26,6 @@ default = [ "file-drop", "protocol", "win32", "tray" ]
 file-drop = [ ]
 protocol = [ ]
 dox = [ "tao/dox" ]
-menu = [ "tao/menu" ]
 tray = [ "tao/tray" ]
 win32 = [ "webview2", "winapi", "webview2-sys" ]
 
