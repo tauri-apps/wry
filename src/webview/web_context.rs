@@ -59,10 +59,22 @@ impl WebContextData {
   }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd"
+)))]
 struct WebContextImpl;
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd"
+)))]
 impl WebContextImpl {
   fn new(_data: &WebContextData) -> Self {
     Self
@@ -71,11 +83,22 @@ impl WebContextImpl {
   fn set_allows_automation(&mut self, _flag: bool) {}
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd"
+))]
 use self::unix::WebContextImpl;
 
-#[cfg(target_os = "linux")]
-#[cfg_attr(doc_cfg, doc(cfg(target_os = "linux")))]
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd"
+))]
 pub mod unix {
   //! Unix platform extensions for [`WebContext`](super::WebContext).
 
