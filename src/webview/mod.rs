@@ -43,9 +43,6 @@ use url::Url;
 #[cfg(target_os = "windows")]
 use crate::application::platform::windows::WindowExtWindows;
 use crate::application::window::Window;
-#[cfg(target_os = "windows")]
-#[cfg(feature = "winrt")]
-use windows_webview2::Windows::Win32::WindowsAndMessaging::HWND;
 
 pub struct WebViewAttributes {
   /// Whether the WebView window should be visible.
@@ -351,14 +348,10 @@ impl WebView {
     Ok(())
   }
 
-  /// Resize the WebView manually. This is required on Windows because its WebView API doesn't
+  /// Resize the WebView manually. This is only required on Windows because its WebView API doesn't
   /// provide a way to resize automatically.
   pub fn resize(&self) -> Result<()> {
     #[cfg(target_os = "windows")]
-    #[cfg(feature = "winrt")]
-    self.webview.resize(HWND(self.window.hwnd() as _))?;
-    #[cfg(target_os = "windows")]
-    #[cfg(feature = "win32")]
     self.webview.resize(self.window.hwnd())?;
     Ok(())
   }
