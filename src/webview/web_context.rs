@@ -73,11 +73,11 @@ impl WebContextImpl {
   fn set_allows_automation(&mut self, _flag: bool) {}
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, not(target_vendor = "apple")))]
 use self::unix::WebContextImpl;
 
-#[cfg_attr(dox, doc(cfg(unix)))]
-#[cfg(unix)]
+#[cfg_attr(dox, doc(cfg(all(unix, not(target_vendor = "apple")))))]
+#[cfg(all(unix, not(target_vendor = "apple")))]
 pub mod unix {
   //! Unix platform extensions for [`WebContext`](super::WebContext).
 
