@@ -81,12 +81,10 @@ use self::unix::WebContextImpl;
 pub mod unix {
   //! Unix platform extensions for [`WebContext`](super::WebContext).
 
-  use crate::application::window::Window;
-  use crate::Error;
+  use crate::{application::window::Window, Error};
   use glib::FileError;
-  use std::collections::HashSet;
   use std::{
-    collections::VecDeque,
+    collections::{HashSet, VecDeque},
     rc::Rc,
     sync::{
       atomic::{AtomicBool, Ordering::SeqCst},
