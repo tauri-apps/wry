@@ -338,7 +338,7 @@ pub mod unix {
         if let Some((webview, url)) = self.pop() {
           // we do not need to listen to failed events because those will finish the change event anyways
           webview.connect_load_changed(move |_, event| {
-            if let LoadEvent::Started = event {
+            if let LoadEvent::Finished = event {
               self.unlock();
               Rc::clone(&self).flush();
             };
