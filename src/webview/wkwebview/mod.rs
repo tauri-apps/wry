@@ -52,7 +52,7 @@ pub struct InnerWebView {
   ),
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
-  protocol_ptrs: Vec<*mut Box<dyn Fn(&Window, &str) -> Result<(Vec<u8>, String)>>>,
+  protocol_ptrs: Vec<*mut Box<dyn Fn(&str) -> Result<(Vec<u8>, String)>>>,
 }
 
 impl InnerWebView {
