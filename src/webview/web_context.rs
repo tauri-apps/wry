@@ -175,11 +175,11 @@ pub mod unix {
       context.connect_automation_started(move |_, auto| {
         auto.set_application_info(&app_info);
 
-        // we do **NOT** support arbitrarily creating new webviews
-        // to support this in the future, we would need a way to specify the
+        // We do **NOT** support arbitrarily creating new webviews.
+        // To support this in the future, we would need a way to specify the
         // default WindowBuilder to use to create the window it will use, and
-        // possibly "default" webview attributes. difficulty comes in for controlling
-        // the owned window that would need to be used.
+        // possibly "default" webview attributes. Difficulty comes in for controlling
+        // the owned Window that would need to be used.
         auto.connect_create_web_view(move |_| unimplemented!());
       });
 
@@ -206,7 +206,11 @@ pub mod unix {
     /// The GTK [`UserContentManager`] of all webviews in the context.
     fn manager(&self) -> &UserContentManager;
 
-    /// Register a custom protocol to the web context
+    /// Register a custom protocol to the web context.
+    ///
+    /// When duplicate schemes are registered, the duplicate handler will still be submitted and the
+    /// `Err(Error::DuplicateCustomProtocol)` will be returned. It is safe to ignore if you are
+    /// relying on the platform's implementation to properly handle duplicated scheme handlers.
     fn register_uri_scheme<F>(
       &self,
       name: &str,
@@ -218,31 +222,12 @@ pub mod unix {
 
     /// Add a [`WebView`] to the queue waiting to be opened.
     ///
-    /// Using the queue prevents data race issues with loading uris for multiple [`WebView`]s in the
-    /// same context at the same time. Occasionally, the one of the [`WebView`]s will be clobbered
-    /// and it's content will be injected into a different [`WebView`].
-    ///
-    /// Example of `webview-c` clobbering `webview-b` while `webview-a` is okay:
-    /// ```text
-    /// webview-a triggers load-change::started
-    /// URISchemeRequestCallback triggered with webview-a
-    /// webview-a triggers load-change::committed
-    /// webview-a triggers load-change::finished
-    /// webview-b triggers load-change::started
-    /// webview-c triggers load-change::started
-    /// URISchemeRequestCallback triggered with webview-c
-    /// URISchemeRequestCallback triggered with webview-c
-    /// webview-c triggers load-change::committed
-    /// webview-c triggers load-change::finished
-    /// ```
-    ///
-    /// In that example, `webview-a` will load fine. `webview-b` will remain empty as the uri was
-    /// never loaded. `webview-c` will contain the content of both `webview-b` and `webview-c`
-    /// because it was triggered twice even through only started once. The content injected will not
-    /// be sequential, and often is interjected in the middle of one of the other contents.
+    /// See the `WebviewUriLoader` for more information.
     fn queue_load_uri(&self, webview: Rc<WebView>, url: Url);
 
     /// Flush all queued [`WebView`]s waiting to load a uri.
+    ///
+    /// See the `WebviewUriLoader` for more information.
     fn flush_queue_loader(&self);
 
     /// If the context allows automation.
@@ -324,6 +309,34 @@ pub mod unix {
     }
   }
 
+  /// Prevents an unknown concurrency bug with loading multiple URIs at the same time on webkit2gtk.
+  ///
+  /// Using the queue prevents data race issues with loading uris for multiple [`WebView`]s in the
+  /// same context at the same time. Occasionally, the one of the [`WebView`]s will be clobbered
+  /// and it's content will be injected into a different [`WebView`].
+  ///
+  /// Example of `webview-c` clobbering `webview-b` while `webview-a` is okay:
+  /// ```text
+  /// webview-a triggers load-change::started
+  /// URISchemeRequestCallback triggered with webview-a
+  /// webview-a triggers load-change::committed
+  /// webview-a triggers load-change::finished
+  /// webview-b triggers load-change::started
+  /// webview-c triggers load-change::started
+  /// URISchemeRequestCallback triggered with webview-c
+  /// URISchemeRequestCallback triggered with webview-c
+  /// webview-c triggers load-change::committed
+  /// webview-c triggers load-change::finished
+  /// ```
+  ///
+  /// In that example, `webview-a` will load fine. `webview-b` will remain empty as the uri was
+  /// never loaded. `webview-c` will contain the content of both `webview-b` and `webview-c`
+  /// because it was triggered twice even through only started once. The content injected will not
+  /// be sequential, and often is interjected in the middle of one of the other contents.
+  ///
+  /// FIXME: We think this may be an underlying concurrency bug in webkit2gtk as the usual ways of
+  /// fixing threading issues are not working. Ideally, the locks are not needed if we can understand
+  /// the true cause of the bug.
   #[derive(Debug, Default)]
   struct WebviewUriLoader {
     lock: AtomicBool,
