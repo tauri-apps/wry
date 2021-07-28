@@ -40,7 +40,7 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     mut attributes: WebViewAttributes,
-    web_context: Option<&WebContext>,
+    web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let hwnd = window.hwnd() as HWND;
 
