@@ -26,7 +26,7 @@ fn main() -> wry::Result<()> {
   };
 
   let event_loop = EventLoop::new();
-  let web_context = WebContext::default();
+  let mut web_context = WebContext::default();
   let window1 = WindowBuilder::new().build(&event_loop).unwrap();
 
   let (window_tx, window_rx) = std::sync::mpsc::channel::<String>();
@@ -51,7 +51,7 @@ fn main() -> wry::Result<()> {
             }"#,
     )
     .with_rpc_handler(handler)
-    .with_web_context(&web_context)
+    .with_web_context(&mut web_context)
     .build()?;
   let mut webviews = HashMap::new();
   webviews.insert(id, webview1);
@@ -73,7 +73,7 @@ fn main() -> wry::Result<()> {
         .unwrap()
         .with_url(&url)
         .unwrap()
-        .with_web_context(&web_context)
+        .with_web_context(&mut web_context)
         .build()
         .unwrap();
       webviews.insert(id, webview2);

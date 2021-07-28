@@ -319,7 +319,7 @@ pub mod unix {
       .ok_or(Error::MissingManager)?
       .register_uri_scheme_as_secure(name);
 
-    Ok(context.register_uri_scheme(name, move |request| {
+    context.register_uri_scheme(name, move |request| {
       if let Some(uri) = request.get_uri() {
         let uri = uri.as_str();
 
@@ -339,7 +339,9 @@ pub mod unix {
           "Could not get uri.",
         ));
       }
-    }))
+    });
+
+    Ok(())
   }
 
   /// Prevents an unknown concurrency bug with loading multiple URIs at the same time on webkit2gtk.
