@@ -71,7 +71,6 @@
 //! [`with_file_drop_handler`]: crate::webview::WebView::with_file_drop_handler
 //! [`with_custom_protocol`]: crate::webview::WebView::with_custom_protocol
 
-#![cfg_attr(dox, feature(doc_cfg))]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::wrong_self_convention)]
 #![allow(clippy::type_complexity)]
@@ -102,13 +101,31 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum Error {
-  #[cfg(unix)]
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+  ))]
   #[error(transparent)]
   GlibError(#[from] glib::Error),
-  #[cfg(unix)]
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+  ))]
   #[error(transparent)]
   GlibBoolError(#[from] glib::BoolError),
-  #[cfg(unix)]
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+  ))]
   #[error("Fail to fetch security manager")]
   MissingManager,
   #[error("Failed to initialize the script")]
