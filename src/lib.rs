@@ -102,15 +102,12 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum Error {
-  #[cfg_attr(dox, doc(cfg(unix)))]
   #[cfg(unix)]
   #[error(transparent)]
   GlibError(#[from] glib::Error),
-  #[cfg_attr(dox, doc(cfg(unix)))]
   #[cfg(unix)]
   #[error(transparent)]
   GlibBoolError(#[from] glib::BoolError),
-  #[cfg_attr(dox, doc(cfg(unix)))]
   #[cfg(unix)]
   #[error("Fail to fetch security manager")]
   MissingManager,
@@ -136,8 +133,7 @@ pub enum Error {
   Io(#[from] std::io::Error),
   #[error("Icon error: {0}")]
   Icon(#[from] BadIcon),
-  #[cfg_attr(dox, doc(cfg(windows)))]
-  #[cfg(windows)]
+  #[cfg(target_os = "windows")]
   #[error(transparent)]
   WebView2Error(#[from] webview2::Error),
   #[error("Duplicate custom protocol registered: {0}")]
