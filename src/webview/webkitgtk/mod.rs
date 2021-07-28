@@ -39,18 +39,18 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     mut attributes: WebViewAttributes,
-    web_context: Option<&WebContext>,
+    web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let window_rc = Rc::clone(&window);
     let window = &window.gtk_window();
 
     // default_context allows us to create a scoped context on-demand
-    let default_context;
+    let mut default_context;
     let web_context = match web_context {
       Some(w) => w,
       None => {
         default_context = Default::default();
-        &default_context
+        &mut default_context
       }
     };
 
@@ -194,7 +194,14 @@ impl InnerWebView {
 
     for (name, handler) in attributes.custom_protocols {
       let w = window_rc.clone();
-      web_context.register_uri_scheme(&name, handler, w)?;
+      if let Err(e) = web_context.register_uri_scheme(&name, handler, w) {
+        if let Error::DuplicateCustomProtocol(_) = e {
+          // Swallow duplicate scheme errors to preserve current behavior.
+          // FIXME: we should log this error in the future
+        } else {
+          return Err(e);
+        }
+      }
     }
 
     // Navigation

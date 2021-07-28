@@ -126,7 +126,7 @@ pub mod unix {
     context: WebContext,
     manager: UserContentManager,
     webview_uri_loader: Rc<WebviewUriLoader>,
-    registered_protocols: Mutex<HashSet<String>>,
+    registered_protocols: HashSet<String>,
     automation: bool,
   }
 
@@ -212,7 +212,20 @@ pub mod unix {
     /// `Err(Error::DuplicateCustomProtocol)` will be returned. It is safe to ignore if you are
     /// relying on the platform's implementation to properly handle duplicated scheme handlers.
     fn register_uri_scheme<F>(
-      &self,
+      &mut self,
+      name: &str,
+      handler: F,
+      window: Rc<Window>,
+    ) -> crate::Result<()>
+    where
+      F: Fn(&Window, &str) -> crate::Result<(Vec<u8>, String)> + 'static;
+
+    /// Register a custom protocol to the web context, only if it is not a duplicate scheme.
+    ///
+    /// If a duplicate scheme has been passed, its handler will **NOT** be registered and the
+    /// function will return `Err(Error::DuplicateCustomProtocol)`.
+    fn try_register_uri_scheme<F>(
+      &mut self,
       name: &str,
       handler: F,
       window: Rc<Window>,
@@ -246,7 +259,7 @@ pub mod unix {
     }
 
     fn register_uri_scheme<F>(
-      &self,
+      &mut self,
       name: &str,
       handler: F,
       window: Rc<Window>,
@@ -254,45 +267,27 @@ pub mod unix {
     where
       F: Fn(&Window, &str) -> crate::Result<(Vec<u8>, String)> + 'static,
     {
-      let mut protocols = self
-        .os
-        .registered_protocols
-        .lock()
-        .expect("poisoned protocol hashset");
-      let exists = !protocols.insert(name.to_string());
-      drop(protocols);
-
-      if exists {
-        Err(Error::DuplicateCustomProtocol(name.to_string()))
-      } else {
-        let context = &self.os.context;
-        context
-          .get_security_manager()
-          .ok_or(Error::MissingManager)?
-          .register_uri_scheme_as_secure(name);
-
-        context.register_uri_scheme(name, move |request| {
-          if let Some(uri) = request.get_uri() {
-            let uri = uri.as_str();
-
-            match handler(&window, uri) {
-              Ok((buffer, mime)) => {
-                let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&buffer));
-                request.finish(&input, buffer.len() as i64, Some(&mime))
-              }
-              Err(_) => request.finish_error(&mut glib::Error::new(
-                FileError::Exist,
-                "Could not get requested file.",
-              )),
-            }
-          } else {
-            request.finish_error(&mut glib::Error::new(
-              FileError::Exist,
-              "Could not get uri.",
-            ));
-          }
-        });
+      actually_register_uri_scheme(self, name, handler, window)?;
+      if self.os.registered_protocols.insert(name.to_string()) {
         Ok(())
+      } else {
+        Err(Error::DuplicateCustomProtocol(name.to_string()))
+      }
+    }
+
+    fn try_register_uri_scheme<F>(
+      &mut self,
+      name: &str,
+      handler: F,
+      window: Rc<Window>,
+    ) -> crate::Result<()>
+    where
+      F: Fn(&Window, &str) -> crate::Result<(Vec<u8>, String)> + 'static,
+    {
+      if self.os.registered_protocols.insert(name.to_string()) {
+        actually_register_uri_scheme(self, name, handler, window)
+      } else {
+        Err(Error::DuplicateCustomProtocol(name.to_string()))
       }
     }
 
@@ -307,6 +302,44 @@ pub mod unix {
     fn allows_automation(&self) -> bool {
       self.os.automation
     }
+  }
+
+  fn actually_register_uri_scheme<F>(
+    context: &mut super::WebContext,
+    name: &str,
+    handler: F,
+    window: Rc<Window>,
+  ) -> crate::Result<()>
+  where
+    F: Fn(&Window, &str) -> crate::Result<(Vec<u8>, String)> + 'static,
+  {
+    let context = &context.os.context;
+    context
+      .get_security_manager()
+      .ok_or(Error::MissingManager)?
+      .register_uri_scheme_as_secure(name);
+
+    Ok(context.register_uri_scheme(name, move |request| {
+      if let Some(uri) = request.get_uri() {
+        let uri = uri.as_str();
+
+        match handler(&window, uri) {
+          Ok((buffer, mime)) => {
+            let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&buffer));
+            request.finish(&input, buffer.len() as i64, Some(&mime))
+          }
+          Err(_) => request.finish_error(&mut glib::Error::new(
+            FileError::Exist,
+            "Could not get requested file.",
+          )),
+        }
+      } else {
+        request.finish_error(&mut glib::Error::new(
+          FileError::Exist,
+          "Could not get uri.",
+        ));
+      }
+    }))
   }
 
   /// Prevents an unknown concurrency bug with loading multiple URIs at the same time on webkit2gtk.

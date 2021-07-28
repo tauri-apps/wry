@@ -109,7 +109,7 @@ impl Default for WebViewAttributes {
 /// [`WebViewBuilder`] privides ability to setup initialization before web engine starts.
 pub struct WebViewBuilder<'a> {
   pub webview: WebViewAttributes,
-  web_context: Option<&'a WebContext>,
+  web_context: Option<&'a mut WebContext>,
   window: Window,
 }
 
@@ -205,7 +205,7 @@ impl<'a> WebViewBuilder<'a> {
   }
 
   /// Set the web context that can share with multiple [`WebView`]s.
-  pub fn with_web_context(mut self, web_context: &'a WebContext) -> Self {
+  pub fn with_web_context(mut self, web_context: &'a mut WebContext) -> Self {
     self.web_context = Some(web_context);
     self
   }
