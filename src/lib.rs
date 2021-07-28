@@ -102,16 +102,16 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum Error {
-  #[cfg_attr(dox, doc(cfg(all(unix, not(target_vendor = "apple")))))]
-  #[cfg(all(unix, not(target_vendor = "apple")))]
+  #[cfg_attr(dox, doc(cfg(unix)))]
+  #[cfg(unix)]
   #[error(transparent)]
   GlibError(#[from] glib::Error),
-  #[cfg_attr(dox, doc(cfg(all(unix, not(target_vendor = "apple")))))]
-  #[cfg(all(unix, not(target_vendor = "apple")))]
+  #[cfg_attr(dox, doc(cfg(unix)))]
+  #[cfg(unix)]
   #[error(transparent)]
   GlibBoolError(#[from] glib::BoolError),
-  #[cfg_attr(dox, doc(cfg(all(unix, not(target_vendor = "apple")))))]
-  #[cfg(all(unix, not(target_vendor = "apple")))]
+  #[cfg_attr(dox, doc(cfg(unix)))]
+  #[cfg(unix)]
   #[error("Fail to fetch security manager")]
   MissingManager,
   #[error("Failed to initialize the script")]

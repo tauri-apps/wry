@@ -8,9 +8,21 @@ mod web_context;
 
 pub use web_context::WebContext;
 
-#[cfg(all(unix, not(target_vendor = "apple")))]
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd"
+))]
 mod webkitgtk;
-#[cfg(all(unix, not(target_vendor = "apple")))]
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd"
+))]
 use webkitgtk::*;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 mod wkwebview;
@@ -281,7 +293,13 @@ pub struct WebView {
 // blocks and raw pointer properly.
 impl Drop for WebView {
   fn drop(&mut self) {
-    #[cfg(all(unix, not(target_vendor = "apple")))]
+    #[cfg(any(
+      target_os = "linux",
+      target_os = "dragonfly",
+      target_os = "freebsd",
+      target_os = "netbsd",
+      target_os = "openbsd"
+    ))]
     unsafe {
       use crate::application::platform::unix::WindowExtUnix;
       use gtk::prelude::WidgetExtManual;
