@@ -14,8 +14,6 @@ fn main() -> wry::Result<()> {
   #[cfg(target_os = "linux")]
   use wry::application::platform::unix::WindowBuilderExtUnix;
   #[cfg(target_os = "windows")]
-  use wry::application::platform::windows::SystemTrayExtWindows;
-  #[cfg(target_os = "windows")]
   use wry::application::platform::windows::WindowBuilderExtWindows;
   use wry::{
     application::{
@@ -201,11 +199,6 @@ fn main() -> wry::Result<()> {
         }
         // click on `quit` item
         if menu_id == quit_item.clone().id() {
-          // on windows, we make sure to remove the icon from the tray
-          // it require the `SystemTrayExtWindows`
-          #[cfg(target_os = "windows")]
-          system_tray.remove();
-
           // tell our app to close at the end of the loop.
           *control_flow = ControlFlow::Exit;
         }
