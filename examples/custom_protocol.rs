@@ -22,7 +22,7 @@ fn main() -> wry::Result<()> {
 
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_custom_protocol("wry".into(), move |_, requested_asset_path| {
+    .with_custom_protocol("wry".into(), move |requested_asset_path| {
       // Remove url scheme
       let path = requested_asset_path.replace("wry://", "");
       // Read the file content from file path

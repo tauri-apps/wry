@@ -171,7 +171,7 @@ impl InnerWebView {
 
     // File drop handling
     if let Some(file_drop_handler) = attributes.file_drop_handler {
-      file_drop::connect_drag_event(webview.clone(), window_rc.clone(), file_drop_handler);
+      file_drop::connect_drag_event(webview.clone(), window_rc, file_drop_handler);
     }
 
     if window.get_visible() {
@@ -193,8 +193,7 @@ impl InnerWebView {
     }
 
     for (name, handler) in attributes.custom_protocols {
-      let w = window_rc.clone();
-      if let Err(e) = web_context.register_uri_scheme(&name, handler, w) {
+      if let Err(e) = web_context.register_uri_scheme(&name, handler) {
         if let Error::DuplicateCustomProtocol(_) = e {
           // Swallow duplicate scheme errors to preserve current behavior.
           // FIXME: we should log this error in the future

@@ -196,7 +196,6 @@ impl InnerWebView {
 
           let custom_protocols = attributes.custom_protocols;
           let env_clone = env_.clone();
-          let window_ = window.clone();
           w.add_web_resource_requested(move |_, args| {
             let uri = args.get_request()?.get_uri()?;
             // Undo the protocol workaround when giving path to resolver
@@ -209,7 +208,7 @@ impl InnerWebView {
               .iter()
               .find(|(name, _)| name == &scheme)
               .unwrap()
-              .1)(&window_, &path)
+              .1)(&path)
             {
               Ok((content, mime)) => {
                 let stream = webview2::Stream::from_bytes(&content);

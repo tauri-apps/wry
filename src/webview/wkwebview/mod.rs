@@ -52,10 +52,7 @@ pub struct InnerWebView {
   ),
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
-  protocol_ptrs: Vec<*mut (
-    Box<dyn Fn(&Window, &str) -> Result<(Vec<u8>, String)>>,
-    Rc<Window>,
-  )>,
+  protocol_ptrs: Vec<*mut Box<dyn Fn(&Window, &str) -> Result<(Vec<u8>, String)>>>,
 }
 
 impl InnerWebView {
@@ -163,8 +160,7 @@ impl InnerWebView {
           None => Class::get(&scheme_name).expect("Failed to get the class definition"),
         };
         let handler: id = msg_send![cls, new];
-        let w = window.clone();
-        let function = Box::into_raw(Box::new((function, w)));
+        let function = Box::into_raw(Box::new(function));
         protocol_ptrs.push(function);
 
         (*handler).set_ivar("function", function as *mut _ as *mut c_void);

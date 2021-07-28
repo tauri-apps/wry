@@ -104,7 +104,7 @@ use self::unix::WebContextImpl;
 pub mod unix {
   //! Unix platform extensions for [`WebContext`](super::WebContext).
 
-  use crate::{application::window::Window, Error};
+  use crate::Error;
   use glib::FileError;
   use std::{
     collections::{HashSet, VecDeque},
@@ -211,27 +211,17 @@ pub mod unix {
     /// When duplicate schemes are registered, the duplicate handler will still be submitted and the
     /// `Err(Error::DuplicateCustomProtocol)` will be returned. It is safe to ignore if you are
     /// relying on the platform's implementation to properly handle duplicated scheme handlers.
-    fn register_uri_scheme<F>(
-      &mut self,
-      name: &str,
-      handler: F,
-      window: Rc<Window>,
-    ) -> crate::Result<()>
+    fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
     where
-      F: Fn(&Window, &str) -> crate::Result<(Vec<u8>, String)> + 'static;
+      F: Fn(&str) -> crate::Result<(Vec<u8>, String)> + 'static;
 
     /// Register a custom protocol to the web context, only if it is not a duplicate scheme.
     ///
     /// If a duplicate scheme has been passed, its handler will **NOT** be registered and the
     /// function will return `Err(Error::DuplicateCustomProtocol)`.
-    fn try_register_uri_scheme<F>(
-      &mut self,
-      name: &str,
-      handler: F,
-      window: Rc<Window>,
-    ) -> crate::Result<()>
+    fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
     where
-      F: Fn(&Window, &str) -> crate::Result<(Vec<u8>, String)> + 'static;
+      F: Fn(&str) -> crate::Result<(Vec<u8>, String)> + 'static;
 
     /// Add a [`WebView`] to the queue waiting to be opened.
     ///
@@ -258,16 +248,11 @@ pub mod unix {
       &self.os.manager
     }
 
-    fn register_uri_scheme<F>(
-      &mut self,
-      name: &str,
-      handler: F,
-      window: Rc<Window>,
-    ) -> crate::Result<()>
+    fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
     where
-      F: Fn(&Window, &str) -> crate::Result<(Vec<u8>, String)> + 'static,
+      F: Fn(&str) -> crate::Result<(Vec<u8>, String)> + 'static,
     {
-      actually_register_uri_scheme(self, name, handler, window)?;
+      actually_register_uri_scheme(self, name, handler)?;
       if self.os.registered_protocols.insert(name.to_string()) {
         Ok(())
       } else {
@@ -275,17 +260,12 @@ pub mod unix {
       }
     }
 
-    fn try_register_uri_scheme<F>(
-      &mut self,
-      name: &str,
-      handler: F,
-      window: Rc<Window>,
-    ) -> crate::Result<()>
+    fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
     where
-      F: Fn(&Window, &str) -> crate::Result<(Vec<u8>, String)> + 'static,
+      F: Fn(&str) -> crate::Result<(Vec<u8>, String)> + 'static,
     {
       if self.os.registered_protocols.insert(name.to_string()) {
-        actually_register_uri_scheme(self, name, handler, window)
+        actually_register_uri_scheme(self, name, handler)
       } else {
         Err(Error::DuplicateCustomProtocol(name.to_string()))
       }
@@ -308,10 +288,9 @@ pub mod unix {
     context: &mut super::WebContext,
     name: &str,
     handler: F,
-    window: Rc<Window>,
   ) -> crate::Result<()>
   where
-    F: Fn(&Window, &str) -> crate::Result<(Vec<u8>, String)> + 'static,
+    F: Fn(&str) -> crate::Result<(Vec<u8>, String)> + 'static,
   {
     let context = &context.os.context;
     context
@@ -323,7 +302,7 @@ pub mod unix {
       if let Some(uri) = request.get_uri() {
         let uri = uri.as_str();
 
-        match handler(&window, uri) {
+        match handler(uri) {
           Ok((buffer, mime)) => {
             let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&buffer));
             request.finish(&input, buffer.len() as i64, Some(&mime))
