@@ -95,11 +95,8 @@ impl InnerWebView {
     extern "C" fn start_task(this: &Object, _: Sel, _webview: id, task: id) {
       unsafe {
         let function = this.get_ivar::<*mut c_void>("function");
-        let function = &mut *(*function
-          as *mut (
-            Box<dyn for<'r, 's> Fn(&'r Window, &'s str) -> Result<(Vec<u8>, String)>>,
-            Rc<Window>,
-          ));
+        let function =
+          &mut *(*function as *mut Box<dyn for<'s> Fn(&'s str) -> Result<(Vec<u8>, String)>>);
 
         // Get url request
         let request: id = msg_send![task, request];
@@ -111,7 +108,7 @@ impl InnerWebView {
         let uri = nsstring.to_str();
 
         // Send response
-        if let Ok((content, mime)) = function.0(&function.1, uri) {
+        if let Ok((content, mime)) = function(uri) {
           let dictionary: id = msg_send![class!(NSMutableDictionary), alloc];
           let headers: id = msg_send![dictionary, initWithCapacity:1];
           let () = msg_send![headers, setObject:NSString::new(&mime) forKey: NSString::new("content-type")];
