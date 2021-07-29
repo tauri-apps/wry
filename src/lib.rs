@@ -153,4 +153,6 @@ pub enum Error {
   #[cfg(target_os = "windows")]
   #[error(transparent)]
   WebView2Error(#[from] webview2::Error),
+  #[error("Duplicate custom protocol registered: {0}")]
+  DuplicateCustomProtocol(String),
 }

@@ -6,13 +6,11 @@ use std::rc::Rc;
 
 use gdk::{WindowEdge, RGBA};
 use gio::Cancellable;
-use glib::{signal::Inhibit, Bytes, Cast, FileError};
+use glib::{signal::Inhibit, Cast};
 use gtk::{BoxExt, ContainerExt, GtkWindowExt, WidgetExt};
 use webkit2gtk::{
-  AutomationSessionExt, SecurityManagerExt, SettingsExt, URISchemeRequestExt,
-  UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
-  UserScriptInjectionTime, WebContextExt as WebKitWebContextExt, WebView, WebViewBuilder,
-  WebViewExt,
+  SettingsExt, UserContentInjectedFrames, UserContentManagerExt, UserScript,
+  UserScriptInjectionTime, WebView, WebViewBuilder, WebViewExt,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -26,6 +24,10 @@ use crate::{
   },
   Error, Result,
 };
+use std::{
+  collections::hash_map::DefaultHasher,
+  hash::{Hash, Hasher},
+};
 
 mod file_drop;
 
@@ -37,42 +39,44 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     mut attributes: WebViewAttributes,
-    web_context: Option<&WebContext>,
+    web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let window_rc = Rc::clone(&window);
     let window = &window.gtk_window();
-    // Webview widget
-    let manager = UserContentManager::new();
 
-    let default_context;
+    // default_context allows us to create a scoped context on-demand
+    let mut default_context;
     let web_context = match web_context {
       Some(w) => w,
       None => {
         default_context = Default::default();
-        &default_context
+        &mut default_context
       }
     };
-    let context = web_context.context();
-    let mut webview = WebViewBuilder::new();
-    webview = webview.web_context(context);
-    webview = webview.user_content_manager(&manager);
-    webview = webview.is_controlled_by_automation(web_context.allows_automation());
-    let webview = webview.build();
 
-    let automation_webview = webview.clone();
-    let app_info = web_context.app_info().clone();
-    context.connect_automation_started(move |_, auto| {
-      let webview = automation_webview.clone();
-      auto.set_application_info(&app_info);
-      auto.connect_create_web_view(move |_| webview.clone());
-    });
+    let manager = web_context.manager();
+    let webview = {
+      let mut webview = WebViewBuilder::new();
+      webview = webview.user_content_manager(manager);
+      webview = webview.web_context(web_context.context());
+      webview = webview.is_controlled_by_automation(web_context.allows_automation());
+      webview.build()
+    };
 
     // Message handler
     let webview = Rc::new(webview);
     let wv = Rc::clone(&webview);
     let w = window_rc.clone();
     let rpc_handler = attributes.rpc_handler.take();
-    manager.register_script_message_handler("external");
+
+    // Use the window hash as the script handler name
+    let window_hash = {
+      let mut hasher = DefaultHasher::new();
+      w.id().hash(&mut hasher);
+      hasher.finish().to_string()
+    };
+
+    // Connect before registering as recommended by the docs
     manager.connect_script_message_received(move |_m, msg| {
       if let (Some(js), Some(context)) = (msg.get_value(), msg.get_global_context()) {
         if let Some(js) = js.to_string(&context) {
@@ -93,6 +97,10 @@ impl InnerWebView {
       }
     });
 
+    // Register the handler we just connected
+    manager.register_script_message_handler(&window_hash);
+
+    // Allow the webview to close it's own window
     let close_window = window_rc.clone();
     webview.connect_close(move |_| {
       close_window.gtk_window().close();
@@ -172,45 +180,34 @@ impl InnerWebView {
 
     let w = Self { webview };
 
+    // Initialize message handler
+    let mut init = String::with_capacity(67 + 20 + 20);
+    init.push_str("window.external={invoke:function(x){window.webkit.messageHandlers[\"");
+    init.push_str(&window_hash);
+    init.push_str("\"].postMessage(x);}}");
+    w.init(&init)?;
+
     // Initialize scripts
-    w.init("window.external={invoke:function(x){window.webkit.messageHandlers.external.postMessage(x);}}")?;
     for js in attributes.initialization_scripts {
       w.init(&js)?;
     }
 
-    // Custom protocol
     for (name, handler) in attributes.custom_protocols {
-      context
-        .get_security_manager()
-        .ok_or(Error::MissingManager)?
-        .register_uri_scheme_as_secure(&name);
       let w = window_rc.clone();
-      context.register_uri_scheme(&name.clone(), move |request| {
-        if let Some(uri) = request.get_uri() {
-          let uri = uri.as_str();
-
-          match handler(&w, uri) {
-            Ok((buffer, mime)) => {
-              let input = gio::MemoryInputStream::from_bytes(&Bytes::from(&buffer));
-              request.finish(&input, buffer.len() as i64, Some(&mime))
-            }
-            Err(_) => request.finish_error(&mut glib::Error::new(
-              FileError::Exist,
-              "Could not get requested file.",
-            )),
-          }
+      if let Err(e) = web_context.register_uri_scheme(&name, handler, w) {
+        if let Error::DuplicateCustomProtocol(_) = e {
+          // Swallow duplicate scheme errors to preserve current behavior.
+          // FIXME: we should log this error in the future
         } else {
-          request.finish_error(&mut glib::Error::new(
-            FileError::Exist,
-            "Could not get uri.",
-          ));
+          return Err(e);
         }
-      });
+      }
     }
 
     // Navigation
     if let Some(url) = attributes.url {
-      w.webview.load_uri(url.as_str());
+      web_context.queue_load_uri(Rc::clone(&w.webview), url);
+      web_context.flush_queue_loader();
     }
 
     Ok(w)
