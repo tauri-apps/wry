@@ -25,7 +25,7 @@ fn main() -> wry::Result<()> {
   };
   let webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_custom_protocol("wry.bench".into(), move |_, requested_asset_path| {
+    .with_custom_protocol("wry.bench".into(), move |requested_asset_path| {
       let requested_asset_path = requested_asset_path.replace("wry.bench://", "");
       match requested_asset_path.as_str() {
         "/index.css" => Ok((include_bytes!("static/index.css").to_vec(), "text/css".into())),

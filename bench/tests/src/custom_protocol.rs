@@ -32,7 +32,7 @@ fn main() -> wry::Result<()> {
   let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_rpc_handler(handler)
-    .with_custom_protocol("wry.bench".into(), move |_, _| {
+    .with_custom_protocol("wry.bench".into(), move |_uri| {
       let index_html = r#"
       <!DOCTYPE html>
       <html lang="en">
