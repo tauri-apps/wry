@@ -46,6 +46,8 @@ pub struct InnerWebView {
   #[cfg(target_os = "macos")]
   ns_window: id,
   manager: id,
+  // Note that if following functions signatures are changed in the future,
+  // all fucntions pointer declarations in objc callbacks below all need to get updated.
   rpc_handler_ptr: *mut (
     Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>,
     Rc<Window>,
