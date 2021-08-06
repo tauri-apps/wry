@@ -45,12 +45,12 @@ chrono = "0.4.19"
 tempfile = "3.2.0"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
-webkit2gtk = { version = "0.11", features = [ "v2_18" ] }
-webkit2gtk-sys = "0.13.0"
-gio = "0.9"
-glib = "0.10"
-gtk = "0.9"
-gdk = "0.13"
+webkit2gtk = { version = "0.14", features = [ "v2_18" ] }
+webkit2gtk-sys = "0.14"
+gio = "0.14"
+glib = "0.14"
+gtk = "0.14"
+gdk = "0.14"
 
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2 = "0.1"

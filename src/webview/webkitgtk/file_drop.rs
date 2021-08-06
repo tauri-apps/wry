@@ -4,7 +4,7 @@
 
 use std::{cell::Cell, path::PathBuf, rc::Rc};
 
-use gtk::WidgetExt;
+use gtk::prelude::*;
 use webkit2gtk::WebView;
 
 use crate::{application::window::Window, webview::FileDropEvent};
@@ -21,7 +21,7 @@ pub(crate) fn connect_drag_event(
   webview.connect_drag_data_received(move |_, _, _, _, data, info, _| {
     if info == 2 {
       let uris = data
-        .get_uris()
+        .uris()
         .iter()
         .map(|gstr| {
           let path = gstr.as_str();
@@ -41,9 +41,9 @@ pub(crate) fn connect_drag_event(
   webview.connect_drag_drop(move |_, _, _, _, _| {
     let uris = listener_ref.1.take();
     if let Some(uris) = uris {
-      gtk::Inhibit(listener_ref.0(&w, FileDropEvent::Dropped(uris)))
+      listener_ref.0(&w, FileDropEvent::Dropped(uris))
     } else {
-      gtk::Inhibit(false)
+      false
     }
   });
 

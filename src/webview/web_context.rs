@@ -116,9 +116,8 @@ pub mod unix {
   };
   use url::Url;
   use webkit2gtk::{
-    ApplicationInfo, AutomationSessionExt, LoadEvent, SecurityManagerExt, URISchemeRequestExt,
-    UserContentManager, WebContext, WebContextBuilder, WebContextExt as WebkitWebContextExt,
-    WebView, WebViewExt, WebsiteDataManagerBuilder,
+    traits::*, ApplicationInfo, LoadEvent, UserContentManager, WebContext, WebContextBuilder,
+    WebView, WebsiteDataManagerBuilder,
   };
 
   #[derive(Debug)]
@@ -132,6 +131,7 @@ pub mod unix {
 
   impl WebContextImpl {
     pub fn new(data: &super::WebContextData) -> Self {
+      use webkit2gtk::traits::*;
       let mut context_builder = WebContextBuilder::new();
       if let Some(data_directory) = data.data_directory() {
         let data_manager = WebsiteDataManagerBuilder::new()
@@ -180,7 +180,7 @@ pub mod unix {
         // default WindowBuilder to use to create the window it will use, and
         // possibly "default" webview attributes. Difficulty comes in for controlling
         // the owned Window that would need to be used.
-        auto.connect_create_web_view(move |_| unimplemented!());
+        auto.connect_create_web_view(None, move |_| unimplemented!());
       });
 
       Self {
@@ -193,6 +193,7 @@ pub mod unix {
     }
 
     pub fn set_allows_automation(&mut self, flag: bool) {
+      use webkit2gtk::traits::*;
       self.automation = flag;
       self.context.set_automation_allowed(flag);
     }
@@ -292,14 +293,15 @@ pub mod unix {
   where
     F: Fn(&str) -> crate::Result<(Vec<u8>, String)> + 'static,
   {
+    use webkit2gtk::traits::*;
     let context = &context.os.context;
     context
-      .get_security_manager()
+      .security_manager()
       .ok_or(Error::MissingManager)?
       .register_uri_scheme_as_secure(name);
 
     context.register_uri_scheme(name, move |request| {
-      if let Some(uri) = request.get_uri() {
+      if let Some(uri) = request.uri() {
         let uri = uri.as_str();
 
         match handler(uri) {

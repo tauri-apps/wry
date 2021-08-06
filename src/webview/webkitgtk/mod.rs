@@ -6,11 +6,11 @@ use std::rc::Rc;
 
 use gdk::{WindowEdge, RGBA};
 use gio::Cancellable;
-use glib::{signal::Inhibit, Cast};
-use gtk::{BoxExt, ContainerExt, GtkWindowExt, WidgetExt};
+use glib::signal::Inhibit;
+use gtk::prelude::*;
 use webkit2gtk::{
-  SettingsExt, UserContentInjectedFrames, UserContentManagerExt, UserScript,
-  UserScriptInjectionTime, WebView, WebViewBuilder, WebViewExt,
+  traits::*, UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView,
+  WebViewBuilder,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -77,8 +77,8 @@ impl InnerWebView {
     };
 
     // Connect before registering as recommended by the docs
-    manager.connect_script_message_received(move |_m, msg| {
-      if let (Some(js), Some(context)) = (msg.get_value(), msg.get_global_context()) {
+    manager.connect_script_message_received(None, move |_m, msg| {
+      if let (Some(js), Some(context)) = (msg.value(), msg.global_context()) {
         if let Some(js) = js.to_string(&context) {
           if let Some(rpc_handler) = &rpc_handler {
             match super::rpc_proxy(&w, js, rpc_handler) {
@@ -107,22 +107,22 @@ impl InnerWebView {
     });
 
     webview.connect_button_press_event(|webview, event| {
-      if event.get_button() == 1 {
-        let (cx, cy) = event.get_root();
+      if event.button() == 1 {
+        let (cx, cy) = event.root();
         // This one should be GtkBox
-        if let Some(widget) = webview.get_parent() {
+        if let Some(widget) = webview.parent() {
           // This one should be GtkWindow
-          if let Some(window) = widget.get_parent() {
+          if let Some(window) = widget.parent() {
             // Safe to unwrap unless this is not from tao
             let window: gtk::Window = window.downcast().unwrap();
-            if !window.get_decorated() && window.get_resizable() {
+            if !window.is_decorated() && window.is_resizable() {
               // Safe to unwrap since it's a valide GtkWindow
-              let result = hit_test(&window.get_window().unwrap(), cx, cy);
+              let result = hit_test(&window.window().unwrap(), cx, cy);
 
               // we ignore the `__Unknown` variant so the webview receives the click correctly if it is not on the edges.
               match result {
                 WindowEdge::__Unknown(_) => (),
-                _ => window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.get_time()),
+                _ => window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.time()),
               }
             }
           }
@@ -134,14 +134,14 @@ impl InnerWebView {
     // Gtk application window can only contain one widget at a time.
     // In tao, we add a GtkBox to pack menu bar. So we check if
     // there's a box widget here.
-    if let Some(widget) = window.get_children().pop() {
+    if let Some(widget) = window.children().pop() {
       let vbox = widget.downcast::<gtk::Box>().unwrap();
       vbox.pack_start(&*webview, true, true, 0);
     }
     webview.grab_focus();
 
     // Enable webgl, webaudio, canvas features and others as default.
-    if let Some(settings) = WebViewExt::get_settings(&*webview) {
+    if let Some(settings) = WebViewExt::settings(&*webview) {
       settings.set_enable_webgl(true);
       settings.set_enable_webaudio(true);
       settings.set_enable_accelerated_2d_canvas(true);
@@ -223,7 +223,7 @@ impl InnerWebView {
   }
 
   fn init(&self, js: &str) -> Result<()> {
-    if let Some(manager) = self.webview.get_user_content_manager() {
+    if let Some(manager) = self.webview.user_content_manager() {
       let script = UserScript::new(
         js,
         UserContentInjectedFrames::TopFrame,
