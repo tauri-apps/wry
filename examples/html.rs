@@ -42,7 +42,8 @@ fn main() -> wry::Result<()> {
       }
     })
     // tell the webview to load the custom protocol
-    .with_html(r#"<!DOCTYPE html>
+    .with_html(
+      r#"<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -55,7 +56,8 @@ fn main() -> wry::Result<()> {
   <script type="text/javascript" src="wry://examples/hello.js"></script>
   <img src="wry://examples/icon.png" />
 </body>
-</html>"#)?
+</html>"#,
+    )?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

@@ -283,7 +283,7 @@ impl InnerWebView {
           w.navigate(url.as_str());
         }
       } else if let Some(html) = attributes.html {
-          w.navigate_to_string(&html);
+        w.navigate_to_string(&html);
       }
 
       // Inject the web view into the window as main content
