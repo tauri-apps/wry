@@ -80,10 +80,10 @@ pub struct WebViewAttributes {
   /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
   /// different Origin headers across platforms:
   ///
-  /// - macOS: `<scheme_name>://<path>` (so it will be `wry://exmaples` in `custom_protocol` example)
+  /// - macOS: `<scheme_name>://<path>` (so it will be `wry://examples` in `custom_protocol` example)
   /// - Linux: Though it's same as macOS, there's a [bug] that Origin header in the request will be
   /// empty. So the only way to pass the server is setting `Access-Control-Allow-Origin: *`.
-  /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.exmaples` in `custom_protocol` example)
+  /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.examples` in `custom_protocol` example)
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
   pub custom_protocols: Vec<(String, Box<dyn Fn(&str) -> Result<(Vec<u8>, String)>>)>,
@@ -182,10 +182,10 @@ impl<'a> WebViewBuilder<'a> {
   /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
   /// different Origin headers across platforms:
   ///
-  /// - macOS: `<scheme_name>://<path>` (so it will be `wry://exmaples` in `custom_protocol` example)
+  /// - macOS: `<scheme_name>://<path>` (so it will be `wry://examples` in `custom_protocol` example)
   /// - Linux: Though it's same as macOS, there's a [bug] that Origin header in the request will be
   /// empty. So the only way to pass the server is setting `Access-Control-Allow-Origin: *`.
-  /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.exmaples` in `custom_protocol` example)
+  /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.examples` in `custom_protocol` example)
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
   #[cfg(feature = "protocol")]
