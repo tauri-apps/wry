@@ -56,7 +56,7 @@ pub struct WebViewAttributes {
   ///
   /// # Warning
   /// The loaded from html string will have different Origin on different platforms. And
-  /// severs which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
+  /// servers which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
   /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
   /// different Origin headers across platforms:
   ///
@@ -76,7 +76,7 @@ pub struct WebViewAttributes {
   ///
   /// # Warning
   /// Pages loaded from custom protocol will have different Origin on different platforms. And
-  /// severs which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
+  /// servers which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
   /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
   /// different Origin headers across platforms:
   ///
@@ -178,7 +178,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// # Warning
   /// Pages loaded from custom protocol will have different Origin on different platforms. And
-  /// severs which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
+  /// servers which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
   /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
   /// different Origin headers across platforms:
   ///
@@ -246,7 +246,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// # Warning
   /// The Page loaded from html string will have different Origin on different platforms. And
-  /// severs which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
+  /// servers which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
   /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
   /// different Origin headers across platforms:
   ///
