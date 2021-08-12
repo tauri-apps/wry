@@ -207,6 +207,8 @@ impl InnerWebView {
     if let Some(url) = attributes.url {
       web_context.queue_load_uri(Rc::clone(&w.webview), url);
       web_context.flush_queue_loader();
+    } else if let Some(html) = attributes.html {
+      w.webview.load_html(&html, Some("http://localhost"));
     }
 
     Ok(w)

@@ -259,6 +259,8 @@ impl InnerWebView {
             }
             w.navigate(&url_string)?;
           }
+        } else if let Some(html) = attributes.html {
+          w.navigate_to_string(&html)?;
         }
 
         controller.put_is_visible(true)?;

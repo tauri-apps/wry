@@ -10,6 +10,7 @@ Run the `cargo run --example <file_name>` to see how each example works.
 - `dragndrop`: example for file drop handler.
 - `custom_titlebar`: A frameless window with custom title-bar to show `drag-region` class in action.
 - `custom_protocol`: uses a custom protocol to load files from bytes.
+- `html`: load the html string and load other assets with custom protocol.
 - `detect_js_ecma`: detects which versions of ECMAScript is supported by the webview.
 - `menu_bar`: uses a custom menu for the application in macOS and the Window and Linux/Windows.
 - `system_tray`: sample tray application with different behaviours.

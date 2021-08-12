@@ -282,6 +282,8 @@ impl InnerWebView {
         } else {
           w.navigate(url.as_str());
         }
+      } else if let Some(html) = attributes.html {
+        w.navigate_to_string(&html);
       }
 
       // Inject the web view into the window as main content
@@ -338,11 +340,11 @@ impl InnerWebView {
     }
   }
 
-  fn navigate_to_string(&self, url: &str) {
+  fn navigate_to_string(&self, html: &str) {
     // Safety: objc runtime calls are unsafe
     unsafe {
-      let empty: id = msg_send![class!(NSURL), URLWithString: NSString::new("")];
-      let () = msg_send![self.webview, loadHTMLString:NSString::new(url) baseURL:empty];
+      let url: id = msg_send![class!(NSURL), URLWithString: NSString::new("http://localhost")];
+      let () = msg_send![self.webview, loadHTMLString:NSString::new(html) baseURL:url];
     }
   }
 
