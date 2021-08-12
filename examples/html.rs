@@ -22,6 +22,8 @@ fn main() -> wry::Result<()> {
 
   let _webview = WebViewBuilder::new(window)
     .unwrap()
+    // We still register custom protocol here to show that how the page with http:// origin can
+    // load them.
     .with_custom_protocol("wry".into(), move |requested_asset_path| {
       // Remove url scheme
       let path = requested_asset_path.replace("wry://", "");
@@ -41,7 +43,7 @@ fn main() -> wry::Result<()> {
         unimplemented!();
       }
     })
-    // tell the webview to load the custom protocol
+    // tell the webview to load the html string
     .with_html(
       r#"<!DOCTYPE html>
 <html lang="en">
