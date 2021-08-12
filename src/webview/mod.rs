@@ -51,6 +51,9 @@ pub struct WebViewAttributes {
   pub transparent: bool,
   /// Whether load the provided URL to [`WebView`].
   pub url: Option<Url>,
+  /// Whether load the provided html string to [`WebView`].
+  /// This will be ignored if the `url` is provided.
+  pub html: Option<String>,
   /// Initialize javascript code when loading new pages. When webview load a new page, this
   /// initialization code will be executed. It is guaranteed that code is executed before
   /// `window.onload`.
@@ -91,6 +94,7 @@ impl Default for WebViewAttributes {
       visible: true,
       transparent: false,
       url: None,
+      html: None,
       initialization_scripts: vec![],
       custom_protocols: vec![],
       rpc_handler: None,
@@ -198,6 +202,13 @@ impl<'a> WebViewBuilder<'a> {
   /// [`WebView`]. The provided URL must be valid.
   pub fn with_url(mut self, url: &str) -> Result<Self> {
     self.webview.url = Some(Url::parse(url)?);
+    Ok(self)
+  }
+
+  /// Load the provided HTML string when the builder calling [`WebViewBuilder::build`] to create the
+  /// [`WebView`]. This will be ignored if `url` is already provided.
+  pub fn with_html(mut self, html: impl Into<String>) -> Result<Self> {
+    self.webview.html = Some(html.into());
     Ok(self)
   }
 
