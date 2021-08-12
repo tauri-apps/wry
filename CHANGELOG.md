@@ -1,5 +1,13 @@
 # Changelog
 
+## \[0.12.1]
+
+- Add html attributes as another method to load the page. This can provide some other origin header and make CORS request
+  possible.
+  - [02ad372](https://github.com/tauri-apps/wry/commit/02ad37219a1f6e5e6ed8e4da61e6a5ac021d410e) feat: html string attributes ([#368](https://github.com/tauri-apps/wry/pull/368)) on 2021-08-12
+- Shorter protocol name on Windows. This can make origin be shorter too.
+  - [2d9f5c9](https://github.com/tauri-apps/wry/commit/2d9f5c95e3805911d12803122fd1e83be758a769) Shorter protocol name on Windows ([#367](https://github.com/tauri-apps/wry/pull/367)) on 2021-08-12
+
 ## \[0.12.0]
 
 - Custom Protocol handlers no longer take a `&Window` parameter.
