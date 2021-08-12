@@ -53,6 +53,16 @@ pub struct WebViewAttributes {
   pub url: Option<Url>,
   /// Whether load the provided html string to [`WebView`].
   /// This will be ignored if the `url` is provided.
+  ///
+  /// # Warning
+  /// The loaded from html string will have different Origin on different platforms. And
+  /// severs which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
+  /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
+  /// different Origin headers across platforms:
+  ///
+  /// - macOS: `http://localhost`
+  /// - Linux: `http://localhost`
+  /// - Windows: `null`
   pub html: Option<String>,
   /// Initialize javascript code when loading new pages. When webview load a new page, this
   /// initialization code will be executed. It is guaranteed that code is executed before
@@ -63,6 +73,19 @@ pub struct WebViewAttributes {
   ///
   /// The closure takes a url string slice, and returns a two item tuple of a vector of
   /// bytes which is the content and a mimetype string of the content.
+  ///
+  /// # Warning
+  /// Pages loaded from custom protocol will have different Origin on different platforms. And
+  /// severs which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
+  /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
+  /// different Origin headers across platforms:
+  ///
+  /// - macOS: `<scheme_name>://<path>` (so it will be `wry://exmaples` in `custom_protocol` example)
+  /// - Linux: Though it's same as macOS, there's a [bug] that Origin header in the request will be
+  /// empty. So the only way to pass the server is setting `Access-Control-Allow-Origin: *`.
+  /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.exmaples` in `custom_protocol` example)
+  ///
+  /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
   pub custom_protocols: Vec<(String, Box<dyn Fn(&str) -> Result<(Vec<u8>, String)>>)>,
   /// Set the RPC handler to Communicate between the host Rust code and Javascript on webview.
   ///
@@ -152,6 +175,19 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// The closure takes a url string slice, and returns a two item tuple of a
   /// vector of bytes which is the content and a mimetype string of the content.
+  ///
+  /// # Warning
+  /// Pages loaded from custom protocol will have different Origin on different platforms. And
+  /// severs which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
+  /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
+  /// different Origin headers across platforms:
+  ///
+  /// - macOS: `<scheme_name>://<path>` (so it will be `wry://exmaples` in `custom_protocol` example)
+  /// - Linux: Though it's same as macOS, there's a [bug] that Origin header in the request will be
+  /// empty. So the only way to pass the server is setting `Access-Control-Allow-Origin: *`.
+  /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.exmaples` in `custom_protocol` example)
+  ///
+  /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
@@ -207,6 +243,16 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Load the provided HTML string when the builder calling [`WebViewBuilder::build`] to create the
   /// [`WebView`]. This will be ignored if `url` is already provided.
+  ///
+  /// # Warning
+  /// The Page loaded from html string will have different Origin on different platforms. And
+  /// severs which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
+  /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
+  /// different Origin headers across platforms:
+  ///
+  /// - macOS: `http://localhost`
+  /// - Linux: `http://localhost`
+  /// - Windows: `null`
   pub fn with_html(mut self, html: impl Into<String>) -> Result<Self> {
     self.webview.html = Some(html.into());
     Ok(self)
