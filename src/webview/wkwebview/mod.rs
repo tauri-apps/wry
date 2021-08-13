@@ -61,7 +61,7 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     attributes: WebViewAttributes,
-    _web_context: Option<&mut WebContext>,
+    mut web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     // Function for rpc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
@@ -160,7 +160,11 @@ impl InnerWebView {
         };
         let handler: id = msg_send![cls, new];
         let function = Box::into_raw(Box::new(function));
-        protocol_ptrs.push(function);
+        if let Some(context) = &mut web_context {
+          context.os.registered_protocols(function);
+        } else {
+          protocol_ptrs.push(function);
+        }
 
         (*handler).set_ivar("function", function as *mut _ as *mut c_void);
         let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:NSString::new(&name)];
