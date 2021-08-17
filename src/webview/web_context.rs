@@ -67,7 +67,7 @@ impl WebContextData {
 
 #[cfg(target_os = "windows")]
 #[derive(Debug)]
-struct WebContextImpl;
+pub(crate) struct WebContextImpl;
 
 #[cfg(target_os = "windows")]
 impl WebContextImpl {
@@ -114,7 +114,7 @@ pub mod unix {
   };
 
   #[derive(Debug)]
-  pub(super) struct WebContextImpl {
+  pub(crate) struct WebContextImpl {
     context: WebContext,
     manager: UserContentManager,
     webview_uri_loader: Rc<WebviewUriLoader>,
