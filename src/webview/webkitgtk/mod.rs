@@ -83,10 +83,9 @@ impl InnerWebView {
           if let Some(rpc_handler) = &rpc_handler {
             match super::rpc_proxy(&w, js, rpc_handler) {
               Ok(result) => {
-                if let Some(ref script) = result {
-                  let cancellable: Option<&Cancellable> = None;
-                  wv.run_javascript(script, cancellable, |_| ());
-                }
+                let script = result.unwrap_or_default();
+                let cancellable: Option<&Cancellable> = None;
+                wv.run_javascript(&script, cancellable, |_| ());
               }
               Err(e) => {
                 eprintln!("{}", e);
@@ -193,13 +192,12 @@ impl InnerWebView {
     }
 
     for (name, handler) in attributes.custom_protocols {
-      if let Err(e) = web_context.register_uri_scheme(&name, handler) {
-        if let Error::DuplicateCustomProtocol(_) = e {
-          // Swallow duplicate scheme errors to preserve current behavior.
-          // FIXME: we should log this error in the future
-        } else {
-          return Err(e);
-        }
+      match web_context.register_uri_scheme(&name, handler) {
+        // Swallow duplicate scheme errors to preserve current behavior.
+        // FIXME: we should log this error in the future
+        Err(Error::DuplicateCustomProtocol(_)) => (),
+        Err(e) => return Err(e),
+        Ok(_) => (),
       }
     }
 
