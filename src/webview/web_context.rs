@@ -1,9 +1,10 @@
+#[cfg(target_os = "macos")]
 mod macos;
+#[cfg(target_os = "macos")]
+use self::macos::WebContextImpl;
 
 use std::path::{Path, PathBuf};
 
-#[cfg(target_os = "macos")]
-use self::macos::WebContextImpl;
 
 /// A context that is shared between multiple [`WebView`]s.
 ///

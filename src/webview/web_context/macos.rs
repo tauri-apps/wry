@@ -1,5 +1,3 @@
-#![cfg(target_os = "macos")]
-
 use crate::Result;
 
 use super::WebContextData;
