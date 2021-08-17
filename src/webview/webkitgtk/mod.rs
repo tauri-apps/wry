@@ -54,14 +54,15 @@ impl InnerWebView {
       }
     };
 
-    let manager = web_context.manager();
     let webview = {
       let mut webview = WebViewBuilder::new();
-      webview = webview.user_content_manager(manager);
+      webview = webview.user_content_manager(web_context.manager());
       webview = webview.web_context(web_context.context());
       webview = webview.is_controlled_by_automation(web_context.allows_automation());
       webview.build()
     };
+
+    web_context.register_automation(webview.clone());
 
     // Message handler
     let webview = Rc::new(webview);
@@ -75,6 +76,8 @@ impl InnerWebView {
       w.id().hash(&mut hasher);
       hasher.finish().to_string()
     };
+
+    let manager = web_context.manager();
 
     // Connect before registering as recommended by the docs
     manager.connect_script_message_received(None, move |_m, msg| {

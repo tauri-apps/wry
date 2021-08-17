@@ -127,11 +127,13 @@ pub mod unix {
     webview_uri_loader: Rc<WebviewUriLoader>,
     registered_protocols: HashSet<String>,
     automation: bool,
+    app_info: Option<ApplicationInfo>,
   }
 
   impl WebContextImpl {
     pub fn new(data: &super::WebContextData) -> Self {
       use webkit2gtk::traits::*;
+
       let mut context_builder = WebContextBuilder::new();
       if let Some(data_directory) = data.data_directory() {
         let data_manager = WebsiteDataManagerBuilder::new()
@@ -172,32 +174,13 @@ pub mod unix {
           .expect("invalid wry version patch"),
       );
 
-      context.connect_automation_started(move |ctx, auto| {
-        let webview = {
-          let mut webview = webkit2gtk::WebViewBuilder::new();
-          webview = webview.web_context(ctx);
-          webview = webview.is_controlled_by_automation(true);
-          webview.build()
-        };
-        auto.set_application_info(&app_info);
-
-        // We do **NOT** support arbitrarily creating new webviews.
-        // To support this in the future, we would need a way to specify the
-        // default WindowBuilder to use to create the window it will use, and
-        // possibly "default" webview attributes. Difficulty comes in for controlling
-        // the owned Window that would need to be used.
-        //
-        // NOTE: We use a fake webview just created above to give back, although the testing
-        // suites that call it do not seem to use it.
-        auto.connect_create_web_view(None, move |_| webview.clone());
-      });
-
       Self {
         context,
         automation,
         manager: UserContentManager::new(),
         registered_protocols: Default::default(),
         webview_uri_loader: Rc::default(),
+        app_info: Some(app_info),
       }
     }
 
@@ -247,6 +230,8 @@ pub mod unix {
     ///
     /// **Note:** `libwebkit2gtk` only allows 1 automation context at a time.
     fn allows_automation(&self) -> bool;
+
+    fn register_automation(&mut self, webview: WebView);
   }
 
   impl WebContextExt for super::WebContext {
@@ -291,6 +276,26 @@ pub mod unix {
 
     fn allows_automation(&self) -> bool {
       self.os.automation
+    }
+
+    fn register_automation(&mut self, webview: WebView) {
+      use webkit2gtk::traits::*;
+
+      if let (true, Some(app_info)) = (self.os.automation, self.os.app_info.take()) {
+        self.os.context.connect_automation_started(move |_, auto| {
+          let webview = webview.clone();
+          auto.set_application_info(&app_info);
+
+          // We do **NOT** support arbitrarily creating new webviews.
+          // To support this in the future, we would need a way to specify the
+          // default WindowBuilder to use to create the window it will use, and
+          // possibly "default" webview attributes. Difficulty comes in for controlling
+          // the owned Window that would need to be used.
+          //
+          // Instead, we just pass the first created webview.
+          auto.connect_create_web_view(None, move |_| webview.clone());
+        });
+      }
     }
   }
 
