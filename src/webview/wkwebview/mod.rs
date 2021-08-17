@@ -79,12 +79,11 @@ impl InnerWebView {
 
         match super::rpc_proxy(&function.1, js.to_string(), &function.0) {
           Ok(result) => {
-            if let Some(ref script) = result {
-              let wv: id = msg_send![msg, webView];
-              let js = NSString::new(script);
-              let _: id =
-                msg_send![wv, evaluateJavaScript:js completionHandler:null::<*const c_void>()];
-            }
+            let script = result.unwrap_or_default();
+            let wv: id = msg_send![msg, webView];
+            let js = NSString::new(&script);
+            let _: id =
+              msg_send![wv, evaluateJavaScript:js completionHandler:null::<*const c_void>()];
           }
           Err(e) => {
             eprintln!("{}", e);
