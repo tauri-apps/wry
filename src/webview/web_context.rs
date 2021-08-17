@@ -172,7 +172,13 @@ pub mod unix {
           .expect("invalid wry version patch"),
       );
 
-      context.connect_automation_started(move |_, auto| {
+      context.connect_automation_started(move |ctx, auto| {
+        let webview = {
+          let mut webview = webkit2gtk::WebViewBuilder::new();
+          webview = webview.web_context(ctx);
+          webview = webview.is_controlled_by_automation(true);
+          webview.build()
+        };
         auto.set_application_info(&app_info);
 
         // We do **NOT** support arbitrarily creating new webviews.
@@ -180,7 +186,10 @@ pub mod unix {
         // default WindowBuilder to use to create the window it will use, and
         // possibly "default" webview attributes. Difficulty comes in for controlling
         // the owned Window that would need to be used.
-        auto.connect_create_web_view(None, move |_| unimplemented!());
+        //
+        // NOTE: We use a fake webview just created above to give back, although the testing
+        // suites that call it do not seem to use it.
+        auto.connect_create_web_view(None, move |_| webview.clone());
       });
 
       Self {
