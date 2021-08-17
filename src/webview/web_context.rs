@@ -404,6 +404,8 @@ pub mod unix {
           });
 
           webview.load_uri(url.as_str());
+        } else {
+            self.unlock();
         }
       }
     }
