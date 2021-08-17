@@ -1,6 +1,6 @@
 use crate::Result;
 
-use super::WebContextData;
+use crate::webview::web_context::WebContextData;
 
 #[derive(Debug)]
 pub struct WebContextImpl {
@@ -8,15 +8,15 @@ pub struct WebContextImpl {
 }
 
 impl WebContextImpl {
-  pub(crate) fn new(_data: &WebContextData) -> Self {
+  pub fn new(_data: &WebContextData) -> Self {
     Self {
       protocols: Vec::new(),
     }
   }
 
-  pub(crate) fn set_allows_automation(&mut self, _flag: bool) {}
+  pub fn set_allows_automation(&mut self, _flag: bool) {}
 
-  pub(crate) fn registered_protocols(
+  pub fn registered_protocols(
     &mut self,
     handler: *mut Box<dyn Fn(&str) -> Result<(Vec<u8>, String)>>,
   ) {

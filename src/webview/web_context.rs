@@ -1,10 +1,7 @@
-#[cfg(target_os = "macos")]
-mod macos;
-#[cfg(target_os = "macos")]
-use self::macos::WebContextImpl;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use crate::webview::wkwebview::WebContextImpl;
 
 use std::path::{Path, PathBuf};
-
 
 /// A context that is shared between multiple [`WebView`]s.
 ///
@@ -55,7 +52,7 @@ impl Default for WebContext {
 
 /// Data that all [`WebContext`] share regardless of platform.
 #[derive(Debug, Default)]
-pub(crate) struct WebContextData {
+pub struct WebContextData {
   data_directory: Option<PathBuf>,
 }
 

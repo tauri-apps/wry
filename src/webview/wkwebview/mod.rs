@@ -2,6 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+#[cfg(target_os = "macos")]
+mod file_drop;
+mod web_context;
+
+pub use web_context::WebContextImpl;
+
 use std::{
   ffi::{c_void, CStr},
   os::raw::c_char,
@@ -37,9 +43,6 @@ use crate::{
   webview::{FileDropEvent, RpcRequest, RpcResponse, WebContext, WebViewAttributes},
   Result,
 };
-
-#[cfg(target_os = "macos")]
-mod file_drop;
 
 pub struct InnerWebView {
   webview: Id<Object>,
