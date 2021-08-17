@@ -1,4 +1,4 @@
-# WRY (Webview Rendering librarY)
+<img src=".github/splash.png" alt="WRY Webview Rendering library" />
 
 [![](https://img.shields.io/crates/v/wry?style=flat-square)](https://crates.io/crates/wry) [![](https://img.shields.io/docsrs/wry?style=flat-square)](https://docs.rs/wry/) ![](https://img.shields.io/crates/l/wry?style=flat-square)
 
