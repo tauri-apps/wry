@@ -27,6 +27,10 @@ use crate::application::{
   window::Window,
 };
 
+use crate::http::{
+  Request as HttpRequest, RequestBuilder as HttpRequestBuilder, Response as HttpResponse,
+};
+
 pub struct InnerWebView {
   pub(crate) controller: Rc<OnceCell<Controller>>,
   webview: Rc<OnceCell<WebView>>,
@@ -197,26 +201,51 @@ impl InnerWebView {
           let custom_protocols = attributes.custom_protocols;
           let env_clone = env_.clone();
           w.add_web_resource_requested(move |_, args| {
+
+            let mut request = HttpRequestBuilder::new();
+
+            let headers = args.get_request()?.get_headers()?;
+            for (key, value) in headers.get_iterator()? {
+              request = request.header(&key, &value);
+            }
+
             let uri = args.get_request()?.get_uri()?;
             // Undo the protocol workaround when giving path to resolver
             let path = uri
               .replace("https://", "")
               .replacen(".", "://", 1);
+
             let scheme = path.split("://").next().unwrap();
 
+            let final_request = request.uri(&path).body(Vec::new()).unwrap();
             match (custom_protocols
               .iter()
               .find(|(name, _)| name == &scheme)
               .unwrap()
-              .1)(&path)
+              .1)(&final_request)
             {
-              Ok((content, mime)) => {
+              Ok(sent_response) => {
+
+                let mime = sent_response.mimetype();
+                let content = sent_response.body();
+                let status_code = sent_response.status().as_u16() as i32;
+
+                // build headers
+                let mut headers_map = format!("Content-Type: {}\n", mime);
+                for (name, value) in sent_response.headers().iter() {
+                  let header_key = name.to_string();
+                  if let Ok(value) = value.to_str() {
+                    headers_map.push_str(&format!("{}: {}\n", header_key, value))
+                  }
+                }
+
                 let stream = webview2::Stream::from_bytes(&content);
+
                 let response = env_clone.create_web_resource_response(
                   stream,
-                  200,
+                  status_code,
                   "OK",
-                  &format!("Content-Type: {}", mime),
+                  &headers_map,
                 )?;
                 args.put_response(response)?;
                 Ok(())

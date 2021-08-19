@@ -87,16 +87,26 @@ fn main() -> wry::Result<()> {
         // let support only 1 range for now
         let first_range = range.first();
         if let Some(range) = first_range {
+          let mut real_length = range.length;
+
+          // prevent max_length;
+          // specially on webview2
+          if range.length > file_size / 3 {
+            // max size sent (400ko / request)
+            // as it's local file system we can afford to read more often
+            real_length = 1024 * 400;
+          }
+
           // last byte we are reading, the length of the range include the last byte
           // who should be skipped on the header
-          let last_byte = range.start + range.length - 1;
+          let last_byte = range.start + real_length - 1;
           // partial content
           status_code = 206;
 
           response = response.header("Connection", "Keep-Alive");
           response = response.header("Accept-Ranges", "bytes");
           // we need to overwrite our content length
-          response = response.header("Content-Length", range.length);
+          response = response.header("Content-Length", real_length);
           response = response.header(
             "Content-Range",
             format!("bytes {}-{}/{}", range.start, last_byte, file_size),
@@ -104,7 +114,7 @@ fn main() -> wry::Result<()> {
 
           // seek our file bytes
           content.seek(SeekFrom::Start(range.start))?;
-          content.take(range.length).read_to_end(&mut buf)?;
+          content.take(real_length).read_to_end(&mut buf)?;
         } else {
           content.read_to_end(&mut buf)?;
         }
