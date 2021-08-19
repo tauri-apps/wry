@@ -137,7 +137,10 @@ fn main() -> wry::Result<()> {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      _ => (),
+      _ => {
+        #[cfg(target_os = "windows")]
+        let _ = _webview.resize();
+      }
     }
   });
 }
