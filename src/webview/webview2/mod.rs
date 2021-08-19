@@ -201,15 +201,15 @@ impl InnerWebView {
           let custom_protocols = attributes.custom_protocols;
           let env_clone = env_.clone();
           w.add_web_resource_requested(move |_, args| {
-
+            let webview_request = args.get_request()?;
             let mut request = HttpRequestBuilder::new();
-
-            let headers = args.get_request()?.get_headers()?;
+            let request_method = webview_request.get_method()?;
+            let headers = webview_request.get_headers()?;
             for (key, value) in headers.get_iterator()? {
               request = request.header(&key, &value);
             }
 
-            let uri = args.get_request()?.get_uri()?;
+            let uri = webview_request.get_uri()?;
             // Undo the protocol workaround when giving path to resolver
             let path = uri
               .replace("https://", "")
@@ -217,7 +217,7 @@ impl InnerWebView {
 
             let scheme = path.split("://").next().unwrap();
 
-            let final_request = request.uri(&path).body(Vec::new()).unwrap();
+            let final_request = request.uri(&path).method(request_method.as_str()).body(Vec::new()).unwrap();
             match (custom_protocols
               .iter()
               .find(|(name, _)| name == &scheme)
