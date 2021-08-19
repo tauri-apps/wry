@@ -112,7 +112,7 @@ fn main() -> wry::Result<()> {
         content.read_to_end(&mut buf)?;
       }
 
-      Ok(response.status(status_code).body(buf)?)
+      response.status(status_code).body(buf)
     })
     // tell the webview to load the custom protocol
     .with_url("wry://examples/stream.html")?

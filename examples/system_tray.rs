@@ -131,7 +131,7 @@ fn main() -> wry::Result<()> {
       let webview = WebViewBuilder::new(window)
         .unwrap()
         .with_custom_protocol("wry.dev".into(), move |_request| {
-          Ok(ResponseBuilder::new("text/html").body(index_html.as_bytes().into())?)
+          ResponseBuilder::new("text/html").body(index_html.as_bytes().into())
         })
         .with_url("wry.dev://")
         .unwrap()

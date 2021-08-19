@@ -130,7 +130,7 @@ impl InnerWebView {
 
         // get all our headers values and inject them in our request
         for current_header_ptr in all_http_fields.iter() {
-          let header_field = NSString(Id::from_ptr(current_header_ptr.clone()));
+          let header_field = NSString(Id::from_ptr(current_header_ptr));
           let header_value = NSString(Id::from_ptr(
             all_http_fields.valueForKey_(current_header_ptr),
           ));
