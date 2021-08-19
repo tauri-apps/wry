@@ -144,7 +144,7 @@ impl Builder {
   /// ```
   /// # use wry::http::*;
   ///
-  /// let response = ResponseBuilder::new(MimeType::Html)
+  /// let response = ResponseBuilder::new("text/html")
   ///     .status(200)
   ///     .body(Vec::new())
   ///     .unwrap();
@@ -229,12 +229,12 @@ impl Builder {
   /// ```
   /// # use wry::http::*;
   ///
-  /// let response = ResponseBuilder(MimeType::Html)
+  /// let response = ResponseBuilder::new("text/html")
   ///     .body(Vec::new())
   ///     .unwrap();
   /// ```
   pub fn body(self, body: Vec<u8>) -> Result<Response> {
-    let mimetype = self.mimetype.clone();
+    let mimetype = self.mimetype;
     self.inner.map(move |head| Response {
       mimetype,
       head,
