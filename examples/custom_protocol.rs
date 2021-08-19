@@ -11,6 +11,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
     },
+    http::ResponseBuilder,
     webview::WebViewBuilder,
   };
 
@@ -22,24 +23,26 @@ fn main() -> wry::Result<()> {
 
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_custom_protocol("wry".into(), move |requested_asset_path| {
+    .with_custom_protocol("wry".into(), move |request| {
       // Remove url scheme
-      let path = requested_asset_path.replace("wry://", "");
+      let path = request.uri().to_string().replace("wry://", "");
       // Read the file content from file path
       let content = read(canonicalize(&path)?)?;
 
       // Return asset contents and mime types based on file extentions
       // If you don't want to do this manually, there are some crates for you.
       // Such as `infer` and `mime_guess`.
-      if path.ends_with(".html") {
-        Ok((content, String::from("text/html")))
+      let (data, meta) = if path.ends_with(".html") {
+        (content, "text/html")
       } else if path.ends_with(".js") {
-        Ok((content, String::from("text/javascript")))
+        (content, "text/javascript")
       } else if path.ends_with(".png") {
-        Ok((content, String::from("image/png")))
+        (content, "image/png")
       } else {
         unimplemented!();
-      }
+      };
+
+      Ok(ResponseBuilder::new(meta).body(data)?)
     })
     // tell the webview to load the custom protocol
     .with_url("wry://examples/index.html")?

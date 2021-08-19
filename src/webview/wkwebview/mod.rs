@@ -10,11 +10,14 @@ use std::{
   slice, str,
 };
 
-use cocoa::base::id;
 #[cfg(target_os = "macos")]
 use cocoa::{
   appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable},
   base::YES,
+};
+use cocoa::{
+  base::id,
+  foundation::{NSDictionary, NSFastEnumeration},
 };
 
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
@@ -38,6 +41,10 @@ use crate::{
   Result,
 };
 
+use crate::http::{
+  Request as HttpRequest, RequestBuilder as HttpRequestBuilder, Response as HttpResponse,
+};
+
 #[cfg(target_os = "macos")]
 mod file_drop;
 
@@ -54,7 +61,7 @@ pub struct InnerWebView {
   ),
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
-  protocol_ptrs: Vec<*mut Box<dyn Fn(&str) -> Result<(Vec<u8>, String)>>>,
+  protocol_ptrs: Vec<*mut Box<dyn Fn(&HttpRequest) -> Result<HttpResponse>>>,
 }
 
 impl InnerWebView {
@@ -97,7 +104,7 @@ impl InnerWebView {
       unsafe {
         let function = this.get_ivar::<*mut c_void>("function");
         let function =
-          &mut *(*function as *mut Box<dyn for<'s> Fn(&'s str) -> Result<(Vec<u8>, String)>>);
+          &mut *(*function as *mut Box<dyn for<'s> Fn(&'s HttpRequest) -> Result<HttpResponse>>);
 
         // Get url request
         let request: id = msg_send![task, request];
@@ -106,16 +113,57 @@ impl InnerWebView {
           let s: id = msg_send![url, absoluteString];
           NSString(Id::from_ptr(s))
         };
-        let uri = nsstring.to_str();
 
-        // Send response
-        if let Ok((content, mime)) = function(uri) {
+        // whats the request method
+        let method = {
+          let s: id = msg_send![request, HTTPMethod];
+          NSString(Id::from_ptr(s))
+        };
+
+        // build our request (Default is GET)
+        let mut http_request = HttpRequestBuilder::new()
+          .uri(nsstring.to_str())
+          .method(method.to_str());
+
+        // build our http request from the NSURL
+        let all_http_fields: id = msg_send![request, allHTTPHeaderFields];
+
+        // get all our headers values and inject them in our request
+        for current_header_ptr in all_http_fields.iter() {
+          let header_field = NSString(Id::from_ptr(current_header_ptr.clone()));
+          let header_value = NSString(Id::from_ptr(
+            all_http_fields.valueForKey_(current_header_ptr),
+          ));
+          // inject the header into the request
+          http_request = http_request.header(header_field.to_str(), header_value.to_str());
+        }
+
+        // send response
+        let final_request = http_request.body(Vec::new()).unwrap();
+        if let Ok(sent_response) = function(&final_request) {
+          let content = sent_response.body();
+          // default: application/octet-stream, but should be provided by the client
+          let wanted_mime = sent_response.mimetype();
+          // default to 200
+          let wanted_status_code = sent_response.status().as_u16() as i32;
+          // default to HTTP/1.1
+          let wanted_version = format!("{:#?}", sent_response.version());
+
           let dictionary: id = msg_send![class!(NSMutableDictionary), alloc];
           let headers: id = msg_send![dictionary, initWithCapacity:1];
-          let () = msg_send![headers, setObject:NSString::new(&mime) forKey: NSString::new("content-type")];
+          let () = msg_send![headers, setObject:NSString::new(wanted_mime) forKey: NSString::new("content-type")];
           let () = msg_send![headers, setObject:NSString::new(&content.len().to_string()) forKey: NSString::new("content-length")];
+
+          // add headers
+          for (name, value) in sent_response.headers().iter() {
+            let header_key = name.to_string();
+            if let Ok(value) = value.to_str() {
+              let () = msg_send![headers, setObject:NSString::new(value) forKey: NSString::new(&header_key)];
+            }
+          }
+
           let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
-          let response: id = msg_send![urlresponse, initWithURL:url statusCode:200 HTTPVersion:NSString::new("HTTP/1.1") headerFields:headers];
+          let response: id = msg_send![urlresponse, initWithURL:url statusCode: wanted_status_code HTTPVersion:NSString::new(&wanted_version) headerFields:headers];
           let () = msg_send![task, didReceiveResponse: response];
 
           // Send data
@@ -124,6 +172,7 @@ impl InnerWebView {
           let data: id = msg_send![data, initWithBytes:bytes length:content.len()];
           let () = msg_send![task, didReceiveData: data];
         } else {
+          println!("{}", 404);
           let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
           let response: id = msg_send![urlresponse, initWithURL:url statusCode:404 HTTPVersion:NSString::new("HTTP/1.1") headerFields:null::<c_void>()];
           let () = msg_send![task, didReceiveResponse: response];
