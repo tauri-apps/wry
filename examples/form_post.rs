@@ -31,7 +31,7 @@ fn main() -> wry::Result<()> {
         }
       }
       // Remove url scheme
-      let path = request.uri().to_string().replace("wry://", "");
+      let path = request.uri().replace("wry://", "");
       ResponseBuilder::new()
         .mimetype("text/html")
         .body(read(canonicalize(&path)?)?)

@@ -7,7 +7,6 @@ use std::{convert::TryFrom, fmt};
 use super::{
   header::{HeaderMap, HeaderName, HeaderValue},
   method::Method,
-  Uri,
 };
 
 use crate::Result;
@@ -34,7 +33,7 @@ pub struct RequestParts {
   pub method: Method,
 
   /// The request's URI
-  pub uri: Uri,
+  pub uri: String,
 
   /// The request's headers
   pub headers: HeaderMap<HeaderValue>,
@@ -67,7 +66,7 @@ impl Request {
 
   /// Returns a reference to the associated URI.
   #[inline]
-  pub fn uri(&self) -> &Uri {
+  pub fn uri(&self) -> &str {
     &self.head.uri
   }
 
@@ -100,7 +99,7 @@ impl fmt::Debug for Request {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct("Request")
       .field("method", self.method())
-      .field("uri", self.uri())
+      .field("uri", &self.uri())
       .field("headers", self.headers())
       .field("body", self.body())
       .finish()
@@ -112,7 +111,7 @@ impl RequestParts {
   fn new() -> RequestParts {
     RequestParts {
       method: Method::default(),
-      uri: Uri::default(),
+      uri: "".into(),
       headers: HeaderMap::default(),
     }
   }
@@ -159,13 +158,10 @@ impl Builder {
   /// be returned from `Builder::build`.
   ///
   /// By default this is `/`.
-  pub fn uri<T>(self, uri: T) -> Builder
-  where
-    Uri: TryFrom<T>,
-    <Uri as TryFrom<T>>::Error: Into<crate::Error>,
+  pub fn uri(self, uri: &str) -> Builder
   {
     self.and_then(move |mut head| {
-      head.uri = TryFrom::try_from(uri).map_err(Into::into)?;
+      head.uri = uri.to_string();
       Ok(head)
     })
   }

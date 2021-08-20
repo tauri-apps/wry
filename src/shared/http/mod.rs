@@ -12,7 +12,7 @@ pub use self::{
 };
 
 // re-expose default http types
-pub use http::{header, method, status, uri::InvalidUri, version, Uri};
+pub use http::{header, method, status, uri::InvalidUri, version};
 
 // we don't need to expose our request builder
 // as it's used internally only

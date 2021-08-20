@@ -25,7 +25,7 @@ fn main() -> wry::Result<()> {
     .unwrap()
     .with_custom_protocol("wry".into(), move |request| {
       // Remove url scheme
-      let path = request.uri().to_string().replace("wry://", "");
+      let path = request.uri().replace("wry://", "");
       // Read the file content from file path
       let content = read(canonicalize(&path)?)?;
 
