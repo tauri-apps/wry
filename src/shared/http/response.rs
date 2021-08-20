@@ -35,7 +35,6 @@ pub struct Response {
 ///
 /// The HTTP response head consists of a status, version, and a set of
 /// header fields.
-#[non_exhaustive]
 pub struct ResponseParts {
   /// The response's status
   pub status: StatusCode,

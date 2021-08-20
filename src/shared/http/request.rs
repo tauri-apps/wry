@@ -24,7 +24,6 @@ pub struct Request {
 ///
 /// The HTTP request head consists of a method, uri, and a set of
 /// header fields.
-#[non_exhaustive]
 pub struct RequestParts {
   /// The request's method
   pub method: Method,
