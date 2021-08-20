@@ -1,5 +1,3 @@
-use std::process::Stdio;
-
 // Copyright 2019-2021 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
@@ -10,7 +8,7 @@ fn main() -> wry::Result<()> {
     fs::{canonicalize, File},
     io::{Read, Seek, SeekFrom},
     path::PathBuf,
-    process::Command,
+    process::{Command, Stdio},
   };
   use wry::{
     application::{

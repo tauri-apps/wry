@@ -7,6 +7,25 @@ use super::{
 use crate::Result;
 use std::{any::Any, convert::TryFrom, fmt};
 
+/// Represents an HTTP response
+///
+/// An HTTP response consists of a head and a potentially body.
+///
+/// ## Platform-specific
+///
+/// - **Linux:** Headers and status code cannot be changed.
+///
+/// # Examples
+///
+/// ```
+/// # use wry::http::*;
+///
+/// let response = ResponseBuilder::new("text/html")
+///     .status(202)
+///     .body("hello!".as_bytes())
+///     .unwrap();
+/// ```
+///
 pub struct Response {
   head: Parts,
   body: Vec<u8>,

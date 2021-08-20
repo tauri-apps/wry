@@ -1,13 +1,20 @@
-use std::{any::Any, convert::TryFrom, fmt};
+use std::{convert::TryFrom, fmt};
 
 use super::{
   header::{HeaderMap, HeaderName, HeaderValue},
   method::Method,
-  version::Version,
-  Extensions, Uri,
+  Uri,
 };
+
 use crate::Result;
 
+/// Represents an HTTP request from the WebView.
+///
+/// An HTTP request consists of a head and a potentially optional body.
+///
+/// ## Platform-specific
+///
+/// - **Linux:** Headers are not exposed.
 pub struct Request {
   head: Parts,
   body: Vec<u8>,
@@ -15,7 +22,7 @@ pub struct Request {
 
 /// Component parts of an HTTP `Request`
 ///
-/// The HTTP request head consists of a method, uri, version, and a set of
+/// The HTTP request head consists of a method, uri, and a set of
 /// header fields.
 #[non_exhaustive]
 pub struct Parts {
@@ -25,14 +32,8 @@ pub struct Parts {
   /// The request's URI
   pub uri: Uri,
 
-  /// The request's version
-  pub version: Version,
-
   /// The request's headers
   pub headers: HeaderMap<HeaderValue>,
-
-  /// The request's extensions
-  pub extensions: Extensions,
 }
 
 /// An HTTP request builder
@@ -40,7 +41,7 @@ pub struct Parts {
 /// This type can be used to construct an instance or `Request`
 /// through a builder-like pattern.
 #[derive(Debug)]
-pub struct Builder {
+pub(crate) struct Builder {
   inner: Result<Parts>,
 }
 
@@ -66,23 +67,12 @@ impl Request {
     &self.head.uri
   }
 
-  /// Returns the associated version.
-  #[inline]
-  pub fn version(&self) -> Version {
-    self.head.version
-  }
-
   /// Returns a reference to the associated header field map.
   #[inline]
   pub fn headers(&self) -> &HeaderMap<HeaderValue> {
     &self.head.headers
   }
 
-  /// Returns a reference to the associated extensions.
-  #[inline]
-  pub fn extensions(&self) -> &Extensions {
-    &self.head.extensions
-  }
   /// Returns a reference to the associated HTTP body.
   #[inline]
   pub fn body(&self) -> &Vec<u8> {
@@ -107,9 +97,7 @@ impl fmt::Debug for Request {
     f.debug_struct("Request")
       .field("method", self.method())
       .field("uri", self.uri())
-      .field("version", &self.version())
       .field("headers", self.headers())
-      // omits Extensions because not useful
       .field("body", self.body())
       .finish()
   }
@@ -121,9 +109,7 @@ impl Parts {
     Parts {
       method: Method::default(),
       uri: Uri::default(),
-      version: Version::default(),
       headers: HeaderMap::default(),
-      extensions: Extensions::default(),
     }
   }
 }
@@ -133,10 +119,7 @@ impl fmt::Debug for Parts {
     f.debug_struct("Parts")
       .field("method", &self.method)
       .field("uri", &self.uri)
-      .field("version", &self.version)
       .field("headers", &self.headers)
-      // omits Extensions because not useful
-      // omits _priv because not useful
       .finish()
   }
 }
@@ -166,13 +149,6 @@ impl Builder {
     })
   }
 
-  /// Get the HTTP Method for this request.
-  ///
-  /// By default this is `GET`. If builder has error, returns None.
-  pub fn method_ref(&self) -> Option<&Method> {
-    self.inner.as_ref().ok().map(|h| &h.method)
-  }
-
   /// Set the URI for this request.
   ///
   /// This function will configure the URI of the `Request` that will
@@ -186,24 +162,6 @@ impl Builder {
   {
     self.and_then(move |mut head| {
       head.uri = TryFrom::try_from(uri).map_err(Into::into)?;
-      Ok(head)
-    })
-  }
-
-  /// Get the URI for this request
-  pub fn uri_ref(&self) -> Option<&Uri> {
-    self.inner.as_ref().ok().map(|h| &h.uri)
-  }
-
-  /// Set the HTTP version for this request.
-  ///
-  /// This function will configure the HTTP version of the `Request` that
-  /// will be returned from `Builder::build`.
-  ///
-  /// By default this is HTTP/1.1
-  pub fn version(self, version: Version) -> Builder {
-    self.and_then(move |mut head| {
-      head.version = version;
       Ok(head)
     })
   }
@@ -226,37 +184,6 @@ impl Builder {
       head.headers.append(name, value);
       Ok(head)
     })
-  }
-
-  /// Get header on this request builder.
-  /// when builder has error returns None
-  pub fn headers_ref(&self) -> Option<&HeaderMap<HeaderValue>> {
-    self.inner.as_ref().ok().map(|h| &h.headers)
-  }
-
-  /// Get headers on this request builder.
-  ///
-  /// When builder has error returns None.
-  pub fn headers_mut(&mut self) -> Option<&mut HeaderMap<HeaderValue>> {
-    self.inner.as_mut().ok().map(|h| &mut h.headers)
-  }
-
-  /// Adds an extension to this builder
-  pub fn extension<T>(self, extension: T) -> Builder
-  where
-    T: Any + Send + Sync + 'static,
-  {
-    self.and_then(move |mut head| {
-      head.extensions.insert(extension);
-      Ok(head)
-    })
-  }
-
-  /// Get a reference to the extensions for this request builder.
-  ///
-  /// If the builder has an error, this returns `None`.
-  pub fn extensions_ref(&self) -> Option<&Extensions> {
-    self.inner.as_ref().ok().map(|h| &h.extensions)
   }
 
   /// "Consumes" this builder, using the provided `body` to return a

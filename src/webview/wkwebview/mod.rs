@@ -2,14 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{
-  ffi::{c_void, CStr},
-  os::raw::c_char,
-  ptr::{null, null_mut},
-  rc::Rc,
-  slice, str,
-};
-
 #[cfg(target_os = "macos")]
 use cocoa::{
   appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable},
@@ -18,6 +10,13 @@ use cocoa::{
 use cocoa::{
   base::id,
   foundation::{NSDictionary, NSFastEnumeration},
+};
+use std::{
+  ffi::{c_void, CStr},
+  os::raw::c_char,
+  ptr::{null, null_mut},
+  rc::Rc,
+  slice, str,
 };
 
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
@@ -114,32 +113,42 @@ impl InnerWebView {
           NSString(Id::from_ptr(s))
         };
 
-        // whats the request method
+        // Get request method (GET, POST, PUT etc...)
         let method = {
           let s: id = msg_send![request, HTTPMethod];
           NSString(Id::from_ptr(s))
         };
 
-        // build our request (Default is GET)
+        // Prepare our HttpRequest
         let mut http_request = HttpRequestBuilder::new()
           .uri(nsstring.to_str())
           .method(method.to_str());
 
-        // build our http request from the NSURL
-        let all_http_fields: id = msg_send![request, allHTTPHeaderFields];
+        // Get body
+        // FIXME: Add support of `HTTPBodyStream`
+        // https://developer.apple.com/documentation/foundation/nsurlrequest/1407341-httpbodystream?language=objc
+        let mut sent_form_body = Vec::new();
+        let nsdata: id = msg_send![request, HTTPBody];
+        // if we have a body
+        if !nsdata.is_null() {
+          let length = msg_send![nsdata, length];
+          let data_bytes: id = msg_send![nsdata, bytes];
+          sent_form_body = slice::from_raw_parts(data_bytes as *const u8, length).to_vec();
+        }
+
+        // Extract all headers fields
+        let all_headers: id = msg_send![request, allHTTPHeaderFields];
 
         // get all our headers values and inject them in our request
-        for current_header_ptr in all_http_fields.iter() {
+        for current_header_ptr in all_headers.iter() {
           let header_field = NSString(Id::from_ptr(current_header_ptr));
-          let header_value = NSString(Id::from_ptr(
-            all_http_fields.valueForKey_(current_header_ptr),
-          ));
+          let header_value = NSString(Id::from_ptr(all_headers.valueForKey_(current_header_ptr)));
           // inject the header into the request
           http_request = http_request.header(header_field.to_str(), header_value.to_str());
         }
 
         // send response
-        let final_request = http_request.body(Vec::new()).unwrap();
+        let final_request = http_request.body(sent_form_body).unwrap();
         if let Ok(sent_response) = function(&final_request) {
           let content = sent_response.body();
           // default: application/octet-stream, but should be provided by the client
