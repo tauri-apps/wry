@@ -161,7 +161,7 @@ impl InnerWebView {
           let dictionary: id = msg_send![class!(NSMutableDictionary), alloc];
           let headers: id = msg_send![dictionary, initWithCapacity:1];
           if let Some(mime) = wanted_mime {
-            let () = msg_send![headers, setObject:NSString::new(&mime) forKey: NSString::new("content-type")];
+            let () = msg_send![headers, setObject:NSString::new(mime) forKey: NSString::new("content-type")];
           }
           let () = msg_send![headers, setObject:NSString::new(&content.len().to_string()) forKey: NSString::new("content-length")];
 

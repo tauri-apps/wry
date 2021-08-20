@@ -340,13 +340,12 @@ pub mod unix {
         match handler(&http_request) {
           Ok(http_response) => {
             let buffer = http_response.body();
-            let mime = http_response.mimetype();
 
             // FIXME: Set status code
             // FIXME: Set sent headers
 
             let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(buffer));
-            request.finish(&input, buffer.len() as i64, Some(mime))
+            request.finish(&input, buffer.len() as i64, http_response.mimetype())
           }
           Err(_) => request.finish_error(&mut glib::Error::new(
             FileError::Exist,

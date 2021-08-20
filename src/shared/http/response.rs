@@ -81,8 +81,8 @@ impl Response {
 
   /// Returns a reference to the mime type.
   #[inline]
-  pub fn mimetype(&self) -> Option<String> {
-    self.head.mimetype.clone()
+  pub fn mimetype(&self) -> Option<&str> {
+    self.head.mimetype.as_ref().map(String::as_str)
   }
 
   /// Returns a reference to the associated version.
