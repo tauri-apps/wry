@@ -32,7 +32,9 @@ fn main() -> wry::Result<()> {
       }
       // Remove url scheme
       let path = request.uri().to_string().replace("wry://", "");
-      ResponseBuilder::new("text/html").body(read(canonicalize(&path)?)?)
+      ResponseBuilder::new()
+        .mimetype("text/html")
+        .body(read(canonicalize(&path)?)?)
     })
     // tell the webview to load the custom protocol
     .with_url("wry://examples/form.html")?

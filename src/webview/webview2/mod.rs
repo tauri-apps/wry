@@ -241,8 +241,14 @@ impl InnerWebView {
                 let content = sent_response.body();
                 let status_code = sent_response.status().as_u16() as i32;
 
+                let mut headers_map = String::new();
+
+                // set mime type if provided
+                if let Some(mime) = sent_response.mimetype() {
+                  headers_map.push_str(&format!("Content-Type: {}\n", mime))
+                }
+
                 // build headers
-                let mut headers_map = format!("Content-Type: {}\n", mime);
                 for (name, value) in sent_response.headers().iter() {
                   let header_key = name.to_string();
                   if let Ok(value) = value.to_str() {

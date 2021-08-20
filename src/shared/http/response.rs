@@ -1,3 +1,7 @@
+// Copyright 2019-2021 Tauri Programme within The Commons Conservancy
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
+
 use super::{
   header::{HeaderMap, HeaderName, HeaderValue},
   status::StatusCode,
@@ -25,16 +29,17 @@ use std::{convert::TryFrom, fmt};
 ///     .unwrap();
 /// ```
 ///
+
 pub struct Response {
-  head: ResponseParts,
-  body: Vec<u8>,
-  mimetype: String,
+  pub head: ResponseParts,
+  pub body: Vec<u8>,
 }
 
 /// Component parts of an HTTP `Response`
 ///
 /// The HTTP response head consists of a status, version, and a set of
 /// header fields.
+#[derive(Clone)]
 pub struct ResponseParts {
   /// The response's status
   pub status: StatusCode,
@@ -44,6 +49,9 @@ pub struct ResponseParts {
 
   /// The response's headers
   pub headers: HeaderMap<HeaderValue>,
+
+  /// The response's mimetype type
+  pub mimetype: Option<String>,
 }
 
 /// An HTTP response builder
@@ -53,7 +61,6 @@ pub struct ResponseParts {
 #[derive(Debug)]
 pub struct Builder {
   inner: Result<ResponseParts>,
-  mimetype: String,
 }
 
 impl Response {
@@ -62,7 +69,6 @@ impl Response {
   pub fn new(body: Vec<u8>) -> Response {
     Response {
       head: ResponseParts::new(),
-      mimetype: "application/octet-stream".to_string(),
       body,
     }
   }
@@ -75,8 +81,8 @@ impl Response {
 
   /// Returns a reference to the mime type.
   #[inline]
-  pub fn mimetype(&self) -> &str {
-    &self.mimetype
+  pub fn mimetype(&self) -> Option<String> {
+    self.head.mimetype.clone()
   }
 
   /// Returns a reference to the associated version.
@@ -123,6 +129,7 @@ impl ResponseParts {
       status: StatusCode::default(),
       version: Version::default(),
       headers: HeaderMap::default(),
+      mimetype: None,
     }
   }
 }
@@ -152,11 +159,18 @@ impl Builder {
   ///     .unwrap();
   /// ```
   #[inline]
-  pub fn new(mimetype: &str) -> Builder {
+  pub fn new() -> Builder {
     Builder {
       inner: Ok(ResponseParts::new()),
-      mimetype: mimetype.to_string(),
     }
+  }
+
+  /// Set the HTTP mimetype for this response.
+  pub fn mimetype(self, mimetype: &str) -> Builder {
+    self.and_then(move |mut head| {
+      head.mimetype = Some(mimetype.to_string());
+      Ok(head)
+    })
   }
 
   /// Set the HTTP status for this response.
@@ -225,12 +239,7 @@ impl Builder {
   ///     .unwrap();
   /// ```
   pub fn body(self, body: Vec<u8>) -> Result<Response> {
-    let mimetype = self.mimetype;
-    self.inner.map(move |head| Response {
-      mimetype,
-      head,
-      body,
-    })
+    self.inner.map(move |head| Response { head, body })
   }
 
   // private
@@ -240,7 +249,6 @@ impl Builder {
     F: FnOnce(ResponseParts) -> Result<ResponseParts>,
   {
     Builder {
-      mimetype: self.mimetype,
       inner: self.inner.and_then(func),
     }
   }
@@ -251,7 +259,6 @@ impl Default for Builder {
   fn default() -> Builder {
     Builder {
       inner: Ok(ResponseParts::new()),
-      mimetype: "application/octet-stream".to_string(),
     }
   }
 }

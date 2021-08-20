@@ -72,7 +72,7 @@ fn main() -> wry::Result<()> {
       };
 
       // prepare our http response
-      let mut response = ResponseBuilder::new(mimetype);
+      let mut response = ResponseBuilder::new();
 
       // read our range header if it exist, so we can return partial content
       if let Some(range) = request.headers().get("range") {
@@ -120,7 +120,7 @@ fn main() -> wry::Result<()> {
         content.read_to_end(&mut buf)?;
       }
 
-      response.status(status_code).body(buf)
+      response.mimetype(mimetype).status(status_code).body(buf)
     })
     // tell the webview to load the custom protocol
     .with_url("wry://examples/stream.html")?

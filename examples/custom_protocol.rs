@@ -42,7 +42,7 @@ fn main() -> wry::Result<()> {
         unimplemented!();
       };
 
-      ResponseBuilder::new(meta).body(data)
+      ResponseBuilder::new().mimetype(meta).body(data)
     })
     // tell the webview to load the custom protocol
     .with_url("wry://examples/index.html")?

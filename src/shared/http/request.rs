@@ -1,3 +1,7 @@
+// Copyright 2019-2021 Tauri Programme within The Commons Conservancy
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
+
 use std::{convert::TryFrom, fmt};
 
 use super::{
@@ -16,14 +20,15 @@ use crate::Result;
 ///
 /// - **Linux:** Headers are not exposed.
 pub struct Request {
-  head: RequestParts,
-  body: Vec<u8>,
+  pub head: RequestParts,
+  pub body: Vec<u8>,
 }
 
 /// Component parts of an HTTP `Request`
 ///
 /// The HTTP request head consists of a method, uri, and a set of
 /// header fields.
+#[derive(Clone)]
 pub struct RequestParts {
   /// The request's method
   pub method: Method,
