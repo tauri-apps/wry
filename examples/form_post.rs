@@ -24,10 +24,9 @@ fn main() -> wry::Result<()> {
   let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_custom_protocol("wry".into(), move |request| {
-      println!("request.method() {:?}", request.method());
       if request.method() == Method::POST {
         let body_string = String::from_utf8_lossy(request.body());
-        for body in body_string.split("&") {
+        for body in body_string.split('&') {
           println!("Value sent; {:?}", body);
         }
       }

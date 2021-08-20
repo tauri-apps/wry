@@ -12,7 +12,7 @@ use crate::{
 
 use file_drop::FileDropController;
 
-use std::{collections::HashSet, os::raw::c_void, rc::Rc};
+use std::{collections::HashSet, io::Read, os::raw::c_void, rc::Rc};
 
 use once_cell::unsync::OnceCell;
 use webview2::{Controller, PermissionKind, PermissionState, WebView};
@@ -21,14 +21,13 @@ use winapi::{
   um::winuser::{DestroyWindow, GetClientRect},
 };
 
-use crate::application::{
-  event_loop::{ControlFlow, EventLoop},
-  platform::{run_return::EventLoopExtRunReturn, windows::WindowExtWindows},
-  window::Window,
-};
-
-use crate::http::{
-  Request as HttpRequest, RequestBuilder as HttpRequestBuilder, Response as HttpResponse,
+use crate::{
+  application::{
+    event_loop::{ControlFlow, EventLoop},
+    platform::{run_return::EventLoopExtRunReturn, windows::WindowExtWindows},
+    window::Window,
+  },
+  http::RequestBuilder as HttpRequestBuilder,
 };
 
 pub struct InnerWebView {
@@ -203,13 +202,25 @@ impl InnerWebView {
           w.add_web_resource_requested(move |_, args| {
             let webview_request = args.get_request()?;
             let mut request = HttpRequestBuilder::new();
+
+            // request method (GET, POST, PUT etc..)
             let request_method = webview_request.get_method()?;
+
+            // get all headers from the request
             let headers = webview_request.get_headers()?;
             for (key, value) in headers.get_iterator()? {
               request = request.header(&key, &value);
             }
 
+            // get the body content if available
+            let mut body_sent = Vec::new();
+            if let Ok(mut content) = webview_request.get_content() {
+              content.read_to_end(&mut body_sent)?;
+            }
+
+            // uri
             let uri = webview_request.get_uri()?;
+
             // Undo the protocol workaround when giving path to resolver
             let path = uri
               .replace("https://", "")
@@ -217,7 +228,7 @@ impl InnerWebView {
 
             let scheme = path.split("://").next().unwrap();
 
-            let final_request = request.uri(&path).method(request_method.as_str()).body(Vec::new()).unwrap();
+            let final_request = request.uri(&path).method(request_method.as_str()).body(body_sent).unwrap();
             match (custom_protocols
               .iter()
               .find(|(name, _)| name == &scheme)
@@ -241,12 +252,15 @@ impl InnerWebView {
 
                 let stream = webview2::Stream::from_bytes(&content);
 
+                // FIXME: Set http response version
+
                 let response = env_clone.create_web_resource_response(
                   stream,
                   status_code,
                   "OK",
                   &headers_map,
                 )?;
+
                 args.put_response(response)?;
                 Ok(())
               }
