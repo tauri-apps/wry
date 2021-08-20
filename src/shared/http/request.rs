@@ -158,8 +158,7 @@ impl Builder {
   /// be returned from `Builder::build`.
   ///
   /// By default this is `/`.
-  pub fn uri(self, uri: &str) -> Builder
-  {
+  pub fn uri(self, uri: &str) -> Builder {
     self.and_then(move |mut head| {
       head.uri = uri.to_string();
       Ok(head)
