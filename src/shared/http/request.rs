@@ -16,7 +16,7 @@ use crate::Result;
 ///
 /// - **Linux:** Headers are not exposed.
 pub struct Request {
-  head: Parts,
+  head: RequestParts,
   body: Vec<u8>,
 }
 
@@ -25,7 +25,7 @@ pub struct Request {
 /// The HTTP request head consists of a method, uri, and a set of
 /// header fields.
 #[non_exhaustive]
-pub struct Parts {
+pub struct RequestParts {
   /// The request's method
   pub method: Method,
 
@@ -42,7 +42,7 @@ pub struct Parts {
 /// through a builder-like pattern.
 #[derive(Debug)]
 pub(crate) struct Builder {
-  inner: Result<Parts>,
+  inner: Result<RequestParts>,
 }
 
 impl Request {
@@ -50,7 +50,7 @@ impl Request {
   #[inline]
   pub fn new(body: Vec<u8>) -> Request {
     Request {
-      head: Parts::new(),
+      head: RequestParts::new(),
       body,
     }
   }
@@ -79,9 +79,9 @@ impl Request {
     &self.body
   }
 
-  /// Consumes the request returning the head and body parts.
+  /// Consumes the request returning the head and body RequestParts.
   #[inline]
-  pub fn into_parts(self) -> (Parts, Vec<u8>) {
+  pub fn into_parts(self) -> (RequestParts, Vec<u8>) {
     (self.head, self.body)
   }
 }
@@ -103,10 +103,10 @@ impl fmt::Debug for Request {
   }
 }
 
-impl Parts {
-  /// Creates a new default instance of `Parts`
-  fn new() -> Parts {
-    Parts {
+impl RequestParts {
+  /// Creates a new default instance of `RequestParts`
+  fn new() -> RequestParts {
+    RequestParts {
       method: Method::default(),
       uri: Uri::default(),
       headers: HeaderMap::default(),
@@ -114,7 +114,7 @@ impl Parts {
   }
 }
 
-impl fmt::Debug for Parts {
+impl fmt::Debug for RequestParts {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct("Parts")
       .field("method", &self.method)
@@ -204,7 +204,7 @@ impl Builder {
 
   fn and_then<F>(self, func: F) -> Self
   where
-    F: FnOnce(Parts) -> Result<Parts>,
+    F: FnOnce(RequestParts) -> Result<RequestParts>,
   {
     Builder {
       inner: self.inner.and_then(func),
@@ -216,7 +216,7 @@ impl Default for Builder {
   #[inline]
   fn default() -> Builder {
     Builder {
-      inner: Ok(Parts::new()),
+      inner: Ok(RequestParts::new()),
     }
   }
 }

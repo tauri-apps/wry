@@ -2,10 +2,9 @@ use super::{
   header::{HeaderMap, HeaderName, HeaderValue},
   status::StatusCode,
   version::Version,
-  Extensions,
 };
 use crate::Result;
-use std::{any::Any, convert::TryFrom, fmt};
+use std::{convert::TryFrom, fmt};
 
 /// Represents an HTTP response
 ///
@@ -22,12 +21,12 @@ use std::{any::Any, convert::TryFrom, fmt};
 ///
 /// let response = ResponseBuilder::new("text/html")
 ///     .status(202)
-///     .body("hello!".as_bytes())
+///     .body("hello!".as_bytes().to_vec())
 ///     .unwrap();
 /// ```
 ///
 pub struct Response {
-  head: Parts,
+  head: ResponseParts,
   body: Vec<u8>,
   mimetype: String,
 }
@@ -37,7 +36,7 @@ pub struct Response {
 /// The HTTP response head consists of a status, version, and a set of
 /// header fields.
 #[non_exhaustive]
-pub struct Parts {
+pub struct ResponseParts {
   /// The response's status
   pub status: StatusCode,
 
@@ -46,9 +45,6 @@ pub struct Parts {
 
   /// The response's headers
   pub headers: HeaderMap<HeaderValue>,
-
-  /// The response's extensions
-  pub extensions: Extensions,
 }
 
 /// An HTTP response builder
@@ -57,7 +53,7 @@ pub struct Parts {
 /// builder-like pattern.
 #[derive(Debug)]
 pub struct Builder {
-  inner: Result<Parts>,
+  inner: Result<ResponseParts>,
   mimetype: String,
 }
 
@@ -66,7 +62,7 @@ impl Response {
   #[inline]
   pub fn new(body: Vec<u8>) -> Response {
     Response {
-      head: Parts::new(),
+      head: ResponseParts::new(),
       mimetype: "application/octet-stream".to_string(),
       body,
     }
@@ -96,12 +92,6 @@ impl Response {
     &self.head.headers
   }
 
-  /// Returns a reference to the associated extensions.
-  #[inline]
-  pub fn extensions(&self) -> &Extensions {
-    &self.head.extensions
-  }
-
   /// Returns a reference to the associated HTTP body.
   #[inline]
   pub fn body(&self) -> &Vec<u8> {
@@ -122,31 +112,28 @@ impl fmt::Debug for Response {
       .field("status", &self.status())
       .field("version", &self.version())
       .field("headers", self.headers())
-      // omits Extensions because not useful
       .field("body", self.body())
       .finish()
   }
 }
 
-impl Parts {
-  /// Creates a new default instance of `Parts`
-  fn new() -> Parts {
-    Parts {
+impl ResponseParts {
+  /// Creates a new default instance of `ResponseParts`
+  fn new() -> ResponseParts {
+    ResponseParts {
       status: StatusCode::default(),
       version: Version::default(),
       headers: HeaderMap::default(),
-      extensions: Extensions::default(),
     }
   }
 }
 
-impl fmt::Debug for Parts {
+impl fmt::Debug for ResponseParts {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct("Parts")
       .field("status", &self.status)
       .field("version", &self.version)
       .field("headers", &self.headers)
-      // omits Extensions because not useful
       .finish()
   }
 }
@@ -168,7 +155,7 @@ impl Builder {
   #[inline]
   pub fn new(mimetype: &str) -> Builder {
     Builder {
-      inner: Ok(Parts::new()),
+      inner: Ok(ResponseParts::new()),
       mimetype: mimetype.to_string(),
     }
   }
@@ -218,17 +205,6 @@ impl Builder {
     })
   }
 
-  /// Adds an extension to this builder
-  pub fn extension<T>(self, extension: T) -> Builder
-  where
-    T: Any + Send + Sync + 'static,
-  {
-    self.and_then(move |mut head| {
-      head.extensions.insert(extension);
-      Ok(head)
-    })
-  }
-
   /// "Consumes" this builder, using the provided `body` to return a
   /// constructed `Response`.
   ///
@@ -262,7 +238,7 @@ impl Builder {
 
   fn and_then<F>(self, func: F) -> Self
   where
-    F: FnOnce(Parts) -> Result<Parts>,
+    F: FnOnce(ResponseParts) -> Result<ResponseParts>,
   {
     Builder {
       mimetype: self.mimetype,
@@ -275,7 +251,7 @@ impl Default for Builder {
   #[inline]
   fn default() -> Builder {
     Builder {
-      inner: Ok(Parts::new()),
+      inner: Ok(ResponseParts::new()),
       mimetype: "application/octet-stream".to_string(),
     }
   }
