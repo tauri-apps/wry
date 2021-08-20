@@ -23,7 +23,7 @@ use std::{convert::TryFrom, fmt};
 /// ```
 /// # use wry::http::*;
 ///
-/// let response = ResponseBuilder::new("text/html")
+/// let response = ResponseBuilder::new()
 ///     .status(202)
 ///     .body("hello!".as_bytes().to_vec())
 ///     .unwrap();
@@ -153,7 +153,7 @@ impl Builder {
   /// ```
   /// # use wry::http::*;
   ///
-  /// let response = ResponseBuilder::new("text/html")
+  /// let response = ResponseBuilder::new()
   ///     .status(200)
   ///     .body(Vec::new())
   ///     .unwrap();
@@ -234,7 +234,7 @@ impl Builder {
   /// ```
   /// # use wry::http::*;
   ///
-  /// let response = ResponseBuilder::new("text/html")
+  /// let response = ResponseBuilder::new()
   ///     .body(Vec::new())
   ///     .unwrap();
   /// ```
