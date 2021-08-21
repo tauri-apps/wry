@@ -183,7 +183,6 @@ impl InnerWebView {
           let data: id = msg_send![data, initWithBytes:bytes length:content.len()];
           let () = msg_send![task, didReceiveData: data];
         } else {
-          println!("{}", 404);
           let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
           let response: id = msg_send![urlresponse, initWithURL:url statusCode:404 HTTPVersion:NSString::new("HTTP/1.1") headerFields:null::<c_void>()];
           let () = msg_send![task, didReceiveResponse: response];
