@@ -35,8 +35,10 @@ use file_drop::{add_file_drop_methods, set_file_drop_handler};
 use crate::application::platform::ios::WindowExtIOS;
 
 use crate::{
-  application::dpi::{LogicalSize, PhysicalSize},
-  application::window::Window,
+  application::{
+    dpi::{LogicalSize, PhysicalSize},
+    window::Window,
+  },
   webview::{FileDropEvent, RpcRequest, RpcResponse, WebContext, WebViewAttributes},
   Result,
 };
