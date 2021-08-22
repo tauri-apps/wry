@@ -87,12 +87,23 @@ extern crate objc;
 
 use std::sync::mpsc::{RecvError, SendError};
 
-use crate::application::window::BadIcon;
+use crate::{
+  application::window::BadIcon,
+  shared::http::{
+    header::{InvalidHeaderName, InvalidHeaderValue},
+    method::InvalidMethod,
+    status::InvalidStatusCode,
+    InvalidUri,
+  },
+};
 pub use serde_json::Value;
 use url::ParseError;
 
 pub mod application;
 pub mod webview;
+
+mod shared;
+pub use shared::*;
 
 /// Convenient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -155,4 +166,16 @@ pub enum Error {
   WebView2Error(#[from] webview2::Error),
   #[error("Duplicate custom protocol registered: {0}")]
   DuplicateCustomProtocol(String),
+  #[error("Invalid header name: {0}")]
+  InvalidHeaderName(#[from] InvalidHeaderName),
+  #[error("Invalid header value: {0}")]
+  InvalidHeaderValue(#[from] InvalidHeaderValue),
+  #[error("Invalid uri: {0}")]
+  InvalidUri(#[from] InvalidUri),
+  #[error("Invalid status code: {0}")]
+  InvalidStatusCode(#[from] InvalidStatusCode),
+  #[error("Invalid method: {0}")]
+  InvalidMethod(#[from] InvalidMethod),
+  #[error("Infallible error, something went really wrong: {0}")]
+  Infallible(#[from] std::convert::Infallible),
 }

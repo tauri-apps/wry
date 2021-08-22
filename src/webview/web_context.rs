@@ -104,7 +104,12 @@ use self::unix::WebContextImpl;
 pub mod unix {
   //! Unix platform extensions for [`WebContext`](super::WebContext).
 
-  use crate::Error;
+  use crate::{
+    http::{
+      Request as HttpRequest, RequestBuilder as HttpRequestBuilder, Response as HttpResponse,
+    },
+    Error,
+  };
   use glib::FileError;
   use std::{
     collections::{HashSet, VecDeque},
@@ -115,6 +120,7 @@ pub mod unix {
     },
   };
   use url::Url;
+  //use webkit2gtk_sys::webkit_uri_request_get_http_headers;
   use webkit2gtk::{
     traits::*, ApplicationInfo, LoadEvent, UserContentManager, WebContext, WebContextBuilder,
     WebView, WebsiteDataManagerBuilder,
@@ -206,7 +212,7 @@ pub mod unix {
     /// relying on the platform's implementation to properly handle duplicated scheme handlers.
     fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
     where
-      F: Fn(&str) -> crate::Result<(Vec<u8>, String)> + 'static;
+      F: Fn(&HttpRequest) -> crate::Result<HttpResponse> + 'static;
 
     /// Register a custom protocol to the web context, only if it is not a duplicate scheme.
     ///
@@ -214,7 +220,7 @@ pub mod unix {
     /// function will return `Err(Error::DuplicateCustomProtocol)`.
     fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
     where
-      F: Fn(&str) -> crate::Result<(Vec<u8>, String)> + 'static;
+      F: Fn(&HttpRequest) -> crate::Result<HttpResponse> + 'static;
 
     /// Add a [`WebView`] to the queue waiting to be opened.
     ///
@@ -245,7 +251,7 @@ pub mod unix {
 
     fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
     where
-      F: Fn(&str) -> crate::Result<(Vec<u8>, String)> + 'static,
+      F: Fn(&HttpRequest) -> crate::Result<HttpResponse> + 'static,
     {
       actually_register_uri_scheme(self, name, handler)?;
       if self.os.registered_protocols.insert(name.to_string()) {
@@ -257,7 +263,7 @@ pub mod unix {
 
     fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
     where
-      F: Fn(&str) -> crate::Result<(Vec<u8>, String)> + 'static,
+      F: Fn(&HttpRequest) -> crate::Result<HttpResponse> + 'static,
     {
       if self.os.registered_protocols.insert(name.to_string()) {
         actually_register_uri_scheme(self, name, handler)
@@ -305,7 +311,7 @@ pub mod unix {
     handler: F,
   ) -> crate::Result<()>
   where
-    F: Fn(&str) -> crate::Result<(Vec<u8>, String)> + 'static,
+    F: Fn(&HttpRequest) -> crate::Result<HttpResponse> + 'static,
   {
     use webkit2gtk::traits::*;
     let context = &context.os.context;
@@ -318,10 +324,28 @@ pub mod unix {
       if let Some(uri) = request.uri() {
         let uri = uri.as_str();
 
-        match handler(uri) {
-          Ok((buffer, mime)) => {
-            let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&buffer));
-            request.finish(&input, buffer.len() as i64, Some(&mime))
+        //let headers = unsafe {
+        //  webkit_uri_request_get_http_headers(request.clone().to_glib_none().0)
+        //};
+
+        // FIXME: Read the method
+        // FIXME: Read the headers
+        // FIXME: Read the body (forms post)
+        let http_request = HttpRequestBuilder::new()
+          .uri(uri)
+          .method("GET")
+          .body(Vec::new())
+          .unwrap();
+
+        match handler(&http_request) {
+          Ok(http_response) => {
+            let buffer = http_response.body();
+
+            // FIXME: Set status code
+            // FIXME: Set sent headers
+
+            let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(buffer));
+            request.finish(&input, buffer.len() as i64, http_response.mimetype())
           }
           Err(_) => request.finish_error(&mut glib::Error::new(
             FileError::Exist,
