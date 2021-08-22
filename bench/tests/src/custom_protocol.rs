@@ -17,6 +17,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::{Window, WindowBuilder},
     },
+    http::ResponseBuilder,
     webview::{RpcRequest, WebViewBuilder},
   };
 
@@ -32,7 +33,7 @@ fn main() -> wry::Result<()> {
   let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_rpc_handler(handler)
-    .with_custom_protocol("wry.bench".into(), move |_uri| {
+    .with_custom_protocol("wry.bench".into(), move |_request| {
       let index_html = r#"
       <!DOCTYPE html>
       <html lang="en">
@@ -50,7 +51,10 @@ fn main() -> wry::Result<()> {
           </script>
         </body>
       </html>"#;
-      Ok((index_html.into(), "text/html".into()))
+
+      ResponseBuilder::new()
+        .mimetype("text/html")
+        .body(index_html.into())
     })
     .with_url("wry.bench://")?
     .build()?;
