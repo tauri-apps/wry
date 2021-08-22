@@ -425,6 +425,7 @@ impl InnerWebView {
 
   pub fn focus(&self) {}
 
+  #[cfg(target_os = "macos")]
   pub fn inner_size(&self, scale_factor: f64) -> PhysicalSize<u32> {
     let view_frame = unsafe { NSView::frame(self.webview) };
     let logical: LogicalSize<f64> =
