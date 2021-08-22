@@ -465,8 +465,8 @@ impl Drop for InnerWebView {
       }
 
       let _: Id<_> = Id::from_ptr(self.webview);
-      let _: Id<_> = Id::from_ptr(self.ns_window);
       #[cfg(target_os = "macos")]
+      let _: Id<_> = Id::from_ptr(self.ns_window);
       let _: Id<_> = Id::from_ptr(self.manager);
     }
   }
