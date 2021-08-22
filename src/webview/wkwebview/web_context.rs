@@ -1,10 +1,11 @@
 use crate::Result;
 
+use crate::http::{Request, Response};
 use crate::webview::web_context::WebContextData;
 
 #[derive(Debug)]
 pub struct WebContextImpl {
-  protocols: Vec<*mut Box<dyn Fn(&str) -> Result<(Vec<u8>, String)>>>,
+  protocols: Vec<*mut Box<dyn Fn(&Request) -> Result<Response>>>,
 }
 
 impl WebContextImpl {
@@ -16,10 +17,7 @@ impl WebContextImpl {
 
   pub fn set_allows_automation(&mut self, _flag: bool) {}
 
-  pub fn registered_protocols(
-    &mut self,
-    handler: *mut Box<dyn Fn(&str) -> Result<(Vec<u8>, String)>>,
-  ) {
+  pub fn registered_protocols(&mut self, handler: *mut Box<dyn Fn(&Request) -> Result<Response>>) {
     self.protocols.push(handler);
   }
 }
