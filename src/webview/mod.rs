@@ -40,9 +40,9 @@ use std::{path::PathBuf, rc::Rc};
 use serde_json::Value;
 use url::Url;
 
+use crate::application::dpi::PhysicalSize;
 #[cfg(target_os = "windows")]
 use crate::application::platform::windows::WindowExtWindows;
-use crate::application::dpi::PhysicalSize;
 use crate::application::window::Window;
 
 use crate::http::{Request as HttpRequest, Response as HttpResponse};
@@ -424,6 +424,12 @@ impl WebView {
   }
 
   pub fn inner_size(&self) -> PhysicalSize<u32> {
+    #[cfg(target_os = "macos")]
+    {
+      let scale_factor = self.window.scale_factor();
+      self.webview.inner_size(scale_factor)
+    }
+    #[cfg(not(target_os = "macos"))]
     self.window.inner_size()
   }
 }
