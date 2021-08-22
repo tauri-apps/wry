@@ -44,6 +44,8 @@ use url::Url;
 use crate::application::platform::windows::WindowExtWindows;
 use crate::application::window::Window;
 
+use crate::http::{Request as HttpRequest, Response as HttpResponse};
+
 pub struct WebViewAttributes {
   /// Whether the WebView window should be visible.
   pub visible: bool,
@@ -86,7 +88,7 @@ pub struct WebViewAttributes {
   /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.examples` in `custom_protocol` example)
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
-  pub custom_protocols: Vec<(String, Box<dyn Fn(&str) -> Result<(Vec<u8>, String)>>)>,
+  pub custom_protocols: Vec<(String, Box<dyn Fn(&HttpRequest) -> Result<HttpResponse>>)>,
   /// Set the RPC handler to Communicate between the host Rust code and Javascript on webview.
   ///
   /// The communication is done via [JSON-RPC](https://www.jsonrpc.org). Users can use this to register an incoming
@@ -191,7 +193,7 @@ impl<'a> WebViewBuilder<'a> {
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(&str) -> Result<(Vec<u8>, String)> + 'static,
+    F: Fn(&HttpRequest) -> Result<HttpResponse> + 'static,
   {
     self
       .webview

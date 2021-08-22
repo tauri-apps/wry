@@ -26,6 +26,7 @@ fn main() -> wry::Result<()> {
       system_tray::SystemTrayBuilder,
       window::{WindowBuilder, WindowId},
     },
+    http::ResponseBuilder,
     webview::{WebView, WebViewBuilder},
   };
 
@@ -129,8 +130,10 @@ fn main() -> wry::Result<()> {
 
       let webview = WebViewBuilder::new(window)
         .unwrap()
-        .with_custom_protocol("wry.dev".into(), move |_uri| {
-          Ok((index_html.as_bytes().into(), "text/html".into()))
+        .with_custom_protocol("wry.dev".into(), move |_request| {
+          ResponseBuilder::new()
+            .mimetype("text/html")
+            .body(index_html.as_bytes().into())
         })
         .with_url("wry.dev://")
         .unwrap()

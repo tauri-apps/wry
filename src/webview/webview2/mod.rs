@@ -12,7 +12,7 @@ use crate::{
 
 use file_drop::FileDropController;
 
-use std::{collections::HashSet, os::raw::c_void, rc::Rc};
+use std::{collections::HashSet, io::Read, os::raw::c_void, rc::Rc};
 
 use once_cell::unsync::OnceCell;
 use webview2::{Controller, PermissionKind, PermissionState, WebView};
@@ -21,10 +21,13 @@ use winapi::{
   um::winuser::{DestroyWindow, GetClientRect},
 };
 
-use crate::application::{
-  event_loop::{ControlFlow, EventLoop},
-  platform::{run_return::EventLoopExtRunReturn, windows::WindowExtWindows},
-  window::Window,
+use crate::{
+  application::{
+    event_loop::{ControlFlow, EventLoop},
+    platform::{run_return::EventLoopExtRunReturn, windows::WindowExtWindows},
+    window::Window,
+  },
+  http::RequestBuilder as HttpRequestBuilder,
 };
 
 pub struct InnerWebView {
@@ -197,27 +200,73 @@ impl InnerWebView {
           let custom_protocols = attributes.custom_protocols;
           let env_clone = env_.clone();
           w.add_web_resource_requested(move |_, args| {
-            let uri = args.get_request()?.get_uri()?;
+            let webview_request = args.get_request()?;
+            let mut request = HttpRequestBuilder::new();
+
+            // request method (GET, POST, PUT etc..)
+            let request_method = webview_request.get_method()?;
+
+            // get all headers from the request
+            let headers = webview_request.get_headers()?;
+            for (key, value) in headers.get_iterator()? {
+              request = request.header(&key, &value);
+            }
+
+            // get the body content if available
+            let mut body_sent = Vec::new();
+            if let Ok(mut content) = webview_request.get_content() {
+              content.read_to_end(&mut body_sent)?;
+            }
+
+            // uri
+            let uri = webview_request.get_uri()?;
+
             // Undo the protocol workaround when giving path to resolver
             let path = uri
               .replace("https://", "")
               .replacen(".", "://", 1);
+
             let scheme = path.split("://").next().unwrap();
 
+            let final_request = request.uri(&path).method(request_method.as_str()).body(body_sent).unwrap();
             match (custom_protocols
               .iter()
               .find(|(name, _)| name == &scheme)
               .unwrap()
-              .1)(&path)
+              .1)(&final_request)
             {
-              Ok((content, mime)) => {
+              Ok(sent_response) => {
+
+                let mime = sent_response.mimetype();
+                let content = sent_response.body();
+                let status_code = sent_response.status().as_u16() as i32;
+
+                let mut headers_map = String::new();
+
+                // set mime type if provided
+                if let Some(mime) = sent_response.mimetype() {
+                  headers_map.push_str(&format!("Content-Type: {}\n", mime))
+                }
+
+                // build headers
+                for (name, value) in sent_response.headers().iter() {
+                  let header_key = name.to_string();
+                  if let Ok(value) = value.to_str() {
+                    headers_map.push_str(&format!("{}: {}\n", header_key, value))
+                  }
+                }
+
                 let stream = webview2::Stream::from_bytes(&content);
+
+                // FIXME: Set http response version
+
                 let response = env_clone.create_web_resource_response(
                   stream,
-                  200,
+                  status_code,
                   "OK",
-                  &format!("Content-Type: {}", mime),
+                  &headers_map,
                 )?;
+
                 args.put_response(response)?;
                 Ok(())
               }

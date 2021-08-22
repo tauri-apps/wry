@@ -56,6 +56,11 @@ fn main() -> wry::Result<()> {
             : window.rpc.notify('drag_window');
         }
       })
+      document.addEventListener('touchstart', (e) => {
+        if (e.target.classList.contains('drag-region')) {
+          window.rpc.notify('drag_window');
+        }
+      })
 
       const style = document.createElement('style');
       style.textContent = `
