@@ -11,6 +11,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::{Window, WindowBuilder},
     },
+    http::ResponseBuilder,
     webview::{RpcRequest, WebViewBuilder},
   };
 
@@ -25,14 +26,28 @@ fn main() -> wry::Result<()> {
   };
   let webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_custom_protocol("wry.bench".into(), move |requested_asset_path| {
-      let requested_asset_path = requested_asset_path.replace("wry.bench://", "");
-      match requested_asset_path.as_str() {
-        "/index.css" => Ok((include_bytes!("static/index.css").to_vec(), "text/css".into())),
-        "/site.js" => Ok((include_bytes!("static/site.js").to_vec(), "text/javascript".into())),
-        "/worker.js" => Ok((include_bytes!("static/worker.js").to_vec(), "text/javascript".into())),
-        _ => Ok((include_bytes!("static/index.html").to_vec(), "text/html".into())),
-      }
+    .with_custom_protocol("wry.bench".into(), move |request| {
+      let requested_asset_path = request.uri().replace("wry.bench://", "");
+      let (data, mimetype) = match requested_asset_path.as_str() {
+        "/index.css" => (
+          include_bytes!("static/index.css").to_vec(),
+          "text/css".into(),
+        ),
+        "/site.js" => (
+          include_bytes!("static/site.js").to_vec(),
+          "text/javascript".into(),
+        ),
+        "/worker.js" => (
+          include_bytes!("static/worker.js").to_vec(),
+          "text/javascript".into(),
+        ),
+        _ => (
+          include_bytes!("static/index.html").to_vec(),
+          "text/html".into(),
+        ),
+      };
+
+      ResponseBuilder::new().mimetype(mimetype).body(data)
     })
     .with_url("wry.bench://")?
     .with_rpc_handler(handler)
