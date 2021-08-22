@@ -1,7 +1,9 @@
 use crate::Result;
 
-use crate::http::{Request, Response};
-use crate::webview::web_context::WebContextData;
+use crate::{
+  http::{Request, Response},
+  webview::web_context::WebContextData,
+};
 
 #[derive(Debug)]
 pub struct WebContextImpl {
