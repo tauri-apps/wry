@@ -315,9 +315,10 @@ pub mod unix {
   {
     use webkit2gtk::traits::*;
     let context = &context.os.context;
-    let manager = context.security_manager().ok_or(Error::MissingManager)?;
-    manager.register_uri_scheme_as_secure(name);
-    manager.register_uri_scheme_as_local(name);
+    context
+      .security_manager()
+      .ok_or(Error::MissingManager)?
+      .register_uri_scheme_as_secure(name);
 
     context.register_uri_scheme(name, move |request| {
       if let Some(uri) = request.uri() {
