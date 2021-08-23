@@ -1,5 +1,22 @@
 # Changelog
 
+## \[0.12.2]
+
+- Fixed a Linux multi-window issue where the internal url loader didn't unlock when flushed while empty
+  - [5377821](https://github.com/tauri-apps/wry/commit/5377821f43c0e7556ec46f0aaf4d6b0637512493) Fix async multiwindow deadlock ([#382](https://github.com/tauri-apps/wry/pull/382)) on 2021-08-16
+
+- The custom protocol now return a `Request` and expect a `Response`.
+
+- This allow us to get the complete request from the Webview. (Method, GET, POST, PUT etc..)
+  Read the complete header.
+
+- And allow us to be more flexible in the future without bringing breaking changes.
+
+- [d202573](https://github.com/tauri-apps/wry/commit/d202573c2c68a2ff0411c1aa797ecc10f727e93b) refactor: Custom protcol request/response ([#387](https://github.com/tauri-apps/wry/pull/387)) on 2021-08-22
+
+- On Linux, automation callbacks now use the first created webview as the return value
+  - [f9d7049](https://github.com/tauri-apps/wry/commit/f9d7049978bbad389c99d7a7cce9903a528d871d) Use the first created webview for webkit2gtk automation callbacks ([#383](https://github.com/tauri-apps/wry/pull/383)) on 2021-08-16
+
 ## \[0.12.1]
 
 - Add html attributes as another method to load the page. This can provide some other origin header and make CORS request
