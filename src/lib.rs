@@ -89,7 +89,7 @@ use std::sync::mpsc::{RecvError, SendError};
 
 use crate::{
   application::window::BadIcon,
-  shared::http::{
+  http::{
     header::{InvalidHeaderName, InvalidHeaderValue},
     method::InvalidMethod,
     status::InvalidStatusCode,
@@ -101,9 +101,7 @@ use url::ParseError;
 
 pub mod application;
 pub mod webview;
-
-mod shared;
-pub use shared::*;
+pub mod http;
 
 /// Convenient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;
