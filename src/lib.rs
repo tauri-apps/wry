@@ -100,8 +100,8 @@ pub use serde_json::Value;
 use url::ParseError;
 
 pub mod application;
-pub mod webview;
 pub mod http;
+pub mod webview;
 
 /// Convenient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;
