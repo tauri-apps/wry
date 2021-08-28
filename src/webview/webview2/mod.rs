@@ -112,7 +112,8 @@ impl InnerWebView {
             window.addEventListener('mousedown', (e) => {
               if (e.buttons === 1) window.chrome.webview.postMessage('__WEBVIEW_LEFT_MOUSE_DOWN__')
             });
-            window.addEventListener('mousemove', () => window.chrome.webview.postMessage('__WEBVIEW_MOUSE_MOVE__'));
+            window.addEventListener('touchstart', (e) => window.chrome.webview.postMessage('__WEBVIEW_TOUCH_START__'));
+            window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('__WEBVIEW_MOUSE_MOVE__'));
           "#,
           |_| (Ok(())),
         )?;
@@ -126,7 +127,7 @@ impl InnerWebView {
         let rpc_handler = attributes.rpc_handler.take();
         w.add_web_message_received(move |webview, args| {
           let js = args.try_get_web_message_as_string()?;
-          if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_MOUSE_MOVE__" {
+          if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_TOUCH_START__" || js == "__WEBVIEW_MOUSE_MOVE__" {
             if !window_.is_decorated() && window_.is_resizable() {
               use winapi::um::winuser::{
                 HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTLEFT, HTRIGHT,
@@ -158,7 +159,7 @@ impl InnerWebView {
                 window_.set_cursor_icon(cursor);
               }
 
-              if js == "__WEBVIEW_LEFT_MOUSE_DOWN__"  {
+              if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_TOUCH_START__" {
                 // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
                 // and prevent conflict with `tao::window::drag_window`.
                 if result != HTCLIENT {
