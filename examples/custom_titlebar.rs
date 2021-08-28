@@ -1,3 +1,5 @@
+use tao::window::WindowId;
+
 // Copyright 2019-2021 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
@@ -12,7 +14,11 @@ fn main() -> wry::Result<()> {
     webview::{RpcRequest, WebViewBuilder},
   };
 
-  let event_loop = EventLoop::new();
+  enum UserEvents {
+    CloseWindow(WindowId),
+  }
+
+  let event_loop = EventLoop::<UserEvents>::with_user_event();
   let mut webviews = std::collections::HashMap::new();
   let window = WindowBuilder::new()
     .with_decorations(false)
@@ -100,7 +106,7 @@ fn main() -> wry::Result<()> {
   })();
   "#;
 
-  let (window_tx, window_rx) = std::sync::mpsc::channel();
+  let proxy = event_loop.create_proxy();
 
   let handler = move |window: &Window, req: RpcRequest| {
     if req.method == "minimize" {
@@ -114,7 +120,7 @@ fn main() -> wry::Result<()> {
       }
     }
     if req.method == "close" {
-      let _ = window_tx.send(window.id());
+      let _ = proxy.send_event(UserEvents::CloseWindow(window.id()));
     }
     if req.method == "drag_window" {
       let _ = window.drag_window();
@@ -132,18 +138,11 @@ fn main() -> wry::Result<()> {
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
-    if let Ok(id) = window_rx.try_recv() {
-      webviews.remove(&id);
-      if webviews.is_empty() {
-        *control_flow = ControlFlow::Exit
-      }
-    }
 
-    if let Event::WindowEvent {
-      event, window_id, ..
-    } = event
-    {
-      match event {
+    match event {
+      Event::WindowEvent {
+        event, window_id, ..
+      } => match event {
         WindowEvent::CloseRequested => {
           webviews.remove(&window_id);
           if webviews.is_empty() {
@@ -154,7 +153,14 @@ fn main() -> wry::Result<()> {
           let _ = webviews[&window_id].resize();
         }
         _ => (),
+      },
+      Event::UserEvent(UserEvents::CloseWindow(id)) => {
+        webviews.remove(&id);
+        if webviews.is_empty() {
+          *control_flow = ControlFlow::Exit
+        }
       }
+      _ => (),
     }
   });
 }
