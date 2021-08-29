@@ -18,7 +18,7 @@ use once_cell::unsync::OnceCell;
 use webview2::{Controller, PermissionKind, PermissionState, WebView};
 use winapi::{
   shared::{windef::HWND, winerror::E_FAIL},
-  um::winuser::{DestroyWindow, GetClientRect},
+  um::winuser::{self, DestroyWindow, GetClientRect},
 };
 
 use crate::{
@@ -112,7 +112,7 @@ impl InnerWebView {
             window.addEventListener('mousedown', (e) => {
               if (e.buttons === 1) window.chrome.webview.postMessage('__WEBVIEW_LEFT_MOUSE_DOWN__')
             });
-            window.addEventListener('touchstart', (e) => window.chrome.webview.postMessage('__WEBVIEW_TOUCH_START__'));
+            window.addEventListener('touchstart', (e) => window.chrome.webview.postMessage({msg: '__WEBVIEW_TOUCH_START__', x: e.screenX, y: e.screenY}));
             window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('__WEBVIEW_MOUSE_MOVE__'));
           "#,
           |_| (Ok(())),
@@ -127,7 +127,7 @@ impl InnerWebView {
         let rpc_handler = attributes.rpc_handler.take();
         w.add_web_message_received(move |webview, args| {
           let js = args.try_get_web_message_as_string()?;
-          if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_TOUCH_START__" || js == "__WEBVIEW_MOUSE_MOVE__" {
+          if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_MOUSE_MOVE__" {
             if !window_.is_decorated() && window_.is_resizable() {
               use winapi::um::winuser::{
                 HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTLEFT, HTRIGHT,
@@ -159,16 +159,36 @@ impl InnerWebView {
                 window_.set_cursor_icon(cursor);
               }
 
-              if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_TOUCH_START__" {
+              if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" {
                 // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
                 // and prevent conflict with `tao::window::drag_window`.
                 if result != HTCLIENT {
-                  window_.begin_resize_drag(result);
+                  window_.begin_resize_drag(result,winuser::WM_NCLBUTTONDOWN,cx,cy);
                 }
               }
             }
             // these are internal messages, rpc_handlers don't need it so exit early
             return Ok(());
+          }
+
+          #[derive(Deserialize)]
+          struct TouchStartEvent {
+            msg: String,
+            x: i32,
+            y: i32,
+          }
+          if let Ok(e) = serde_json::from_str::<TouchStartEvent>(&js) {
+            if e.msg == "__WEBVIEW_TOUCH_START__" {
+              use winapi::um::winuser::HTCLIENT;
+              use crate::application::{platform::windows::hit_test};
+
+              let result = hit_test(window_.hwnd() as _, e.x, e.y);
+              if result != HTCLIENT {
+                window_.begin_resize_drag(result,winuser::WM_TOUCH, e.x, e.y);
+              }
+              // these are internal messages, rpc_handlers don't need it so exit early
+              return Ok(())
+            }
           }
 
           if let Some(rpc_handler) = &rpc_handler {
