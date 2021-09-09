@@ -142,12 +142,11 @@ impl InnerWebView {
     }
     webview.grab_focus();
 
-    // Enable webgl, webaudio, canvas features and others as default.
+    // Enable webgl, webaudio, canvas features as default.
     if let Some(settings) = WebViewExt::settings(&*webview) {
       settings.set_enable_webgl(true);
       settings.set_enable_webaudio(true);
       settings.set_enable_accelerated_2d_canvas(true);
-      settings.set_javascript_can_access_clipboard(true);
 
       // Enable App cache
       settings.set_enable_offline_web_application_cache(true);
