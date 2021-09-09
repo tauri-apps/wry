@@ -2,4 +2,4 @@
 "wry": patch
 ---
 
-Remove clipboard property for consistancy across platforms.
+Remove clipboard property for consistency across platforms.
