@@ -32,7 +32,8 @@ use wkwebview::*;
 mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
-
+#[cfg(target_os = "windows")]
+use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 use crate::{Error, Result};
 
 use std::{path::PathBuf, rc::Rc};
@@ -363,8 +364,8 @@ impl Drop for WebView {
     }
     #[cfg(target_os = "windows")]
     unsafe {
-      use winapi::{shared::windef::HWND, um::winuser::DestroyWindow};
-      DestroyWindow(self.window.hwnd() as HWND);
+      use webview2_com::Windows::Win32::UI::WindowsAndMessaging::DestroyWindow;
+      DestroyWindow(self.window.hwnd());
     }
   }
 }
@@ -540,13 +541,13 @@ pub fn webview_version() -> Result<String> {
 #[cfg(target_os = "windows")]
 pub trait WebviewExtWindows {
   /// Returns WebView2 Controller
-  fn controller(&self) -> Option<&::webview2::Controller>;
+  fn controller(&self) -> Option<ICoreWebView2Controller>;
 }
 
 #[cfg(target_os = "windows")]
 impl WebviewExtWindows for WebView {
-  fn controller(&self) -> Option<&::webview2::Controller> {
-    self.webview.controller.get()
+  fn controller(&self) -> Option<ICoreWebView2Controller> {
+    Some(self.webview.controller.clone())
   }
 }
 
