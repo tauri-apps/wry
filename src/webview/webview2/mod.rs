@@ -56,100 +56,133 @@ impl InnerWebView {
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let hwnd = window.hwnd() as HWND;
-
     let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
-    let file_drop_controller_clone = file_drop_controller.clone();
 
-    let env = {
-      let (tx, rx) = mpsc::channel();
+    if let Some(file_drop_handler) = attributes.file_drop_handler.take() {
+      let mut controller = FileDropController::new();
+      controller.listen(hwnd, window.clone(), file_drop_handler);
+      let _ = file_drop_controller.set(controller);
+    }
 
-      let data_directory = web_context
-        .and_then(|context| context.data_directory())
-        .and_then(|path| path.to_str())
-        .and_then(|path| Some(String::from(path)));
+    let env = Self::create_environment(&web_context)?;
+    let controller = Self::create_controller(hwnd, &env)?;
+    let webview = Self::init_webview(window, hwnd, attributes, &env, &controller)?;
 
-      CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
-        Box::new(move |environmentcreatedhandler| unsafe {
-          if let Some(data_directory) = data_directory {
-            // If we have a custom data_directory, we need to use a call to `CreateCoreWebView2EnvironmentWithOptions`
-            // instead of the much simpler `CreateCoreWebView2Environment`.
-            let options: ICoreWebView2EnvironmentOptions =
-              CoreWebView2EnvironmentOptions::default().into();
-            let data_directory = pwstr_from_str(&data_directory);
-            let result = CreateCoreWebView2EnvironmentWithOptions(
-              PWSTR::default(),
-              data_directory,
-              options,
-              environmentcreatedhandler,
-            )
-            .map_err(webview2_com::Error::WindowsError);
-            let _ = take_pwstr(data_directory);
+    Ok(Self {
+      controller,
+      webview,
+      file_drop_controller,
+    })
+  }
 
-            return result;
-          }
+  fn create_environment(
+    web_context: &Option<&mut WebContext>,
+  ) -> webview2_com::Result<ICoreWebView2Environment> {
+    let (tx, rx) = mpsc::channel();
 
-          CreateCoreWebView2Environment(environmentcreatedhandler)
-            .map_err(webview2_com::Error::WindowsError)
-        }),
-        Box::new(move |error_code, environment| {
-          error_code?;
-          tx.send(environment.ok_or_else(|| windows::Error::fast_error(E_POINTER)))
-            .expect("send over mpsc channel");
-          Ok(())
-        }),
-      )?;
+    let data_directory = web_context
+      .as_deref()
+      .and_then(|context| context.data_directory())
+      .and_then(|path| path.to_str())
+      .and_then(|path| Some(String::from(path)));
 
-      rx.recv()
-        .map_err(|_| webview2_com::Error::SendError)?
-        .map_err(webview2_com::Error::WindowsError)
-    }?;
+    CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
+      Box::new(move |environmentcreatedhandler| unsafe {
+        if let Some(data_directory) = data_directory {
+          // If we have a custom data_directory, we need to use a call to `CreateCoreWebView2EnvironmentWithOptions`
+          // instead of the much simpler `CreateCoreWebView2Environment`.
+          let options: ICoreWebView2EnvironmentOptions =
+            CoreWebView2EnvironmentOptions::default().into();
+          let data_directory = pwstr_from_str(&data_directory);
+          let result = CreateCoreWebView2EnvironmentWithOptions(
+            PWSTR::default(),
+            data_directory,
+            options,
+            environmentcreatedhandler,
+          )
+          .map_err(webview2_com::Error::WindowsError);
+          let _ = take_pwstr(data_directory);
 
-    let controller = {
-      let (tx, rx) = mpsc::channel();
-      let env = env.clone();
+          return result;
+        }
 
-      CreateCoreWebView2ControllerCompletedHandler::wait_for_async_operation(
-        Box::new(move |handler| unsafe {
-          env
-            .CreateCoreWebView2Controller(hwnd, handler)
-            .map_err(webview2_com::Error::WindowsError)
-        }),
-        Box::new(move |error_code, controller| {
-          error_code?;
-          tx.send(controller.ok_or_else(|| windows::Error::fast_error(E_POINTER)))
-            .expect("send over mpsc channel");
-          Ok(())
-        }),
-      )?;
+        CreateCoreWebView2Environment(environmentcreatedhandler)
+          .map_err(webview2_com::Error::WindowsError)
+      }),
+      Box::new(move |error_code, environment| {
+        error_code?;
+        tx.send(environment.ok_or_else(|| windows::Error::fast_error(E_POINTER)))
+          .expect("send over mpsc channel");
+        Ok(())
+      }),
+    )?;
 
-      rx.recv()
-        .map_err(|_| webview2_com::Error::SendError)?
-        .map_err(webview2_com::Error::WindowsError)
-    }?;
+    rx.recv()
+      .map_err(|_| webview2_com::Error::SendError)?
+      .map_err(webview2_com::Error::WindowsError)
+  }
 
+  fn create_controller(
+    hwnd: HWND,
+    env: &ICoreWebView2Environment,
+  ) -> webview2_com::Result<ICoreWebView2Controller> {
+    let (tx, rx) = mpsc::channel();
+    let env = env.clone();
+
+    CreateCoreWebView2ControllerCompletedHandler::wait_for_async_operation(
+      Box::new(move |handler| unsafe {
+        env
+          .CreateCoreWebView2Controller(hwnd, handler)
+          .map_err(webview2_com::Error::WindowsError)
+      }),
+      Box::new(move |error_code, controller| {
+        error_code?;
+        tx.send(controller.ok_or_else(|| windows::Error::fast_error(E_POINTER)))
+          .expect("send over mpsc channel");
+        Ok(())
+      }),
+    )?;
+
+    rx.recv()
+      .map_err(|_| webview2_com::Error::SendError)?
+      .map_err(webview2_com::Error::WindowsError)
+  }
+
+  fn init_webview(
+    window: Rc<Window>,
+    hwnd: HWND,
+    mut attributes: WebViewAttributes,
+    env: &ICoreWebView2Environment,
+    controller: &ICoreWebView2Controller,
+  ) -> webview2_com::Result<ICoreWebView2> {
     let webview =
       unsafe { controller.get_CoreWebView2() }.map_err(webview2_com::Error::WindowsError)?;
 
     // Transparent
     if attributes.transparent {
-      if let Ok(c2) = controller.cast::<ICoreWebView2Controller2>() {
-        unsafe {
-          c2.put_DefaultBackgroundColor(COREWEBVIEW2_COLOR {
+      let controller2: ICoreWebView2Controller2 = controller
+        .cast()
+        .map_err(webview2_com::Error::WindowsError)?;
+      unsafe {
+        controller2
+          .put_DefaultBackgroundColor(COREWEBVIEW2_COLOR {
             R: 0,
             G: 0,
             B: 0,
             A: 0,
           })
           .map_err(webview2_com::Error::WindowsError)?;
-        }
       }
     }
 
+    // The EventRegistrationToken is an out-param from all of the event registration calls. We're
+    // taking it in the local variable and then just ignoring it because all of the event handlers
+    // are registered for the life of the webview, but if we wanted to be able to remove them later
+    // we would hold onto them in self.
     let mut token = Windows::Win32::System::WinRT::EventRegistrationToken::default();
 
     // Safety: System calls are unsafe
     unsafe {
-      let hwnd = HWND(hwnd.0);
       let handler: ICoreWebView2WindowCloseRequestedEventHandler =
         WindowCloseRequestedEventHandler::create(Box::new(move |_, _| {
           if DestroyWindow(hwnd).as_bool() {
@@ -188,38 +221,25 @@ impl InnerWebView {
     }
 
     // Initialize scripts
-    let handler_webview = webview.clone();
-    AddScriptToExecuteOnDocumentCreatedCompletedHandler::wait_for_async_operation(
-      Box::new(move |handler| unsafe {
-        handler_webview.AddScriptToExecuteOnDocumentCreated(
-          r#"
-            window.external={invoke:s=>window.chrome.webview.postMessage(s)};
+    Self::add_script_to_execute_on_document_created(
+      &webview,
+      String::from(
+        r#"
+          window.external={invoke:s=>window.chrome.webview.postMessage(s)};
 
-            window.addEventListener('mousedown', (e) => {
-              if (e.buttons === 1) window.chrome.webview.postMessage('__WEBVIEW_LEFT_MOUSE_DOWN__')
-            });
-            window.addEventListener('mousemove', () => window.chrome.webview.postMessage('__WEBVIEW_MOUSE_MOVE__'));
-          "#,
-          handler
-        ).map_err(webview2_com::Error::WindowsError)
-      }),
-      Box::new(|_, _| Ok(())),
+          window.addEventListener('mousedown', (e) => {
+            if (e.buttons === 1) window.chrome.webview.postMessage('__WEBVIEW_LEFT_MOUSE_DOWN__')
+          });
+          window.addEventListener('mousemove', () => window.chrome.webview.postMessage('__WEBVIEW_MOUSE_MOVE__'));
+        "#,
+      ),
     )?;
     for js in attributes.initialization_scripts {
-      let handler_webview = webview.clone();
-      AddScriptToExecuteOnDocumentCreatedCompletedHandler::wait_for_async_operation(
-        Box::new(move |handler| unsafe {
-          handler_webview
-            .AddScriptToExecuteOnDocumentCreated(js, handler)
-            .map_err(webview2_com::Error::WindowsError)
-        }),
-        Box::new(|_, _| Ok(())),
-      )?;
+      Self::add_script_to_execute_on_document_created(&webview, js)?;
     }
 
     // Message handler
     let window_ = window.clone();
-
     let rpc_handler = attributes.rpc_handler.take();
     unsafe {
       webview.add_WebMessageReceived(
@@ -236,14 +256,14 @@ impl InnerWebView {
                 GetCursorPos(&mut point);
                 let result = hit_test(window_.hwnd() as _, point.x, point.y);
                 let cursor = match result.0 as u32 {
-                  HTLEFT => CursorIcon::WResize,
-                  HTTOP => CursorIcon::NResize,
-                  HTRIGHT => CursorIcon::EResize,
-                  HTBOTTOM => CursorIcon::SResize,
-                  HTTOPLEFT => CursorIcon::NwResize,
-                  HTTOPRIGHT => CursorIcon::NeResize,
-                  HTBOTTOMLEFT => CursorIcon::SwResize,
-                  HTBOTTOMRIGHT => CursorIcon::SeResize,
+                  edge if edge == HTLEFT => CursorIcon::WResize,
+                  edge if edge == HTTOP => CursorIcon::NResize,
+                  edge if edge == HTRIGHT => CursorIcon::EResize,
+                  edge if edge == HTBOTTOM => CursorIcon::SResize,
+                  edge if edge == HTTOPLEFT => CursorIcon::NwResize,
+                  edge if edge == HTTOPRIGHT => CursorIcon::NeResize,
+                  edge if edge == HTBOTTOMLEFT => CursorIcon::SwResize,
+                  edge if edge == HTBOTTOMRIGHT => CursorIcon::SeResize,
                   _ => CursorIcon::Arrow,
                 };
                 // don't use `CursorIcon::Arrow` variant or cursor manipulation using css will cause cursor flickering
@@ -267,10 +287,7 @@ impl InnerWebView {
               match super::rpc_proxy(&window_, js, rpc_handler) {
                 Ok(result) => {
                   if let Some(script) = result {
-                    webview.ExecuteScript(
-                      script,
-                      ExecuteScriptCompletedHandler::create(Box::new(|_, _| (Ok(())))),
-                    )?;
+                    Self::execute_script(&webview, script)?;
                   }
                 }
                 Err(e) => {
@@ -319,37 +336,41 @@ impl InnerWebView {
 
                 // get all headers from the request
                 let headers = webview_request.get_Headers()?.GetIterator()?;
-                loop {
-                  let mut has_current = BOOL::default();
-                  headers.get_HasCurrentHeader(&mut has_current)?;
-                  if !has_current.as_bool() {
-                    break;
-                  }
+                let mut has_current = BOOL::default();
+                headers.get_HasCurrentHeader(&mut has_current)?;
+                if has_current.as_bool() {
+                  loop {
+                    let mut key = PWSTR::default();
+                    let mut value = PWSTR::default();
+                    headers.GetCurrentHeader(&mut key, &mut value)?;
+                    let (key, value) = (take_pwstr(key), take_pwstr(value));
+                    request = request.header(&key, &value);
 
-                  let mut key = PWSTR::default();
-                  let mut value = PWSTR::default();
-                  headers.GetCurrentHeader(&mut key, &mut value)?;
-                  let (key, value) = (take_pwstr(key), take_pwstr(value));
-                  request = request.header(&key, &value);
+                    headers.MoveNext(&mut has_current)?;
+                    if !has_current.as_bool() {
+                      break;
+                    }
+                  }
                 }
 
                 // get the body content if available
-                let content = webview_request.get_Content()?;
-                let mut buffer: [u8; 1024] = [0; 1024];
                 let mut body_sent = Vec::new();
-                loop {
-                  let mut cb_read = 0;
-                  content.Read(
-                    buffer.as_mut_ptr() as *mut _,
-                    buffer.len() as u32,
-                    &mut cb_read,
-                  )?;
+                if let Ok(content) = webview_request.get_Content() {
+                  let mut buffer: [u8; 1024] = [0; 1024];
+                  loop {
+                    let mut cb_read = 0;
+                    content.Read(
+                      buffer.as_mut_ptr() as *mut _,
+                      buffer.len() as u32,
+                      &mut cb_read,
+                    )?;
 
-                  if cb_read == 0 {
-                    break;
+                    if cb_read == 0 {
+                      break;
+                    }
+
+                    body_sent.extend_from_slice(&buffer[..(cb_read as usize)]);
                   }
-
-                  body_sent.extend_from_slice(&buffer[..(cb_read as usize)]);
                 }
 
                 // uri
@@ -357,61 +378,67 @@ impl InnerWebView {
                 webview_request.get_Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
 
-                // Undo the protocol workaround when giving path to resolver
-                let path = uri.replace("https://", "").replacen(".", "://", 1);
-
-                let scheme = path.split("://").next().unwrap();
-
-                let final_request = request
-                  .uri(&path)
-                  .method(request_method.as_str())
-                  .body(body_sent)
-                  .unwrap();
-                match (custom_protocols
+                if let Some(custom_protocol) = custom_protocols
                   .iter()
-                  .find(|(name, _)| name == &scheme)
-                  .unwrap()
-                  .1)(&final_request)
+                  .find(|(name, _)| uri.starts_with(&format!("https://{}.", name)))
                 {
-                  Ok(sent_response) => {
-                    let content = sent_response.body();
-                    let status_code = sent_response.status().as_u16() as i32;
+                  // Undo the protocol workaround when giving path to resolver
+                  let path = uri.replace(
+                    &format!("https://{}.", custom_protocol.0),
+                    &format!("{}://", custom_protocol.0),
+                  );
+                  let final_request = request
+                    .uri(&path)
+                    .method(request_method.as_str())
+                    .body(body_sent)
+                    .unwrap();
 
-                    let mut headers_map = String::new();
+                  return match (custom_protocol.1)(&final_request) {
+                    Ok(sent_response) => {
+                      let content = sent_response.body();
+                      let status_code = sent_response.status().as_u16() as i32;
 
-                    // set mime type if provided
-                    if let Some(mime) = sent_response.mimetype() {
-                      headers_map.push_str(&format!("Content-Type: {}\n", mime))
-                    }
+                      let mut headers_map = String::new();
 
-                    // build headers
-                    for (name, value) in sent_response.headers().iter() {
-                      let header_key = name.to_string();
-                      if let Ok(value) = value.to_str() {
-                        headers_map.push_str(&format!("{}: {}\n", header_key, value))
+                      // set mime type if provided
+                      if let Some(mime) = sent_response.mimetype() {
+                        headers_map.push_str(&format!("Content-Type: {}\n", mime))
                       }
+
+                      // build headers
+                      for (name, value) in sent_response.headers().iter() {
+                        let header_key = name.to_string();
+                        if let Ok(value) = value.to_str() {
+                          headers_map.push_str(&format!("{}: {}\n", header_key, value))
+                        }
+                      }
+
+                      let mut body_sent = None;
+                      if !content.is_empty() {
+                        let stream = CreateStreamOnHGlobal(0, true)?;
+                        stream.SetSize(content.len() as u64)?;
+                        if stream.Write(content.as_ptr() as *const _, content.len() as u32)?
+                          as usize
+                          == content.len()
+                        {
+                          body_sent = Some(stream);
+                        }
+                      }
+
+                      // FIXME: Set http response version
+
+                      let response =
+                        env.CreateWebResourceResponse(body_sent, status_code, "OK", headers_map)?;
+
+                      args.put_Response(response)?;
+                      Ok(())
                     }
-
-                    let stream = CreateStreamOnHGlobal(0, true)?;
-                    if stream.Write(content.as_ptr() as *const _, content.len() as u32)? as usize
-                      != content.len()
-                    {
-                      return Err(E_FAIL.into());
-                    }
-
-                    // FIXME: Set http response version
-
-                    let response =
-                      env.CreateWebResourceResponse(stream, status_code, "OK", headers_map)?;
-
-                    args.put_Response(response)?;
-                    Ok(())
-                  }
-                  Err(_) => Err(E_FAIL.into()),
+                    Err(_) => Err(E_FAIL.into()),
+                  };
                 }
-              } else {
-                Ok(())
               }
+
+              Ok(())
             })),
             &mut token,
           )
@@ -481,19 +508,33 @@ impl InnerWebView {
       controller
         .MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC)
         .map_err(webview2_com::Error::WindowsError)?;
-
-      if let Some(file_drop_handler) = attributes.file_drop_handler {
-        let mut file_drop_controller = FileDropController::new();
-        file_drop_controller.listen(hwnd, window.clone(), file_drop_handler);
-        let _ = file_drop_controller_clone.set(file_drop_controller);
-      }
     }
 
-    Ok(Self {
-      controller,
-      webview,
-      file_drop_controller,
-    })
+    Ok(webview)
+  }
+
+  fn add_script_to_execute_on_document_created(
+    webview: &ICoreWebView2,
+    js: String,
+  ) -> webview2_com::Result<()> {
+    let handler_webview = webview.clone();
+    AddScriptToExecuteOnDocumentCreatedCompletedHandler::wait_for_async_operation(
+      Box::new(move |handler| unsafe {
+        handler_webview
+          .AddScriptToExecuteOnDocumentCreated(js, handler)
+          .map_err(webview2_com::Error::WindowsError)
+      }),
+      Box::new(|_, _| Ok(())),
+    )
+  }
+
+  fn execute_script(webview: &ICoreWebView2, js: String) -> windows::Result<()> {
+    unsafe {
+      webview.ExecuteScript(
+        js,
+        ExecuteScriptCompletedHandler::create(Box::new(|_, _| (Ok(())))),
+      )
+    }
   }
 
   pub fn print(&self) {
@@ -501,13 +542,8 @@ impl InnerWebView {
   }
 
   pub fn eval(&self, js: &str) -> Result<()> {
-    unsafe {
-      self.webview.ExecuteScript(
-        js.to_string(),
-        ExecuteScriptCompletedHandler::create(Box::new(|_, _| (Ok(())))),
-      )
-    }
-    .map_err(|error| Error::WebView2Error(webview2_com::Error::WindowsError(error)))
+    Self::execute_script(&self.webview, js.to_string())
+      .map_err(|err| Error::WebView2Error(webview2_com::Error::WindowsError(err)))
   }
 
   pub fn resize(&self, hwnd: HWND) -> Result<()> {
