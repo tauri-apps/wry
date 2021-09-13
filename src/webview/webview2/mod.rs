@@ -84,7 +84,7 @@ impl InnerWebView {
       .as_deref()
       .and_then(|context| context.data_directory())
       .and_then(|path| path.to_str())
-      .and_then(|path| Some(String::from(path)));
+      .map(String::from);
 
     CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
       Box::new(move |environmentcreatedhandler| unsafe {
@@ -190,8 +190,7 @@ impl InnerWebView {
           } else {
             Err(E_FAIL.into())
           }
-        }))
-        .into();
+        }));
       webview
         .add_WindowCloseRequested(handler, &mut token)
         .map_err(webview2_com::Error::WindowsError)?;
@@ -239,7 +238,6 @@ impl InnerWebView {
     }
 
     // Message handler
-    let window_ = window.clone();
     let rpc_handler = attributes.rpc_handler.take();
     unsafe {
       webview.add_WebMessageReceived(
@@ -249,12 +247,12 @@ impl InnerWebView {
             args.TryGetWebMessageAsString(&mut js)?;
             let js = take_pwstr(js);
             if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_MOUSE_MOVE__" {
-              if !window_.is_decorated() && window_.is_resizable() {
+              if !window.is_decorated() && window.is_resizable() {
                 use crate::application::{platform::windows::hit_test, window::CursorIcon};
 
                 let mut point = POINT::default();
                 GetCursorPos(&mut point);
-                let result = hit_test(window_.hwnd() as _, point.x, point.y);
+                let result = hit_test(window.hwnd() as _, point.x, point.y);
                 let cursor = match result.0 as u32 {
                   edge if edge == HTLEFT => CursorIcon::WResize,
                   edge if edge == HTTOP => CursorIcon::NResize,
@@ -268,14 +266,14 @@ impl InnerWebView {
                 };
                 // don't use `CursorIcon::Arrow` variant or cursor manipulation using css will cause cursor flickering
                 if cursor != CursorIcon::Arrow {
-                  window_.set_cursor_icon(cursor);
+                  window.set_cursor_icon(cursor);
                 }
 
                 if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" {
                   // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
                   // and prevent conflict with `tao::window::drag_window`.
                   if result.0 as u32 != HTCLIENT {
-                    window_.begin_resize_drag(result.0 as isize);
+                    window.begin_resize_drag(result.0 as isize);
                   }
                 }
               }
@@ -284,7 +282,7 @@ impl InnerWebView {
             }
 
             if let Some(rpc_handler) = &rpc_handler {
-              match super::rpc_proxy(&window_, js, rpc_handler) {
+              match super::rpc_proxy(&window, js, rpc_handler) {
                 Ok(result) => {
                   if let Some(script) = result {
                     Self::execute_script(&webview, script)?;
@@ -496,7 +494,7 @@ impl InnerWebView {
     } else if let Some(html) = attributes.html {
       unsafe {
         webview
-          .NavigateToString(html.to_string())
+          .NavigateToString(html)
           .map_err(webview2_com::Error::WindowsError)?;
       }
     }
