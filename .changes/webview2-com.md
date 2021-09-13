@@ -1,5 +1,4 @@
 ---
-"tauri": patch
 "wry": patch
 ---
 
