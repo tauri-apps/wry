@@ -22,7 +22,7 @@ use webview2_com::{
     Storage::StructuredStorage::CreateStreamOnHGlobal,
     UI::WindowsAndMessaging::{
       DestroyWindow, GetClientRect, GetCursorPos, HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTCLIENT,
-      HTLEFT, HTRIGHT, HTTOP, HTTOPLEFT, HTTOPRIGHT,
+      HTLEFT, HTRIGHT, HTTOP, HTTOPLEFT, HTTOPRIGHT, WM_NCLBUTTONDOWN,
     },
   },
   *,
@@ -273,7 +273,7 @@ impl InnerWebView {
                   // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
                   // and prevent conflict with `tao::window::drag_window`.
                   if result.0 as u32 != HTCLIENT {
-                    window.begin_resize_drag(result.0 as isize);
+                    window.begin_resize_drag(result.0 as isize, WM_NCLBUTTONDOWN, point.x, point.y);
                   }
                 }
               }
