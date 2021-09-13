@@ -32,9 +32,9 @@ use wkwebview::*;
 mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
+use crate::{Error, Result};
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
-use crate::{Error, Result};
 
 use std::{path::PathBuf, rc::Rc};
 
