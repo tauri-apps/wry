@@ -20,7 +20,7 @@ use std::{
 use webview2_com::Windows::{
   self,
   Win32::{
-    Foundation::{BOOL, DRAGDROP_E_INVALIDHWND, DV_E_FORMATETC, HWND, LPARAM, POINTL, PWSTR},
+    Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINTL, PWSTR},
     System::{
       Com::{
         IDataObject, IDropTarget, RegisterDragDrop, RevokeDragDrop, DROPEFFECT_COPY,
@@ -226,7 +226,7 @@ impl FileDropHandler {
         log::warn!(
           "{}",
           match error.code() {
-            err if err == DV_E_FORMATETC => {
+            win32f::DV_E_FORMATETC => {
               // If the dropped item is not a file this error will occur.
               // In this case it is OK to return without taking further action.
               "Error occured while processing dropped/hovered item: item is not a file."

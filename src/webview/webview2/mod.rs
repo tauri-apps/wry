@@ -21,8 +21,7 @@ use webview2_com::{
     Foundation::{BOOL, E_FAIL, E_POINTER, HWND, POINT, PWSTR, RECT},
     Storage::StructuredStorage::CreateStreamOnHGlobal,
     UI::WindowsAndMessaging::{
-      DestroyWindow, GetClientRect, GetCursorPos, HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTCLIENT,
-      HTLEFT, HTRIGHT, HTTOP, HTTOPLEFT, HTTOPRIGHT, WM_NCLBUTTONDOWN,
+      self as win32wm, DestroyWindow, GetClientRect, GetCursorPos, WM_NCLBUTTONDOWN,
     },
   },
   *,
@@ -254,14 +253,14 @@ impl InnerWebView {
                 GetCursorPos(&mut point);
                 let result = hit_test(window.hwnd() as _, point.x, point.y);
                 let cursor = match result.0 as u32 {
-                  edge if edge == HTLEFT => CursorIcon::WResize,
-                  edge if edge == HTTOP => CursorIcon::NResize,
-                  edge if edge == HTRIGHT => CursorIcon::EResize,
-                  edge if edge == HTBOTTOM => CursorIcon::SResize,
-                  edge if edge == HTTOPLEFT => CursorIcon::NwResize,
-                  edge if edge == HTTOPRIGHT => CursorIcon::NeResize,
-                  edge if edge == HTBOTTOMLEFT => CursorIcon::SwResize,
-                  edge if edge == HTBOTTOMRIGHT => CursorIcon::SeResize,
+                  win32wm::HTLEFT => CursorIcon::WResize,
+                  win32wm::HTTOP => CursorIcon::NResize,
+                  win32wm::HTRIGHT => CursorIcon::EResize,
+                  win32wm::HTBOTTOM => CursorIcon::SResize,
+                  win32wm::HTTOPLEFT => CursorIcon::NwResize,
+                  win32wm::HTTOPRIGHT => CursorIcon::NeResize,
+                  win32wm::HTBOTTOMLEFT => CursorIcon::SwResize,
+                  win32wm::HTBOTTOMRIGHT => CursorIcon::SeResize,
                   _ => CursorIcon::Arrow,
                 };
                 // don't use `CursorIcon::Arrow` variant or cursor manipulation using css will cause cursor flickering
@@ -272,7 +271,7 @@ impl InnerWebView {
                 if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" {
                   // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
                   // and prevent conflict with `tao::window::drag_window`.
-                  if result.0 as u32 != HTCLIENT {
+                  if result.0 as u32 != win32wm::HTCLIENT {
                     window.begin_resize_drag(result.0 as isize, WM_NCLBUTTONDOWN, point.x, point.y);
                   }
                 }
