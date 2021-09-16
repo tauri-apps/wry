@@ -25,7 +25,7 @@ mod webkitgtk;
 ))]
 use webkitgtk::*;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-mod wkwebview;
+pub(crate) mod wkwebview;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use wkwebview::*;
 #[cfg(target_os = "windows")]
