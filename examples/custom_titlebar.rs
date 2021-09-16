@@ -113,11 +113,7 @@ fn main() -> wry::Result<()> {
       window.set_minimized(true);
     }
     if req.method == "maximize" {
-      if window.is_maximized() {
-        window.set_maximized(false);
-      } else {
-        window.set_maximized(true);
-      }
+      window.set_maximized(!window.is_maximized());
     }
     if req.method == "close" {
       let _ = proxy.send_event(UserEvents::CloseWindow(window.id()));

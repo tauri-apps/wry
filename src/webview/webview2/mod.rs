@@ -112,7 +112,7 @@ impl InnerWebView {
             window.addEventListener('mousedown', (e) => {
               if (e.buttons === 1) window.chrome.webview.postMessage('__WEBVIEW_LEFT_MOUSE_DOWN__')
             });
-            window.addEventListener('mousemove', () => window.chrome.webview.postMessage('__WEBVIEW_MOUSE_MOVE__'));
+            window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('__WEBVIEW_MOUSE_MOVE__'));
           "#,
           |_| (Ok(())),
         )?;
@@ -158,7 +158,7 @@ impl InnerWebView {
                 window_.set_cursor_icon(cursor);
               }
 
-              if js == "__WEBVIEW_LEFT_MOUSE_DOWN__"  {
+              if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" {
                 // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
                 // and prevent conflict with `tao::window::drag_window`.
                 if result != HTCLIENT {
