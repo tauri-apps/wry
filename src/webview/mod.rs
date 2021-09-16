@@ -42,7 +42,7 @@ use url::Url;
 
 #[cfg(target_os = "windows")]
 use crate::application::platform::windows::WindowExtWindows;
-use crate::application::window::Window;
+use crate::application::{dpi::PhysicalSize, window::Window};
 
 use crate::http::{Request as HttpRequest, Response as HttpResponse};
 
@@ -420,6 +420,16 @@ impl WebView {
   /// re-focus the window. And if you focus to `WebView`, it will lost focus to the `Window`.
   pub fn focus(&self) {
     self.webview.focus();
+  }
+
+  pub fn inner_size(&self) -> PhysicalSize<u32> {
+    #[cfg(target_os = "macos")]
+    {
+      let scale_factor = self.window.scale_factor();
+      self.webview.inner_size(scale_factor)
+    }
+    #[cfg(not(target_os = "macos"))]
+    self.window.inner_size()
   }
 }
 

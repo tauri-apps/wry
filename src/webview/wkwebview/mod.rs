@@ -35,7 +35,10 @@ use file_drop::{add_file_drop_methods, set_file_drop_handler};
 use crate::application::platform::ios::WindowExtIOS;
 
 use crate::{
-  application::window::Window,
+  application::{
+    dpi::{LogicalSize, PhysicalSize},
+    window::Window,
+  },
   webview::{FileDropEvent, RpcRequest, RpcResponse, WebContext, WebViewAttributes},
   Result,
 };
@@ -48,7 +51,7 @@ use crate::http::{
 mod file_drop;
 
 pub struct InnerWebView {
-  webview: Id<Object>,
+  webview: id,
   #[cfg(target_os = "macos")]
   ns_window: id,
   manager: id,
@@ -307,7 +310,7 @@ impl InnerWebView {
       let ns_window = window.ns_window() as id;
 
       let w = Self {
-        webview: Id::from_ptr(webview),
+        webview,
         #[cfg(target_os = "macos")]
         ns_window,
         manager,
@@ -423,6 +426,14 @@ impl InnerWebView {
   }
 
   pub fn focus(&self) {}
+
+  #[cfg(target_os = "macos")]
+  pub fn inner_size(&self, scale_factor: f64) -> PhysicalSize<u32> {
+    let view_frame = unsafe { NSView::frame(self.webview) };
+    let logical: LogicalSize<f64> =
+      (view_frame.size.width as f64, view_frame.size.height as f64).into();
+    logical.to_physical(scale_factor)
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {
@@ -455,6 +466,11 @@ impl Drop for InnerWebView {
           let _ = Box::from_raw(*ptr);
         }
       }
+
+      let _: Id<_> = Id::from_ptr(self.webview);
+      #[cfg(target_os = "macos")]
+      let _: Id<_> = Id::from_ptr(self.ns_window);
+      let _: Id<_> = Id::from_ptr(self.manager);
     }
   }
 }
