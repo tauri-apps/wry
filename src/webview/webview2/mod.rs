@@ -54,7 +54,7 @@ impl InnerWebView {
     mut attributes: WebViewAttributes,
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    let hwnd = window.hwnd() as HWND;
+    let hwnd = HWND(window.hwnd() as _);
     let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
 
     if let Some(file_drop_handler) = attributes.file_drop_handler.take() {
@@ -251,7 +251,7 @@ impl InnerWebView {
 
                 let mut point = POINT::default();
                 GetCursorPos(&mut point);
-                let result = hit_test(window.hwnd() as _, point.x, point.y);
+                let result = hit_test(HWND(window.hwnd() as _), point.x, point.y);
                 let cursor = match result.0 as u32 {
                   win32wm::HTLEFT => CursorIcon::WResize,
                   win32wm::HTTOP => CursorIcon::NResize,

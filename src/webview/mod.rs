@@ -34,7 +34,9 @@ mod webview2;
 use self::webview2::*;
 use crate::{Error, Result};
 #[cfg(target_os = "windows")]
-use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
+use webview2_com::{
+  Microsoft::Web::WebView2::Win32::ICoreWebView2Controller, Windows::Win32::Foundation::HWND,
+};
 
 use std::{path::PathBuf, rc::Rc};
 
@@ -365,7 +367,7 @@ impl Drop for WebView {
     #[cfg(target_os = "windows")]
     unsafe {
       use webview2_com::Windows::Win32::UI::WindowsAndMessaging::DestroyWindow;
-      DestroyWindow(self.window.hwnd());
+      DestroyWindow(HWND(self.window.hwnd() as _));
     }
   }
 }
@@ -409,7 +411,7 @@ impl WebView {
   /// provide a way to resize automatically.
   pub fn resize(&self) -> Result<()> {
     #[cfg(target_os = "windows")]
-    self.webview.resize(self.window.hwnd())?;
+    self.webview.resize(HWND(self.window.hwnd() as _))?;
     Ok(())
   }
 
