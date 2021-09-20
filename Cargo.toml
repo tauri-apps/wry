@@ -21,9 +21,6 @@ targets = [
   "x86_64-apple-darwin"
 ]
 
-[patch.crates-io]
-tao = { git = "https://github.com/wravery/tao", branch = "webview2-com" }
-
 [features]
 default = [ "file-drop", "protocol", "tray" ]
 file-drop = [ ]
@@ -39,7 +36,8 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.2"
-tao = { version = "0.5.2", default-features = false, features = [ "serde" ] }
+#tao = { git = "https://github.com/tauri-apps/tao", branch = "next", default-features = false, features = [ "serde" ] }
+tao = { git = "https://github.com/wravery/tao", branch = "webview2-com", default-features = false, features = [ "serde" ] }
 http = "0.2.4"
 
 [dev-dependencies]
