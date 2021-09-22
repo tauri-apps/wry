@@ -1,3 +1,6 @@
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use crate::webview::wkwebview::WebContextImpl;
+
 use std::path::{Path, PathBuf};
 
 /// A context that is shared between multiple [`WebView`]s.
@@ -10,7 +13,7 @@ use std::path::{Path, PathBuf};
 pub struct WebContext {
   data: WebContextData,
   #[allow(dead_code)] // It's not needed on Windows and macOS.
-  os: WebContextImpl,
+  pub(crate) os: WebContextImpl,
 }
 
 impl WebContext {
@@ -49,7 +52,7 @@ impl Default for WebContext {
 
 /// Data that all [`WebContext`] share regardless of platform.
 #[derive(Debug, Default)]
-struct WebContextData {
+pub struct WebContextData {
   data_directory: Option<PathBuf>,
 }
 
@@ -60,23 +63,11 @@ impl WebContextData {
   }
 }
 
-#[cfg(not(any(
-  target_os = "linux",
-  target_os = "dragonfly",
-  target_os = "freebsd",
-  target_os = "netbsd",
-  target_os = "openbsd"
-)))]
+#[cfg(target_os = "windows")]
 #[derive(Debug)]
-struct WebContextImpl;
+pub(crate) struct WebContextImpl;
 
-#[cfg(not(any(
-  target_os = "linux",
-  target_os = "dragonfly",
-  target_os = "freebsd",
-  target_os = "netbsd",
-  target_os = "openbsd"
-)))]
+#[cfg(target_os = "windows")]
 impl WebContextImpl {
   fn new(_data: &WebContextData) -> Self {
     Self
@@ -127,7 +118,7 @@ pub mod unix {
   };
 
   #[derive(Debug)]
-  pub(super) struct WebContextImpl {
+  pub(crate) struct WebContextImpl {
     context: WebContext,
     manager: UserContentManager,
     webview_uri_loader: Rc<WebviewUriLoader>,

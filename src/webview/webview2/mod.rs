@@ -228,7 +228,7 @@ impl InnerWebView {
           window.addEventListener('mousedown', (e) => {
             if (e.buttons === 1) window.chrome.webview.postMessage('__WEBVIEW_LEFT_MOUSE_DOWN__')
           });
-          window.addEventListener('mousemove', () => window.chrome.webview.postMessage('__WEBVIEW_MOUSE_MOVE__'));
+          window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('__WEBVIEW_MOUSE_MOVE__'));
         "#,
       ),
     )?;

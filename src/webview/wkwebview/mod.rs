@@ -3,6 +3,12 @@
 // SPDX-License-Identifier: MIT
 
 #[cfg(target_os = "macos")]
+mod file_drop;
+mod web_context;
+
+pub use web_context::WebContextImpl;
+
+#[cfg(target_os = "macos")]
 use cocoa::{
   appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable},
   base::YES,
@@ -11,6 +17,7 @@ use cocoa::{
   base::id,
   foundation::{NSDictionary, NSFastEnumeration},
 };
+
 use std::{
   ffi::{c_void, CStr},
   os::raw::c_char,
@@ -35,7 +42,10 @@ use file_drop::{add_file_drop_methods, set_file_drop_handler};
 use crate::application::platform::ios::WindowExtIOS;
 
 use crate::{
-  application::window::Window,
+  application::{
+    dpi::{LogicalSize, PhysicalSize},
+    window::Window,
+  },
   webview::{FileDropEvent, RpcRequest, RpcResponse, WebContext, WebViewAttributes},
   Result,
 };
@@ -44,11 +54,8 @@ use crate::http::{
   Request as HttpRequest, RequestBuilder as HttpRequestBuilder, Response as HttpResponse,
 };
 
-#[cfg(target_os = "macos")]
-mod file_drop;
-
 pub struct InnerWebView {
-  webview: Id<Object>,
+  webview: id,
   #[cfg(target_os = "macos")]
   ns_window: id,
   manager: id,
@@ -67,7 +74,7 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     attributes: WebViewAttributes,
-    _web_context: Option<&mut WebContext>,
+    mut web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     // Function for rpc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
@@ -218,7 +225,11 @@ impl InnerWebView {
         };
         let handler: id = msg_send![cls, new];
         let function = Box::into_raw(Box::new(function));
-        protocol_ptrs.push(function);
+        if let Some(context) = &mut web_context {
+          context.os.registered_protocols(function);
+        } else {
+          protocol_ptrs.push(function);
+        }
 
         (*handler).set_ivar("function", function as *mut _ as *mut c_void);
         let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:NSString::new(&name)];
@@ -307,7 +318,7 @@ impl InnerWebView {
       let ns_window = window.ns_window() as id;
 
       let w = Self {
-        webview: Id::from_ptr(webview),
+        webview,
         #[cfg(target_os = "macos")]
         ns_window,
         manager,
@@ -423,6 +434,14 @@ impl InnerWebView {
   }
 
   pub fn focus(&self) {}
+
+  #[cfg(target_os = "macos")]
+  pub fn inner_size(&self, scale_factor: f64) -> PhysicalSize<u32> {
+    let view_frame = unsafe { NSView::frame(self.webview) };
+    let logical: LogicalSize<f64> =
+      (view_frame.size.width as f64, view_frame.size.height as f64).into();
+    logical.to_physical(scale_factor)
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {
@@ -455,6 +474,11 @@ impl Drop for InnerWebView {
           let _ = Box::from_raw(*ptr);
         }
       }
+
+      let _: Id<_> = Id::from_ptr(self.webview);
+      #[cfg(target_os = "macos")]
+      let _: Id<_> = Id::from_ptr(self.ns_window);
+      let _: Id<_> = Id::from_ptr(self.manager);
     }
   }
 }

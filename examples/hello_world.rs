@@ -16,7 +16,7 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)?;
-  let _webview = WebViewBuilder::new(window)?
+  let webview = WebViewBuilder::new(window)?
     .with_url("https://html5test.com")?
     .build()?;
 
@@ -29,7 +29,9 @@ fn main() -> wry::Result<()> {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      _ => (),
+      _ => {
+        dbg!(webview.window().inner_size());
+      }
     }
   });
 }
