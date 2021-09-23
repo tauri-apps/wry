@@ -37,7 +37,7 @@ serde_json = "1.0"
 thiserror = "1.0"
 url = "2.2"
 tao = { version = "0.5.2", default-features = false, features = [ "serde" ] }
-http = "0.2.4"
+http = "0.2.5"
 
 [dev-dependencies]
 anyhow = "1.0.43"
