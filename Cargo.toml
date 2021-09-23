@@ -36,7 +36,7 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.2"
-tao = { version = "0.5.2", default-features = false, features = [ "serde" ] }
+tao = { git = "https://github.com/tauri-apps/tao", branch = "next", default-features = false, features = [ "serde" ] }
 http = "0.2.4"
 
 [dev-dependencies]
@@ -54,9 +54,8 @@ gtk = "0.14"
 gdk = "0.14"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-tauri-webview2 = "0.1"
-webview2-sys = "0.1"
-winapi = { version = "0.3", features = [ "libloaderapi", "oleidl" ] }
+webview2-com = "0.4.0"
+windows = "0.19.0"
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
 cocoa = "0.24"

@@ -160,8 +160,8 @@ pub enum Error {
   #[error("Icon error: {0}")]
   Icon(#[from] BadIcon),
   #[cfg(target_os = "windows")]
-  #[error(transparent)]
-  WebView2Error(#[from] webview2::Error),
+  #[error("WebView2 error: {0}")]
+  WebView2Error(webview2_com::Error),
   #[error("Duplicate custom protocol registered: {0}")]
   DuplicateCustomProtocol(String),
   #[error("Invalid header name: {0}")]
