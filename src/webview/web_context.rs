@@ -8,6 +8,11 @@ use std::path::{Path, PathBuf};
 /// A browser would have a context for all the normal tabs and a different context for all the
 /// private/incognito tabs.
 ///
+/// # Warning
+/// If [`Webview`] is created by a WebContext. Dropping `WebContext` will cause [`WebView`] lose
+/// some actions like custom protocol on Mac. Please keep both instances when you still wish to
+/// interact with them.
+///
 /// [`WebView`]: crate::webview::WebView
 #[derive(Debug)]
 pub struct WebContext {
