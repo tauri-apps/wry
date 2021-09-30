@@ -202,7 +202,9 @@ impl InnerWebView {
           // Finish
           let () = msg_send![task, didFinish];
         } else {
-          log::warn!("Either WebView or WebContext instance is dropped! This handler shouldn't be called.");
+          log::warn!(
+            "Either WebView or WebContext instance is dropped! This handler shouldn't be called."
+          );
         }
       }
     }
