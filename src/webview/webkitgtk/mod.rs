@@ -18,10 +18,7 @@ use webkit2gtk_sys::{
 
 use crate::{
   application::{platform::unix::*, window::Window},
-  webview::{
-    web_context::{unix::WebContextExt, WebContext},
-    WebViewAttributes,
-  },
+  webview::{web_context::WebContext, WebViewAttributes},
   Error, Result,
 };
 use std::{
@@ -30,6 +27,10 @@ use std::{
 };
 
 mod file_drop;
+mod web_context;
+
+use web_context::WebContextExt;
+pub use web_context::WebContextImpl;
 
 pub struct InnerWebView {
   webview: Rc<WebView>,
