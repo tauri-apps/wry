@@ -15,7 +15,7 @@ pub use web_context::WebContext;
   target_os = "netbsd",
   target_os = "openbsd"
 ))]
-mod webkitgtk;
+pub(crate) mod webkitgtk;
 #[cfg(any(
   target_os = "linux",
   target_os = "dragonfly",
@@ -29,7 +29,7 @@ pub(crate) mod wkwebview;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use wkwebview::*;
 #[cfg(target_os = "windows")]
-mod webview2;
+pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
 use crate::{Error, Result};
