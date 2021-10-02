@@ -67,7 +67,6 @@ impl InnerWebView {
 
     // Message handler
     let webview = Rc::new(webview);
-    let wv = Rc::clone(&webview);
     let w = window_rc.clone();
     let rpc_handler = attributes.rpc_handler.take();
 
@@ -85,16 +84,7 @@ impl InnerWebView {
       if let (Some(js), Some(context)) = (msg.value(), msg.global_context()) {
         if let Some(js) = js.to_string(&context) {
           if let Some(rpc_handler) = &rpc_handler {
-            match super::rpc_proxy(&w, js, rpc_handler) {
-              Ok(result) => {
-                let script = result.unwrap_or_default();
-                let cancellable: Option<&Cancellable> = None;
-                wv.run_javascript(&script, cancellable, |_| ());
-              }
-              Err(e) => {
-                eprintln!("{}", e);
-              }
-            }
+            rpc_handler(&w, js);
           }
         }
       }

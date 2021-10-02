@@ -17,7 +17,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::{Fullscreen, Window, WindowBuilder},
     },
-    webview::{RpcRequest, RpcResponse, WebViewBuilder},
+    webview::WebViewBuilder,
   };
 
   let event_loop = EventLoop::new();
@@ -26,12 +26,12 @@ fn main() -> wry::Result<()> {
   let url = r#"data:text/html,
 <script>
 let fullscreen = false;
-async function toggleFullScreen() {
-    await rpc.call('fullscreen', !fullscreen);
+function toggleFullScreen() {
+    .call('fullscreen', !fullscreen);
     fullscreen = !fullscreen;
 }
 
-async function getAsyncRpcResult() {
+function getAsyncRpcResult() {
     const reply = await rpc.call('send-parameters', {'message': 'WRY'});
     const result = document.getElementById('rpc-result');
     result.innerText = reply;
@@ -43,7 +43,7 @@ async function getAsyncRpcResult() {
 <div id="rpc-result"></div>
 "#;
 
-  let handler = |window: &Window, mut req: RpcRequest| {
+  let handler = |window: &Window, mut req: String| {
     let mut response = None;
     if &req.method == "fullscreen" {
       if let Some(params) = req.params.take() {
@@ -55,7 +55,6 @@ async function getAsyncRpcResult() {
               window.set_fullscreen(None);
             }
           };
-          response = Some(RpcResponse::new_result(req.id.take(), None));
         }
       }
     } else if &req.method == "send-parameters" {
@@ -69,12 +68,10 @@ async function getAsyncRpcResult() {
             None
           };
           // Must always send a response as this is a `call()`
-          response = Some(RpcResponse::new_result(req.id.take(), result));
+          //response = Some(RpcResponse::new_result(req.id.take(), result));
         }
       }
     }
-
-    response
   };
   let webview = WebViewBuilder::new(window)
     .unwrap()
