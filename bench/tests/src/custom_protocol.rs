@@ -45,7 +45,7 @@ fn main() -> wry::Result<()> {
           <h1>Welcome to WRY!</h1>
           <script>
             document.addEventListener('DOMContentLoaded', () => {
-              rpc.call('dom-loaded')
+              external.invoke('dom-loaded')
             })
           </script>
         </body>

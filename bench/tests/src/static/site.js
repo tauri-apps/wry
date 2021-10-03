@@ -17,7 +17,7 @@ const onMessage = (message) => {
 
   if (message.data.status === "done") {
     // tell rust that we are done
-    rpc.call("process-complete");
+    external.invoke("process-complete");
   }
 
   status.innerHTML = `${prefix} Found <code>${message.data.count}</code> prime numbers in <code>${message.data.time}ms</code>`;
