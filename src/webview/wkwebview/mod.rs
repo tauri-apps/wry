@@ -55,12 +55,12 @@ pub struct InnerWebView {
   // Note that if following functions signatures are changed in the future,
   // all fucntions pointer declarations in objc callbacks below all need to get updated.
   rpc_handler_ptr: *mut (
-    Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>,
+    Box<dyn FnMut(&Window, RpcRequest) -> Option<RpcResponse>>,
     Rc<Window>,
   ),
   #[cfg(target_os = "macos")]
-  file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
-  protocol_ptrs: Vec<*mut Box<dyn Fn(&HttpRequest) -> Result<HttpResponse>>>,
+  file_drop_ptr: *mut (Box<dyn FnMut(&Window, FileDropEvent) -> bool>, Rc<Window>),
+  protocol_ptrs: Vec<*mut Box<dyn FnMut(&HttpRequest) -> Result<HttpResponse>>>,
 }
 
 impl InnerWebView {
@@ -83,7 +83,7 @@ impl InnerWebView {
         let utf8: *const c_char = msg_send![body, UTF8String];
         let js = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
 
-        match super::rpc_proxy(&function.1, js.to_string(), &function.0) {
+        match super::rpc_proxy(&function.1, js.to_string(), &mut function.0) {
           Ok(result) => {
             let script = result.unwrap_or_default();
             let wv: id = msg_send![msg, webView];

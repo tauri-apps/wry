@@ -56,8 +56,8 @@ static OBJC_DRAGGING_UPDATED: Lazy<extern "C" fn(*const Object, Sel, id) -> NSDr
 pub(crate) unsafe fn set_file_drop_handler(
   webview: *mut Object,
   window: Rc<Window>,
-  handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>,
-) -> *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>) {
+  handler: Box<dyn FnMut(&Window, FileDropEvent) -> bool>,
+) -> *mut (Box<dyn FnMut(&Window, FileDropEvent) -> bool>, Rc<Window>) {
   let listener = Box::into_raw(Box::new((handler, window)));
   (*webview).set_ivar("FileDropHandler", listener as *mut _ as *mut c_void);
   listener

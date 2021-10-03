@@ -88,7 +88,7 @@ pub struct WebViewAttributes {
   /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.examples` in `custom_protocol` example)
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
-  pub custom_protocols: Vec<(String, Box<dyn Fn(&HttpRequest) -> Result<HttpResponse>>)>,
+  pub custom_protocols: Vec<(String, Box<dyn FnMut(&HttpRequest) -> Result<HttpResponse>>)>,
   /// Set the RPC handler to Communicate between the host Rust code and Javascript on webview.
   ///
   /// The communication is done via [JSON-RPC](https://www.jsonrpc.org). Users can use this to register an incoming
@@ -99,7 +99,7 @@ pub struct WebViewAttributes {
   /// 2. The `notify()` function accepts a method name and parameters but does not expect a reply.
   ///
   /// Both functions return promises but `notify()` resolves immediately.
-  pub rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
+  pub rpc_handler: Option<Box<dyn FnMut(&Window, RpcRequest) -> Option<RpcResponse>>>,
   /// Set a handler closure to process incoming [`FileDropEvent`] of the webview.
   ///
   /// # Blocking OS Default Behavior
@@ -108,9 +108,9 @@ pub struct WebViewAttributes {
   /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
   #[cfg(feature = "file-drop")]
-  pub file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+  pub file_drop_handler: Option<Box<dyn FnMut(&Window, FileDropEvent) -> bool>>,
   #[cfg(not(feature = "file-drop"))]
-  file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+  file_drop_handler: Option<Box<dyn FnMut(&Window, FileDropEvent) -> bool>>,
 }
 
 impl Default for WebViewAttributes {
@@ -193,7 +193,7 @@ impl<'a> WebViewBuilder<'a> {
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(&HttpRequest) -> Result<HttpResponse> + 'static,
+    F: FnMut(&HttpRequest) -> Result<HttpResponse> + 'static,
   {
     self
       .webview
@@ -214,7 +214,7 @@ impl<'a> WebViewBuilder<'a> {
   /// Both functions return promises but `notify()` resolves immediately.
   pub fn with_rpc_handler<F>(mut self, handler: F) -> Self
   where
-    F: Fn(&Window, RpcRequest) -> Option<RpcResponse> + 'static,
+    F: FnMut(&Window, RpcRequest) -> Option<RpcResponse> + 'static,
   {
     self.webview.rpc_handler = Some(Box::new(handler));
     self
@@ -230,7 +230,7 @@ impl<'a> WebViewBuilder<'a> {
   #[cfg(feature = "file-drop")]
   pub fn with_file_drop_handler<F>(mut self, handler: F) -> Self
   where
-    F: Fn(&Window, FileDropEvent) -> bool + 'static,
+    F: FnMut(&Window, FileDropEvent) -> bool + 'static,
   {
     self.webview.file_drop_handler = Some(Box::new(handler));
     self
@@ -427,7 +427,7 @@ impl WebView {
 fn rpc_proxy(
   window: &Window,
   js: String,
-  handler: &dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>,
+  handler: &mut dyn FnMut(&Window, RpcRequest) -> Option<RpcResponse>,
 ) -> Result<Option<String>> {
   let req = serde_json::from_str::<RpcRequest>(&js)
     .map_err(|e| Error::RpcScriptError(e.to_string(), js))?;
