@@ -36,7 +36,8 @@ fn main() -> wry::Result<()> {
   let id = window1.id();
   let webview1 = WebViewBuilder::new(window1)?
     .with_url("https://tauri.studio")?
-    .with_initialization_script(r#"async function openWindow() {
+    .with_initialization_script(
+      r#"async function openWindow() {
     await window.external.invoke("https://i.imgur.com/x6tXcr9.gif");
 }"#,
     )

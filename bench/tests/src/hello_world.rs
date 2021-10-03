@@ -17,7 +17,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::{Window, WindowBuilder},
     },
-    webview::{RpcRequest, WebViewBuilder},
+    webview::WebViewBuilder,
   };
 
   let event_loop = EventLoop::new();
@@ -26,16 +26,15 @@ fn main() -> wry::Result<()> {
   let url = r#"data:text/html,
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-      rpc.call('dom-loaded')
+      external.invoke('dom-loaded')
     })
     </script>
   "#;
 
-  let handler = |_window: &Window, req: RpcRequest| {
-    if &req.method == "dom-loaded" {
+  let handler = |_window: &Window, req: String| {
+    if &req == "dom-loaded" {
       exit(0);
     }
-    None
   };
   let webview = WebViewBuilder::new(window)
     .unwrap()
