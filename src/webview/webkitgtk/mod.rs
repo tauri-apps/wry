@@ -82,18 +82,16 @@ impl InnerWebView {
 
     // Connect before registering as recommended by the docs
     manager.connect_script_message_received(None, move |_m, msg| {
-      if let (Some(js), Some(context)) = (msg.value(), msg.global_context()) {
-        if let Some(js) = js.to_string(&context) {
-          if let Some(rpc_handler) = &rpc_handler {
-            match super::rpc_proxy(&w, js, rpc_handler) {
-              Ok(result) => {
-                let script = result.unwrap_or_default();
-                let cancellable: Option<&Cancellable> = None;
-                wv.run_javascript(&script, cancellable, |_| ());
-              }
-              Err(e) => {
-                eprintln!("{}", e);
-              }
+      if let Some(js) = msg.js_value() {
+        if let Some(rpc_handler) = &rpc_handler {
+          match super::rpc_proxy(&w, js.to_string(), rpc_handler) {
+            Ok(result) => {
+              let script = result.unwrap_or_default();
+              let cancellable: Option<&Cancellable> = None;
+              wv.run_javascript(&script, cancellable, |_| ());
+            }
+            Err(e) => {
+              eprintln!("{}", e);
             }
           }
         }
