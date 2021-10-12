@@ -56,6 +56,8 @@
 //! those types if you disable it. They just don't create the actual objects. We set this flag
 //! because some implementations require more installed packages. Disable this if you don't want
 //! to install `libappindicator` package.
+//! - `transparent`: Transparent background on **macOS** requires calling private functions.
+//! Disable this if you are avoiding them.
 //! - `dox`: Enables this in `package.metadata.docs.rs` section to skip linking some **Linux**
 //! libraries and prevent from building documentation on doc.rs fails.
 //!

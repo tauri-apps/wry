@@ -271,6 +271,7 @@ impl InnerWebView {
         ()
       );
 
+      #[cfg(feature = "transparent")]
       if attributes.transparent {
         // Equivalent Obj-C:
         // [config setValue:@NO forKey:@"drawsBackground"];
