@@ -259,7 +259,6 @@ impl InnerWebView {
       let webview: id = msg_send![cls, alloc];
       let preference: id = msg_send![config, preferences];
       let yes: id = msg_send![class!(NSNumber), numberWithBool:1];
-      let no: id = msg_send![class!(NSNumber), numberWithBool:0];
 
       debug_assert_eq!(
         {
@@ -271,11 +270,18 @@ impl InnerWebView {
         ()
       );
 
+      #[cfg(feature = "transparent")]
       if attributes.transparent {
+        let no: id = msg_send![class!(NSNumber), numberWithBool:0];
         // Equivalent Obj-C:
         // [config setValue:@NO forKey:@"drawsBackground"];
         let _: id = msg_send![config, setValue:no forKey:NSString::new("drawsBackground")];
       }
+
+      #[cfg(feature = "fullscreen")]
+      // Equivalent Obj-C:
+      // [preference setValue:@YES forKey:@"fullScreenEnabled"];
+      let _: id = msg_send![preference, setValue:yes forKey:NSString::new("fullScreenEnabled")];
 
       // Initialize webview with zero point
       let zero = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(0., 0.));

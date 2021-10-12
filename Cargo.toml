@@ -27,6 +27,8 @@ file-drop = [ ]
 protocol = [ ]
 dox = [ "tao/dox" ]
 tray = [ "tao/tray" ]
+transparent = [ ]
+fullscreen = [ ]
 
 [dependencies]
 libc = "0.2"
