@@ -22,12 +22,13 @@ targets = [
 ]
 
 [features]
-default = [ "file-drop", "protocol", "tray", "transparent" ]
+default = [ "file-drop", "protocol", "tray" ]
 file-drop = [ ]
 protocol = [ ]
 dox = [ "tao/dox" ]
 tray = [ "tao/tray" ]
 transparent = [ ]
+fullscreen = [ ]
 
 [dependencies]
 libc = "0.2"

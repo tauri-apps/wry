@@ -278,6 +278,11 @@ impl InnerWebView {
         let _: id = msg_send![config, setValue:no forKey:NSString::new("drawsBackground")];
       }
 
+      #[cfg(feature = "fullscreen")]
+      // Equivalent Obj-C:
+      // [preference setValue:@YES forKey:@"drawsBackground"];
+      let _: id = msg_send![preference, setValue:yes forKey:NSString::new("fullScreenEnabled")];
+
       // Initialize webview with zero point
       let zero = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(0., 0.));
       let _: () = msg_send![webview, initWithFrame:zero configuration:config];
