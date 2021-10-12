@@ -223,6 +223,11 @@ impl InnerWebView {
       settings.set_enable_webaudio(true);
       settings.set_enable_accelerated_2d_canvas(true);
 
+      // Enable clipboard
+      if attributes.clipboard {
+        settings.set_javascript_can_access_clipboard(true);
+      }
+
       // Enable App cache
       settings.set_enable_offline_web_application_cache(true);
       settings.set_enable_page_cache(true);

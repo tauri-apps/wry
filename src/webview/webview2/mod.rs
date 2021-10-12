@@ -444,22 +444,24 @@ impl InnerWebView {
     }
 
     // Enable clipboard
-    unsafe {
-      webview
-        .add_PermissionRequested(
-          PermissionRequestedEventHandler::create(Box::new(|_, args| {
-            if let Some(args) = args {
-              let mut kind = COREWEBVIEW2_PERMISSION_KIND_UNKNOWN_PERMISSION;
-              args.get_PermissionKind(&mut kind)?;
-              if kind == COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ {
-                args.put_State(COREWEBVIEW2_PERMISSION_STATE_ALLOW)?;
+    if attributes.clipboard {
+      unsafe {
+        webview
+          .add_PermissionRequested(
+            PermissionRequestedEventHandler::create(Box::new(|_, args| {
+              if let Some(args) = args {
+                let mut kind = COREWEBVIEW2_PERMISSION_KIND_UNKNOWN_PERMISSION;
+                args.get_PermissionKind(&mut kind)?;
+                if kind == COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ {
+                  args.put_State(COREWEBVIEW2_PERMISSION_STATE_ALLOW)?;
+                }
               }
-            }
-            Ok(())
-          })),
-          &mut token,
-        )
-        .map_err(webview2_com::Error::WindowsError)?;
+              Ok(())
+            })),
+            &mut token,
+          )
+          .map_err(webview2_com::Error::WindowsError)?;
+      }
     }
 
     // Navigation

@@ -114,6 +114,12 @@ pub struct WebViewAttributes {
   pub file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
   #[cfg(not(feature = "file-drop"))]
   file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+
+  /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
+  ///
+  /// macOS doesn't provide such method and is always enabled by default. But you still need to add menu
+  /// item accelerators to use shortcuts.
+  pub clipboard: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -127,6 +133,7 @@ impl Default for WebViewAttributes {
       custom_protocols: vec![],
       rpc_handler: None,
       file_drop_handler: None,
+      clipboard: false,
     }
   }
 }
