@@ -213,7 +213,7 @@ where
   context
     .security_manager()
     .ok_or(Error::MissingManager)?
-    .register_uri_scheme_as_secure(name);
+    .register_uri_scheme_as_local(name);
 
   context.register_uri_scheme(name, move |request| {
     if let Some(uri) = request.uri() {
