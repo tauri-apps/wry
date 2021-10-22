@@ -210,10 +210,11 @@ where
 {
   use webkit2gtk::traits::*;
   let context = &context.os.context;
-  context
-    .security_manager()
-    .ok_or(Error::MissingManager)?
-    .register_uri_scheme_as_local(name);
+  // Enable this when we really need it
+  // context
+  //   .security_manager()
+  //   .ok_or(Error::MissingManager)?
+  //   .register_uri_scheme_as_secure(name);
 
   context.register_uri_scheme(name, move |request| {
     if let Some(uri) = request.uri() {
