@@ -49,13 +49,17 @@
 //! and `tray` are enabled by default.
 //!
 //! - `file-drop`: Enables [`with_file_drop_handler`] to control the behaviour when there are files
-//! interacting with the window.
+//! interacting with the window. Enabled by default.
 //! - `protocol`: Enables [`with_custom_protocol`] to define custom URL scheme for handling tasks like
-//! loading assets.
+//! loading assets. Enabled by default.
 //! - `tray`: Enables system tray and more menu item variants on **Linux**. You can still create
 //! those types if you disable it. They just don't create the actual objects. We set this flag
 //! because some implementations require more installed packages. Disable this if you don't want
-//! to install `libappindicator` package.
+//! to install `libappindicator` package. Enabled by default.
+//! - `transparent`: Transparent background on **macOS** requires calling private functions.
+//! Disable this if you are avoiding them.
+//! - `fullscreen`: Fullscreen video and other medias on **macOS** requires calling private functions.
+//! Disable this if you are avoiding them.
 //! - `dox`: Enables this in `package.metadata.docs.rs` section to skip linking some **Linux**
 //! libraries and prevent from building documentation on doc.rs fails.
 //!
@@ -89,7 +93,7 @@ use std::sync::mpsc::{RecvError, SendError};
 
 use crate::{
   application::window::BadIcon,
-  shared::http::{
+  http::{
     header::{InvalidHeaderName, InvalidHeaderValue},
     method::InvalidMethod,
     status::InvalidStatusCode,
@@ -100,10 +104,8 @@ pub use serde_json::Value;
 use url::ParseError;
 
 pub mod application;
+pub mod http;
 pub mod webview;
-
-mod shared;
-pub use shared::*;
 
 /// Convenient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -162,8 +164,8 @@ pub enum Error {
   #[error("Icon error: {0}")]
   Icon(#[from] BadIcon),
   #[cfg(target_os = "windows")]
-  #[error(transparent)]
-  WebView2Error(#[from] webview2::Error),
+  #[error("WebView2 error: {0}")]
+  WebView2Error(webview2_com::Error),
   #[error("Duplicate custom protocol registered: {0}")]
   DuplicateCustomProtocol(String),
   #[error("Invalid header name: {0}")]

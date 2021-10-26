@@ -4,7 +4,7 @@
 
 use std::rc::Rc;
 
-use gdk::{WindowEdge, RGBA};
+use gdk::{Cursor, EventMask, WindowEdge, RGBA};
 use gio::Cancellable;
 use glib::signal::Inhibit;
 use gtk::prelude::*;
@@ -18,10 +18,7 @@ use webkit2gtk_sys::{
 
 use crate::{
   application::{platform::unix::*, window::Window},
-  webview::{
-    web_context::{unix::WebContextExt, WebContext},
-    WebViewAttributes,
-  },
+  webview::{web_context::WebContext, WebViewAttributes},
   Error, Result,
 };
 use std::{
@@ -30,6 +27,10 @@ use std::{
 };
 
 mod file_drop;
+mod web_context;
+
+use web_context::WebContextExt;
+pub use web_context::WebContextImpl;
 
 pub struct InnerWebView {
   webview: Rc<WebView>,
@@ -81,18 +82,16 @@ impl InnerWebView {
 
     // Connect before registering as recommended by the docs
     manager.connect_script_message_received(None, move |_m, msg| {
-      if let (Some(js), Some(context)) = (msg.value(), msg.global_context()) {
-        if let Some(js) = js.to_string(&context) {
-          if let Some(rpc_handler) = &rpc_handler {
-            match super::rpc_proxy(&w, js, rpc_handler) {
-              Ok(result) => {
-                let script = result.unwrap_or_default();
-                let cancellable: Option<&Cancellable> = None;
-                wv.run_javascript(&script, cancellable, |_| ());
-              }
-              Err(e) => {
-                eprintln!("{}", e);
-              }
+      if let Some(js) = msg.js_value() {
+        if let Some(rpc_handler) = &rpc_handler {
+          match super::rpc_proxy(&w, js.to_string(), rpc_handler) {
+            Ok(result) => {
+              let script = result.unwrap_or_default();
+              let cancellable: Option<&Cancellable> = None;
+              wv.run_javascript(&script, cancellable, |_| ());
+            }
+            Err(e) => {
+              eprintln!("{}", e);
             }
           }
         }
@@ -108,6 +107,47 @@ impl InnerWebView {
       close_window.gtk_window().close();
     });
 
+    webview.add_events(
+      EventMask::POINTER_MOTION_MASK
+        | EventMask::BUTTON1_MOTION_MASK
+        | EventMask::BUTTON_PRESS_MASK
+        | EventMask::TOUCH_MASK,
+    );
+    webview.connect_motion_notify_event(|webview, event| {
+      // This one should be GtkWindow
+      if let Some(widget) = webview.parent() {
+        // This one should be GtkWindow
+        if let Some(window) = widget.parent() {
+          // Safe to unwrap unless this is not from tao
+          let window: gtk::Window = window.downcast().unwrap();
+          if !window.is_decorated() && window.is_resizable() {
+            if let Some(window) = window.window() {
+              let (cx, cy) = event.root();
+              let edge = hit_test(&window, cx, cy);
+              // FIXME: calling `window.begin_resize_drag` seems to revert the cursor back to normal style
+              window.set_cursor(
+                Cursor::from_name(
+                  &window.display(),
+                  match edge {
+                    WindowEdge::North => "n-resize",
+                    WindowEdge::South => "s-resize",
+                    WindowEdge::East => "e-resize",
+                    WindowEdge::West => "w-resize",
+                    WindowEdge::NorthWest => "nw-resize",
+                    WindowEdge::NorthEast => "ne-resize",
+                    WindowEdge::SouthEast => "se-resize",
+                    WindowEdge::SouthWest => "sw-resize",
+                    _ => "default",
+                  },
+                )
+                .as_ref(),
+              );
+            }
+          }
+        }
+      }
+      Inhibit(false)
+    });
     webview.connect_button_press_event(|webview, event| {
       if event.button() == 1 {
         let (cx, cy) = event.root();
@@ -118,13 +158,48 @@ impl InnerWebView {
             // Safe to unwrap unless this is not from tao
             let window: gtk::Window = window.downcast().unwrap();
             if !window.is_decorated() && window.is_resizable() {
-              // Safe to unwrap since it's a valide GtkWindow
-              let result = hit_test(&window.window().unwrap(), cx, cy);
+              if let Some(window) = window.window() {
+                // Safe to unwrap since it's a valide GtkWindow
+                let result = hit_test(&window, cx, cy);
 
-              // we ignore the `__Unknown` variant so the webview receives the click correctly if it is not on the edges.
-              match result {
-                WindowEdge::__Unknown(_) => (),
-                _ => window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.time()),
+                // we ignore the `__Unknown` variant so the webview receives the click correctly if it is not on the edges.
+                match result {
+                  WindowEdge::__Unknown(_) => (),
+                  _ => window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.time()),
+                }
+              }
+            }
+          }
+        }
+      }
+      Inhibit(false)
+    });
+    webview.connect_touch_event(|webview, event| {
+      // This one should be GtkBox
+      if let Some(widget) = webview.parent() {
+        // This one should be GtkWindow
+        if let Some(window) = widget.parent() {
+          // Safe to unwrap unless this is not from tao
+          let window: gtk::Window = window.downcast().unwrap();
+          if !window.is_decorated() && window.is_resizable() {
+            if let Some(window) = window.window() {
+              if let Some((cx, cy)) = event.root_coords() {
+                if let Some(device) = event.device() {
+                  let result = hit_test(&window, cx, cy);
+
+                  // we ignore the `__Unknown` variant so the window receives the click correctly if it is not on the edges.
+                  match result {
+                    WindowEdge::__Unknown(_) => (),
+                    _ => window.begin_resize_drag_for_device(
+                      result,
+                      &device,
+                      0,
+                      cx as i32,
+                      cy as i32,
+                      event.time(),
+                    ),
+                  }
+                }
               }
             }
           }
@@ -142,12 +217,16 @@ impl InnerWebView {
     }
     webview.grab_focus();
 
-    // Enable webgl, webaudio, canvas features and others as default.
+    // Enable webgl, webaudio, canvas features as default.
     if let Some(settings) = WebViewExt::settings(&*webview) {
       settings.set_enable_webgl(true);
       settings.set_enable_webaudio(true);
       settings.set_enable_accelerated_2d_canvas(true);
-      settings.set_javascript_can_access_clipboard(true);
+
+      // Enable clipboard
+      if attributes.clipboard {
+        settings.set_javascript_can_access_clipboard(true);
+      }
 
       // Enable App cache
       settings.set_enable_offline_web_application_cache(true);

@@ -15,7 +15,7 @@ pub use web_context::WebContext;
   target_os = "netbsd",
   target_os = "openbsd"
 ))]
-mod webkitgtk;
+pub(crate) mod webkitgtk;
 #[cfg(any(
   target_os = "linux",
   target_os = "dragonfly",
@@ -25,15 +25,18 @@ mod webkitgtk;
 ))]
 use webkitgtk::*;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-mod wkwebview;
+pub(crate) mod wkwebview;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use wkwebview::*;
 #[cfg(target_os = "windows")]
-mod webview2;
+pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
-
 use crate::{Error, Result};
+#[cfg(target_os = "windows")]
+use webview2_com::{
+  Microsoft::Web::WebView2::Win32::ICoreWebView2Controller, Windows::Win32::Foundation::HWND,
+};
 
 use std::{path::PathBuf, rc::Rc};
 
@@ -42,7 +45,7 @@ use url::Url;
 
 #[cfg(target_os = "windows")]
 use crate::application::platform::windows::WindowExtWindows;
-use crate::application::window::Window;
+use crate::application::{dpi::PhysicalSize, window::Window};
 
 use crate::http::{Request as HttpRequest, Response as HttpResponse};
 
@@ -111,6 +114,12 @@ pub struct WebViewAttributes {
   pub file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
   #[cfg(not(feature = "file-drop"))]
   file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+
+  /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
+  ///
+  /// macOS doesn't provide such method and is always enabled by default. But you still need to add menu
+  /// item accelerators to use shortcuts.
+  pub clipboard: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -124,6 +133,7 @@ impl Default for WebViewAttributes {
       custom_protocols: vec![],
       rpc_handler: None,
       file_drop_handler: None,
+      clipboard: false,
     }
   }
 }
@@ -363,8 +373,8 @@ impl Drop for WebView {
     }
     #[cfg(target_os = "windows")]
     unsafe {
-      use winapi::{shared::windef::HWND, um::winuser::DestroyWindow};
-      DestroyWindow(self.window.hwnd() as HWND);
+      use webview2_com::Windows::Win32::UI::WindowsAndMessaging::DestroyWindow;
+      DestroyWindow(HWND(self.window.hwnd() as _));
     }
   }
 }
@@ -408,7 +418,7 @@ impl WebView {
   /// provide a way to resize automatically.
   pub fn resize(&self) -> Result<()> {
     #[cfg(target_os = "windows")]
-    self.webview.resize(self.window.hwnd())?;
+    self.webview.resize(HWND(self.window.hwnd() as _))?;
     Ok(())
   }
 
@@ -420,6 +430,16 @@ impl WebView {
   /// re-focus the window. And if you focus to `WebView`, it will lost focus to the `Window`.
   pub fn focus(&self) {
     self.webview.focus();
+  }
+
+  pub fn inner_size(&self) -> PhysicalSize<u32> {
+    #[cfg(target_os = "macos")]
+    {
+      let scale_factor = self.window.scale_factor();
+      self.webview.inner_size(scale_factor)
+    }
+    #[cfg(not(target_os = "macos"))]
+    self.window.inner_size()
   }
 }
 
@@ -540,13 +560,13 @@ pub fn webview_version() -> Result<String> {
 #[cfg(target_os = "windows")]
 pub trait WebviewExtWindows {
   /// Returns WebView2 Controller
-  fn controller(&self) -> Option<&::webview2::Controller>;
+  fn controller(&self) -> Option<ICoreWebView2Controller>;
 }
 
 #[cfg(target_os = "windows")]
 impl WebviewExtWindows for WebView {
-  fn controller(&self) -> Option<&::webview2::Controller> {
-    self.webview.controller.get()
+  fn controller(&self) -> Option<ICoreWebView2Controller> {
+    Some(self.webview.controller.clone())
   }
 }
 

@@ -170,6 +170,7 @@ impl Builder {
   /// This function will append the provided key/value as a header to the
   /// internal `HeaderMap` being constructed. Essentially this is equivalent
   /// to calling `HeaderMap::append`.
+  #[allow(dead_code)] // It's not needed on Linux.
   pub fn header<K, V>(self, key: K, value: V) -> Builder
   where
     HeaderName: TryFrom<K>,

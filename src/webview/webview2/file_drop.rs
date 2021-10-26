@@ -15,27 +15,32 @@ use std::{
   path::PathBuf,
   ptr,
   rc::Rc,
-  sync::atomic::{AtomicUsize, Ordering},
 };
 
-use winapi::shared::windef::HWND;
+use webview2_com::Windows::{
+  self,
+  Win32::{
+    Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINTL, PWSTR},
+    System::{
+      Com::{
+        IDataObject, IDropTarget, RegisterDragDrop, RevokeDragDrop, DROPEFFECT_COPY,
+        DROPEFFECT_NONE, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL,
+      },
+      SystemServices::CF_HDROP,
+    },
+    UI::{
+      Shell::{DragFinish, DragQueryFileW, HDROP},
+      WindowsAndMessaging::EnumChildWindows,
+    },
+  },
+};
 
 use crate::application::window::Window;
 
 pub(crate) struct FileDropController {
-  drop_targets: Vec<*mut IDropTarget>,
+  drop_targets: Vec<IDropTarget>,
 }
-impl Drop for FileDropController {
-  fn drop(&mut self) {
-    // Safety: this could dereference a null ptr.
-    // This should never be a null ptr unless something goes wrong in Windows.
-    unsafe {
-      for ptr in &self.drop_targets {
-        Box::from_raw(*ptr);
-      }
-    }
-  }
-}
+
 impl FileDropController {
   pub(crate) fn new() -> Self {
     FileDropController {
@@ -65,17 +70,13 @@ impl FileDropController {
   ) -> bool {
     // Safety: WinAPI calls are unsafe
     unsafe {
-      let file_drop_handler = IDropTarget::new(hwnd, window, listener);
-      let handler_interface_ptr =
-        &mut (*file_drop_handler.data).interface as winapi::um::oleidl::LPDROPTARGET;
+      let file_drop_handler: IDropTarget = FileDropHandler::new(window, listener).into();
 
-      if winapi::um::ole2::RevokeDragDrop(hwnd) != winapi::shared::winerror::DRAGDROP_E_INVALIDHWND
-        && winapi::um::ole2::RegisterDragDrop(hwnd, handler_interface_ptr) == S_OK
+      if RevokeDragDrop(hwnd) != Err(DRAGDROP_E_INVALIDHWND.into())
+        && RegisterDragDrop(hwnd, file_drop_handler.clone()).is_ok()
       {
         // Not a great solution. But there is no reliable way to get the window handle of the webview, for whatever reason...
-        self
-          .drop_targets
-          .push(Box::into_raw(Box::new(file_drop_handler)));
+        self.drop_targets.push(file_drop_handler);
       }
     }
 
@@ -92,255 +93,149 @@ where
 {
   let mut trait_obj: &mut dyn FnMut(HWND) -> bool = &mut callback;
   let closure_pointer_pointer: *mut c_void = unsafe { std::mem::transmute(&mut trait_obj) };
-
-  let lparam = closure_pointer_pointer as winapi::shared::minwindef::LPARAM;
-  unsafe { winapi::um::winuser::EnumChildWindows(hwnd, Some(enumerate_callback), lparam) };
+  let lparam = LPARAM(closure_pointer_pointer as isize);
+  unsafe { EnumChildWindows(hwnd, Some(enumerate_callback), lparam) };
 }
 
-unsafe extern "system" fn enumerate_callback(
-  hwnd: HWND,
-  lparam: winapi::shared::minwindef::LPARAM,
-) -> winapi::shared::minwindef::BOOL {
-  let closure = &mut *(lparam as *mut c_void as *mut &mut dyn FnMut(HWND) -> bool);
-  if closure(hwnd) {
-    winapi::shared::minwindef::TRUE
-  } else {
-    winapi::shared::minwindef::FALSE
-  }
+unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
+  let closure = &mut *(lparam.0 as *mut c_void as *mut &mut dyn FnMut(HWND) -> bool);
+  closure(hwnd).into()
 }
 
-// The below code has been ripped from tao - if only they'd `pub use` this!
-// https://github.com/rust-windowing/winit/blob/b9f3d333e41464457f6e42640793bf88b9563727/src/platform_impl/windows/drop_handler.rs
-// Safety: WinAPI calls are unsafe
-
-use winapi::{
-  shared::{
-    guiddef::REFIID,
-    minwindef::{DWORD, UINT, ULONG},
-    windef::POINTL,
-    winerror::S_OK,
-  },
-  um::{
-    objidl::IDataObject,
-    oleidl::{IDropTarget as NativeIDropTarget, IDropTargetVtbl, DROPEFFECT_COPY, DROPEFFECT_NONE},
-    shellapi, unknwnbase,
-    winnt::HRESULT,
-  },
-};
-
-#[allow(non_camel_case_types)]
-#[repr(C)]
-struct IDropTargetData {
-  pub interface: NativeIDropTarget,
-  listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
-  refcount: AtomicUsize,
-  hwnd: HWND,
+#[windows::implement(Windows::Win32::System::Com::IDropTarget)]
+pub struct FileDropHandler {
   window: Rc<Window>,
-  cursor_effect: DWORD,
+  listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
+  cursor_effect: u32,
   hovered_is_valid: bool, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
 }
 
-#[allow(non_camel_case_types)]
-pub struct IDropTarget {
-  data: *mut IDropTargetData,
-}
-
 #[allow(non_snake_case)]
-impl IDropTarget {
-  fn new(
-    hwnd: HWND,
+impl FileDropHandler {
+  pub fn new(
     window: Rc<Window>,
     listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
-  ) -> IDropTarget {
-    let data = Box::new(IDropTargetData {
-      listener,
-      interface: NativeIDropTarget {
-        lpVtbl: &DROP_TARGET_VTBL as *const IDropTargetVtbl,
-      },
-      refcount: AtomicUsize::new(1),
-      hwnd,
+  ) -> FileDropHandler {
+    Self {
       window,
+      listener,
       cursor_effect: DROPEFFECT_NONE,
       hovered_is_valid: false,
-    });
-    IDropTarget {
-      data: Box::into_raw(data),
     }
   }
 
-  // Implement IUnknown
-  pub unsafe extern "system" fn QueryInterface(
-    _this: *mut unknwnbase::IUnknown,
-    _riid: REFIID,
-    _ppvObject: *mut *mut winapi::ctypes::c_void,
-  ) -> HRESULT {
-    // This function doesn't appear to be required for an `IDropTarget`.
-    // An implementation would be nice however.
-    unimplemented!();
-  }
-
-  pub unsafe extern "system" fn AddRef(this: *mut unknwnbase::IUnknown) -> ULONG {
-    let drop_handler_data = Self::from_interface(this);
-    let count = drop_handler_data.refcount.fetch_add(1, Ordering::Release) + 1;
-    count as ULONG
-  }
-
-  pub unsafe extern "system" fn Release(this: *mut unknwnbase::IUnknown) -> ULONG {
-    let drop_handler = Self::from_interface(this);
-    let count = drop_handler.refcount.fetch_sub(1, Ordering::Release) - 1;
-    if count == 0 {
-      // Destroy the underlying data
-      Box::from_raw(drop_handler as *mut IDropTargetData);
-    }
-    count as ULONG
-  }
-
-  pub unsafe extern "system" fn DragEnter(
-    this: *mut NativeIDropTarget,
-    pDataObj: *const IDataObject,
-    _grfKeyState: DWORD,
-    _pt: *const POINTL,
-    pdwEffect: *mut DWORD,
-  ) -> HRESULT {
+  unsafe fn DragEnter(
+    &mut self,
+    pDataObj: &Option<IDataObject>,
+    _grfKeyState: u32,
+    _pt: POINTL,
+    pdwEffect: *mut u32,
+  ) -> windows::Result<()> {
     let mut paths = Vec::new();
-
-    let drop_handler = Self::from_interface(this);
     let hdrop = Self::collect_paths(pDataObj, &mut paths);
-    drop_handler.hovered_is_valid = hdrop.is_some();
-    drop_handler.cursor_effect = if drop_handler.hovered_is_valid {
+    self.hovered_is_valid = hdrop.is_some();
+    self.cursor_effect = if self.hovered_is_valid {
       DROPEFFECT_COPY
     } else {
       DROPEFFECT_NONE
     };
-    *pdwEffect = drop_handler.cursor_effect;
+    *pdwEffect = self.cursor_effect;
 
-    (drop_handler.listener)(&drop_handler.window, FileDropEvent::Hovered(paths));
+    (self.listener)(&self.window, FileDropEvent::Hovered(paths));
 
-    S_OK
+    Ok(())
   }
 
-  pub unsafe extern "system" fn DragOver(
-    this: *mut NativeIDropTarget,
-    _grfKeyState: DWORD,
-    _pt: *const POINTL,
-    pdwEffect: *mut DWORD,
-  ) -> HRESULT {
-    let drop_handler = Self::from_interface(this);
-    *pdwEffect = drop_handler.cursor_effect;
-
-    S_OK
+  unsafe fn DragOver(
+    &self,
+    _grfKeyState: u32,
+    _pt: POINTL,
+    pdwEffect: *mut u32,
+  ) -> windows::Result<()> {
+    *pdwEffect = self.cursor_effect;
+    Ok(())
   }
 
-  pub unsafe extern "system" fn DragLeave(this: *mut NativeIDropTarget) -> HRESULT {
-    let drop_handler = Self::from_interface(this);
-    if drop_handler.hovered_is_valid {
-      (drop_handler.listener)(&drop_handler.window, FileDropEvent::Cancelled);
+  unsafe fn DragLeave(&self) -> windows::Result<()> {
+    if self.hovered_is_valid {
+      (self.listener)(&self.window, FileDropEvent::Cancelled);
     }
-
-    S_OK
+    Ok(())
   }
 
-  pub unsafe extern "system" fn Drop(
-    this: *mut NativeIDropTarget,
-    pDataObj: *const IDataObject,
-    _grfKeyState: DWORD,
-    _pt: *const POINTL,
-    _pdwEffect: *mut DWORD,
-  ) -> HRESULT {
+  unsafe fn Drop(
+    &self,
+    pDataObj: &Option<IDataObject>,
+    _grfKeyState: u32,
+    _pt: POINTL,
+    _pdwEffect: *mut u32,
+  ) -> windows::Result<()> {
     let mut paths = Vec::new();
-
-    let drop_handler = Self::from_interface(this);
     let hdrop = Self::collect_paths(pDataObj, &mut paths);
     if let Some(hdrop) = hdrop {
-      shellapi::DragFinish(hdrop);
+      DragFinish(hdrop);
     }
 
-    (drop_handler.listener)(&drop_handler.window, FileDropEvent::Dropped(paths));
+    (self.listener)(&self.window, FileDropEvent::Dropped(paths));
 
-    S_OK
-  }
-
-  unsafe fn from_interface<'a, InterfaceT>(this: *mut InterfaceT) -> &'a mut IDropTargetData {
-    &mut *(this as *mut _)
+    Ok(())
   }
 
   unsafe fn collect_paths(
-    data_obj: *const IDataObject,
+    data_obj: &Option<IDataObject>,
     paths: &mut Vec<PathBuf>,
-  ) -> Option<shellapi::HDROP> {
-    use winapi::{
-      shared::{
-        winerror::{DV_E_FORMATETC, SUCCEEDED},
-        wtypes::{CLIPFORMAT, DVASPECT_CONTENT},
-      },
-      um::{
-        objidl::{FORMATETC, TYMED_HGLOBAL},
-        shellapi::DragQueryFileW,
-        winuser::CF_HDROP,
-      },
-    };
-
-    let drop_format = FORMATETC {
-      cfFormat: CF_HDROP as CLIPFORMAT,
-      ptd: ptr::null(),
-      dwAspect: DVASPECT_CONTENT,
+  ) -> Option<HDROP> {
+    let mut drop_format = FORMATETC {
+      cfFormat: CF_HDROP.0 as u16,
+      ptd: ptr::null_mut(),
+      dwAspect: DVASPECT_CONTENT.0 as u32,
       lindex: -1,
-      tymed: TYMED_HGLOBAL,
+      tymed: TYMED_HGLOBAL.0 as u32,
     };
 
-    let mut medium = std::mem::zeroed();
-    let get_data_result = (*data_obj).GetData(&drop_format, &mut medium);
-    if SUCCEEDED(get_data_result) {
-      let hglobal = (*medium.u).hGlobal();
-      let hdrop = (*hglobal) as shellapi::HDROP;
+    match data_obj
+      .as_ref()
+      .expect("Received null IDataObject")
+      .GetData(&mut drop_format)
+    {
+      Ok(medium) => {
+        let hglobal = medium.Anonymous.hGlobal;
+        let hdrop = HDROP(hglobal);
 
-      // The second parameter (0xFFFFFFFF) instructs the function to return the item count
-      let item_count = DragQueryFileW(hdrop, 0xFFFFFFFF, ptr::null_mut(), 0);
+        // The second parameter (0xFFFFFFFF) instructs the function to return the item count
+        let item_count = DragQueryFileW(hdrop, 0xFFFFFFFF, PWSTR::default(), 0);
 
-      for i in 0..item_count {
-        // Get the length of the path string NOT including the terminating null character.
-        // Previously, this was using a fixed size array of MAX_PATH length, but the
-        // Windows API allows longer paths under certain circumstances.
-        let character_count = DragQueryFileW(hdrop, i, ptr::null_mut(), 0) as usize;
-        let str_len = character_count + 1;
+        for i in 0..item_count {
+          // Get the length of the path string NOT including the terminating null character.
+          // Previously, this was using a fixed size array of MAX_PATH length, but the
+          // Windows API allows longer paths under certain circumstances.
+          let character_count = DragQueryFileW(hdrop, i, PWSTR::default(), 0) as usize;
+          let str_len = character_count + 1;
 
-        // Fill path_buf with the null-terminated file name
-        let mut path_buf = Vec::with_capacity(str_len);
-        DragQueryFileW(hdrop, i, path_buf.as_mut_ptr(), str_len as UINT);
-        path_buf.set_len(str_len);
+          // Fill path_buf with the null-terminated file name
+          let mut path_buf = Vec::with_capacity(str_len);
+          DragQueryFileW(hdrop, i, PWSTR(path_buf.as_mut_ptr()), str_len as u32);
+          path_buf.set_len(str_len);
 
-        paths.push(OsString::from_wide(&path_buf[0..character_count]).into());
+          paths.push(OsString::from_wide(&path_buf[0..character_count]).into());
+        }
+
+        Some(hdrop)
       }
-
-      Some(hdrop)
-    } else if get_data_result == DV_E_FORMATETC {
-      // If the dropped item is not a file this error will occur.
-      // In this case it is OK to return without taking further action.
-      log::warn!("Error occured while processing dropped/hovered item: item is not a file.");
-      None
-    } else {
-      log::warn!("Unexpected error occured while processing dropped/hovered item.");
-      None
+      Err(error) => {
+        log::warn!(
+          "{}",
+          match error.code() {
+            win32f::DV_E_FORMATETC => {
+              // If the dropped item is not a file this error will occur.
+              // In this case it is OK to return without taking further action.
+              "Error occured while processing dropped/hovered item: item is not a file."
+            }
+            _ => "Unexpected error occured while processing dropped/hovered item.",
+          }
+        );
+        None
+      }
     }
   }
 }
-
-impl Drop for IDropTarget {
-  fn drop(&mut self) {
-    unsafe {
-      IDropTarget::Release(self.data as *mut unknwnbase::IUnknown);
-    }
-  }
-}
-
-static DROP_TARGET_VTBL: IDropTargetVtbl = IDropTargetVtbl {
-  parent: unknwnbase::IUnknownVtbl {
-    QueryInterface: IDropTarget::QueryInterface,
-    AddRef: IDropTarget::AddRef,
-    Release: IDropTarget::Release,
-  },
-  DragEnter: IDropTarget::DragEnter,
-  DragOver: IDropTarget::DragOver,
-  DragLeave: IDropTarget::DragLeave,
-  Drop: IDropTarget::Drop,
-};
