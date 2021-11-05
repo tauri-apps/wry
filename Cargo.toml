@@ -38,7 +38,8 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.2"
-tao = { git = "https://github.com/tauri-apps/tao", branch = "next", default-features = false, features = [ "serde" ] }
+#tao = { git = "https://github.com/tauri-apps/tao", branch = "next", default-features = false, features = [ "serde" ] }
+tao = { git = "https://github.com/wravery/tao", branch = "update-webview2", default-features = false, features = [ "serde" ] }
 http = "0.2.5"
 
 [dev-dependencies]
@@ -56,8 +57,19 @@ gtk = "0.14"
 gdk = "0.14"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.4.0"
-windows = "0.19.0"
+webview2-com = "0.6.0"
+
+[target."cfg(target_os = \"windows\")".dependencies.windows]
+version = "0.24.0"
+features = [
+  "build",
+  "Win32_Foundation",
+  "Win32_System_Com",
+  "Win32_System_Ole",
+  "Win32_System_SystemServices",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+]
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
 cocoa = "0.24"

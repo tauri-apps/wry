@@ -17,15 +17,14 @@ use std::{
   rc::Rc,
 };
 
-use webview2_com::Windows::{
-  self,
+use windows::{
+  self as Windows,
+  runtime::implement,
   Win32::{
     Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINTL, PWSTR},
     System::{
-      Com::{
-        IDataObject, IDropTarget, RegisterDragDrop, RevokeDragDrop, DROPEFFECT_COPY,
-        DROPEFFECT_NONE, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL,
-      },
+      Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL},
+      Ole::{IDropTarget, RegisterDragDrop, RevokeDragDrop, DROPEFFECT_COPY, DROPEFFECT_NONE},
       SystemServices::CF_HDROP,
     },
     UI::{
@@ -102,7 +101,7 @@ unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL
   closure(hwnd).into()
 }
 
-#[windows::implement(Windows::Win32::System::Com::IDropTarget)]
+#[implement(Windows::Win32::System::Ole::IDropTarget)]
 pub struct FileDropHandler {
   window: Rc<Window>,
   listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
@@ -130,7 +129,7 @@ impl FileDropHandler {
     _grfKeyState: u32,
     _pt: POINTL,
     pdwEffect: *mut u32,
-  ) -> windows::Result<()> {
+  ) -> windows::runtime::Result<()> {
     let mut paths = Vec::new();
     let hdrop = Self::collect_paths(pDataObj, &mut paths);
     self.hovered_is_valid = hdrop.is_some();
@@ -151,12 +150,12 @@ impl FileDropHandler {
     _grfKeyState: u32,
     _pt: POINTL,
     pdwEffect: *mut u32,
-  ) -> windows::Result<()> {
+  ) -> windows::runtime::Result<()> {
     *pdwEffect = self.cursor_effect;
     Ok(())
   }
 
-  unsafe fn DragLeave(&self) -> windows::Result<()> {
+  unsafe fn DragLeave(&self) -> windows::runtime::Result<()> {
     if self.hovered_is_valid {
       (self.listener)(&self.window, FileDropEvent::Cancelled);
     }
@@ -169,7 +168,7 @@ impl FileDropHandler {
     _grfKeyState: u32,
     _pt: POINTL,
     _pdwEffect: *mut u32,
-  ) -> windows::Result<()> {
+  ) -> windows::runtime::Result<()> {
     let mut paths = Vec::new();
     let hdrop = Self::collect_paths(pDataObj, &mut paths);
     if let Some(hdrop) = hdrop {

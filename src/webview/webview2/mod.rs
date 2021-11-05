@@ -14,19 +14,26 @@ use file_drop::FileDropController;
 use std::{collections::HashSet, rc::Rc, sync::mpsc};
 
 use once_cell::unsync::OnceCell;
-use webview2_com::{
-  Microsoft::Web::WebView2::Win32::*,
-  WebMessageReceivedEventHandler, WindowCloseRequestedEventHandler,
-  Windows::Win32::{
-    Foundation::{BOOL, E_FAIL, E_POINTER, HWND, POINT, PWSTR, RECT},
-    Storage::StructuredStorage::CreateStreamOnHGlobal,
+
+use windows::{
+  runtime::Interface,
+  Win32::{
+    Foundation::{E_FAIL, E_POINTER, HWND as External_HWND, POINT, RECT as External_RECT},
+    System::Com::{IStream as External_IStream, StructuredStorage::CreateStreamOnHGlobal},
     UI::WindowsAndMessaging::{
       self as win32wm, DestroyWindow, GetClientRect, GetCursorPos, WM_NCLBUTTONDOWN,
     },
   },
+};
+
+use webview2_com::{
+  Microsoft::Web::WebView2::Win32::*,
+  Windows::Win32::{
+    Foundation::{BOOL, HWND, PWSTR, RECT},
+    System::WinRT::EventRegistrationToken,
+  },
   *,
 };
-use windows::Interface;
 
 use crate::{
   application::{platform::windows::WindowExtWindows, window::Window},
@@ -59,7 +66,7 @@ impl InnerWebView {
 
     if let Some(file_drop_handler) = attributes.file_drop_handler.take() {
       let mut controller = FileDropController::new();
-      controller.listen(hwnd, window.clone(), file_drop_handler);
+      controller.listen(External_HWND(hwnd.0), window.clone(), file_drop_handler);
       let _ = file_drop_controller.set(controller);
     }
 
@@ -110,7 +117,7 @@ impl InnerWebView {
       }),
       Box::new(move |error_code, environment| {
         error_code?;
-        tx.send(environment.ok_or_else(|| windows::Error::fast_error(E_POINTER)))
+        tx.send(environment.ok_or_else(|| windows::runtime::Error::fast_error(E_POINTER)))
           .expect("send over mpsc channel");
         Ok(())
       }),
@@ -136,7 +143,7 @@ impl InnerWebView {
       }),
       Box::new(move |error_code, controller| {
         error_code?;
-        tx.send(controller.ok_or_else(|| windows::Error::fast_error(E_POINTER)))
+        tx.send(controller.ok_or_else(|| windows::runtime::Error::fast_error(E_POINTER)))
           .expect("send over mpsc channel");
         Ok(())
       }),
@@ -155,7 +162,7 @@ impl InnerWebView {
     controller: &ICoreWebView2Controller,
   ) -> webview2_com::Result<ICoreWebView2> {
     let webview =
-      unsafe { controller.get_CoreWebView2() }.map_err(webview2_com::Error::WindowsError)?;
+      unsafe { controller.CoreWebView2() }.map_err(webview2_com::Error::WindowsError)?;
 
     // Transparent
     if attributes.transparent {
@@ -164,7 +171,7 @@ impl InnerWebView {
         .map_err(webview2_com::Error::WindowsError)?;
       unsafe {
         controller2
-          .put_DefaultBackgroundColor(COREWEBVIEW2_COLOR {
+          .SetDefaultBackgroundColor(COREWEBVIEW2_COLOR {
             R: 0,
             G: 0,
             B: 0,
@@ -178,43 +185,49 @@ impl InnerWebView {
     // taking it in the local variable and then just ignoring it because all of the event handlers
     // are registered for the life of the webview, but if we wanted to be able to remove them later
     // we would hold onto them in self.
-    let mut token = Windows::Win32::System::WinRT::EventRegistrationToken::default();
+    let mut token = EventRegistrationToken::default();
 
     // Safety: System calls are unsafe
     unsafe {
       let handler: ICoreWebView2WindowCloseRequestedEventHandler =
         WindowCloseRequestedEventHandler::create(Box::new(move |_, _| {
-          if DestroyWindow(hwnd).as_bool() {
+          if DestroyWindow(External_HWND(hwnd.0)).as_bool() {
             Ok(())
           } else {
             Err(E_FAIL.into())
           }
         }));
       webview
-        .add_WindowCloseRequested(handler, &mut token)
+        .WindowCloseRequested(handler, &mut token)
         .map_err(webview2_com::Error::WindowsError)?;
 
       let settings = webview
-        .get_Settings()
+        .Settings()
         .map_err(webview2_com::Error::WindowsError)?;
       settings
-        .put_IsStatusBarEnabled(false)
+        .SetIsStatusBarEnabled(false)
         .map_err(webview2_com::Error::WindowsError)?;
       settings
-        .put_AreDefaultContextMenusEnabled(true)
+        .SetAreDefaultContextMenusEnabled(true)
         .map_err(webview2_com::Error::WindowsError)?;
       settings
-        .put_IsZoomControlEnabled(false)
+        .SetIsZoomControlEnabled(false)
         .map_err(webview2_com::Error::WindowsError)?;
       settings
-        .put_AreDevToolsEnabled(false)
+        .SetAreDevToolsEnabled(false)
         .map_err(webview2_com::Error::WindowsError)?;
-      debug_assert_eq!(settings.put_AreDevToolsEnabled(true), Ok(()));
+      debug_assert_eq!(settings.SetAreDevToolsEnabled(true), Ok(()));
 
-      let mut rect = RECT::default();
-      GetClientRect(hwnd, &mut rect);
+      let mut rect = External_RECT::default();
+      GetClientRect(External_HWND(hwnd.0), &mut rect);
+      let rect = RECT {
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+      };
       controller
-        .put_Bounds(rect)
+        .SetBounds(rect)
         .map_err(webview2_com::Error::WindowsError)?;
     }
 
@@ -239,7 +252,7 @@ impl InnerWebView {
     // Message handler
     let rpc_handler = attributes.rpc_handler.take();
     unsafe {
-      webview.add_WebMessageReceived(
+      webview.WebMessageReceived(
         WebMessageReceivedEventHandler::create(Box::new(move |webview, args| {
           if let (Some(webview), Some(args)) = (webview, args) {
             let mut js = PWSTR::default();
@@ -251,7 +264,7 @@ impl InnerWebView {
 
                 let mut point = POINT::default();
                 GetCursorPos(&mut point);
-                let result = hit_test(HWND(window.hwnd() as _), point.x, point.y);
+                let result = hit_test(External_HWND(window.hwnd() as _), point.x, point.y);
                 let cursor = match result.0 as u32 {
                   win32wm::HTLEFT => CursorIcon::WResize,
                   win32wm::HTTOP => CursorIcon::NResize,
@@ -320,21 +333,21 @@ impl InnerWebView {
       let env = env.clone();
       unsafe {
         webview
-          .add_WebResourceRequested(
+          .WebResourceRequested(
             WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
               if let Some(args) = args {
-                let webview_request = args.get_Request()?;
+                let webview_request = args.Request()?;
                 let mut request = HttpRequestBuilder::new();
 
                 // request method (GET, POST, PUT etc..)
                 let mut request_method = PWSTR::default();
-                webview_request.get_Method(&mut request_method)?;
+                webview_request.Method(&mut request_method)?;
                 let request_method = take_pwstr(request_method);
 
                 // get all headers from the request
-                let headers = webview_request.get_Headers()?.GetIterator()?;
+                let headers = webview_request.Headers()?.GetIterator()?;
                 let mut has_current = BOOL::default();
-                headers.get_HasCurrentHeader(&mut has_current)?;
+                headers.HasCurrentHeader(&mut has_current)?;
                 if has_current.as_bool() {
                   loop {
                     let mut key = PWSTR::default();
@@ -352,10 +365,11 @@ impl InnerWebView {
 
                 // get the body content if available
                 let mut body_sent = Vec::new();
-                if let Ok(content) = webview_request.get_Content() {
+                if let Ok(content) = webview_request.Content() {
                   let mut buffer: [u8; 1024] = [0; 1024];
                   loop {
                     let mut cb_read = 0;
+                    let content: External_IStream = content.cast()?;
                     content.Read(
                       buffer.as_mut_ptr() as *mut _,
                       buffer.len() as u32,
@@ -372,7 +386,7 @@ impl InnerWebView {
 
                 // uri
                 let mut uri = PWSTR::default();
-                webview_request.get_Uri(&mut uri)?;
+                webview_request.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
 
                 if let Some(custom_protocol) = custom_protocols
@@ -424,10 +438,11 @@ impl InnerWebView {
 
                       // FIXME: Set http response version
 
+                      let body_sent = body_sent.map(|content| content.cast().unwrap());
                       let response =
                         env.CreateWebResourceResponse(body_sent, status_code, "OK", headers_map)?;
 
-                      args.put_Response(response)?;
+                      args.SetResponse(response)?;
                       Ok(())
                     }
                     Err(_) => Err(E_FAIL.into()),
@@ -447,13 +462,13 @@ impl InnerWebView {
     if attributes.clipboard {
       unsafe {
         webview
-          .add_PermissionRequested(
+          .PermissionRequested(
             PermissionRequestedEventHandler::create(Box::new(|_, args| {
               if let Some(args) = args {
                 let mut kind = COREWEBVIEW2_PERMISSION_KIND_UNKNOWN_PERMISSION;
-                args.get_PermissionKind(&mut kind)?;
+                args.PermissionKind(&mut kind)?;
                 if kind == COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ {
-                  args.put_State(COREWEBVIEW2_PERMISSION_STATE_ALLOW)?;
+                  args.SetState(COREWEBVIEW2_PERMISSION_STATE_ALLOW)?;
                 }
               }
               Ok(())
@@ -502,7 +517,7 @@ impl InnerWebView {
 
     unsafe {
       controller
-        .put_IsVisible(true)
+        .SetIsVisible(true)
         .map_err(webview2_com::Error::WindowsError)?;
       controller
         .MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC)
@@ -527,7 +542,7 @@ impl InnerWebView {
     )
   }
 
-  fn execute_script(webview: &ICoreWebView2, js: String) -> windows::Result<()> {
+  fn execute_script(webview: &ICoreWebView2, js: String) -> windows::runtime::Result<()> {
     unsafe {
       webview.ExecuteScript(
         js,
@@ -549,9 +564,15 @@ impl InnerWebView {
     // Safety: System calls are unsafe
     // XXX: Resizing on Windows is usually sluggish. Many other applications share same behavior.
     unsafe {
-      let mut rect = RECT::default();
-      GetClientRect(hwnd, &mut rect);
-      self.controller.put_Bounds(rect)
+      let mut rect = External_RECT::default();
+      GetClientRect(External_HWND(hwnd.0), &mut rect);
+      let rect = RECT {
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+      };
+      self.controller.SetBounds(rect)
     }
     .map_err(|error| Error::WebView2Error(webview2_com::Error::WindowsError(error)))
   }
