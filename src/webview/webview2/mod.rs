@@ -63,16 +63,22 @@ impl InnerWebView {
   ) -> Result<Self> {
     let hwnd = HWND(window.hwnd() as _);
     let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
-
-    if let Some(file_drop_handler) = attributes.file_drop_handler.take() {
-      let mut controller = FileDropController::new();
-      controller.listen(External_HWND(hwnd.0), window.clone(), file_drop_handler);
-      let _ = file_drop_controller.set(controller);
-    }
+    let file_drop_handler = attributes.file_drop_handler.take();
+    let file_drop_window = window.clone();
 
     let env = Self::create_environment(&web_context)?;
     let controller = Self::create_controller(hwnd, &env)?;
     let webview = Self::init_webview(window, hwnd, attributes, &env, &controller)?;
+
+    if let Some(file_drop_handler) = file_drop_handler {
+      let mut controller = FileDropController::new();
+      controller.listen(
+        External_HWND(hwnd.0),
+        file_drop_window.clone(),
+        file_drop_handler,
+      );
+      let _ = file_drop_controller.set(controller);
+    }
 
     Ok(Self {
       controller,
