@@ -184,7 +184,7 @@ impl FileDropHandler {
     data_obj: &Option<IDataObject>,
     paths: &mut Vec<PathBuf>,
   ) -> Option<HDROP> {
-    let mut drop_format = FORMATETC {
+    let drop_format = FORMATETC {
       cfFormat: CF_HDROP.0 as u16,
       ptd: ptr::null_mut(),
       dwAspect: DVASPECT_CONTENT.0 as u32,
@@ -195,7 +195,7 @@ impl FileDropHandler {
     match data_obj
       .as_ref()
       .expect("Received null IDataObject")
-      .GetData(&mut drop_format)
+      .GetData(&drop_format)
     {
       Ok(medium) => {
         let hglobal = medium.Anonymous.hGlobal;

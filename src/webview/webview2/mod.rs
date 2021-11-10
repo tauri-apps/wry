@@ -72,11 +72,7 @@ impl InnerWebView {
 
     if let Some(file_drop_handler) = file_drop_handler {
       let mut controller = FileDropController::new();
-      controller.listen(
-        External_HWND(hwnd.0),
-        file_drop_window.clone(),
-        file_drop_handler,
-      );
+      controller.listen(External_HWND(hwnd.0), file_drop_window, file_drop_handler);
       let _ = file_drop_controller.set(controller);
     }
 
