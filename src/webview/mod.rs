@@ -34,13 +34,9 @@ pub(crate) mod webview2;
 use self::webview2::*;
 use crate::{Error, Result};
 #[cfg(target_os = "windows")]
-use webview2_com::{
-  Microsoft::Web::WebView2::Win32::ICoreWebView2Controller, Windows::Win32::Foundation::HWND,
-};
+use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
-use windows::{
-  Win32::Foundation::HWND as External_HWND, Win32::UI::WindowsAndMessaging::DestroyWindow,
-};
+use windows::{Win32::Foundation::HWND, Win32::UI::WindowsAndMessaging::DestroyWindow};
 
 use std::{path::PathBuf, rc::Rc};
 
@@ -377,7 +373,7 @@ impl Drop for WebView {
     }
     #[cfg(target_os = "windows")]
     unsafe {
-      DestroyWindow(External_HWND(self.window.hwnd() as _));
+      DestroyWindow(HWND(self.window.hwnd() as _));
     }
   }
 }

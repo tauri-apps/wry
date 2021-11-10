@@ -18,8 +18,8 @@ use once_cell::unsync::OnceCell;
 use windows::{
   runtime::Interface,
   Win32::{
-    Foundation::{E_FAIL, E_POINTER, HWND as External_HWND, POINT, RECT as External_RECT},
-    System::Com::{IStream as External_IStream, StructuredStorage::CreateStreamOnHGlobal},
+    Foundation::{E_FAIL, E_POINTER, HWND, POINT, RECT},
+    System::Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
     UI::WindowsAndMessaging::{
       self as win32wm, DestroyWindow, GetClientRect, GetCursorPos, WM_NCLBUTTONDOWN,
     },
@@ -29,7 +29,7 @@ use windows::{
 use webview2_com::{
   Microsoft::Web::WebView2::Win32::*,
   Windows::Win32::{
-    Foundation::{BOOL, HWND, PWSTR, RECT},
+    Foundation::{BOOL, HWND as WebView2_HWND, PWSTR, RECT as WebView2_RECT},
     System::WinRT::EventRegistrationToken,
   },
   *,
@@ -72,7 +72,7 @@ impl InnerWebView {
 
     if let Some(file_drop_handler) = file_drop_handler {
       let mut controller = FileDropController::new();
-      controller.listen(External_HWND(hwnd.0), file_drop_window, file_drop_handler);
+      controller.listen(hwnd, file_drop_window, file_drop_handler);
       let _ = file_drop_controller.set(controller);
     }
 
@@ -140,7 +140,7 @@ impl InnerWebView {
     CreateCoreWebView2ControllerCompletedHandler::wait_for_async_operation(
       Box::new(move |handler| unsafe {
         env
-          .CreateCoreWebView2Controller(hwnd, handler)
+          .CreateCoreWebView2Controller(WebView2_HWND(hwnd.0), handler)
           .map_err(webview2_com::Error::WindowsError)
       }),
       Box::new(move |error_code, controller| {
@@ -193,7 +193,7 @@ impl InnerWebView {
     unsafe {
       let handler: ICoreWebView2WindowCloseRequestedEventHandler =
         WindowCloseRequestedEventHandler::create(Box::new(move |_, _| {
-          if DestroyWindow(External_HWND(hwnd.0)).as_bool() {
+          if DestroyWindow(hwnd).as_bool() {
             Ok(())
           } else {
             Err(E_FAIL.into())
@@ -220,9 +220,9 @@ impl InnerWebView {
         .map_err(webview2_com::Error::WindowsError)?;
       debug_assert_eq!(settings.SetAreDevToolsEnabled(true), Ok(()));
 
-      let mut rect = External_RECT::default();
-      GetClientRect(External_HWND(hwnd.0), &mut rect);
-      let rect = RECT {
+      let mut rect = RECT::default();
+      GetClientRect(hwnd, &mut rect);
+      let rect = WebView2_RECT {
         left: rect.left,
         right: rect.right,
         top: rect.top,
@@ -266,7 +266,7 @@ impl InnerWebView {
 
                 let mut point = POINT::default();
                 GetCursorPos(&mut point);
-                let result = hit_test(External_HWND(window.hwnd() as _), point.x, point.y);
+                let result = hit_test(HWND(window.hwnd() as _), point.x, point.y);
                 let cursor = match result.0 as u32 {
                   win32wm::HTLEFT => CursorIcon::WResize,
                   win32wm::HTTOP => CursorIcon::NResize,
@@ -371,7 +371,7 @@ impl InnerWebView {
                   let mut buffer: [u8; 1024] = [0; 1024];
                   loop {
                     let mut cb_read = 0;
-                    let content: External_IStream = content.cast()?;
+                    let content: IStream = content.cast()?;
                     content.Read(
                       buffer.as_mut_ptr() as *mut _,
                       buffer.len() as u32,
@@ -566,9 +566,9 @@ impl InnerWebView {
     // Safety: System calls are unsafe
     // XXX: Resizing on Windows is usually sluggish. Many other applications share same behavior.
     unsafe {
-      let mut rect = External_RECT::default();
-      GetClientRect(External_HWND(hwnd.0), &mut rect);
-      let rect = RECT {
+      let mut rect = RECT::default();
+      GetClientRect(hwnd, &mut rect);
+      let rect = WebView2_RECT {
         left: rect.left,
         right: rect.right,
         top: rect.top,
