@@ -520,21 +520,13 @@ impl RpcResponse {
   /// Get a script that resolves the promise with a result.
   pub fn get_result_script(id: Value, result: Value) -> Result<String> {
     let retval = serde_json::to_string(&result)?;
-    Ok(format!(
-      "window.external.rpc._result({}, {})",
-      id.to_string(),
-      retval
-    ))
+    Ok(format!("window.external.rpc._result({}, {})", id, retval))
   }
 
   /// Get a script that rejects the promise with an error.
   pub fn get_error_script(id: Value, result: Value) -> Result<String> {
     let retval = serde_json::to_string(&result)?;
-    Ok(format!(
-      "window.external.rpc._error({}, {})",
-      id.to_string(),
-      retval
-    ))
+    Ok(format!("window.external.rpc._error({}, {})", id, retval))
   }
 }
 

@@ -43,7 +43,6 @@ http = "0.2.5"
 
 [dev-dependencies]
 anyhow = "1.0.43"
-chrono = "0.4.19"
 tempfile = "3.2.0"
 http-range = "0.1.4"
 
