@@ -11,10 +11,9 @@ pub use web_context::WebContextImpl;
 #[cfg(target_os = "macos")]
 use cocoa::{
   appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable},
-  base::YES,
 };
 use cocoa::{
-  base::id,
+  base::{BOOL, id, YES},
   foundation::{NSDictionary, NSFastEnumeration},
 };
 
@@ -76,6 +75,8 @@ impl InnerWebView {
     attributes: WebViewAttributes,
     mut web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
+    extern "C" fn key_down(_this: &mut Object, _sel: Sel, _event: id) {}
+    extern "C" fn accepts_first_responder(_this: &Object, _sel: Sel) -> BOOL { YES }
     // Function for rpc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
       // Safety: objc runtime calls are unsafe
@@ -248,8 +249,15 @@ impl InnerWebView {
       // Webview and manager
       let manager: id = msg_send![config, userContentController];
       let cls = match ClassDecl::new("WryWebView", class!(WKWebView)) {
-        #[allow(unused_mut)]
         Some(mut decl) => {
+          decl.add_method(
+            sel!(acceptsFirstResponder),
+            accepts_first_responder as extern "C" fn(&Object, Sel) -> BOOL,
+          );
+          decl.add_method(
+            sel!(keyDown:),
+            key_down as extern "C" fn(&mut Object, Sel, id),
+          );
           #[cfg(target_os = "macos")]
           add_file_drop_methods(&mut decl);
           decl.register()
