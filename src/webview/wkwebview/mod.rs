@@ -11,10 +11,9 @@ pub use web_context::WebContextImpl;
 #[cfg(target_os = "macos")]
 use cocoa::{
   appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable},
-  base::YES,
 };
 use cocoa::{
-  base::{BOOL, id},
+  base::{BOOL, id, YES},
   foundation::{NSDictionary, NSFastEnumeration},
 };
 
