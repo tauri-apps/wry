@@ -17,8 +17,8 @@ use std::{
 use url::Url;
 //use webkit2gtk_sys::webkit_uri_request_get_http_headers;
 use webkit2gtk::{
-  traits::*, ApplicationInfo, LoadEvent, UserContentManager, WebContext, WebContextBuilder,
-  WebView, WebsiteDataManagerBuilder,
+  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent,
+  UserContentManager, WebContext, WebContextBuilder, WebView, WebsiteDataManagerBuilder,
 };
 
 #[derive(Debug)]
@@ -52,6 +52,15 @@ impl WebContextImpl {
             .into_owned(),
         )
         .build();
+      if let Some(cookie_manager) = data_manager.cookie_manager() {
+        cookie_manager.set_persistent_storage(
+          &data_directory
+            .join("cookies")
+            .to_string_lossy()
+            .into_owned(),
+          CookiePersistentStorage::Text,
+        );
+      }
       context_builder = context_builder.website_data_manager(&data_manager);
     }
 
