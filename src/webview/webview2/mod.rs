@@ -16,24 +16,20 @@ use std::{collections::HashSet, rc::Rc, sync::mpsc};
 use once_cell::unsync::OnceCell;
 
 use windows::{
-  runtime::Interface,
+  core::Interface,
   Win32::{
-    Foundation::{E_FAIL, E_POINTER, HWND, POINT, RECT},
-    System::Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
+    Foundation::{BOOL, E_FAIL, E_POINTER, HWND, POINT, PWSTR, RECT},
+    System::{
+      Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
+      WinRT::EventRegistrationToken,
+    },
     UI::WindowsAndMessaging::{
       self as win32wm, DestroyWindow, GetClientRect, GetCursorPos, WM_NCLBUTTONDOWN,
     },
   },
 };
 
-use webview2_com::{
-  Microsoft::Web::WebView2::Win32::*,
-  Windows::Win32::{
-    Foundation::{BOOL, HWND as WebView2_HWND, PWSTR, RECT as WebView2_RECT},
-    System::WinRT::EventRegistrationToken,
-  },
-  *,
-};
+use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 
 use crate::{
   application::{platform::windows::WindowExtWindows, window::Window},
@@ -61,7 +57,7 @@ impl InnerWebView {
     mut attributes: WebViewAttributes,
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    let hwnd = HWND(window.hwnd() as _);
+    let hwnd = window.hwnd() as HWND;
     let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
     let file_drop_handler = attributes.file_drop_handler.take();
     let file_drop_window = window.clone();
@@ -119,7 +115,7 @@ impl InnerWebView {
       }),
       Box::new(move |error_code, environment| {
         error_code?;
-        tx.send(environment.ok_or_else(|| windows::runtime::Error::fast_error(E_POINTER)))
+        tx.send(environment.ok_or_else(|| windows::core::Error::fast_error(E_POINTER)))
           .expect("send over mpsc channel");
         Ok(())
       }),
@@ -140,12 +136,12 @@ impl InnerWebView {
     CreateCoreWebView2ControllerCompletedHandler::wait_for_async_operation(
       Box::new(move |handler| unsafe {
         env
-          .CreateCoreWebView2Controller(WebView2_HWND(hwnd.0), handler)
+          .CreateCoreWebView2Controller(hwnd, handler)
           .map_err(webview2_com::Error::WindowsError)
       }),
       Box::new(move |error_code, controller| {
         error_code?;
-        tx.send(controller.ok_or_else(|| windows::runtime::Error::fast_error(E_POINTER)))
+        tx.send(controller.ok_or_else(|| windows::core::Error::fast_error(E_POINTER)))
           .expect("send over mpsc channel");
         Ok(())
       }),
@@ -222,12 +218,6 @@ impl InnerWebView {
 
       let mut rect = RECT::default();
       GetClientRect(hwnd, &mut rect);
-      let rect = WebView2_RECT {
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        bottom: rect.bottom,
-      };
       controller
         .SetBounds(rect)
         .map_err(webview2_com::Error::WindowsError)?;
@@ -266,8 +256,8 @@ impl InnerWebView {
 
                 let mut point = POINT::default();
                 GetCursorPos(&mut point);
-                let result = hit_test(HWND(window.hwnd() as _), point.x, point.y);
-                let cursor = match result.0 as u32 {
+                let result = hit_test(window.hwnd() as HWND, point.x, point.y);
+                let cursor = match result as u32 {
                   win32wm::HTLEFT => CursorIcon::WResize,
                   win32wm::HTTOP => CursorIcon::NResize,
                   win32wm::HTRIGHT => CursorIcon::EResize,
@@ -286,8 +276,8 @@ impl InnerWebView {
                 if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" {
                   // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
                   // and prevent conflict with `tao::window::drag_window`.
-                  if result.0 as u32 != win32wm::HTCLIENT {
-                    window.begin_resize_drag(result.0 as isize, WM_NCLBUTTONDOWN, point.x, point.y);
+                  if result as u32 != win32wm::HTCLIENT {
+                    window.begin_resize_drag(result as isize, WM_NCLBUTTONDOWN, point.x, point.y);
                   }
                 }
               }
@@ -544,7 +534,7 @@ impl InnerWebView {
     )
   }
 
-  fn execute_script(webview: &ICoreWebView2, js: String) -> windows::runtime::Result<()> {
+  fn execute_script(webview: &ICoreWebView2, js: String) -> windows::core::Result<()> {
     unsafe {
       webview.ExecuteScript(
         js,
@@ -568,12 +558,6 @@ impl InnerWebView {
     unsafe {
       let mut rect = RECT::default();
       GetClientRect(hwnd, &mut rect);
-      let rect = WebView2_RECT {
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        bottom: rect.bottom,
-      };
       self.controller.SetBounds(rect)
     }
     .map_err(|error| Error::WebView2Error(webview2_com::Error::WindowsError(error)))
