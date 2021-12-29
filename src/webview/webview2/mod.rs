@@ -163,7 +163,7 @@ impl InnerWebView {
       unsafe { controller.CoreWebView2() }.map_err(webview2_com::Error::WindowsError)?;
 
     // Transparent
-    if attributes.transparent {
+    if attributes.transparent && !is_windows_7() {
       let controller2: ICoreWebView2Controller2 = controller
         .cast()
         .map_err(webview2_com::Error::WindowsError)?;
@@ -577,4 +577,10 @@ pub fn platform_webview_version() -> Result<String> {
   unsafe { GetAvailableCoreWebView2BrowserVersionString(PWSTR::default(), &mut versioninfo) }
     .map_err(webview2_com::Error::WindowsError)?;
   Ok(take_pwstr(versioninfo))
+}
+
+fn is_windows_7() -> bool {
+  sys_info::os_release()
+    .map(|release| release.starts_with("6.1"))
+    .unwrap_or_default()
 }
