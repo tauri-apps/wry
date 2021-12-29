@@ -52,7 +52,7 @@ use crate::http::{Request as HttpRequest, Response as HttpResponse};
 pub struct WebViewAttributes {
   /// Whether the WebView window should be visible.
   pub visible: bool,
-  /// Whether the WebView should be transparent.
+  /// Whether the WebView should be transparent. Not supported on Windows 7.
   pub transparent: bool,
   /// Whether load the provided URL to [`WebView`].
   pub url: Option<Url>,
@@ -162,7 +162,7 @@ impl<'a> WebViewBuilder<'a> {
     })
   }
 
-  /// Sets whether the WebView should be transparent.
+  /// Sets whether the WebView should be transparent. Not supported on Windows 7.
   pub fn with_transparent(mut self, transparent: bool) -> Self {
     self.webview.transparent = transparent;
     self
