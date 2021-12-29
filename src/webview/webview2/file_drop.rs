@@ -19,7 +19,6 @@ use std::{
 
 use windows::{
   self as Windows,
-  runtime::implement,
   Win32::{
     Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINTL, PWSTR},
     System::{
@@ -33,6 +32,8 @@ use windows::{
     },
   },
 };
+
+use windows_macros::implement;
 
 use crate::application::window::Window;
 
@@ -92,12 +93,12 @@ where
 {
   let mut trait_obj: &mut dyn FnMut(HWND) -> bool = &mut callback;
   let closure_pointer_pointer: *mut c_void = unsafe { std::mem::transmute(&mut trait_obj) };
-  let lparam = LPARAM(closure_pointer_pointer as isize);
+  let lparam = closure_pointer_pointer as LPARAM;
   unsafe { EnumChildWindows(hwnd, Some(enumerate_callback), lparam) };
 }
 
 unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
-  let closure = &mut *(lparam.0 as *mut c_void as *mut &mut dyn FnMut(HWND) -> bool);
+  let closure = &mut *(lparam as *mut c_void as *mut &mut dyn FnMut(HWND) -> bool);
   closure(hwnd).into()
 }
 
@@ -129,7 +130,7 @@ impl FileDropHandler {
     _grfKeyState: u32,
     _pt: POINTL,
     pdwEffect: *mut u32,
-  ) -> windows::runtime::Result<()> {
+  ) -> windows::core::Result<()> {
     let mut paths = Vec::new();
     let hdrop = Self::collect_paths(pDataObj, &mut paths);
     self.hovered_is_valid = hdrop.is_some();
@@ -150,12 +151,12 @@ impl FileDropHandler {
     _grfKeyState: u32,
     _pt: POINTL,
     pdwEffect: *mut u32,
-  ) -> windows::runtime::Result<()> {
+  ) -> windows::core::Result<()> {
     *pdwEffect = self.cursor_effect;
     Ok(())
   }
 
-  unsafe fn DragLeave(&self) -> windows::runtime::Result<()> {
+  unsafe fn DragLeave(&self) -> windows::core::Result<()> {
     if self.hovered_is_valid {
       (self.listener)(&self.window, FileDropEvent::Cancelled);
     }
@@ -168,7 +169,7 @@ impl FileDropHandler {
     _grfKeyState: u32,
     _pt: POINTL,
     _pdwEffect: *mut u32,
-  ) -> windows::runtime::Result<()> {
+  ) -> windows::core::Result<()> {
     let mut paths = Vec::new();
     let hdrop = Self::collect_paths(pDataObj, &mut paths);
     if let Some(hdrop) = hdrop {
@@ -185,11 +186,11 @@ impl FileDropHandler {
     paths: &mut Vec<PathBuf>,
   ) -> Option<HDROP> {
     let drop_format = FORMATETC {
-      cfFormat: CF_HDROP.0 as u16,
+      cfFormat: CF_HDROP as u16,
       ptd: ptr::null_mut(),
-      dwAspect: DVASPECT_CONTENT.0 as u32,
+      dwAspect: DVASPECT_CONTENT as u32,
       lindex: -1,
-      tymed: TYMED_HGLOBAL.0 as u32,
+      tymed: TYMED_HGLOBAL as u32,
     };
 
     match data_obj
@@ -198,8 +199,7 @@ impl FileDropHandler {
       .GetData(&drop_format)
     {
       Ok(medium) => {
-        let hglobal = medium.Anonymous.hGlobal;
-        let hdrop = HDROP(hglobal);
+        let hdrop = medium.Anonymous.hGlobal;
 
         // The second parameter (0xFFFFFFFF) instructs the function to return the item count
         let item_count = DragQueryFileW(hdrop, 0xFFFFFFFF, PWSTR::default(), 0);
