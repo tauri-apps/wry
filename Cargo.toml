@@ -57,6 +57,7 @@ gdk = "0.14"
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.9.0"
 windows_macros = "0.29.0"
+sys-info = "0.9"
 
 [target."cfg(target_os = \"windows\")".dependencies.windows]
 version = "0.29.0"
