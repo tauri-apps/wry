@@ -471,6 +471,17 @@ impl InnerWebView {
       }
     }
 
+    // Set user agent
+    if let Some(user_agent) = attributes.user_agent {
+      unsafe {
+        let settings: ICoreWebView2Settings2 = webview
+          .Settings()?
+          .cast()
+          .map_err(webview2_com::Error::WindowsError)?;
+        settings.SetUserAgent(String::from(user_agent.as_str()))?;
+      }
+    }
+
     // Navigation
     if let Some(url) = attributes.url {
       if url.cannot_be_a_base() {
