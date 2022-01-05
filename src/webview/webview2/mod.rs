@@ -474,7 +474,10 @@ impl InnerWebView {
     // Set user agent
     if let Some(user_agent) = attributes.user_agent {
       unsafe {
-        webview.Settings()?.SetUserAgent(String::from(user_agent.as_str()));
+        let settings: ICoreWebView2Settings2 = webview.Settings()?
+          .cast()
+          .map_err(webview2_com::Error::WindowsError)?;
+        settings.SetUserAgent(String::from(user_agent.as_str()))?;
       }
     }
 
