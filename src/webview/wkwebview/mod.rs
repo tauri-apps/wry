@@ -137,15 +137,25 @@ impl InnerWebView {
             .method(method.to_str());
 
           // Get body
-          // FIXME: Add support of `HTTPBodyStream`
-          // https://developer.apple.com/documentation/foundation/nsurlrequest/1407341-httpbodystream?language=objc
           let mut sent_form_body = Vec::new();
-          let nsdata: id = msg_send![request, HTTPBody];
-          // if we have a body
-          if !nsdata.is_null() {
-            let length = msg_send![nsdata, length];
-            let data_bytes: id = msg_send![nsdata, bytes];
+          let body: id = msg_send![request, HTTPBody];
+          let body_stream: id = msg_send![request, HTTPBodyStream];
+          if !body.is_null() {
+            let length = msg_send![body, length];
+            let data_bytes: id = msg_send![body, bytes];
             sent_form_body = slice::from_raw_parts(data_bytes as *const u8, length).to_vec();
+          } else if !body_stream.is_null() {
+            let _: () = msg_send![body_stream, open];
+
+            while msg_send![body_stream, hasBytesAvailable] {
+              sent_form_body.reserve(128);
+              let p = sent_form_body.as_mut_ptr().add(sent_form_body.len());
+              let read_length = sent_form_body.capacity() - sent_form_body.len();
+              let count: usize = msg_send![body_stream, read: p maxLength: read_length];
+              sent_form_body.set_len(sent_form_body.len() + count);
+            }
+
+            let _: () = msg_send![body_stream, close];
           }
 
           // Extract all headers fields
