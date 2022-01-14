@@ -57,7 +57,7 @@ impl InnerWebView {
     mut attributes: WebViewAttributes,
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    let hwnd = window.hwnd() as HWND;
+    let hwnd = HWND(window.hwnd() as _);
     let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
     let file_drop_handler = attributes.file_drop_handler.take();
     let file_drop_window = window.clone();
@@ -256,8 +256,8 @@ impl InnerWebView {
 
                 let mut point = POINT::default();
                 GetCursorPos(&mut point);
-                let result = hit_test(window.hwnd() as HWND, point.x, point.y);
-                let cursor = match result as u32 {
+                let result = hit_test(HWND(window.hwnd() as _), point.x, point.y);
+                let cursor = match result.0 as u32 {
                   win32wm::HTLEFT => CursorIcon::WResize,
                   win32wm::HTTOP => CursorIcon::NResize,
                   win32wm::HTRIGHT => CursorIcon::EResize,
@@ -276,8 +276,8 @@ impl InnerWebView {
                 if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" {
                   // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
                   // and prevent conflict with `tao::window::drag_window`.
-                  if result as u32 != win32wm::HTCLIENT {
-                    window.begin_resize_drag(result as isize, WM_NCLBUTTONDOWN, point.x, point.y);
+                  if result.0 as u32 != win32wm::HTCLIENT {
+                    window.begin_resize_drag(result.0, WM_NCLBUTTONDOWN, point.x, point.y);
                   }
                 }
               }
