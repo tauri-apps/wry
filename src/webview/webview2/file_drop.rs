@@ -93,12 +93,12 @@ where
 {
   let mut trait_obj: &mut dyn FnMut(HWND) -> bool = &mut callback;
   let closure_pointer_pointer: *mut c_void = unsafe { std::mem::transmute(&mut trait_obj) };
-  let lparam = closure_pointer_pointer as LPARAM;
+  let lparam = LPARAM(closure_pointer_pointer as _);
   unsafe { EnumChildWindows(hwnd, Some(enumerate_callback), lparam) };
 }
 
 unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
-  let closure = &mut *(lparam as *mut c_void as *mut &mut dyn FnMut(HWND) -> bool);
+  let closure = &mut *(lparam.0 as *mut c_void as *mut &mut dyn FnMut(HWND) -> bool);
   closure(hwnd).into()
 }
 
@@ -199,7 +199,7 @@ impl FileDropHandler {
       .GetData(&drop_format)
     {
       Ok(medium) => {
-        let hdrop = medium.Anonymous.hGlobal;
+        let hdrop = HDROP(medium.Anonymous.hGlobal);
 
         // The second parameter (0xFFFFFFFF) instructs the function to return the item count
         let item_count = DragQueryFileW(hdrop, 0xFFFFFFFF, PWSTR::default(), 0);
