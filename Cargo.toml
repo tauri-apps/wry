@@ -26,11 +26,10 @@ default = [ "file-drop", "protocol" ]
 file-drop = [ ]
 protocol = [ ]
 dox = [ "tao/dox" ]
-tray = [ "tao/tray", "system_tray" ]
-ayatana = [ "tao/ayatana", "system_tray" ]
+tray = [ "tao/tray" ]
+ayatana = [ "tao/ayatana" ]
 transparent = [ ]
 fullscreen = [ ]
-system_tray = [ ]
 
 [dependencies]
 libc = "0.2"
@@ -81,10 +80,3 @@ core-graphics = "0.22"
 objc = "0.2"
 objc_id = "0.1"
 
-[[example]]
-name = "system_tray_no_menu"
-required-features = ["system_tray"]
-
-[[example]]
-name = "system_tray"
-required-features = ["system_tray"]

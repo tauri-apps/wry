@@ -56,6 +56,8 @@
 //! those types if you disable it. They just don't create the actual objects. We set this flag
 //! because some implementations require more installed packages. Disable this if you don't want
 //! to install `libappindicator` package. Enabled by default.
+//! - `ayatana`: Enable this if you wish to use more update `libayatana-appindicator` since
+//! `libappindicator` is no longer maintained.
 //! - `transparent`: Transparent background on **macOS** requires calling private functions.
 //! Disable this if you are avoiding them.
 //! - `fullscreen`: Fullscreen video and other medias on **macOS** requires calling private functions.
