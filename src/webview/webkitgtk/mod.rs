@@ -249,11 +249,6 @@ impl InnerWebView {
 
     let w = Self { webview };
 
-    #[cfg(debug_assertions)]
-    if attributes.open_devtools {
-      w.open_devtools();
-    }
-
     // Initialize message handler
     let mut init = String::with_capacity(115 + 20 + 22);
     init.push_str("Object.defineProperty(window, 'ipc', {value: Object.freeze({postMessage:function(x){window.webkit.messageHandlers[\"");

@@ -49,8 +49,6 @@ use crate::application::{dpi::PhysicalSize, window::Window};
 use crate::http::{Request as HttpRequest, Response as HttpResponse};
 
 pub struct WebViewAttributes {
-  /// Whether the devtools should be automatically opened.
-  pub open_devtools: bool,
   /// Whether the WebView should have a custom user-agent.
   pub user_agent: Option<String>,
   /// Whether the WebView window should be visible.
@@ -122,7 +120,6 @@ pub struct WebViewAttributes {
 impl Default for WebViewAttributes {
   fn default() -> Self {
     Self {
-      open_devtools: false,
       user_agent: None,
       visible: true,
       transparent: false,
@@ -272,12 +269,6 @@ impl<'a> WebViewBuilder<'a> {
   /// Set a custom [user-agent](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent) for the WebView.
   pub fn with_user_agent(mut self, user_agent: &str) -> Self {
     self.webview.user_agent = Some(user_agent.to_string());
-    self
-  }
-
-  /// Open the devtools on startup.
-  pub fn open_devtools(mut self) -> Self {
-    self.webview.open_devtools = true;
     self
   }
 
