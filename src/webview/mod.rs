@@ -374,6 +374,12 @@ impl WebView {
     self.webview.focus();
   }
 
+  /// Open the devtools. Only available on debug builds.
+  #[cfg(debug_assertions)]
+  pub fn open_devtools(&self) {
+    self.webview.open_devtools();
+  }
+
   pub fn inner_size(&self) -> PhysicalSize<u32> {
     #[cfg(target_os = "macos")]
     {
