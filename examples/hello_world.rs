@@ -20,6 +20,7 @@ fn main() -> wry::Result<()> {
     .with_url("https://html5test.com")?
     .build()?;
 
+  #[cfg(debug_assertions)]
   webview.open_devtools();
 
   event_loop.run(move |event, _, control_flow| {

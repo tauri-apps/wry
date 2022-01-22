@@ -572,6 +572,14 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         .MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC)
     };
   }
+
+  /// Open the devtools. Only available on debug builds.
+  #[cfg(debug_assertions)]
+  pub fn open_devtools(&self) {
+    let _ = unsafe {
+      self.webview.OpenDevToolsWindow();
+    };
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {
