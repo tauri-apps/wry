@@ -249,6 +249,11 @@ impl InnerWebView {
 
     let w = Self { webview };
 
+    #[cfg(debug_assertions)]
+    if attributes.open_devtools {
+      w.open_devtools();
+    }
+
     // Initialize message handler
     let mut init = String::with_capacity(115 + 20 + 22);
     init.push_str("Object.defineProperty(window, 'ipc', {value: Object.freeze({postMessage:function(x){window.webkit.messageHandlers[\"");
@@ -313,6 +318,14 @@ impl InnerWebView {
 
   pub fn focus(&self) {
     self.webview.grab_focus();
+  }
+
+  /// Open the devtools. Only available on debug builds.
+  #[cfg(debug_assertions)]
+  pub fn open_devtools(&self) {
+    if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
+      inspector.show();
+    }
   }
 }
 

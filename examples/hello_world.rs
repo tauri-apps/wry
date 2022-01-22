@@ -18,6 +18,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)?;
   let webview = WebViewBuilder::new(window)?
     .with_url("https://html5test.com")?
+    .open_devtools()
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {
