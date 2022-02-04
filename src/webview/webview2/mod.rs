@@ -244,7 +244,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     // Message handler
     let ipc_handler = attributes.ipc_handler.take();
     unsafe {
-      webview.add_WebMessageReceived(
+      webview.WebMessageReceived(
         WebMessageReceivedEventHandler::create(Box::new(move |_, args| {
           if let Some(args) = args {
             let mut js = PWSTR::default();
