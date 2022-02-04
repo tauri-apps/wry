@@ -30,7 +30,7 @@ fn main() -> wry::Result<()> {
 
   let (window_tx, window_rx) = std::sync::mpsc::channel::<String>();
   let handler = move |_window: &Window, req: String| {
-    let _ = window_tx.send(req.to_string());
+    let _ = window_tx.send(req);
   };
 
   let id = window1.id();
