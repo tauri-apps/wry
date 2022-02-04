@@ -67,33 +67,23 @@ impl InnerWebView {
 
     // Message handler
     let webview = Rc::new(webview);
-    let wv = Rc::clone(&webview);
     let w = window_rc.clone();
-    let rpc_handler = attributes.rpc_handler.take();
+    let ipc_handler = attributes.ipc_handler.take();
+    let manager = web_context.manager();
 
-    // Use the window hash as the script handler name
+    // Use the window hash as the script handler name to prevent from conflict when sharing same
+    // web context.
     let window_hash = {
       let mut hasher = DefaultHasher::new();
       w.id().hash(&mut hasher);
       hasher.finish().to_string()
     };
 
-    let manager = web_context.manager();
-
     // Connect before registering as recommended by the docs
     manager.connect_script_message_received(None, move |_m, msg| {
       if let Some(js) = msg.js_value() {
-        if let Some(rpc_handler) = &rpc_handler {
-          match super::rpc_proxy(&w, js.to_string(), rpc_handler) {
-            Ok(result) => {
-              let script = result.unwrap_or_default();
-              let cancellable: Option<&Cancellable> = None;
-              wv.run_javascript(&script, cancellable, |_| ());
-            }
-            Err(e) => {
-              eprintln!("{}", e);
-            }
-          }
+        if let Some(ipc_handler) = &ipc_handler {
+          ipc_handler(&w, js.to_string());
         }
       }
     });
@@ -265,10 +255,10 @@ impl InnerWebView {
     let w = Self { webview };
 
     // Initialize message handler
-    let mut init = String::with_capacity(67 + 20 + 20);
-    init.push_str("window.external={invoke:function(x){window.webkit.messageHandlers[\"");
+    let mut init = String::with_capacity(115 + 20 + 22);
+    init.push_str("Object.defineProperty(window, 'ipc', {value: Object.freeze({postMessage:function(x){window.webkit.messageHandlers[\"");
     init.push_str(&window_hash);
-    init.push_str("\"].postMessage(x);}}");
+    init.push_str("\"].postMessage(x)}})})");
     w.init(&init)?;
 
     // Initialize scripts
