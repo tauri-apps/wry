@@ -227,14 +227,14 @@ impl InnerWebView {
     Self::add_script_to_execute_on_document_created(
       &webview,
       String::from(
-        r#"
-          window.external={invoke:s=>window.chrome.webview.postMessage(s)};
+        r#"Object.defineProperty(window, 'ipc', {
+  value: Object.freeze({postMessage:s=>window.chrome.webview.postMessage(s)})
+});
 
-          window.addEventListener('mousedown', (e) => {
-            if (e.buttons === 1) window.chrome.webview.postMessage('__WEBVIEW_LEFT_MOUSE_DOWN__')
-          });
-          window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('__WEBVIEW_MOUSE_MOVE__'));
-        "#,
+window.addEventListener('mousedown', (e) => {
+  if (e.buttons === 1) window.chrome.webview.postMessage('__WEBVIEW_LEFT_MOUSE_DOWN__')
+});
+window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('__WEBVIEW_MOUSE_MOVE__'));"#,
       ),
     )?;
     for js in attributes.initialization_scripts {
@@ -242,11 +242,11 @@ impl InnerWebView {
     }
 
     // Message handler
-    let rpc_handler = attributes.rpc_handler.take();
+    let ipc_handler = attributes.ipc_handler.take();
     unsafe {
       webview.WebMessageReceived(
-        WebMessageReceivedEventHandler::create(Box::new(move |webview, args| {
-          if let (Some(webview), Some(args)) = (webview, args) {
+        WebMessageReceivedEventHandler::create(Box::new(move |_, args| {
+          if let Some(args) = args {
             let mut js = PWSTR::default();
             args.TryGetWebMessageAsString(&mut js)?;
             let js = take_pwstr(js);
@@ -281,21 +281,12 @@ impl InnerWebView {
                   }
                 }
               }
-              // these are internal messages, rpc_handlers don't need it so exit early
+              // these are internal messages, ipc_handlers don't need it so exit early
               return Ok(());
             }
 
-            if let Some(rpc_handler) = &rpc_handler {
-              match super::rpc_proxy(&window, js, rpc_handler) {
-                Ok(result) => {
-                  if let Some(script) = result {
-                    Self::execute_script(&webview, script)?;
-                  }
-                }
-                Err(e) => {
-                  eprintln!("{}", e);
-                }
-              }
+            if let Some(ipc_handler) = &ipc_handler {
+              ipc_handler(&window, js);
             }
           }
 

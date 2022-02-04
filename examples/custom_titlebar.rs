@@ -11,7 +11,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::{Window, WindowBuilder},
     },
-    webview::{RpcRequest, WebViewBuilder},
+    webview::WebViewBuilder,
   };
 
   enum UserEvents {
@@ -51,20 +51,20 @@ fn main() -> wry::Result<()> {
   let script = r#"
   (function () {
     window.addEventListener('DOMContentLoaded', (event) => {
-      document.getElementById('minimize').addEventListener('click', () => rpc.notify('minimize'));
-      document.getElementById('maximize').addEventListener('click', () => rpc.notify('maximize'));
-      document.getElementById('close').addEventListener('click', () => rpc.notify('close'));
+      document.getElementById('minimize').addEventListener('click', () => ipc.postMessage('minimize'));
+      document.getElementById('maximize').addEventListener('click', () => ipc.postMessage('maximize'));
+      document.getElementById('close').addEventListener('click', () => ipc.postMessage('close'));
 
       document.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('drag-region') && e.buttons === 1) {
           e.detail === 2
-            ? window.rpc.notify('maximize')
-            : window.rpc.notify('drag_window');
+            ? window.ipc.postMessage('maximize')
+            : window.ipc.postMessage('drag_window');
         }
       })
       document.addEventListener('touchstart', (e) => {
         if (e.target.classList.contains('drag-region')) {
-          window.rpc.notify('drag_window');
+          window.ipc.postMessage('drag_window');
         }
       })
 
@@ -108,27 +108,26 @@ fn main() -> wry::Result<()> {
 
   let proxy = event_loop.create_proxy();
 
-  let handler = move |window: &Window, req: RpcRequest| {
-    if req.method == "minimize" {
+  let handler = move |window: &Window, req: String| {
+    if req == "minimize" {
       window.set_minimized(true);
     }
-    if req.method == "maximize" {
+    if req == "maximize" {
       window.set_maximized(!window.is_maximized());
     }
-    if req.method == "close" {
+    if req == "close" {
       let _ = proxy.send_event(UserEvents::CloseWindow(window.id()));
     }
-    if req.method == "drag_window" {
+    if req == "drag_window" {
       let _ = window.drag_window();
     }
-    None
   };
 
   let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url(url)?
     .with_initialization_script(script)
-    .with_rpc_handler(handler)
+    .with_ipc_handler(handler)
     .build()?;
   webviews.insert(webview.window().id(), webview);
 

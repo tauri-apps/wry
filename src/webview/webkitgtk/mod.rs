@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::rc::Rc;
+use std::{
+  collections::hash_map::DefaultHasher,
+  hash::{Hash, Hasher},
+  rc::Rc,
+};
 
 use gdk::{Cursor, EventMask, WindowEdge, RGBA};
 use gio::Cancellable;
@@ -16,21 +20,17 @@ use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
 };
 
+use web_context::WebContextExt;
+pub use web_context::WebContextImpl;
+
 use crate::{
   application::{platform::unix::*, window::Window},
   webview::{web_context::WebContext, WebViewAttributes},
   Error, Result,
 };
-use std::{
-  collections::hash_map::DefaultHasher,
-  hash::{Hash, Hasher},
-};
 
 mod file_drop;
 mod web_context;
-
-use web_context::WebContextExt;
-pub use web_context::WebContextImpl;
 
 pub struct InnerWebView {
   webview: Rc<WebView>,
@@ -67,33 +67,23 @@ impl InnerWebView {
 
     // Message handler
     let webview = Rc::new(webview);
-    let wv = Rc::clone(&webview);
     let w = window_rc.clone();
-    let rpc_handler = attributes.rpc_handler.take();
+    let ipc_handler = attributes.ipc_handler.take();
+    let manager = web_context.manager();
 
-    // Use the window hash as the script handler name
+    // Use the window hash as the script handler name to prevent from conflict when sharing same
+    // web context.
     let window_hash = {
       let mut hasher = DefaultHasher::new();
       w.id().hash(&mut hasher);
       hasher.finish().to_string()
     };
 
-    let manager = web_context.manager();
-
     // Connect before registering as recommended by the docs
     manager.connect_script_message_received(None, move |_m, msg| {
       if let Some(js) = msg.js_value() {
-        if let Some(rpc_handler) = &rpc_handler {
-          match super::rpc_proxy(&w, js.to_string(), rpc_handler) {
-            Ok(result) => {
-              let script = result.unwrap_or_default();
-              let cancellable: Option<&Cancellable> = None;
-              wv.run_javascript(&script, cancellable, |_| ());
-            }
-            Err(e) => {
-              eprintln!("{}", e);
-            }
-          }
+        if let Some(ipc_handler) = &ipc_handler {
+          ipc_handler(&w, js.to_string());
         }
       }
     });
@@ -265,10 +255,10 @@ impl InnerWebView {
     let w = Self { webview };
 
     // Initialize message handler
-    let mut init = String::with_capacity(67 + 20 + 20);
-    init.push_str("window.external={invoke:function(x){window.webkit.messageHandlers[\"");
+    let mut init = String::with_capacity(115 + 20 + 22);
+    init.push_str("Object.defineProperty(window, 'ipc', {value: Object.freeze({postMessage:function(x){window.webkit.messageHandlers[\"");
     init.push_str(&window_hash);
-    init.push_str("\"].postMessage(x);}}");
+    init.push_str("\"].postMessage(x)}})})");
     w.init(&init)?;
 
     // Initialize scripts
@@ -311,6 +301,9 @@ impl InnerWebView {
     if let Some(manager) = self.webview.user_content_manager() {
       let script = UserScript::new(
         js,
+        // FIXME: We allow subframe injection because webview2 does and cannot be disabled (currently).
+        // once webview2 allows disabling all-frame script injection, TopFrame should be set
+        // if it does not break anything. (originally added for isolation pattern).
         UserContentInjectedFrames::TopFrame,
         UserScriptInjectionTime::Start,
         &[],

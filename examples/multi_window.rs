@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MIT
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::{
   collections::HashMap,
   time::{Duration, Instant},
@@ -22,7 +21,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::{Window, WindowBuilder},
     },
-    webview::{RpcRequest, WebContext, WebViewBuilder},
+    webview::{WebContext, WebViewBuilder},
   };
 
   let event_loop = EventLoop::new();
@@ -30,27 +29,19 @@ fn main() -> wry::Result<()> {
   let window1 = WindowBuilder::new().build(&event_loop).unwrap();
 
   let (window_tx, window_rx) = std::sync::mpsc::channel::<String>();
-  let handler = move |_window: &Window, req: RpcRequest| {
-    if &req.method == "openWindow" {
-      if let Some(params) = req.params {
-        if let Value::String(url) = &params[0] {
-          let _ = window_tx.send(url.to_string());
-        }
-      }
-    }
-    None
+  let handler = move |_window: &Window, req: String| {
+    let _ = window_tx.send(req);
   };
 
   let id = window1.id();
-  let webview1 = WebViewBuilder::new(window1)
-    .unwrap()
+  let webview1 = WebViewBuilder::new(window1)?
     .with_url("https://tauri.studio")?
     .with_initialization_script(
       r#"async function openWindow() {
-                await window.rpc.notify("openWindow", "https://i.imgur.com/x6tXcr9.gif");
-            }"#,
+    await window.ipc.postMessage("https://i.imgur.com/x6tXcr9.gif");
+}"#,
     )
-    .with_rpc_handler(handler)
+    .with_ipc_handler(handler)
     .with_web_context(&mut web_context)
     .build()?;
   let mut webviews = HashMap::new();

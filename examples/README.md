@@ -11,7 +11,6 @@ Run the `cargo run --example <file_name>` to see how each example works.
 - `hello_world`: the basic example to show the types and methods to create an application.
 - `menu_bar`: uses a custom menu for the application in macOS and the Window and Linux/Windows.
 - `multi_window`: create the window dynamically even after the application is running.
-- `rpc`: A RPC example to explain how to use the RPC handler and interact with it.
 - `stream_range`: read the incoming header from the custom protocol and return part of the data. [RFC7233](https://httpwg.org/specs/rfc7233.html#header.range)
 - `system_tray_no_menu`: open window on tray icon left click.
 - `system_tray`: sample tray application with different behaviours.
