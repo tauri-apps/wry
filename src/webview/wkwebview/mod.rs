@@ -407,7 +407,10 @@ r#"Object.defineProperty(window, 'ipc', {
     unsafe {
       let userscript: id = msg_send![class!(WKUserScript), alloc];
       let script: id =
-        msg_send![userscript, initWithSource:NSString::new(js) injectionTime:0 forMainFrameOnly:1];
+      // FIXME: We allow subframe injection because webview2 does and cannot be disabled (currently).
+      // once webview2 allows disabling all-frame script injection, forMainFrameOnly should be enabled
+      // if it does not break anything. (originally added for isolation pattern).
+        msg_send![userscript, initWithSource:NSString::new(js) injectionTime:0 forMainFrameOnly:0];
       let _: () = msg_send![self.manager, addUserScript: script];
     }
   }

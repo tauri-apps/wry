@@ -77,6 +77,5 @@ features = [
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
 cocoa = "0.24"
 core-graphics = "0.22"
-objc = { version = "0.2", features = ["exception"]}
+objc = { version = "0.2", features = ["exception"] }
 objc_id = "0.1"
-

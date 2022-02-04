@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::rc::Rc;
+use std::{
+  collections::hash_map::DefaultHasher,
+  hash::{Hash, Hasher},
+  rc::Rc,
+};
 
 use gdk::{Cursor, EventMask, WindowEdge, RGBA};
 use gio::Cancellable;
@@ -16,21 +20,17 @@ use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
 };
 
+use web_context::WebContextExt;
+pub use web_context::WebContextImpl;
+
 use crate::{
   application::{platform::unix::*, window::Window},
   webview::{web_context::WebContext, WebViewAttributes},
   Error, Result,
 };
-use std::{
-  collections::hash_map::DefaultHasher,
-  hash::{Hash, Hasher},
-};
 
 mod file_drop;
 mod web_context;
-
-use web_context::WebContextExt;
-pub use web_context::WebContextImpl;
 
 pub struct InnerWebView {
   webview: Rc<WebView>,
@@ -301,6 +301,9 @@ impl InnerWebView {
     if let Some(manager) = self.webview.user_content_manager() {
       let script = UserScript::new(
         js,
+        // FIXME: We allow subframe injection because webview2 does and cannot be disabled (currently).
+        // once webview2 allows disabling all-frame script injection, TopFrame should be set
+        // if it does not break anything. (originally added for isolation pattern).
         UserContentInjectedFrames::TopFrame,
         UserScriptInjectionTime::Start,
         &[],
