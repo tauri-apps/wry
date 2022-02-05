@@ -1,3 +1,5 @@
+use tao::window::WindowId;
+
 // Copyright 2019-2021 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
@@ -9,10 +11,14 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::{Window, WindowBuilder},
     },
-    webview::{RpcRequest, WebViewBuilder},
+    webview::WebViewBuilder,
   };
 
-  let event_loop = EventLoop::new();
+  enum UserEvents {
+    CloseWindow(WindowId),
+  }
+
+  let event_loop = EventLoop::<UserEvents>::with_user_event();
   let mut webviews = std::collections::HashMap::new();
   let window = WindowBuilder::new()
     .with_decorations(false)
@@ -45,20 +51,20 @@ fn main() -> wry::Result<()> {
   let script = r#"
   (function () {
     window.addEventListener('DOMContentLoaded', (event) => {
-      document.getElementById('minimize').addEventListener('click', () => rpc.notify('minimize'));
-      document.getElementById('maximize').addEventListener('click', () => rpc.notify('maximize'));
-      document.getElementById('close').addEventListener('click', () => rpc.notify('close'));
+      document.getElementById('minimize').addEventListener('click', () => ipc.postMessage('minimize'));
+      document.getElementById('maximize').addEventListener('click', () => ipc.postMessage('maximize'));
+      document.getElementById('close').addEventListener('click', () => ipc.postMessage('close'));
 
       document.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('drag-region') && e.buttons === 1) {
           e.detail === 2
-            ? window.rpc.notify('maximize')
-            : window.rpc.notify('drag_window');
+            ? window.ipc.postMessage('maximize')
+            : window.ipc.postMessage('drag_window');
         }
       })
       document.addEventListener('touchstart', (e) => {
         if (e.target.classList.contains('drag-region')) {
-          window.rpc.notify('drag_window');
+          window.ipc.postMessage('drag_window');
         }
       })
 
@@ -100,50 +106,38 @@ fn main() -> wry::Result<()> {
   })();
   "#;
 
-  let (window_tx, window_rx) = std::sync::mpsc::channel();
+  let proxy = event_loop.create_proxy();
 
-  let handler = move |window: &Window, req: RpcRequest| {
-    if req.method == "minimize" {
+  let handler = move |window: &Window, req: String| {
+    if req == "minimize" {
       window.set_minimized(true);
     }
-    if req.method == "maximize" {
-      if window.is_maximized() {
-        window.set_maximized(false);
-      } else {
-        window.set_maximized(true);
-      }
+    if req == "maximize" {
+      window.set_maximized(!window.is_maximized());
     }
-    if req.method == "close" {
-      let _ = window_tx.send(window.id());
+    if req == "close" {
+      let _ = proxy.send_event(UserEvents::CloseWindow(window.id()));
     }
-    if req.method == "drag_window" {
+    if req == "drag_window" {
       let _ = window.drag_window();
     }
-    None
   };
 
   let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url(url)?
     .with_initialization_script(script)
-    .with_rpc_handler(handler)
+    .with_ipc_handler(handler)
     .build()?;
   webviews.insert(webview.window().id(), webview);
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
-    if let Ok(id) = window_rx.try_recv() {
-      webviews.remove(&id);
-      if webviews.is_empty() {
-        *control_flow = ControlFlow::Exit
-      }
-    }
 
-    if let Event::WindowEvent {
-      event, window_id, ..
-    } = event
-    {
-      match event {
+    match event {
+      Event::WindowEvent {
+        event, window_id, ..
+      } => match event {
         WindowEvent::CloseRequested => {
           webviews.remove(&window_id);
           if webviews.is_empty() {
@@ -154,7 +148,14 @@ fn main() -> wry::Result<()> {
           let _ = webviews[&window_id].resize();
         }
         _ => (),
+      },
+      Event::UserEvent(UserEvents::CloseWindow(id)) => {
+        webviews.remove(&id);
+        if webviews.is_empty() {
+          *control_flow = ControlFlow::Exit
+        }
       }
+      _ => (),
     }
   });
 }

@@ -15,14 +15,9 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
             profile: minimal
-            toolchain: nightly
+            toolchain: stable
             override: true
-            components: rustfmt, clippy
-      - name: clippy check
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-targets -- -D warnings
+            components: rustfmt
       - name: fmt
         uses: actions-rs/cargo@v1
         with:

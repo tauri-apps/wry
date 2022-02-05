@@ -15,7 +15,7 @@ pub use web_context::WebContext;
   target_os = "netbsd",
   target_os = "openbsd"
 ))]
-mod webkitgtk;
+pub(crate) mod webkitgtk;
 #[cfg(any(
   target_os = "linux",
   target_os = "dragonfly",
@@ -25,31 +25,35 @@ mod webkitgtk;
 ))]
 use webkitgtk::*;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-mod wkwebview;
+pub(crate) mod wkwebview;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use wkwebview::*;
 #[cfg(target_os = "windows")]
-mod webview2;
+pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
-
-use crate::{Error, Result};
+use crate::Result;
+#[cfg(target_os = "windows")]
+use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
+#[cfg(target_os = "windows")]
+use windows::{Win32::Foundation::HWND, Win32::UI::WindowsAndMessaging::DestroyWindow};
 
 use std::{path::PathBuf, rc::Rc};
 
-use serde_json::Value;
 use url::Url;
 
 #[cfg(target_os = "windows")]
 use crate::application::platform::windows::WindowExtWindows;
-use crate::application::window::Window;
+use crate::application::{dpi::PhysicalSize, window::Window};
 
 use crate::http::{Request as HttpRequest, Response as HttpResponse};
 
 pub struct WebViewAttributes {
+  /// Whether the WebView should have a custom user-agent.
+  pub user_agent: Option<String>,
   /// Whether the WebView window should be visible.
   pub visible: bool,
-  /// Whether the WebView should be transparent.
+  /// Whether the WebView should be transparent. Not supported on Windows 7.
   pub transparent: bool,
   /// Whether load the provided URL to [`WebView`].
   pub url: Option<Url>,
@@ -89,17 +93,11 @@ pub struct WebViewAttributes {
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
   pub custom_protocols: Vec<(String, Box<dyn Fn(&HttpRequest) -> Result<HttpResponse>>)>,
-  /// Set the RPC handler to Communicate between the host Rust code and Javascript on webview.
-  ///
-  /// The communication is done via [JSON-RPC](https://www.jsonrpc.org). Users can use this to register an incoming
-  /// request handler and reply with responses that are passed back to Javascript. On the Javascript
-  /// side the client is exposed via `window.rpc` with two public methods:
-  ///
-  /// 1. The `call()` function accepts a method name and parameters and expects a reply.
-  /// 2. The `notify()` function accepts a method name and parameters but does not expect a reply.
+  /// Set the IPC handler to receive the message from Javascript on webview to host Rust code.
+  /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
   ///
   /// Both functions return promises but `notify()` resolves immediately.
-  pub rpc_handler: Option<Box<dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>>>,
+  pub ipc_handler: Option<Box<dyn Fn(&Window, String)>>,
   /// Set a handler closure to process incoming [`FileDropEvent`] of the webview.
   ///
   /// # Blocking OS Default Behavior
@@ -111,19 +109,27 @@ pub struct WebViewAttributes {
   pub file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
   #[cfg(not(feature = "file-drop"))]
   file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+
+  /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
+  ///
+  /// macOS doesn't provide such method and is always enabled by default. But you still need to add menu
+  /// item accelerators to use shortcuts.
+  pub clipboard: bool,
 }
 
 impl Default for WebViewAttributes {
   fn default() -> Self {
     Self {
+      user_agent: None,
       visible: true,
       transparent: false,
       url: None,
       html: None,
       initialization_scripts: vec![],
       custom_protocols: vec![],
-      rpc_handler: None,
+      ipc_handler: None,
       file_drop_handler: None,
+      clipboard: false,
     }
   }
 }
@@ -152,7 +158,7 @@ impl<'a> WebViewBuilder<'a> {
     })
   }
 
-  /// Sets whether the WebView should be transparent.
+  /// Sets whether the WebView should be transparent. Not supported on Windows 7.
   pub fn with_transparent(mut self, transparent: bool) -> Self {
     self.webview.transparent = transparent;
     self
@@ -202,21 +208,15 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set the RPC handler to Communicate between the host Rust code and Javascript on webview.
-  ///
-  /// The communication is done via [JSON-RPC](https://www.jsonrpc.org). Users can use this to register an incoming
-  /// request handler and reply with responses that are passed back to Javascript. On the Javascript
-  /// side the client is exposed via `window.rpc` with two public methods:
-  ///
-  /// 1. The `call()` function accepts a method name and parameters and expects a reply.
-  /// 2. The `notify()` function accepts a method name and parameters but does not expect a reply.
+  /// Set the IPC handler to receive the message from Javascript on webview to host Rust code.
+  /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
   ///
   /// Both functions return promises but `notify()` resolves immediately.
-  pub fn with_rpc_handler<F>(mut self, handler: F) -> Self
+  pub fn with_ipc_handler<F>(mut self, handler: F) -> Self
   where
-    F: Fn(&Window, RpcRequest) -> Option<RpcResponse> + 'static,
+    F: Fn(&Window, String) + 'static,
   {
-    self.webview.rpc_handler = Some(Box::new(handler));
+    self.webview.ipc_handler = Some(Box::new(handler));
     self
   }
 
@@ -266,6 +266,12 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Set a custom [user-agent](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent) for the WebView.
+  pub fn with_user_agent(mut self, user_agent: &str) -> Self {
+    self.webview.user_agent = Some(user_agent.to_string());
+    self
+  }
+
   /// Consume the builder and create the [`WebView`].
   ///
   /// Platform-specific behavior:
@@ -274,60 +280,7 @@ impl<'a> WebViewBuilder<'a> {
   /// called in the same thread with the [`EventLoop`] you create.
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
-  pub fn build(mut self) -> Result<WebView> {
-    if self.webview.rpc_handler.is_some() {
-      let js = r#"
-            (function() {
-                function Rpc() {
-                    const self = this;
-                    this._promises = {};
-
-                    // Private internal function called on error
-                    this._error = (id, error) => {
-                        if(this._promises[id]){
-                            this._promises[id].reject(error);
-                            delete this._promises[id];
-                        }
-                    }
-
-                    // Private internal function called on result
-                    this._result = (id, result) => {
-                        if(this._promises[id]){
-                            this._promises[id].resolve(result);
-                            delete this._promises[id];
-                        }
-                    }
-
-                    // Call remote method and expect a reply from the handler
-                    this.call = function(method) {
-                        let array = new Uint32Array(1);
-                        window.crypto.getRandomValues(array);
-                        const id = array[0];
-                        const params = Array.prototype.slice.call(arguments, 1);
-                        const payload = {jsonrpc: "2.0", id, method, params};
-                        const promise = new Promise((resolve, reject) => {
-                            self._promises[id] = {resolve, reject};
-                        });
-                        window.external.invoke(JSON.stringify(payload));
-                        return promise;
-                    }
-
-                    // Send a notification without an `id` so no reply is expected.
-                    this.notify = function(method) {
-                        const params = Array.prototype.slice.call(arguments, 1);
-                        const payload = {jsonrpc: "2.0", method, params};
-                        window.external.invoke(JSON.stringify(payload));
-                        return Promise.resolve();
-                    }
-                }
-                window.external = window.external || {};
-                window.external.rpc = new Rpc();
-                window.rpc = window.external.rpc;
-            })();
-            "#;
-
-      self.webview.initialization_scripts.push(js.to_string());
-    }
+  pub fn build(self) -> Result<WebView> {
     let window = Rc::new(self.window);
     let webview = InnerWebView::new(window.clone(), self.webview, self.web_context)?;
     Ok(WebView { window, webview })
@@ -363,15 +316,14 @@ impl Drop for WebView {
     }
     #[cfg(target_os = "windows")]
     unsafe {
-      use winapi::{shared::windef::HWND, um::winuser::DestroyWindow};
-      DestroyWindow(self.window.hwnd() as HWND);
+      DestroyWindow(HWND(self.window.hwnd() as _));
     }
   }
 }
 
 impl WebView {
   /// Create a [`WebView`] from provided [`Window`]. Note that calling this directly loses
-  /// abilities to initialize scripts, add rpc handler, and many more before starting WebView. To
+  /// abilities to initialize scripts, add ipc handler, and many more before starting WebView. To
   /// benefit from above features, create a [`WebViewBuilder`] instead.
   ///
   /// Platform-specific behavior:
@@ -408,7 +360,7 @@ impl WebView {
   /// provide a way to resize automatically.
   pub fn resize(&self) -> Result<()> {
     #[cfg(target_os = "windows")]
-    self.webview.resize(self.window.hwnd())?;
+    self.webview.resize(HWND(self.window.hwnd() as _))?;
     Ok(())
   }
 
@@ -421,101 +373,15 @@ impl WebView {
   pub fn focus(&self) {
     self.webview.focus();
   }
-}
 
-// Helper so all platforms handle RPC messages consistently.
-fn rpc_proxy(
-  window: &Window,
-  js: String,
-  handler: &dyn Fn(&Window, RpcRequest) -> Option<RpcResponse>,
-) -> Result<Option<String>> {
-  let req = serde_json::from_str::<RpcRequest>(&js)
-    .map_err(|e| Error::RpcScriptError(e.to_string(), js))?;
-
-  let mut response = (handler)(window, req);
-  // Got a synchronous response so convert it to a script to be evaluated
-  if let Some(mut response) = response.take() {
-    if let Some(id) = response.id {
-      let js = if let Some(error) = response.error.take() {
-        RpcResponse::get_error_script(id, error)?
-      } else if let Some(result) = response.result.take() {
-        RpcResponse::get_result_script(id, result)?
-      } else {
-        // No error or result, assume a positive response
-        // with empty result (ACK)
-        RpcResponse::get_result_script(id, Value::Null)?
-      };
-      Ok(Some(js))
-    } else {
-      Ok(None)
+  pub fn inner_size(&self) -> PhysicalSize<u32> {
+    #[cfg(target_os = "macos")]
+    {
+      let scale_factor = self.window.scale_factor();
+      self.webview.inner_size(scale_factor)
     }
-  } else {
-    Ok(None)
-  }
-}
-
-const RPC_VERSION: &str = "2.0";
-
-/// RPC request message.
-///
-/// This usually passes to the [`RpcHandler`] or [`WindowRpcHandler`](crate::WindowRpcHandler) as
-/// the parameter. You don't create this by yourself.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RpcRequest {
-  jsonrpc: String,
-  pub id: Option<Value>,
-  pub method: String,
-  pub params: Option<Value>,
-}
-
-/// RPC response message which being sent back to the Javascript side.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RpcResponse {
-  jsonrpc: String,
-  pub(crate) id: Option<Value>,
-  pub(crate) result: Option<Value>,
-  pub(crate) error: Option<Value>,
-}
-
-impl RpcResponse {
-  /// Create a new result response.
-  pub fn new_result(id: Option<Value>, result: Option<Value>) -> Self {
-    Self {
-      jsonrpc: RPC_VERSION.to_string(),
-      id,
-      result,
-      error: None,
-    }
-  }
-
-  /// Create a new error response.
-  pub fn new_error(id: Option<Value>, error: Option<Value>) -> Self {
-    Self {
-      jsonrpc: RPC_VERSION.to_string(),
-      id,
-      error,
-      result: None,
-    }
-  }
-
-  /// Get a script that resolves the promise with a result.
-  pub fn get_result_script(id: Value, result: Value) -> Result<String> {
-    let retval = serde_json::to_string(&result)?;
-    Ok(format!(
-      "window.external.rpc._result({}, {})",
-      id.to_string(),
-      retval
-    ))
-  }
-
-  /// Get a script that rejects the promise with an error.
-  pub fn get_error_script(id: Value, result: Value) -> Result<String> {
-    let retval = serde_json::to_string(&result)?;
-    Ok(format!(
-      "window.external.rpc._error({}, {})",
-      id.to_string(),
-      retval
-    ))
+    #[cfg(not(target_os = "macos"))]
+    self.window.inner_size()
   }
 }
 
@@ -540,13 +406,13 @@ pub fn webview_version() -> Result<String> {
 #[cfg(target_os = "windows")]
 pub trait WebviewExtWindows {
   /// Returns WebView2 Controller
-  fn controller(&self) -> Option<&::webview2::Controller>;
+  fn controller(&self) -> Option<ICoreWebView2Controller>;
 }
 
 #[cfg(target_os = "windows")]
 impl WebviewExtWindows for WebView {
-  fn controller(&self) -> Option<&::webview2::Controller> {
-    self.webview.controller.get()
+  fn controller(&self) -> Option<ICoreWebView2Controller> {
+    Some(self.webview.controller.clone())
   }
 }
 

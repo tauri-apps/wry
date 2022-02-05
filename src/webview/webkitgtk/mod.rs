@@ -2,9 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::rc::Rc;
+use std::{
+  collections::hash_map::DefaultHasher,
+  hash::{Hash, Hasher},
+  rc::Rc,
+};
 
-use gdk::{WindowEdge, RGBA};
+use gdk::{Cursor, EventMask, WindowEdge, RGBA};
 use gio::Cancellable;
 use glib::signal::Inhibit;
 use gtk::prelude::*;
@@ -16,20 +20,17 @@ use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
 };
 
+use web_context::WebContextExt;
+pub use web_context::WebContextImpl;
+
 use crate::{
   application::{platform::unix::*, window::Window},
-  webview::{
-    web_context::{unix::WebContextExt, WebContext},
-    WebViewAttributes,
-  },
+  webview::{web_context::WebContext, WebViewAttributes},
   Error, Result,
-};
-use std::{
-  collections::hash_map::DefaultHasher,
-  hash::{Hash, Hasher},
 };
 
 mod file_drop;
+mod web_context;
 
 pub struct InnerWebView {
   webview: Rc<WebView>,
@@ -66,35 +67,23 @@ impl InnerWebView {
 
     // Message handler
     let webview = Rc::new(webview);
-    let wv = Rc::clone(&webview);
     let w = window_rc.clone();
-    let rpc_handler = attributes.rpc_handler.take();
+    let ipc_handler = attributes.ipc_handler.take();
+    let manager = web_context.manager();
 
-    // Use the window hash as the script handler name
+    // Use the window hash as the script handler name to prevent from conflict when sharing same
+    // web context.
     let window_hash = {
       let mut hasher = DefaultHasher::new();
       w.id().hash(&mut hasher);
       hasher.finish().to_string()
     };
 
-    let manager = web_context.manager();
-
     // Connect before registering as recommended by the docs
     manager.connect_script_message_received(None, move |_m, msg| {
-      if let (Some(js), Some(context)) = (msg.value(), msg.global_context()) {
-        if let Some(js) = js.to_string(&context) {
-          if let Some(rpc_handler) = &rpc_handler {
-            match super::rpc_proxy(&w, js, rpc_handler) {
-              Ok(result) => {
-                let script = result.unwrap_or_default();
-                let cancellable: Option<&Cancellable> = None;
-                wv.run_javascript(&script, cancellable, |_| ());
-              }
-              Err(e) => {
-                eprintln!("{}", e);
-              }
-            }
-          }
+      if let Some(js) = msg.js_value() {
+        if let Some(ipc_handler) = &ipc_handler {
+          ipc_handler(&w, js.to_string());
         }
       }
     });
@@ -108,6 +97,47 @@ impl InnerWebView {
       close_window.gtk_window().close();
     });
 
+    webview.add_events(
+      EventMask::POINTER_MOTION_MASK
+        | EventMask::BUTTON1_MOTION_MASK
+        | EventMask::BUTTON_PRESS_MASK
+        | EventMask::TOUCH_MASK,
+    );
+    webview.connect_motion_notify_event(|webview, event| {
+      // This one should be GtkWindow
+      if let Some(widget) = webview.parent() {
+        // This one should be GtkWindow
+        if let Some(window) = widget.parent() {
+          // Safe to unwrap unless this is not from tao
+          let window: gtk::Window = window.downcast().unwrap();
+          if !window.is_decorated() && window.is_resizable() {
+            if let Some(window) = window.window() {
+              let (cx, cy) = event.root();
+              let edge = hit_test(&window, cx, cy);
+              // FIXME: calling `window.begin_resize_drag` seems to revert the cursor back to normal style
+              window.set_cursor(
+                Cursor::from_name(
+                  &window.display(),
+                  match edge {
+                    WindowEdge::North => "n-resize",
+                    WindowEdge::South => "s-resize",
+                    WindowEdge::East => "e-resize",
+                    WindowEdge::West => "w-resize",
+                    WindowEdge::NorthWest => "nw-resize",
+                    WindowEdge::NorthEast => "ne-resize",
+                    WindowEdge::SouthEast => "se-resize",
+                    WindowEdge::SouthWest => "sw-resize",
+                    _ => "default",
+                  },
+                )
+                .as_ref(),
+              );
+            }
+          }
+        }
+      }
+      Inhibit(false)
+    });
     webview.connect_button_press_event(|webview, event| {
       if event.button() == 1 {
         let (cx, cy) = event.root();
@@ -118,13 +148,48 @@ impl InnerWebView {
             // Safe to unwrap unless this is not from tao
             let window: gtk::Window = window.downcast().unwrap();
             if !window.is_decorated() && window.is_resizable() {
-              // Safe to unwrap since it's a valide GtkWindow
-              let result = hit_test(&window.window().unwrap(), cx, cy);
+              if let Some(window) = window.window() {
+                // Safe to unwrap since it's a valide GtkWindow
+                let result = hit_test(&window, cx, cy);
 
-              // we ignore the `__Unknown` variant so the webview receives the click correctly if it is not on the edges.
-              match result {
-                WindowEdge::__Unknown(_) => (),
-                _ => window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.time()),
+                // we ignore the `__Unknown` variant so the webview receives the click correctly if it is not on the edges.
+                match result {
+                  WindowEdge::__Unknown(_) => (),
+                  _ => window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.time()),
+                }
+              }
+            }
+          }
+        }
+      }
+      Inhibit(false)
+    });
+    webview.connect_touch_event(|webview, event| {
+      // This one should be GtkBox
+      if let Some(widget) = webview.parent() {
+        // This one should be GtkWindow
+        if let Some(window) = widget.parent() {
+          // Safe to unwrap unless this is not from tao
+          let window: gtk::Window = window.downcast().unwrap();
+          if !window.is_decorated() && window.is_resizable() {
+            if let Some(window) = window.window() {
+              if let Some((cx, cy)) = event.root_coords() {
+                if let Some(device) = event.device() {
+                  let result = hit_test(&window, cx, cy);
+
+                  // we ignore the `__Unknown` variant so the window receives the click correctly if it is not on the edges.
+                  match result {
+                    WindowEdge::__Unknown(_) => (),
+                    _ => window.begin_resize_drag_for_device(
+                      result,
+                      &device,
+                      0,
+                      cx as i32,
+                      cy as i32,
+                      event.time(),
+                    ),
+                  }
+                }
               }
             }
           }
@@ -142,16 +207,23 @@ impl InnerWebView {
     }
     webview.grab_focus();
 
-    // Enable webgl, webaudio, canvas features and others as default.
+    // Enable webgl, webaudio, canvas features as default.
     if let Some(settings) = WebViewExt::settings(&*webview) {
       settings.set_enable_webgl(true);
       settings.set_enable_webaudio(true);
       settings.set_enable_accelerated_2d_canvas(true);
-      settings.set_javascript_can_access_clipboard(true);
+
+      // Enable clipboard
+      if attributes.clipboard {
+        settings.set_javascript_can_access_clipboard(true);
+      }
 
       // Enable App cache
       settings.set_enable_offline_web_application_cache(true);
       settings.set_enable_page_cache(true);
+
+      // Set user agent
+      settings.set_user_agent(attributes.user_agent.as_deref());
 
       debug_assert_eq!(
         {
@@ -163,12 +235,7 @@ impl InnerWebView {
 
     // Transparent
     if attributes.transparent {
-      webview.set_background_color(&RGBA {
-        red: 0.,
-        green: 0.,
-        blue: 0.,
-        alpha: 0.,
-      });
+      webview.set_background_color(&RGBA::new(0., 0., 0., 0.));
     }
 
     // File drop handling
@@ -183,10 +250,10 @@ impl InnerWebView {
     let w = Self { webview };
 
     // Initialize message handler
-    let mut init = String::with_capacity(67 + 20 + 20);
-    init.push_str("window.external={invoke:function(x){window.webkit.messageHandlers[\"");
+    let mut init = String::with_capacity(115 + 20 + 22);
+    init.push_str("Object.defineProperty(window, 'ipc', {value: Object.freeze({postMessage:function(x){window.webkit.messageHandlers[\"");
     init.push_str(&window_hash);
-    init.push_str("\"].postMessage(x);}}");
+    init.push_str("\"].postMessage(x)}})})");
     w.init(&init)?;
 
     // Initialize scripts
@@ -229,6 +296,9 @@ impl InnerWebView {
     if let Some(manager) = self.webview.user_content_manager() {
       let script = UserScript::new(
         js,
+        // FIXME: We allow subframe injection because webview2 does and cannot be disabled (currently).
+        // once webview2 allows disabling all-frame script injection, TopFrame should be set
+        // if it does not break anything. (originally added for isolation pattern).
         UserContentInjectedFrames::TopFrame,
         UserScriptInjectionTime::Start,
         &[],

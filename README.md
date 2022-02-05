@@ -66,7 +66,7 @@ For more information, please read the documentation below.
 
 ## Platform-specific notes
 
-All platforms uses [tao](https://github.com/rust-windowing/tao) to build the window, and wry re-export it as application module. Here are the underlying web engine each platform uses, and some dependencies you might need to install.
+All platforms uses [tao](https://github.com/tauri-apps/tao) to build the window, and wry re-export it as application module. Here are the underlying web engine each platform uses, and some dependencies you might need to install.
 
 ### Linux
 
