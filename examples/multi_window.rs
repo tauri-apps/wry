@@ -1,15 +1,13 @@
-// Copyright 2021 Per Bothner
 // Copyright 2019-2021 Tauri Programme within The Commons Conservancy
+// SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
-
-use tao::event_loop::{EventLoopProxy, EventLoopWindowTarget};
 
 fn main() -> wry::Result<()> {
   use std::collections::HashMap;
   use wry::{
     application::{
       event::{Event, WindowEvent},
-      event_loop::{ControlFlow, EventLoop},
+      event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget},
       window::{Window, WindowBuilder, WindowId},
     },
     webview::{WebView, WebViewBuilder},
