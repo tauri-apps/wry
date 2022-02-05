@@ -2,7 +2,7 @@ workspace = { }
 
 [package]
 name = "wry"
-version = "0.12.2"
+version = "0.13.0"
 authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -60,9 +60,9 @@ webview2-com = "0.10.0"
 windows_macros = "0.30.0"
 sys-info = "0.9"
 
-[target."cfg(target_os = \"windows\")".dependencies.windows]
-version = "0.30.0"
-features = [
+  [target."cfg(target_os = \"windows\")".dependencies.windows]
+  version = "0.30.0"
+  features = [
   "alloc",
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
@@ -71,11 +71,11 @@ features = [
   "Win32_System_Ole",
   "Win32_System_SystemServices",
   "Win32_UI_Shell",
-  "Win32_UI_WindowsAndMessaging",
+  "Win32_UI_WindowsAndMessaging"
 ]
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
 cocoa = "0.24"
 core-graphics = "0.22"
-objc = { version = "0.2", features = ["exception"] }
+objc = { version = "0.2", features = [ "exception" ] }
 objc_id = "0.1"
