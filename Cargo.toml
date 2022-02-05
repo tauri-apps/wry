@@ -39,7 +39,7 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.2"
-tao = { git = "https://github.com/tauri-apps/tao", branch = "next", default-features = false, features = [ "serde" ] }
+tao = { git = "https://github.com/tauri-apps/tao", branch = "dev", default-features = false, features = [ "serde" ] }
 http = "0.2.5"
 
 [dev-dependencies]
@@ -48,12 +48,12 @@ tempfile = "3.2.0"
 http-range = "0.1.4"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
-webkit2gtk = { version = "0.16", features = [ "v2_22" ] }
-webkit2gtk-sys = "0.16"
-gio = "0.14"
-glib = "0.14"
-gtk = "0.14"
-gdk = "0.14"
+webkit2gtk = { version = "0.17", features = [ "v2_22" ] }
+webkit2gtk-sys = "0.17"
+gio = "0.15"
+glib = "0.15"
+gtk = "0.15"
+gdk = "0.15"
 
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.10.0"
