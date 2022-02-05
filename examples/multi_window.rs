@@ -2,91 +2,106 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use serde::{Deserialize, Serialize};
-use std::{
-  collections::HashMap,
-  time::{Duration, Instant},
-};
-
-#[derive(Debug, Serialize, Deserialize)]
-struct MessageParameters {
-  message: String,
-}
-
 fn main() -> wry::Result<()> {
+  use std::collections::HashMap;
   use wry::{
     application::{
-      dpi::PhysicalSize,
       event::{Event, WindowEvent},
-      event_loop::{ControlFlow, EventLoop},
-      window::{Window, WindowBuilder},
+      event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget},
+      window::{Window, WindowBuilder, WindowId},
     },
-    webview::{WebContext, WebViewBuilder},
+    webview::{WebView, WebViewBuilder},
   };
 
-  let event_loop = EventLoop::new();
-  let mut web_context = WebContext::default();
-  let window1 = WindowBuilder::new().build(&event_loop).unwrap();
+  enum UserEvents {
+    CloseWindow(WindowId),
+    NewWindow(),
+  }
 
-  let (window_tx, window_rx) = std::sync::mpsc::channel::<String>();
-  let handler = move |_window: &Window, req: String| {
-    let _ = window_tx.send(req);
-  };
+  fn create_new_window(
+    title: String,
+    event_loop: &EventLoopWindowTarget<UserEvents>,
+    proxy: EventLoopProxy<UserEvents>,
+  ) -> (WindowId, WebView) {
+    let window = WindowBuilder::new()
+      .with_title(title)
+      .build(event_loop)
+      .unwrap();
+    let window_id = window.id();
+    let handler = move |window: &Window, req: String| match req.as_str() {
+      "new-window" => {
+        let _ = proxy.send_event(UserEvents::NewWindow());
+      }
+      "close" => {
+        let _ = proxy.send_event(UserEvents::CloseWindow(window.id()));
+      }
+      _ if req.starts_with("change-title") => {
+        let title = req.replace("change-title:", "");
+        window.set_title(title.as_str());
+      }
+      _ => {}
+    };
 
-  let id = window1.id();
-  let webview1 = WebViewBuilder::new(window1)?
-    .with_url("https://tauri.studio")?
-    .with_initialization_script(
-      r#"async function openWindow() {
-    await window.ipc.postMessage("https://i.imgur.com/x6tXcr9.gif");
-}"#,
-    )
-    .with_ipc_handler(handler)
-    .with_web_context(&mut web_context)
-    .build()?;
+    let webview = WebViewBuilder::new(window)
+      .unwrap()
+      .with_html(
+        r#"
+          <button onclick="window.ipc.postMessage('new-window')">Open a new window</button>
+          <button onclick="window.ipc.postMessage('close')">Close current window</button>
+          <input oninput="window.ipc.postMessage(`change-title:${this.value}`)" />
+      "#,
+      )
+      .unwrap()
+      .with_ipc_handler(handler)
+      .build()
+      .unwrap();
+    (window_id, webview)
+  }
+
+  let event_loop = EventLoop::<UserEvents>::with_user_event();
   let mut webviews = HashMap::new();
-  webviews.insert(id, webview1);
+  let proxy = event_loop.create_proxy();
 
-  let instant = Instant::now();
-  let eight_secs = Duration::from_secs(8);
-  let mut trigger = true;
+  let new_window = create_new_window(
+    format!("Window {}", webviews.len() + 1),
+    &event_loop,
+    proxy.clone(),
+  );
+  webviews.insert(new_window.0, new_window.1);
+
   event_loop.run(move |event, event_loop, control_flow| {
     *control_flow = ControlFlow::Wait;
 
-    if let Ok(url) = window_rx.try_recv() {
-      let window2 = WindowBuilder::new()
-        .with_title("RODA RORA DA")
-        .with_inner_size(PhysicalSize::new(426, 197))
-        .build(event_loop)
-        .unwrap();
-      let id = window2.id();
-      let webview2 = WebViewBuilder::new(window2)
-        .unwrap()
-        .with_url(&url)
-        .unwrap()
-        .with_web_context(&mut web_context)
-        .build()
-        .unwrap();
-      webviews.insert(id, webview2);
-    } else if trigger && instant.elapsed() >= eight_secs {
-      webviews
-        .get_mut(&id)
-        .unwrap()
-        .evaluate_script("openWindow()")
-        .unwrap();
-      trigger = false;
-    }
-
-    if let Event::WindowEvent {
-      window_id,
-      event: WindowEvent::CloseRequested,
-      ..
-    } = event
-    {
-      webviews.remove(&window_id);
-      if webviews.is_empty() {
-        *control_flow = ControlFlow::Exit;
+    match event {
+      Event::WindowEvent {
+        event, window_id, ..
+      } => match event {
+        WindowEvent::CloseRequested => {
+          webviews.remove(&window_id);
+          if webviews.is_empty() {
+            *control_flow = ControlFlow::Exit
+          }
+        }
+        WindowEvent::Resized(_) => {
+          let _ = webviews[&window_id].resize();
+        }
+        _ => (),
+      },
+      Event::UserEvent(UserEvents::NewWindow()) => {
+        let new_window = create_new_window(
+          format!("Window {}", webviews.len() + 1),
+          &event_loop,
+          proxy.clone(),
+        );
+        webviews.insert(new_window.0, new_window.1);
       }
+      Event::UserEvent(UserEvents::CloseWindow(id)) => {
+        webviews.remove(&id);
+        if webviews.is_empty() {
+          *control_flow = ControlFlow::Exit
+        }
+      }
+      _ => (),
     }
   });
 }
