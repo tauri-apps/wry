@@ -44,7 +44,7 @@ http = "0.2.5"
 
 [dev-dependencies]
 anyhow = "1.0.43"
-tempfile = "3.2.0"
+tempfile = "3.3.0"
 http-range = "0.1.4"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
