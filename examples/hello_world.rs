@@ -32,9 +32,7 @@ fn main() -> wry::Result<()> {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      _ => {
-        dbg!(webview.window().inner_size());
-      }
+      _ => (),
     }
   });
 }

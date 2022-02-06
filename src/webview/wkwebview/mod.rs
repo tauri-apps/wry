@@ -456,6 +456,16 @@ r#"Object.defineProperty(window, 'ipc', {
 
   pub fn focus(&self) {}
 
+  /// Open the devtools. Only available on debug builds.
+  #[cfg(debug_assertions)]
+  pub fn open_devtools(&self) {
+    unsafe {
+      // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
+      let x: id = msg_send![self.webview, _inspector];
+      let _: id = msg_send![x, show];
+    }
+  }
+
   #[cfg(target_os = "macos")]
   pub fn inner_size(&self, scale_factor: f64) -> PhysicalSize<u32> {
     let view_frame = unsafe { NSView::frame(self.webview) };
