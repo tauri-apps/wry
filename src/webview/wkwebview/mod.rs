@@ -253,7 +253,7 @@ impl InnerWebView {
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
 
-      #[cfg(feature = "devtool")]
+      #[cfg(any(debug_assertions, feature = "devtool"))]
       if attributes.devtool {
         // Equivalent Obj-C:
         // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
@@ -461,7 +461,7 @@ r#"Object.defineProperty(window, 'ipc', {
   /// - **iOS:** Not implemented.
   pub fn devtool(&self) {
     #[cfg(target_os = "macos")]
-    #[cfg(feature = "devtool")]
+    #[cfg(any(debug_assertions, feature = "devtool"))]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
       let tool: id = msg_send![self.webview, _inspector];

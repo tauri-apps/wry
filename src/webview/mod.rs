@@ -122,8 +122,8 @@ pub struct WebViewAttributes {
   /// [`WebView::devtool`], or right click the page and open it from the context menu.
   ///
   /// # Warning
-  /// This will call private functions on **macOS** and requires `devtool` feature flag to actually
-  /// enable it.
+  /// This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
+  /// but requires `devtool` feature flag to actually enable it in **release** build.
   pub devtool: bool,
 }
 
@@ -289,8 +289,8 @@ impl<'a> WebViewBuilder<'a> {
   /// [`WebView::devtool`], or right click the page and open it from the context menu.
   ///
   /// # Warning
-  /// This will call private functions on **macOS** and requires `devtool` feature flag to actually
-  /// enable it.
+  /// This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
+  /// but requires `devtool` feature flag to actually enable it in **release** build.
   pub fn with_dev_tool(mut self, devtool: bool) -> Self {
     self.webview.devtool = devtool;
     self
