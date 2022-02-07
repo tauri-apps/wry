@@ -1,5 +1,18 @@
 # Changelog
 
+## \[0.13.1]
+
+- Add `devtool` feature flag and configuration option.
+  - [d0f307b](https://github.com/tauri-apps/wry/commit/d0f307b218c3913520efbb378e9c01a526137fdd) feat: implement `devtools` API, closes [#287](https://github.com/tauri-apps/wry/pull/287) ([#486](https://github.com/tauri-apps/wry/pull/486)) on 2022-02-07
+
+- Update the `webview2-com` crate 0.11.0:
+
+- Fix silent build script errors related to unconfigured nuget in https://github.com/wravery/webview2-rs/pull/4
+
+- Update the WebView2 SDK (not the runtime, just the API bindings) to the latest 1.0.1072.54 version
+
+- [7d4eeb7](https://github.com/tauri-apps/wry/commit/7d4eeb744bf008e43c034e865b383ee4a330e77a) Update webview2-com to 0.11.0 ([#488](https://github.com/tauri-apps/wry/pull/488)) on 2022-02-06
+
 ## \[0.13.0]
 
 - Update gtk to 0.15
