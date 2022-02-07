@@ -573,9 +573,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     };
   }
 
-  /// Open the devtools. Only available on debug builds.
-  #[cfg(debug_assertions)]
-  pub fn open_devtools(&self) {
+  /// Open the web insepctor which is usually called dev tool.
+  pub fn devtool(&self) {
     let _ = unsafe {
       self.webview.OpenDevToolsWindow();
     };

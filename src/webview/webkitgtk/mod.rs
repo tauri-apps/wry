@@ -315,9 +315,8 @@ impl InnerWebView {
     self.webview.grab_focus();
   }
 
-  /// Open the devtools. Only available on debug builds.
-  #[cfg(debug_assertions)]
-  pub fn open_devtools(&self) {
+  /// Open the web insepctor which is usually called dev tool.
+  pub fn devtool(&self) {
     if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
       inspector.show();
     }

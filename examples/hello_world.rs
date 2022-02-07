@@ -21,7 +21,7 @@ fn main() -> wry::Result<()> {
     .build()?;
 
   #[cfg(debug_assertions)]
-  webview.open_devtools();
+  webview.devtool();
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

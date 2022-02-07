@@ -58,17 +58,14 @@
 //! to install `libappindicator` package. Enabled by default.
 //! - `ayatana`: Enable this if you wish to use more update `libayatana-appindicator` since
 //! `libappindicator` is no longer maintained.
+//! - `devtool`: Enable devtool on **macOS** requires calling private functions.
+//! Avoid this in release build if your app needs to publish to App Store.
 //! - `transparent`: Transparent background on **macOS** requires calling private functions.
-//! Disable this if you are avoiding them.
-//! - `fullscreen`: Fullscreen video and other medias on **macOS** requires calling private functions.
-//! Disable this if you are avoiding them.
+//! Avoid this in release build if your app needs to publish to App Store.
+//! - `fullscreen`: Fullscreen video and other media on **macOS** requires calling private functions.
+//! Avoid this in release build if your app needs to publish to App Store.
 //! - `dox`: Enables this in `package.metadata.docs.rs` section to skip linking some **Linux**
 //! libraries and prevent from building documentation on doc.rs fails.
-//!
-//! ## Debug build
-//!
-//! Debug profile enables tools like inspector for development or debug usage. Note this will call
-//! private APIs on macOS.
 //!
 //! [tao]: https://crates.io/crates/tao
 //! [`EventLoop`]: crate::application::event_loop::EventLoop

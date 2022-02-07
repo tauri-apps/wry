@@ -28,6 +28,7 @@ protocol = [ ]
 dox = [ "tao/dox" ]
 tray = [ "tao/tray" ]
 ayatana = [ "tao/ayatana" ]
+devtool = [ ]
 transparent = [ ]
 fullscreen = [ ]
 
