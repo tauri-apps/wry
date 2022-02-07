@@ -457,8 +457,13 @@ r#"Object.defineProperty(window, 'ipc', {
   pub fn focus(&self) {}
 
   /// Open the devtools. Only available on debug builds.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **iOS:** Not implemented.
   #[cfg(debug_assertions)]
   pub fn open_devtools(&self) {
+    #[cfg(target_os = "macos")]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
       let x: id = msg_send![self.webview, _inspector];
