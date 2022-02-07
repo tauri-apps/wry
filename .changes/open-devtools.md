@@ -2,4 +2,4 @@
 "wry": patch
 ---
 
-Add `open_devtools` API (only available on debug builds).
+Add `devtool` feature flag and configuration option.
