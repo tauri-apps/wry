@@ -214,7 +214,9 @@ impl InnerWebView {
       settings
         .SetAreDevToolsEnabled(false)
         .map_err(webview2_com::Error::WindowsError)?;
-      debug_assert_eq!(settings.SetAreDevToolsEnabled(true), Ok(()));
+      if attributes.devtool {
+        settings.SetAreDevToolsEnabled(true);
+      }
 
       let mut rect = RECT::default();
       GetClientRect(hwnd, &mut rect);
@@ -570,6 +572,13 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       self
         .controller
         .MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC)
+    };
+  }
+
+  /// Open the web insepctor which is usually called dev tool.
+  pub fn devtool(&self) {
+    let _ = unsafe {
+      self.webview.OpenDevToolsWindow();
     };
   }
 }

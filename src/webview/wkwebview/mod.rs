@@ -250,18 +250,16 @@ impl InnerWebView {
         _ => class!(WryWebView),
       };
       let webview: id = msg_send![cls, alloc];
-      let preference: id = msg_send![config, preferences];
-      let yes: id = msg_send![class!(NSNumber), numberWithBool:1];
+      let _preference: id = msg_send![config, preferences];
+      let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
 
-      debug_assert_eq!(
-        {
-          // Equivalent Obj-C:
-          // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
-          let dev = NSString::new("developerExtrasEnabled");
-          let _: id = msg_send![preference, setValue:yes forKey:dev];
-        },
-        ()
-      );
+      #[cfg(any(debug_assertions, feature = "devtool"))]
+      if attributes.devtool {
+        // Equivalent Obj-C:
+        // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
+        let dev = NSString::new("developerExtrasEnabled");
+        let _: id = msg_send![_preference, setValue:_yes forKey:dev];
+      }
 
       #[cfg(feature = "transparent")]
       if attributes.transparent {
@@ -274,7 +272,7 @@ impl InnerWebView {
       #[cfg(feature = "fullscreen")]
       // Equivalent Obj-C:
       // [preference setValue:@YES forKey:@"fullScreenEnabled"];
-      let _: id = msg_send![preference, setValue:yes forKey:NSString::new("fullScreenEnabled")];
+      let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("fullScreenEnabled")];
 
       // Initialize webview with zero point
       let zero = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(0., 0.));
@@ -455,6 +453,21 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn focus(&self) {}
+
+  /// Open the web insepctor which is usually called dev tool.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **iOS:** Not implemented.
+  pub fn devtool(&self) {
+    #[cfg(target_os = "macos")]
+    #[cfg(any(debug_assertions, feature = "devtool"))]
+    unsafe {
+      // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
+      let tool: id = msg_send![self.webview, _inspector];
+      let _: id = msg_send![tool, show];
+    }
+  }
 
   #[cfg(target_os = "macos")]
   pub fn inner_size(&self, scale_factor: f64) -> PhysicalSize<u32> {

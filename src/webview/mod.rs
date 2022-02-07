@@ -115,6 +115,16 @@ pub struct WebViewAttributes {
   /// macOS doesn't provide such method and is always enabled by default. But you still need to add menu
   /// item accelerators to use shortcuts.
   pub clipboard: bool,
+
+  /// Enable web insepctor which is usually called dev tool.
+  ///
+  /// Note this only enables dev tool to the webview. To open it, you can call
+  /// [`WebView::devtool`], or right click the page and open it from the context menu.
+  ///
+  /// # Warning
+  /// This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
+  /// but requires `devtool` feature flag to actually enable it in **release** build.
+  pub devtool: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -130,6 +140,7 @@ impl Default for WebViewAttributes {
       ipc_handler: None,
       file_drop_handler: None,
       clipboard: false,
+      devtool: false,
     }
   }
 }
@@ -272,6 +283,19 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Enable web insepctor which is usually called dev tool.
+  ///
+  /// Note this only enables dev tool to the webview. To open it, you can call
+  /// [`WebView::devtool`], or right click the page and open it from the context menu.
+  ///
+  /// # Warning
+  /// This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
+  /// but requires `devtool` feature flag to actually enable it in **release** build.
+  pub fn with_dev_tool(mut self, devtool: bool) -> Self {
+    self.webview.devtool = devtool;
+    self
+  }
+
   /// Consume the builder and create the [`WebView`].
   ///
   /// Platform-specific behavior:
@@ -372,6 +396,11 @@ impl WebView {
   /// re-focus the window. And if you focus to `WebView`, it will lost focus to the `Window`.
   pub fn focus(&self) {
     self.webview.focus();
+  }
+
+  /// Open the web insepctor which is usually called dev tool.
+  pub fn devtool(&self) {
+    self.webview.devtool();
   }
 
   pub fn inner_size(&self) -> PhysicalSize<u32> {

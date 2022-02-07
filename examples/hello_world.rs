@@ -20,6 +20,9 @@ fn main() -> wry::Result<()> {
     .with_url("https://html5test.com")?
     .build()?;
 
+  #[cfg(debug_assertions)]
+  webview.devtool();
+
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
@@ -29,9 +32,7 @@ fn main() -> wry::Result<()> {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      _ => {
-        dbg!(webview.window().inner_size());
-      }
+      _ => (),
     }
   });
 }
