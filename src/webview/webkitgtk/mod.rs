@@ -225,12 +225,9 @@ impl InnerWebView {
       // Set user agent
       settings.set_user_agent(attributes.user_agent.as_deref());
 
-      debug_assert_eq!(
-        {
-          settings.set_enable_developer_extras(true);
-        },
-        ()
-      );
+      if attributes.devtool {
+        settings.set_enable_developer_extras(true);
+      }
     }
 
     // Transparent

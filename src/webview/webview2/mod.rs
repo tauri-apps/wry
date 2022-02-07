@@ -214,7 +214,9 @@ impl InnerWebView {
       settings
         .SetAreDevToolsEnabled(false)
         .map_err(webview2_com::Error::WindowsError)?;
-      debug_assert_eq!(settings.SetAreDevToolsEnabled(true), Ok(()));
+      if attributes.devtool {
+        settings.SetAreDevToolsEnabled(true);
+      }
 
       let mut rect = RECT::default();
       GetClientRect(hwnd, &mut rect);

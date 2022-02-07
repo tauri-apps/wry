@@ -115,6 +115,16 @@ pub struct WebViewAttributes {
   /// macOS doesn't provide such method and is always enabled by default. But you still need to add menu
   /// item accelerators to use shortcuts.
   pub clipboard: bool,
+
+  /// Enable web insepctor which is usually called dev tool.
+  ///
+  /// Note this only enables dev tool to the webview. To open it, you can call
+  /// [`WebView::devtool`], or right click the page and open it from the context menu.
+  ///
+  /// # Warning
+  /// This will call private functions on **macOS** and requires `devtool` feature flag to actually
+  /// enable it.
+  pub devtool: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -130,6 +140,7 @@ impl Default for WebViewAttributes {
       ipc_handler: None,
       file_drop_handler: None,
       clipboard: false,
+      devtool: false,
     }
   }
 }
@@ -269,6 +280,19 @@ impl<'a> WebViewBuilder<'a> {
   /// Set a custom [user-agent](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent) for the WebView.
   pub fn with_user_agent(mut self, user_agent: &str) -> Self {
     self.webview.user_agent = Some(user_agent.to_string());
+    self
+  }
+
+  /// Enable web insepctor which is usually called dev tool.
+  ///
+  /// Note this only enables dev tool to the webview. To open it, you can call
+  /// [`WebView::devtool`], or right click the page and open it from the context menu.
+  ///
+  /// # Warning
+  /// This will call private functions on **macOS** and requires `devtool` feature flag to actually
+  /// enable it.
+  pub fn with_dev_tool(mut self, devtool: bool) -> Self {
+    self.webview.devtool = devtool;
     self
   }
 
