@@ -215,7 +215,9 @@ impl InnerWebView {
         .SetAreDevToolsEnabled(false)
         .map_err(webview2_com::Error::WindowsError)?;
       if attributes.devtool {
-        settings.SetAreDevToolsEnabled(true);
+        settings
+          .SetAreDevToolsEnabled(true)
+          .map_err(webview2_com::Error::WindowsError)?;
       }
 
       let mut rect = RECT::default();
@@ -577,8 +579,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
   /// Open the web insepctor which is usually called dev tool.
   pub fn devtool(&self) {
-    let _ = unsafe {
-      self.webview.OpenDevToolsWindow();
+    unsafe {
+      let _ = self.webview.OpenDevToolsWindow();
     };
   }
 }
