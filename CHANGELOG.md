@@ -1,5 +1,15 @@
 # Changelog
 
+## \[0.13.2]
+
+- Fix cross compilation from `macOS`.
+  - [c97499f](https://github.com/tauri-apps/wry/commit/c97499fb078c7c65508bf2fa3502ef95c8114ef4) fix: cross compilation from macOS ([#498](https://github.com/tauri-apps/wry/pull/498)) on 2022-02-15
+- Update `webview2-com` to 0.13.0, which bumps the WebView2 SDK to 1.0.1108.44 and improves cross-compilation support.
+
+Targeting \*-pc-windows-gnu works now, but it has some [limitations](https://github.com/wravery/webview2-rs#cross-compilation).
+
+- [24a443c](https://github.com/tauri-apps/wry/commit/24a443ca1d90ef091eaceb0ec61bcc648499b743) Add /.changes/webview2-com-0.13.0.md on 2022-02-14
+
 ## \[0.13.1]
 
 - Add `devtool` feature flag and configuration option.
