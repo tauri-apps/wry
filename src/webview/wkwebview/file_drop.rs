@@ -19,7 +19,7 @@ use crate::{application::window::Window, webview::FileDropEvent};
 
 pub(crate) type NSDragOperation = cocoa::foundation::NSUInteger;
 #[allow(non_upper_case_globals)]
-const NSDragOperationLink: NSDragOperation = 2;
+const NSDragOperationCopy: NSDragOperation = 1;
 
 static OBJC_DRAGGING_ENTERED: Lazy<extern "C" fn(*const Object, Sel, id) -> NSDragOperation> =
   Lazy::new(|| unsafe {
@@ -96,8 +96,8 @@ extern "C" fn dragging_updated(this: &mut Object, sel: Sel, drag_info: id) -> NS
   let os_operation = OBJC_DRAGGING_UPDATED(this, sel, drag_info);
   if os_operation == 0 {
     // 0 will be returned for a file drop on any arbitrary location on the webview.
-    // We'll override that with NSDragOperationLink.
-    NSDragOperationLink
+    // We'll override that with NSDragOperationCopy.
+    NSDragOperationCopy
   } else {
     // A different NSDragOperation is returned when a file is hovered over something like
     // a <input type="file">, so we'll make sure to preserve that behaviour.
@@ -113,7 +113,7 @@ extern "C" fn dragging_entered(this: &mut Object, sel: Sel, drag_info: id) -> NS
     // Reject the Wry file drop (invoke the OS default behaviour)
     OBJC_DRAGGING_ENTERED(this, sel, drag_info)
   } else {
-    NSDragOperationLink
+    NSDragOperationCopy
   }
 }
 
