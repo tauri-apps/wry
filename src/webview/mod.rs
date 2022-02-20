@@ -116,7 +116,7 @@ pub struct WebViewAttributes {
   /// item accelerators to use shortcuts.
   pub clipboard: bool,
 
-  /// Enable web insepctor which is usually called dev tool.
+  /// Enable web inspector which is usually called dev tool.
   ///
   /// Note this only enables dev tool to the webview. To open it, you can call
   /// [`WebView::devtool`], or right click the page and open it from the context menu.
