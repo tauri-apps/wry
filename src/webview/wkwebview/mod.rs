@@ -454,7 +454,7 @@ r#"Object.defineProperty(window, 'ipc', {
 
   pub fn focus(&self) {}
 
-  /// Open the web insepctor which is usually called dev tool.
+  /// Open the web inspector which is usually called dev tool.
   ///
   /// ## Platform-specific
   ///
