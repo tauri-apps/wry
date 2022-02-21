@@ -78,5 +78,5 @@ windows_macros = "0.30.0"
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
 cocoa = "0.24"
 core-graphics = "0.22"
-objc = { version = "0.2", features = [ "exception" ] }
+objc = "0.2"
 objc_id = "0.1"
