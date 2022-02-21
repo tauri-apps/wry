@@ -13,16 +13,16 @@ documentation = "https://docs.rs/wry"
 categories = [ "gui" ]
 
 [package.metadata.docs.rs]
-features = [ "dox" ]
-default-target = "x86_64-unknown-linux-gnu"
+default-features = false
+features = [ "dox", "file-drop", "protocol" ]
 targets = [
-  "x86_64-pc-windows-msvc",
   "x86_64-unknown-linux-gnu",
+  "x86_64-pc-windows-msvc",
   "x86_64-apple-darwin"
 ]
 
 [features]
-default = [ "file-drop", "protocol" ]
+default = [ "file-drop", "objc", "protocol" ]
 file-drop = [ ]
 protocol = [ ]
 dox = [ "tao/dox" ]
@@ -78,5 +78,5 @@ windows_macros = "0.30.0"
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
 cocoa = "0.24"
 core-graphics = "0.22"
-objc = "0.2"
+objc = { version = "0.2", features = ["exception"], optional = true }
 objc_id = "0.1"
