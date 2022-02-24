@@ -8,6 +8,10 @@ mod web_context;
 
 pub use web_context::WebContext;
 
+#[cfg(target_os = "android")]
+pub(crate) mod android;
+#[cfg(target_os = "android")]
+use android::*;
 #[cfg(any(
   target_os = "linux",
   target_os = "dragonfly",
