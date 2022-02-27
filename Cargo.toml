@@ -22,7 +22,8 @@ targets = [
 ]
 
 [features]
-default = [ "file-drop", "objc/exception", "protocol" ]
+default = [ "file-drop", "objc_exception", "protocol" ]
+objc_exception = [ "objc/exception" ]
 file-drop = [ ]
 protocol = [ ]
 dox = [ "tao/dox" ]
