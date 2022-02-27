@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.13.3]
+
+- Fix rustdoc generation of Windows and Mac on docs.rs.
+  - [327a019](https://github.com/tauri-apps/wry/commit/327a019a07fd10ca3a42ebfb8d9d626e3b91fd05) Fix rustdoc generation of Windows and Mac on docs.rs, fix [#503](https://github.com/tauri-apps/wry/pull/503) ([#507](https://github.com/tauri-apps/wry/pull/507)) on 2022-02-27
+
 ## \[0.13.2]
 
 - Fix cross compilation from `macOS`.
