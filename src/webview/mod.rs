@@ -41,6 +41,12 @@ use crate::Result;
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
 use windows::{Win32::Foundation::HWND, Win32::UI::WindowsAndMessaging::DestroyWindow};
+#[cfg(target_os = "android")]
+use jni::{
+  objects::{JClass, JObject, JString},
+  sys::{jobject, jstring},
+  JNIEnv,
+};
 
 use std::{path::PathBuf, rc::Rc};
 
@@ -415,6 +421,11 @@ impl WebView {
     }
     #[cfg(not(target_os = "macos"))]
     self.window.inner_size()
+  }
+
+  #[cfg(target_os = "android")]
+  pub fn run(self, env: JNIEnv, jclass: JClass, jobject: JObject) -> jobject {
+      self.webview.run(env, jclass, jobject).unwrap()
   }
 }
 
