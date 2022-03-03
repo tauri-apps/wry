@@ -261,6 +261,9 @@ impl InnerWebView {
         let _: id = msg_send![_preference, setValue:_yes forKey:dev];
       }
 
+      #[cfg(target_os = "macos")]
+      let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("tabFocusesLinks")];
+
       #[cfg(feature = "transparent")]
       if attributes.transparent {
         let no: id = msg_send![class!(NSNumber), numberWithBool:0];
