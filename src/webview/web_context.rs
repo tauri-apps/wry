@@ -1,3 +1,5 @@
+use tao::event_loop::EventLoopProxy;
+
 #[cfg(any(
   target_os = "linux",
   target_os = "dragonfly",
@@ -23,13 +25,16 @@ use std::path::{Path, PathBuf};
 ///
 /// [`WebView`]: crate::webview::WebView
 #[derive(Debug)]
-pub struct WebContext {
+pub struct WebContextGeneric<T: 'static> {
   data: WebContextData,
+  event_loop_proxy: Option<EventLoopProxy<T>>,
   #[allow(dead_code)] // It's not needed on Windows and macOS.
   pub(crate) os: WebContextImpl,
 }
 
-impl WebContext {
+pub type WebContext = WebContextGeneric<()>;
+
+impl<T: 'static> WebContextGeneric<T> {
   /// Create a new [`WebContext`].
   ///
   /// `data_directory`:
@@ -38,7 +43,7 @@ impl WebContext {
   pub fn new(data_directory: Option<PathBuf>) -> Self {
     let data = WebContextData { data_directory };
     let os = WebContextImpl::new(&data);
-    Self { data, os }
+    Self { data, event_loop_proxy: None, os }
   }
 
   /// A reference to the data directory the context was created with.
@@ -53,13 +58,19 @@ impl WebContext {
   pub fn set_allows_automation(&mut self, flag: bool) {
     self.os.set_allows_automation(flag);
   }
+
+  pub fn with_event_loop_proxy(mut self, proxy: EventLoopProxy<T>) -> Self {
+    self.event_loop_proxy = Some(proxy);
+
+    self
+  }
 }
 
-impl Default for WebContext {
+impl<T: 'static> Default for WebContextGeneric<T> {
   fn default() -> Self {
     let data = WebContextData::default();
     let os = WebContextImpl::new(&data);
-    Self { data, os }
+    Self { data, event_loop_proxy: None, os }
   }
 }
 

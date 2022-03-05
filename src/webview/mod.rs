@@ -30,6 +30,7 @@ pub(crate) mod wkwebview;
 use wkwebview::*;
 #[cfg(target_os = "windows")]
 pub(crate) mod webview2;
+use self::web_context::WebContextGeneric;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
 use crate::Result;
@@ -150,17 +151,17 @@ impl Default for WebViewAttributes {
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
 /// [`WebViewBuilder`] privides ability to setup initialization before web engine starts.
-pub struct WebViewBuilder<'a> {
+pub struct WebViewBuilder<'a, T: 'static> {
   pub webview: WebViewAttributes,
-  web_context: Option<&'a mut WebContext>,
+  web_context: Option<&'a mut WebContextGeneric<T>>,
   window: Window,
 }
 
-impl<'a> WebViewBuilder<'a> {
+impl<'a> WebViewBuilder<'a, ()> {
   /// Create [`WebViewBuilder`] from provided [`Window`].
   pub fn new(window: Window) -> Result<Self> {
     let webview = WebViewAttributes::default();
-    let web_context = None;
+    let web_context: Option<&mut WebContextGeneric<()>> = None;
 
     Ok(Self {
       webview,
@@ -168,7 +169,9 @@ impl<'a> WebViewBuilder<'a> {
       window,
     })
   }
-
+}
+  
+impl<'a, T: 'static> WebViewBuilder<'a, T> {
   /// Sets whether the WebView should be transparent. Not supported on Windows 7.
   pub fn with_transparent(mut self, transparent: bool) -> Self {
     self.webview.transparent = transparent;
@@ -272,7 +275,7 @@ impl<'a> WebViewBuilder<'a> {
   }
 
   /// Set the web context that can share with multiple [`WebView`]s.
-  pub fn with_web_context(mut self, web_context: &'a mut WebContext) -> Self {
+  pub fn with_web_context(mut self, web_context: &'a mut WebContextGeneric<T>) -> Self {
     self.web_context = Some(web_context);
     self
   }
@@ -357,7 +360,7 @@ impl WebView {
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
   pub fn new(window: Window) -> Result<Self> {
-    WebViewBuilder::new(window)?.build()
+    WebViewBuilder::<()>::new(window)?.build()
   }
 
   /// Get the [`Window`] associate with the [`WebView`]. This can let you perform window related

@@ -36,6 +36,8 @@ use crate::{
   http::RequestBuilder as HttpRequestBuilder,
 };
 
+use super::web_context::WebContextGeneric;
+
 impl From<webview2_com::Error> for Error {
   fn from(err: webview2_com::Error) -> Self {
     Error::WebView2Error(err)
@@ -52,10 +54,10 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new(
+  pub fn new<T>(
     window: Rc<Window>,
     mut attributes: WebViewAttributes,
-    web_context: Option<&mut WebContext>,
+    web_context: Option<&mut WebContextGeneric<T>>,
   ) -> Result<Self> {
     let hwnd = HWND(window.hwnd() as _);
     let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
@@ -79,8 +81,8 @@ impl InnerWebView {
     })
   }
 
-  fn create_environment(
-    web_context: &Option<&mut WebContext>,
+  fn create_environment<T>(
+    web_context: &Option<&mut WebContextGeneric<T>>,
   ) -> webview2_com::Result<ICoreWebView2Environment> {
     let (tx, rx) = mpsc::channel();
 
