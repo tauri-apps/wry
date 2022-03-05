@@ -46,7 +46,7 @@ use crate::{
     dpi::{LogicalSize, PhysicalSize},
     window::Window,
   },
-  webview::{FileDropEvent, WebContext, WebViewAttributes},
+  webview::{FileDropEvent, WebContextGeneric, WebViewAttributes},
   Result,
 };
 
@@ -68,10 +68,10 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new(
+  pub fn new<T>(
     window: Rc<Window>,
     attributes: WebViewAttributes,
-    mut web_context: Option<&mut WebContext>,
+    mut web_context: Option<&mut WebContextGeneric<T>>,
   ) -> Result<Self> {
     // Function for ipc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {

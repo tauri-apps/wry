@@ -17,13 +17,13 @@ use std::{
 use url::Url;
 //use webkit2gtk_sys::webkit_uri_request_get_http_headers;
 use webkit2gtk::{
-  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, UserContentManager, WebContext,
+  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, UserContentManager, WebContextGeneric,
   WebContextBuilder, WebView, WebsiteDataManagerBuilder,
 };
 
 #[derive(Debug)]
-pub struct WebContextImpl {
-  context: WebContext,
+pub struct WebContextImpl<T> {
+  context: WebContextGeneric<T>,
   manager: UserContentManager,
   webview_uri_loader: Rc<WebviewUriLoader>,
   registered_protocols: HashSet<String>,
@@ -31,7 +31,7 @@ pub struct WebContextImpl {
   app_info: Option<ApplicationInfo>,
 }
 
-impl WebContextImpl {
+impl WebContextImpl<()> {
   pub fn new(data: &WebContextData) -> Self {
     use webkit2gtk::traits::*;
 
@@ -84,18 +84,26 @@ impl WebContextImpl {
       app_info: Some(app_info),
     }
   }
+}
 
+impl<T: 'static> WebContextImpl<T> {
   pub fn set_allows_automation(&mut self, flag: bool) {
     use webkit2gtk::traits::*;
     self.automation = flag;
     self.context.set_automation_allowed(flag);
   }
+
+  pub fn with_event_loop_proxy(mut self, proxy: EventLoopProxy<T>) -> Self {
+    self.context.event_loop_proxy = Some(proxy);
+
+    self
+  }
 }
 
 /// [`WebContext`](super::WebContext) items that only matter on unix.
-pub trait WebContextExt {
+pub trait WebContextExt<T> {
   /// The GTK [`WebContext`] of all webviews in the context.
-  fn context(&self) -> &WebContext;
+  fn context(&self) -> &WebContextGeneric<T>;
 
   /// The GTK [`UserContentManager`] of all webviews in the context.
   fn manager(&self) -> &UserContentManager;
@@ -135,8 +143,8 @@ pub trait WebContextExt {
   fn register_automation(&mut self, webview: WebView);
 }
 
-impl WebContextExt for super::WebContext {
-  fn context(&self) -> &WebContext {
+impl<T: 'static> WebContextExt for super::WebContextGeneric<T> {
+  fn context(&self) -> &WebContextGeneric<T> {
     &self.os.context
   }
 
@@ -201,12 +209,13 @@ impl WebContextExt for super::WebContext {
 }
 
 fn actually_register_uri_scheme<F>(
-  context: &mut super::WebContext,
+  context: &mut super::WebContextGeneric<T>,
   name: &str,
   handler: F,
 ) -> crate::Result<()>
 where
   F: Fn(&HttpRequest) -> crate::Result<HttpResponse> + 'static,
+  T: 'static,
 {
   use webkit2gtk::traits::*;
   let context = &context.os.context;
