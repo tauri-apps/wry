@@ -66,6 +66,11 @@ impl<T: 'static> WebContextGeneric<T> {
       os: self.os
     }
   }
+
+  pub fn event_loop_proxy(&self) -> Option<&EventLoopProxy<T>> {
+    self.event_loop_proxy.as_ref()
+  }
+
 }
 
 impl<T: 'static> Default for WebContextGeneric<T> {

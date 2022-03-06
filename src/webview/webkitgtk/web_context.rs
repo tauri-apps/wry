@@ -105,6 +105,10 @@ impl<T: 'static> WebContextImpl<T> {
       app_info: self.app_info,
     }
   }
+
+  pub fn event_loop_proxy(&self) -> Option<&EventLoopProxy<T>> {
+    self.context.event_loop_proxy.as_ref()
+  }
 }
 
 /// [`WebContext`](super::WebContext) items that only matter on unix.
