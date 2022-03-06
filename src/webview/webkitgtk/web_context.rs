@@ -93,10 +93,17 @@ impl<T: 'static> WebContextImpl<T> {
     self.context.set_automation_allowed(flag);
   }
 
-  pub fn with_event_loop_proxy(mut self, proxy: EventLoopProxy<T>) -> Self {
+  pub fn with_event_loop_proxy<U: 'static>(self, proxy: EventLoopProxy<U>) -> WebContextImpl<U> {
     self.context.event_loop_proxy = Some(proxy);
 
-    self
+    WebContextImpl {
+      context: self.context.with_event_loop_proxy,
+      manager: self.manager,
+      webview_uri_loader: self.webview_uri_loader,
+      registered_protocols: self.registered_protocols,
+      automation: self.automation,
+      app_info: self.app_info,
+    }
   }
 }
 

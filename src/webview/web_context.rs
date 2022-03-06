@@ -59,10 +59,12 @@ impl<T: 'static> WebContextGeneric<T> {
     self.os.set_allows_automation(flag);
   }
 
-  pub fn with_event_loop_proxy(mut self, proxy: EventLoopProxy<T>) -> Self {
-    self.event_loop_proxy = Some(proxy);
-
-    self
+  pub fn with_event_loop_proxy<U: 'static>(self, proxy: EventLoopProxy<U>) -> WebContextGeneric<U> {
+    WebContextGeneric {
+      event_loop_proxy: Some(proxy),
+      data: self.data,
+      os: self.os
+    }
   }
 }
 
