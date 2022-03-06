@@ -275,9 +275,12 @@ impl<'a, T: 'static> WebViewBuilder<'a, T> {
   }
 
   /// Set the web context that can share with multiple [`WebView`]s.
-  pub fn with_web_context(mut self, web_context: &'a mut WebContextGeneric<T>) -> Self {
-    self.web_context = Some(web_context);
-    self
+  pub fn with_web_context<U: 'static>(self, web_context: &'a mut WebContextGeneric<U>) -> WebViewBuilder<U> {
+    WebViewBuilder {
+      web_context: Some(web_context),
+      webview: self.webview,
+      window: self.window
+    }
   }
 
   /// Set a custom [user-agent](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent) for the WebView.
