@@ -11,7 +11,7 @@ use crate::webview::webkitgtk::WebContextImpl;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use crate::webview::wkwebview::WebContextImpl;
 
-use std::path::{Path, PathBuf};
+use std::{path::{Path, PathBuf}, sync::Arc};
 
 /// A context that is shared between multiple [`WebView`]s.
 ///
@@ -24,10 +24,10 @@ use std::path::{Path, PathBuf};
 /// interact with them.
 ///
 /// [`WebView`]: crate::webview::WebView
-#[derive(Debug)]
 pub struct WebContextGeneric<T: 'static> {
   data: WebContextData,
   event_loop_proxy: Option<EventLoopProxy<T>>,
+  navigation_event: Option<Arc<dyn Fn(String) -> T>>,
   #[allow(dead_code)] // It's not needed on Windows and macOS.
   pub(crate) os: WebContextImpl,
 }
@@ -43,7 +43,12 @@ impl<T: 'static> WebContextGeneric<T> {
   pub fn new(data_directory: Option<PathBuf>) -> Self {
     let data = WebContextData { data_directory };
     let os = WebContextImpl::new(&data);
-    Self { data, event_loop_proxy: None, os }
+    Self {
+      data,
+      event_loop_proxy: None,
+      navigation_event: None,
+      os
+    }
   }
 
   /// A reference to the data directory the context was created with.
@@ -62,6 +67,7 @@ impl<T: 'static> WebContextGeneric<T> {
   pub fn with_event_loop_proxy<U: 'static>(self, proxy: EventLoopProxy<U>) -> WebContextGeneric<U> {
     WebContextGeneric {
       event_loop_proxy: Some(proxy),
+      navigation_event: None,
       data: self.data,
       os: self.os
     }
@@ -71,13 +77,27 @@ impl<T: 'static> WebContextGeneric<T> {
     self.event_loop_proxy.as_ref()
   }
 
+  pub fn with_navigation_event(mut self, event: impl Fn(String) -> T + 'static) -> Self {
+    self.navigation_event = Some(Arc::new(event));
+
+    self
+  }
+
+  pub fn navigation_event(&self) -> Option<&Arc<dyn Fn(String) -> T>> {
+    self.navigation_event.as_ref()
+  }
 }
 
 impl<T: 'static> Default for WebContextGeneric<T> {
   fn default() -> Self {
     let data = WebContextData::default();
     let os = WebContextImpl::new(&data);
-    Self { data, event_loop_proxy: None, os }
+    Self {
+      data,
+      event_loop_proxy: None,
+      navigation_event: None,
+      os
+    }
   }
 }
 
@@ -105,4 +125,10 @@ impl WebContextImpl {
   }
 
   fn set_allows_automation(&mut self, _flag: bool) {}
+}
+
+impl<T: 'static> std::fmt::Debug for WebContextGeneric<T> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("WebContextGeneric").field("data", &self.data).field("event_loop_proxy", &self.event_loop_proxy).field("os", &self.os).finish()
+  }
 }

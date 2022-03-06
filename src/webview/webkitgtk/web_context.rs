@@ -10,6 +10,7 @@ use std::{
   collections::{HashSet, VecDeque},
   rc::Rc,
   sync::{
+    Arc,
     atomic::{AtomicBool, Ordering::SeqCst},
     Mutex,
   },
@@ -108,6 +109,16 @@ impl<T: 'static> WebContextImpl<T> {
 
   pub fn event_loop_proxy(&self) -> Option<&EventLoopProxy<T>> {
     self.context.event_loop_proxy.as_ref()
+  }
+
+  pub fn with_navigation_event(mut self, event: impl Fn(String) -> T + 'static) -> Self {
+    self.context.navigation_event = Some(Arc::new(event));
+
+    self
+  }
+
+  pub fn navigation_event(&self) -> Option<&Arc<dyn Fn(String) -> T>> {
+    self.context.navigation_event.as_ref()
   }
 }
 
