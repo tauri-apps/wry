@@ -6,7 +6,7 @@
 
 mod web_context;
 
-pub use web_context::WebContext;
+pub use web_context::{WebContext, NavCallback};
 
 #[cfg(any(
   target_os = "linux",
@@ -30,10 +30,9 @@ pub(crate) mod wkwebview;
 use wkwebview::*;
 #[cfg(target_os = "windows")]
 pub(crate) mod webview2;
-use self::web_context::WebContextGeneric;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
-use crate::Result;
+use crate::{Result, Error::MissingContext};
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
@@ -151,17 +150,17 @@ impl Default for WebViewAttributes {
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
 /// [`WebViewBuilder`] privides ability to setup initialization before web engine starts.
-pub struct WebViewBuilder<'a, T: 'static> {
+pub struct WebViewBuilder<'a> {
   pub webview: WebViewAttributes,
-  web_context: Option<&'a mut WebContextGeneric<T>>,
+  web_context: Option<&'a mut WebContext>,
   window: Window,
 }
 
-impl<'a> WebViewBuilder<'a, ()> {
+impl<'a> WebViewBuilder<'a> {
   /// Create [`WebViewBuilder`] from provided [`Window`].
   pub fn new(window: Window) -> Result<Self> {
     let webview = WebViewAttributes::default();
-    let web_context: Option<&mut WebContextGeneric<()>> = None;
+    let web_context = None;
 
     Ok(Self {
       webview,
@@ -169,9 +168,7 @@ impl<'a> WebViewBuilder<'a, ()> {
       window,
     })
   }
-}
-  
-impl<'a, T: 'static> WebViewBuilder<'a, T> {
+
   /// Sets whether the WebView should be transparent. Not supported on Windows 7.
   pub fn with_transparent(mut self, transparent: bool) -> Self {
     self.webview.transparent = transparent;
@@ -275,12 +272,9 @@ impl<'a, T: 'static> WebViewBuilder<'a, T> {
   }
 
   /// Set the web context that can share with multiple [`WebView`]s.
-  pub fn with_web_context<U: 'static>(self, web_context: &'a mut WebContextGeneric<U>) -> WebViewBuilder<U> {
-    WebViewBuilder {
-      web_context: Some(web_context),
-      webview: self.webview,
-      window: self.window
-    }
+  pub fn with_web_context(mut self, web_context: &'a mut WebContext) -> Self {
+    self.web_context = Some(web_context);
+    self
   }
 
   /// Set a custom [user-agent](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent) for the WebView.
@@ -300,6 +294,17 @@ impl<'a, T: 'static> WebViewBuilder<'a, T> {
   pub fn with_dev_tool(mut self, devtool: bool) -> Self {
     self.webview.devtool = devtool;
     self
+  }
+
+  pub fn with_navigation_callback(mut self, callback: impl NavCallback) -> Result<Self> {
+    match self.web_context {
+      None => Err(MissingContext),
+      Some(web_context) => {
+        web_context.set_navigation_callback(callback);
+        self.web_context = Some(web_context);
+        Ok(self)
+      }
+    }
   }
 
   /// Consume the builder and create the [`WebView`].
@@ -363,7 +368,7 @@ impl WebView {
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
   pub fn new(window: Window) -> Result<Self> {
-    WebViewBuilder::<()>::new(window)?.build()
+    WebViewBuilder::new(window)?.build()
   }
 
   /// Get the [`Window`] associate with the [`WebView`]. This can let you perform window related

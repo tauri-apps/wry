@@ -5,7 +5,7 @@
 mod file_drop;
 
 use crate::{
-  webview::WebViewAttributes,
+  webview::{WebContext, WebViewAttributes},
   Error, Result,
 };
 
@@ -36,8 +36,6 @@ use crate::{
   http::RequestBuilder as HttpRequestBuilder,
 };
 
-use super::web_context::WebContextGeneric;
-
 impl From<webview2_com::Error> for Error {
   fn from(err: webview2_com::Error) -> Self {
     Error::WebView2Error(err)
@@ -54,10 +52,10 @@ pub struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new<T>(
+  pub fn new(
     window: Rc<Window>,
     mut attributes: WebViewAttributes,
-    web_context: Option<&mut WebContextGeneric<T>>,
+    web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let hwnd = HWND(window.hwnd() as _);
     let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
@@ -81,8 +79,8 @@ impl InnerWebView {
     })
   }
 
-  fn create_environment<T>(
-    web_context: &Option<&mut WebContextGeneric<T>>,
+  fn create_environment(
+    web_context: &Option<&mut WebContext>,
   ) -> webview2_com::Result<ICoreWebView2Environment> {
     let (tx, rx) = mpsc::channel();
 
@@ -154,13 +152,13 @@ impl InnerWebView {
       .map_err(webview2_com::Error::WindowsError)
   }
 
-  fn init_webview<T>(
+  fn init_webview(
     window: Rc<Window>,
     hwnd: HWND,
     mut attributes: WebViewAttributes,
     env: &ICoreWebView2Environment,
     controller: &ICoreWebView2Controller,
-    context: &Option<&mut WebContextGeneric<T>>
+    context: &Option<&mut WebContext>
   ) -> webview2_com::Result<ICoreWebView2> {
     let webview =
       unsafe { controller.CoreWebView2() }.map_err(webview2_com::Error::WindowsError)?;
@@ -302,17 +300,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     }
     .map_err(webview2_com::Error::WindowsError)?;
 
-    if let Some((
-      Some(event_proxy),
-      (
-        Some(event_builder),
-        Some(should_cancel)
-      )
-    )) = context.as_ref().map(|c| (c.event_loop_proxy(), c.navigation_event())) {
+    if let Some(nav_callback) = context.as_ref().and_then(|c| c.navigation_callback()) {
       unsafe {
-        let event_proxy = event_proxy.clone();
-        let event_builder = event_builder.clone();
-        let should_cancel = should_cancel.clone();
+        let nav_callback = nav_callback.clone();
         webview
           .NavigationStarting(
             NavigationStartingEventHandler::create(Box::new(move |_, args| {
@@ -321,11 +311,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 args.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
                 
-                args.SetCancel(should_cancel(&uri))?;
+                let cancel = nav_callback(uri);
                 
-                let event = event_builder(&uri);
-                if event_proxy.send_event(event).is_ok() {
-                }
+                args.SetCancel(cancel)?;
               }
   
               Ok(())

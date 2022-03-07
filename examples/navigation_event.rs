@@ -17,20 +17,19 @@ fn main() -> wry::Result<()> {
   }
 
   let event_loop: EventLoop<UserEvent> = EventLoop::with_user_event();
+  let proxy = event_loop.create_proxy();
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)?;
-  let mut web_context = WebContext::default()
-    .with_event_loop_proxy(event_loop.create_proxy())
-    .with_navigation_event(
-      |uri| UserEvent::Navigation(uri.to_string()),
-      |uri| {
-        !uri.contains("neverssl")
-      }
-    );
+  let mut web_context = WebContext::default();
   let webview = WebViewBuilder::new(window)?
     .with_url("http://neverssl.com")?
     .with_web_context(&mut web_context)
+    .with_navigation_callback(move |uri: String| {
+      let submitted = proxy.send_event(UserEvent::Navigation(uri.clone())).is_ok();
+
+      !submitted || !uri.contains("neverssl")
+    })?
     .build()?;
 
   #[cfg(debug_assertions)]

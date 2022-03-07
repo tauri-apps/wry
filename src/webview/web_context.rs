@@ -1,5 +1,3 @@
-use tao::event_loop::EventLoopProxy;
-
 #[cfg(any(
   target_os = "linux",
   target_os = "dragonfly",
@@ -24,33 +22,23 @@ use std::{path::{Path, PathBuf}, sync::Arc};
 /// interact with them.
 ///
 /// [`WebView`]: crate::webview::WebView
-pub struct WebContextGeneric<T: 'static> {
+#[derive(Debug)]
+pub struct WebContext {
   data: WebContextData,
-  event_loop_proxy: Option<EventLoopProxy<T>>,
-  navigation_event: Option<Arc<dyn Fn(&str) -> T>>,
-  should_cancel: Option<Arc<dyn Fn(&str) -> bool>>,
   #[allow(dead_code)] // It's not needed on Windows and macOS.
   pub(crate) os: WebContextImpl,
 }
 
-pub type WebContext = WebContextGeneric<()>;
-
-impl<T: 'static> WebContextGeneric<T> {
+impl WebContext {
   /// Create a new [`WebContext`].
   ///
   /// `data_directory`:
   /// * Whether the WebView window should have a custom user data path. This is useful in Windows
   ///   when a bundled application can't have the webview data inside `Program Files`.
   pub fn new(data_directory: Option<PathBuf>) -> Self {
-    let data = WebContextData { data_directory };
+    let data = WebContextData { data_directory, nav_callback: None };
     let os = WebContextImpl::new(&data);
-    Self {
-      data,
-      event_loop_proxy: None,
-      navigation_event: None,
-      should_cancel: None,
-      os
-    }
+    Self { data, os }
   }
 
   /// A reference to the data directory the context was created with.
@@ -66,63 +54,48 @@ impl<T: 'static> WebContextGeneric<T> {
     self.os.set_allows_automation(flag);
   }
 
-  pub fn with_event_loop_proxy<U: 'static>(self, proxy: EventLoopProxy<U>) -> WebContextGeneric<U> {
-    WebContextGeneric {
-      event_loop_proxy: Some(proxy),
-      navigation_event: None,
-      should_cancel: None,
-      data: self.data,
-      os: self.os
-    }
+  pub fn set_navigation_callback(&mut self, callback: impl NavCallback) {
+    self.data.nav_callback = Some(Arc::new(callback))
   }
 
-  pub fn event_loop_proxy(&self) -> Option<&EventLoopProxy<T>> {
-    self.event_loop_proxy.as_ref()
-  }
-
-  pub fn with_navigation_event(
-    mut self,
-    event_builder: impl Fn(&str) -> T + 'static,
-    should_cancel: impl Fn(&str) -> bool + 'static
-  ) -> Self {
-    self.navigation_event = Some(Arc::new(event_builder));
-    self.should_cancel = Some(Arc::new(should_cancel));
-
-    self
-  }
-
-  pub fn navigation_event(&self) -> (Option<&Arc<dyn Fn(&str) -> T>>, Option<&Arc<dyn Fn(&str) -> bool>>) {
-    (
-      self.navigation_event.as_ref(),
-      self.should_cancel.as_ref()
-    )
+  pub fn navigation_callback(&self) -> Option<&Arc<dyn NavCallback>> {
+    self.data.nav_callback()
   }
 }
 
-impl<T: 'static> Default for WebContextGeneric<T> {
+impl Default for WebContext {
   fn default() -> Self {
     let data = WebContextData::default();
     let os = WebContextImpl::new(&data);
-    Self {
-      data,
-      event_loop_proxy: None,
-      navigation_event: None,
-      should_cancel: None,
-      os
-    }
+    Self { data, os }
   }
 }
 
+pub trait NavCallback: Fn(String) -> bool + 'static {}
+
+impl<T: Fn(String) -> bool + 'static> NavCallback for T {}
+
 /// Data that all [`WebContext`] share regardless of platform.
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct WebContextData {
   data_directory: Option<PathBuf>,
+  nav_callback: Option<Arc<dyn NavCallback>>
 }
 
 impl WebContextData {
   /// A reference to the data directory the context was created with.
   pub fn data_directory(&self) -> Option<&Path> {
     self.data_directory.as_deref()
+  }
+
+  pub fn nav_callback(&self) -> Option<&Arc<dyn NavCallback>> {
+    self.nav_callback.as_ref()
+  }
+}
+
+impl std::fmt::Debug for WebContextData {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("WebContextData").field("data_directory", &self.data_directory).field("nav_callback", &self.nav_callback.is_some()).finish()
   }
 }
 
@@ -137,10 +110,4 @@ impl WebContextImpl {
   }
 
   fn set_allows_automation(&mut self, _flag: bool) {}
-}
-
-impl<T: 'static> std::fmt::Debug for WebContextGeneric<T> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_struct("WebContextGeneric").field("data", &self.data).field("event_loop_proxy", &self.event_loop_proxy).field("os", &self.os).finish()
-  }
 }

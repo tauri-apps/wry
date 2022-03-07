@@ -180,4 +180,6 @@ pub enum Error {
   InvalidMethod(#[from] InvalidMethod),
   #[error("Infallible error, something went really wrong: {0}")]
   Infallible(#[from] std::convert::Infallible),
+  #[error("No WebContext provided")]
+  MissingContext,
 }
