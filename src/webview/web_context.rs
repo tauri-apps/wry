@@ -27,7 +27,8 @@ use std::{path::{Path, PathBuf}, sync::Arc};
 pub struct WebContextGeneric<T: 'static> {
   data: WebContextData,
   event_loop_proxy: Option<EventLoopProxy<T>>,
-  navigation_event: Option<Arc<dyn Fn(String) -> T>>,
+  navigation_event: Option<Arc<dyn Fn(&str) -> T>>,
+  should_cancel: Option<Arc<dyn Fn(&str) -> bool>>,
   #[allow(dead_code)] // It's not needed on Windows and macOS.
   pub(crate) os: WebContextImpl,
 }
@@ -47,6 +48,7 @@ impl<T: 'static> WebContextGeneric<T> {
       data,
       event_loop_proxy: None,
       navigation_event: None,
+      should_cancel: None,
       os
     }
   }
@@ -68,6 +70,7 @@ impl<T: 'static> WebContextGeneric<T> {
     WebContextGeneric {
       event_loop_proxy: Some(proxy),
       navigation_event: None,
+      should_cancel: None,
       data: self.data,
       os: self.os
     }
@@ -77,14 +80,22 @@ impl<T: 'static> WebContextGeneric<T> {
     self.event_loop_proxy.as_ref()
   }
 
-  pub fn with_navigation_event(mut self, event: impl Fn(String) -> T + 'static) -> Self {
-    self.navigation_event = Some(Arc::new(event));
+  pub fn with_navigation_event(
+    mut self,
+    event_builder: impl Fn(&str) -> T + 'static,
+    should_cancel: impl Fn(&str) -> bool + 'static
+  ) -> Self {
+    self.navigation_event = Some(Arc::new(event_builder));
+    self.should_cancel = Some(Arc::new(should_cancel));
 
     self
   }
 
-  pub fn navigation_event(&self) -> Option<&Arc<dyn Fn(String) -> T>> {
-    self.navigation_event.as_ref()
+  pub fn navigation_event(&self) -> (Option<&Arc<dyn Fn(&str) -> T>>, Option<&Arc<dyn Fn(&str) -> bool>>) {
+    (
+      self.navigation_event.as_ref(),
+      self.should_cancel.as_ref()
+    )
   }
 }
 
@@ -96,6 +107,7 @@ impl<T: 'static> Default for WebContextGeneric<T> {
       data,
       event_loop_proxy: None,
       navigation_event: None,
+      should_cancel: None,
       os
     }
   }

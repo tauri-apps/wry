@@ -5,7 +5,7 @@
 mod file_drop;
 
 use crate::{
-  webview::{WebContext, WebViewAttributes},
+  webview::WebViewAttributes,
   Error, Result,
 };
 
@@ -66,7 +66,7 @@ impl InnerWebView {
 
     let env = Self::create_environment(&web_context)?;
     let controller = Self::create_controller(hwnd, &env)?;
-    let webview = Self::init_webview(window, hwnd, attributes, &env, &controller)?;
+    let webview = Self::init_webview(window, hwnd, attributes, &env, &controller, &web_context)?;
 
     if let Some(file_drop_handler) = file_drop_handler {
       let mut controller = FileDropController::new();
@@ -154,12 +154,13 @@ impl InnerWebView {
       .map_err(webview2_com::Error::WindowsError)
   }
 
-  fn init_webview(
+  fn init_webview<T>(
     window: Rc<Window>,
     hwnd: HWND,
     mut attributes: WebViewAttributes,
     env: &ICoreWebView2Environment,
     controller: &ICoreWebView2Controller,
+    context: &Option<&mut WebContextGeneric<T>>
   ) -> webview2_com::Result<ICoreWebView2> {
     let webview =
       unsafe { controller.CoreWebView2() }.map_err(webview2_com::Error::WindowsError)?;
@@ -300,6 +301,40 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       )
     }
     .map_err(webview2_com::Error::WindowsError)?;
+
+    if let Some((
+      Some(event_proxy),
+      (
+        Some(event_builder),
+        Some(should_cancel)
+      )
+    )) = context.as_ref().map(|c| (c.event_loop_proxy(), c.navigation_event())) {
+      unsafe {
+        let event_proxy = event_proxy.clone();
+        let event_builder = event_builder.clone();
+        let should_cancel = should_cancel.clone();
+        webview
+          .NavigationStarting(
+            NavigationStartingEventHandler::create(Box::new(move |_, args| {
+              if let Some(args) = args {
+                let mut uri = PWSTR::default();
+                args.Uri(&mut uri)?;
+                let uri = take_pwstr(uri);
+                
+                args.SetCancel(should_cancel(&uri))?;
+                
+                let event = event_builder(&uri);
+                if event_proxy.send_event(event).is_ok() {
+                }
+              }
+  
+              Ok(())
+            })),
+            &mut token
+          )
+          .map_err(webview2_com::Error::WindowsError)?;
+      }
+    }
 
     let mut custom_protocol_names = HashSet::new();
     if !attributes.custom_protocols.is_empty() {
