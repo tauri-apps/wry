@@ -10,7 +10,6 @@ use std::{
   collections::{HashSet, VecDeque},
   rc::Rc,
   sync::{
-    Arc,
     atomic::{AtomicBool, Ordering::SeqCst},
     Mutex,
   },
@@ -18,13 +17,13 @@ use std::{
 use url::Url;
 //use webkit2gtk_sys::webkit_uri_request_get_http_headers;
 use webkit2gtk::{
-  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, UserContentManager, WebContextGeneric,
+  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, UserContentManager, WebContext,
   WebContextBuilder, WebView, WebsiteDataManagerBuilder,
 };
 
 #[derive(Debug)]
-pub struct WebContextImpl<T> {
-  context: WebContextGeneric<T>,
+pub struct WebContextImpl {
+  context: WebContext,
   manager: UserContentManager,
   webview_uri_loader: Rc<WebviewUriLoader>,
   registered_protocols: HashSet<String>,
@@ -32,7 +31,7 @@ pub struct WebContextImpl<T> {
   app_info: Option<ApplicationInfo>,
 }
 
-impl WebContextImpl<()> {
+impl WebContextImpl {
   pub fn new(data: &WebContextData) -> Self {
     use webkit2gtk::traits::*;
 
@@ -85,47 +84,18 @@ impl WebContextImpl<()> {
       app_info: Some(app_info),
     }
   }
-}
 
-impl<T: 'static> WebContextImpl<T> {
   pub fn set_allows_automation(&mut self, flag: bool) {
     use webkit2gtk::traits::*;
     self.automation = flag;
     self.context.set_automation_allowed(flag);
   }
-
-  pub fn with_event_loop_proxy<U: 'static>(self, proxy: EventLoopProxy<U>) -> WebContextImpl<U> {
-    self.context.event_loop_proxy = Some(proxy);
-
-    WebContextImpl {
-      context: self.context.with_event_loop_proxy,
-      manager: self.manager,
-      webview_uri_loader: self.webview_uri_loader,
-      registered_protocols: self.registered_protocols,
-      automation: self.automation,
-      app_info: self.app_info,
-    }
-  }
-
-  pub fn event_loop_proxy(&self) -> Option<&EventLoopProxy<T>> {
-    self.context.event_loop_proxy.as_ref()
-  }
-
-  pub fn with_navigation_event(mut self, event: impl Fn(String) -> T + 'static) -> Self {
-    self.context.navigation_event = Some(Arc::new(event));
-
-    self
-  }
-
-  pub fn navigation_event(&self) -> Option<&Arc<dyn Fn(String) -> T>> {
-    self.context.navigation_event.as_ref()
-  }
 }
 
 /// [`WebContext`](super::WebContext) items that only matter on unix.
-pub trait WebContextExt<T> {
+pub trait WebContextExt {
   /// The GTK [`WebContext`] of all webviews in the context.
-  fn context(&self) -> &WebContextGeneric<T>;
+  fn context(&self) -> &WebContext;
 
   /// The GTK [`UserContentManager`] of all webviews in the context.
   fn manager(&self) -> &UserContentManager;
@@ -165,8 +135,8 @@ pub trait WebContextExt<T> {
   fn register_automation(&mut self, webview: WebView);
 }
 
-impl<T: 'static> WebContextExt for super::WebContextGeneric<T> {
-  fn context(&self) -> &WebContextGeneric<T> {
+impl WebContextExt for super::WebContext {
+  fn context(&self) -> &WebContext {
     &self.os.context
   }
 
@@ -231,13 +201,12 @@ impl<T: 'static> WebContextExt for super::WebContextGeneric<T> {
 }
 
 fn actually_register_uri_scheme<F>(
-  context: &mut super::WebContextGeneric<T>,
+  context: &mut super::WebContext,
   name: &str,
   handler: F,
 ) -> crate::Result<()>
 where
   F: Fn(&HttpRequest) -> crate::Result<HttpResponse> + 'static,
-  T: 'static,
 {
   use webkit2gtk::traits::*;
   let context = &context.os.context;
