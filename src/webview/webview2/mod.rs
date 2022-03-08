@@ -64,7 +64,7 @@ impl InnerWebView {
 
     let env = Self::create_environment(&web_context)?;
     let controller = Self::create_controller(hwnd, &env)?;
-    let webview = Self::init_webview(window, hwnd, attributes, &env, &controller, &web_context)?;
+    let webview = Self::init_webview(window, hwnd, attributes, &env, &controller)?;
 
     if let Some(file_drop_handler) = file_drop_handler {
       let mut controller = FileDropController::new();
@@ -158,7 +158,6 @@ impl InnerWebView {
     mut attributes: WebViewAttributes,
     env: &ICoreWebView2Environment,
     controller: &ICoreWebView2Controller,
-    context: &Option<&mut WebContext>
   ) -> webview2_com::Result<ICoreWebView2> {
     let webview =
       unsafe { controller.CoreWebView2() }.map_err(webview2_com::Error::WindowsError)?;
@@ -300,7 +299,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     }
     .map_err(webview2_com::Error::WindowsError)?;
 
-    if let Some(nav_callback) = context.as_ref().and_then(|c| c.navigation_callback()) {
+    if let Some(nav_callback) = attributes.navigation_handler {
       unsafe {
         let nav_starting_callback = nav_callback.clone();
         webview

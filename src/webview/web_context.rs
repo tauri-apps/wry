@@ -9,7 +9,7 @@ use crate::webview::webkitgtk::WebContextImpl;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use crate::webview::wkwebview::WebContextImpl;
 
-use std::{path::{Path, PathBuf}, sync::Arc};
+use std::{path::{Path, PathBuf}};
 
 /// A context that is shared between multiple [`WebView`]s.
 ///
@@ -36,7 +36,7 @@ impl WebContext {
   /// * Whether the WebView window should have a custom user data path. This is useful in Windows
   ///   when a bundled application can't have the webview data inside `Program Files`.
   pub fn new(data_directory: Option<PathBuf>) -> Self {
-    let data = WebContextData { data_directory, nav_callback: None };
+    let data = WebContextData { data_directory };
     let os = WebContextImpl::new(&data);
     Self { data, os }
   }
@@ -53,14 +53,6 @@ impl WebContext {
   pub fn set_allows_automation(&mut self, flag: bool) {
     self.os.set_allows_automation(flag);
   }
-
-  pub fn set_navigation_callback(&mut self, callback: impl NavCallback) {
-    self.data.nav_callback = Some(Arc::new(callback))
-  }
-
-  pub fn navigation_callback(&self) -> Option<&Arc<dyn NavCallback>> {
-    self.data.nav_callback()
-  }
 }
 
 impl Default for WebContext {
@@ -71,31 +63,16 @@ impl Default for WebContext {
   }
 }
 
-pub trait NavCallback: Fn(String, bool) -> bool + 'static {}
-
-impl<T: Fn(String, bool) -> bool + 'static> NavCallback for T {}
-
 /// Data that all [`WebContext`] share regardless of platform.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct WebContextData {
   data_directory: Option<PathBuf>,
-  nav_callback: Option<Arc<dyn NavCallback>>
 }
 
 impl WebContextData {
   /// A reference to the data directory the context was created with.
   pub fn data_directory(&self) -> Option<&Path> {
     self.data_directory.as_deref()
-  }
-
-  pub fn nav_callback(&self) -> Option<&Arc<dyn NavCallback>> {
-    self.nav_callback.as_ref()
-  }
-}
-
-impl std::fmt::Debug for WebContextData {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_struct("WebContextData").field("data_directory", &self.data_directory).field("nav_callback", &self.nav_callback.is_some()).finish()
   }
 }
 

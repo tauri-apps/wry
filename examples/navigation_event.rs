@@ -9,7 +9,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
     },
-    webview::{WebViewBuilder, WebContext},
+    webview::WebViewBuilder,
   };
 
   enum UserEvent {
@@ -21,15 +21,13 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)?;
-  let mut web_context = WebContext::default();
   let webview = WebViewBuilder::new(window)?
     .with_url("http://neverssl.com")?
-    .with_web_context(&mut web_context)
     .with_navigation_callback(move |uri: String, new_window: bool| {
       let submitted = proxy.send_event(UserEvent::Navigation(uri.clone())).is_ok();
 
       new_window || !submitted || !uri.contains("neverssl")
-    })?
+    })
     .build()?;
 
   #[cfg(debug_assertions)]

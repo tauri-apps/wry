@@ -6,7 +6,7 @@
 
 mod web_context;
 
-pub use web_context::{WebContext, NavCallback};
+pub use web_context::WebContext;
 
 #[cfg(any(
   target_os = "linux",
@@ -32,7 +32,7 @@ use wkwebview::*;
 pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
-use crate::{Result, Error::MissingContext};
+use crate::Result;
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
@@ -110,6 +110,8 @@ pub struct WebViewAttributes {
   #[cfg(not(feature = "file-drop"))]
   file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
 
+  pub navigation_handler: Option<Rc<dyn NavCallback>>,
+
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
   ///
   /// macOS doesn't provide such method and is always enabled by default. But you still need to add menu
@@ -139,6 +141,7 @@ impl Default for WebViewAttributes {
       custom_protocols: vec![],
       ipc_handler: None,
       file_drop_handler: None,
+      navigation_handler: None,
       clipboard: false,
       devtool: false,
     }
@@ -296,15 +299,9 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  pub fn with_navigation_callback(mut self, callback: impl NavCallback) -> Result<Self> {
-    match self.web_context {
-      None => Err(MissingContext),
-      Some(web_context) => {
-        web_context.set_navigation_callback(callback);
-        self.web_context = Some(web_context);
-        Ok(self)
-      }
-    }
+  pub fn with_navigation_callback(mut self, callback: impl NavCallback) -> Self {
+    self.webview.navigation_handler = Some(Rc::new(callback));
+    self
   }
 
   /// Consume the builder and create the [`WebView`].
@@ -455,6 +452,10 @@ impl WebviewExtWindows for WebView {
     Some(self.webview.controller.clone())
   }
 }
+
+pub trait NavCallback: Fn(String, bool) -> bool + 'static {}
+
+impl<T: Fn(String, bool) -> bool + 'static> NavCallback for T {}
 
 #[cfg(test)]
 mod tests {
