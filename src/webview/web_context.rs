@@ -71,9 +71,9 @@ impl Default for WebContext {
   }
 }
 
-pub trait NavCallback: Fn(String) -> bool + 'static {}
+pub trait NavCallback: Fn(String, bool) -> bool + 'static {}
 
-impl<T: Fn(String) -> bool + 'static> NavCallback for T {}
+impl<T: Fn(String, bool) -> bool + 'static> NavCallback for T {}
 
 /// Data that all [`WebContext`] share regardless of platform.
 #[derive(Default)]

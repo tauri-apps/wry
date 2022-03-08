@@ -25,10 +25,10 @@ fn main() -> wry::Result<()> {
   let webview = WebViewBuilder::new(window)?
     .with_url("http://neverssl.com")?
     .with_web_context(&mut web_context)
-    .with_navigation_callback(move |uri: String| {
+    .with_navigation_callback(move |uri: String, new_window: bool| {
       let submitted = proxy.send_event(UserEvent::Navigation(uri.clone())).is_ok();
 
-      !submitted || !uri.contains("neverssl")
+      new_window || !submitted || !uri.contains("neverssl")
     })?
     .build()?;
 

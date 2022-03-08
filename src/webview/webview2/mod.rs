@@ -302,7 +302,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
     if let Some(nav_callback) = context.as_ref().and_then(|c| c.navigation_callback()) {
       unsafe {
-        let nav_callback = nav_callback.clone();
+        let nav_starting_callback = nav_callback.clone();
         webview
           .NavigationStarting(
             NavigationStartingEventHandler::create(Box::new(move |_, args| {
@@ -311,11 +311,30 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 args.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
                 
-                let cancel = nav_callback(uri);
+                let cancel = nav_starting_callback(uri, false);
                 
                 args.SetCancel(cancel)?;
               }
   
+              Ok(())
+            })),
+            &mut token
+          )
+          .map_err(webview2_com::Error::WindowsError)?;
+        let new_window_callback = nav_callback.clone();
+        webview
+          .NewWindowRequested(
+            NewWindowRequestedEventHandler::create(Box::new(move |_, args| {
+              if let Some(args) = args {
+                let mut uri = PWSTR::default();
+                args.Uri(&mut uri)?;
+                let uri = take_pwstr(uri);
+                
+                let cancel = new_window_callback(uri, false);
+                
+                args.SetHandled(cancel)?;
+              }
+              
               Ok(())
             })),
             &mut token
