@@ -320,25 +320,6 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             &mut token
           )
           .map_err(webview2_com::Error::WindowsError)?;
-        let new_window_callback = nav_callback.clone();
-        webview
-          .NewWindowRequested(
-            NewWindowRequestedEventHandler::create(Box::new(move |_, args| {
-              if let Some(args) = args {
-                let mut uri = PWSTR::default();
-                args.Uri(&mut uri)?;
-                let uri = take_pwstr(uri);
-                
-                let cancel = new_window_callback(uri, false);
-                
-                args.SetHandled(cancel)?;
-              }
-              
-              Ok(())
-            })),
-            &mut token
-          )
-          .map_err(webview2_com::Error::WindowsError)?;
       }
     }
 
