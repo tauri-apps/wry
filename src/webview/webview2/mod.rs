@@ -310,7 +310,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 args.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
                 
-                let cancel = nav_starting_callback(uri, false);
+                let cancel = nav_starting_callback(uri);
                 
                 args.SetCancel(cancel)?;
               }

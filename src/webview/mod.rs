@@ -453,9 +453,9 @@ impl WebviewExtWindows for WebView {
   }
 }
 
-pub trait NavCallback: Fn(String, bool) -> bool + 'static {}
+pub trait NavCallback: Fn(String) -> bool + 'static {}
 
-impl<T: Fn(String, bool) -> bool + 'static> NavCallback for T {}
+impl<T: Fn(String) -> bool + 'static> NavCallback for T {}
 
 #[cfg(test)]
 mod tests {
