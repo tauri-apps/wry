@@ -9,7 +9,7 @@ use crate::webview::webkitgtk::WebContextImpl;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use crate::webview::wkwebview::WebContextImpl;
 
-use std::{path::{Path, PathBuf}};
+use std::path::{Path, PathBuf};
 
 /// A context that is shared between multiple [`WebView`]s.
 ///
