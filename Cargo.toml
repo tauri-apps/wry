@@ -81,3 +81,6 @@ cocoa = "0.24"
 core-graphics = "0.22"
 objc = "0.2"
 objc_id = "0.1"
+
+[target."cfg(target_os = \"android\")".dependencies]
+jni = "0.18.0"

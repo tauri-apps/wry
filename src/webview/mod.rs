@@ -8,6 +8,10 @@ mod web_context;
 
 pub use web_context::WebContext;
 
+#[cfg(target_os = "android")]
+pub(crate) mod android;
+#[cfg(target_os = "android")]
+use android::*;
 #[cfg(any(
   target_os = "linux",
   target_os = "dragonfly",
@@ -33,6 +37,12 @@ pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
 use crate::Result;
+#[cfg(target_os = "android")]
+use jni::{
+  objects::{JClass, JObject},
+  sys::jobject,
+  JNIEnv,
+};
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
@@ -324,21 +334,26 @@ pub struct WebView {
 
 // Signal the Window to drop on Linux and Windows. On mac, we need to handle several unsafe code
 // blocks and raw pointer properly.
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd"
+))]
 impl Drop for WebView {
   fn drop(&mut self) {
-    #[cfg(any(
-      target_os = "linux",
-      target_os = "dragonfly",
-      target_os = "freebsd",
-      target_os = "netbsd",
-      target_os = "openbsd"
-    ))]
     unsafe {
       use crate::application::platform::unix::WindowExtUnix;
       use gtk::prelude::WidgetExtManual;
       self.window().gtk_window().destroy();
     }
-    #[cfg(target_os = "windows")]
+  }
+}
+
+#[cfg(target_os = "windows")]
+impl Drop for WebView {
+  fn drop(&mut self) {
     unsafe {
       DestroyWindow(HWND(self.window.hwnd() as _));
     }
@@ -411,6 +426,16 @@ impl WebView {
     }
     #[cfg(not(target_os = "macos"))]
     self.window.inner_size()
+  }
+
+  #[cfg(target_os = "android")]
+  pub fn run(self, env: JNIEnv, jclass: JClass, jobject: JObject) -> jobject {
+    self.webview.run(env, jclass, jobject).unwrap()
+  }
+
+  #[cfg(target_os = "android")]
+  pub fn ipc_handler(window: &Window, arg: String) {
+    InnerWebView::ipc_handler(window, arg)
   }
 }
 

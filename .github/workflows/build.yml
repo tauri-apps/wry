@@ -13,6 +13,7 @@ jobs:
           - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
           - { target: x86_64-apple-darwin, os: macos-latest }
           - { target: aarch64-apple-ios, os: macos-latest }
+          - { target: aarch64-linux-android, os: ubuntu-latest }
 
     runs-on: ${{ matrix.platform.os }}
 
@@ -25,13 +26,13 @@ jobs:
           target: ${{ matrix.platform.target }}
 
       - name: install webkit2gtk (ubuntu only)
-        if: matrix.platform.os == 'ubuntu-latest'
+        if: contains(matrix.platform.target, 'gnu') 
         run: |
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.0 libgtksourceview-3.0-dev libappindicator3-dev
 
       - name: install webview2 (windows only)
-        if: matrix.platform.os == 'windows-latest'
+        if: contains(matrix.platform.target, 'windows')
         shell: pwsh
         run: |
           Invoke-WebRequest https://go.microsoft.com/fwlink/p/?LinkId=2124703 -OutFile installwebview.exe -UseBasicParsing
@@ -78,8 +79,13 @@ jobs:
 
       - name: build tests and examples
         shell: bash
+        if: (
+          !contains(matrix.platform.target, 'android') &&
+          !contains(matrix.platform.target, 'ios'))
         run: cargo test --no-run --verbose --features tray --target ${{ matrix.platform.target }}
 
       - name: run tests
-        if: (!contains(matrix.platform.target, 'ios'))
+        if: (
+          !contains(matrix.platform.target, 'android') &&
+          !contains(matrix.platform.target, 'ios'))
         run: cargo test --verbose --features tray --target ${{ matrix.platform.target }}
