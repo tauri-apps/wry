@@ -27,8 +27,8 @@ fn main() -> wry::Result<()> {
 
   let url = r#"data:text/html,
         <body>
-          <div class='drag-region titlebar'>
-            <div class="left">Awesome WRY Window</div>
+          <div class='titlebar'>
+            <div class="drag-region left">Awesome WRY Window</div>
             <div class="right">
               <div class="titlebar-button" id="minimize">
                 <img src="https://api.iconify.design/codicon:chrome-minimize.svg" />
@@ -77,12 +77,13 @@ fn main() -> wry::Result<()> {
         }
         .titlebar {
           height: 30px;
+          display: grid;
+          grid-auto-flow: column;
+          grid-template-columns: 1fr max-content max-content max-content;
+          align-items: center;
           background: #1F1F1F;
           color: white;
           user-select: none;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
         }
         .titlebar-button {
           display: inline-flex;

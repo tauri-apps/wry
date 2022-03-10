@@ -18,9 +18,11 @@ use once_cell::unsync::OnceCell;
 use windows::{
   core::Interface,
   Win32::{
-    Foundation::{BOOL, E_FAIL, E_POINTER, HWND, POINT, PWSTR, RECT},
+    Foundation::{BOOL, E_FAIL, E_POINTER, FARPROC, HWND, POINT, PWSTR, RECT},
     System::{
       Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
+      LibraryLoader::{GetProcAddress, LoadLibraryA},
+      SystemInformation::OSVERSIONINFOW,
       WinRT::EventRegistrationToken,
     },
     UI::WindowsAndMessaging::{
@@ -577,7 +579,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     };
   }
 
-  /// Open the web insepctor which is usually called dev tool.
+  /// Open the web inspector which is usually called dev tool.
   pub fn devtool(&self) {
     unsafe {
       let _ = self.webview.OpenDevToolsWindow();
@@ -593,7 +595,57 @@ pub fn platform_webview_version() -> Result<String> {
 }
 
 fn is_windows_7() -> bool {
-  sys_info::os_release()
-    .map(|release| release.starts_with("6.1"))
-    .unwrap_or_default()
+  if let Some(v) = get_windows_ver() {
+    // windows 7 is 6.1
+    if v.0 == 6 && v.1 == 1 {
+      return true;
+    }
+  }
+  false
+}
+
+fn get_function_impl(library: &str, function: &str) -> Option<FARPROC> {
+  assert_eq!(library.chars().last(), Some('\0'));
+  assert_eq!(function.chars().last(), Some('\0'));
+
+  let module = unsafe { LoadLibraryA(library) };
+  if module.0 == 0 {
+    return None;
+  }
+  Some(unsafe { GetProcAddress(module, function) })
+}
+
+macro_rules! get_function {
+  ($lib:expr, $func:ident) => {
+    get_function_impl(concat!($lib, '\0'), concat!(stringify!($func), '\0'))
+      .map(|f| unsafe { std::mem::transmute::<windows::Win32::Foundation::FARPROC, $func>(f) })
+  };
+}
+
+/// Returns a tuple of (major, minor, buildnumber)
+fn get_windows_ver() -> Option<(u32, u32, u32)> {
+  type RtlGetVersion = unsafe extern "system" fn(*mut OSVERSIONINFOW) -> i32;
+  let handle = get_function!("ntdll.dll", RtlGetVersion);
+  if let Some(rtl_get_version) = handle {
+    unsafe {
+      let mut vi = OSVERSIONINFOW {
+        dwOSVersionInfoSize: 0,
+        dwMajorVersion: 0,
+        dwMinorVersion: 0,
+        dwBuildNumber: 0,
+        dwPlatformId: 0,
+        szCSDVersion: [0; 128],
+      };
+
+      let status = (rtl_get_version)(&mut vi as _);
+
+      if status >= 0 {
+        Some((vi.dwMajorVersion, vi.dwMinorVersion, vi.dwBuildNumber))
+      } else {
+        None
+      }
+    }
+  } else {
+    None
+  }
 }

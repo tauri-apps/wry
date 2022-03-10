@@ -261,6 +261,9 @@ impl InnerWebView {
         let _: id = msg_send![_preference, setValue:_yes forKey:dev];
       }
 
+      #[cfg(target_os = "macos")]
+      let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("tabFocusesLinks")];
+
       #[cfg(feature = "transparent")]
       if attributes.transparent {
         let no: id = msg_send![class!(NSNumber), numberWithBool:0];
@@ -454,7 +457,7 @@ r#"Object.defineProperty(window, 'ipc', {
 
   pub fn focus(&self) {}
 
-  /// Open the web insepctor which is usually called dev tool.
+  /// Open the web inspector which is usually called dev tool.
   ///
   /// ## Platform-specific
   ///

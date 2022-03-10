@@ -76,11 +76,11 @@ impl WebContextData {
   }
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "android"))]
 #[derive(Debug)]
 pub(crate) struct WebContextImpl;
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "android"))]
 impl WebContextImpl {
   fn new(_data: &WebContextData) -> Self {
     Self
