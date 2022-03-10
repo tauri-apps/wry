@@ -1,12 +1,12 @@
-use std::{borrow::BorrowMut, cell::RefCell, ffi::c_void, ptr::null_mut, rc::Rc, sync::RwLock};
+use std::{ffi::c_void, ptr::null_mut, rc::Rc, sync::RwLock};
 
 use crate::{application::window::Window, Result};
 
 use super::{WebContext, WebViewAttributes};
 
 use jni::{
-  objects::{JClass, JObject, JString},
-  sys::{jobject, jstring},
+  objects::{JClass, JObject},
+  sys::jobject,
   JNIEnv,
 };
 
@@ -38,14 +38,14 @@ impl InnerWebView {
 
   pub fn devtool(&self) {}
 
-  pub fn run(self, env: JNIEnv, jclass: JClass, jobject: JObject) -> Result<jobject> {
+  pub fn run(self, env: JNIEnv, _jclass: JClass, jobject: JObject) -> Result<jobject> {
     let string_class = env.find_class("java/lang/String")?;
-    let client = env.call_method(
-      jobject,
-      "getWebViewClient",
-      "()Landroid/webkit/WebViewClient;",
-      &[],
-    )?;
+    // let client = env.call_method(
+    //   jobject,
+    //   "getWebViewClient",
+    //   "()Landroid/webkit/WebViewClient;",
+    //   &[],
+    // )?;
     let WebViewAttributes {
       url,
       initialization_scripts,

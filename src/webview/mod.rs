@@ -39,8 +39,8 @@ use self::webview2::*;
 use crate::Result;
 #[cfg(target_os = "android")]
 use jni::{
-  objects::{JClass, JObject, JString},
-  sys::{jobject, jstring},
+  objects::{JClass, JObject},
+  sys::jobject,
   JNIEnv,
 };
 #[cfg(target_os = "windows")]
