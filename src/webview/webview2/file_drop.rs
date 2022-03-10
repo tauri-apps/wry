@@ -10,6 +10,7 @@ use crate::webview::FileDropEvent;
 // https://docs.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2experimentalcompositioncontroller3?view=webview2-1.0.721-prerelease&preserve-view=true
 
 use std::{
+  cell::Cell,
   ffi::OsString,
   os::{raw::c_void, windows::ffi::OsStringExt},
   path::PathBuf,
@@ -18,9 +19,9 @@ use std::{
 };
 
 use windows::{
-  self as Windows,
+  core::PWSTR,
   Win32::{
-    Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINTL, PWSTR},
+    Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINTL},
     System::{
       Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL},
       Ole::{
@@ -105,12 +106,12 @@ unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL
   closure(hwnd).into()
 }
 
-#[implement(Windows::Win32::System::Ole::IDropTarget)]
+#[implement(IDropTarget)]
 pub struct FileDropHandler {
   window: Rc<Window>,
   listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
-  cursor_effect: u32,
-  hovered_is_valid: bool, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
+  cursor_effect: Cell<u32>,
+  hovered_is_valid: Cell<bool>, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
 }
 
 impl FileDropHandler {
@@ -121,8 +122,8 @@ impl FileDropHandler {
     Self {
       window,
       listener,
-      cursor_effect: DROPEFFECT_NONE,
-      hovered_is_valid: false,
+      cursor_effect: DROPEFFECT_NONE.into(),
+      hovered_is_valid: false.into(),
     }
   }
 
@@ -187,7 +188,7 @@ impl FileDropHandler {
 #[allow(non_snake_case)]
 impl IDropTarget_Impl for FileDropHandler {
   fn DragEnter(
-    &mut self,
+    &self,
     pDataObj: &Option<IDataObject>,
     _grfKeyState: u32,
     _pt: &POINTL,
@@ -196,13 +197,15 @@ impl IDropTarget_Impl for FileDropHandler {
     let mut paths = Vec::new();
     unsafe {
       let hdrop = Self::collect_paths(pDataObj, &mut paths);
-      self.hovered_is_valid = hdrop.is_some();
-      self.cursor_effect = if self.hovered_is_valid {
+      let hovered_is_valid = hdrop.is_some();
+      let cursor_effect = if hovered_is_valid {
         DROPEFFECT_COPY
       } else {
         DROPEFFECT_NONE
       };
-      *pdwEffect = self.cursor_effect;
+      *pdwEffect = cursor_effect;
+      self.hovered_is_valid.set(hovered_is_valid);
+      self.cursor_effect.set(cursor_effect);
     }
 
     (self.listener)(&self.window, FileDropEvent::Hovered(paths));
@@ -211,24 +214,24 @@ impl IDropTarget_Impl for FileDropHandler {
   }
 
   fn DragOver(
-    &mut self,
+    &self,
     _grfKeyState: u32,
     _pt: &POINTL,
     pdwEffect: *mut u32,
   ) -> windows::core::Result<()> {
-    unsafe { *pdwEffect = self.cursor_effect };
+    unsafe { *pdwEffect = self.cursor_effect.get() };
     Ok(())
   }
 
-  fn DragLeave(&mut self) -> windows::core::Result<()> {
-    if self.hovered_is_valid {
+  fn DragLeave(&self) -> windows::core::Result<()> {
+    if self.hovered_is_valid.get() {
       (self.listener)(&self.window, FileDropEvent::Cancelled);
     }
     Ok(())
   }
 
   fn Drop(
-    &mut self,
+    &self,
     pDataObj: &Option<IDataObject>,
     _grfKeyState: u32,
     _pt: &POINTL,

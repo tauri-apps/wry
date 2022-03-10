@@ -34,10 +34,10 @@ transparent = [ ]
 fullscreen = [ ]
 
 [patch.crates-io]
-tao = { git = "https://github.com/wravery/tao", branch = "windows-0.32.0" }
-webview2-com = { git = "https://github.com/wravery/webview2-rs", branch = "windows-0.32.0" }
-webview2-com-macros = { git = "https://github.com/wravery/webview2-rs", branch = "windows-0.32.0" }
-webview2-com-sys = { git = "https://github.com/wravery/webview2-rs", branch = "windows-0.32.0" }
+tao = { git = "https://github.com/wravery/tao", branch = "windows-0.33.0" }
+webview2-com = { git = "https://github.com/wravery/webview2-rs", branch = "windows-0.33.0" }
+webview2-com-macros = { git = "https://github.com/wravery/webview2-rs", branch = "windows-0.33.0" }
+webview2-com-sys = { git = "https://github.com/wravery/webview2-rs", branch = "windows-0.33.0" }
 
 [dependencies]
 libc = "0.2"
@@ -65,10 +65,10 @@ gdk = "0.15"
 
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.14.0"
-windows-implement = "0.32.0"
+windows-implement = "0.33.0"
 
   [target."cfg(target_os = \"windows\")".dependencies.windows]
-  version = "0.32.0"
+  version = "0.33.0"
   features = [
   "alloc",
   "implement",

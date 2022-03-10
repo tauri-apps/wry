@@ -16,9 +16,9 @@ use std::{collections::HashSet, rc::Rc, sync::mpsc};
 use once_cell::unsync::OnceCell;
 
 use windows::{
-  core::Interface,
+  core::{Interface, PCWSTR, PWSTR},
   Win32::{
-    Foundation::{BOOL, E_FAIL, E_POINTER, FARPROC, HWND, POINT, PWSTR, RECT},
+    Foundation::{BOOL, E_FAIL, E_POINTER, FARPROC, HWND, POINT, RECT},
     System::{
       Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
       LibraryLoader::{GetProcAddress, LoadLibraryA},
@@ -101,8 +101,8 @@ impl InnerWebView {
             CoreWebView2EnvironmentOptions::default().into();
           let data_directory = pwstr_from_str(&data_directory);
           let result = CreateCoreWebView2EnvironmentWithOptions(
-            PWSTR::default(),
-            data_directory,
+            PCWSTR::default(),
+            PCWSTR(data_directory.0),
             options,
             environmentcreatedhandler,
           )
@@ -589,7 +589,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
 pub fn platform_webview_version() -> Result<String> {
   let mut versioninfo = PWSTR::default();
-  unsafe { GetAvailableCoreWebView2BrowserVersionString(PWSTR::default(), &mut versioninfo) }
+  unsafe { GetAvailableCoreWebView2BrowserVersionString(PCWSTR::default(), &mut versioninfo) }
     .map_err(webview2_com::Error::WindowsError)?;
   Ok(take_pwstr(versioninfo))
 }
