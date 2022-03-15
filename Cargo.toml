@@ -76,6 +76,7 @@ sys-info = "0.9"
 ]
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
+block = "0.1"
 cocoa = "0.24"
 core-graphics = "0.22"
 objc = { version = "0.2", features = [ "exception" ] }

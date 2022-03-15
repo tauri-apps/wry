@@ -15,7 +15,7 @@ use cocoa::{
 };
 use cocoa::{
   base::id,
-  foundation::{NSDictionary, NSFastEnumeration},
+  foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
 
 use std::{
@@ -28,8 +28,8 @@ use std::{
 
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use objc::{
-  declare::ClassDecl,
-  runtime::{Class, Object, Sel},
+  declare::{ClassDecl, ProtocolDecl},
+  runtime::{Class, Object, Sel, Protocol},
 };
 use objc_id::Id;
 
@@ -307,6 +307,40 @@ impl InnerWebView {
         ipc_handler_ptr
       } else {
         null_mut()
+      };
+      
+      // Navigation handler
+      extern "C" fn navigation_policy(_this: &Object, _: Sel, _webview: id, action: id, handler:id) {
+          // TODO get the url from action and call the function
+          let handler = handler as *mut block::Block<(NSInteger,), c_void>;
+          unsafe { (*handler).call((0,)); }
+      }
+      let nav_handler_ptr = if let Some(nav_handler) = attributes.navigation_handler {
+        let protocol = match ProtocolDecl::new("WKNavigationDelegate") {
+            Some(p) => p.register(),
+            None => Protocol::get("WKNavigationDelegate").unwrap(),
+        };
+        let cls = match ClassDecl::new("UIViewController", class!(NSObject)) {
+            Some(mut cls) => {
+                cls.add_ivar::<*mut c_void>("function");
+                cls.add_protocol(protocol);
+                cls.add_method(
+                  sel!(webView:decidePolicyForNavigationAction:decisionHandler:),
+                  navigation_policy as extern "C" fn(&Object, Sel, id, id, id),
+                );
+                cls.register()
+            },
+            None => class!(UIViewController),
+        };
+
+        let handler: id = msg_send![cls, new];
+        let nav_handler_ptr = Box::into_raw(Box::new(nav_handler));
+        (*handler).set_ivar("function", ipc_handler_ptr as *mut _ as *mut c_void);
+
+        let _: () = msg_send![webview, setNavigationDelegate:handler];
+        nav_handler_ptr
+      } else {
+          null_mut()
       };
 
       // File drop handling
