@@ -29,7 +29,7 @@ use std::{
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use objc::{
   declare::{ClassDecl, ProtocolDecl},
-  runtime::{Class, Object, Sel, Protocol},
+  runtime::{Class, Object, Protocol, Sel},
 };
 use objc_id::Id;
 
@@ -308,39 +308,58 @@ impl InnerWebView {
       } else {
         null_mut()
       };
-      
+
       // Navigation handler
-      extern "C" fn navigation_policy(_this: &Object, _: Sel, _webview: id, action: id, handler:id) {
-          // TODO get the url from action and call the function
+      extern "C" fn navigation_policy(this: &Object, _: Sel, _: id, action: id, handler: id) {
+        // TODO get the url from action and call the function
+        unsafe {
+          let request: id = msg_send![action, request];
+          let url: id = msg_send![request, URL];
+          let url: id = msg_send![url, absoluteString];
+          let url = NSString(Id::from_ptr(url));
           let handler = handler as *mut block::Block<(NSInteger,), c_void>;
-          unsafe { (*handler).call((0,)); }
+
+          let function = this.get_ivar::<*mut c_void>("function");
+          if !function.is_null() {
+            let function = &mut *(*function as *mut Box<dyn for<'s> Fn(String) -> bool>);
+            match (function)(url.to_str().to_string()) {
+              true => (*handler).call((1,)),
+              false => (*handler).call((0,)),
+            };
+          } else {
+            log::warn!("WebView instance is dropped! This navigation handler shouldn't be called.");
+            (*handler).call((1,));
+          }
+        }
       }
+      // TODO free the ptr properly
       let nav_handler_ptr = if let Some(nav_handler) = attributes.navigation_handler {
-        let protocol = match ProtocolDecl::new("WKNavigationDelegate") {
-            Some(p) => p.register(),
-            None => Protocol::get("WKNavigationDelegate").unwrap(),
-        };
+        // let protocol = match ProtocolDecl::new("WKNavigationDelegate") {
+        //     Some(p) => p.register(),
+        //     None => Protocol::get("WKNavigationDelegate").unwrap(),
+        // };
         let cls = match ClassDecl::new("UIViewController", class!(NSObject)) {
-            Some(mut cls) => {
-                cls.add_ivar::<*mut c_void>("function");
-                cls.add_protocol(protocol);
-                cls.add_method(
-                  sel!(webView:decidePolicyForNavigationAction:decisionHandler:),
-                  navigation_policy as extern "C" fn(&Object, Sel, id, id, id),
-                );
-                cls.register()
-            },
-            None => class!(UIViewController),
+          Some(mut cls) => {
+            cls.add_ivar::<*mut c_void>("function");
+            // Doesn't seem to need this protocol. Add this back if objc runtime isn't happy.
+            // cls.add_protocol(protocol);
+            cls.add_method(
+              sel!(webView:decidePolicyForNavigationAction:decisionHandler:),
+              navigation_policy as extern "C" fn(&Object, Sel, id, id, id),
+            );
+            cls.register()
+          }
+          None => class!(UIViewController),
         };
 
         let handler: id = msg_send![cls, new];
         let nav_handler_ptr = Box::into_raw(Box::new(nav_handler));
         (*handler).set_ivar("function", ipc_handler_ptr as *mut _ as *mut c_void);
 
-        let _: () = msg_send![webview, setNavigationDelegate:handler];
+        let _: () = msg_send![webview, setNavigationDelegate: handler];
         nav_handler_ptr
       } else {
-          null_mut()
+        null_mut()
       };
 
       // File drop handling

@@ -13,11 +13,12 @@ use gio::Cancellable;
 use glib::signal::Inhibit;
 use gtk::prelude::*;
 use webkit2gtk::{
-  traits::*, UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView,
-  WebViewBuilder, PolicyDecisionType, NavigationPolicyDecision,
+  traits::*, NavigationPolicyDecision, PolicyDecisionType, UserContentInjectedFrames, UserScript,
+  UserScriptInjectionTime, WebView, WebViewBuilder,
 };
 use webkit2gtk_sys::{
-  webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version, webkit_policy_decision_ignore, webkit_policy_decision_use,
+  webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
+  webkit_policy_decision_ignore, webkit_policy_decision_use,
 };
 
 use web_context::WebContextExt;

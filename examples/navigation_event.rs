@@ -13,7 +13,7 @@ fn main() -> wry::Result<()> {
   };
 
   enum UserEvent {
-    Navigation(String)
+    Navigation(String),
   }
 
   let event_loop: EventLoop<UserEvent> = EventLoop::with_user_event();
