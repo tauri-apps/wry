@@ -28,8 +28,8 @@ use std::{
 
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use objc::{
-  declare::{ClassDecl, ProtocolDecl},
-  runtime::{Class, Object, Protocol, Sel},
+  declare::ClassDecl,
+  runtime::{Class, Object, Sel},
 };
 use objc_id::Id;
 
@@ -62,6 +62,7 @@ pub struct InnerWebView {
   // Note that if following functions signatures are changed in the future,
   // all fucntions pointer declarations in objc callbacks below all need to get updated.
   ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
+  nav_handler_ptr: *mut Box<dyn Fn(String) -> bool>,
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
   protocol_ptrs: Vec<*mut Box<dyn Fn(&HttpRequest) -> Result<HttpResponse>>>,
@@ -311,7 +312,6 @@ impl InnerWebView {
 
       // Navigation handler
       extern "C" fn navigation_policy(this: &Object, _: Sel, _: id, action: id, handler: id) {
-        // TODO get the url from action and call the function
         unsafe {
           let request: id = msg_send![action, request];
           let url: id = msg_send![request, URL];
@@ -332,17 +332,11 @@ impl InnerWebView {
           }
         }
       }
-      // TODO free the ptr properly
+
       let nav_handler_ptr = if let Some(nav_handler) = attributes.navigation_handler {
-        // let protocol = match ProtocolDecl::new("WKNavigationDelegate") {
-        //     Some(p) => p.register(),
-        //     None => Protocol::get("WKNavigationDelegate").unwrap(),
-        // };
         let cls = match ClassDecl::new("UIViewController", class!(NSObject)) {
           Some(mut cls) => {
             cls.add_ivar::<*mut c_void>("function");
-            // Doesn't seem to need this protocol. Add this back if objc runtime isn't happy.
-            // cls.add_protocol(protocol);
             cls.add_method(
               sel!(webView:decidePolicyForNavigationAction:decisionHandler:),
               navigation_policy as extern "C" fn(&Object, Sel, id, id, id),
@@ -354,7 +348,7 @@ impl InnerWebView {
 
         let handler: id = msg_send![cls, new];
         let nav_handler_ptr = Box::into_raw(Box::new(nav_handler));
-        (*handler).set_ivar("function", ipc_handler_ptr as *mut _ as *mut c_void);
+        (*handler).set_ivar("function", nav_handler_ptr as *mut _ as *mut c_void);
 
         let _: () = msg_send![webview, setNavigationDelegate: handler];
         nav_handler_ptr
@@ -383,6 +377,7 @@ impl InnerWebView {
         ns_window,
         manager,
         ipc_handler_ptr,
+        nav_handler_ptr,
         #[cfg(target_os = "macos")]
         file_drop_ptr,
         protocol_ptrs,
@@ -548,6 +543,10 @@ impl Drop for InnerWebView {
     // We need to drop handler closures here
     unsafe {
       if !self.ipc_handler_ptr.is_null() {
+        let _ = Box::from_raw(self.ipc_handler_ptr);
+      }
+
+      if !self.nav_handler_ptr.is_null() {
         let _ = Box::from_raw(self.ipc_handler_ptr);
       }
 

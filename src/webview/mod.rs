@@ -110,7 +110,11 @@ pub struct WebViewAttributes {
   #[cfg(not(feature = "file-drop"))]
   file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
 
-  pub navigation_handler: Option<Rc<dyn NavCallback>>,
+  /// Set a navigation handler to decide if incoming url is allowed to navigate.
+  ///
+  /// The closure take a `String` parameter as url and return `bool` to determine the url. True is
+  /// allow to nivagate and false is not.
+  pub navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
 
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
   ///
@@ -299,8 +303,12 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  pub fn with_navigation_callback(mut self, callback: impl NavCallback) -> Self {
-    self.webview.navigation_handler = Some(Rc::new(callback));
+  /// Set a navigation handler to decide if incoming url is allowed to navigate.
+  ///
+  /// The closure takes a `String` parameter as url and return `bool` to determine the url. True is
+  /// allowed to nivagate and false is not.
+  pub fn with_navigation_handler(mut self, callback: impl Fn(String) -> bool + 'static) -> Self {
+    self.webview.navigation_handler = Some(Box::new(callback));
     self
   }
 
@@ -452,10 +460,6 @@ impl WebviewExtWindows for WebView {
     Some(self.webview.controller.clone())
   }
 }
-
-pub trait NavCallback: Fn(String) -> bool + 'static {}
-
-impl<T: Fn(String) -> bool + 'static> NavCallback for T {}
 
 #[cfg(test)]
 mod tests {

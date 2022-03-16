@@ -206,13 +206,13 @@ impl InnerWebView {
             if let Some(nav_action) = policy.navigation_action() {
               if let Some(uri_req) = nav_action.request() {
                 if let Some(uri) = uri_req.uri() {
-                  let cancel = nav_handler(uri.to_string());
+                  let allow = nav_handler(uri.to_string());
                   let pointer = policy_decision.as_ptr();
                   unsafe {
-                    if cancel {
-                      webkit_policy_decision_ignore(pointer)
-                    } else {
+                    if allow {
                       webkit_policy_decision_use(pointer)
+                    } else {
+                      webkit_policy_decision_ignore(pointer)
                     }
                   }
                 }
@@ -220,7 +220,7 @@ impl InnerWebView {
             }
           }
         }
-        false
+        true
       });
     }
 
