@@ -301,7 +301,6 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
     if let Some(nav_callback) = attributes.navigation_handler {
       unsafe {
-        let nav_starting_callback = nav_callback.clone();
         webview
           .NavigationStarting(
             NavigationStartingEventHandler::create(Box::new(move |_, args| {
@@ -310,7 +309,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 args.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
 
-                let allow = nav_starting_callback(uri);
+                let allow = nav_callback(uri);
 
                 args.SetCancel(!allow)?;
               }
