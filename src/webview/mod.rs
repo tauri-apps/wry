@@ -126,6 +126,12 @@ pub struct WebViewAttributes {
   /// allow to nivagate and false is not.
   pub navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
 
+  /// Set a new window handler to decide if incoming url is allowed to open in a new window.
+  ///
+  /// The closure take a `String` parameter as url and return `bool` to determine the url. True is
+  /// allow to nivagate and false is not.
+  pub new_window_req_handler: Option<Box<dyn Fn(String) -> bool>>,
+
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
   ///
   /// macOS doesn't provide such method and is always enabled by default. But you still need to add menu
@@ -156,6 +162,7 @@ impl Default for WebViewAttributes {
       ipc_handler: None,
       file_drop_handler: None,
       navigation_handler: None,
+      new_window_req_handler: None,
       clipboard: false,
       devtool: false,
     }
@@ -319,6 +326,15 @@ impl<'a> WebViewBuilder<'a> {
   /// allowed to nivagate and false is not.
   pub fn with_navigation_handler(mut self, callback: impl Fn(String) -> bool + 'static) -> Self {
     self.webview.navigation_handler = Some(Box::new(callback));
+    self
+  }
+
+  /// Set a new window request handler to decide if incoming url is allowed to be opened.
+  ///
+  /// The closure takes a `String` parameter as url and return `bool` to determine the url. True is
+  /// allowed to navigate and false if not.
+  pub fn with_new_window_req_handler(mut self, callback: impl Fn(String) -> bool + 'static) -> Self {
+    self.webview.new_window_req_handler = Some(Box::new(callback));
     self
   }
 
