@@ -15,7 +15,7 @@ use cocoa::{
 };
 use cocoa::{
   base::id,
-  foundation::{NSDictionary, NSFastEnumeration},
+  foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
 
 use std::{
@@ -62,6 +62,7 @@ pub struct InnerWebView {
   // Note that if following functions signatures are changed in the future,
   // all fucntions pointer declarations in objc callbacks below all need to get updated.
   ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
+  nav_handler_ptr: *mut Box<dyn Fn(String) -> bool>,
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
   protocol_ptrs: Vec<*mut Box<dyn Fn(&HttpRequest) -> Result<HttpResponse>>>,
@@ -312,6 +313,52 @@ impl InnerWebView {
         null_mut()
       };
 
+      // Navigation handler
+      extern "C" fn navigation_policy(this: &Object, _: Sel, _: id, action: id, handler: id) {
+        unsafe {
+          let request: id = msg_send![action, request];
+          let url: id = msg_send![request, URL];
+          let url: id = msg_send![url, absoluteString];
+          let url = NSString(Id::from_ptr(url));
+          let handler = handler as *mut block::Block<(NSInteger,), c_void>;
+
+          let function = this.get_ivar::<*mut c_void>("function");
+          if !function.is_null() {
+            let function = &mut *(*function as *mut Box<dyn for<'s> Fn(String) -> bool>);
+            match (function)(url.to_str().to_string()) {
+              true => (*handler).call((1,)),
+              false => (*handler).call((0,)),
+            };
+          } else {
+            log::warn!("WebView instance is dropped! This navigation handler shouldn't be called.");
+            (*handler).call((1,));
+          }
+        }
+      }
+
+      let nav_handler_ptr = if let Some(nav_handler) = attributes.navigation_handler {
+        let cls = match ClassDecl::new("UIViewController", class!(NSObject)) {
+          Some(mut cls) => {
+            cls.add_ivar::<*mut c_void>("function");
+            cls.add_method(
+              sel!(webView:decidePolicyForNavigationAction:decisionHandler:),
+              navigation_policy as extern "C" fn(&Object, Sel, id, id, id),
+            );
+            cls.register()
+          }
+          None => class!(UIViewController),
+        };
+
+        let handler: id = msg_send![cls, new];
+        let nav_handler_ptr = Box::into_raw(Box::new(nav_handler));
+        (*handler).set_ivar("function", nav_handler_ptr as *mut _ as *mut c_void);
+
+        let _: () = msg_send![webview, setNavigationDelegate: handler];
+        nav_handler_ptr
+      } else {
+        null_mut()
+      };
+
       // File drop handling
       #[cfg(target_os = "macos")]
       let file_drop_ptr = match attributes.file_drop_handler {
@@ -333,6 +380,7 @@ impl InnerWebView {
         ns_window,
         manager,
         ipc_handler_ptr,
+        nav_handler_ptr,
         #[cfg(target_os = "macos")]
         file_drop_ptr,
         protocol_ptrs,
@@ -498,6 +546,10 @@ impl Drop for InnerWebView {
     // We need to drop handler closures here
     unsafe {
       if !self.ipc_handler_ptr.is_null() {
+        let _ = Box::from_raw(self.ipc_handler_ptr);
+      }
+
+      if !self.nav_handler_ptr.is_null() {
         let _ = Box::from_raw(self.ipc_handler_ptr);
       }
 

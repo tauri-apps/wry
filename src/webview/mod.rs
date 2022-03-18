@@ -120,6 +120,12 @@ pub struct WebViewAttributes {
   #[cfg(not(feature = "file-drop"))]
   file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
 
+  /// Set a navigation handler to decide if incoming url is allowed to navigate.
+  ///
+  /// The closure take a `String` parameter as url and return `bool` to determine the url. True is
+  /// allow to nivagate and false is not.
+  pub navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
+
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
   ///
   /// macOS doesn't provide such method and is always enabled by default. But you still need to add menu
@@ -149,6 +155,7 @@ impl Default for WebViewAttributes {
       custom_protocols: vec![],
       ipc_handler: None,
       file_drop_handler: None,
+      navigation_handler: None,
       clipboard: false,
       devtool: false,
     }
@@ -303,6 +310,15 @@ impl<'a> WebViewBuilder<'a> {
   /// but requires `devtool` feature flag to actually enable it in **release** build.
   pub fn with_dev_tool(mut self, devtool: bool) -> Self {
     self.webview.devtool = devtool;
+    self
+  }
+
+  /// Set a navigation handler to decide if incoming url is allowed to navigate.
+  ///
+  /// The closure takes a `String` parameter as url and return `bool` to determine the url. True is
+  /// allowed to nivagate and false is not.
+  pub fn with_navigation_handler(mut self, callback: impl Fn(String) -> bool + 'static) -> Self {
+    self.webview.navigation_handler = Some(Box::new(callback));
     self
   }
 

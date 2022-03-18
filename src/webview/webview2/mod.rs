@@ -301,6 +301,29 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     }
     .map_err(webview2_com::Error::WindowsError)?;
 
+    if let Some(nav_callback) = attributes.navigation_handler {
+      unsafe {
+        webview
+          .NavigationStarting(
+            NavigationStartingEventHandler::create(Box::new(move |_, args| {
+              if let Some(args) = args {
+                let mut uri = PWSTR::default();
+                args.Uri(&mut uri)?;
+                let uri = take_pwstr(uri);
+
+                let allow = nav_callback(uri);
+
+                args.SetCancel(!allow)?;
+              }
+
+              Ok(())
+            })),
+            &mut token,
+          )
+          .map_err(webview2_com::Error::WindowsError)?;
+      }
+    }
+
     let mut custom_protocol_names = HashSet::new();
     if !attributes.custom_protocols.is_empty() {
       for (name, _) in &attributes.custom_protocols {

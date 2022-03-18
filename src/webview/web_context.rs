@@ -64,7 +64,7 @@ impl Default for WebContext {
 }
 
 /// Data that all [`WebContext`] share regardless of platform.
-#[derive(Debug, Default)]
+#[derive(Default, Debug)]
 pub struct WebContextData {
   data_directory: Option<PathBuf>,
 }
