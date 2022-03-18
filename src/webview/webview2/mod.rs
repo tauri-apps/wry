@@ -324,6 +324,29 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       }
     }
 
+    if let Some(new_window_req_handler) = attributes.new_window_req_handler {
+      unsafe {
+        webview
+          .NewWindowRequested(
+            NewWindowRequestedEventHandler::create(Box::new(move |_, args| {
+              if let Some(args) = args {
+                let mut uri = PWSTR::default();
+                args.Uri(&mut uri)?;
+                let uri = take_pwstr(uri);
+
+                let allow = new_window_req_handler(uri);
+
+                args.SetHandled(!allow)?;
+              }
+
+              Ok(())
+            })),
+            &mut token,
+          )
+          .map_err(webview2_com::Error::WindowsError)?;
+      }
+    }
+
     let mut custom_protocol_names = HashSet::new();
     if !attributes.custom_protocols.is_empty() {
       for (name, _) in &attributes.custom_protocols {
