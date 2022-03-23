@@ -324,7 +324,7 @@ impl InnerWebView {
           let is_main_frame: bool = msg_send![target_frame, isMainFrame];
           let handler = handler as *mut block::Block<(NSInteger,), c_void>;
 
-          let function = this.get_ivar::<*mut c_void>("nav_handler");
+          let function = this.get_ivar::<*mut c_void>("function");
           if !function.is_null() {
             let function = &mut *(*function as *mut Box<dyn for<'s> Fn(String, bool) -> bool>);
             match (function)(url.to_str().to_string(), is_main_frame) {
@@ -352,17 +352,21 @@ impl InnerWebView {
         };
 
         let handler: id = msg_send![cls, new];
-        let function_ptr = Box::into_raw(Box::new(|url: String, is_main_frame: bool| -> bool {
-          if is_main_frame {
-            attributes.navigation_handler.map_or(true, |navigation_handler| {
-              (navigation_handler)(url)
-            })
-          } else {
-            attributes.new_window_req_handler.map_or(true, |new_window_req_handler| {
-              (new_window_req_handler)(url)
-            })
-          }
-        }));
+        let function_ptr = {
+          let navigation_handler = attributes.navigation_handler;
+          let new_window_req_handler = attributes.new_window_req_handler;
+          Box::into_raw(Box::new(Box::new(move |url: String, is_main_frame: bool| -> bool {
+            if is_main_frame {
+              navigation_handler.as_ref().map_or(true, |navigation_handler| {
+                (navigation_handler)(url)
+              })
+            } else {
+              new_window_req_handler.as_ref().map_or(true, |new_window_req_handler| {
+                (new_window_req_handler)(url)
+              })
+            }
+          }) as Box<dyn Fn(String, bool) -> bool>))
+        };
         (*handler).set_ivar("function", function_ptr as *mut _ as *mut c_void);
 
         let _: () = msg_send![webview, setNavigationDelegate: handler];
@@ -561,8 +565,8 @@ impl Drop for InnerWebView {
         let _ = Box::from_raw(self.ipc_handler_ptr);
       }
 
-      if !self.nav_handler_ptr.is_null() {
-        let _ = Box::from_raw(self.ipc_handler_ptr);
+      if !self.navigation_decide_policy_ptr.is_null() {
+        let _ = Box::from_raw(self.navigation_decide_policy_ptr);
       }
 
       #[cfg(target_os = "macos")]
