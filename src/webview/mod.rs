@@ -332,8 +332,11 @@ impl<'a> WebViewBuilder<'a> {
   /// Set a new window request handler to decide if incoming url is allowed to be opened.
   ///
   /// The closure takes a `String` parameter as url and return `bool` to determine the url. True is
-  /// allowed to navigate and false if not.
-  pub fn with_new_window_req_handler(mut self, callback: impl Fn(String) -> bool + 'static) -> Self {
+  /// allowed to open the url in a new window and false if not.
+  pub fn with_new_window_req_handler(
+    mut self,
+    callback: impl Fn(String) -> bool + 'static,
+  ) -> Self {
     self.webview.new_window_req_handler = Some(Box::new(callback));
     self
   }

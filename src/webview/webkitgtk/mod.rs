@@ -204,7 +204,7 @@ impl InnerWebView {
         let handler = match policy_type {
           PolicyDecisionType::NavigationAction => &attributes.navigation_handler,
           PolicyDecisionType::NewWindowAction => &attributes.new_window_req_handler,
-          _ => &None
+          _ => &None,
         };
 
         if let Some(handler) = handler {
