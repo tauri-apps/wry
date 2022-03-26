@@ -134,6 +134,11 @@ pub struct WebViewAttributes {
   /// allow to nivagate and false is not.
   pub navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
 
+  /// Set a download handler to decide if incoming download is allowed.
+  ///
+  /// The closure take a `String` parameter as url and return `bool` to allow or deny.
+  pub download_handler: Option<Box<dyn Fn(String) -> bool>>,
+
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
   ///
   /// macOS doesn't provide such method and is always enabled by default. But you still need to add menu
@@ -167,6 +172,7 @@ impl Default for WebViewAttributes {
       ipc_handler: None,
       file_drop_handler: None,
       navigation_handler: None,
+      download_handler: None,
       clipboard: false,
       devtools: false,
     }
@@ -339,6 +345,15 @@ impl<'a> WebViewBuilder<'a> {
   /// allowed to nivagate and false is not.
   pub fn with_navigation_handler(mut self, callback: impl Fn(String) -> bool + 'static) -> Self {
     self.webview.navigation_handler = Some(Box::new(callback));
+    self
+  }
+
+  /// Set a download handler to decide if incoming download is allowed.
+  ///
+  /// The closure takes a `String` parameter as url and return `bool` to determine if the 
+  /// download is allowed or not.
+  pub fn with_download_handler(mut self, callback: impl Fn(String) -> bool + 'static) -> Self {
+    self.webview.download_handler = Some(Box::new(callback));
     self
   }
 
