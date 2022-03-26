@@ -326,6 +326,32 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       }
     }
 
+    if let Some(download_callback) = attributes.download_handler {
+      unsafe {
+        let webview4: ICoreWebView2_4 = webview
+          .cast()
+          .map_err(webview2_com::Error::WindowsError)?;
+
+        webview4.DownloadStarting(
+          DownloadStartingEventHandler::create(Box::new(move |_, args| {
+            if let Some(args) = args {
+              let mut uri = PWSTR::default();
+              args.DownloadOperation()?.Uri(&mut uri)?;
+              let uri = take_pwstr(uri);
+
+              let allow = download_callback(uri);
+
+              args.SetCancel(!allow)?;
+            }
+
+            Ok(())
+          })),
+          &mut token
+        )
+        .map_err(webview2_com::Error::WindowsError)?;
+      }
+    }
+
     let mut custom_protocol_names = HashSet::new();
     if !attributes.custom_protocols.is_empty() {
       for (name, _) in &attributes.custom_protocols {
