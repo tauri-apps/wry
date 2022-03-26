@@ -133,6 +133,10 @@ pub trait WebContextExt {
   fn allows_automation(&self) -> bool;
 
   fn register_automation(&mut self, webview: WebView);
+
+  fn register_download_handler<F>(&mut self, handler: F)
+  where
+    F: Fn(String) -> bool + 'static;
 }
 
 impl WebContextExt for super::WebContext {
@@ -198,6 +202,13 @@ impl WebContextExt for super::WebContext {
       });
     }
   }
+
+  fn register_download_handler<F>(&mut self, handler: F)
+  where
+    F: Fn(String) -> bool + 'static,
+  {
+    actually_register_download_handler(self, handler);
+  }
 }
 
 fn actually_register_uri_scheme<F>(
@@ -258,6 +269,25 @@ where
 
   Ok(())
 }
+
+fn actually_register_download_handler(
+  context: &mut super::WebContext,
+  handler: impl Fn(String) -> bool + 'static,
+) {
+  use webkit2gtk::traits::*;
+  let context = &context.os.context;
+
+  context.connect_download_started(move |_, download| {
+    if let Some(uri) = download.request().and_then(|req| req.uri()) {
+      let uri = uri.to_string();
+
+      if !handler(uri) {
+        download.cancel();
+      }
+    }
+  });
+}
+
 
 /// Prevents an unknown concurrency bug with loading multiple URIs at the same time on webkit2gtk.
 ///
