@@ -603,9 +603,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   /// Open the web inspector which is usually called dev tool.
   #[cfg(any(debug_assertions, feature = "devtool"))]
   pub fn open_devtool(&self) {
-    let _ = unsafe {
-      self.webview.OpenDevToolsWindow()
-    };
+    let _ = unsafe { self.webview.OpenDevToolsWindow() };
   }
 
   /// Close the web inspector which is usually called dev tool.

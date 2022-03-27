@@ -430,7 +430,7 @@ impl WebView {
   }
 
   /// Open the web inspector which is usually called dev tool.
-  /// 
+  ///
   /// ## Platform-specific
   ///
   /// - **Android / iOS:** Not implemented.
