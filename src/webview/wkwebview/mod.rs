@@ -513,12 +513,44 @@ r#"Object.defineProperty(window, 'ipc', {
   #[cfg(any(debug_assertions, feature = "devtool"))]
   pub fn open_devtool(&self) {
     #[cfg(target_os = "macos")]
-    #[cfg(any(debug_assertions, feature = "devtool"))]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
       let tool: id = msg_send![self.webview, _inspector];
       let _: id = msg_send![tool, show];
     }
+  }
+
+  /// Close the web inspector which is usually called dev tool.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **iOS:** Not implemented.
+  #[cfg(any(debug_assertions, feature = "devtool"))]
+  pub fn close_devtool(&self) {
+    #[cfg(target_os = "macos")]
+    unsafe {
+      // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
+      let tool: id = msg_send![self.webview, _inspector];
+      let _: id = msg_send![tool, close];
+    }
+  }
+
+  /// Gets the devtool window's current vibility state.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **iOS:** Not implemented, always returns false.
+  #[cfg(any(debug_assertions, feature = "devtool"))]
+  pub fn is_devtool_visible(&self) -> bool {
+    #[cfg(target_os = "macos")]
+    unsafe {
+      // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
+      let tool: id = msg_send![self.webview, _inspector];
+      let is_visible: objc::runtime::BOOL = msg_send![tool, isVisible];
+      is_visible == objc::runtime::YES
+    }
+    #[cfg(not(target_os = "macos"))]
+    false
   }
 
   #[cfg(target_os = "macos")]
