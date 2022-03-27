@@ -231,8 +231,8 @@ impl InnerWebView {
       });
     }
 
-    if let Some(download_handler) = attributes.download_handler {
-      web_context.register_download_handler(download_handler)
+    if let Some(download_handlers) = attributes.download_handlers {
+      web_context.register_download_handler(download_handlers)
     }
 
     // Gtk application window can only contain one widget at a time.
