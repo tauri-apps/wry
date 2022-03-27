@@ -302,18 +302,22 @@ fn actually_register_download_handler(
       let mut download_location = download.destination().map_or_else(|| String::new(),|p| p.to_string());
 
       if download_started.borrow_mut()(uri, &mut download_location) {
-        download.set_destination(&download_location);
+        download.connect_decide_destination(move |download, _| {
+          download.set_destination(&download_location);
+
+          true
+        });
         download.connect_failed({
           let failed = failed.clone();
-          move |_, _| {
-            *failed.borrow_mut() = false;
+          move |_, _error| {
+            *failed.borrow_mut() = true;
           }
         });
         let download_complete = download_complete_builder();
         download.connect_finished({
           let success = !(*failed.borrow());
-          move |_| {
-            download_complete(download_location.clone(), !success)
+          move |download| {
+            download_complete(download.destination().map_or_else(|| String::new(),|p| p.to_string()), success)
           }
         });
       } else {
