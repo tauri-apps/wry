@@ -607,6 +607,16 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       self.webview.OpenDevToolsWindow();
     };
   }
+
+  /// Close the web inspector which is usually called dev tool.
+  #[cfg(any(debug_assertions, feature = "devtool"))]
+  pub fn close_devtool(&self) {}
+
+  /// Gets the devtool window's current vibility state.
+  #[cfg(any(debug_assertions, feature = "devtool"))]
+  pub fn is_devtool_visible(&self) -> bool {
+    false
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {
