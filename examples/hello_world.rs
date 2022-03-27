@@ -16,9 +16,12 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)?;
-  let webview = WebViewBuilder::new(window)?
-    .with_url("https://html5test.com")?
-    .build()?;
+  let webview = WebViewBuilder::new(window)?.with_url("https://html5test.com")?;
+
+  #[cfg(debug_assertions)]
+  let webview = webview.with_dev_tool(true);
+
+  let webview = webview.build()?;
 
   #[cfg(debug_assertions)]
   webview.open_devtool();

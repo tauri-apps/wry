@@ -27,8 +27,12 @@ fn main() -> wry::Result<()> {
       let submitted = proxy.send_event(UserEvent::Navigation(uri.clone())).is_ok();
 
       submitted && uri.contains("neverssl")
-    })
-    .build()?;
+    });
+
+  #[cfg(debug_assertions)]
+  let webview = webview.with_dev_tool(true);
+
+  let webview = webview.build()?;
 
   #[cfg(debug_assertions)]
   webview.open_devtool();
