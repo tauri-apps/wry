@@ -136,8 +136,12 @@ pub struct WebViewAttributes {
 
   /// Set a download handlers to manage incoming downloads.
   ///
-  /// The first closure takes a `String` parameter as url and returns a `bool` to allow or deny the
-  /// download. The second closure is fired when the download completes.
+  /// The first closure takes two parameters - the first is a `String` representing the url being downloaded from and and the 
+  /// second is a mutable `String` reference that (possibly) represents where the file will be downloaded to. The latter 
+  /// parameter can be used to set the download location by assigning a new path string to it - the assigned path _must_ be 
+  /// absolute, and (on Windows) cannot include a UNC prefix. The closure returns a `bool` to allow or deny the download.
+  /// The second closure is fired when the download completes, with a `String` representing the path to where the download was
+  /// saved and a `bool` indicating if the download succeeded.
   pub download_handlers: Option<(
     Box<dyn FnMut(String, &mut String) -> bool>,
     Box<dyn Fn() -> Box<dyn Fn(String, bool) + 'static> + 'static>
