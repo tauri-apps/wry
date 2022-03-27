@@ -28,8 +28,8 @@ fn main() -> wry::Result<()> {
   "#;
 
   enum UserEvent {
-    DownloadStarted(String, TempDir),
-    DownloadComplete(String),
+    DownloadStarted(String, String),
+    DownloadComplete(String, bool),
     Rejected(String),
   }
 
@@ -49,7 +49,7 @@ fn main() -> wry::Result<()> {
               if let Ok(path) = tempdir.path().normalize() {
                 let path = path.join("example.zip").as_path().display().to_string();
                 *result_path = path;
-                let submitted = proxy.send_event(UserEvent::DownloadStarted(uri.clone(), tempdir)).is_ok();
+                let submitted = proxy.send_event(UserEvent::DownloadStarted(uri.clone(), result_path.clone())).is_ok();
 
                 return submitted;
               }
@@ -66,7 +66,7 @@ fn main() -> wry::Result<()> {
         move || {
           let proxy = proxy.clone();
           Box::new(move |path, success| {
-            let _ = proxy.send_event(UserEvent::DownloadComplete(path));
+            let _ = proxy.send_event(UserEvent::DownloadComplete(path, success));
           })
         }
       }
@@ -76,7 +76,6 @@ fn main() -> wry::Result<()> {
   #[cfg(debug_assertions)]
   webview.devtool();
 
-  let mut temp_dir_holder = None;
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
@@ -88,18 +87,17 @@ fn main() -> wry::Result<()> {
       } => *control_flow = ControlFlow::Exit,
       Event::UserEvent(UserEvent::DownloadStarted(uri, temp_dir)) => {
         println!("Download: {}", uri);
-        println!("Written to: {:?}", temp_dir.path().join("example.zip"));
-
-        temp_dir_holder = Some(temp_dir);
+        println!("Will write to: {:?}", temp_dir);
       },
-      Event::UserEvent(UserEvent::DownloadComplete(path)) => {
+      Event::UserEvent(UserEvent::DownloadComplete(path, success)) => {
         let metadata = PathBuf::from(&path).metadata();
+        println!("Succeeded: {}", success);
+        println!("Path: {}", path);
         if let Ok(metadata) = metadata {
-          println!("File written to {}, size of {}Mb", path, (metadata.len() / 1024) / 1024)
+          println!("Size of {}Mb", (metadata.len() / 1024) / 1024)
         } else {
           println!("Failed to retrieve file metadata - does it exist?")
         }
-        temp_dir_holder = None;
       },
       Event::UserEvent(UserEvent::Rejected(uri)) => {
         println!("Rejected download from: {}", uri)
