@@ -21,8 +21,8 @@ fn main() -> wry::Result<()> {
     <body>
       <div>
         <p> WRYYYYYYYYYYYYYYYYYYYYYY! </p>
-        <a download="allow.zip" href='https://file-examples.com/wp-content/uploads/2017/02/zip_2MB.zip' id="link">Allowed Download</a>
-        <a download="deny.zip" href='https://file-examples.com/wp-content/uploads/2017/02/zip_5MB.zip' id="link">Denied Download</a>
+        <a download="allow.zip" href='https://github.com/tauri-apps/wry/archive/refs/tags/wry-v0.13.3.zip' id="link">Allowed Download</a>
+        <a download="deny.zip" href='https://github.com/tauri-apps/wry/archive/refs/tags/wry-v0.13.2.zip' id="link">Denied Download</a>
       </div>
     </body>
   "#;
@@ -44,7 +44,7 @@ fn main() -> wry::Result<()> {
       {
         let proxy = proxy.clone();
         move |uri: String, result_path: &mut String| {
-          if uri.ends_with("zip_2MB.zip") {
+          if uri.contains("wry-v0.13.3") {
             if let Ok(tempdir) = tempdir() {
               if let Ok(path) = tempdir.path().normalize() {
                 let path = path.join("example.zip").as_path().display().to_string();
