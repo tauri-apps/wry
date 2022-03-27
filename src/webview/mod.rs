@@ -134,10 +134,14 @@ pub struct WebViewAttributes {
   /// allow to nivagate and false is not.
   pub navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
 
-  /// Set a download handler to decide if incoming download is allowed.
+  /// Set a download handlers to manage incoming downloads.
   ///
-  /// The closure take a `String` parameter as url and return `bool` to allow or deny.
-  pub download_handler: Option<Box<dyn Fn(String) -> bool>>,
+  /// The first closure takes a `String` parameter as url and returns a `bool` to allow or deny the
+  /// download. The second closure is fired when the download completes.
+  pub download_handlers: Option<(
+    Box<dyn FnMut(String, &mut String) -> bool>,
+    Box<dyn Fn() -> Box<dyn Fn(String, bool) + 'static> + 'static>
+  )>,
 
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
   ///
@@ -172,7 +176,7 @@ impl Default for WebViewAttributes {
       ipc_handler: None,
       file_drop_handler: None,
       navigation_handler: None,
-      download_handler: None,
+      download_handlers: None,
       clipboard: false,
       devtools: false,
     }
@@ -352,8 +356,15 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// The closure takes a `String` parameter as url and return `bool` to determine if the 
   /// download is allowed or not.
-  pub fn with_download_handler(mut self, callback: impl Fn(String) -> bool + 'static) -> Self {
-    self.webview.download_handler = Some(Box::new(callback));
+  pub fn with_download_handler(
+    mut self,
+    started_callback: impl FnMut(String, &mut String) -> bool + 'static,
+    complete_callback_builder: impl Fn() -> Box<dyn Fn(String, bool) + 'static> + 'static
+  ) -> Self {
+    self.webview.download_handlers = Some((
+      Box::new(started_callback),
+      Box::new(complete_callback_builder)
+    ));
     self
   }
 

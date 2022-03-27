@@ -326,7 +326,10 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       }
     }
 
-    if let Some(download_callback) = attributes.download_handler {
+    if let Some((
+      mut download_started_callback,
+      download_complete_callback_builder
+    )) = attributes.download_handlers {
       unsafe {
         let webview4: ICoreWebView2_4 = webview
           .cast()
@@ -339,7 +342,36 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
               args.DownloadOperation()?.Uri(&mut uri)?;
               let uri = take_pwstr(uri);
 
-              let allow = download_callback(uri);
+              let mut path = PWSTR::default();
+              args.ResultFilePath(&mut path)?;
+              let mut path = take_pwstr(path);
+
+              let allow = download_started_callback(uri, &mut path);
+
+              if allow {
+                args.SetResultFilePath(path)?;
+                args.SetHandled(true)?;
+                let download_complete_callback = download_complete_callback_builder();
+                args.DownloadOperation()?.StateChanged(
+                  StateChangedEventHandler::create(Box::new(move |download_operation, _| {
+                    if let Some(download_operation) = download_operation {
+                      let mut state: i32 = 0;
+                      download_operation.State(&mut state)?;
+                      if state != 0 {
+                        let mut path = PWSTR::default();
+                        download_operation.ResultFilePath(&mut path)?;
+                        let path = take_pwstr(path);
+
+                        let success = state == 2;
+                        download_complete_callback(path.clone(), success);
+                      }
+                    }
+
+                    Ok(())
+                  })),
+                  &mut token
+                )?;
+              }
 
               args.SetCancel(!allow)?;
             }
