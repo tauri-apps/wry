@@ -2,4 +2,4 @@
 "wry": minor
 ---
 
-Added `close_devtool` function to `Webview`.
+Added `close_devtools` function to `Webview`.

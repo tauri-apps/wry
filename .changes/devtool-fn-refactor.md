@@ -2,4 +2,4 @@
 "wry": minor
 ---
 
-Renamed the `devtool` function to `open_devtool`.
+**Breaking change:** Renamed the `devtool` function to `open_devtools`.

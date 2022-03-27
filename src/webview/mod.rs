@@ -308,7 +308,7 @@ impl<'a> WebViewBuilder<'a> {
   /// # Warning
   /// This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
   /// but requires `devtool` feature flag to actually enable it in **release** build.
-  pub fn with_dev_tool(mut self, devtool: bool) -> Self {
+  pub fn with_devtools(mut self, devtool: bool) -> Self {
     self.webview.devtool = devtool;
     self
   }
@@ -435,8 +435,8 @@ impl WebView {
   ///
   /// - **Android / iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtool"))]
-  pub fn open_devtool(&self) {
-    self.webview.open_devtool();
+  pub fn open_devtools(&self) {
+    self.webview.open_devtools();
   }
 
   /// Close the web inspector which is usually called dev tool.
@@ -445,8 +445,8 @@ impl WebView {
   ///
   /// - **Windows / Android / iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtool"))]
-  pub fn close_devtool(&self) {
-    self.webview.close_devtool();
+  pub fn close_devtools(&self) {
+    self.webview.close_devtools();
   }
 
   /// Gets the devtool window's current vibility state.
@@ -455,8 +455,8 @@ impl WebView {
   ///
   /// - **Windows / Android / iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtool"))]
-  pub fn is_devtools_open(&self) -> bool {
-    self.webview.is_devtool_visible()
+  pub fn is_devtoolss_open(&self) -> bool {
+    self.webview.is_devtools_visible()
   }
 
   pub fn inner_size(&self) -> PhysicalSize<u32> {

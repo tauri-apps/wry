@@ -511,7 +511,7 @@ r#"Object.defineProperty(window, 'ipc', {
   ///
   /// - **iOS:** Not implemented.
   #[cfg(any(debug_assertions, feature = "devtool"))]
-  pub fn open_devtool(&self) {
+  pub fn open_devtools(&self) {
     #[cfg(target_os = "macos")]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
@@ -525,9 +525,8 @@ r#"Object.defineProperty(window, 'ipc', {
   /// ## Platform-specific
   ///
   /// - **iOS:** Not supported.
-.
   #[cfg(any(debug_assertions, feature = "devtool"))]
-  pub fn close_devtool(&self) {
+  pub fn close_devtools(&self) {
     #[cfg(target_os = "macos")]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
@@ -542,7 +541,7 @@ r#"Object.defineProperty(window, 'ipc', {
   ///
   /// - **iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtool"))]
-  pub fn is_devtool_visible(&self) -> bool {
+  pub fn is_devtools_visible(&self) -> bool {
     #[cfg(target_os = "macos")]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>

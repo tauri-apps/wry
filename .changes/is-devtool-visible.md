@@ -2,4 +2,4 @@
 "wry": minor
 ---
 
-Added `is_devtool_visible` function to `Webview`.
+Added `is_devtools_visible` function to `Webview`.

@@ -368,7 +368,7 @@ impl InnerWebView {
 
   /// Open the web inspector which is usually called dev tool.
   #[cfg(any(debug_assertions, feature = "devtool"))]
-  pub fn open_devtool(&self) {
+  pub fn open_devtools(&self) {
     if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
       inspector.show();
       // `bring-to-front` is not received in this case
@@ -378,7 +378,7 @@ impl InnerWebView {
 
   /// Close the web inspector which is usually called dev tool.
   #[cfg(any(debug_assertions, feature = "devtool"))]
-  pub fn close_devtool(&self) {
+  pub fn close_devtools(&self) {
     if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
       inspector.close();
     }
@@ -386,7 +386,7 @@ impl InnerWebView {
 
   /// Gets the devtool window's current vibility state.
   #[cfg(any(debug_assertions, feature = "devtool"))]
-  pub fn is_devtool_visible(&self) -> bool {
+  pub fn is_devtools_visible(&self) -> bool {
     self.is_inspector_visible.load(Ordering::Relaxed)
   }
 }
