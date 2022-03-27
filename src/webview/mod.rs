@@ -430,8 +430,21 @@ impl WebView {
   }
 
   /// Open the web inspector which is usually called dev tool.
-  pub fn devtool(&self) {
-    self.webview.devtool();
+  #[cfg(any(debug_assertions, feature = "devtool"))]
+  pub fn open_devtool(&self) {
+    self.webview.open_devtool();
+  }
+
+  /// Close the web inspector which is usually called dev tool.
+  #[cfg(any(debug_assertions, feature = "devtool"))]
+  pub fn close_devtool(&self) {
+    self.webview.close_devtool();
+  }
+
+  /// Gets the devtool window's current vibility state.
+  #[cfg(any(debug_assertions, feature = "devtool"))]
+  pub fn is_devtool_visible(&self) -> bool {
+    self.webview.is_devtool_visible()
   }
 
   pub fn inner_size(&self) -> PhysicalSize<u32> {

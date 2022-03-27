@@ -510,7 +510,8 @@ r#"Object.defineProperty(window, 'ipc', {
   /// ## Platform-specific
   ///
   /// - **iOS:** Not implemented.
-  pub fn devtool(&self) {
+  #[cfg(any(debug_assertions, feature = "devtool"))]
+  pub fn open_devtool(&self) {
     #[cfg(target_os = "macos")]
     #[cfg(any(debug_assertions, feature = "devtool"))]
     unsafe {
