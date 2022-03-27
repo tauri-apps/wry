@@ -524,7 +524,8 @@ r#"Object.defineProperty(window, 'ipc', {
   ///
   /// ## Platform-specific
   ///
-  /// - **iOS:** Not implemented.
+  /// - **iOS:** Not supported.
+.
   #[cfg(any(debug_assertions, feature = "devtool"))]
   pub fn close_devtool(&self) {
     #[cfg(target_os = "macos")]
@@ -539,7 +540,7 @@ r#"Object.defineProperty(window, 'ipc', {
   ///
   /// ## Platform-specific
   ///
-  /// - **iOS:** Not implemented, always returns false.
+  /// - **iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtool"))]
   pub fn is_devtool_visible(&self) -> bool {
     #[cfg(target_os = "macos")]

@@ -433,7 +433,7 @@ impl WebView {
   ///
   /// ## Platform-specific
   ///
-  /// - **Android / iOS:** Not implemented.
+  /// - **Android / iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtool"))]
   pub fn open_devtool(&self) {
     self.webview.open_devtool();
@@ -443,7 +443,7 @@ impl WebView {
   ///
   /// ## Platform-specific
   ///
-  /// - **Windows / Android / iOS:** Not implemented.
+  /// - **Windows / Android / iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtool"))]
   pub fn close_devtool(&self) {
     self.webview.close_devtool();
@@ -453,9 +453,9 @@ impl WebView {
   ///
   /// ## Platform-specific
   ///
-  /// - **Windows / Android / iOS:** Not implemented.
+  /// - **Windows / Android / iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtool"))]
-  pub fn is_devtool_visible(&self) -> bool {
+  pub fn is_devtools_open(&self) -> bool {
     self.webview.is_devtool_visible()
   }
 
