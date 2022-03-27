@@ -42,6 +42,11 @@ impl InnerWebView {
   #[cfg(any(debug_assertions, feature = "devtool"))]
   pub fn close_devtool(&self) {}
 
+  #[cfg(any(debug_assertions, feature = "devtool"))]
+  pub fn is_devtool_visible(&self) -> bool {
+    false
+  }
+
   pub fn run(self, env: JNIEnv, _jclass: JClass, jobject: JObject) -> Result<jobject> {
     let string_class = env.find_class("java/lang/String")?;
     // let client = env.call_method(
