@@ -2,4 +2,4 @@
 "wry": minor
 ---
 
-Hide the devtool functions behind the `any(debug_assertions, feature = "devtool")` flag.
+Hide the devtool functions behind the `any(debug_assertions, feature = "devtools")` flag.

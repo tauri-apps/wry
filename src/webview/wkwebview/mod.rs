@@ -254,8 +254,8 @@ impl InnerWebView {
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
 
-      #[cfg(any(debug_assertions, feature = "devtool"))]
-      if attributes.devtool {
+      #[cfg(any(debug_assertions, feature = "devtools"))]
+      if attributes.devtools {
         // Equivalent Obj-C:
         // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
         let dev = NSString::new("developerExtrasEnabled");
@@ -510,7 +510,7 @@ r#"Object.defineProperty(window, 'ipc', {
   /// ## Platform-specific
   ///
   /// - **iOS:** Not implemented.
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn open_devtools(&self) {
     #[cfg(target_os = "macos")]
     unsafe {
@@ -525,7 +525,7 @@ r#"Object.defineProperty(window, 'ipc', {
   /// ## Platform-specific
   ///
   /// - **iOS:** Not supported.
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn close_devtools(&self) {
     #[cfg(target_os = "macos")]
     unsafe {
@@ -540,7 +540,7 @@ r#"Object.defineProperty(window, 'ipc', {
   /// ## Platform-specific
   ///
   /// - **iOS:** Not supported.
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn is_devtools_visible(&self) -> bool {
     #[cfg(target_os = "macos")]
     unsafe {

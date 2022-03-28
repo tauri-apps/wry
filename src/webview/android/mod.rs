@@ -36,13 +36,13 @@ impl InnerWebView {
 
   pub fn focus(&self) {}
 
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn open_devtools(&self) {}
 
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn close_devtools(&self) {}
 
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn is_devtools_visible(&self) -> bool {
     false
   }

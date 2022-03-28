@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-#[cfg(any(debug_assertions, feature = "devtool"))]
+#[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::{
   atomic::{AtomicBool, Ordering},
   Arc,
@@ -40,7 +40,7 @@ mod web_context;
 
 pub struct InnerWebView {
   pub(crate) webview: Rc<WebView>,
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   is_inspector_visible: Arc<AtomicBool>,
 }
 
@@ -258,7 +258,7 @@ impl InnerWebView {
       // Set user agent
       settings.set_user_agent(attributes.user_agent.as_deref());
 
-      if attributes.devtool {
+      if attributes.devtools {
         settings.set_enable_developer_extras(true);
       }
     }
@@ -277,7 +277,7 @@ impl InnerWebView {
       window.show_all();
     }
 
-    #[cfg(any(debug_assertions, feature = "devtool"))]
+    #[cfg(any(debug_assertions, feature = "devtools"))]
     let is_inspector_visible = {
       let is_inspector_visible = Arc::new(AtomicBool::default());
       if let Some(inspector) = WebViewExt::inspector(&*webview) {
@@ -296,7 +296,7 @@ impl InnerWebView {
 
     let w = Self {
       webview,
-      #[cfg(any(debug_assertions, feature = "devtool"))]
+      #[cfg(any(debug_assertions, feature = "devtools"))]
       is_inspector_visible,
     };
 
@@ -367,7 +367,7 @@ impl InnerWebView {
   }
 
   /// Open the web inspector which is usually called dev tool.
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn open_devtools(&self) {
     if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
       inspector.show();
@@ -377,7 +377,7 @@ impl InnerWebView {
   }
 
   /// Close the web inspector which is usually called dev tool.
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn close_devtools(&self) {
     if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
       inspector.close();
@@ -385,7 +385,7 @@ impl InnerWebView {
   }
 
   /// Gets the devtool window's current vibility state.
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn is_devtools_visible(&self) -> bool {
     self.is_inspector_visible.load(Ordering::Relaxed)
   }

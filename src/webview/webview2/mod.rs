@@ -216,7 +216,7 @@ impl InnerWebView {
       settings
         .SetAreDevToolsEnabled(false)
         .map_err(webview2_com::Error::WindowsError)?;
-      if attributes.devtool {
+      if attributes.devtools {
         let _ = settings.SetAreDevToolsEnabled(true);
       }
 
@@ -601,17 +601,17 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   }
 
   /// Open the web inspector which is usually called dev tool.
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn open_devtools(&self) {
     let _ = unsafe { self.webview.OpenDevToolsWindow() };
   }
 
   /// Close the web inspector which is usually called dev tool.
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn close_devtools(&self) {}
 
   /// Gets the devtool window's current vibility state.
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn is_devtools_visible(&self) -> bool {
     false
   }

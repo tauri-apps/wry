@@ -140,7 +140,7 @@ pub struct WebViewAttributes {
   /// # Warning
   /// This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
   /// but requires `devtool` feature flag to actually enable it in **release** build.
-  pub devtool: bool,
+  pub devtools: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -157,7 +157,7 @@ impl Default for WebViewAttributes {
       file_drop_handler: None,
       navigation_handler: None,
       clipboard: false,
-      devtool: false,
+      devtools: false,
     }
   }
 }
@@ -308,8 +308,8 @@ impl<'a> WebViewBuilder<'a> {
   /// # Warning
   /// This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
   /// but requires `devtool` feature flag to actually enable it in **release** build.
-  pub fn with_devtools(mut self, devtool: bool) -> Self {
-    self.webview.devtool = devtool;
+  pub fn with_devtools(mut self, devtools: bool) -> Self {
+    self.webview.devtools = devtools;
     self
   }
 
@@ -434,7 +434,7 @@ impl WebView {
   /// ## Platform-specific
   ///
   /// - **Android / iOS:** Not supported.
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn open_devtools(&self) {
     self.webview.open_devtools();
   }
@@ -444,7 +444,7 @@ impl WebView {
   /// ## Platform-specific
   ///
   /// - **Windows / Android / iOS:** Not supported.
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn close_devtools(&self) {
     self.webview.close_devtools();
   }
@@ -454,7 +454,7 @@ impl WebView {
   /// ## Platform-specific
   ///
   /// - **Windows / Android / iOS:** Not supported.
-  #[cfg(any(debug_assertions, feature = "devtool"))]
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn is_devtoolss_open(&self) -> bool {
     self.webview.is_devtools_visible()
   }
