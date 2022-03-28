@@ -1,5 +1,27 @@
 # Changelog
 
+## \[0.14.0]
+
+- Added `close_devtools` function to `Webview`.
+  - [bf3b710](https://github.com/tauri-apps/wry/commit/bf3b7107631f14567b0b5ff1947c2bff1ffa2603) feat: add function to close the devtool and check if it is opened ([#529](https://github.com/tauri-apps/wry/pull/529)) on 2022-03-28
+- Hide the devtool functions behind the `any(debug_assertions, feature = "devtools")` flag.
+  - [bf3b710](https://github.com/tauri-apps/wry/commit/bf3b7107631f14567b0b5ff1947c2bff1ffa2603) feat: add function to close the devtool and check if it is opened ([#529](https://github.com/tauri-apps/wry/pull/529)) on 2022-03-28
+- **Breaking change:** Renamed the `devtool` function to `open_devtools`.
+  - [bf3b710](https://github.com/tauri-apps/wry/commit/bf3b7107631f14567b0b5ff1947c2bff1ffa2603) feat: add function to close the devtool and check if it is opened ([#529](https://github.com/tauri-apps/wry/pull/529)) on 2022-03-28
+- Enable tab navigation on macOS.
+  - [28ebedc](https://github.com/tauri-apps/wry/commit/28ebedc41f9017fed3fe1dc3a6d021c69f88ef5d) fix(macOS): enable tab navigation on all elements, fixes [#406](https://github.com/tauri-apps/wry/pull/406) ([#512](https://github.com/tauri-apps/wry/pull/512)) on 2022-03-03
+- Added `is_devtools_open` function to `Webview`.
+  - [bf3b710](https://github.com/tauri-apps/wry/commit/bf3b7107631f14567b0b5ff1947c2bff1ffa2603) feat: add function to close the devtool and check if it is opened ([#529](https://github.com/tauri-apps/wry/pull/529)) on 2022-03-28
+- - Expose methods to access the underlying native handles of the webview.
+- **Breaking change**: `WebviewExtWindows::controller` now returns the controller directley and not wrapped in an `Option`
+- [e54afec](https://github.com/tauri-apps/wry/commit/e54afec43b767ffdb43debbd526d249c3c5b5490) feat: expose webview native handles, closes [#495](https://github.com/tauri-apps/wry/pull/495) ([#513](https://github.com/tauri-apps/wry/pull/513)) on 2022-03-03
+- Add navigation handler to decide if a url is allowed to navigate.
+  - [aa8af02](https://github.com/tauri-apps/wry/commit/aa8af020ab9d88ad762f2facbfa368effb04f570) feat: Implement navigation event and cancellation, closes [#456](https://github.com/tauri-apps/wry/pull/456) ([#519](https://github.com/tauri-apps/wry/pull/519)) on 2022-03-18
+- **Breaking change**: Renamed the `devtool` feature to `devtools`.
+  - [bf3b710](https://github.com/tauri-apps/wry/commit/bf3b7107631f14567b0b5ff1947c2bff1ffa2603) feat: add function to close the devtool and check if it is opened ([#529](https://github.com/tauri-apps/wry/pull/529)) on 2022-03-28
+- **Breaking change:** Renamed the `with_dev_tool` function to `with_devtools`.
+  - [bf3b710](https://github.com/tauri-apps/wry/commit/bf3b7107631f14567b0b5ff1947c2bff1ffa2603) feat: add function to close the devtool and check if it is opened ([#529](https://github.com/tauri-apps/wry/pull/529)) on 2022-03-28
+
 ## \[0.13.3]
 
 - Fix rustdoc generation of Windows and Mac on docs.rs.
