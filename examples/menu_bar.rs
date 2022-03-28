@@ -38,7 +38,7 @@ fn main() -> wry::Result<()> {
       .with_accelerators(&Accelerator::new(SysMods::Cmd, KeyCode::KeyP)),
   );
 
-  first_menu.add_native_item(MenuItem::About("Todos".to_string()));
+  first_menu.add_native_item(MenuItem::About("Todos".to_string(), Default::default()));
   first_menu.add_native_item(MenuItem::Services);
   first_menu.add_native_item(MenuItem::Separator);
   first_menu.add_native_item(MenuItem::Hide);
