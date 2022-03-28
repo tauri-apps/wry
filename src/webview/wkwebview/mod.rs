@@ -541,7 +541,7 @@ r#"Object.defineProperty(window, 'ipc', {
   ///
   /// - **iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtool"))]
-  pub fn is_devtools_visible(&self) -> bool {
+  pub fn is_devtools_open(&self) -> bool {
     #[cfg(target_os = "macos")]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>

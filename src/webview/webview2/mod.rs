@@ -612,7 +612,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
   /// Gets the devtool window's current vibility state.
   #[cfg(any(debug_assertions, feature = "devtool"))]
-  pub fn is_devtools_visible(&self) -> bool {
+  pub fn is_devtools_open(&self) -> bool {
     false
   }
 }

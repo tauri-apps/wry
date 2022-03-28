@@ -41,7 +41,7 @@ mod web_context;
 pub struct InnerWebView {
   pub(crate) webview: Rc<WebView>,
   #[cfg(any(debug_assertions, feature = "devtool"))]
-  is_inspector_visible: Arc<AtomicBool>,
+  is_inspector_open: Arc<AtomicBool>,
 }
 
 impl InnerWebView {
@@ -278,26 +278,26 @@ impl InnerWebView {
     }
 
     #[cfg(any(debug_assertions, feature = "devtool"))]
-    let is_inspector_visible = {
-      let is_inspector_visible = Arc::new(AtomicBool::default());
+    let is_inspector_open = {
+      let is_inspector_open = Arc::new(AtomicBool::default());
       if let Some(inspector) = WebViewExt::inspector(&*webview) {
-        let is_inspector_visible_ = is_inspector_visible.clone();
+        let is_inspector_open_ = is_inspector_open.clone();
         inspector.connect_bring_to_front(move |_| {
-          is_inspector_visible_.store(true, Ordering::Relaxed);
+          is_inspector_open_.store(true, Ordering::Relaxed);
           false
         });
-        let is_inspector_visible_ = is_inspector_visible.clone();
+        let is_inspector_open_ = is_inspector_open.clone();
         inspector.connect_closed(move |_| {
-          is_inspector_visible_.store(false, Ordering::Relaxed);
+          is_inspector_open_.store(false, Ordering::Relaxed);
         });
       }
-      is_inspector_visible
+      is_inspector_open
     };
 
     let w = Self {
       webview,
       #[cfg(any(debug_assertions, feature = "devtool"))]
-      is_inspector_visible,
+      is_inspector_open,
     };
 
     // Initialize message handler
@@ -372,7 +372,7 @@ impl InnerWebView {
     if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
       inspector.show();
       // `bring-to-front` is not received in this case
-      self.is_inspector_visible.store(true, Ordering::Relaxed);
+      self.is_inspector_open.store(true, Ordering::Relaxed);
     }
   }
 
@@ -387,7 +387,7 @@ impl InnerWebView {
   /// Gets the devtool window's current vibility state.
   #[cfg(any(debug_assertions, feature = "devtool"))]
   pub fn is_devtools_visible(&self) -> bool {
-    self.is_inspector_visible.load(Ordering::Relaxed)
+    self.is_inspector_open.load(Ordering::Relaxed)
   }
 }
 
