@@ -104,5 +104,9 @@ RUSTFLAGS="-l framework=WebKit" cargo build --target=x86_64-apple-darwin --relea
 
 WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7, 8, and 10.
 
+### Android / iOS
+
+We have experimental support of mobile ends. If you are interested in playing or hacking it, please follow this [note](https://hackmd.io/XIcEwk4GSxy8APZhSa0UnA?view).
+
 ## License
 Apache-2.0/MIT
