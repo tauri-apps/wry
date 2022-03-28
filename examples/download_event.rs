@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 
 use normpath::PathExt;
-use tempfile::{tempdir, TempDir};
+use tempfile::{tempdir, TempDir, tempdir_in};
 
 fn main() -> wry::Result<()> {
   use wry::{
@@ -45,13 +45,16 @@ fn main() -> wry::Result<()> {
         let proxy = proxy.clone();
         move |uri: String, result_path: &mut String| {
           if uri.contains("wry-v0.13.3") {
-            if let Ok(tempdir) = tempdir() {
-              if let Ok(path) = tempdir.path().normalize() {
-                let path = path.join("example.zip").as_path().display().to_string();
-                *result_path = path;
-                let submitted = proxy.send_event(UserEvent::DownloadStarted(uri.clone(), result_path.clone())).is_ok();
+            if let Some(documents) = dirs::download_dir() {
+              if let Ok(tempdir) = tempdir_in(documents) {
+                if let Ok(path) = tempdir.path().normalize() {
+                  dbg!(path.metadata().unwrap().permissions().readonly());
+                  let path = path.join("example.zip").as_path().display().to_string();
+                  *result_path = path;
+                  let submitted = proxy.send_event(UserEvent::DownloadStarted(uri.clone(), result_path.clone())).is_ok();
 
-                return submitted;
+                  return submitted;
+                }
               }
             }
           }
