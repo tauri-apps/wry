@@ -307,7 +307,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// # Warning
   /// This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
-  /// but requires `devtool` feature flag to actually enable it in **release** build.
+  /// but requires `devtools` feature flag to actually enable it in **release** build.
   pub fn with_devtools(mut self, devtools: bool) -> Self {
     self.webview.devtools = devtools;
     self
@@ -455,8 +455,8 @@ impl WebView {
   ///
   /// - **Windows / Android / iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtools"))]
-  pub fn is_devtoolss_open(&self) -> bool {
-    self.webview.is_devtools_visible()
+  pub fn is_devtools_open(&self) -> bool {
+    self.webview.is_devtools_open()
   }
 
   pub fn inner_size(&self) -> PhysicalSize<u32> {
