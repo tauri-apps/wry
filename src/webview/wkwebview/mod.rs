@@ -254,8 +254,8 @@ impl InnerWebView {
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
 
-      #[cfg(any(debug_assertions, feature = "devtool"))]
-      if attributes.devtool {
+      #[cfg(any(debug_assertions, feature = "devtools"))]
+      if attributes.devtools {
         // Equivalent Obj-C:
         // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
         let dev = NSString::new("developerExtrasEnabled");
@@ -510,14 +510,47 @@ r#"Object.defineProperty(window, 'ipc', {
   /// ## Platform-specific
   ///
   /// - **iOS:** Not implemented.
-  pub fn devtool(&self) {
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn open_devtools(&self) {
     #[cfg(target_os = "macos")]
-    #[cfg(any(debug_assertions, feature = "devtool"))]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
       let tool: id = msg_send![self.webview, _inspector];
       let _: id = msg_send![tool, show];
     }
+  }
+
+  /// Close the web inspector which is usually called dev tool.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **iOS:** Not supported.
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn close_devtools(&self) {
+    #[cfg(target_os = "macos")]
+    unsafe {
+      // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
+      let tool: id = msg_send![self.webview, _inspector];
+      let _: id = msg_send![tool, close];
+    }
+  }
+
+  /// Gets the devtool window's current vibility state.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **iOS:** Not supported.
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn is_devtools_open(&self) -> bool {
+    #[cfg(target_os = "macos")]
+    unsafe {
+      // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
+      let tool: id = msg_send![self.webview, _inspector];
+      let is_visible: objc::runtime::BOOL = msg_send![tool, isVisible];
+      is_visible == objc::runtime::YES
+    }
+    #[cfg(not(target_os = "macos"))]
+    false
   }
 
   #[cfg(target_os = "macos")]

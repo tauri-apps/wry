@@ -30,12 +30,12 @@ fn main() -> wry::Result<()> {
     });
 
   #[cfg(debug_assertions)]
-  let webview = webview.with_dev_tool(true);
+  let webview = webview.with_devtools(true);
 
   let webview = webview.build()?;
 
   #[cfg(debug_assertions)]
-  webview.devtool();
+  webview.open_devtools();
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

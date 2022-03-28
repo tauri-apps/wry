@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+#[cfg(any(debug_assertions, feature = "devtools"))]
+use std::sync::{
+  atomic::{AtomicBool, Ordering},
+  Arc,
+};
 use std::{
   collections::hash_map::DefaultHasher,
   hash::{Hash, Hasher},
@@ -35,6 +40,8 @@ mod web_context;
 
 pub struct InnerWebView {
   pub(crate) webview: Rc<WebView>,
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  is_inspector_open: Arc<AtomicBool>,
 }
 
 impl InnerWebView {
@@ -251,7 +258,7 @@ impl InnerWebView {
       // Set user agent
       settings.set_user_agent(attributes.user_agent.as_deref());
 
-      if attributes.devtool {
+      if attributes.devtools {
         settings.set_enable_developer_extras(true);
       }
     }
@@ -270,7 +277,28 @@ impl InnerWebView {
       window.show_all();
     }
 
-    let w = Self { webview };
+    #[cfg(any(debug_assertions, feature = "devtools"))]
+    let is_inspector_open = {
+      let is_inspector_open = Arc::new(AtomicBool::default());
+      if let Some(inspector) = WebViewExt::inspector(&*webview) {
+        let is_inspector_open_ = is_inspector_open.clone();
+        inspector.connect_bring_to_front(move |_| {
+          is_inspector_open_.store(true, Ordering::Relaxed);
+          false
+        });
+        let is_inspector_open_ = is_inspector_open.clone();
+        inspector.connect_closed(move |_| {
+          is_inspector_open_.store(false, Ordering::Relaxed);
+        });
+      }
+      is_inspector_open
+    };
+
+    let w = Self {
+      webview,
+      #[cfg(any(debug_assertions, feature = "devtools"))]
+      is_inspector_open,
+    };
 
     // Initialize message handler
     let mut init = String::with_capacity(115 + 20 + 22);
@@ -339,10 +367,27 @@ impl InnerWebView {
   }
 
   /// Open the web inspector which is usually called dev tool.
-  pub fn devtool(&self) {
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn open_devtools(&self) {
     if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
       inspector.show();
+      // `bring-to-front` is not received in this case
+      self.is_inspector_open.store(true, Ordering::Relaxed);
     }
+  }
+
+  /// Close the web inspector which is usually called dev tool.
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn close_devtools(&self) {
+    if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
+      inspector.close();
+    }
+  }
+
+  /// Gets the devtool window's current vibility state.
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn is_devtools_open(&self) -> bool {
+    self.is_inspector_open.load(Ordering::Relaxed)
   }
 }
 

@@ -36,7 +36,16 @@ impl InnerWebView {
 
   pub fn focus(&self) {}
 
-  pub fn devtool(&self) {}
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn open_devtools(&self) {}
+
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn close_devtools(&self) {}
+
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn is_devtools_open(&self) -> bool {
+    false
+  }
 
   pub fn run(self, env: JNIEnv, _jclass: JClass, jobject: JObject) -> Result<jobject> {
     let string_class = env.find_class("java/lang/String")?;
