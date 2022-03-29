@@ -255,7 +255,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             args.TryGetWebMessageAsString(&mut js)?;
             let js = take_pwstr(js);
             if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_MOUSE_MOVE__" {
-              if !window.is_decorated() && window.is_resizable() {
+              if !window.is_decorated() && window.is_resizable() && !window.is_maximized() {
                 use crate::application::{platform::windows::hit_test, window::CursorIcon};
 
                 let mut point = POINT::default();
