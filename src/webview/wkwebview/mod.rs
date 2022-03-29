@@ -505,11 +505,6 @@ r#"Object.defineProperty(window, 'ipc', {
 
   pub fn focus(&self) {}
 
-  /// Open the web inspector which is usually called dev tool.
-  ///
-  /// ## Platform-specific
-  ///
-  /// - **iOS:** Not implemented.
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn open_devtools(&self) {
     #[cfg(target_os = "macos")]
@@ -520,11 +515,6 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  /// Close the web inspector which is usually called dev tool.
-  ///
-  /// ## Platform-specific
-  ///
-  /// - **iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn close_devtools(&self) {
     #[cfg(target_os = "macos")]
@@ -535,11 +525,6 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  /// Gets the devtool window's current vibility state.
-  ///
-  /// ## Platform-specific
-  ///
-  /// - **iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn is_devtools_open(&self) -> bool {
     #[cfg(target_os = "macos")]

@@ -366,7 +366,6 @@ impl InnerWebView {
     self.webview.grab_focus();
   }
 
-  /// Open the web inspector which is usually called dev tool.
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn open_devtools(&self) {
     if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
@@ -376,7 +375,6 @@ impl InnerWebView {
     }
   }
 
-  /// Close the web inspector which is usually called dev tool.
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn close_devtools(&self) {
     if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
@@ -384,7 +382,6 @@ impl InnerWebView {
     }
   }
 
-  /// Gets the devtool window's current vibility state.
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn is_devtools_open(&self) -> bool {
     self.is_inspector_open.load(Ordering::Relaxed)
