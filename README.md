@@ -81,7 +81,7 @@ sudo pacman -S webkit2gtk libappindicator-gtk3
 #### Debian / Ubuntu:
 
 ```bash
-sudo apt install libwebkit2gtk-4.0-dev libappindicator3-dev
+sudo apt install libwebkit2gtk-4.0-dev libappindicator3-dev libayatana-appindicator3-dev
 ```
 
 #### Fedora
