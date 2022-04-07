@@ -1,5 +1,18 @@
 # Changelog
 
+## \[0.15.0]
+
+- On Windows and Linux, disable resizing maximized borderless windows.
+  - [313eaea](https://github.com/tauri-apps/wry/commit/313eaea0ff123bddbc8b5c337ded05d464d3dfaa) fix(win,linux): disable resizing maximized borderless windows ([#533](https://github.com/tauri-apps/wry/pull/533)) on 2022-03-30
+- Fixes a memory leak on the custom protocol response body on macOS.
+  - [36b985e](https://github.com/tauri-apps/wry/commit/36b985e939f4769f9835b4865ee1013229ec7539) fix(macos): custom protocol memory leak ([#539](https://github.com/tauri-apps/wry/pull/539)) on 2022-04-03
+- Update tao to v0.8.0.
+  - [1c540b0](https://github.com/tauri-apps/wry/commit/1c540b01fa08e84c199b8ded726b6ec77b40f015) feat: update tao to 0.8, refactor tray features ([#541](https://github.com/tauri-apps/wry/pull/541)) on 2022-04-07
+- The `tray` and `ayatana-tray` Cargo features are not enabled by default.
+  - [1c540b0](https://github.com/tauri-apps/wry/commit/1c540b01fa08e84c199b8ded726b6ec77b40f015) feat: update tao to 0.8, refactor tray features ([#541](https://github.com/tauri-apps/wry/pull/541)) on 2022-04-07
+- **Breaking change:** Renamed the `ayatana` Cargo feature to `ayatana-tray` and added the `gtk-tray` feature. The default tray on Linux is now `libayatana-appindicator`.
+  - [1c540b0](https://github.com/tauri-apps/wry/commit/1c540b01fa08e84c199b8ded726b6ec77b40f015) feat: update tao to 0.8, refactor tray features ([#541](https://github.com/tauri-apps/wry/pull/541)) on 2022-04-07
+
 ## \[0.14.0]
 
 - Added `close_devtools` function to `Webview`.
