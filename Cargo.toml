@@ -14,7 +14,7 @@ categories = [ "gui" ]
 
 [package.metadata.docs.rs]
 default-features = false
-features = [ "dox", "file-drop", "protocol" ]
+features = [ "dox", "file-drop", "protocol", "tray", "ayatana-tray" ]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
@@ -22,13 +22,14 @@ targets = [
 ]
 
 [features]
-default = [ "file-drop", "objc-exception", "protocol" ]
+default = [ "file-drop", "objc-exception", "protocol", "tray", "ayatana-tray" ]
 objc-exception = [ "objc/exception" ]
 file-drop = [ ]
 protocol = [ ]
 dox = [ "tao/dox" ]
 tray = [ "tao/tray" ]
-ayatana = [ "tao/ayatana" ]
+ayatana-tray = [ "tao/ayatana-tray" ]
+gtk-tray = [ "tao/gtk-tray" ]
 devtools = [ ]
 transparent = [ ]
 fullscreen = [ ]
@@ -41,7 +42,7 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.2"
-tao = { version = "0.7", default-features = false, features = [ "serde" ] }
+tao = { version = "0.8.1", default-features = false, features = [ "serde" ] }
 http = "0.2.6"
 
 [dev-dependencies]

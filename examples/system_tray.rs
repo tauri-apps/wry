@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
-#[cfg(any(feature = "tray", feature = "ayatana"))]
+#[cfg(feature = "tray")]
 fn main() -> wry::Result<()> {
   use std::collections::HashMap;
   #[cfg(target_os = "linux")]
@@ -224,7 +224,7 @@ fn main() {
 
 // Tray feature flag disabled but can be available.
 #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
-#[cfg(not(any(feature = "tray", feature = "ayatana")))]
+#[cfg(not(feature = "tray"))]
 fn main() {
   println!("This platform doesn't have the `tray` feature enabled.");
 }
