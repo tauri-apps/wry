@@ -1,4 +1,4 @@
-use std::{ffi::c_void, ptr::null_mut, rc::Rc, sync::RwLock, collections::HashSet};
+use std::{collections::HashSet, ffi::c_void, ptr::null_mut, rc::Rc, sync::RwLock};
 
 use crate::{application::window::Window, Result};
 
@@ -71,10 +71,15 @@ impl InnerWebView {
 
     if let Some(u) = url {
       let mut url_string = String::from(u.as_str());
-      let schemes = custom_protocols.into_iter().map(|(s, _)| s).collect::<HashSet<_>>();
+      let schemes = custom_protocols
+        .into_iter()
+        .map(|(s, _)| s)
+        .collect::<HashSet<_>>();
       let name = u.scheme();
       if schemes.contains(name) {
-          url_string = u.as_str().replace(&format!("{}://", name), "https://tauri.wry/")
+        url_string = u
+          .as_str()
+          .replace(&format!("{}://", name), "https://tauri.wry/")
       }
       let url = env.new_string(url_string)?;
       env.call_method(jobject, "loadUrl", "(Ljava/lang/String;)V", &[url.into()])?;
