@@ -143,11 +143,14 @@ pub struct WebViewAttributes {
   /// Enable web inspector which is usually called dev tool.
   ///
   /// Note this only enables dev tool to the webview. To open it, you can call
-  /// [`WebView::devtool`], or right click the page and open it from the context menu.
+  /// [`WebView::open_devtools`], or right click the page and open it from the context menu.
   ///
-  /// # Warning
-  /// This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
-  /// but requires `devtool` feature flag to actually enable it in **release** build.
+  /// ## Platform-specific
+  ///
+  /// - macOS: This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
+  /// but requires `devtools` feature flag to actually enable it in **release** build.
+  /// - Android: Open `chrome://inspect/#devices` in Chrome to get the devtools window. Wry's `WebView` devtools API isn't supported on Android.
+  /// - iOS: Open Safari > Develop > [Your Device Name] > [Your WebView] to get the devtools window.
   pub devtools: bool,
 }
 
@@ -321,9 +324,12 @@ impl<'a> WebViewBuilder<'a> {
   /// Note this only enables dev tool to the webview. To open it, you can call
   /// [`WebView::open_devtools`], or right click the page and open it from the context menu.
   ///
-  /// # Warning
-  /// This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
+  /// ## Platform-specific
+  ///
+  /// - macOS: This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
   /// but requires `devtools` feature flag to actually enable it in **release** build.
+  /// - Android: Open `chrome://inspect/#devices` in Chrome to get the devtools window. Wry's `WebView` devtools API isn't supported on Android.
+  /// - iOS: Open Safari > Develop > [Your Device Name] > [Your WebView] to get the devtools window.
   pub fn with_devtools(mut self, devtools: bool) -> Self {
     self.webview.devtools = devtools;
     self
