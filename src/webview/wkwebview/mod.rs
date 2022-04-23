@@ -393,7 +393,7 @@ impl InnerWebView {
           );
           ctl.register()
         }
-        None => class!(UIFileUploadPanelController),
+        None => class!(WebViewUIDelegate),
       };
       let ui_delegate: id = msg_send![ui_delegate, new];
       let _: () = msg_send![webview, setUIDelegate: ui_delegate];
