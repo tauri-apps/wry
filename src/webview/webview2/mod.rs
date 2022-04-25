@@ -213,7 +213,7 @@ impl InnerWebView {
         .SetAreDefaultContextMenusEnabled(true)
         .map_err(webview2_com::Error::WindowsError)?;
       settings
-        .SetIsZoomControlEnabled(false)
+        .SetIsZoomControlEnabled(attributes.zoom_enabled)
         .map_err(webview2_com::Error::WindowsError)?;
       settings
         .SetAreDevToolsEnabled(false)
