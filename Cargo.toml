@@ -52,7 +52,7 @@ tao = { version = "0.8.1", default-features = false, features = [ "serde" ] }
 http = "0.2.6"
 
 [dev-dependencies]
-anyhow = "1.0.56"
+anyhow = "1.0.57"
 tempfile = "3.3.0"
 http-range = "0.1.5"
 
