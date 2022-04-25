@@ -338,11 +338,12 @@ impl<'a> WebViewBuilder<'a> {
   }
 
   /// Allow or disallow overriding the zoom level by platform dependant
-  /// shortcuts
-  /// 
+  /// shortcuts or gestures. By default, zoom overriding is disabled
+  ///
   /// ## Platform-specific
   ///
-  /// - Windows: Enable/Disable zooming by `Ctrl` and `+` / `-`
+  /// - Windows: Enable/Disable zooming by `Ctrl` and `+` / `-` or
+  ///   "*Two finger pinch*" on a touch screen or trackpad
   /// - Other: No effect
   #[cfg(target_os = "windows")]
   pub fn with_zoom(mut self, zoom: bool) -> Self {
