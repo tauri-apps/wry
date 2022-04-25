@@ -201,6 +201,7 @@ impl InnerWebView {
       }
     }
     extern "C" fn stop_task(_: &Object, _: Sel, _webview: id, _task: id) {}
+    extern "C" fn scroll_wheel(_: &Object, _: Sel, _event: id) {}
 
     // Safety: objc runtime calls are unsafe
     unsafe {
@@ -244,6 +245,10 @@ impl InnerWebView {
         Some(mut decl) => {
           #[cfg(target_os = "macos")]
           add_file_drop_methods(&mut decl);
+          if !attributes.bounce {
+            #[cfg(target_os = "macos")]
+            decl.add_method(sel!(scrollWheel:), scroll_wheel as extern "C" fn(&Object, Sel, id));
+          }
           decl.register()
         }
         _ => class!(WryWebView),

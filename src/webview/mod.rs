@@ -65,6 +65,8 @@ pub struct WebViewAttributes {
   pub visible: bool,
   /// Whether the WebView should be transparent. Not supported on Windows 7.
   pub transparent: bool,
+  /// Whether the WebView should be bounce. Supported on macOS only.
+  pub bounce: bool,
   /// Whether load the provided URL to [`WebView`].
   pub url: Option<Url>,
   /// Whether load the provided html string to [`WebView`].
@@ -160,6 +162,7 @@ impl Default for WebViewAttributes {
       user_agent: None,
       visible: true,
       transparent: false,
+      bounce: true,
       url: None,
       html: None,
       initialization_scripts: vec![],
@@ -206,6 +209,12 @@ impl<'a> WebViewBuilder<'a> {
   /// Sets whether the WebView should be transparent.
   pub fn with_visible(mut self, visible: bool) -> Self {
     self.webview.visible = visible;
+    self
+  }
+
+  /// Sets whether the WebView should be bounce. Supported on macOS only.
+  pub fn with_bounce(mut self, bounce: bool) -> Self {
+    self.webview.bounce = bounce;
     self
   }
 
