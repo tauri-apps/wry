@@ -94,19 +94,14 @@ impl InnerWebView {
 
     CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
       Box::new(move |environmentcreatedhandler| unsafe {
-        let options: ICoreWebView2EnvironmentOptions;
-        options = CoreWebView2EnvironmentOptions::default().into();
+        let options: ICoreWebView2EnvironmentOptions = CoreWebView2EnvironmentOptions::default().into();
 
         // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
         let additional_arguments = pwstr_from_str("--disable-features=msWebOOUI,msPdfOOUI");
         let _ = options.SetAdditionalBrowserArguments(additional_arguments);
         
         // if data_directory is None, we set it to a null PWSTR 
-        let data_directory: PWSTR =
-          match data_directory {
-            Some(s) => pwstr_from_str(&s),
-            None => PWSTR::default(),
-          };
+        let data_directory: PWSTR = data_directory.map(|s| pwstr_from_str(&s)).unwrap_or_default();
         
         let result = CreateCoreWebView2EnvironmentWithOptions(
           PWSTR::default(),
