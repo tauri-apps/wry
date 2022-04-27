@@ -57,12 +57,13 @@ tempfile = "3.3.0"
 http-range = "0.1.5"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
-webkit2gtk = { version = "0.17", features = [ "v2_22" ] }
-webkit2gtk-sys = "0.17"
+webkit2gtk = { path = "../webkit2gtk-rs/", features = [ "v2_36" ] }
+webkit2gtk-sys = { path = "../webkit2gtk-rs/sys/" }
 gio = "0.15"
 glib = "0.15"
 gtk = "0.15"
 gdk = "0.15"
+soup2 = "0.2"
 
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.13.0"

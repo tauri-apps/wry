@@ -6,19 +6,20 @@ use crate::{
   Error,
 };
 use glib::FileError;
+use soup::{MessageHeaders, MessageHeadersType};
 use std::{
   collections::{HashSet, VecDeque},
   rc::Rc,
   sync::{
     atomic::{AtomicBool, Ordering::SeqCst},
     Mutex,
-  },
+  }, cell::RefCell,
 };
 use url::Url;
 //use webkit2gtk_sys::webkit_uri_request_get_http_headers;
 use webkit2gtk::{
   traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, UserContentManager, WebContext,
-  WebContextBuilder, WebView, WebsiteDataManagerBuilder,
+  WebContextBuilder, WebView, WebsiteDataManagerBuilder, URISchemeResponse,
 };
 
 #[derive(Debug)]
@@ -217,31 +218,64 @@ where
     .register_uri_scheme_as_secure(name);
 
   context.register_uri_scheme(name, move |request| {
+    // Get request uri
     if let Some(uri) = request.uri() {
-      let uri = uri.as_str();
+      let mut http_request = HttpRequestBuilder::new().uri(uri.as_str());
 
-      //let headers = unsafe {
-      //  webkit_uri_request_get_http_headers(request.clone().to_glib_none().0)
-      //};
+      // Get request method
+      if let Some(method) = request.http_method() {
+          http_request = http_request.method(method.as_str());
+      } else {
+          http_request = http_request.method("GET");
+      }
 
-      // FIXME: Read the method
-      // FIXME: Read the headers
+      // Get request headers
+      if let Some(mut message) = request.http_headers() {
+          let headers = Rc::new(RefCell::new(Vec::new()));
+          message.foreach(|field, value| {
+              let headers = headers.clone();
+              let mut headers = headers.borrow_mut();
+              headers.push((field.to_string(), value.to_string()));
+          });
+
+          for (key, value) in headers.borrow().iter() {
+              http_request = http_request.header(key, value);
+          }
+      }
+
       // FIXME: Read the body (forms post)
-      let http_request = HttpRequestBuilder::new()
-        .uri(uri)
-        .method("GET")
+      let http_request = http_request
         .body(Vec::new())
         .unwrap();
+      dbg!(&http_request);
 
       match handler(&http_request) {
         Ok(http_response) => {
+            dbg!(&http_response);
+          // Create response input stream
           let buffer = http_response.body();
-
-          // FIXME: Set status code
-          // FIXME: Set sent headers
-
           let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(buffer));
-          request.finish(&input, buffer.len() as i64, http_response.mimetype())
+          let response = URISchemeResponse::new(&input, buffer.len() as i64);
+          if let Some(mime) = http_response.mimetype() {
+              response.set_content_type(mime);
+          }
+
+          // Set status code
+          response.set_status(http_response.status().as_u16() as u32, None);
+
+          // Set headers
+          // let mut headers = MessageHeaders::new(MessageHeadersType::Response);
+          //   for (name, value) in http_response.headers().iter() {
+          //     let name = name.to_string();
+          //     if let Ok(value) = value.to_str() {
+          //         dbg!(&name, &value);
+          //         headers.append(&name, value);
+          //     }
+          //   }
+          // response.set_http_headers(&mut headers);
+          // dbg!(&response);
+          //
+          request.finish_with_response(&response)
         }
         Err(_) => request.finish_error(&mut glib::Error::new(
           FileError::Exist,
