@@ -94,26 +94,28 @@ impl InnerWebView {
 
     CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
       Box::new(move |environmentcreatedhandler| unsafe {
-        if let Some(data_directory) = data_directory {
-          // If we have a custom data_directory, we need to use a call to `CreateCoreWebView2EnvironmentWithOptions`
-          // instead of the much simpler `CreateCoreWebView2Environment`.
-          let options: ICoreWebView2EnvironmentOptions =
-            CoreWebView2EnvironmentOptions::default().into();
-          let data_directory = pwstr_from_str(&data_directory);
-          let result = CreateCoreWebView2EnvironmentWithOptions(
-            PWSTR::default(),
-            data_directory,
-            options,
-            environmentcreatedhandler,
-          )
-          .map_err(webview2_com::Error::WindowsError);
-          let _ = take_pwstr(data_directory);
+        let options: ICoreWebView2EnvironmentOptions =
+          CoreWebView2EnvironmentOptions::default().into();
 
-          return result;
-        }
+        // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
+        let additional_arguments = pwstr_from_str("--disable-features=msWebOOUI,msPdfOOUI");
+        let _ = options.SetAdditionalBrowserArguments(additional_arguments);
 
-        CreateCoreWebView2Environment(environmentcreatedhandler)
-          .map_err(webview2_com::Error::WindowsError)
+        // if data_directory is None, we set it to a null PWSTR
+        let data_directory: PWSTR = data_directory
+          .map(|s| pwstr_from_str(&s))
+          .unwrap_or_default();
+
+        let result = CreateCoreWebView2EnvironmentWithOptions(
+          PWSTR::default(),
+          data_directory,
+          options,
+          environmentcreatedhandler,
+        )
+        .map_err(webview2_com::Error::WindowsError);
+        let _ = take_pwstr(data_directory);
+
+        return result;
       }),
       Box::new(move |error_code, environment| {
         error_code?;
