@@ -255,8 +255,6 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Set the IPC handler to receive the message from Javascript on webview to host Rust code.
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
-  ///
-  /// Both functions return promises but `notify()` resolves immediately.
   pub fn with_ipc_handler<F>(mut self, handler: F) -> Self
   where
     F: Fn(&Window, String) + 'static,
