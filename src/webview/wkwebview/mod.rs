@@ -584,6 +584,13 @@ r#"Object.defineProperty(window, 'ipc', {
       (view_frame.size.width as f64, view_frame.size.height as f64).into();
     logical.to_physical(scale_factor)
   }
+
+  pub fn zoom(&self, scale_factor: f64) {
+    #[cfg(target_os = "macos")]
+    unsafe {
+      let _: () = msg_send![self.webview, setPageZoom: scale_factor];
+    }
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {

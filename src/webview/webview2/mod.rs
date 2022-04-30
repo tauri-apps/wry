@@ -612,6 +612,10 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   pub fn is_devtools_open(&self) -> bool {
     false
   }
+
+  pub fn zoom(&self, scale_factor: f64) {
+    let _ = unsafe { self.controller.SetZoomFactor(scale_factor) };
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {
