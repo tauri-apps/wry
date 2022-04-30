@@ -1,5 +1,49 @@
 # Changelog
 
+## \[0.15.1]
+
+- Update how android handles url
+  - [427cf92](https://github.com/tauri-apps/wry/commit/427cf9222d7152f911aa70eb778eb7aa90c83fac) Unify custom porotocol across Android/iOS ([#546](https://github.com/tauri-apps/wry/pull/546)) on 2022-04-11
+- Add devtools support on Android/iOS.
+  - [1c5d77a](https://github.com/tauri-apps/wry/commit/1c5d77a8ce79e75705a71c659af86541d50c5007) Add devtools support on Android/iOS ([#548](https://github.com/tauri-apps/wry/pull/548)) on 2022-04-11
+- Fix to reset process on MacOS when webview is closed, closes #536.
+  - [fd1dcc3](https://github.com/tauri-apps/wry/commit/fd1dcc3cc5a290bfe4ae8de04064074109902432) fix: reset background process when webview is closed, closes [#536](https://github.com/tauri-apps/wry/pull/536) ([#556](https://github.com/tauri-apps/wry/pull/556)) on 2022-04-24
+
+## \[0.15.0]
+
+- On Windows and Linux, disable resizing maximized borderless windows.
+  - [313eaea](https://github.com/tauri-apps/wry/commit/313eaea0ff123bddbc8b5c337ded05d464d3dfaa) fix(win,linux): disable resizing maximized borderless windows ([#533](https://github.com/tauri-apps/wry/pull/533)) on 2022-03-30
+- Fixes a memory leak on the custom protocol response body on macOS.
+  - [36b985e](https://github.com/tauri-apps/wry/commit/36b985e939f4769f9835b4865ee1013229ec7539) fix(macos): custom protocol memory leak ([#539](https://github.com/tauri-apps/wry/pull/539)) on 2022-04-03
+- Update tao to v0.8.0.
+  - [1c540b0](https://github.com/tauri-apps/wry/commit/1c540b01fa08e84c199b8ded726b6ec77b40f015) feat: update tao to 0.8, refactor tray features ([#541](https://github.com/tauri-apps/wry/pull/541)) on 2022-04-07
+- The `tray` and `ayatana-tray` Cargo features are not enabled by default.
+  - [1c540b0](https://github.com/tauri-apps/wry/commit/1c540b01fa08e84c199b8ded726b6ec77b40f015) feat: update tao to 0.8, refactor tray features ([#541](https://github.com/tauri-apps/wry/pull/541)) on 2022-04-07
+- **Breaking change:** Renamed the `ayatana` Cargo feature to `ayatana-tray` and added the `gtk-tray` feature. The default tray on Linux is now `libayatana-appindicator`.
+  - [1c540b0](https://github.com/tauri-apps/wry/commit/1c540b01fa08e84c199b8ded726b6ec77b40f015) feat: update tao to 0.8, refactor tray features ([#541](https://github.com/tauri-apps/wry/pull/541)) on 2022-04-07
+
+## \[0.14.0]
+
+- Added `close_devtools` function to `Webview`.
+  - [bf3b710](https://github.com/tauri-apps/wry/commit/bf3b7107631f14567b0b5ff1947c2bff1ffa2603) feat: add function to close the devtool and check if it is opened ([#529](https://github.com/tauri-apps/wry/pull/529)) on 2022-03-28
+- Hide the devtool functions behind the `any(debug_assertions, feature = "devtools")` flag.
+  - [bf3b710](https://github.com/tauri-apps/wry/commit/bf3b7107631f14567b0b5ff1947c2bff1ffa2603) feat: add function to close the devtool and check if it is opened ([#529](https://github.com/tauri-apps/wry/pull/529)) on 2022-03-28
+- **Breaking change:** Renamed the `devtool` function to `open_devtools`.
+  - [bf3b710](https://github.com/tauri-apps/wry/commit/bf3b7107631f14567b0b5ff1947c2bff1ffa2603) feat: add function to close the devtool and check if it is opened ([#529](https://github.com/tauri-apps/wry/pull/529)) on 2022-03-28
+- Enable tab navigation on macOS.
+  - [28ebedc](https://github.com/tauri-apps/wry/commit/28ebedc41f9017fed3fe1dc3a6d021c69f88ef5d) fix(macOS): enable tab navigation on all elements, fixes [#406](https://github.com/tauri-apps/wry/pull/406) ([#512](https://github.com/tauri-apps/wry/pull/512)) on 2022-03-03
+- Added `is_devtools_open` function to `Webview`.
+  - [bf3b710](https://github.com/tauri-apps/wry/commit/bf3b7107631f14567b0b5ff1947c2bff1ffa2603) feat: add function to close the devtool and check if it is opened ([#529](https://github.com/tauri-apps/wry/pull/529)) on 2022-03-28
+- - Expose methods to access the underlying native handles of the webview.
+- **Breaking change**: `WebviewExtWindows::controller` now returns the controller directley and not wrapped in an `Option`
+- [e54afec](https://github.com/tauri-apps/wry/commit/e54afec43b767ffdb43debbd526d249c3c5b5490) feat: expose webview native handles, closes [#495](https://github.com/tauri-apps/wry/pull/495) ([#513](https://github.com/tauri-apps/wry/pull/513)) on 2022-03-03
+- Add navigation handler to decide if a url is allowed to navigate.
+  - [aa8af02](https://github.com/tauri-apps/wry/commit/aa8af020ab9d88ad762f2facbfa368effb04f570) feat: Implement navigation event and cancellation, closes [#456](https://github.com/tauri-apps/wry/pull/456) ([#519](https://github.com/tauri-apps/wry/pull/519)) on 2022-03-18
+- **Breaking change**: Renamed the `devtool` feature to `devtools`.
+  - [bf3b710](https://github.com/tauri-apps/wry/commit/bf3b7107631f14567b0b5ff1947c2bff1ffa2603) feat: add function to close the devtool and check if it is opened ([#529](https://github.com/tauri-apps/wry/pull/529)) on 2022-03-28
+- **Breaking change:** Renamed the `with_dev_tool` function to `with_devtools`.
+  - [bf3b710](https://github.com/tauri-apps/wry/commit/bf3b7107631f14567b0b5ff1947c2bff1ffa2603) feat: add function to close the devtool and check if it is opened ([#529](https://github.com/tauri-apps/wry/pull/529)) on 2022-03-28
+
 ## \[0.13.3]
 
 - Fix rustdoc generation of Windows and Mac on docs.rs.

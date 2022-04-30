@@ -27,11 +27,15 @@ fn main() -> wry::Result<()> {
       let submitted = proxy.send_event(UserEvent::Navigation(uri.clone())).is_ok();
 
       submitted && uri.contains("neverssl")
-    })
-    .build()?;
+    });
 
   #[cfg(debug_assertions)]
-  webview.devtool();
+  let webview = webview.with_devtools(true);
+
+  let webview = webview.build()?;
+
+  #[cfg(debug_assertions)]
+  webview.open_devtools();
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

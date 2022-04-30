@@ -79,6 +79,8 @@ pub struct WebViewAttributes {
   /// - macOS: `http://localhost`
   /// - Linux: `http://localhost`
   /// - Windows: `null`
+  /// - Android: Not supported
+  /// - iOS: Not supported
   pub html: Option<String>,
   /// Initialize javascript code when loading new pages. When webview load a new page, this
   /// initialization code will be executed. It is guaranteed that code is executed before
@@ -100,6 +102,12 @@ pub struct WebViewAttributes {
   /// - Linux: Though it's same as macOS, there's a [bug] that Origin header in the request will be
   /// empty. So the only way to pass the server is setting `Access-Control-Allow-Origin: *`.
   /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.examples` in `custom_protocol` example)
+  /// - Android: Custom protocol on Android is fixed to `https://tauri.wry/` due to its design and
+  /// our approach to use it. On Android, We only handle the scheme name and ignore the closure. So
+  /// when you load the url like `wry://assets/index.html`, it will become
+  /// `https://tauri.wry/assets/index.html`. Android has `assets` and `resource` path finder to
+  /// locate your files in those directories. For more information, see [Loading in-app content](https://developer.android.com/guide/webapps/load-local-content) page.
+  /// - iOS: Same as macOS. To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
   pub custom_protocols: Vec<(String, Box<dyn Fn(&HttpRequest) -> Result<HttpResponse>>)>,
@@ -141,12 +149,15 @@ pub struct WebViewAttributes {
   /// Enable web inspector which is usually called dev tool.
   ///
   /// Note this only enables dev tool to the webview. To open it, you can call
-  /// [`WebView::devtool`], or right click the page and open it from the context menu.
+  /// [`WebView::open_devtools`], or right click the page and open it from the context menu.
   ///
-  /// # Warning
-  /// This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
-  /// but requires `devtool` feature flag to actually enable it in **release** build.
-  pub devtool: bool,
+  /// ## Platform-specific
+  ///
+  /// - macOS: This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
+  /// but requires `devtools` feature flag to actually enable it in **release** build.
+  /// - Android: Open `chrome://inspect/#devices` in Chrome to get the devtools window. Wry's `WebView` devtools API isn't supported on Android.
+  /// - iOS: Open Safari > Develop > [Your Device Name] > [Your WebView] to get the devtools window.
+  pub devtools: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -164,7 +175,7 @@ impl Default for WebViewAttributes {
       navigation_handler: None,
       new_window_req_handler: None,
       clipboard: false,
-      devtool: false,
+      devtools: false,
     }
   }
 }
@@ -229,6 +240,12 @@ impl<'a> WebViewBuilder<'a> {
   /// - Linux: Though it's same as macOS, there's a [bug] that Origin header in the request will be
   /// empty. So the only way to pass the server is setting `Access-Control-Allow-Origin: *`.
   /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.examples` in `custom_protocol` example)
+  /// - Android: Custom protocol on Android is fixed to `https://tauri.wry/` due to its design and
+  /// our approach to use it. On Android, We only handle the scheme name and ignore the closure. So
+  /// when you load the url like `wry://assets/index.html`, it will become
+  /// `https://tauri.wry/assets/index.html`. Android has `assets` and `resource` path finder to
+  /// locate your files in those directories. For more information, see [Loading in-app content](https://developer.android.com/guide/webapps/load-local-content) page.
+  /// - iOS: Same as macOS. To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
   #[cfg(feature = "protocol")]
@@ -245,8 +262,6 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Set the IPC handler to receive the message from Javascript on webview to host Rust code.
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
-  ///
-  /// Both functions return promises but `notify()` resolves immediately.
   pub fn with_ipc_handler<F>(mut self, handler: F) -> Self
   where
     F: Fn(&Window, String) + 'static,
@@ -290,6 +305,8 @@ impl<'a> WebViewBuilder<'a> {
   /// - macOS: `http://localhost`
   /// - Linux: `http://localhost`
   /// - Windows: `null`
+  /// - Android: Not supported
+  /// - iOS: Not supported
   pub fn with_html(mut self, html: impl Into<String>) -> Result<Self> {
     self.webview.html = Some(html.into());
     Ok(self)
@@ -310,13 +327,16 @@ impl<'a> WebViewBuilder<'a> {
   /// Enable web inspector which is usually called dev tool.
   ///
   /// Note this only enables dev tool to the webview. To open it, you can call
-  /// [`WebView::devtool`], or right click the page and open it from the context menu.
+  /// [`WebView::open_devtools`], or right click the page and open it from the context menu.
   ///
-  /// # Warning
-  /// This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
-  /// but requires `devtool` feature flag to actually enable it in **release** build.
-  pub fn with_dev_tool(mut self, devtool: bool) -> Self {
-    self.webview.devtool = devtool;
+  /// ## Platform-specific
+  ///
+  /// - macOS: This will call private functions on **macOS**. It's still enabled if set in **debug** build on mac,
+  /// but requires `devtools` feature flag to actually enable it in **release** build.
+  /// - Android: Open `chrome://inspect/#devices` in Chrome to get the devtools window. Wry's `WebView` devtools API isn't supported on Android.
+  /// - iOS: Open Safari > Develop > [Your Device Name] > [Your WebView] to get the devtools window.
+  pub fn with_devtools(mut self, devtools: bool) -> Self {
+    self.webview.devtools = devtools;
     self
   }
 
@@ -450,8 +470,33 @@ impl WebView {
   }
 
   /// Open the web inspector which is usually called dev tool.
-  pub fn devtool(&self) {
-    self.webview.devtool();
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Android / iOS:** Not supported.
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn open_devtools(&self) {
+    self.webview.open_devtools();
+  }
+
+  /// Close the web inspector which is usually called dev tool.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows / Android / iOS:** Not supported.
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn close_devtools(&self) {
+    self.webview.close_devtools();
+  }
+
+  /// Gets the devtool window's current vibility state.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows / Android / iOS:** Not supported.
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn is_devtools_open(&self) -> bool {
+    self.webview.is_devtools_open()
   }
 
   pub fn inner_size(&self) -> PhysicalSize<u32> {

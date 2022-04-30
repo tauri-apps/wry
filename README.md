@@ -75,13 +75,17 @@ Tao uses [gtk-rs](https://gtk-rs.org/) and its related libraries for window crea
 #### Arch Linux / Manjaro:
 
 ```bash
-sudo pacman -S webkit2gtk libappindicator-gtk3
+sudo pacman -S webkit2gtk
+sudo pacman -S libappindicator-gtk3 # not required
 ```
+
+The `libayatana-indicator` package can be installed from the Arch User Repository (AUR).
 
 #### Debian / Ubuntu:
 
 ```bash
-sudo apt install libwebkit2gtk-4.0-dev libappindicator3-dev
+sudo apt install libwebkit2gtk-4.0-dev libayatana-appindicator3-dev
+sudo apt install libappindicator3-dev # not required
 ```
 
 #### Fedora
@@ -89,6 +93,8 @@ sudo apt install libwebkit2gtk-4.0-dev libappindicator3-dev
 ```bash
 sudo dnf install gtk3-devel webkit2gtk3-devel libappindicator-gtk3-devel
 ```
+
+Fedora does not have the Ayatana package yet, so you need to use the GTK one, see the [feature flags documentation](https://docs.rs/wry/latest/wry/#feature-flags).
 
 ### macOS
 
@@ -103,6 +109,10 @@ RUSTFLAGS="-l framework=WebKit" cargo build --target=x86_64-apple-darwin --relea
 ### Windows
 
 WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7, 8, and 10.
+
+### Android / iOS
+
+We have experimental support of mobile ends. If you are interested in playing or hacking it, please follow this [note](https://hackmd.io/XIcEwk4GSxy8APZhSa0UnA?view).
 
 ## License
 Apache-2.0/MIT

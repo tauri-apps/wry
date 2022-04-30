@@ -9,12 +9,9 @@ mod web_context;
 pub use web_context::WebContextImpl;
 
 #[cfg(target_os = "macos")]
+use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
 use cocoa::{
-  appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable},
-  base::YES,
-};
-use cocoa::{
-  base::id,
+  base::{id, nil, YES},
   foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
 
@@ -29,7 +26,7 @@ use std::{
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use objc::{
   declare::ClassDecl,
-  runtime::{Class, Object, Sel},
+  runtime::{Class, Object, Sel, BOOL},
 };
 use objc_id::Id;
 
@@ -186,7 +183,8 @@ impl InnerWebView {
             // Send data
             let bytes = content.as_ptr() as *mut c_void;
             let data: id = msg_send![class!(NSData), alloc];
-            let data: id = msg_send![data, initWithBytes:bytes length:content.len()];
+            let data: id =
+              msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: YES];
             let () = msg_send![task, didReceiveData: data];
           } else {
             let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
@@ -254,8 +252,8 @@ impl InnerWebView {
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
 
-      #[cfg(any(debug_assertions, feature = "devtool"))]
-      if attributes.devtool {
+      #[cfg(any(debug_assertions, feature = "devtools"))]
+      if attributes.devtools {
         // Equivalent Obj-C:
         // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
         let dev = NSString::new("developerExtrasEnabled");
@@ -377,6 +375,47 @@ impl InnerWebView {
         } else {
           null_mut()
         };
+
+      // File upload panel handler
+      extern "C" fn run_file_upload_panel(
+        _this: &Object,
+        _: Sel,
+        _webview: id,
+        open_panel_params: id,
+        _frame: id,
+        handler: id,
+      ) {
+        unsafe {
+          let handler = handler as *mut block::Block<(id,), c_void>;
+          let cls = class!(NSOpenPanel);
+          let open_panel: id = msg_send![cls, openPanel];
+          let _: () = msg_send![open_panel, setCanChooseFiles: YES];
+          let allow_multi: BOOL = msg_send![open_panel_params, allowsMultipleSelection];
+          let _: () = msg_send![open_panel, setAllowsMultipleSelection: allow_multi];
+          let allow_dir: BOOL = msg_send![open_panel_params, allowsDirectories];
+          let _: () = msg_send![open_panel, setCanChooseDirectories: allow_dir];
+          let ok: NSInteger = msg_send![open_panel, runModal];
+          if ok == 1 {
+            let url: id = msg_send![open_panel, URLs];
+            (*handler).call((url,));
+          } else {
+            (*handler).call((nil,));
+          }
+        }
+      }
+
+      let ui_delegate = match ClassDecl::new("WebViewUIDelegate", class!(NSObject)) {
+        Some(mut ctl) => {
+          ctl.add_method(
+            sel!(webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:),
+            run_file_upload_panel as extern "C" fn(&Object, Sel, id, id, id, id),
+          );
+          ctl.register()
+        }
+        None => class!(WebViewUIDelegate),
+      };
+      let ui_delegate: id = msg_send![ui_delegate, new];
+      let _: () = msg_send![webview, setUIDelegate: ui_delegate];
 
       // File drop handling
       #[cfg(target_os = "macos")]
@@ -524,19 +563,37 @@ r#"Object.defineProperty(window, 'ipc', {
 
   pub fn focus(&self) {}
 
-  /// Open the web inspector which is usually called dev tool.
-  ///
-  /// ## Platform-specific
-  ///
-  /// - **iOS:** Not implemented.
-  pub fn devtool(&self) {
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn open_devtools(&self) {
     #[cfg(target_os = "macos")]
-    #[cfg(any(debug_assertions, feature = "devtool"))]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
       let tool: id = msg_send![self.webview, _inspector];
       let _: id = msg_send![tool, show];
     }
+  }
+
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn close_devtools(&self) {
+    #[cfg(target_os = "macos")]
+    unsafe {
+      // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
+      let tool: id = msg_send![self.webview, _inspector];
+      let _: id = msg_send![tool, close];
+    }
+  }
+
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  pub fn is_devtools_open(&self) -> bool {
+    #[cfg(target_os = "macos")]
+    unsafe {
+      // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
+      let tool: id = msg_send![self.webview, _inspector];
+      let is_visible: objc::runtime::BOOL = msg_send![tool, isVisible];
+      is_visible == objc::runtime::YES
+    }
+    #[cfg(not(target_os = "macos"))]
+    false
   }
 
   #[cfg(target_os = "macos")]
@@ -582,6 +639,11 @@ impl Drop for InnerWebView {
           let _ = Box::from_raw(*ptr);
         }
       }
+
+      // WKWebview has a single WKProcessPool to manage web contents.
+      // The WKProcessPool is not reset even if WKWebview is deallocated.
+      // So we need to override the process by navigating to `about:blank`.
+      self.navigate("about:blank");
 
       let _: Id<_> = Id::from_ptr(self.webview);
       #[cfg(target_os = "macos")]
