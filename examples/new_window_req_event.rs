@@ -30,8 +30,6 @@ fn main() -> wry::Result<()> {
 
   let event_loop: EventLoop<UserEvent> = EventLoop::with_user_event();
   let proxy = event_loop.create_proxy();
-  let mut webcontext = WebContext::default();
-  webcontext.set_allows_automation(true);
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)?;
