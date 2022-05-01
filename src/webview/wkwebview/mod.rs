@@ -411,7 +411,14 @@ impl InnerWebView {
 
       // ns window is required for the print operation
       #[cfg(target_os = "macos")]
-      let ns_window = window.ns_window() as id;
+      let ns_window = {
+        let ns_window = window.ns_window() as id;
+
+        // `1` means `none`, see https://developer.apple.com/documentation/appkit/nstitlebarseparatorstyle/none
+        let () = msg_send![ns_window, setTitlebarSeparatorStyle: 1];
+
+        ns_window
+      };
 
       let w = Self {
         webview,
