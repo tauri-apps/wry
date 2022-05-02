@@ -142,10 +142,9 @@ pub struct WebViewAttributes {
   /// absolute, and (on Windows) cannot include a UNC prefix. The closure returns a `bool` to allow or deny the download.
   /// The second closure is fired when the download completes, with a `String` representing the path to where the download was
   /// saved and a `bool` indicating if the download succeeded.
-  pub download_handlers: Option<(
-    Box<dyn FnMut(String, &mut String) -> bool>,
-    Box<dyn Fn() -> Box<dyn Fn(String, bool) + 'static> + 'static>
-  )>,
+  pub download_started_handler: Option<Box<dyn FnMut(String, &mut String) -> bool>>,
+  
+  pub download_complete_callback: Option<Box<dyn Fn() -> Box<dyn Fn(String, bool) + 'static> + 'static>>,
 
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
   ///
@@ -180,7 +179,8 @@ impl Default for WebViewAttributes {
       ipc_handler: None,
       file_drop_handler: None,
       navigation_handler: None,
-      download_handlers: None,
+      download_started_handler: None,
+      download_complete_callback: None,
       clipboard: false,
       devtools: false,
     }
@@ -363,12 +363,16 @@ impl<'a> WebViewBuilder<'a> {
   pub fn with_download_handler(
     mut self,
     started_callback: impl FnMut(String, &mut String) -> bool + 'static,
+  ) -> Self {
+    self.webview.download_started_handler = Some(Box::new(started_callback));
+    self
+  }
+
+  pub fn with_download_completed_callback(
+    mut self,
     complete_callback_builder: impl Fn() -> Box<dyn Fn(String, bool) + 'static> + 'static
   ) -> Self {
-    self.webview.download_handlers = Some((
-      Box::new(started_callback),
-      Box::new(complete_callback_builder)
-    ));
+    self.webview.download_complete_callback = Some(Box::new(complete_callback_builder));
     self
   }
 

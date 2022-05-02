@@ -326,14 +326,13 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       }
     }
 
-    if let Some((
-      mut download_started_callback,
-      download_complete_callback_builder
-    )) = attributes.download_handlers {
+    if let Some(mut download_started_callback) = attributes.download_started_handler {
       unsafe {
         let webview4: ICoreWebView2_4 = webview
           .cast()
           .map_err(webview2_com::Error::WindowsError)?;
+
+        let download_complete_callback = attributes.download_complete_callback.take();
 
         webview4.DownloadStarting(
           DownloadStartingEventHandler::create(Box::new(move |_, args| {
@@ -351,26 +350,27 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
               if allow {
                 args.SetResultFilePath(path)?;
                 args.SetHandled(true)?;
-                let download_complete_callback = download_complete_callback_builder();
-                args.DownloadOperation()?.StateChanged(
-                  StateChangedEventHandler::create(Box::new(move |download_operation, _| {
-                    if let Some(download_operation) = download_operation {
-                      let mut state: i32 = 0;
-                      download_operation.State(&mut state)?;
-                      if state != 0 {
-                        let mut path = PWSTR::default();
-                        download_operation.ResultFilePath(&mut path)?;
-                        let path = take_pwstr(path);
-
-                        let success = state == 2;
-                        download_complete_callback(path.clone(), success);
+                if let Some(download_complete_callback) = download_complete_callback.as_ref().map(|func| func()) {
+                  args.DownloadOperation()?.StateChanged(
+                    StateChangedEventHandler::create(Box::new(move |download_operation, _| {
+                      if let Some(download_operation) = download_operation {
+                        let mut state: i32 = 0;
+                        download_operation.State(&mut state)?;
+                        if state != 0 {
+                          let mut path = PWSTR::default();
+                          download_operation.ResultFilePath(&mut path)?;
+                          let path = take_pwstr(path);
+  
+                          let success = state == 2;
+                          download_complete_callback(path.clone(), success);
+                        }
                       }
-                    }
-
-                    Ok(())
-                  })),
-                  &mut token
-                )?;
+  
+                      Ok(())
+                    })),
+                    &mut token
+                  )?;
+                };
               }
 
               args.SetCancel(!allow)?;
