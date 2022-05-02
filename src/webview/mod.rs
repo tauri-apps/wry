@@ -489,6 +489,17 @@ impl WebView {
     self.window.inner_size()
   }
 
+  /// Set the webview zoom level
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Android**: Not supported.
+  /// - **macOS**: available on macOS 11+ only.
+  /// - **iOS**: available on iOS 14+ only.
+  pub fn zoom(&self, scale_factor: f64) {
+    self.webview.zoom(scale_factor);
+  }
+
   #[cfg(target_os = "android")]
   pub fn run(self, env: JNIEnv, jclass: JClass, jobject: JObject) -> jobject {
     self.webview.run(env, jclass, jobject).unwrap()
