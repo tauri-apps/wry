@@ -11,7 +11,7 @@ pub use web_context::WebContextImpl;
 #[cfg(target_os = "macos")]
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
 use cocoa::{
-  base::{id, nil, YES},
+  base::{id, nil, NO, YES},
   foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
 
@@ -183,8 +183,7 @@ impl InnerWebView {
             // Send data
             let bytes = content.as_ptr() as *mut c_void;
             let data: id = msg_send![class!(NSData), alloc];
-            let data: id =
-              msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: YES];
+            let data: id = msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: if content.len() == 0 { NO } else { YES }];
             let () = msg_send![task, didReceiveData: data];
           } else {
             let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
