@@ -11,7 +11,7 @@ use crate::{
 
 use file_drop::FileDropController;
 
-use std::{collections::HashSet, rc::Rc, sync::mpsc};
+use std::{collections::HashSet, rc::Rc, sync::mpsc, path::PathBuf};
 
 use once_cell::unsync::OnceCell;
 
@@ -343,12 +343,13 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
               let mut path = PWSTR::default();
               args.ResultFilePath(&mut path)?;
-              let mut path = take_pwstr(path);
+              let path = take_pwstr(path);
+              let mut path = PathBuf::from(&path);
 
               let allow = download_started_callback(uri, &mut path);
 
               if allow {
-                args.SetResultFilePath(path)?;
+                args.SetResultFilePath(path.display().to_string())?;
                 args.SetHandled(true)?;
                 if let Some(download_complete_callback) = download_complete_callback.as_ref().map(|func| func()) {
                   args.DownloadOperation()?.StateChanged(

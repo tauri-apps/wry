@@ -142,7 +142,7 @@ pub struct WebViewAttributes {
   /// absolute, and (on Windows) cannot include a UNC prefix. The closure returns a `bool` to allow or deny the download.
   /// The second closure is fired when the download completes, with a `String` representing the path to where the download was
   /// saved and a `bool` indicating if the download succeeded.
-  pub download_started_handler: Option<Box<dyn FnMut(String, &mut String) -> bool>>,
+  pub download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
   
   pub download_complete_callback: Option<Box<dyn Fn() -> Box<dyn Fn(String, bool) + 'static> + 'static>>,
 
@@ -362,7 +362,7 @@ impl<'a> WebViewBuilder<'a> {
   /// download is allowed or not.
   pub fn with_download_handler(
     mut self,
-    started_callback: impl FnMut(String, &mut String) -> bool + 'static,
+    started_callback: impl FnMut(String, &mut PathBuf) -> bool + 'static,
   ) -> Self {
     self.webview.download_started_handler = Some(Box::new(started_callback));
     self

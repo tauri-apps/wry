@@ -43,15 +43,17 @@ fn main() -> wry::Result<()> {
     .with_download_handler(
       {
         let proxy = proxy.clone();
-        move |uri: String, result_path: &mut String| {
+        move |uri: String, default_path: &mut PathBuf| {
           if uri.contains("wry-v0.13.3") {
             if let Some(documents) = dirs::download_dir() {
               if let Ok(tempdir) = tempdir_in(documents) {
                 if let Ok(path) = tempdir.path().normalize() {
                   dbg!(path.metadata().unwrap().permissions().readonly());
-                  let path = path.join("example.zip").as_path().display().to_string();
-                  *result_path = path;
-                  let submitted = proxy.send_event(UserEvent::DownloadStarted(uri.clone(), result_path.clone())).is_ok();
+                  let path = path.join("example.zip").as_path().to_path_buf();
+
+                  *default_path = path.clone();
+
+                  let submitted = proxy.send_event(UserEvent::DownloadStarted(uri.clone(), path.display().to_string())).is_ok();
 
                   return submitted;
                 }
