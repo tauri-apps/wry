@@ -64,16 +64,16 @@ fn main() -> wry::Result<()> {
           false
         }
       },
-      {
-        let proxy = proxy.clone();
-        move || {
-          let proxy = proxy.clone();
-          Box::new(move |path, success| {
-            let _ = proxy.send_event(UserEvent::DownloadComplete(path, success));
-          })
-        }
-      }
     )
+    .with_download_completed_callback({
+      let proxy = proxy.clone();
+      move || {
+        let proxy = proxy.clone();
+        Box::new(move |path, success| {
+          let _ = proxy.send_event(UserEvent::DownloadComplete(path, success));
+        })
+      }
+    })
     .build()?;
 
   #[cfg(debug_assertions)]
