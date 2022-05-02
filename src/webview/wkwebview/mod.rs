@@ -52,10 +52,10 @@ use crate::http::{
 };
 
 pub struct InnerWebView {
-  webview: id,
+  pub(crate) webview: id,
   #[cfg(target_os = "macos")]
-  ns_window: id,
-  manager: id,
+  pub(crate) ns_window: id,
+  pub(crate) manager: id,
   // Note that if following functions signatures are changed in the future,
   // all fucntions pointer declarations in objc callbacks below all need to get updated.
   ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
