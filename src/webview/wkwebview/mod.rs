@@ -586,7 +586,6 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn zoom(&self, scale_factor: f64) {
-    #[cfg(target_os = "macos")]
     unsafe {
       let _: () = msg_send![self.webview, setPageZoom: scale_factor];
     }
