@@ -495,7 +495,9 @@ impl WebView {
   ///
   /// ## Platform-specific:
   ///
-  /// - **Android / iOS**: Not supported.
+  /// - **Android**: Not supported.
+  /// - **macOS**: available on macOS 11+ only.
+  /// - **iOS**: available on iOS 14+ only.
   pub fn zoom(&self, scale_factor: f64) {
     self.webview.zoom(scale_factor);
   }
