@@ -144,7 +144,7 @@ pub struct WebViewAttributes {
   /// saved and a `bool` indicating if the download succeeded.
   pub download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
   
-  pub download_complete_callback: Option<Box<dyn Fn() -> Box<dyn Fn(String, bool) + 'static> + 'static>>,
+  pub download_complete_callback: Option<Rc<dyn Fn(String, bool) + 'static>>,
 
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
   ///
@@ -370,9 +370,9 @@ impl<'a> WebViewBuilder<'a> {
 
   pub fn with_download_completed_callback(
     mut self,
-    complete_callback_builder: impl Fn() -> Box<dyn Fn(String, bool) + 'static> + 'static
+    complete_callback_builder: impl Fn(String, bool) + 'static
   ) -> Self {
-    self.webview.download_complete_callback = Some(Box::new(complete_callback_builder));
+    self.webview.download_complete_callback = Some(Rc::new(complete_callback_builder));
     self
   }
 

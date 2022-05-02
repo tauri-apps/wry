@@ -69,11 +69,8 @@ fn main() -> wry::Result<()> {
     )
     .with_download_completed_callback({
       let proxy = proxy.clone();
-      move || {
-        let proxy = proxy.clone();
-        Box::new(move |path, success| {
-          let _ = proxy.send_event(UserEvent::DownloadComplete(path, success));
-        })
+      move |path, success| {
+        let _ = proxy.send_event(UserEvent::DownloadComplete(path, success));
       }
     })
     .build()?;

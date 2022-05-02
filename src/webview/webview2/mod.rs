@@ -351,7 +351,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
               if allow {
                 args.SetResultFilePath(path.display().to_string())?;
                 args.SetHandled(true)?;
-                if let Some(download_complete_callback) = download_complete_callback.as_ref().map(|func| func()) {
+                if let Some(download_complete_callback) = download_complete_callback.clone() {
                   args.DownloadOperation()?.StateChanged(
                     StateChangedEventHandler::create(Box::new(move |download_operation, _| {
                       if let Some(download_operation) = download_operation {
