@@ -557,7 +557,7 @@ impl WebviewExtUnix for WebView {
 }
 
 /// Additional methods on `WebView` that are specific to macOS.
-#[cfg(target_os = "macOS")]
+#[cfg(target_os = "macos")]
 pub trait WebviewExtMacOS {
   /// Returns WKWebView handle
   fn webview(&self) -> cocoa::base::id;
@@ -567,7 +567,7 @@ pub trait WebviewExtMacOS {
   fn ns_window(&self) -> cocoa::base::id;
 }
 
-#[cfg(target_os = "macOS")]
+#[cfg(target_os = "macos")]
 impl WebviewExtMacOS for WebView {
   fn webview(&self) -> cocoa::base::id {
     self.webview.webview.clone()
