@@ -413,8 +413,14 @@ impl InnerWebView {
       let ns_window = {
         let ns_window = window.ns_window() as id;
 
-        // `1` means `none`, see https://developer.apple.com/documentation/appkit/nstitlebarseparatorstyle/none
-        let () = msg_send![ns_window, setTitlebarSeparatorStyle: 1];
+        let can_set_titlebar_style: BOOL = msg_send![
+          ns_window,
+          respondsToSelector: sel!(setTitlebarSeparatorStyle:)
+        ];
+        if can_set_titlebar_style {
+          // `1` means `none`, see https://developer.apple.com/documentation/appkit/nstitlebarseparatorstyle/none
+          let () = msg_send![ns_window, setTitlebarSeparatorStyle: 1];
+        }
 
         ns_window
       };
@@ -536,15 +542,21 @@ r#"Object.defineProperty(window, 'ipc', {
     // Safety: objc runtime calls are unsafe
     #[cfg(target_os = "macos")]
     unsafe {
-      // Create a shared print info
-      let print_info: id = msg_send![class!(NSPrintInfo), sharedPrintInfo];
-      let print_info: id = msg_send![print_info, init];
-      // Create new print operation from the webview content
-      let print_operation: id = msg_send![self.webview, printOperationWithPrintInfo: print_info];
-      // Allow the modal to detach from the current thread and be non-blocker
-      let () = msg_send![print_operation, setCanSpawnSeparateThread: YES];
-      // Launch the modal
-      let () = msg_send![print_operation, runOperationModalForWindow: self.ns_window delegate: null::<*const c_void>() didRunSelector: null::<*const c_void>() contextInfo: null::<*const c_void>()];
+      let can_print: BOOL = msg_send![
+        self.webview,
+        respondsToSelector: sel!(printOperationWithPrintInfo:)
+      ];
+      if can_print {
+        // Create a shared print info
+        let print_info: id = msg_send![class!(NSPrintInfo), sharedPrintInfo];
+        let print_info: id = msg_send![print_info, init];
+        // Create new print operation from the webview content
+        let print_operation: id = msg_send![self.webview, printOperationWithPrintInfo: print_info];
+        // Allow the modal to detach from the current thread and be non-blocker
+        let () = msg_send![print_operation, setCanSpawnSeparateThread: YES];
+        // Launch the modal
+        let () = msg_send![print_operation, runOperationModalForWindow: self.ns_window delegate: null::<*const c_void>() didRunSelector: null::<*const c_void>() contextInfo: null::<*const c_void>()];
+      }
     }
   }
 
