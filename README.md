@@ -54,7 +54,7 @@ fn main() -> wry::Result<()> {
 }
 ```
 
-There are also more samples under `examples`, you can enter commands like following to try them:
+There are also more samples under `examples`, you can enter commands like the following to try them:
 
 ```
 cargo run --example multi_window
@@ -66,11 +66,11 @@ For more information, please read the documentation below.
 
 ## Platform-specific notes
 
-All platforms uses [tao](https://github.com/tauri-apps/tao) to build the window, and wry re-export it as application module. Here are the underlying web engine each platform uses, and some dependencies you might need to install.
+All platforms use [tao](https://github.com/tauri-apps/tao) to build the window, and wry re-exports it as an application module. Here is the underlying web engine each platform uses, and some dependencies you might need to install.
 
 ### Linux
 
-Tao uses [gtk-rs](https://gtk-rs.org/) and its related libraries for window creation and wry also needs [WebKitGTK](https://webkitgtk.org/) for WebView. So please make sure following packages are installed:
+Tao uses [gtk-rs](https://gtk-rs.org/) and its related libraries for window creation and wry also needs [WebKitGTK](https://webkitgtk.org/) for WebView. So please make sure the following packages are installed:
 
 #### Arch Linux / Manjaro:
 
