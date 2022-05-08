@@ -1,9 +1,10 @@
-use std::{collections::HashSet, ffi::c_void, ptr::null_mut, rc::Rc, sync::RwLock};
+use std::{collections::HashSet, ffi::c_void, ptr::null_mut, rc::Rc, sync::RwLock, os::unix::prelude::RawFd};
 
 use crate::{application::window::Window, Result};
 
 use super::{WebContext, WebViewAttributes};
 
+use crossbeam_channel::*;
 use jni::{
   objects::{JClass, JObject},
   sys::jobject,
@@ -15,10 +16,35 @@ use once_cell::sync::Lazy;
 pub mod ndk_glue;
 
 static IPC: Lazy<RwLock<UnsafeIpc>> = Lazy::new(|| RwLock::new(UnsafeIpc(null_mut())));
+static CHANNEL: Lazy<(Sender<WebViewMessage>, Receiver<WebViewMessage>)> = Lazy::new(|| unbounded());
+static PIPE: Lazy<[RawFd; 2]> = Lazy::new(|| {
+  let mut pipe: [RawFd; 2] = Default::default();
+  unsafe { libc::pipe(pipe.as_mut_ptr()) };
+  pipe
+});
+
+#[derive(Debug)]
+pub(crate) enum WebViewMessage {
+    LoadUrl(String),
+    None
+}
+
+impl WebViewMessage {
+    fn notify(self, sender: &Sender<WebViewMessage>) {
+      let size = std::mem::size_of::<bool>();
+      if let Ok(()) = sender.send(self) {
+          let res = unsafe { libc::write(PIPE[1], &true as *const _ as *const _, size) };
+      }
+    }
+
+}
+
+
+
 
 pub struct InnerWebView {
   pub window: Rc<Window>,
-  pub attributes: WebViewAttributes,
+  sender: Sender<WebViewMessage>,
 }
 
 impl InnerWebView {
@@ -27,7 +53,22 @@ impl InnerWebView {
     attributes: WebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    Ok(Self { window, attributes })
+    let sender = CHANNEL.0.clone();
+    let WebViewAttributes {
+      url,
+      custom_protocols,
+      initialization_scripts,
+      ipc_handler,
+      devtools,
+      ..
+    } = attributes;
+
+    WebViewMessage::LoadUrl("https://tauri.app".to_string()).notify(&sender);
+    if let Some(url) = url {
+        // WebViewMessage::LoadUrl(url.to_string()).notify();
+    }
+
+    Ok(Self { window, sender })
   }
 
   pub fn print(&self) {}
@@ -57,14 +98,6 @@ impl InnerWebView {
   //   //   "()Landroid/webkit/WebViewClient;",
   //   //   &[],
   //   // )?;
-  //   let WebViewAttributes {
-  //     url,
-  //     custom_protocols,
-  //     initialization_scripts,
-  //     ipc_handler,
-  //     devtools,
-  //     ..
-  //   } = self.attributes;
   //
   //   if let Some(i) = ipc_handler {
   //     let i = UnsafeIpc(Box::into_raw(Box::new(i)) as *mut _);

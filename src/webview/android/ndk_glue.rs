@@ -17,7 +17,7 @@ use std::{
   sync::{Arc, Condvar, Mutex, RwLock, RwLockReadGuard},
   thread,
 };
-// use super::WEBVIEW;
+use super::{CHANNEL, WebViewMessage};
 
 pub use android_logger;
 pub use log;
@@ -157,6 +157,75 @@ pub unsafe fn init(
 
   let activity = NativeActivity::from_ptr(activity);
   ndk_context::initialize_android_context(activity.vm().cast(), activity.activity().cast());
+  let vm = jni::JavaVM::from_raw(activity.vm().cast()).unwrap();
+  
+  // Initialize webview
+  let activity = activity.activity();
+  let env = vm.attach_current_thread_as_daemon().unwrap();
+  let win = env
+    .call_method(activity, "getWindow", "()Landroid/view/Window;", &[])
+    .unwrap()
+    .l()
+    .unwrap();
+  env
+    .call_method(
+      win,
+      "takeSurface",
+      "(Landroid/view/SurfaceHolder$Callback2;)V",
+      &[JValue::Void],
+    )
+    .unwrap();
+  env
+    .call_method(
+      win,
+      "takeInputQueue",
+      "(Landroid/view/InputQueue$Callback;)V",
+      &[JValue::Void],
+    )
+    .unwrap();
+  let class_webview = env.find_class("android/webkit/WebView").unwrap();
+  let webview = env
+    .new_object(
+      class_webview,
+      "(Landroid/content/Context;)V",
+      &[activity.into()],
+    )
+    .unwrap();
+  env
+    .call_method(
+      activity,
+      "setContentView",
+      "(Landroid/view/View;)V",
+      &[webview.into()],
+    )
+    .unwrap();
+  // We hardcode ID for now.
+  env
+    .call_method(webview, "setId", "(I)V", &[5566.into()])
+    .unwrap();
+  let looper = ThreadLooper::for_thread().unwrap().into_foreign();
+  looper.add_fd_with_callback(super::PIPE[0], FdEvent::INPUT, move |fd| {
+      unsafe {
+        let size = std::mem::size_of::<bool>();
+        let mut wake = false;
+        if libc::read(super::PIPE[0], &mut wake  as *mut _ as *mut _, size) == size as libc::ssize_t {
+            if let Ok(message) = CHANNEL.1.recv() {
+                match message {
+                    WebViewMessage::LoadUrl(url) => {
+                      if let Ok(url) = env.new_string(url) {
+                        let webview = env.call_method(activity, "findViewById", "(I)Landroid/view/View;", &[5566.into()]).unwrap().l().unwrap();
+                        env.call_method(webview, "loadUrl", "(Ljava/lang/String;)V", &[url.into()]).unwrap();
+                      }
+                    },
+                    WebViewMessage::None => (),
+                }
+            }
+
+        }
+        true
+      }
+  });
+
 
   let mut logpipe: [RawFd; 2] = Default::default();
   libc::pipe(logpipe.as_mut_ptr());
@@ -210,55 +279,6 @@ pub unsafe fn init(
   let locked_looper = LOOPER.lock().unwrap();
   let _mutex_guard = looper_ready
     .wait_while(locked_looper, |looper| looper.is_none())
-    .unwrap();
-
-  let vm = unsafe { jni::JavaVM::from_raw(activity.vm().cast()) }.unwrap();
-  let activity = activity.activity();
-  let env = vm.attach_current_thread().unwrap();
-  let win = env
-    .call_method(activity, "getWindow", "()Landroid/view/Window;", &[])
-    .unwrap()
-    .l()
-    .unwrap();
-  env
-    .call_method(
-      win,
-      "takeSurface",
-      "(Landroid/view/SurfaceHolder$Callback2;)V",
-      &[JValue::Void],
-    )
-    .unwrap();
-  env
-    .call_method(
-      win,
-      "takeInputQueue",
-      "(Landroid/view/InputQueue$Callback;)V",
-      &[JValue::Void],
-    )
-    .unwrap();
-  let class_webview = env.find_class("android/webkit/WebView").unwrap();
-  let webview = env
-    .new_object(
-      class_webview,
-      "(Landroid/content/Context;)V",
-      &[activity.into()],
-    )
-    .unwrap();
-  env
-    .call_method(
-      activity,
-      "setContentView",
-      "(Landroid/view/View;)V",
-      &[webview.into()],
-    )
-    .unwrap();
-  let url = env.new_string("https://tauri.app/").unwrap();
-  env
-    .call_method(webview, "loadUrl", "(Ljava/lang/String;)V", &[url.into()])
-    .unwrap();
-  // We hardcode ID for now.
-  let id = env
-    .call_method(webview, "setId", "(I)V", &[5566.into()])
     .unwrap();
 }
 
