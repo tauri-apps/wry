@@ -1,5 +1,12 @@
 # Changelog
 
+## \[0.16.1]
+
+- Fixes a crash on macOS below Big Sur due to `titlebarSeparatorStyle` (11+ API) usage.
+  - [eb2dddb](https://github.com/tauri-apps/wry/commit/eb2dddb611f7fadf35bf7d7c32cb6d054da9fe9e) fix(macos): only use APIs when supported on 2022-05-08
+- Only run `WebView::print` on macOS on v11+. This prevents a crash on older versions.
+  - [eb2dddb](https://github.com/tauri-apps/wry/commit/eb2dddb611f7fadf35bf7d7c32cb6d054da9fe9e) fix(macos): only use APIs when supported on 2022-05-08
+
 ## \[0.16.0]
 
 - Fixes a typo in the `WebviewExtMacOS` conditional compilation.
