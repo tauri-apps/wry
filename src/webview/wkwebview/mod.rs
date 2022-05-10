@@ -546,7 +546,7 @@ r#"Object.defineProperty(window, 'ipc', {
         self.webview,
         respondsToSelector: sel!(printOperationWithPrintInfo:)
       ];
-      if can_print != NO {
+      if can_print == YES {
         // Create a shared print info
         let print_info: id = msg_send![class!(NSPrintInfo), sharedPrintInfo];
         let print_info: id = msg_send![print_info, init];
