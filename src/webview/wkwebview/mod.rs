@@ -417,7 +417,7 @@ impl InnerWebView {
           ns_window,
           respondsToSelector: sel!(setTitlebarSeparatorStyle:)
         ];
-        if can_set_titlebar_style {
+        if can_set_titlebar_style != NO {
           // `1` means `none`, see https://developer.apple.com/documentation/appkit/nstitlebarseparatorstyle/none
           let () = msg_send![ns_window, setTitlebarSeparatorStyle: 1];
         }
@@ -546,7 +546,7 @@ r#"Object.defineProperty(window, 'ipc', {
         self.webview,
         respondsToSelector: sel!(printOperationWithPrintInfo:)
       ];
-      if can_print {
+      if can_print != NO {
         // Create a shared print info
         let print_info: id = msg_send![class!(NSPrintInfo), sharedPrintInfo];
         let print_info: id = msg_send![print_info, init];
