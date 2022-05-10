@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.16.2]
+
+- Fixed build on macos.
+  - [17ab12d](https://github.com/tauri-apps/wry/commit/17ab12ded27949474f687640faebb5cc376327c5) fix: fix build on macos, closes [#580](https://github.com/tauri-apps/wry/pull/580) ([#581](https://github.com/tauri-apps/wry/pull/581)) on 2022-05-10
+
 ## \[0.16.1]
 
 - Fixes a crash on macOS below Big Sur due to `titlebarSeparatorStyle` (11+ API) usage.
