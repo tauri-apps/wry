@@ -417,7 +417,7 @@ impl InnerWebView {
           ns_window,
           respondsToSelector: sel!(setTitlebarSeparatorStyle:)
         ];
-        if can_set_titlebar_style != NO {
+        if can_set_titlebar_style == YES {
           // `1` means `none`, see https://developer.apple.com/documentation/appkit/nstitlebarseparatorstyle/none
           let () = msg_send![ns_window, setTitlebarSeparatorStyle: 1];
         }
