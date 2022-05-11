@@ -10,7 +10,7 @@ use crate::webview::FileDropEvent;
 // https://docs.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2experimentalcompositioncontroller3?view=webview2-1.0.721-prerelease&preserve-view=true
 
 use std::{
-  cell::Cell,
+  cell::UnsafeCell,
   ffi::OsString,
   os::{raw::c_void, windows::ffi::OsStringExt},
   path::PathBuf,
@@ -18,22 +18,19 @@ use std::{
   rc::Rc,
 };
 
-use windows::{
-  core::PWSTR,
-  Win32::{
-    Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINTL},
-    System::{
-      Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL},
-      Ole::{
-        IDropTarget, IDropTarget_Impl, RegisterDragDrop, RevokeDragDrop, DROPEFFECT_COPY,
-        DROPEFFECT_NONE,
-      },
-      SystemServices::CF_HDROP,
+use windows::Win32::{
+  Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINTL},
+  System::{
+    Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL},
+    Ole::{
+      IDropTarget, IDropTarget_Impl, RegisterDragDrop, RevokeDragDrop, DROPEFFECT_COPY,
+      DROPEFFECT_NONE,
     },
-    UI::{
-      Shell::{DragFinish, DragQueryFileW, HDROP},
-      WindowsAndMessaging::EnumChildWindows,
-    },
+    SystemServices::CF_HDROP,
+  },
+  UI::{
+    Shell::{DragFinish, DragQueryFileW, HDROP},
+    WindowsAndMessaging::EnumChildWindows,
   },
 };
 
@@ -110,8 +107,8 @@ unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL
 pub struct FileDropHandler {
   window: Rc<Window>,
   listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
-  cursor_effect: Cell<u32>,
-  hovered_is_valid: Cell<bool>, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
+  cursor_effect: UnsafeCell<u32>,
+  hovered_is_valid: UnsafeCell<bool>, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
 }
 
 impl FileDropHandler {
@@ -148,18 +145,18 @@ impl FileDropHandler {
         let hdrop = HDROP(medium.Anonymous.hGlobal);
 
         // The second parameter (0xFFFFFFFF) instructs the function to return the item count
-        let item_count = DragQueryFileW(hdrop, 0xFFFFFFFF, PWSTR::default(), 0);
+        let item_count = DragQueryFileW(hdrop, 0xFFFFFFFF, &mut []);
 
         for i in 0..item_count {
           // Get the length of the path string NOT including the terminating null character.
           // Previously, this was using a fixed size array of MAX_PATH length, but the
           // Windows API allows longer paths under certain circumstances.
-          let character_count = DragQueryFileW(hdrop, i, PWSTR::default(), 0) as usize;
+          let character_count = DragQueryFileW(hdrop, i, &mut []) as usize;
           let str_len = character_count + 1;
 
           // Fill path_buf with the null-terminated file name
           let mut path_buf = Vec::with_capacity(str_len);
-          DragQueryFileW(hdrop, i, PWSTR(path_buf.as_mut_ptr()), str_len as u32);
+          DragQueryFileW(hdrop, i, &mut path_buf);
           path_buf.set_len(str_len);
 
           paths.push(OsString::from_wide(&path_buf[0..character_count]).into());
@@ -204,8 +201,8 @@ impl IDropTarget_Impl for FileDropHandler {
         DROPEFFECT_NONE
       };
       *pdwEffect = cursor_effect;
-      self.hovered_is_valid.set(hovered_is_valid);
-      self.cursor_effect.set(cursor_effect);
+      *self.hovered_is_valid.get() = hovered_is_valid;
+      *self.cursor_effect.get() = cursor_effect;
     }
 
     (self.listener)(&self.window, FileDropEvent::Hovered(paths));
@@ -219,12 +216,12 @@ impl IDropTarget_Impl for FileDropHandler {
     _pt: &POINTL,
     pdwEffect: *mut u32,
   ) -> windows::core::Result<()> {
-    unsafe { *pdwEffect = self.cursor_effect.get() };
+    unsafe { *pdwEffect = *self.cursor_effect.get() };
     Ok(())
   }
 
   fn DragLeave(&self) -> windows::core::Result<()> {
-    if self.hovered_is_valid.get() {
+    if unsafe { *self.hovered_is_valid.get() } {
       (self.listener)(&self.window, FileDropEvent::Cancelled);
     }
     Ok(())

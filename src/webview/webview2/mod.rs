@@ -11,7 +11,7 @@ use crate::{
 
 use file_drop::FileDropController;
 
-use std::{collections::HashSet, rc::Rc, sync::mpsc};
+use std::{collections::HashSet, mem::MaybeUninit, rc::Rc, sync::mpsc};
 
 use once_cell::unsync::OnceCell;
 
@@ -98,28 +98,28 @@ impl InnerWebView {
           CoreWebView2EnvironmentOptions::default().into();
 
         // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
-        let additional_arguments = pwstr_from_str("--disable-features=msWebOOUI,msPdfOOUI");
-        let _ = options.SetAdditionalBrowserArguments(additional_arguments);
+        let _ = options.SetAdditionalBrowserArguments("--disable-features=msWebOOUI,msPdfOOUI");
 
-        // if data_directory is None, we set it to a null PWSTR
-        let data_directory: PWSTR = data_directory
-          .map(|s| pwstr_from_str(&s))
-          .unwrap_or_default();
-
-        let result = CreateCoreWebView2EnvironmentWithOptions(
-          PWSTR::default(),
-          data_directory,
-          options,
-          environmentcreatedhandler,
-        )
-        .map_err(webview2_com::Error::WindowsError);
-        let _ = take_pwstr(data_directory);
-
-        return result;
+        if let Some(data_directory) = data_directory {
+          CreateCoreWebView2EnvironmentWithOptions(
+            PCWSTR::default(),
+            data_directory,
+            options,
+            environmentcreatedhandler,
+          )
+        } else {
+          CreateCoreWebView2EnvironmentWithOptions(
+            PCWSTR::default(),
+            PCWSTR::default(),
+            options,
+            environmentcreatedhandler,
+          )
+        }
+        .map_err(webview2_com::Error::WindowsError)
       }),
       Box::new(move |error_code, environment| {
         error_code?;
-        tx.send(environment.ok_or_else(|| windows::core::Error::fast_error(E_POINTER)))
+        tx.send(environment.ok_or_else(|| windows::core::Error::from(E_POINTER)))
           .expect("send over mpsc channel");
         Ok(())
       }),
@@ -145,7 +145,7 @@ impl InnerWebView {
       }),
       Box::new(move |error_code, controller| {
         error_code?;
-        tx.send(controller.ok_or_else(|| windows::core::Error::fast_error(E_POINTER)))
+        tx.send(controller.ok_or_else(|| windows::core::Error::from(E_POINTER)))
           .expect("send over mpsc channel");
         Ok(())
       }),
@@ -200,7 +200,7 @@ impl InnerWebView {
           }
         }));
       webview
-        .WindowCloseRequested(handler, &mut token)
+        .add_WindowCloseRequested(handler, &mut token)
         .map_err(webview2_com::Error::WindowsError)?;
 
       let settings = webview
@@ -218,7 +218,7 @@ impl InnerWebView {
       settings
         .SetAreDevToolsEnabled(false)
         .map_err(webview2_com::Error::WindowsError)?;
-      if attributes.devtool {
+      if attributes.devtools {
         settings
           .SetAreDevToolsEnabled(true)
           .map_err(webview2_com::Error::WindowsError)?;
@@ -252,7 +252,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     // Message handler
     let ipc_handler = attributes.ipc_handler.take();
     unsafe {
-      webview.WebMessageReceived(
+      webview.add_WebMessageReceived(
         WebMessageReceivedEventHandler::create(Box::new(move |_, args| {
           if let Some(args) = args {
             let mut js = PWSTR::default();
@@ -308,7 +308,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     if let Some(nav_callback) = attributes.navigation_handler {
       unsafe {
         webview
-          .NavigationStarting(
+          .add_NavigationStarting(
             NavigationStartingEventHandler::create(Box::new(move |_, args| {
               if let Some(args) = args {
                 let mut uri = PWSTR::default();
@@ -347,7 +347,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       let env = env.clone();
       unsafe {
         webview
-          .WebResourceRequested(
+          .add_WebResourceRequested(
             WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
               if let Some(args) = args {
                 let webview_request = args.Request()?;
@@ -384,11 +384,13 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                   loop {
                     let mut cb_read = 0;
                     let content: IStream = content.cast()?;
-                    content.Read(
-                      buffer.as_mut_ptr() as *mut _,
-                      buffer.len() as u32,
-                      &mut cb_read,
-                    )?;
+                    content
+                      .Read(
+                        buffer.as_mut_ptr() as *mut _,
+                        buffer.len() as u32,
+                        &mut cb_read,
+                      )
+                      .ok()?;
 
                     if cb_read == 0 {
                       break;
@@ -442,9 +444,15 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                       if !content.is_empty() {
                         let stream = CreateStreamOnHGlobal(0, true)?;
                         stream.SetSize(content.len() as u64)?;
-                        if stream.Write(content.as_ptr() as *const _, content.len() as u32)?
-                          as usize
-                          == content.len()
+                        let mut cb_write = MaybeUninit::uninit();
+                        if stream
+                          .Write(
+                            content.as_ptr() as *const _,
+                            content.len() as u32,
+                            cb_write.as_mut_ptr(),
+                          )
+                          .is_ok()
+                          && cb_write.assume_init() as usize == content.len()
                         {
                           body_sent = Some(stream);
                         }
@@ -476,7 +484,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     if attributes.clipboard {
       unsafe {
         webview
-          .PermissionRequested(
+          .add_PermissionRequested(
             PermissionRequestedEventHandler::create(Box::new(|_, args| {
               if let Some(args) = args {
                 let mut kind = COREWEBVIEW2_PERMISSION_KIND_UNKNOWN_PERMISSION;
@@ -643,11 +651,12 @@ fn get_function_impl(library: &str, function: &str) -> Option<FARPROC> {
   assert_eq!(library.chars().last(), Some('\0'));
   assert_eq!(function.chars().last(), Some('\0'));
 
-  let module = unsafe { LoadLibraryA(library) };
-  if module.0 == 0 {
-    return None;
+  let module = unsafe { LoadLibraryA(library) }.unwrap_or_default();
+  if module.is_invalid() {
+    None
+  } else {
+    Some(unsafe { GetProcAddress(module, function) })
   }
-  Some(unsafe { GetProcAddress(module, function) })
 }
 
 macro_rules! get_function {
