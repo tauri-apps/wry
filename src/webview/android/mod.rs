@@ -91,14 +91,6 @@ impl InnerWebView {
   }
 
   // pub fn run(self, env: JNIEnv, _jclass: JClass, jobject: JObject) -> Result<jobject> {
-  //   let string_class = env.find_class("java/lang/String")?;
-  //   // let client = env.call_method(
-  //   //   jobject,
-  //   //   "getWebViewClient",
-  //   //   "()Landroid/webkit/WebViewClient;",
-  //   //   &[],
-  //   // )?;
-  //
   //   if let Some(i) = ipc_handler {
   //     let i = UnsafeIpc(Box::into_raw(Box::new(i)) as *mut _);
   //     let mut ipc = IPC.write().unwrap();

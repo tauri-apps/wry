@@ -21,7 +21,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  let _webview = WebViewBuilder::new(window)
+  let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_custom_protocol("wry".into(), move |request| {
       // Remove url scheme
@@ -46,13 +46,21 @@ fn main() -> wry::Result<()> {
     })
     // tell the webview to load the custom protocol
     .with_url("wry://examples/index.html")?
+    .with_devtools(true)
     .build()?;
+
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
     match event {
       Event::NewEvents(StartCause::Init) => println!("Wry application started!"),
+      Event::WindowEvent {
+          event: WindowEvent::Moved { .. },
+          ..
+      } => {
+              webview.evaluate_script("console.log('hello');");
+      }
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         ..

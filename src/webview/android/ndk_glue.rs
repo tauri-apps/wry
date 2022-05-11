@@ -1,4 +1,4 @@
-use jni::objects::JValue;
+use jni::{objects::{JClass, JValue, JObject}, JNIEnv, sys::_jobject, NativeMethod};
 use log::Level;
 use ndk::{
   input_queue::InputQueue,
@@ -127,82 +127,15 @@ pub enum Event {
   ContentRectChanged,
 }
 
-/// # Safety
-/// `activity` must either be null (resulting in a safe panic)
-/// or a pointer to a valid Android `ANativeActivity`.
-pub unsafe fn init(
-  activity: *mut ANativeActivity,
-  _saved_state: *mut u8,
-  _saved_state_size: usize,
-  main: fn(),
+pub unsafe fn on_create(
+    env: JNIEnv,
+    jclass: JClass,
+    jobject: JObject,
+    main: fn(),
 ) {
-  let mut activity = NonNull::new(activity).unwrap();
-  let mut callbacks = activity.as_mut().callbacks.as_mut().unwrap();
-  callbacks.onStart = Some(on_start);
-  callbacks.onResume = Some(on_resume);
-  callbacks.onSaveInstanceState = Some(on_save_instance_state);
-  callbacks.onPause = Some(on_pause);
-  callbacks.onStop = Some(on_stop);
-  callbacks.onDestroy = Some(on_destroy);
-  callbacks.onWindowFocusChanged = Some(on_window_focus_changed);
-  callbacks.onNativeWindowCreated = Some(on_window_created);
-  callbacks.onNativeWindowResized = Some(on_window_resized);
-  callbacks.onNativeWindowRedrawNeeded = Some(on_window_redraw_needed);
-  callbacks.onNativeWindowDestroyed = Some(on_window_destroyed);
-  callbacks.onInputQueueCreated = Some(on_input_queue_created);
-  callbacks.onInputQueueDestroyed = Some(on_input_queue_destroyed);
-  callbacks.onContentRectChanged = Some(on_content_rect_changed);
-  callbacks.onConfigurationChanged = Some(on_configuration_changed);
-  callbacks.onLowMemory = Some(on_low_memory);
-
-  let activity = NativeActivity::from_ptr(activity);
-  ndk_context::initialize_android_context(activity.vm().cast(), activity.activity().cast());
-  let vm = jni::JavaVM::from_raw(activity.vm().cast()).unwrap();
+  let url = env.new_string("https://www.google.com").unwrap();
+  env.call_method(jobject, "loadUrl", "(Ljava/lang/String;)V", &[url.into()]).unwrap();
   
-  // Initialize webview
-  let activity = activity.activity();
-  let env = vm.attach_current_thread_as_daemon().unwrap();
-  let win = env
-    .call_method(activity, "getWindow", "()Landroid/view/Window;", &[])
-    .unwrap()
-    .l()
-    .unwrap();
-  env
-    .call_method(
-      win,
-      "takeSurface",
-      "(Landroid/view/SurfaceHolder$Callback2;)V",
-      &[JValue::Void],
-    )
-    .unwrap();
-  env
-    .call_method(
-      win,
-      "takeInputQueue",
-      "(Landroid/view/InputQueue$Callback;)V",
-      &[JValue::Void],
-    )
-    .unwrap();
-  let class_webview = env.find_class("android/webkit/WebView").unwrap();
-  let webview = env
-    .new_object(
-      class_webview,
-      "(Landroid/content/Context;)V",
-      &[activity.into()],
-    )
-    .unwrap();
-  env
-    .call_method(
-      activity,
-      "setContentView",
-      "(Landroid/view/View;)V",
-      &[webview.into()],
-    )
-    .unwrap();
-  // We hardcode ID for now.
-  env
-    .call_method(webview, "setId", "(I)V", &[5566.into()])
-    .unwrap();
   let looper = ThreadLooper::for_thread().unwrap().into_foreign();
   looper.add_fd_with_callback(super::PIPE[0], FdEvent::INPUT, move |fd| {
       unsafe {
@@ -213,8 +146,8 @@ pub unsafe fn init(
                 match message {
                     WebViewMessage::LoadUrl(url) => {
                       if let Ok(url) = env.new_string(url) {
-                        let webview = env.call_method(activity, "findViewById", "(I)Landroid/view/View;", &[5566.into()]).unwrap().l().unwrap();
-                        env.call_method(webview, "loadUrl", "(Ljava/lang/String;)V", &[url.into()]).unwrap();
+                        // let webview = env.call_method(activity, "findViewById", "(I)Landroid/view/View;", &[5566.into()]).unwrap().l().unwrap();
+                        // env.call_method(webview, "loadUrl", "(Ljava/lang/String;)V", &[url.into()]).unwrap();
                       }
                     },
                     WebViewMessage::None => (),
@@ -281,6 +214,16 @@ pub unsafe fn init(
     .wait_while(locked_looper, |looper| looper.is_none())
     .unwrap();
 }
+
+/// # Safety
+/// `activity` must either be null (resulting in a safe panic)
+/// or a pointer to a valid Android `ANativeActivity`.
+pub unsafe fn init(
+  activity: *mut ANativeActivity,
+  _saved_state: *mut u8,
+  _saved_state_size: usize,
+  main: fn(),
+) {}
 
 unsafe extern "C" fn on_start(activity: *mut ANativeActivity) {
   wake(activity, Event::Start);
