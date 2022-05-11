@@ -16,9 +16,9 @@ use std::{collections::HashSet, rc::Rc, sync::mpsc};
 use once_cell::unsync::OnceCell;
 
 use windows::{
-  core::Interface,
+  core::{Interface, PCWSTR, PWSTR},
   Win32::{
-    Foundation::{BOOL, E_FAIL, E_POINTER, FARPROC, HWND, POINT, PWSTR, RECT},
+    Foundation::{BOOL, E_FAIL, E_POINTER, FARPROC, HWND, POINT, RECT},
     System::{
       Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
       LibraryLoader::{GetProcAddress, LoadLibraryA},
@@ -218,8 +218,10 @@ impl InnerWebView {
       settings
         .SetAreDevToolsEnabled(false)
         .map_err(webview2_com::Error::WindowsError)?;
-      if attributes.devtools {
-        let _ = settings.SetAreDevToolsEnabled(true);
+      if attributes.devtool {
+        settings
+          .SetAreDevToolsEnabled(true)
+          .map_err(webview2_com::Error::WindowsError)?;
       }
 
       let mut rect = RECT::default();
@@ -622,7 +624,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
 pub fn platform_webview_version() -> Result<String> {
   let mut versioninfo = PWSTR::default();
-  unsafe { GetAvailableCoreWebView2BrowserVersionString(PWSTR::default(), &mut versioninfo) }
+  unsafe { GetAvailableCoreWebView2BrowserVersionString(PCWSTR::default(), &mut versioninfo) }
     .map_err(webview2_com::Error::WindowsError)?;
   Ok(take_pwstr(versioninfo))
 }
