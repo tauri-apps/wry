@@ -1,4 +1,6 @@
-use std::{collections::HashSet, ffi::c_void, ptr::null_mut, rc::Rc, sync::RwLock, os::unix::prelude::RawFd};
+use std::{
+  collections::HashSet, ffi::c_void, os::unix::prelude::RawFd, ptr::null_mut, rc::Rc, sync::RwLock,
+};
 
 use crate::{application::window::Window, Result};
 
@@ -11,40 +13,23 @@ use jni::{
   JNIEnv,
 };
 
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 
 pub mod ndk_glue;
 
-static IPC: Lazy<RwLock<UnsafeIpc>> = Lazy::new(|| RwLock::new(UnsafeIpc(null_mut())));
-static CHANNEL: Lazy<(Sender<WebViewMessage>, Receiver<WebViewMessage>)> = Lazy::new(|| unbounded());
-static PIPE: Lazy<[RawFd; 2]> = Lazy::new(|| {
-  let mut pipe: [RawFd; 2] = Default::default();
-  unsafe { libc::pipe(pipe.as_mut_ptr()) };
-  pipe
-});
+static IPC: OnceCell<UnsafeIpc> = OnceCell::new();
+static CHANNEL: Lazy<(Sender<WebViewMessage>, Receiver<WebViewMessage>)> = Lazy::new(|| bounded(8));
 
 #[derive(Debug)]
 pub(crate) enum WebViewMessage {
-    LoadUrl(String),
-    None
+  LoadUrl(String),
+  Scripts(Vec<String>),
+  Devtools,
+  Done,
 }
-
-impl WebViewMessage {
-    fn notify(self, sender: &Sender<WebViewMessage>) {
-      let size = std::mem::size_of::<bool>();
-      if let Ok(()) = sender.send(self) {
-          let res = unsafe { libc::write(PIPE[1], &true as *const _ as *const _, size) };
-      }
-    }
-
-}
-
-
-
 
 pub struct InnerWebView {
   pub window: Rc<Window>,
-  sender: Sender<WebViewMessage>,
 }
 
 impl InnerWebView {
@@ -53,22 +38,55 @@ impl InnerWebView {
     attributes: WebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    let sender = CHANNEL.0.clone();
+    let sender = &CHANNEL.0;
     let WebViewAttributes {
       url,
-      custom_protocols,
       initialization_scripts,
       ipc_handler,
       devtools,
       ..
     } = attributes;
 
-    WebViewMessage::LoadUrl("https://tauri.app".to_string()).notify(&sender);
-    if let Some(url) = url {
-        // WebViewMessage::LoadUrl(url.to_string()).notify();
+    if devtools {
+      #[cfg(any(debug_assertions, feature = "devtools"))]
+      sender.send(WebViewMessage::Devtools).unwrap_or({
+        log::warn!("Error when sending WebViewMessage::Devtools");
+      });
     }
 
-    Ok(Self { window, sender })
+    if let Some(u) = url {
+      let mut url_string = String::from(u.as_str());
+      let name = u.scheme();
+      // TODO: Expands custom protocols with real configurations
+      let schemes = vec!["assets", "res"];
+      if schemes.contains(&name) {
+        url_string = u
+          .as_str()
+          .replace(&format!("{}://", name), "https://tauri.mobile/")
+      }
+      sender.send(WebViewMessage::LoadUrl(url_string)).unwrap_or({
+        log::warn!("Error when sending WebViewMessage::LoadUrl");
+      });
+    }
+
+    if !initialization_scripts.is_empty() {
+      sender
+        .send(WebViewMessage::Scripts(initialization_scripts))
+        .unwrap_or({
+          log::warn!("Error when sending WebViewMessage::Scripts");
+        });
+    }
+
+    sender.send(WebViewMessage::Done).unwrap_or({
+      log::warn!("Error when sending WebViewMessage::Done");
+    });
+
+    let w = window.clone();
+    if let Some(i) = ipc_handler {
+      IPC.get_or_init(move || UnsafeIpc(Box::into_raw(Box::new(i)) as *mut _, w));
+    }
+
+    Ok(Self { window })
   }
 
   pub fn print(&self) {}
@@ -90,66 +108,10 @@ impl InnerWebView {
     false
   }
 
-  // pub fn run(self, env: JNIEnv, _jclass: JClass, jobject: JObject) -> Result<jobject> {
-  //   if let Some(i) = ipc_handler {
-  //     let i = UnsafeIpc(Box::into_raw(Box::new(i)) as *mut _);
-  //     let mut ipc = IPC.write().unwrap();
-  //     *ipc = i;
-  //   }
-  //
-  //   if devtools {
-  //     #[cfg(any(debug_assertions, feature = "devtools"))]
-  //     {
-  //       let class = env.find_class("android/webkit/WebView")?;
-  //       env.call_static_method(
-  //         class,
-  //         "setWebContentsDebuggingEnabled",
-  //         "(Z)V",
-  //         &[devtools.into()],
-  //       )?;
-  //     }
-  //   }
-  //
-  //   if let Some(u) = url {
-  //     let mut url_string = String::from(u.as_str());
-  //     let schemes = custom_protocols
-  //       .into_iter()
-  //       .map(|(s, _)| s)
-  //       .collect::<HashSet<_>>();
-  //     let name = u.scheme();
-  //     if schemes.contains(name) {
-  //       url_string = u
-  //         .as_str()
-  //         .replace(&format!("{}://", name), "https://tauri.wry/")
-  //     }
-  //     let url = env.new_string(url_string)?;
-  //     env.call_method(jobject, "loadUrl", "(Ljava/lang/String;)V", &[url.into()])?;
-  //   }
-  //
-  //   // Return initialization scripts
-  //   let len = initialization_scripts.len();
-  //   let scripts = env.new_object_array(len as i32, string_class, env.new_string("")?)?;
-  //   for (idx, s) in initialization_scripts.into_iter().enumerate() {
-  //     env.set_object_array_element(scripts, idx as i32, env.new_string(s)?)?;
-  //   }
-  //   Ok(scripts)
-  // }
-  //
-  // pub fn ipc_handler(window: &Window, arg: String) {
-  //   let function = IPC.read().unwrap();
-  //   unsafe {
-  //     let ipc = function.0;
-  //     if !ipc.is_null() {
-  //       let ipc = &*(ipc as *mut Box<dyn Fn(&Window, String)>);
-  //       ipc(window, arg)
-  //     }
-  //   }
-  // }
-
   pub fn zoom(&self, scale_factor: f64) {}
 }
 
-pub struct UnsafeIpc(*mut c_void);
+pub struct UnsafeIpc(*mut c_void, Rc<Window>);
 unsafe impl Send for UnsafeIpc {}
 unsafe impl Sync for UnsafeIpc {}
 

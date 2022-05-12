@@ -1,4 +1,10 @@
-use jni::{objects::{JClass, JValue, JObject}, JNIEnv, sys::_jobject, NativeMethod};
+use super::{WebViewMessage, CHANNEL, IPC};
+use crate::Result;
+use jni::{
+  objects::{JClass, JObject, JString, JValue},
+  sys::{_jobject, jobjectArray},
+  JNIEnv, NativeMethod,
+};
 use log::Level;
 use ndk::{
   input_queue::InputQueue,
@@ -17,7 +23,7 @@ use std::{
   sync::{Arc, Condvar, Mutex, RwLock, RwLockReadGuard},
   thread,
 };
-use super::{CHANNEL, WebViewMessage};
+use tao::window::Window;
 
 pub use android_logger;
 pub use log;
@@ -127,39 +133,7 @@ pub enum Event {
   ContentRectChanged,
 }
 
-pub unsafe fn on_create(
-    env: JNIEnv,
-    jclass: JClass,
-    jobject: JObject,
-    main: fn(),
-) {
-  let url = env.new_string("https://www.google.com").unwrap();
-  env.call_method(jobject, "loadUrl", "(Ljava/lang/String;)V", &[url.into()]).unwrap();
-  
-  let looper = ThreadLooper::for_thread().unwrap().into_foreign();
-  looper.add_fd_with_callback(super::PIPE[0], FdEvent::INPUT, move |fd| {
-      unsafe {
-        let size = std::mem::size_of::<bool>();
-        let mut wake = false;
-        if libc::read(super::PIPE[0], &mut wake  as *mut _ as *mut _, size) == size as libc::ssize_t {
-            if let Ok(message) = CHANNEL.1.recv() {
-                match message {
-                    WebViewMessage::LoadUrl(url) => {
-                      if let Ok(url) = env.new_string(url) {
-                        // let webview = env.call_method(activity, "findViewById", "(I)Landroid/view/View;", &[5566.into()]).unwrap().l().unwrap();
-                        // env.call_method(webview, "loadUrl", "(Ljava/lang/String;)V", &[url.into()]).unwrap();
-                      }
-                    },
-                    WebViewMessage::None => (),
-                }
-            }
-
-        }
-        true
-      }
-  });
-
-
+pub unsafe fn on_create(env: JNIEnv, jclass: JClass, jobject: JObject, main: fn()) -> jobjectArray {
   let mut logpipe: [RawFd; 2] = Default::default();
   libc::pipe(logpipe.as_mut_ptr());
   libc::dup2(logpipe[1], libc::STDOUT_FILENO);
@@ -213,6 +187,65 @@ pub unsafe fn on_create(
   let _mutex_guard = looper_ready
     .wait_while(locked_looper, |looper| looper.is_none())
     .unwrap();
+
+  create_webview(env, jclass, jobject).unwrap()
+}
+
+fn create_webview(env: JNIEnv, jclass: JClass, jobject: JObject) -> Result<jobjectArray> {
+  let mut scripts = vec![String::new()];
+  while let Ok(msg) = CHANNEL.1.recv() {
+    match msg {
+      WebViewMessage::LoadUrl(url) => {
+        let url = env.new_string(url)?;
+        env.call_method(jobject, "loadUrl", "(Ljava/lang/String;)V", &[url.into()])?;
+      }
+      WebViewMessage::Scripts(s) => {
+        scripts = s;
+      }
+      WebViewMessage::Devtools => {
+        let class = env.find_class("android/webkit/WebView")?;
+        env.call_static_method(
+          class,
+          "setWebContentsDebuggingEnabled",
+          "(Z)V",
+          &[true.into()],
+        )?;
+      }
+      WebViewMessage::Done => break,
+    }
+  }
+
+  let len = scripts.len();
+  let string_class = env.find_class("java/lang/String")?;
+  let jscripts = env.new_object_array(len as i32, string_class, env.new_string("")?)?;
+  for (idx, s) in scripts.into_iter().enumerate() {
+    env.set_object_array_element(jscripts, idx as i32, env.new_string(s)?)?;
+  }
+
+  Ok(jscripts)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn Java_com_example_hh_IpcHandler_ipc(
+  env: JNIEnv,
+  _jclass: JClass,
+  jobject: JString,
+) {
+  fn get_arg(env: JNIEnv, jobject: JString) -> Result<String> {
+    Ok(env.get_string(jobject)?.to_string_lossy().to_string())
+  }
+  match get_arg(env, jobject) {
+    Ok(arg) => {
+      if let Some(w) = IPC.get() {
+        let ipc = w.0;
+        if !ipc.is_null() {
+          let ipc = &*(ipc as *mut Box<dyn Fn(&Window, String)>);
+          ipc(&w.1, arg)
+        }
+      }
+    }
+    Err(e) => log::error!("Failed to parse JString: {}", e),
+  }
 }
 
 /// # Safety
@@ -223,7 +256,8 @@ pub unsafe fn init(
   _saved_state: *mut u8,
   _saved_state_size: usize,
   main: fn(),
-) {}
+) {
+}
 
 unsafe extern "C" fn on_start(activity: *mut ANativeActivity) {
   wake(activity, Event::Start);

@@ -49,17 +49,16 @@ fn main() -> wry::Result<()> {
     .with_devtools(true)
     .build()?;
 
-
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
     match event {
       Event::NewEvents(StartCause::Init) => println!("Wry application started!"),
       Event::WindowEvent {
-          event: WindowEvent::Moved { .. },
-          ..
+        event: WindowEvent::Moved { .. },
+        ..
       } => {
-              webview.evaluate_script("console.log('hello');");
+        webview.evaluate_script("console.log('hello');");
       }
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
