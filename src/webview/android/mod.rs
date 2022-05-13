@@ -12,21 +12,8 @@ use jni::{
   sys::jobject,
   JNIEnv,
 };
-
 use once_cell::sync::{Lazy, OnceCell};
-
-pub mod ndk_glue;
-
-static IPC: OnceCell<UnsafeIpc> = OnceCell::new();
-static CHANNEL: Lazy<(Sender<WebViewMessage>, Receiver<WebViewMessage>)> = Lazy::new(|| bounded(8));
-
-#[derive(Debug)]
-pub(crate) enum WebViewMessage {
-  LoadUrl(String),
-  Scripts(Vec<String>),
-  Devtools,
-  Done,
-}
+use tao::platform::android::ndk_glue::*;
 
 pub struct InnerWebView {
   pub window: Rc<Window>,
@@ -83,7 +70,7 @@ impl InnerWebView {
 
     let w = window.clone();
     if let Some(i) = ipc_handler {
-      IPC.get_or_init(move || UnsafeIpc(Box::into_raw(Box::new(i)) as *mut _, w));
+      IPC.get_or_init(move || UnsafeIpc::new(Box::into_raw(Box::new(i)) as *mut _, w));
     }
 
     Ok(Self { window })
@@ -110,10 +97,6 @@ impl InnerWebView {
 
   pub fn zoom(&self, scale_factor: f64) {}
 }
-
-pub struct UnsafeIpc(*mut c_void, Rc<Window>);
-unsafe impl Send for UnsafeIpc {}
-unsafe impl Sync for UnsafeIpc {}
 
 pub fn platform_webview_version() -> Result<String> {
   todo!()

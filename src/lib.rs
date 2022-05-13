@@ -103,9 +103,6 @@ use url::ParseError;
 pub mod application;
 pub mod http;
 pub mod webview;
-#[cfg(target_os = "android")]
-pub use webview::android::ndk_glue;
-use webview::android::WebViewMessage;
 
 /// Convenient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;
