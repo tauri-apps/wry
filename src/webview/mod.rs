@@ -68,8 +68,11 @@ pub struct WebViewAttributes {
   /// Whether load the provided URL to [`WebView`].
   pub url: Option<Url>,
   /// Whether page zooming by hotkeys is enabled
-  /// Supported only on Windows (WebView2)
-  pub zoom_enabled: bool,
+  ///
+  /// ## Platform-specific
+  ///
+  /// **macOS / Linux / Android / iOS**: Unsupported
+  pub zoom_hotkeys_enabled: bool,
   /// Whether load the provided html string to [`WebView`].
   /// This will be ignored if the `url` is provided.
   ///
@@ -172,7 +175,7 @@ impl Default for WebViewAttributes {
       navigation_handler: None,
       clipboard: false,
       devtools: false,
-      zoom_enabled: false,
+      zoom_hotkeys_enabled: false,
     }
   }
 }
@@ -346,8 +349,8 @@ impl<'a> WebViewBuilder<'a> {
   ///   "*Two finger pinch*" on a touch screen or trackpad
   /// - Other: No effect
   #[cfg(target_os = "windows")]
-  pub fn with_zoom(mut self, zoom: bool) -> Self {
-    self.webview.zoom_enabled = zoom;
+  pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
+    self.webview.zoom_hotkeys_enabled = zoom;
     self
   }
 
