@@ -25,7 +25,6 @@ impl InnerWebView {
     attributes: WebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    let sender = &CHANNEL.0;
     let WebViewAttributes {
       url,
       initialization_scripts,
@@ -33,13 +32,6 @@ impl InnerWebView {
       devtools,
       ..
     } = attributes;
-
-    if devtools {
-      #[cfg(any(debug_assertions, feature = "devtools"))]
-      sender.send(WebViewMessage::Devtools).unwrap_or({
-        log::warn!("Error when sending WebViewMessage::Devtools");
-      });
-    }
 
     if let Some(u) = url {
       let mut url_string = String::from(u.as_str());
@@ -51,22 +43,12 @@ impl InnerWebView {
           .as_str()
           .replace(&format!("{}://", name), "https://tauri.mobile/")
       }
-      sender.send(WebViewMessage::LoadUrl(url_string)).unwrap_or({
-        log::warn!("Error when sending WebViewMessage::LoadUrl");
-      });
+      MainPipe::send(WebViewMessage::CreateWebView(
+        url_string,
+        initialization_scripts,
+        devtools,
+      ));
     }
-
-    if !initialization_scripts.is_empty() {
-      sender
-        .send(WebViewMessage::Scripts(initialization_scripts))
-        .unwrap_or({
-          log::warn!("Error when sending WebViewMessage::Scripts");
-        });
-    }
-
-    sender.send(WebViewMessage::Done).unwrap_or({
-      log::warn!("Error when sending WebViewMessage::Done");
-    });
 
     let w = window.clone();
     if let Some(i) = ipc_handler {
