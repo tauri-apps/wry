@@ -222,10 +222,8 @@ impl InnerWebView {
         let _ = settings.SetAreDevToolsEnabled(true);
       }
 
-      let settings5 = settings.cast::<ICoreWebView2Settings5>();
-      if settings5.is_ok() {
-        let _ = settings5?.SetIsPinchZoomEnabled(attributes.zoom_hotkeys_enabled);
-      }
+      let settings5 = settings.cast::<ICoreWebView2Settings5>()?;
+      let _ = settings5.SetIsPinchZoomEnabled(attributes.zoom_hotkeys_enabled);
 
       let mut rect = RECT::default();
       GetClientRect(hwnd, &mut rect);
