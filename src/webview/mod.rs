@@ -340,14 +340,11 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Allow or disallow overriding the zoom level by platform dependant
-  /// shortcuts or gestures. By default, zoom overriding is disabled
+  /// Whether page zooming by hotkeys or gestures is enabled
   ///
   /// ## Platform-specific
   ///
-  /// - Windows: Enable/Disable zooming by `Ctrl` and `+` / `-` or
-  ///   "*Two finger pinch*" on a touch screen or trackpad
-  /// - Other: No effect
+  /// **macOS / Linux / Android / iOS**: Unsupported
   #[cfg(target_os = "windows")]
   pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
     self.webview.zoom_hotkeys_enabled = zoom;
