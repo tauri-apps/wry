@@ -345,7 +345,6 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// **macOS / Linux / Android / iOS**: Unsupported
-  #[cfg(target_os = "windows")]
   pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
     self.webview.zoom_hotkeys_enabled = zoom;
     self
