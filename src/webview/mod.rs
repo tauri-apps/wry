@@ -67,6 +67,12 @@ pub struct WebViewAttributes {
   pub transparent: bool,
   /// Whether load the provided URL to [`WebView`].
   pub url: Option<Url>,
+  /// Whether page zooming by hotkeys is enabled
+  ///
+  /// ## Platform-specific
+  ///
+  /// **macOS / Linux / Android / iOS**: Unsupported
+  pub zoom_hotkeys_enabled: bool,
   /// Whether load the provided html string to [`WebView`].
   /// This will be ignored if the `url` is provided.
   ///
@@ -169,6 +175,7 @@ impl Default for WebViewAttributes {
       navigation_handler: None,
       clipboard: false,
       devtools: false,
+      zoom_hotkeys_enabled: false,
     }
   }
 }
@@ -330,6 +337,16 @@ impl<'a> WebViewBuilder<'a> {
   /// - iOS: Open Safari > Develop > [Your Device Name] > [Your WebView] to get the devtools window.
   pub fn with_devtools(mut self, devtools: bool) -> Self {
     self.webview.devtools = devtools;
+    self
+  }
+
+  /// Whether page zooming by hotkeys or gestures is enabled
+  ///
+  /// ## Platform-specific
+  ///
+  /// **macOS / Linux / Android / iOS**: Unsupported
+  pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
+    self.webview.zoom_hotkeys_enabled = zoom;
     self
   }
 
