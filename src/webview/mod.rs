@@ -37,12 +37,6 @@ pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
 use crate::Result;
-#[cfg(target_os = "android")]
-use jni::{
-  objects::{JClass, JObject},
-  sys::jobject,
-  JNIEnv,
-};
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]

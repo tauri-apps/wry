@@ -1,18 +1,6 @@
-use std::{
-  collections::HashSet, ffi::c_void, os::unix::prelude::RawFd, ptr::null_mut, rc::Rc, sync::RwLock,
-};
-
-use crate::{application::window::Window, Result};
-
 use super::{WebContext, WebViewAttributes};
-
-use crossbeam_channel::*;
-use jni::{
-  objects::{JClass, JObject},
-  sys::jobject,
-  JNIEnv,
-};
-use once_cell::sync::{Lazy, OnceCell};
+use crate::{application::window::Window, Result};
+use std::rc::Rc;
 use tao::platform::android::ndk_glue::*;
 
 pub struct InnerWebView {
@@ -77,7 +65,7 @@ impl InnerWebView {
     false
   }
 
-  pub fn zoom(&self, scale_factor: f64) {}
+  pub fn zoom(&self, _scale_factor: f64) {}
 }
 
 pub fn platform_webview_version() -> Result<String> {
