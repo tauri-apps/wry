@@ -267,7 +267,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
                 let mut point = POINT::default();
                 GetCursorPos(&mut point);
-                let result = hit_test(HWND(window.hwnd() as _), point.x, point.y);
+                let result = hit_test(window.hwnd(), point.x, point.y);
                 let cursor = match result.0 as u32 {
                   win32wm::HTLEFT => CursorIcon::WResize,
                   win32wm::HTTOP => CursorIcon::NResize,
