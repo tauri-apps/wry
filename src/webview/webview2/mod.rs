@@ -213,7 +213,7 @@ impl InnerWebView {
         .SetAreDefaultContextMenusEnabled(true)
         .map_err(webview2_com::Error::WindowsError)?;
       settings
-        .SetIsZoomControlEnabled(false)
+        .SetIsZoomControlEnabled(attributes.zoom_hotkeys_enabled)
         .map_err(webview2_com::Error::WindowsError)?;
       settings
         .SetAreDevToolsEnabled(false)
@@ -223,6 +223,9 @@ impl InnerWebView {
           .SetAreDevToolsEnabled(true)
           .map_err(webview2_com::Error::WindowsError)?;
       }
+
+      let settings5 = settings.cast::<ICoreWebView2Settings5>()?;
+      let _ = settings5.SetIsPinchZoomEnabled(attributes.zoom_hotkeys_enabled);
 
       let mut rect = RECT::default();
       GetClientRect(hwnd, &mut rect);
