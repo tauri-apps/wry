@@ -5,6 +5,7 @@ name = "wry"
 version = "0.16.2"
 authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2021"
+rust-version = "1.61"
 license = "Apache-2.0 OR MIT"
 description = "Cross-platform WebView rendering library"
 readme = "README.md"
