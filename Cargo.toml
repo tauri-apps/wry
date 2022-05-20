@@ -41,9 +41,6 @@ devtools = [ ]
 transparent = [ ]
 fullscreen = [ ]
 
-[patch.crates-io]
-tao = { git = "https://github.com/wravery/tao", branch = "windows-0.37.0" }
-
 [dependencies]
 libc = "0.2"
 log = "0.4"
