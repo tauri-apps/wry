@@ -645,15 +645,8 @@ impl Drop for InnerWebView {
         }
       }
 
-      // WKWebview has a single WKProcessPool to manage web contents.
-      // The WKProcessPool is not reset even if WKWebview is deallocated.
-      // So we need to override the process by navigating to `about:blank`.
-      self.navigate("about:blank");
-
-      let _: Id<_> = Id::from_ptr(self.webview);
-      #[cfg(target_os = "macos")]
-      let _: Id<_> = Id::from_ptr(self.ns_window);
-      let _: Id<_> = Id::from_ptr(self.manager);
+      let _: Id<_> = Id::from_retained_ptr(self.webview);
+      let _: Id<_> = Id::from_retained_ptr(self.manager);
     }
   }
 }
