@@ -69,7 +69,7 @@ webview2-com = "0.13.0"
 windows_macros = "0.30.0"
 
   [target."cfg(target_os = \"windows\")".dependencies.windows]
-  version = "0.30.0"
+  version = "0.37.0"
   features = [
   "alloc",
   "Win32_Foundation",
