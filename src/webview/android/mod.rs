@@ -1,6 +1,6 @@
 use std::{collections::HashSet, ffi::c_void, ptr::null_mut, rc::Rc, sync::RwLock};
 
-use crate::{application::window::Window, Result};
+use crate::{application::window::Window, webview::FindInPageOption, Result};
 
 use super::{WebContext, WebViewAttributes};
 
@@ -120,6 +120,12 @@ impl InnerWebView {
   }
 
   pub fn zoom(&self, scale_factor: f64) {}
+
+  pub fn find_in_page<F>(&self, _string: String, _option: FindInPageOption, _f: F)
+  where
+    F: Fn(bool) + 'static,
+  {
+  }
 }
 
 pub struct UnsafeIpc(*mut c_void);

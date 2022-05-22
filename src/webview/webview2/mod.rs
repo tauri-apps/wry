@@ -5,7 +5,7 @@
 mod file_drop;
 
 use crate::{
-  webview::{WebContext, WebViewAttributes},
+  webview::{FindInPageOption, WebContext, WebViewAttributes},
   Error, Result,
 };
 
@@ -620,6 +620,12 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
   pub fn zoom(&self, scale_factor: f64) {
     let _ = unsafe { self.controller.SetZoomFactor(scale_factor) };
+  }
+
+  pub fn find_in_page<F>(&self, _string: String, _option: FindInPageOption, _f: F)
+  where
+    F: Fn(bool) + 'static,
+  {
   }
 }
 

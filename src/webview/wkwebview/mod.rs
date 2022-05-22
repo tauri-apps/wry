@@ -6,6 +6,7 @@
 mod file_drop;
 mod web_context;
 
+use block::ConcreteBlock;
 pub use web_context::WebContextImpl;
 
 #[cfg(target_os = "macos")]
@@ -43,7 +44,7 @@ use crate::{
     dpi::{LogicalSize, PhysicalSize},
     window::Window,
   },
-  webview::{FileDropEvent, WebContext, WebViewAttributes},
+  webview::{FileDropEvent, FindInPageOption, WebContext, WebViewAttributes},
   Result,
 };
 
@@ -606,6 +607,22 @@ r#"Object.defineProperty(window, 'ipc', {
   pub fn zoom(&self, scale_factor: f64) {
     unsafe {
       let _: () = msg_send![self.webview, setPageZoom: scale_factor];
+    }
+  }
+
+  pub fn find_in_page<F>(&self, string: String, option: FindInPageOption, f: F)
+  where
+    F: Fn(bool) + 'static,
+  {
+    unsafe {
+      let config: id = msg_send![class!(WKFindConfiguration), new];
+      let _: () = msg_send![config, setBackwards: option.backwards];
+      let _: () = msg_send![config, setCaseSensitive: option.case_sensitive];
+      let _: () = msg_send![config, setWraps: option.wraps];
+      let _: () = msg_send![self.webview, findString: NSString::new(&string) withConfiguration: config completionHandler:ConcreteBlock::new(|result: id| {
+        let match_found: BOOL = msg_send![result, matchFound];
+        f(match_found == YES);
+      })];
     }
   }
 }
