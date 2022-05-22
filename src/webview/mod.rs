@@ -551,7 +551,11 @@ pub struct FindInPageOption {
   pub case_sensitive: bool,
   /// Wrap around to the other side of the page.
   pub wraps: bool,
-  /// For Linux only, Maximum number of search strings to highlight.
+  /// Maximum number of search strings to highlight.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// **Windows / macOS / Android / iOS**: Unsupported.
   pub max_match_count: u32,
 }
 
