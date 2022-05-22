@@ -542,7 +542,7 @@ impl WebView {
   }
 }
 
-/// A configuration for `find_in_page`.
+/// A configuration for [`WebView::find_in_page`].
 #[derive(Default)]
 pub struct FindInPageOption {
   /// Indicate the search direction.
