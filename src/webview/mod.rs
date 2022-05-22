@@ -521,7 +521,7 @@ impl WebView {
   ///
   /// ## Platform-specific:
   ///
-  /// - **Windows / Android**: Not supported.
+  /// - **Windows / Android**: Unsupported.
   /// - **macOS**: available on macOS 10.15.4+ only.
   /// - **iOS**: available on iOS 13.4+ only.
   pub fn find_in_page<F>(&self, string: String, option: FindInPageOption, f: F)
