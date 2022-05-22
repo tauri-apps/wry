@@ -2,4 +2,4 @@
 "wry": minor
 ---
 
-Add find-in-page feature.
+Add `WebView::find_in_page`.
