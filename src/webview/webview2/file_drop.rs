@@ -10,6 +10,7 @@ use crate::webview::FileDropEvent;
 // https://docs.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2experimentalcompositioncontroller3?view=webview2-1.0.721-prerelease&preserve-view=true
 
 use std::{
+  cell::UnsafeCell,
   ffi::OsString,
   os::{raw::c_void, windows::ffi::OsStringExt},
   path::PathBuf,
@@ -17,23 +18,23 @@ use std::{
   rc::Rc,
 };
 
-use windows::{
-  self as Windows,
-  Win32::{
-    Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINTL, PWSTR},
-    System::{
-      Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL},
-      Ole::{IDropTarget, RegisterDragDrop, RevokeDragDrop, DROPEFFECT_COPY, DROPEFFECT_NONE},
-      SystemServices::CF_HDROP,
+use windows::Win32::{
+  Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINTL},
+  System::{
+    Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL},
+    Ole::{
+      IDropTarget, IDropTarget_Impl, RegisterDragDrop, RevokeDragDrop, DROPEFFECT_COPY,
+      DROPEFFECT_NONE,
     },
-    UI::{
-      Shell::{DragFinish, DragQueryFileW, HDROP},
-      WindowsAndMessaging::EnumChildWindows,
-    },
+    SystemServices::CF_HDROP,
+  },
+  UI::{
+    Shell::{DragFinish, DragQueryFileW, HDROP},
+    WindowsAndMessaging::EnumChildWindows,
   },
 };
 
-use windows_macros::implement;
+use windows_implement::implement;
 
 use crate::application::window::Window;
 
@@ -102,15 +103,14 @@ unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL
   closure(hwnd).into()
 }
 
-#[implement(Windows::Win32::System::Ole::IDropTarget)]
+#[implement(IDropTarget)]
 pub struct FileDropHandler {
   window: Rc<Window>,
   listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
-  cursor_effect: u32,
-  hovered_is_valid: bool, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
+  cursor_effect: UnsafeCell<u32>,
+  hovered_is_valid: UnsafeCell<bool>, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
 }
 
-#[allow(non_snake_case)]
 impl FileDropHandler {
   pub fn new(
     window: Rc<Window>,
@@ -119,66 +119,9 @@ impl FileDropHandler {
     Self {
       window,
       listener,
-      cursor_effect: DROPEFFECT_NONE,
-      hovered_is_valid: false,
+      cursor_effect: DROPEFFECT_NONE.into(),
+      hovered_is_valid: false.into(),
     }
-  }
-
-  unsafe fn DragEnter(
-    &mut self,
-    pDataObj: &Option<IDataObject>,
-    _grfKeyState: u32,
-    _pt: POINTL,
-    pdwEffect: *mut u32,
-  ) -> windows::core::Result<()> {
-    let mut paths = Vec::new();
-    let hdrop = Self::collect_paths(pDataObj, &mut paths);
-    self.hovered_is_valid = hdrop.is_some();
-    self.cursor_effect = if self.hovered_is_valid {
-      DROPEFFECT_COPY
-    } else {
-      DROPEFFECT_NONE
-    };
-    *pdwEffect = self.cursor_effect;
-
-    (self.listener)(&self.window, FileDropEvent::Hovered(paths));
-
-    Ok(())
-  }
-
-  unsafe fn DragOver(
-    &self,
-    _grfKeyState: u32,
-    _pt: POINTL,
-    pdwEffect: *mut u32,
-  ) -> windows::core::Result<()> {
-    *pdwEffect = self.cursor_effect;
-    Ok(())
-  }
-
-  unsafe fn DragLeave(&self) -> windows::core::Result<()> {
-    if self.hovered_is_valid {
-      (self.listener)(&self.window, FileDropEvent::Cancelled);
-    }
-    Ok(())
-  }
-
-  unsafe fn Drop(
-    &self,
-    pDataObj: &Option<IDataObject>,
-    _grfKeyState: u32,
-    _pt: POINTL,
-    _pdwEffect: *mut u32,
-  ) -> windows::core::Result<()> {
-    let mut paths = Vec::new();
-    let hdrop = Self::collect_paths(pDataObj, &mut paths);
-    if let Some(hdrop) = hdrop {
-      DragFinish(hdrop);
-    }
-
-    (self.listener)(&self.window, FileDropEvent::Dropped(paths));
-
-    Ok(())
   }
 
   unsafe fn collect_paths(
@@ -186,11 +129,11 @@ impl FileDropHandler {
     paths: &mut Vec<PathBuf>,
   ) -> Option<HDROP> {
     let drop_format = FORMATETC {
-      cfFormat: CF_HDROP as u16,
+      cfFormat: CF_HDROP.0 as u16,
       ptd: ptr::null_mut(),
-      dwAspect: DVASPECT_CONTENT as u32,
+      dwAspect: DVASPECT_CONTENT.0 as u32,
       lindex: -1,
-      tymed: TYMED_HGLOBAL as u32,
+      tymed: TYMED_HGLOBAL.0 as u32,
     };
 
     match data_obj
@@ -202,18 +145,18 @@ impl FileDropHandler {
         let hdrop = HDROP(medium.Anonymous.hGlobal);
 
         // The second parameter (0xFFFFFFFF) instructs the function to return the item count
-        let item_count = DragQueryFileW(hdrop, 0xFFFFFFFF, PWSTR::default(), 0);
+        let item_count = DragQueryFileW(hdrop, 0xFFFFFFFF, &mut []);
 
         for i in 0..item_count {
           // Get the length of the path string NOT including the terminating null character.
           // Previously, this was using a fixed size array of MAX_PATH length, but the
           // Windows API allows longer paths under certain circumstances.
-          let character_count = DragQueryFileW(hdrop, i, PWSTR::default(), 0) as usize;
+          let character_count = DragQueryFileW(hdrop, i, &mut []) as usize;
           let str_len = character_count + 1;
 
           // Fill path_buf with the null-terminated file name
           let mut path_buf = Vec::with_capacity(str_len);
-          DragQueryFileW(hdrop, i, PWSTR(path_buf.as_mut_ptr()), str_len as u32);
+          DragQueryFileW(hdrop, i, std::mem::transmute(path_buf.spare_capacity_mut()));
           path_buf.set_len(str_len);
 
           paths.push(OsString::from_wide(&path_buf[0..character_count]).into());
@@ -236,5 +179,71 @@ impl FileDropHandler {
         None
       }
     }
+  }
+}
+
+#[allow(non_snake_case)]
+impl IDropTarget_Impl for FileDropHandler {
+  fn DragEnter(
+    &self,
+    pDataObj: &Option<IDataObject>,
+    _grfKeyState: u32,
+    _pt: &POINTL,
+    pdwEffect: *mut u32,
+  ) -> windows::core::Result<()> {
+    let mut paths = Vec::new();
+    unsafe {
+      let hdrop = Self::collect_paths(pDataObj, &mut paths);
+      let hovered_is_valid = hdrop.is_some();
+      let cursor_effect = if hovered_is_valid {
+        DROPEFFECT_COPY
+      } else {
+        DROPEFFECT_NONE
+      };
+      *pdwEffect = cursor_effect;
+      *self.hovered_is_valid.get() = hovered_is_valid;
+      *self.cursor_effect.get() = cursor_effect;
+    }
+
+    (self.listener)(&self.window, FileDropEvent::Hovered(paths));
+
+    Ok(())
+  }
+
+  fn DragOver(
+    &self,
+    _grfKeyState: u32,
+    _pt: &POINTL,
+    pdwEffect: *mut u32,
+  ) -> windows::core::Result<()> {
+    unsafe { *pdwEffect = *self.cursor_effect.get() };
+    Ok(())
+  }
+
+  fn DragLeave(&self) -> windows::core::Result<()> {
+    if unsafe { *self.hovered_is_valid.get() } {
+      (self.listener)(&self.window, FileDropEvent::Cancelled);
+    }
+    Ok(())
+  }
+
+  fn Drop(
+    &self,
+    pDataObj: &Option<IDataObject>,
+    _grfKeyState: u32,
+    _pt: &POINTL,
+    _pdwEffect: *mut u32,
+  ) -> windows::core::Result<()> {
+    let mut paths = Vec::new();
+    unsafe {
+      let hdrop = Self::collect_paths(pDataObj, &mut paths);
+      if let Some(hdrop) = hdrop {
+        DragFinish(hdrop);
+      }
+    }
+
+    (self.listener)(&self.window, FileDropEvent::Dropped(paths));
+
+    Ok(())
   }
 }
