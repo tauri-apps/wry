@@ -1,5 +1,19 @@
 # Changelog
 
+## \[0.17.0]
+
+- Add option to enable/disable zoom shortcuts for WebView2, disabled by default.
+  - [494a110](https://github.com/tauri-apps/wry/commit/494a11057f9ddd2bf4bcecdc96b43ed95c5bd08e) WebView2: Enable/disable platform default zooming shortcuts, closes [#569](https://github.com/tauri-apps/wry/pull/569) ([#574](https://github.com/tauri-apps/wry/pull/574)) on 2022-05-15
+- Prevent memory leak on macOS.
+  - [16d1924](https://github.com/tauri-apps/wry/commit/16d192450ed639f94cf8b7137fa5fea1a319f8b5) fix: prevent memory leak on macOS, closes [#536](https://github.com/tauri-apps/wry/pull/536) ([#587](https://github.com/tauri-apps/wry/pull/587)) on 2022-05-20
+- Update the `windows` crate to the latest 0.37.0 release and `webview2-com` to 0.16.0 to match.
+
+The `#[implement]` macro in `windows-implement` and the `implement` feature in `windows` depend on some `const` generic features which stabilized in `rustc` 1.61. The MSRV on Windows targets is effectively 1.61, but other targets do not require these features.
+
+The `webview2-com` crate specifies `rust-version = "1.61"`, so `wry` will inherit that MSRV and developers on Windows should get a clear error message telling them to update their toolchain when building `wry` or anything that depends on `wry`. Developers targeting other platforms should be able to continue using whatever toolchain they were using before.
+
+- [9d9d9d8](https://github.com/tauri-apps/wry/commit/9d9d9d8f3d37a283bbb707d39c3aac090325a63e) Update windows-rs to 0.37.0 and webview2-com to 0.16.0 to match ([#592](https://github.com/tauri-apps/wry/pull/592)) on 2022-05-23
+
 ## \[0.16.2]
 
 - Fixed build on macos.
