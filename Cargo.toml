@@ -27,15 +27,12 @@ default = [
   "objc-exception",
   "protocol",
   "tray",
-  "ayatana-tray"
 ]
 objc-exception = [ "objc/exception" ]
 file-drop = [ ]
 protocol = [ ]
 dox = [ "tao/dox" ]
 tray = [ "tao/tray" ]
-ayatana-tray = [ "tao/ayatana-tray" ]
-gtk-tray = [ "tao/gtk-tray" ]
 devtools = [ ]
 transparent = [ ]
 fullscreen = [ ]

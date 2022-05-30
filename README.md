@@ -76,7 +76,7 @@ Tao uses [gtk-rs](https://gtk-rs.org/) and its related libraries for window crea
 
 ```bash
 sudo pacman -S webkit2gtk
-sudo pacman -S libappindicator-gtk3 # not required
+sudo pacman -S libappindicator-gtk3 # For tray feature
 ```
 
 The `libayatana-indicator` package can be installed from the Arch User Repository (AUR).
@@ -84,14 +84,18 @@ The `libayatana-indicator` package can be installed from the Arch User Repositor
 #### Debian / Ubuntu:
 
 ```bash
-sudo apt install libwebkit2gtk-4.0-dev libayatana-appindicator3-dev
-sudo apt install libappindicator3-dev # not required
+sudo apt install libwebkit2gtk-4.0-dev
+# For tray feature, choose one of following package
+sudo apt install libayatana-appindicator3-dev
+sudo apt install libappindicator3-dev
 ```
 
 #### Fedora
 
 ```bash
-sudo dnf install gtk3-devel webkit2gtk3-devel libappindicator-gtk3-devel
+sudo dnf install gtk3-devel webkit2gtk3-devel
+# For tray feature
+sudo dnf install libappindicator-gtk3-devel
 ```
 
 Fedora does not have the Ayatana package yet, so you need to use the GTK one, see the [feature flags documentation](https://docs.rs/wry/latest/wry/#feature-flags).
