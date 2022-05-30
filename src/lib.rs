@@ -52,9 +52,9 @@
 //! interacting with the window. Enabled by default.
 //! - `protocol`: Enables [`with_custom_protocol`] to define custom URL scheme for handling tasks like
 //! loading assets. Enabled by default.
-//! - `tray`: Enables system tray and more menu item variants on **Linux**. This flag is enabled by default.
+//! - `tray`: Enables system tray and more menu item variants on **Linux**.
 //!  This feature requires either `libayatana-appindicator` or `libappindicator` package installed.
-//!  You can still create those types if you disable it. They just don't create the actual objects. We set this flag because some implementations require more installed packages.
+//!  You can still create those types if you disable it. They just don't create the actual objects.
 //! - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
 //! On **macOS**, enabling devtools, reuires calling private apis so you should enabling this flag in release
 //! build if your app needs to publish to App Store.
