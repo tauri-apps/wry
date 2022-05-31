@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.18.1]
+
+- Remove unused tray from doc features.
+  - [5eecb00](https://github.com/tauri-apps/wry/commit/5eecb0074397efa40351b3caa8fd4a6d972c4c85) Remove unused tray from doc features ([#602](https://github.com/tauri-apps/wry/pull/602)) on 2022-05-31
+
 ## \[0.18.0]
 
 - Remove trivial tray features.
