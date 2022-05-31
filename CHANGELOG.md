@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.18.0]
+
+- Remove trivial tray features.
+  - [a3fea48](https://github.com/tauri-apps/wry/commit/a3fea48d2d78ebe4fa3f08b40d2c3c8c8135bb12) Remove trivial tray features ([#599](https://github.com/tauri-apps/wry/pull/599)) on 2022-05-31
+
 ## \[0.17.0]
 
 - Add option to enable/disable zoom shortcuts for WebView2, disabled by default.
