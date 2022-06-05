@@ -101,8 +101,8 @@ impl InnerWebView {
           // Get url request
           let request: id = msg_send![task, request];
           let url: id = msg_send![request, URL];
-          let nsstring = {
 
+          let nsstring = {
             let s: id = msg_send![url, absoluteString];
             // not need from_ptr
             NSString(s)
@@ -110,7 +110,6 @@ impl InnerWebView {
 
           // Get request method (GET, POST, PUT etc...)
           let method = {
-
             let s: id = msg_send![request, HTTPMethod];
             // not need from_ptr
             NSString(s)
@@ -148,7 +147,6 @@ impl InnerWebView {
 
           // get all our headers values and inject them in our request
           for current_header_ptr in all_headers.iter() {
-
             // not need from_ptr
             let header_field = NSString(current_header_ptr);
             let header_value = NSString(all_headers.valueForKey_(current_header_ptr));
@@ -673,7 +671,10 @@ impl NSString {
     // Safety: objc runtime calls are unsafe
     NSString(unsafe {
       let ns_string: id = msg_send![class!(NSString), alloc];
-      let ns_string: id = msg_send![ns_string, initWithBytes:s.as_ptr() length:s.len() encoding:UTF8_ENCODING];
+      let ns_string: id = msg_send![ns_string,
+                            initWithBytes:s.as_ptr()
+                            length:s.len()
+                            encoding:UTF8_ENCODING];
 
       // The thing allocs in rust, the thing must be set to autorelease in rust to relinquish control
       // or it can not be released correctly in OC runtime
