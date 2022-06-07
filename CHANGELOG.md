@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.18.2]
+
+- Fix NSString can not be released.
+  - [95ca52f](https://github.com/tauri-apps/wry/commit/95ca52f5d8ca86b64f8587a0f96cf0fb7dc22125) fix: NSString isn't released ([#604](https://github.com/tauri-apps/wry/pull/604)) on 2022-06-07
+
 ## \[0.18.1]
 
 - Remove unused tray from doc features.
