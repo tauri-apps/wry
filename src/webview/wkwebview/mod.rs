@@ -104,14 +104,12 @@ impl InnerWebView {
 
           let nsstring = {
             let s: id = msg_send![url, absoluteString];
-            // not need from_ptr
             NSString(s)
           };
 
           // Get request method (GET, POST, PUT etc...)
           let method = {
             let s: id = msg_send![request, HTTPMethod];
-            // not need from_ptr
             NSString(s)
           };
 
@@ -147,7 +145,6 @@ impl InnerWebView {
 
           // get all our headers values and inject them in our request
           for current_header_ptr in all_headers.iter() {
-            // not need from_ptr
             let header_field = NSString(current_header_ptr);
             let header_value = NSString(all_headers.valueForKey_(current_header_ptr));
 
@@ -322,7 +319,6 @@ impl InnerWebView {
           let url: id = msg_send![request, URL];
           let url: id = msg_send![url, absoluteString];
 
-          // not need from_ptr
           let url = NSString(url);
 
           let handler = handler as *mut block::Block<(NSInteger,), c_void>;
@@ -625,7 +621,6 @@ pub fn platform_webview_version() -> Result<String> {
     let dict: id = msg_send![bundle, infoDictionary];
     let webkit_version: id = msg_send![dict, objectForKey: NSString::new("CFBundleVersion")];
 
-    // not need from_ptr
     let nsstring = NSString(webkit_version);
 
     let () = msg_send![bundle, unload];
