@@ -101,15 +101,16 @@ impl InnerWebView {
           // Get url request
           let request: id = msg_send![task, request];
           let url: id = msg_send![request, URL];
+
           let nsstring = {
             let s: id = msg_send![url, absoluteString];
-            NSString(Id::from_ptr(s))
+            NSString(s)
           };
 
           // Get request method (GET, POST, PUT etc...)
           let method = {
             let s: id = msg_send![request, HTTPMethod];
-            NSString(Id::from_ptr(s))
+            NSString(s)
           };
 
           // Prepare our HttpRequest
@@ -144,8 +145,9 @@ impl InnerWebView {
 
           // get all our headers values and inject them in our request
           for current_header_ptr in all_headers.iter() {
-            let header_field = NSString(Id::from_ptr(current_header_ptr));
-            let header_value = NSString(Id::from_ptr(all_headers.valueForKey_(current_header_ptr)));
+            let header_field = NSString(current_header_ptr);
+            let header_value = NSString(all_headers.valueForKey_(current_header_ptr));
+
             // inject the header into the request
             http_request = http_request.header(header_field.to_str(), header_value.to_str());
           }
@@ -316,7 +318,9 @@ impl InnerWebView {
           let request: id = msg_send![action, request];
           let url: id = msg_send![request, URL];
           let url: id = msg_send![url, absoluteString];
-          let url = NSString(Id::from_ptr(url));
+
+          let url = NSString(url);
+
           let handler = handler as *mut block::Block<(NSInteger,), c_void>;
 
           let function = this.get_ivar::<*mut c_void>("function");
@@ -616,7 +620,9 @@ pub fn platform_webview_version() -> Result<String> {
       msg_send![class!(NSBundle), bundleWithIdentifier: NSString::new("com.apple.WebKit")];
     let dict: id = msg_send![bundle, infoDictionary];
     let webkit_version: id = msg_send![dict, objectForKey: NSString::new("CFBundleVersion")];
-    let nsstring = NSString(Id::from_ptr(webkit_version));
+
+    let nsstring = NSString(webkit_version);
+
     let () = msg_send![bundle, unload];
     Ok(nsstring.to_str().to_string())
   }
@@ -653,16 +659,23 @@ impl Drop for InnerWebView {
 
 const UTF8_ENCODING: usize = 4;
 
-struct NSString(Id<Object>);
+struct NSString(id);
 
 impl NSString {
   fn new(s: &str) -> Self {
     // Safety: objc runtime calls are unsafe
     NSString(unsafe {
-      let nsstring: id = msg_send![class!(NSString), alloc];
-      Id::from_ptr(
-        msg_send![nsstring, initWithBytes:s.as_ptr() length:s.len() encoding:UTF8_ENCODING],
-      )
+      let ns_string: id = msg_send![class!(NSString), alloc];
+      let ns_string: id = msg_send![ns_string,
+                            initWithBytes:s.as_ptr()
+                            length:s.len()
+                            encoding:UTF8_ENCODING];
+
+      // The thing allocs in rust, the thing must be set to autorelease in rust to relinquish control
+      // or it can not be released correctly in OC runtime
+      let _: () = msg_send![ns_string, autorelease];
+
+      ns_string
     })
   }
 
