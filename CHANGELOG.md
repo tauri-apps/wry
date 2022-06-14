@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.18.3]
+
+- Update tao to 0.11
+  - [f4b42fb](https://github.com/tauri-apps/wry/commit/f4b42fb412fa557188f20b72ef6c4314d1d6bb91) Update tao to v0.12 ([#609](https://github.com/tauri-apps/wry/pull/609)) on 2022-06-15
+
 ## \[0.18.2]
 
 - Fix NSString can not be released.
