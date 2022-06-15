@@ -48,7 +48,7 @@ use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
 use windows::{Win32::Foundation::HWND, Win32::UI::WindowsAndMessaging::DestroyWindow};
 
-use std::{path::PathBuf, rc::Rc};
+use std::{ops::Deref, path::PathBuf, rc::Rc};
 
 use url::Url;
 
@@ -410,6 +410,13 @@ impl Drop for WebView {
     unsafe {
       DestroyWindow(HWND(self.window.hwnd() as _));
     }
+  }
+}
+
+impl Deref for WebView {
+  type Target = Window;
+  fn deref(&self) -> &Self::Target {
+    &self.window
   }
 }
 
