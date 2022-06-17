@@ -50,7 +50,7 @@ use windows::{Win32::Foundation::HWND, Win32::UI::WindowsAndMessaging::DestroyWi
 
 use std::{path::PathBuf, rc::Rc};
 
-use url::Url;
+pub use url::Url;
 
 #[cfg(target_os = "windows")]
 use crate::application::platform::windows::WindowExtWindows;
