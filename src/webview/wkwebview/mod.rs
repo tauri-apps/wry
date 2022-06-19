@@ -319,12 +319,12 @@ impl InnerWebView {
           let url: id = msg_send![request, URL];
           let url: id = msg_send![url, absoluteString];
           let url = NSString(url);
-          
+
           let target_frame: id = msg_send![action, targetFrame];
           let is_main_frame: bool = msg_send![target_frame, isMainFrame];
-          
+
           let handler = handler as *mut block::Block<(NSInteger,), c_void>;
-          
+
           let function = this.get_ivar::<*mut c_void>("function");
           if !function.is_null() {
             let function = &mut *(*function as *mut Box<dyn for<'s> Fn(String, bool) -> bool>);
