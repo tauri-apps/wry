@@ -50,7 +50,7 @@ use windows::{Win32::Foundation::HWND, Win32::UI::WindowsAndMessaging::DestroyWi
 
 use std::{path::PathBuf, rc::Rc};
 
-use url::Url;
+pub use url::Url;
 
 #[cfg(target_os = "windows")]
 use crate::application::platform::windows::WindowExtWindows;
@@ -67,6 +67,12 @@ pub struct WebViewAttributes {
   pub transparent: bool,
   /// Whether load the provided URL to [`WebView`].
   pub url: Option<Url>,
+  /// Whether page zooming by hotkeys is enabled
+  ///
+  /// ## Platform-specific
+  ///
+  /// **macOS / Linux / Android / iOS**: Unsupported
+  pub zoom_hotkeys_enabled: bool,
   /// Whether load the provided html string to [`WebView`].
   /// This will be ignored if the `url` is provided.
   ///
@@ -176,6 +182,7 @@ impl Default for WebViewAttributes {
       new_window_req_handler: None,
       clipboard: false,
       devtools: false,
+      zoom_hotkeys_enabled: false,
     }
   }
 }
@@ -337,6 +344,16 @@ impl<'a> WebViewBuilder<'a> {
   /// - iOS: Open Safari > Develop > [Your Device Name] > [Your WebView] to get the devtools window.
   pub fn with_devtools(mut self, devtools: bool) -> Self {
     self.webview.devtools = devtools;
+    self
+  }
+
+  /// Whether page zooming by hotkeys or gestures is enabled
+  ///
+  /// ## Platform-specific
+  ///
+  /// **macOS / Linux / Android / iOS**: Unsupported
+  pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
+    self.webview.zoom_hotkeys_enabled = zoom;
     self
   }
 
@@ -509,6 +526,17 @@ impl WebView {
     self.window.inner_size()
   }
 
+  /// Set the webview zoom level
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Android**: Not supported.
+  /// - **macOS**: available on macOS 11+ only.
+  /// - **iOS**: available on iOS 14+ only.
+  pub fn zoom(&self, scale_factor: f64) {
+    self.webview.zoom(scale_factor);
+  }
+
   #[cfg(target_os = "android")]
   pub fn run(self, env: JNIEnv, jclass: JClass, jobject: JObject) -> jobject {
     self.webview.run(env, jclass, jobject).unwrap()
@@ -566,7 +594,7 @@ impl WebviewExtUnix for WebView {
 }
 
 /// Additional methods on `WebView` that are specific to macOS.
-#[cfg(target_os = "macOS")]
+#[cfg(target_os = "macos")]
 pub trait WebviewExtMacOS {
   /// Returns WKWebView handle
   fn webview(&self) -> cocoa::base::id;
@@ -576,7 +604,7 @@ pub trait WebviewExtMacOS {
   fn ns_window(&self) -> cocoa::base::id;
 }
 
-#[cfg(target_os = "macOS")]
+#[cfg(target_os = "macos")]
 impl WebviewExtMacOS for WebView {
   fn webview(&self) -> cocoa::base::id {
     self.webview.webview.clone()

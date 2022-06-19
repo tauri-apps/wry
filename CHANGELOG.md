@@ -1,5 +1,64 @@
 # Changelog
 
+## \[0.18.3]
+
+- Update tao to 0.11
+  - [f4b42fb](https://github.com/tauri-apps/wry/commit/f4b42fb412fa557188f20b72ef6c4314d1d6bb91) Update tao to v0.12 ([#609](https://github.com/tauri-apps/wry/pull/609)) on 2022-06-15
+
+## \[0.18.2]
+
+- Fix NSString can not be released.
+  - [95ca52f](https://github.com/tauri-apps/wry/commit/95ca52f5d8ca86b64f8587a0f96cf0fb7dc22125) fix: NSString isn't released ([#604](https://github.com/tauri-apps/wry/pull/604)) on 2022-06-07
+
+## \[0.18.1]
+
+- Remove unused tray from doc features.
+  - [5eecb00](https://github.com/tauri-apps/wry/commit/5eecb0074397efa40351b3caa8fd4a6d972c4c85) Remove unused tray from doc features ([#602](https://github.com/tauri-apps/wry/pull/602)) on 2022-05-31
+
+## \[0.18.0]
+
+- Remove trivial tray features.
+  - [a3fea48](https://github.com/tauri-apps/wry/commit/a3fea48d2d78ebe4fa3f08b40d2c3c8c8135bb12) Remove trivial tray features ([#599](https://github.com/tauri-apps/wry/pull/599)) on 2022-05-31
+
+## \[0.17.0]
+
+- Add option to enable/disable zoom shortcuts for WebView2, disabled by default.
+  - [494a110](https://github.com/tauri-apps/wry/commit/494a11057f9ddd2bf4bcecdc96b43ed95c5bd08e) WebView2: Enable/disable platform default zooming shortcuts, closes [#569](https://github.com/tauri-apps/wry/pull/569) ([#574](https://github.com/tauri-apps/wry/pull/574)) on 2022-05-15
+- Prevent memory leak on macOS.
+  - [16d1924](https://github.com/tauri-apps/wry/commit/16d192450ed639f94cf8b7137fa5fea1a319f8b5) fix: prevent memory leak on macOS, closes [#536](https://github.com/tauri-apps/wry/pull/536) ([#587](https://github.com/tauri-apps/wry/pull/587)) on 2022-05-20
+- Update the `windows` crate to the latest 0.37.0 release and `webview2-com` to 0.16.0 to match.
+
+The `#[implement]` macro in `windows-implement` and the `implement` feature in `windows` depend on some `const` generic features which stabilized in `rustc` 1.61. The MSRV on Windows targets is effectively 1.61, but other targets do not require these features.
+
+The `webview2-com` crate specifies `rust-version = "1.61"`, so `wry` will inherit that MSRV and developers on Windows should get a clear error message telling them to update their toolchain when building `wry` or anything that depends on `wry`. Developers targeting other platforms should be able to continue using whatever toolchain they were using before.
+
+- [9d9d9d8](https://github.com/tauri-apps/wry/commit/9d9d9d8f3d37a283bbb707d39c3aac090325a63e) Update windows-rs to 0.37.0 and webview2-com to 0.16.0 to match ([#592](https://github.com/tauri-apps/wry/pull/592)) on 2022-05-23
+
+## \[0.16.2]
+
+- Fixed build on macos.
+  - [17ab12d](https://github.com/tauri-apps/wry/commit/17ab12ded27949474f687640faebb5cc376327c5) fix: fix build on macos, closes [#580](https://github.com/tauri-apps/wry/pull/580) ([#581](https://github.com/tauri-apps/wry/pull/581)) on 2022-05-10
+
+## \[0.16.1]
+
+- Fixes a crash on macOS below Big Sur due to `titlebarSeparatorStyle` (11+ API) usage.
+  - [eb2dddb](https://github.com/tauri-apps/wry/commit/eb2dddb611f7fadf35bf7d7c32cb6d054da9fe9e) fix(macos): only use APIs when supported on 2022-05-08
+- Only run `WebView::print` on macOS on v11+. This prevents a crash on older versions.
+  - [eb2dddb](https://github.com/tauri-apps/wry/commit/eb2dddb611f7fadf35bf7d7c32cb6d054da9fe9e) fix(macos): only use APIs when supported on 2022-05-08
+
+## \[0.16.0]
+
+- Fixes a typo in the `WebviewExtMacOS` conditional compilation.
+  - [10d7f03](https://github.com/tauri-apps/wry/commit/10d7f03f403e9c373fe80897308393e0bb67a06d) fix(macos): typo in the WebviewExtMacOS conditional compilation ([#568](https://github.com/tauri-apps/wry/pull/568)) on 2022-05-02
+- Fixes a crash when the custom protocol response is empty on macOS.
+  - [67809f4](https://github.com/tauri-apps/wry/commit/67809f4d8abe1a042b2cdb616b03f6a2c50652b8) fix(macos): crash when custom protocol response is empty ([#567](https://github.com/tauri-apps/wry/pull/567)) on 2022-05-01
+- Add `WebView::zoom` method.
+  - [34b6cbc](https://github.com/tauri-apps/wry/commit/34b6cbca76811966cedf8050ae0d0fa18c84aa34) feat: add feature to zoom webview contents, closes [#388](https://github.com/tauri-apps/wry/pull/388) ([#564](https://github.com/tauri-apps/wry/pull/564)) on 2022-05-02
+- Set the titlebar separator style in macOS to `none`.
+  - [9776fc4](https://github.com/tauri-apps/wry/commit/9776fc466b5f3a6ef47956ec5c9cdd9c5164046a) fix(macos): set titlebar style to `none` ([#566](https://github.com/tauri-apps/wry/pull/566)) on 2022-05-01
+- Disable webview2 mini menu
+  - [ed0b223](https://github.com/tauri-apps/wry/commit/ed0b2230c285991b7a4588c8045111f04a67a16f) fix: disable WebView2 mini menu ("OOUI"), closes [#535](https://github.com/tauri-apps/wry/pull/535) ([#559](https://github.com/tauri-apps/wry/pull/559)) on 2022-04-29
+
 ## \[0.15.1]
 
 - Update how android handles url

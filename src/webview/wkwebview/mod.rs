@@ -11,7 +11,7 @@ pub use web_context::WebContextImpl;
 #[cfg(target_os = "macos")]
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
 use cocoa::{
-  base::{id, nil, YES},
+  base::{id, nil, NO, YES},
   foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
 
@@ -52,10 +52,10 @@ use crate::http::{
 };
 
 pub struct InnerWebView {
-  webview: id,
+  pub(crate) webview: id,
   #[cfg(target_os = "macos")]
-  ns_window: id,
-  manager: id,
+  pub(crate) ns_window: id,
+  pub(crate) manager: id,
   // Note that if following functions signatures are changed in the future,
   // all fucntions pointer declarations in objc callbacks below all need to get updated.
   ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
@@ -101,15 +101,16 @@ impl InnerWebView {
           // Get url request
           let request: id = msg_send![task, request];
           let url: id = msg_send![request, URL];
+
           let nsstring = {
             let s: id = msg_send![url, absoluteString];
-            NSString(Id::from_ptr(s))
+            NSString(s)
           };
 
           // Get request method (GET, POST, PUT etc...)
           let method = {
             let s: id = msg_send![request, HTTPMethod];
-            NSString(Id::from_ptr(s))
+            NSString(s)
           };
 
           // Prepare our HttpRequest
@@ -144,8 +145,9 @@ impl InnerWebView {
 
           // get all our headers values and inject them in our request
           for current_header_ptr in all_headers.iter() {
-            let header_field = NSString(Id::from_ptr(current_header_ptr));
-            let header_value = NSString(Id::from_ptr(all_headers.valueForKey_(current_header_ptr)));
+            let header_field = NSString(current_header_ptr);
+            let header_value = NSString(all_headers.valueForKey_(current_header_ptr));
+
             // inject the header into the request
             http_request = http_request.header(header_field.to_str(), header_value.to_str());
           }
@@ -183,8 +185,7 @@ impl InnerWebView {
             // Send data
             let bytes = content.as_ptr() as *mut c_void;
             let data: id = msg_send![class!(NSData), alloc];
-            let data: id =
-              msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: YES];
+            let data: id = msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: if content.len() == 0 { NO } else { YES }];
             let () = msg_send![task, didReceiveData: data];
           } else {
             let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
@@ -317,11 +318,13 @@ impl InnerWebView {
           let request: id = msg_send![action, request];
           let url: id = msg_send![request, URL];
           let url: id = msg_send![url, absoluteString];
-          let url = NSString(Id::from_ptr(url));
+          let url = NSString(url);
+          
           let target_frame: id = msg_send![action, targetFrame];
           let is_main_frame: bool = msg_send![target_frame, isMainFrame];
+          
           let handler = handler as *mut block::Block<(NSInteger,), c_void>;
-
+          
           let function = this.get_ivar::<*mut c_void>("function");
           if !function.is_null() {
             let function = &mut *(*function as *mut Box<dyn for<'s> Fn(String, bool) -> bool>);
@@ -430,7 +433,20 @@ impl InnerWebView {
 
       // ns window is required for the print operation
       #[cfg(target_os = "macos")]
-      let ns_window = window.ns_window() as id;
+      let ns_window = {
+        let ns_window = window.ns_window() as id;
+
+        let can_set_titlebar_style: BOOL = msg_send![
+          ns_window,
+          respondsToSelector: sel!(setTitlebarSeparatorStyle:)
+        ];
+        if can_set_titlebar_style == YES {
+          // `1` means `none`, see https://developer.apple.com/documentation/appkit/nstitlebarseparatorstyle/none
+          let () = msg_send![ns_window, setTitlebarSeparatorStyle: 1];
+        }
+
+        ns_window
+      };
 
       let w = Self {
         webview,
@@ -549,15 +565,21 @@ r#"Object.defineProperty(window, 'ipc', {
     // Safety: objc runtime calls are unsafe
     #[cfg(target_os = "macos")]
     unsafe {
-      // Create a shared print info
-      let print_info: id = msg_send![class!(NSPrintInfo), sharedPrintInfo];
-      let print_info: id = msg_send![print_info, init];
-      // Create new print operation from the webview content
-      let print_operation: id = msg_send![self.webview, printOperationWithPrintInfo: print_info];
-      // Allow the modal to detach from the current thread and be non-blocker
-      let () = msg_send![print_operation, setCanSpawnSeparateThread: YES];
-      // Launch the modal
-      let () = msg_send![print_operation, runOperationModalForWindow: self.ns_window delegate: null::<*const c_void>() didRunSelector: null::<*const c_void>() contextInfo: null::<*const c_void>()];
+      let can_print: BOOL = msg_send![
+        self.webview,
+        respondsToSelector: sel!(printOperationWithPrintInfo:)
+      ];
+      if can_print == YES {
+        // Create a shared print info
+        let print_info: id = msg_send![class!(NSPrintInfo), sharedPrintInfo];
+        let print_info: id = msg_send![print_info, init];
+        // Create new print operation from the webview content
+        let print_operation: id = msg_send![self.webview, printOperationWithPrintInfo: print_info];
+        // Allow the modal to detach from the current thread and be non-blocker
+        let () = msg_send![print_operation, setCanSpawnSeparateThread: YES];
+        // Launch the modal
+        let () = msg_send![print_operation, runOperationModalForWindow: self.ns_window delegate: null::<*const c_void>() didRunSelector: null::<*const c_void>() contextInfo: null::<*const c_void>()];
+      }
     }
   }
 
@@ -603,6 +625,12 @@ r#"Object.defineProperty(window, 'ipc', {
       (view_frame.size.width as f64, view_frame.size.height as f64).into();
     logical.to_physical(scale_factor)
   }
+
+  pub fn zoom(&self, scale_factor: f64) {
+    unsafe {
+      let _: () = msg_send![self.webview, setPageZoom: scale_factor];
+    }
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {
@@ -611,7 +639,9 @@ pub fn platform_webview_version() -> Result<String> {
       msg_send![class!(NSBundle), bundleWithIdentifier: NSString::new("com.apple.WebKit")];
     let dict: id = msg_send![bundle, infoDictionary];
     let webkit_version: id = msg_send![dict, objectForKey: NSString::new("CFBundleVersion")];
-    let nsstring = NSString(Id::from_ptr(webkit_version));
+
+    let nsstring = NSString(webkit_version);
+
     let () = msg_send![bundle, unload];
     Ok(nsstring.to_str().to_string())
   }
@@ -640,31 +670,31 @@ impl Drop for InnerWebView {
         }
       }
 
-      // WKWebview has a single WKProcessPool to manage web contents.
-      // The WKProcessPool is not reset even if WKWebview is deallocated.
-      // So we need to override the process by navigating to `about:blank`.
-      self.navigate("about:blank");
-
-      let _: Id<_> = Id::from_ptr(self.webview);
-      #[cfg(target_os = "macos")]
-      let _: Id<_> = Id::from_ptr(self.ns_window);
-      let _: Id<_> = Id::from_ptr(self.manager);
+      let _: Id<_> = Id::from_retained_ptr(self.webview);
+      let _: Id<_> = Id::from_retained_ptr(self.manager);
     }
   }
 }
 
 const UTF8_ENCODING: usize = 4;
 
-struct NSString(Id<Object>);
+struct NSString(id);
 
 impl NSString {
   fn new(s: &str) -> Self {
     // Safety: objc runtime calls are unsafe
     NSString(unsafe {
-      let nsstring: id = msg_send![class!(NSString), alloc];
-      Id::from_ptr(
-        msg_send![nsstring, initWithBytes:s.as_ptr() length:s.len() encoding:UTF8_ENCODING],
-      )
+      let ns_string: id = msg_send![class!(NSString), alloc];
+      let ns_string: id = msg_send![ns_string,
+                            initWithBytes:s.as_ptr()
+                            length:s.len()
+                            encoding:UTF8_ENCODING];
+
+      // The thing allocs in rust, the thing must be set to autorelease in rust to relinquish control
+      // or it can not be released correctly in OC runtime
+      let _: () = msg_send![ns_string, autorelease];
+
+      ns_string
     })
   }
 

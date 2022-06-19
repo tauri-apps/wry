@@ -54,7 +54,7 @@ fn main() -> wry::Result<()> {
 }
 ```
 
-There are also more samples under `examples`, you can enter commands like following to try them:
+There are also more samples under `examples`, you can enter commands like the following to try them:
 
 ```
 cargo run --example multi_window
@@ -66,17 +66,17 @@ For more information, please read the documentation below.
 
 ## Platform-specific notes
 
-All platforms uses [tao](https://github.com/tauri-apps/tao) to build the window, and wry re-export it as application module. Here are the underlying web engine each platform uses, and some dependencies you might need to install.
+All platforms use [tao](https://github.com/tauri-apps/tao) to build the window, and wry re-exports it as an application module. Here is the underlying web engine each platform uses, and some dependencies you might need to install.
 
 ### Linux
 
-Tao uses [gtk-rs](https://gtk-rs.org/) and its related libraries for window creation and wry also needs [WebKitGTK](https://webkitgtk.org/) for WebView. So please make sure following packages are installed:
+Tao uses [gtk-rs](https://gtk-rs.org/) and its related libraries for window creation and wry also needs [WebKitGTK](https://webkitgtk.org/) for WebView. So please make sure the following packages are installed:
 
 #### Arch Linux / Manjaro:
 
 ```bash
 sudo pacman -S webkit2gtk
-sudo pacman -S libappindicator-gtk3 # not required
+sudo pacman -S libappindicator-gtk3 # For tray feature
 ```
 
 The `libayatana-indicator` package can be installed from the Arch User Repository (AUR).
@@ -84,14 +84,18 @@ The `libayatana-indicator` package can be installed from the Arch User Repositor
 #### Debian / Ubuntu:
 
 ```bash
-sudo apt install libwebkit2gtk-4.0-dev libayatana-appindicator3-dev
-sudo apt install libappindicator3-dev # not required
+sudo apt install libwebkit2gtk-4.0-dev
+# For tray feature, choose one of following package
+sudo apt install libayatana-appindicator3-dev
+sudo apt install libappindicator3-dev
 ```
 
 #### Fedora
 
 ```bash
-sudo dnf install gtk3-devel webkit2gtk3-devel libappindicator-gtk3-devel
+sudo dnf install gtk3-devel webkit2gtk3-devel
+# For tray feature
+sudo dnf install libappindicator-gtk3-devel
 ```
 
 Fedora does not have the Ayatana package yet, so you need to use the GTK one, see the [feature flags documentation](https://docs.rs/wry/latest/wry/#feature-flags).

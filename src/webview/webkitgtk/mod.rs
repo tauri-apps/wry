@@ -392,6 +392,10 @@ impl InnerWebView {
   pub fn is_devtools_open(&self) -> bool {
     self.is_inspector_open.load(Ordering::Relaxed)
   }
+
+  pub fn zoom(&self, scale_factor: f64) {
+    WebViewExt::set_zoom_level(&*self.webview, scale_factor);
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {

@@ -2,7 +2,7 @@ workspace = { }
 
 [package]
 name = "wry"
-version = "0.15.1"
+version = "0.18.3"
 authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -14,7 +14,7 @@ categories = [ "gui" ]
 
 [package.metadata.docs.rs]
 default-features = false
-features = [ "dox", "file-drop", "protocol", "tray", "ayatana-tray" ]
+features = [ "dox", "file-drop", "protocol", "tray" ]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
@@ -22,20 +22,12 @@ targets = [
 ]
 
 [features]
-default = [
-  "file-drop",
-  "objc-exception",
-  "protocol",
-  "tray",
-  "ayatana-tray"
-]
+default = [ "file-drop", "objc-exception", "protocol" ]
 objc-exception = [ "objc/exception" ]
 file-drop = [ ]
 protocol = [ ]
 dox = [ "tao/dox" ]
 tray = [ "tao/tray" ]
-ayatana-tray = [ "tao/ayatana-tray" ]
-gtk-tray = [ "tao/gtk-tray" ]
 devtools = [ ]
 transparent = [ ]
 fullscreen = [ ]
@@ -48,8 +40,8 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.2"
-tao = { version = "0.8.2", default-features = false, features = [ "serde" ] }
-http = "0.2.6"
+tao = { version = "0.11", default-features = false, features = [ "serde" ] }
+http = "0.2.7"
 
 [dev-dependencies]
 anyhow = "1.0.57"
@@ -57,27 +49,29 @@ tempfile = "3.3.0"
 http-range = "0.1.5"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
-webkit2gtk = { version = "0.17", features = [ "v2_22" ] }
-webkit2gtk-sys = "0.17"
+webkit2gtk = { version = "0.18", features = [ "v2_22" ] }
+webkit2gtk-sys = "0.18"
 gio = "0.15"
 glib = "0.15"
 gtk = "0.15"
 gdk = "0.15"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.13.0"
-windows_macros = "0.30.0"
+webview2-com = "0.16.0"
+windows-implement = "0.37.0"
 
   [target."cfg(target_os = \"windows\")".dependencies.windows]
-  version = "0.30.0"
+  version = "0.37.0"
   features = [
   "alloc",
+  "implement",
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
   "Win32_System_Com",
   "Win32_System_Com_StructuredStorage",
-  "Win32_System_SystemInformation",
+  "Win32_System_LibraryLoader",
   "Win32_System_Ole",
+  "Win32_System_SystemInformation",
   "Win32_System_SystemServices",
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging"
