@@ -334,7 +334,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     if let Some(new_window_req_handler) = attributes.new_window_req_handler {
       unsafe {
         webview
-          .NewWindowRequested(
+          .add_NewWindowRequested(
             NewWindowRequestedEventHandler::create(Box::new(move |_, args| {
               if let Some(args) = args {
                 let mut uri = PWSTR::default();
