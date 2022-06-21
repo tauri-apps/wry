@@ -1,14 +1,8 @@
 # Current WG Code Sub Teams:
-# @tauri-apps/admins
-# @tauri-apps/core
-# @tauri-apps/testing
+# @tauri-apps/wg-webview
+# @tauri-apps/wg-devops
 
-# admins default to review
 # Order is important; the last matching pattern takes the most precedence.
-* @tauri-apps/admins 
+* @tauri-apps/wg-webview
 
-.github @tauri-apps/admins @tauri-apps/testing
-
-/examples/ @tauri-apps/testing
-
-/src/ @tauri-apps/core
+.github @tauri-apps/wg-devops
