@@ -8,6 +8,10 @@ mod web_context;
 
 pub use web_context::WebContext;
 
+
+#[cfg(target_os = "macos")]
+use cocoa::base::id;
+
 #[cfg(target_os = "android")]
 pub(crate) mod android;
 #[cfg(target_os = "android")]
@@ -164,6 +168,9 @@ pub struct WebViewAttributes {
   /// - Android: Open `chrome://inspect/#devices` in Chrome to get the devtools window. Wry's `WebView` devtools API isn't supported on Android.
   /// - iOS: Open Safari > Develop > [Your Device Name] > [Your WebView] to get the devtools window.
   pub devtools: bool,
+
+  #[cfg(target_os = "macos")]
+  pub process_pool: Option<id>,
 }
 
 impl Default for WebViewAttributes {
@@ -183,6 +190,8 @@ impl Default for WebViewAttributes {
       clipboard: false,
       devtools: false,
       zoom_hotkeys_enabled: false,
+      #[cfg(target_os = "macos")]
+      process_pool: None,
     }
   }
 }
@@ -376,6 +385,12 @@ impl<'a> WebViewBuilder<'a> {
     callback: impl Fn(String) -> bool + 'static,
   ) -> Self {
     self.webview.new_window_req_handler = Some(Box::new(callback));
+    self
+  }
+
+  #[cfg(target_os = "macos")]
+  pub fn with_process_pool(mut self, process_pool: id) -> Self {
+    self.webview.process_pool = Some(process_pool);
     self
   }
 

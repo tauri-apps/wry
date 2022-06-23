@@ -207,6 +207,10 @@ impl InnerWebView {
     unsafe {
       // Config and custom protocol
       let config: id = msg_send![class!(WKWebViewConfiguration), new];
+      if let Some(pp) = attributes.process_pool {
+        let _: () = msg_send![config, setProcessPool: pp];
+      }
+
       let mut protocol_ptrs = Vec::new();
       for (name, function) in attributes.custom_protocols {
         let scheme_name = format!("{}URLSchemeHandler", name);

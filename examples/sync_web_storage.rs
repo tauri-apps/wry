@@ -58,15 +58,42 @@ fn main() -> wry::Result<()> {
 
     let webview = WebViewBuilder::new(window)
       .unwrap()
+      .with_devtools(true)
       .with_html(
         r#"
           <button onclick="window.ipc.postMessage('new-window')">Open a new window</button>
           <button onclick="window.ipc.postMessage('close')">Close current window</button>
           <input oninput="window.ipc.postMessage(`change-title:${this.value}`)" />
-          <iframe class="background" id="background" 
-src="https://www.youtube.com/embed/JUGHD_YWOe4?iv_load_policy=3&amp;loop=1&amp;playlist=JUGHD_YWOe4&amp;control=0&amp;fs=0&amp;mute=On&amp;end=111&amp;modestbranding=1&amp;start=11&amp;autoplay=1" 
-frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; 
-picture-in-picture" allowfullscreen="" style="width: 1191px; height: 678px;"></iframe>
+          <br/>
+          <button id="write-cookie-button">write cookie</button>
+          <input placeholder="key=value" id="write-cookie-value" />
+          <span id="write-cookie-result"></span>
+          <br/>
+          <button id="read-cookie-button">read cookie</button>
+          <input placeholder="key" id="read-cookie-value" />
+          <span id="read-cookie-result"></span>
+
+          <script>
+            const writeCookieButton = document.getElementById("write-cookie-button");
+            writeCookieButton.addEventListener("click", () => {
+              const cookie = document.getElementById("write-cookie-value").value;
+              // If you use this code in production, you need to check cookie value for preventing XSS.
+              // document.cookie = cookie;
+              localStorage.setItem(...cookie.split("="));
+              const result = document.getElementById("write-cookie-result");
+              result.textContent = `Writing ${cookie} was successful!`
+            });
+
+            const readCookieButton = document.getElementById("read-cookie-button");
+            readCookieButton.addEventListener("click", () => {
+              const cookieKey = document.getElementById("read-cookie-value").value;
+              // If you use this code in production, you need to check cookie value for preventing XSS.
+              // const cookieValue = document.cookie.split(";").find((row) => row.startsWith(`${cookieKey}=`))?.split('=')[1];
+              const cookieValue = localStorage.getItem(cookieKey);
+              const result = document.getElementById("read-cookie-result");
+              result.textContent = `result: ${cookieKey}=${cookieValue}`
+            });
+          </script>
       "#,
       )
       .unwrap()
