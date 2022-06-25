@@ -18,7 +18,7 @@ fn main() -> wry::Result<()> {
     .with_fullscreen(Some(Fullscreen::Borderless(None)))
     .build(&event_loop)
     .unwrap();
-  let webview = WebViewBuilder::new(window)
+  let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_url("https://browserbench.org/MotionMark1.2/")?
     .build()?;
@@ -31,9 +31,7 @@ fn main() -> wry::Result<()> {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      _ => {
-        let _ = webview.resize();
-      }
+      _ => {}
     }
   });
 }

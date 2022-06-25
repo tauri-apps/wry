@@ -18,15 +18,16 @@ use once_cell::unsync::OnceCell;
 use windows::{
   core::{Interface, PCWSTR, PWSTR},
   Win32::{
-    Foundation::{BOOL, E_FAIL, E_POINTER, FARPROC, HWND, POINT, RECT},
+    Foundation::{BOOL, E_FAIL, E_POINTER, FARPROC, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM},
     System::{
       Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
       LibraryLoader::{GetProcAddress, LoadLibraryA},
       SystemInformation::OSVERSIONINFOW,
       WinRT::EventRegistrationToken,
     },
-    UI::WindowsAndMessaging::{
-      self as win32wm, DestroyWindow, GetClientRect, GetCursorPos, WM_NCLBUTTONDOWN,
+    UI::{
+      Shell::{DefSubclassProc, SetWindowSubclass},
+      WindowsAndMessaging as win32wm,
     },
   },
 };
@@ -193,7 +194,7 @@ impl InnerWebView {
     unsafe {
       let handler: ICoreWebView2WindowCloseRequestedEventHandler =
         WindowCloseRequestedEventHandler::create(Box::new(move |_, _| {
-          if DestroyWindow(hwnd).as_bool() {
+          if win32wm::DestroyWindow(hwnd).as_bool() {
             Ok(())
           } else {
             Err(E_FAIL.into())
@@ -228,7 +229,7 @@ impl InnerWebView {
       let _ = settings5.SetIsPinchZoomEnabled(attributes.zoom_hotkeys_enabled);
 
       let mut rect = RECT::default();
-      GetClientRect(hwnd, &mut rect);
+      win32wm::GetClientRect(hwnd, &mut rect);
       controller
         .SetBounds(rect)
         .map_err(webview2_com::Error::WindowsError)?;
@@ -266,7 +267,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 use crate::application::{platform::windows::hit_test, window::CursorIcon};
 
                 let mut point = POINT::default();
-                GetCursorPos(&mut point);
+                win32wm::GetCursorPos(&mut point);
                 let result = hit_test(window.hwnd(), point.x, point.y);
                 let cursor = match result.0 as u32 {
                   win32wm::HTLEFT => CursorIcon::WResize,
@@ -288,7 +289,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                   // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
                   // and prevent conflict with `tao::window::drag_window`.
                   if result.0 as u32 != win32wm::HTCLIENT {
-                    window.begin_resize_drag(result.0, WM_NCLBUTTONDOWN, point.x, point.y);
+                    window.begin_resize_drag(result.0, win32wm::WM_NCLBUTTONDOWN, point.x, point.y);
                   }
                 }
               }
@@ -575,6 +576,37 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     }
 
     unsafe {
+      unsafe extern "system" fn subclass_proc(
+        hwnd: HWND,
+        msg: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+        _uidsubclass: usize,
+        dwrefdata: usize,
+      ) -> LRESULT {
+        if msg == win32wm::WM_SIZE {
+          let controller = dwrefdata as *mut ICoreWebView2Controller;
+          let mut client_rect = RECT::default();
+          win32wm::GetClientRect(hwnd, std::mem::transmute(&mut client_rect));
+          let _ = (*controller).SetBounds(RECT {
+            left: 0,
+            top: 0,
+            right: client_rect.right - client_rect.left,
+            bottom: client_rect.bottom - client_rect.top,
+          });
+        }
+
+        DefSubclassProc(hwnd, msg, wparam, lparam)
+      }
+      SetWindowSubclass(
+        hwnd,
+        Some(subclass_proc),
+        8080,
+        Box::into_raw(Box::new(controller.clone())) as _,
+      );
+    }
+
+    unsafe {
       controller
         .SetIsVisible(true)
         .map_err(webview2_com::Error::WindowsError)?;
@@ -617,17 +649,6 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   pub fn eval(&self, js: &str) -> Result<()> {
     Self::execute_script(&self.webview, js.to_string())
       .map_err(|err| Error::WebView2Error(webview2_com::Error::WindowsError(err)))
-  }
-
-  pub fn resize(&self, hwnd: HWND) -> Result<()> {
-    // Safety: System calls are unsafe
-    // XXX: Resizing on Windows is usually sluggish. Many other applications share same behavior.
-    unsafe {
-      let mut rect = RECT::default();
-      GetClientRect(hwnd, &mut rect);
-      self.controller.SetBounds(rect)
-    }
-    .map_err(|error| Error::WebView2Error(webview2_com::Error::WindowsError(error)))
   }
 
   pub fn focus(&self) {

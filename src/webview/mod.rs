@@ -468,14 +468,6 @@ impl WebView {
     Ok(())
   }
 
-  /// Resize the WebView manually. This is only required on Windows because its WebView API doesn't
-  /// provide a way to resize automatically.
-  pub fn resize(&self) -> Result<()> {
-    #[cfg(target_os = "windows")]
-    self.webview.resize(HWND(self.window.hwnd() as _))?;
-    Ok(())
-  }
-
   /// Moves Focus to the Webview control.
   ///
   /// It's usually safe to call `focus` method on `Window` which would also focus to `WebView` except Windows.
