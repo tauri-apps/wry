@@ -3,4 +3,4 @@
 ---
 
 * Automatically resize the webview on Windows to align with other platforms.
-* Removed `WebView::resize`
+* **Breakin change**: Removed `WebView::resize`
