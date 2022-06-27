@@ -21,7 +21,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  let webview = WebViewBuilder::new(window)?
+  let _webview = WebViewBuilder::new(window)?
     // The second is on webview...
     .with_transparent(true)
     // And the last is in html.
@@ -47,9 +47,7 @@ fn main() -> wry::Result<()> {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      _ => {
-        let _ = webview.resize();
-      }
+      _ => {}
     }
   });
 }
