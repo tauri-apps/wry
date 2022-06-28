@@ -1,5 +1,17 @@
 # Changelog
 
+## \[0.19.0]
+
+- - Automatically resize the webview on Windows to align with other platforms.
+- **Breakin change**: Removed `WebView::resize`
+- [d7c9097](https://github.com/tauri-apps/wry/commit/d7c9097256d76de7400032cf27acd7a1874da5cd) feat: auto resize webview on Windows ([#628](https://github.com/tauri-apps/wry/pull/628)) on 2022-06-27
+- Implement new window requested handler
+  - [fa5456c](https://github.com/tauri-apps/wry/commit/fa5456c6abe16be17073e75f4a0205966be266b2) feat: Implement new window requested event, closes [#527](https://github.com/tauri-apps/wry/pull/527) ([#526](https://github.com/tauri-apps/wry/pull/526)) on 2022-06-19
+- Re-export `url::Url`.
+  - [0cb6961](https://github.com/tauri-apps/wry/commit/0cb696119b5e25292af9595fd89856116520c049) fix: re-export `url::Url` ([#612](https://github.com/tauri-apps/wry/pull/612)) on 2022-06-17
+- Update tao to 0.12
+  - [448837e](https://github.com/tauri-apps/wry/commit/448837e795a8f7f8dc4ac5f34b27063b108fc1f2) Update tao to 0.12 ([#629](https://github.com/tauri-apps/wry/pull/629)) on 2022-06-28
+
 ## \[0.18.3]
 
 - Update tao to 0.11
