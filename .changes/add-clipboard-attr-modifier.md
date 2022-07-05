@@ -2,4 +2,4 @@
 "wry": patch
 ---
 
-* add a WebViewBuilder modifier for `clipboard` attribute.
+Add `WebViewBuilder::with_clipboard`.
