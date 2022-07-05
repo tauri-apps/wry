@@ -366,6 +366,15 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
+  ///
+  /// macOS doesn't provide such method and is always enabled by default. But you still need to add menu
+  /// item accelerators to use shortcuts.
+  pub fn with_clipboard(mut self, clipboard: bool) -> Self {
+    self.webview.clipboard = clipboard;
+    self
+  }
+
   /// Set a new window request handler to decide if incoming url is allowed to be opened.
   ///
   /// The closure takes a `String` parameter as url and return `bool` to determine if the url can be
