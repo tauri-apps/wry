@@ -44,7 +44,7 @@ tao = { version = "0.12", default-features = false, features = [ "serde" ] }
 http = "0.2.7"
 
 [dev-dependencies]
-anyhow = "1.0.57"
+anyhow = "1.0.58"
 tempfile = "3.3.0"
 http-range = "0.1.5"
 
