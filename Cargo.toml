@@ -26,8 +26,8 @@ default = [ "file-drop", "objc-exception", "protocol" ]
 objc-exception = [ "objc/exception" ]
 file-drop = [ ]
 protocol = [ ]
-dox = [ "tao/dox" ]
-tray = [ "tao/tray" ]
+dox = [  ]
+tray = [  ]
 devtools = [ ]
 transparent = [ ]
 fullscreen = [ ]
@@ -40,7 +40,8 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.2"
-tao = { version = "0.11", default-features = false, features = [ "serde" ] }
+#tao = { version = "0.11", default-features = false, features = [ "serde" ] }
+tao = { package = "winit", version = "0.26" }
 http = "0.2.7"
 
 [dev-dependencies]

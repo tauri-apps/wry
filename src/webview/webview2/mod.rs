@@ -261,40 +261,40 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             let mut js = PWSTR::default();
             args.TryGetWebMessageAsString(&mut js)?;
             let js = take_pwstr(js);
-            if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_MOUSE_MOVE__" {
-              if !window.is_decorated() && window.is_resizable() && !window.is_maximized() {
-                use crate::application::{platform::windows::hit_test, window::CursorIcon};
+            // if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_MOUSE_MOVE__" {
+            //   if !window.is_decorated() && window.is_resizable() && !window.is_maximized() {
+            //     use crate::application::{platform::windows::hit_test, window::CursorIcon};
 
-                let mut point = POINT::default();
-                GetCursorPos(&mut point);
-                let result = hit_test(window.hwnd(), point.x, point.y);
-                let cursor = match result.0 as u32 {
-                  win32wm::HTLEFT => CursorIcon::WResize,
-                  win32wm::HTTOP => CursorIcon::NResize,
-                  win32wm::HTRIGHT => CursorIcon::EResize,
-                  win32wm::HTBOTTOM => CursorIcon::SResize,
-                  win32wm::HTTOPLEFT => CursorIcon::NwResize,
-                  win32wm::HTTOPRIGHT => CursorIcon::NeResize,
-                  win32wm::HTBOTTOMLEFT => CursorIcon::SwResize,
-                  win32wm::HTBOTTOMRIGHT => CursorIcon::SeResize,
-                  _ => CursorIcon::Arrow,
-                };
-                // don't use `CursorIcon::Arrow` variant or cursor manipulation using css will cause cursor flickering
-                if cursor != CursorIcon::Arrow {
-                  window.set_cursor_icon(cursor);
-                }
+            //     let mut point = POINT::default();
+            //     GetCursorPos(&mut point);
+            //     let result = hit_test(window.hwnd(), point.x, point.y);
+            //     let cursor = match result.0 as u32 {
+            //       win32wm::HTLEFT => CursorIcon::WResize,
+            //       win32wm::HTTOP => CursorIcon::NResize,
+            //       win32wm::HTRIGHT => CursorIcon::EResize,
+            //       win32wm::HTBOTTOM => CursorIcon::SResize,
+            //       win32wm::HTTOPLEFT => CursorIcon::NwResize,
+            //       win32wm::HTTOPRIGHT => CursorIcon::NeResize,
+            //       win32wm::HTBOTTOMLEFT => CursorIcon::SwResize,
+            //       win32wm::HTBOTTOMRIGHT => CursorIcon::SeResize,
+            //       _ => CursorIcon::Arrow,
+            //     };
+            //     // don't use `CursorIcon::Arrow` variant or cursor manipulation using css will cause cursor flickering
+            //     if cursor != CursorIcon::Arrow {
+            //       window.set_cursor_icon(cursor);
+            //     }
 
-                if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" {
-                  // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
-                  // and prevent conflict with `tao::window::drag_window`.
-                  if result.0 as u32 != win32wm::HTCLIENT {
-                    window.begin_resize_drag(result.0, WM_NCLBUTTONDOWN, point.x, point.y);
-                  }
-                }
-              }
-              // these are internal messages, ipc_handlers don't need it so exit early
-              return Ok(());
-            }
+            //     if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" {
+            //       // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
+            //       // and prevent conflict with `tao::window::drag_window`.
+            //       if result.0 as u32 != win32wm::HTCLIENT {
+            //         window.begin_resize_drag(result.0, WM_NCLBUTTONDOWN, point.x, point.y);
+            //       }
+            //     }
+            //   }
+            //   // these are internal messages, ipc_handlers don't need it so exit early
+            //   return Ok(());
+            // }
 
             if let Some(ipc_handler) = &ipc_handler {
               ipc_handler(&window, js);
