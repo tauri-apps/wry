@@ -3,7 +3,7 @@
 ## \[0.19.0]
 
 - - Automatically resize the webview on Windows to align with other platforms.
-- **Breakin change**: Removed `WebView::resize`
+- **Breaking change**: Removed `WebView::resize`
 - [d7c9097](https://github.com/tauri-apps/wry/commit/d7c9097256d76de7400032cf27acd7a1874da5cd) feat: auto resize webview on Windows ([#628](https://github.com/tauri-apps/wry/pull/628)) on 2022-06-27
 - Implement new window requested handler
   - [fa5456c](https://github.com/tauri-apps/wry/commit/fa5456c6abe16be17073e75f4a0205966be266b2) feat: Implement new window requested event, closes [#527](https://github.com/tauri-apps/wry/pull/527) ([#526](https://github.com/tauri-apps/wry/pull/526)) on 2022-06-19
@@ -74,7 +74,7 @@ The `webview2-com` crate specifies `rust-version = "1.61"`, so `wry` will inheri
 ## \[0.15.1]
 
 - Update how android handles url
-  - [427cf92](https://github.com/tauri-apps/wry/commit/427cf9222d7152f911aa70eb778eb7aa90c83fac) Unify custom porotocol across Android/iOS ([#546](https://github.com/tauri-apps/wry/pull/546)) on 2022-04-11
+  - [427cf92](https://github.com/tauri-apps/wry/commit/427cf9222d7152f911aa70eb778eb7aa90c83fac) Unify custom protocol across Android/iOS ([#546](https://github.com/tauri-apps/wry/pull/546)) on 2022-04-11
 - Add devtools support on Android/iOS.
   - [1c5d77a](https://github.com/tauri-apps/wry/commit/1c5d77a8ce79e75705a71c659af86541d50c5007) Add devtools support on Android/iOS ([#548](https://github.com/tauri-apps/wry/pull/548)) on 2022-04-11
 - Fix to reset process on MacOS when webview is closed, closes #536.
@@ -106,7 +106,7 @@ The `webview2-com` crate specifies `rust-version = "1.61"`, so `wry` will inheri
 - Added `is_devtools_open` function to `Webview`.
   - [bf3b710](https://github.com/tauri-apps/wry/commit/bf3b7107631f14567b0b5ff1947c2bff1ffa2603) feat: add function to close the devtool and check if it is opened ([#529](https://github.com/tauri-apps/wry/pull/529)) on 2022-03-28
 - - Expose methods to access the underlying native handles of the webview.
-- **Breaking change**: `WebviewExtWindows::controller` now returns the controller directley and not wrapped in an `Option`
+- **Breaking change**: `WebviewExtWindows::controller` now returns the controller directly and not wrapped in an `Option`
 - [e54afec](https://github.com/tauri-apps/wry/commit/e54afec43b767ffdb43debbd526d249c3c5b5490) feat: expose webview native handles, closes [#495](https://github.com/tauri-apps/wry/pull/495) ([#513](https://github.com/tauri-apps/wry/pull/513)) on 2022-03-03
 - Add navigation handler to decide if a url is allowed to navigate.
   - [aa8af02](https://github.com/tauri-apps/wry/commit/aa8af020ab9d88ad762f2facbfa368effb04f570) feat: Implement navigation event and cancellation, closes [#456](https://github.com/tauri-apps/wry/pull/456) ([#519](https://github.com/tauri-apps/wry/pull/519)) on 2022-03-18
@@ -159,7 +159,7 @@ Targeting \*-pc-windows-gnu works now, but it has some [limitations](https://git
   - [219d20c](https://github.com/tauri-apps/wry/commit/219d20ce66a6bdf6c3e1af6156c9f2a74f2eed29) Merge next back to dev branch ([#477](https://github.com/tauri-apps/wry/pull/477)) on 2022-02-05
 - Add inner size method for webview. This can reflect correct size of webview on macOS.
   - [219d20c](https://github.com/tauri-apps/wry/commit/219d20ce66a6bdf6c3e1af6156c9f2a74f2eed29) Merge next back to dev branch ([#477](https://github.com/tauri-apps/wry/pull/477)) on 2022-02-05
-- Add "transparent" and "fullscreen" featrue flags on macOS to toggle private API.
+- Add "transparent" and "fullscreen" feature flags on macOS to toggle private API.
   - [219d20c](https://github.com/tauri-apps/wry/commit/219d20ce66a6bdf6c3e1af6156c9f2a74f2eed29) Merge next back to dev branch ([#477](https://github.com/tauri-apps/wry/pull/477)) on 2022-02-05
 - Implement WebContextImpl on mac to extend several callback lifetimes.
   - [219d20c](https://github.com/tauri-apps/wry/commit/219d20ce66a6bdf6c3e1af6156c9f2a74f2eed29) Merge next back to dev branch ([#477](https://github.com/tauri-apps/wry/pull/477)) on 2022-02-05
@@ -190,14 +190,14 @@ Targeting \*-pc-windows-gnu works now, but it has some [limitations](https://git
 - Fixed a Linux multi-window issue where the internal url loader didn't unlock when flushed while empty
   - [5377821](https://github.com/tauri-apps/wry/commit/5377821f43c0e7556ec46f0aaf4d6b0637512493) Fix async multiwindow deadlock ([#382](https://github.com/tauri-apps/wry/pull/382)) on 2021-08-16
 
-- The custom protocol now return a `Request` and expect a `Response`.
+- The custom protocol now returns a `Request` and expects a `Response`.
 
-- This allow us to get the complete request from the Webview. (Method, GET, POST, PUT etc..)
+- This allows us to get the complete request from the Webview. (Method, GET, POST, PUT etc..)
   Read the complete header.
 
 - And allow us to be more flexible in the future without bringing breaking changes.
 
-- [d202573](https://github.com/tauri-apps/wry/commit/d202573c2c68a2ff0411c1aa797ecc10f727e93b) refactor: Custom protcol request/response ([#387](https://github.com/tauri-apps/wry/pull/387)) on 2021-08-22
+- [d202573](https://github.com/tauri-apps/wry/commit/d202573c2c68a2ff0411c1aa797ecc10f727e93b) refactor: Custom protocol request/response ([#387](https://github.com/tauri-apps/wry/pull/387)) on 2021-08-22
 
 - On Linux, automation callbacks now use the first created webview as the return value
   - [f9d7049](https://github.com/tauri-apps/wry/commit/f9d7049978bbad389c99d7a7cce9903a528d871d) Use the first created webview for webkit2gtk automation callbacks ([#383](https://github.com/tauri-apps/wry/pull/383)) on 2021-08-16
@@ -215,7 +215,7 @@ Targeting \*-pc-windows-gnu works now, but it has some [limitations](https://git
 - Custom Protocol handlers no longer take a `&Window` parameter.
   - [0e2574c](https://github.com/tauri-apps/wry/commit/0e2574c420f778c59bafc164ddee2bc0b7705ee9) Remove `&Window` parameter from Custom Protocol handlers ([#361](https://github.com/tauri-apps/wry/pull/361)) on 2021-07-28
 - Update gtk to version 0.14. This also remove requirement of `clang`.
-  - [251a80b](https://github.com/tauri-apps/wry/commit/251a80bab49d42f742a3ae6b3ca2cbfc97de98bb) Update gtk to versoin 0.14 ([#364](https://github.com/tauri-apps/wry/pull/364)) on 2021-08-06
+  - [251a80b](https://github.com/tauri-apps/wry/commit/251a80bab49d42f742a3ae6b3ca2cbfc97de98bb) Update gtk to version 0.14 ([#364](https://github.com/tauri-apps/wry/pull/364)) on 2021-08-06
 - Update tao to v0.5. Please see release notes on tao for more information.
   - [483bad0](https://github.com/tauri-apps/wry/commit/483bad0fc7e7564500f7183547c15604fa387258) feat: tao as window dependency ([#230](https://github.com/tauri-apps/wry/pull/230)) on 2021-05-03
   - [51430e9](https://github.com/tauri-apps/wry/commit/51430e97dfb6589c5ff71e5078438be67293d044) publish new versions ([#221](https://github.com/tauri-apps/wry/pull/221)) on 2021-05-09
@@ -226,7 +226,7 @@ Targeting \*-pc-windows-gnu works now, but it has some [limitations](https://git
   - [c0d0a78](https://github.com/tauri-apps/wry/commit/c0d0a78b893eecdc45c6cda71264020d6ae17bda) Add flags to support all other unix systems. ([#352](https://github.com/tauri-apps/wry/pull/352)) on 2021-07-21
 - Support having multiple webkit2gtk `WebView`s on a single `WebContext`.
   - [3f03d6b](https://github.com/tauri-apps/wry/commit/3f03d6b5ea4e9ba81950245de156f09e72ab40a1) Support multiple webviews on a single WebContext (webkit2gtk) ([#359](https://github.com/tauri-apps/wry/pull/359)) on 2021-07-28
-- On Windows, Fix cusror flickering when Tao widnow is without decorations
+- On Windows, Fix cursor flickering when Tao window is without decorations
   - [e28bcce](https://github.com/tauri-apps/wry/commit/e28bcce0884937365013fda3098f64f9956d569f) fix(windows): fix mouse style flicker when `decorations: false` ([#350](https://github.com/tauri-apps/wry/pull/350)) on 2021-07-20
 - Remove winrt support since it's outdated for a long time. We will reimplement it again once `windws-rs` is stable!
   - [c37973e](https://github.com/tauri-apps/wry/commit/c37973e47318e9cff2712eb4a394c07734f58d54) chore(windows): remove winrt support ([#356](https://github.com/tauri-apps/wry/pull/356)) on 2021-07-24
@@ -301,7 +301,7 @@ Targeting \*-pc-windows-gnu works now, but it has some [limitations](https://git
   - [4df310e](https://github.com/tauri-apps/wry/commit/4df310e6bb508854ffc17ec915b3d0ab7c11f03d) feat: get webview version ([#259](https://github.com/tauri-apps/wry/pull/259)) on 2021-05-12
 - Add print method on Linux and Windows.
   - [54c5ec7](https://github.com/tauri-apps/wry/commit/54c5ec7ae6166da5ce670ccd2ceaa108233bb845) Implement print method on Linux and Windows ([#264](https://github.com/tauri-apps/wry/pull/264)) on 2021-05-17
-- Disable smooth scrolling on Linux to match bahaviour on browsers.
+- Disable smooth scrolling on Linux to match behaviour on browsers.
   - [3e786bb](https://github.com/tauri-apps/wry/commit/3e786bb28793e939c00ebf0c6758d4f6cf4d3b28) Disable smooth scrolling on Linux ([#268](https://github.com/tauri-apps/wry/pull/268)) on 2021-05-17
 
 ## \[0.9.2]
