@@ -16,7 +16,7 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)?;
-  let webview = WebViewBuilder::new(window)?.with_url("https://html5test.com")?;
+  let webview = WebViewBuilder::new(window)?.with_url("https://greensock.com/js/speed.html")?;
 
   #[cfg(debug_assertions)]
   let webview = webview.with_devtools(true);
@@ -29,6 +29,7 @@ fn main() -> wry::Result<()> {
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
+    dbg!(&event);
     match event {
       Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
       Event::WindowEvent {
