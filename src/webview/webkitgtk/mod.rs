@@ -157,7 +157,7 @@ impl InnerWebView {
             let window: gtk::Window = window.downcast().unwrap();
             if !window.is_decorated() && window.is_resizable() {
               if let Some(window) = window.window() {
-                // Safe to unwrap since it's a valide GtkWindow
+                // Safe to unwrap since it's a valid GtkWindow
                 let result = hit_test(&window, cx, cy);
 
                 // we ignore the `__Unknown` variant so the webview receives the click correctly if it is not on the edges.

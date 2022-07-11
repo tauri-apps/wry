@@ -26,10 +26,10 @@ fn main() {
   let mut all_data: Vec<utils::BenchResult> =
     serde_json::from_reader(all_data_buffer).expect("Unable to read all data buffer");
 
-  // add current data to alls data
+  // add current data to all data
   all_data.push(current_data);
 
-  // use only latest 20 elements from alls data
+  // use only latest 20 elements from all data
   let recent: Vec<utils::BenchResult>;
   if all_data.len() > 20 {
     recent = all_data[all_data.len() - 20..].to_vec();
@@ -37,10 +37,10 @@ fn main() {
     recent = all_data.clone();
   }
 
-  // write json's
+  // write jsons
   utils::write_json(
     wry_data.to_str().expect("Something wrong with wry_data"),
-    &serde_json::to_value(&all_data).expect("Unable to build final json (alls)"),
+    &serde_json::to_value(&all_data).expect("Unable to build final json (all)"),
   )
   .expect(format!("Unable to write {:?}", wry_data).as_str());
 
