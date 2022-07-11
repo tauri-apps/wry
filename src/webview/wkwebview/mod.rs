@@ -57,7 +57,7 @@ pub struct InnerWebView {
   pub(crate) ns_window: id,
   pub(crate) manager: id,
   // Note that if following functions signatures are changed in the future,
-  // all fucntions pointer declarations in objc callbacks below all need to get updated.
+  // all functions pointer declarations in objc callbacks below all need to get updated.
   ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
   #[cfg(target_os = "macos")]
@@ -690,7 +690,7 @@ impl NSString {
                             length:s.len()
                             encoding:UTF8_ENCODING];
 
-      // The thing allocs in rust, the thing must be set to autorelease in rust to relinquish control
+      // The thing is allocated in rust, the thing must be set to autorelease in rust to relinquish control
       // or it can not be released correctly in OC runtime
       let _: () = msg_send![ns_string, autorelease];
 

@@ -171,9 +171,9 @@ impl FileDropHandler {
             win32f::DV_E_FORMATETC => {
               // If the dropped item is not a file this error will occur.
               // In this case it is OK to return without taking further action.
-              "Error occured while processing dropped/hovered item: item is not a file."
+              "Error occurred while processing dropped/hovered item: item is not a file."
             }
-            _ => "Unexpected error occured while processing dropped/hovered item.",
+            _ => "Unexpected error occurred while processing dropped/hovered item.",
           }
         );
         None

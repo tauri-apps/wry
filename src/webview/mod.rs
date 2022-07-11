@@ -137,13 +137,13 @@ pub struct WebViewAttributes {
   /// Set a navigation handler to decide if incoming url is allowed to navigate.
   ///
   /// The closure take a `String` parameter as url and return `bool` to determine the url. True is
-  /// allow to nivagate and false is not.
+  /// allow to navigate and false is not.
   pub navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
 
   /// Set a new window handler to decide if incoming url is allowed to open in a new window.
   ///
   /// The closure take a `String` parameter as url and return `bool` to determine the url. True is
-  /// allow to nivagate and false is not.
+  /// allow to navigate and false is not.
   pub new_window_req_handler: Option<Box<dyn Fn(String) -> bool>>,
 
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
@@ -189,9 +189,9 @@ impl Default for WebViewAttributes {
 
 /// Builder type of [`WebView`].
 ///
-/// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
+/// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
-/// [`WebViewBuilder`] privides ability to setup initialization before web engine starts.
+/// [`WebViewBuilder`] provides ability to setup initialization before web engine starts.
 pub struct WebViewBuilder<'a> {
   pub webview: WebViewAttributes,
   web_context: Option<&'a mut WebContext>,
@@ -360,7 +360,7 @@ impl<'a> WebViewBuilder<'a> {
   /// Set a navigation handler to decide if incoming url is allowed to navigate.
   ///
   /// The closure takes a `String` parameter as url and return `bool` to determine the url. True is
-  /// allowed to nivagate and false is not.
+  /// allowed to navigate and false is not.
   pub fn with_navigation_handler(mut self, callback: impl Fn(String) -> bool + 'static) -> Self {
     self.webview.navigation_handler = Some(Box::new(callback));
     self
@@ -405,9 +405,9 @@ impl<'a> WebViewBuilder<'a> {
 
 /// The fundamental type to present a [`WebView`].
 ///
-/// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
+/// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
-/// [`WebView`] presents the actuall WebView window and let you still able to perform actions
+/// [`WebView`] presents the actual WebView window and let you still able to perform actions
 /// during event handling to it. [`WebView`] also contains the associate [`Window`] with it.
 pub struct WebView {
   window: Rc<Window>,
@@ -507,7 +507,7 @@ impl WebView {
     self.webview.close_devtools();
   }
 
-  /// Gets the devtool window's current vibility state.
+  /// Gets the devtool window's current visibility state.
   ///
   /// ## Platform-specific
   ///

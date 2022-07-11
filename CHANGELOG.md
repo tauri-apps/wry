@@ -108,7 +108,7 @@ The `webview2-com` crate specifies `rust-version = "1.61"`, so `wry` will inheri
 - - Expose methods to access the underlying native handles of the webview.
 - **Breaking change**: `WebviewExtWindows::controller` now returns the controller directly and not wrapped in an `Option`
 - [e54afec](https://github.com/tauri-apps/wry/commit/e54afec43b767ffdb43debbd526d249c3c5b5490) feat: expose webview native handles, closes [#495](https://github.com/tauri-apps/wry/pull/495) ([#513](https://github.com/tauri-apps/wry/pull/513)) on 2022-03-03
-- Add navigation handler to decide if a url is allowed to navigate.
+- Add navigation handler to decide if an url is allowed to navigate.
   - [aa8af02](https://github.com/tauri-apps/wry/commit/aa8af020ab9d88ad762f2facbfa368effb04f570) feat: Implement navigation event and cancellation, closes [#456](https://github.com/tauri-apps/wry/pull/456) ([#519](https://github.com/tauri-apps/wry/pull/519)) on 2022-03-18
 - **Breaking change**: Renamed the `devtool` feature to `devtools`.
   - [bf3b710](https://github.com/tauri-apps/wry/commit/bf3b7107631f14567b0b5ff1947c2bff1ffa2603) feat: add function to close the devtool and check if it is opened ([#529](https://github.com/tauri-apps/wry/pull/529)) on 2022-03-28
@@ -311,7 +311,7 @@ Targeting \*-pc-windows-gnu works now, but it has some [limitations](https://git
 
 ## \[0.9.1]
 
-- Correctly set visibilty when building `Window` on gtk-backend
+- Correctly set visibility when building `Window` on gtk-backend
   - [4395ad1](https://github.com/tauri-apps/wry/commit/4395ad147b799e67f9802c499346d0ad53554317) fix: only call `show_all` when needed ([#227](https://github.com/tauri-apps/wry/pull/227)) on 2021-05-02
 - Fix `macOS` cursors and other minors UI glitch.
   - [d550b2f](https://github.com/tauri-apps/wry/commit/d550b2f0a1c708747537e3a5e6d880fea00e651d) fix(macOS): Window layers ([#220](https://github.com/tauri-apps/wry/pull/220)) on 2021-04-28
@@ -344,7 +344,7 @@ Targeting \*-pc-windows-gnu works now, but it has some [limitations](https://git
   - [22a4991](https://github.com/tauri-apps/wry/commit/22a4991aa8ca7c75aa52150a90379c40bcc34d07) bug(macOS): Runtime panic when no file_drop_handler ([#177](https://github.com/tauri-apps/wry/pull/177)) on 2021-04-20
 - Add position field on WindowAttribute
   - [2b3be7a](https://github.com/tauri-apps/wry/commit/2b3be7a4db2cbc1612c7105cb698c1f21a05da77) Add position field on WindowAttribute ([#219](https://github.com/tauri-apps/wry/pull/219)) on 2021-04-28
-- Fix panic on mutiple custom protocol registration.
+- Fix panic on multiple custom protocols registration.
   - [01647a2](https://github.com/tauri-apps/wry/commit/01647a2a5b769bc192754c2d3806a55112d58d33) Fix custom protocol registry on mac ([#205](https://github.com/tauri-apps/wry/pull/205)) on 2021-04-26
 - Fix SVG render with the custom protocol.
   - [890cfe5](https://github.com/tauri-apps/wry/commit/890cfe527996c181d643c9f8e5fc3e79ff0841a0) fix(custom-protocol): SVG mime type - close [#168](https://github.com/tauri-apps/wry/pull/168) ([#169](https://github.com/tauri-apps/wry/pull/169)) on 2021-04-19
@@ -361,7 +361,7 @@ Targeting \*-pc-windows-gnu works now, but it has some [limitations](https://git
 
 ## \[0.8.0]
 
-- Wry now accepts multiple custom protocol registerations.
+- Wry now accepts multiple custom protocol registrations.
   - [db64fc6](https://github.com/tauri-apps/wry/commit/db64fc69c48a728184fcef001688b94f0294edab) feat/licenses ([#155](https://github.com/tauri-apps/wry/pull/155)) on 2021-04-14
 - Apply license header for SPDX compliance.
   - [05e0218](https://github.com/tauri-apps/wry/commit/05e02180c9fe929d3e691185df44257654546935) feat: multiple custom protocols ([#151](https://github.com/tauri-apps/wry/pull/151)) on 2021-04-11
@@ -386,7 +386,7 @@ Targeting \*-pc-windows-gnu works now, but it has some [limitations](https://git
   - [b2a0bfc](https://github.com/tauri-apps/wry/commit/b2a0bfc289786d0a23dac0c8d9543771e70e3427) feat/ draggable-region ([#92](https://github.com/tauri-apps/wry/pull/92)) on 2021-03-25
 - Add event listener in application proxy
   - [c49846c](https://github.com/tauri-apps/wry/commit/c49846cfc41bb548a685edeac5f8036501f7dcec) feat: event listener ([#129](https://github.com/tauri-apps/wry/pull/129)) on 2021-03-26
-- Better result errror handling
+- Better result error handling
   - [485035f](https://github.com/tauri-apps/wry/commit/485035f17d28560966b07b512935821814f0e951) chore: better result error handling ([#124](https://github.com/tauri-apps/wry/pull/124)) on 2021-03-21
 - Fix visibility on webview2 when window was invisible previously and then shown.
   - [6d31706](https://github.com/tauri-apps/wry/commit/6d31706a6bff43e9b28100675cf8fc12f29db248) Fix visibility on webview2 when window was invisible previously ([#128](https://github.com/tauri-apps/wry/pull/128)) on 2021-03-24
