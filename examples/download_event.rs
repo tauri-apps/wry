@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 
 use normpath::PathExt;
-use tempfile::{tempdir, TempDir, tempdir_in};
+use tempfile::{tempdir, tempdir_in, TempDir};
 
 fn main() -> wry::Result<()> {
   use wry::{
@@ -16,7 +16,7 @@ fn main() -> wry::Result<()> {
     },
     webview::WebViewBuilder,
   };
-  
+
   let html = r#"
     <body>
       <div>
@@ -40,33 +40,36 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)?;
   let webview = WebViewBuilder::new(window)?
     .with_html(html)?
-    .with_download_handler(
-      {
-        let proxy = proxy.clone();
-        move |uri: String, default_path: &mut PathBuf| {
-          if uri.contains("wry-v0.13.3") {
-            if let Some(documents) = dirs::download_dir() {
-              if let Ok(tempdir) = tempdir_in(documents) {
-                if let Ok(path) = tempdir.path().normalize() {
-                  dbg!(path.metadata().unwrap().permissions().readonly());
-                  let path = path.join("example.zip").as_path().to_path_buf();
+    .with_download_handler({
+      let proxy = proxy.clone();
+      move |uri: String, default_path: &mut PathBuf| {
+        if uri.contains("wry-v0.13.3") {
+          if let Some(documents) = dirs::download_dir() {
+            if let Ok(tempdir) = tempdir_in(documents) {
+              if let Ok(path) = tempdir.path().normalize() {
+                dbg!(path.metadata().unwrap().permissions().readonly());
+                let path = path.join("example.zip").as_path().to_path_buf();
 
-                  *default_path = path.clone();
+                *default_path = path.clone();
 
-                  let submitted = proxy.send_event(UserEvent::DownloadStarted(uri.clone(), path.display().to_string())).is_ok();
+                let submitted = proxy
+                  .send_event(UserEvent::DownloadStarted(
+                    uri.clone(),
+                    path.display().to_string(),
+                  ))
+                  .is_ok();
 
-                  return submitted;
-                }
+                return submitted;
               }
             }
           }
-
-          let _ = proxy.send_event(UserEvent::Rejected(uri.clone()));
-
-          false
         }
-      },
-    )
+
+        let _ = proxy.send_event(UserEvent::Rejected(uri.clone()));
+
+        false
+      }
+    })
     .with_download_completed_callback({
       let proxy = proxy.clone();
       move |path, success| {
@@ -90,7 +93,7 @@ fn main() -> wry::Result<()> {
       Event::UserEvent(UserEvent::DownloadStarted(uri, temp_dir)) => {
         println!("Download: {}", uri);
         println!("Will write to: {:?}", temp_dir);
-      },
+      }
       Event::UserEvent(UserEvent::DownloadComplete(path, success)) => {
         let metadata = PathBuf::from(&path).metadata();
         println!("Succeeded: {}", success);
@@ -100,7 +103,7 @@ fn main() -> wry::Result<()> {
         } else {
           println!("Failed to retrieve file metadata - does it exist?")
         }
-      },
+      }
       Event::UserEvent(UserEvent::Rejected(uri)) => {
         println!("Rejected download from: {}", uri)
       }

@@ -7,13 +7,13 @@ use crate::{
 };
 use glib::FileError;
 use std::{
+  cell::RefCell,
   collections::{HashSet, VecDeque},
   rc::Rc,
   sync::{
     atomic::{AtomicBool, Ordering::SeqCst},
     Mutex,
   },
-  cell::RefCell,
 };
 use url::Url;
 //use webkit2gtk_sys::webkit_uri_request_get_http_headers;
@@ -288,10 +288,7 @@ fn actually_register_download_handler(
   use webkit2gtk::traits::*;
   let context = &context.os.context;
 
-  let (
-    download_started,
-    download_complete_builder
-  ) = handler;
+  let (download_started, download_complete_builder) = handler;
 
   let download_started = RefCell::new(download_started);
   let failed = Rc::new(RefCell::new(false));
@@ -299,7 +296,9 @@ fn actually_register_download_handler(
   context.connect_download_started(move |_, download| {
     if let Some(uri) = download.request().and_then(|req| req.uri()) {
       let uri = uri.to_string();
-      let mut download_location = download.destination().map_or_else(|| String::new(),|p| p.to_string());
+      let mut download_location = download
+        .destination()
+        .map_or_else(|| String::new(), |p| p.to_string());
 
       if download_started.borrow_mut()(uri, &mut download_location) {
         download.connect_decide_destination(move |download, _| {
@@ -317,7 +316,12 @@ fn actually_register_download_handler(
         download.connect_finished({
           let success = !(*failed.borrow());
           move |download| {
-            download_complete(download.destination().map_or_else(|| String::new(),|p| p.to_string()), success)
+            download_complete(
+              download
+                .destination()
+                .map_or_else(|| String::new(), |p| p.to_string()),
+              success,
+            )
           }
         });
       } else {

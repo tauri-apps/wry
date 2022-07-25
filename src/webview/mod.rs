@@ -142,14 +142,14 @@ pub struct WebViewAttributes {
 
   /// Set a download handlers to manage incoming downloads.
   ///
-  /// The first closure takes two parameters - the first is a `String` representing the url being downloaded from and and the 
-  /// second is a mutable `String` reference that (possibly) represents where the file will be downloaded to. The latter 
-  /// parameter can be used to set the download location by assigning a new path string to it - the assigned path _must_ be 
+  /// The first closure takes two parameters - the first is a `String` representing the url being downloaded from and and the
+  /// second is a mutable `String` reference that (possibly) represents where the file will be downloaded to. The latter
+  /// parameter can be used to set the download location by assigning a new path string to it - the assigned path _must_ be
   /// absolute, and (on Windows) cannot include a UNC prefix. The closure returns a `bool` to allow or deny the download.
   /// The second closure is fired when the download completes, with a `String` representing the path to where the download was
   /// saved and a `bool` indicating if the download succeeded.
   pub download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
-  
+
   pub download_complete_callback: Option<Rc<dyn Fn(String, bool) + 'static>>,
 
   /// Set a new window handler to decide if incoming url is allowed to open in a new window.
@@ -382,7 +382,7 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Set a download handler to decide if incoming download is allowed.
   ///
-  /// The closure takes a `String` parameter as url and return `bool` to determine if the 
+  /// The closure takes a `String` parameter as url and return `bool` to determine if the
   /// download is allowed or not.
   pub fn with_download_handler(
     mut self,
@@ -394,7 +394,7 @@ impl<'a> WebViewBuilder<'a> {
 
   pub fn with_download_completed_callback(
     mut self,
-    complete_callback_builder: impl Fn(String, bool) + 'static
+    complete_callback_builder: impl Fn(String, bool) + 'static,
   ) -> Self {
     self.webview.download_complete_callback = Some(Rc::new(complete_callback_builder));
     self

@@ -1,12 +1,15 @@
 use cocoa::base::id;
 use libc::c_void;
-use objc::{runtime::{Object, Sel}, declare::ClassDecl};
+use objc::{
+  declare::ClassDecl,
+  runtime::{Object, Sel},
+};
 
-pub(crate) unsafe fn set_download_delegate(
-  webview: *mut Object,
-  download_delegate: *mut Object
-) {
-  (*webview).set_ivar("DownloadDelegate", download_delegate as *mut _ as *mut c_void);
+pub(crate) unsafe fn set_download_delegate(webview: *mut Object, download_delegate: *mut Object) {
+  (*webview).set_ivar(
+    "DownloadDelegate",
+    download_delegate as *mut _ as *mut c_void,
+  );
 }
 
 unsafe fn get_download_delegate(this: &mut Object) -> *mut objc::runtime::Object {
