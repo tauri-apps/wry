@@ -74,7 +74,8 @@ windows-implement = "0.37.0"
   "Win32_System_SystemInformation",
   "Win32_System_SystemServices",
   "Win32_UI_Shell",
-  "Win32_UI_WindowsAndMessaging"
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_Globalization"
 ]
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
