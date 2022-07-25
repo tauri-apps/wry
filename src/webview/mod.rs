@@ -50,7 +50,7 @@ use windows::{Win32::Foundation::HWND, Win32::UI::WindowsAndMessaging::DestroyWi
 
 use std::{path::PathBuf, rc::Rc};
 
-use url::Url;
+pub use url::Url;
 
 #[cfg(target_os = "windows")]
 use crate::application::platform::windows::WindowExtWindows;
@@ -67,6 +67,12 @@ pub struct WebViewAttributes {
   pub transparent: bool,
   /// Whether load the provided URL to [`WebView`].
   pub url: Option<Url>,
+  /// Whether page zooming by hotkeys is enabled
+  ///
+  /// ## Platform-specific
+  ///
+  /// **macOS / Linux / Android / iOS**: Unsupported
+  pub zoom_hotkeys_enabled: bool,
   /// Whether load the provided html string to [`WebView`].
   /// This will be ignored if the `url` is provided.
   ///
@@ -131,7 +137,7 @@ pub struct WebViewAttributes {
   /// Set a navigation handler to decide if incoming url is allowed to navigate.
   ///
   /// The closure take a `String` parameter as url and return `bool` to determine the url. True is
-  /// allow to nivagate and false is not.
+  /// allow to navigate and false is not.
   pub navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
 
   /// Set a download handlers to manage incoming downloads.
@@ -145,6 +151,12 @@ pub struct WebViewAttributes {
   pub download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
   
   pub download_complete_callback: Option<Rc<dyn Fn(String, bool) + 'static>>,
+
+  /// Set a new window handler to decide if incoming url is allowed to open in a new window.
+  ///
+  /// The closure take a `String` parameter as url and return `bool` to determine the url. True is
+  /// allow to navigate and false is not.
+  pub new_window_req_handler: Option<Box<dyn Fn(String) -> bool>>,
 
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
   ///
@@ -181,17 +193,19 @@ impl Default for WebViewAttributes {
       navigation_handler: None,
       download_started_handler: None,
       download_complete_callback: None,
+      new_window_req_handler: None,
       clipboard: false,
       devtools: false,
+      zoom_hotkeys_enabled: false,
     }
   }
 }
 
 /// Builder type of [`WebView`].
 ///
-/// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
+/// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
-/// [`WebViewBuilder`] privides ability to setup initialization before web engine starts.
+/// [`WebViewBuilder`] provides ability to setup initialization before web engine starts.
 pub struct WebViewBuilder<'a> {
   pub webview: WebViewAttributes,
   web_context: Option<&'a mut WebContext>,
@@ -347,10 +361,20 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Whether page zooming by hotkeys or gestures is enabled
+  ///
+  /// ## Platform-specific
+  ///
+  /// **macOS / Linux / Android / iOS**: Unsupported
+  pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
+    self.webview.zoom_hotkeys_enabled = zoom;
+    self
+  }
+
   /// Set a navigation handler to decide if incoming url is allowed to navigate.
   ///
   /// The closure takes a `String` parameter as url and return `bool` to determine the url. True is
-  /// allowed to nivagate and false is not.
+  /// allowed to navigate and false is not.
   pub fn with_navigation_handler(mut self, callback: impl Fn(String) -> bool + 'static) -> Self {
     self.webview.navigation_handler = Some(Box::new(callback));
     self
@@ -376,6 +400,28 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
+  ///
+  /// macOS doesn't provide such method and is always enabled by default. But you still need to add menu
+  /// item accelerators to use shortcuts.
+  pub fn with_clipboard(mut self, clipboard: bool) -> Self {
+    self.webview.clipboard = clipboard;
+    self
+  }
+
+  /// Set a new window request handler to decide if incoming url is allowed to be opened.
+  ///
+  /// The closure takes a `String` parameter as url and return `bool` to determine if the url can be
+  /// opened in a new window. Returning true will open the url in a new window, whilst returning false
+  /// will neither open a new window nor allow any navigation.
+  pub fn with_new_window_req_handler(
+    mut self,
+    callback: impl Fn(String) -> bool + 'static,
+  ) -> Self {
+    self.webview.new_window_req_handler = Some(Box::new(callback));
+    self
+  }
+
   /// Consume the builder and create the [`WebView`].
   ///
   /// Platform-specific behavior:
@@ -393,9 +439,9 @@ impl<'a> WebViewBuilder<'a> {
 
 /// The fundamental type to present a [`WebView`].
 ///
-/// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to constrcut WebView contents and
+/// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
-/// [`WebView`] presents the actuall WebView window and let you still able to perform actions
+/// [`WebView`] presents the actual WebView window and let you still able to perform actions
 /// during event handling to it. [`WebView`] also contains the associate [`Window`] with it.
 pub struct WebView {
   window: Rc<Window>,
@@ -465,14 +511,6 @@ impl WebView {
     Ok(())
   }
 
-  /// Resize the WebView manually. This is only required on Windows because its WebView API doesn't
-  /// provide a way to resize automatically.
-  pub fn resize(&self) -> Result<()> {
-    #[cfg(target_os = "windows")]
-    self.webview.resize(HWND(self.window.hwnd() as _))?;
-    Ok(())
-  }
-
   /// Moves Focus to the Webview control.
   ///
   /// It's usually safe to call `focus` method on `Window` which would also focus to `WebView` except Windows.
@@ -503,7 +541,7 @@ impl WebView {
     self.webview.close_devtools();
   }
 
-  /// Gets the devtool window's current vibility state.
+  /// Gets the devtool window's current visibility state.
   ///
   /// ## Platform-specific
   ///
@@ -521,6 +559,17 @@ impl WebView {
     }
     #[cfg(not(target_os = "macos"))]
     self.window.inner_size()
+  }
+
+  /// Set the webview zoom level
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Android**: Not supported.
+  /// - **macOS**: available on macOS 11+ only.
+  /// - **iOS**: available on iOS 14+ only.
+  pub fn zoom(&self, scale_factor: f64) {
+    self.webview.zoom(scale_factor);
   }
 
   #[cfg(target_os = "android")]
@@ -580,7 +629,7 @@ impl WebviewExtUnix for WebView {
 }
 
 /// Additional methods on `WebView` that are specific to macOS.
-#[cfg(target_os = "macOS")]
+#[cfg(target_os = "macos")]
 pub trait WebviewExtMacOS {
   /// Returns WKWebView handle
   fn webview(&self) -> cocoa::base::id;
@@ -590,7 +639,7 @@ pub trait WebviewExtMacOS {
   fn ns_window(&self) -> cocoa::base::id;
 }
 
-#[cfg(target_os = "macOS")]
+#[cfg(target_os = "macos")]
 impl WebviewExtMacOS for WebView {
   fn webview(&self) -> cocoa::base::id {
     self.webview.webview.clone()

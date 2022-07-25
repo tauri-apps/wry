@@ -11,22 +11,24 @@ use crate::{
 
 use file_drop::FileDropController;
 
-use std::{collections::HashSet, rc::Rc, sync::mpsc, path::PathBuf};
+use std::{collections::HashSet, mem::MaybeUninit, rc::Rc, sync::mpsc, path::PathBuf};
 
 use once_cell::unsync::OnceCell;
 
 use windows::{
-  core::Interface,
+  core::{Interface, PCWSTR, PWSTR},
   Win32::{
-    Foundation::{BOOL, E_FAIL, E_POINTER, FARPROC, HWND, POINT, PWSTR, RECT},
+    Foundation::{BOOL, E_FAIL, E_POINTER, FARPROC, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM},
+    Globalization::{self, MAX_LOCALE_NAME},
     System::{
       Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
       LibraryLoader::{GetProcAddress, LoadLibraryA},
       SystemInformation::OSVERSIONINFOW,
       WinRT::EventRegistrationToken,
     },
-    UI::WindowsAndMessaging::{
-      self as win32wm, DestroyWindow, GetClientRect, GetCursorPos, WM_NCLBUTTONDOWN,
+    UI::{
+      Shell::{DefSubclassProc, SetWindowSubclass},
+      WindowsAndMessaging as win32wm,
     },
   },
 };
@@ -94,32 +96,48 @@ impl InnerWebView {
 
     CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
       Box::new(move |environmentcreatedhandler| unsafe {
-        let options: ICoreWebView2EnvironmentOptions =
-          CoreWebView2EnvironmentOptions::default().into();
+        let options = {
+          let options: ICoreWebView2EnvironmentOptions =
+            CoreWebView2EnvironmentOptions::default().into();
+
+          // Get user's system language
+          let lcid = Globalization::GetUserDefaultUILanguage();
+          let mut lang = [0; MAX_LOCALE_NAME as usize];
+          Globalization::LCIDToLocaleName(
+            lcid as u32,
+            &mut lang,
+            Globalization::LOCALE_ALLOW_NEUTRAL_NAMES,
+          );
+
+          options
+            .SetLanguage(PCWSTR(lang.as_ptr()))
+            .map_err(webview2_com::Error::WindowsError)?;
+          options
+        };
 
         // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
-        let additional_arguments = pwstr_from_str("--disable-features=msWebOOUI,msPdfOOUI");
-        let _ = options.SetAdditionalBrowserArguments(additional_arguments);
+        let _ = options.SetAdditionalBrowserArguments("--disable-features=msWebOOUI,msPdfOOUI");
 
-        // if data_directory is None, we set it to a null PWSTR
-        let data_directory: PWSTR = data_directory
-          .map(|s| pwstr_from_str(&s))
-          .unwrap_or_default();
-
-        let result = CreateCoreWebView2EnvironmentWithOptions(
-          PWSTR::default(),
-          data_directory,
-          options,
-          environmentcreatedhandler,
-        )
-        .map_err(webview2_com::Error::WindowsError);
-        let _ = take_pwstr(data_directory);
-
-        return result;
+        if let Some(data_directory) = data_directory {
+          CreateCoreWebView2EnvironmentWithOptions(
+            PCWSTR::default(),
+            data_directory,
+            options,
+            environmentcreatedhandler,
+          )
+        } else {
+          CreateCoreWebView2EnvironmentWithOptions(
+            PCWSTR::default(),
+            PCWSTR::default(),
+            options,
+            environmentcreatedhandler,
+          )
+        }
+        .map_err(webview2_com::Error::WindowsError)
       }),
       Box::new(move |error_code, environment| {
         error_code?;
-        tx.send(environment.ok_or_else(|| windows::core::Error::fast_error(E_POINTER)))
+        tx.send(environment.ok_or_else(|| windows::core::Error::from(E_POINTER)))
           .expect("send over mpsc channel");
         Ok(())
       }),
@@ -145,7 +163,7 @@ impl InnerWebView {
       }),
       Box::new(move |error_code, controller| {
         error_code?;
-        tx.send(controller.ok_or_else(|| windows::core::Error::fast_error(E_POINTER)))
+        tx.send(controller.ok_or_else(|| windows::core::Error::from(E_POINTER)))
           .expect("send over mpsc channel");
         Ok(())
       }),
@@ -193,14 +211,14 @@ impl InnerWebView {
     unsafe {
       let handler: ICoreWebView2WindowCloseRequestedEventHandler =
         WindowCloseRequestedEventHandler::create(Box::new(move |_, _| {
-          if DestroyWindow(hwnd).as_bool() {
+          if win32wm::DestroyWindow(hwnd).as_bool() {
             Ok(())
           } else {
             Err(E_FAIL.into())
           }
         }));
       webview
-        .WindowCloseRequested(handler, &mut token)
+        .add_WindowCloseRequested(handler, &mut token)
         .map_err(webview2_com::Error::WindowsError)?;
 
       let settings = webview
@@ -213,17 +231,22 @@ impl InnerWebView {
         .SetAreDefaultContextMenusEnabled(true)
         .map_err(webview2_com::Error::WindowsError)?;
       settings
-        .SetIsZoomControlEnabled(false)
+        .SetIsZoomControlEnabled(attributes.zoom_hotkeys_enabled)
         .map_err(webview2_com::Error::WindowsError)?;
       settings
         .SetAreDevToolsEnabled(false)
         .map_err(webview2_com::Error::WindowsError)?;
       if attributes.devtools {
-        let _ = settings.SetAreDevToolsEnabled(true);
+        settings
+          .SetAreDevToolsEnabled(true)
+          .map_err(webview2_com::Error::WindowsError)?;
       }
 
+      let settings5 = settings.cast::<ICoreWebView2Settings5>()?;
+      let _ = settings5.SetIsPinchZoomEnabled(attributes.zoom_hotkeys_enabled);
+
       let mut rect = RECT::default();
-      GetClientRect(hwnd, &mut rect);
+      win32wm::GetClientRect(hwnd, &mut rect);
       controller
         .SetBounds(rect)
         .map_err(webview2_com::Error::WindowsError)?;
@@ -250,7 +273,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     // Message handler
     let ipc_handler = attributes.ipc_handler.take();
     unsafe {
-      webview.WebMessageReceived(
+      webview.add_WebMessageReceived(
         WebMessageReceivedEventHandler::create(Box::new(move |_, args| {
           if let Some(args) = args {
             let mut js = PWSTR::default();
@@ -261,8 +284,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 use crate::application::{platform::windows::hit_test, window::CursorIcon};
 
                 let mut point = POINT::default();
-                GetCursorPos(&mut point);
-                let result = hit_test(HWND(window.hwnd() as _), point.x, point.y);
+                win32wm::GetCursorPos(&mut point);
+                let result = hit_test(window.hwnd(), point.x, point.y);
                 let cursor = match result.0 as u32 {
                   win32wm::HTLEFT => CursorIcon::WResize,
                   win32wm::HTTOP => CursorIcon::NResize,
@@ -283,7 +306,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                   // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
                   // and prevent conflict with `tao::window::drag_window`.
                   if result.0 as u32 != win32wm::HTCLIENT {
-                    window.begin_resize_drag(result.0, WM_NCLBUTTONDOWN, point.x, point.y);
+                    window.begin_resize_drag(result.0, win32wm::WM_NCLBUTTONDOWN, point.x, point.y);
                   }
                 }
               }
@@ -306,7 +329,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     if let Some(nav_callback) = attributes.navigation_handler {
       unsafe {
         webview
-          .NavigationStarting(
+          .add_NavigationStarting(
             NavigationStartingEventHandler::create(Box::new(move |_, args| {
               if let Some(args) = args {
                 let mut uri = PWSTR::default();
@@ -334,7 +357,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
         let download_complete_callback = attributes.download_complete_callback.take();
 
-        webview4.DownloadStarting(
+        webview4.add_DownloadStarting(
           DownloadStartingEventHandler::create(Box::new(move |_, args| {
             if let Some(args) = args {
               let mut uri = PWSTR::default();
@@ -352,17 +375,17 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 args.SetResultFilePath(path.display().to_string())?;
                 args.SetHandled(true)?;
                 if let Some(download_complete_callback) = download_complete_callback.clone() {
-                  args.DownloadOperation()?.StateChanged(
+                  args.DownloadOperation()?.add_StateChanged(
                     StateChangedEventHandler::create(Box::new(move |download_operation, _| {
                       if let Some(download_operation) = download_operation {
-                        let mut state: i32 = 0;
+                        let mut state: COREWEBVIEW2_DOWNLOAD_STATE = COREWEBVIEW2_DOWNLOAD_STATE::default();
                         download_operation.State(&mut state)?;
-                        if state != 0 {
+                        if state != COREWEBVIEW2_DOWNLOAD_STATE_IN_PROGRESS {
                           let mut path = PWSTR::default();
                           download_operation.ResultFilePath(&mut path)?;
                           let path = take_pwstr(path);
   
-                          let success = state == 2;
+                          let success = state == COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED;
                           download_complete_callback(path.clone(), success);
                         }
                       }
@@ -385,6 +408,29 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       }
     }
 
+    if let Some(new_window_req_handler) = attributes.new_window_req_handler {
+      unsafe {
+        webview
+          .add_NewWindowRequested(
+            NewWindowRequestedEventHandler::create(Box::new(move |_, args| {
+              if let Some(args) = args {
+                let mut uri = PWSTR::default();
+                args.Uri(&mut uri)?;
+                let uri = take_pwstr(uri);
+
+                let allow = new_window_req_handler(uri);
+
+                args.SetHandled(!allow)?;
+              }
+
+              Ok(())
+            })),
+            &mut token,
+          )
+          .map_err(webview2_com::Error::WindowsError)?;
+      }
+    }
+
     let mut custom_protocol_names = HashSet::new();
     if !attributes.custom_protocols.is_empty() {
       for (name, _) in &attributes.custom_protocols {
@@ -404,7 +450,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       let env = env.clone();
       unsafe {
         webview
-          .WebResourceRequested(
+          .add_WebResourceRequested(
             WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
               if let Some(args) = args {
                 let webview_request = args.Request()?;
@@ -441,11 +487,13 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                   loop {
                     let mut cb_read = 0;
                     let content: IStream = content.cast()?;
-                    content.Read(
-                      buffer.as_mut_ptr() as *mut _,
-                      buffer.len() as u32,
-                      &mut cb_read,
-                    )?;
+                    content
+                      .Read(
+                        buffer.as_mut_ptr() as *mut _,
+                        buffer.len() as u32,
+                        &mut cb_read,
+                      )
+                      .ok()?;
 
                     if cb_read == 0 {
                       break;
@@ -499,9 +547,15 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                       if !content.is_empty() {
                         let stream = CreateStreamOnHGlobal(0, true)?;
                         stream.SetSize(content.len() as u64)?;
-                        if stream.Write(content.as_ptr() as *const _, content.len() as u32)?
-                          as usize
-                          == content.len()
+                        let mut cb_write = MaybeUninit::uninit();
+                        if stream
+                          .Write(
+                            content.as_ptr() as *const _,
+                            content.len() as u32,
+                            cb_write.as_mut_ptr(),
+                          )
+                          .is_ok()
+                          && cb_write.assume_init() as usize == content.len()
                         {
                           body_sent = Some(stream);
                         }
@@ -533,7 +587,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     if attributes.clipboard {
       unsafe {
         webview
-          .PermissionRequested(
+          .add_PermissionRequested(
             PermissionRequestedEventHandler::create(Box::new(|_, args| {
               if let Some(args) = args {
                 let mut kind = COREWEBVIEW2_PERMISSION_KIND_UNKNOWN_PERMISSION;
@@ -598,6 +652,41 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     }
 
     unsafe {
+      unsafe extern "system" fn subclass_proc(
+        hwnd: HWND,
+        msg: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+        _uidsubclass: usize,
+        dwrefdata: usize,
+      ) -> LRESULT {
+        if msg == win32wm::WM_SIZE {
+          let controller = dwrefdata as *mut ICoreWebView2Controller;
+          let mut client_rect = RECT::default();
+          win32wm::GetClientRect(hwnd, std::mem::transmute(&mut client_rect));
+          let _ = (*controller).SetBounds(RECT {
+            left: 0,
+            top: 0,
+            right: client_rect.right - client_rect.left,
+            bottom: client_rect.bottom - client_rect.top,
+          });
+        }
+
+        if msg == win32wm::WM_DESTROY {
+          Box::from_raw(dwrefdata as *mut ICoreWebView2Controller);
+        }
+
+        DefSubclassProc(hwnd, msg, wparam, lparam)
+      }
+      SetWindowSubclass(
+        hwnd,
+        Some(subclass_proc),
+        8080,
+        Box::into_raw(Box::new(controller.clone())) as _,
+      );
+    }
+
+    unsafe {
       controller
         .SetIsVisible(true)
         .map_err(webview2_com::Error::WindowsError)?;
@@ -642,17 +731,6 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       .map_err(|err| Error::WebView2Error(webview2_com::Error::WindowsError(err)))
   }
 
-  pub fn resize(&self, hwnd: HWND) -> Result<()> {
-    // Safety: System calls are unsafe
-    // XXX: Resizing on Windows is usually sluggish. Many other applications share same behavior.
-    unsafe {
-      let mut rect = RECT::default();
-      GetClientRect(hwnd, &mut rect);
-      self.controller.SetBounds(rect)
-    }
-    .map_err(|error| Error::WebView2Error(webview2_com::Error::WindowsError(error)))
-  }
-
   pub fn focus(&self) {
     let _ = unsafe {
       self
@@ -673,11 +751,15 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   pub fn is_devtools_open(&self) -> bool {
     false
   }
+
+  pub fn zoom(&self, scale_factor: f64) {
+    let _ = unsafe { self.controller.SetZoomFactor(scale_factor) };
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {
   let mut versioninfo = PWSTR::default();
-  unsafe { GetAvailableCoreWebView2BrowserVersionString(PWSTR::default(), &mut versioninfo) }
+  unsafe { GetAvailableCoreWebView2BrowserVersionString(PCWSTR::default(), &mut versioninfo) }
     .map_err(webview2_com::Error::WindowsError)?;
   Ok(take_pwstr(versioninfo))
 }
@@ -696,11 +778,12 @@ fn get_function_impl(library: &str, function: &str) -> Option<FARPROC> {
   assert_eq!(library.chars().last(), Some('\0'));
   assert_eq!(function.chars().last(), Some('\0'));
 
-  let module = unsafe { LoadLibraryA(library) };
-  if module.0 == 0 {
-    return None;
+  let module = unsafe { LoadLibraryA(library) }.unwrap_or_default();
+  if module.is_invalid() {
+    None
+  } else {
+    Some(unsafe { GetProcAddress(module, function) })
   }
-  Some(unsafe { GetProcAddress(module, function) })
 }
 
 macro_rules! get_function {

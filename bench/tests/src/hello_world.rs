@@ -50,9 +50,7 @@ fn main() -> wry::Result<()> {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
-      _ => {
-        let _ = webview.resize();
-      }
+      _ => {}
     }
   });
 }

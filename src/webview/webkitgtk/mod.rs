@@ -157,7 +157,7 @@ impl InnerWebView {
             let window: gtk::Window = window.downcast().unwrap();
             if !window.is_decorated() && window.is_resizable() {
               if let Some(window) = window.window() {
-                // Safe to unwrap since it's a valide GtkWindow
+                // Safe to unwrap since it's a valid GtkWindow
                 let result = hit_test(&window, cx, cy);
 
                 // we ignore the `__Unknown` variant so the webview receives the click correctly if it is not on the edges.
@@ -206,14 +206,20 @@ impl InnerWebView {
       Inhibit(false)
     });
 
-    if let Some(nav_handler) = attributes.navigation_handler {
+    if attributes.navigation_handler.is_some() || attributes.new_window_req_handler.is_some() {
       webview.connect_decide_policy(move |_webview, policy_decision, policy_type| {
-        if let PolicyDecisionType::NavigationAction = policy_type {
+        let handler = match policy_type {
+          PolicyDecisionType::NavigationAction => &attributes.navigation_handler,
+          PolicyDecisionType::NewWindowAction => &attributes.new_window_req_handler,
+          _ => &None,
+        };
+
+        if let Some(handler) = handler {
           if let Some(policy) = policy_decision.dynamic_cast_ref::<NavigationPolicyDecision>() {
             if let Some(nav_action) = policy.navigation_action() {
               if let Some(uri_req) = nav_action.request() {
                 if let Some(uri) = uri_req.uri() {
-                  let allow = nav_handler(uri.to_string());
+                  let allow = handler(uri.to_string());
                   let pointer = policy_decision.as_ptr();
                   unsafe {
                     if allow {
@@ -389,6 +395,10 @@ impl InnerWebView {
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn is_devtools_open(&self) -> bool {
     self.is_inspector_open.load(Ordering::Relaxed)
+  }
+
+  pub fn zoom(&self, scale_factor: f64) {
+    WebViewExt::set_zoom_level(&*self.webview, scale_factor);
   }
 }
 
