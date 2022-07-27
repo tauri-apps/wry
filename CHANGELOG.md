@@ -1,5 +1,16 @@
 # Changelog
 
+## \[0.20.0]
+
+- Add `WebViewBuilder::with_clipboard`.
+  - [c798700](https://github.com/tauri-apps/wry/commit/c7987004eaaf5cb7da830d574d81bd96dace0112) fix: Add `WebViewBuilder::with_clipboard`([#631](https://github.com/tauri-apps/wry/pull/631)) on 2022-07-05
+- Fix typos in several files.
+  - [4466250](https://github.com/tauri-apps/wry/commit/44662506ab01846c7e8767eb2f13bf0bbca7fe9a) Fix typos ([#635](https://github.com/tauri-apps/wry/pull/635)) on 2022-07-11
+- Set webview2 language to match the OS language. This makes i18n functions like `new Date().toLocaleStrin()` behave correctly.
+  - [e9f04d7](https://github.com/tauri-apps/wry/commit/e9f04d7e7bea576d0283d97e25faf7b356c5e959) fix: set system language to webview on windows, closes [#442](https://github.com/tauri-apps/wry/pull/442) ([#640](https://github.com/tauri-apps/wry/pull/640)) on 2022-07-26
+- Update tao to 0.13.0.
+  - [935cc5f](https://github.com/tauri-apps/wry/commit/935cc5fe8b73055279dc107e71a10f2701ea8b3d) Update tao to 0.13 ([#642](https://github.com/tauri-apps/wry/pull/642)) on 2022-07-27
+
 ## \[0.19.0]
 
 - - Automatically resize the webview on Windows to align with other platforms.
