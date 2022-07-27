@@ -9,12 +9,6 @@
 - Set webview2 language to match the OS language. This makes i18n functions like `new Date().toLocaleStrin()` behave correctly.
   - [e9f04d7](https://github.com/tauri-apps/wry/commit/e9f04d7e7bea576d0283d97e25faf7b356c5e959) fix: set system language to webview on windows, closes [#442](https://github.com/tauri-apps/wry/pull/442) ([#640](https://github.com/tauri-apps/wry/pull/640)) on 2022-07-26
 - Update tao to 0.13.0.
-  - [483bad0](https://github.com/tauri-apps/wry/commit/483bad0fc7e7564500f7183547c15604fa387258) feat: tao as window dependency ([#230](https://github.com/tauri-apps/wry/pull/230)) on 2021-05-03
-  - [51430e9](https://github.com/tauri-apps/wry/commit/51430e97dfb6589c5ff71e5078438be67293d044) publish new versions ([#221](https://github.com/tauri-apps/wry/pull/221)) on 2021-05-09
-  - [0cf0089](https://github.com/tauri-apps/wry/commit/0cf0089b6d49aa9e1a8c791ec8883fce48a0dfd1) Update tao to v0.2.6 ([#271](https://github.com/tauri-apps/wry/pull/271)) on 2021-05-18
-  - [a76206c](https://github.com/tauri-apps/wry/commit/a76206c11fa0a4ba1d041aa0f25452dd80941ee9) publish new versions ([#272](https://github.com/tauri-apps/wry/pull/272)) on 2021-05-18
-  - [3c4f8b8](https://github.com/tauri-apps/wry/commit/3c4f8b8b2bd42e7634b889aa5317d909bfce593c) Update tao to v0.5 ([#365](https://github.com/tauri-apps/wry/pull/365)) on 2021-08-09
-  - [44aa1dc](https://github.com/tauri-apps/wry/commit/44aa1dc8fcc20cc5826697d69f763118d45f724a) publish new versions ([#351](https://github.com/tauri-apps/wry/pull/351)) on 2021-08-09
   - [935cc5f](https://github.com/tauri-apps/wry/commit/935cc5fe8b73055279dc107e71a10f2701ea8b3d) Update tao to 0.13 ([#642](https://github.com/tauri-apps/wry/pull/642)) on 2022-07-27
 
 ## \[0.19.0]
