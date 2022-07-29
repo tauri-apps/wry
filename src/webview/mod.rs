@@ -538,6 +538,20 @@ impl WebView {
     self.webview.zoom(scale_factor);
   }
 
+  /// Searches for the specified string in the WebView content.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows / Android**: Unsupported.
+  /// - **macOS**: available on macOS 10.15.4+ only.
+  /// - **iOS**: available on iOS 13.4+ only.
+  pub fn find_in_page<F>(&self, string: String, option: FindInPageOption, f: F)
+  where
+    F: Fn(bool) + 'static,
+  {
+    self.webview.find_in_page(string, option, f);
+  }
+
   #[cfg(target_os = "android")]
   pub fn run(self, env: JNIEnv, jclass: JClass, jobject: JObject) -> jobject {
     self.webview.run(env, jclass, jobject).unwrap()
@@ -547,6 +561,23 @@ impl WebView {
   pub fn ipc_handler(window: &Window, arg: String) {
     InnerWebView::ipc_handler(window, arg)
   }
+}
+
+/// A configuration for [`WebView::find_in_page`].
+#[derive(Default)]
+pub struct FindInPageOption {
+  /// Indicate the search direction.
+  pub backwards: bool,
+  /// Match the search string in a case-sensitive.
+  pub case_sensitive: bool,
+  /// Wrap around to the other side of the page.
+  pub wraps: bool,
+  /// Maximum number of search strings to highlight.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// **Windows / macOS / Android / iOS**: Unsupported.
+  pub max_match_count: u32,
 }
 
 /// An event enumeration sent to [`FileDropHandler`].

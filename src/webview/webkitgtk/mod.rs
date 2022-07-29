@@ -18,7 +18,8 @@ use gio::Cancellable;
 use glib::signal::Inhibit;
 use gtk::prelude::*;
 use webkit2gtk::{
-  traits::*, NavigationPolicyDecision, PolicyDecisionType, UserContentInjectedFrames, UserScript,
+  traits::*, FindController, FindControllerBuilder, FindControllerExt, FindOptions,
+  NavigationPolicyDecision, PolicyDecisionType, UserContentInjectedFrames, UserScript,
   UserScriptInjectionTime, WebView, WebViewBuilder,
 };
 use webkit2gtk_sys::{
@@ -31,7 +32,7 @@ pub use web_context::WebContextImpl;
 
 use crate::{
   application::{platform::unix::*, window::Window},
-  webview::{web_context::WebContext, WebViewAttributes},
+  webview::{web_context::WebContext, FindInPageOption, WebViewAttributes},
   Error, Result,
 };
 
@@ -42,6 +43,7 @@ pub struct InnerWebView {
   pub(crate) webview: Rc<WebView>,
   #[cfg(any(debug_assertions, feature = "devtools"))]
   is_inspector_open: Arc<AtomicBool>,
+  find_controller: Rc<FindController>,
 }
 
 impl InnerWebView {
@@ -300,10 +302,17 @@ impl InnerWebView {
       is_inspector_open
     };
 
+    let find_controller = {
+      let builder = FindControllerBuilder::new();
+      let controller = builder.web_view(&*webview).build();
+      Rc::new(controller)
+    };
+
     let w = Self {
       webview,
       #[cfg(any(debug_assertions, feature = "devtools"))]
       is_inspector_open,
+      find_controller,
     };
 
     // Initialize message handler
@@ -395,6 +404,36 @@ impl InnerWebView {
 
   pub fn zoom(&self, scale_factor: f64) {
     WebViewExt::set_zoom_level(&*self.webview, scale_factor);
+  }
+
+  pub fn find_in_page<F>(&self, string: String, option: FindInPageOption, f: F)
+  where
+    F: Fn(bool) + 'static,
+  {
+    let mut flags = FindOptions::NONE;
+    if option.backwards {
+      flags |= FindOptions::BACKWARDS;
+    }
+    if !option.case_sensitive {
+      flags |= FindOptions::CASE_INSENSITIVE;
+    }
+    if option.wraps {
+      flags |= FindOptions::WRAP_AROUND;
+    }
+
+    self
+      .find_controller
+      .search(&string, flags.bits(), option.max_match_count);
+
+    let handler = Rc::new(Box::new(f));
+    let found = handler.clone();
+
+    self
+      .find_controller
+      .connect_failed_to_find_text(move |_| (*handler)(false));
+    self
+      .find_controller
+      .connect_found_text(move |_, _| (*found)(true));
   }
 }
 
