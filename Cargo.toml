@@ -31,6 +31,7 @@ tray = [ "tao/tray" ]
 devtools = [ ]
 transparent = [ ]
 fullscreen = [ ]
+pictureInPicture = [ ]
 
 [dependencies]
 libc = "0.2"
