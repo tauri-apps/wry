@@ -33,6 +33,7 @@ fn main() -> wry::Result<()> {
     Rejected(String),
   }
 
+  let mut temp_dirs = vec![];
   let event_loop: EventLoop<UserEvent> = EventLoop::with_user_event();
   let proxy = event_loop.create_proxy();
   let window = WindowBuilder::new()
@@ -47,6 +48,7 @@ fn main() -> wry::Result<()> {
           if let Some(documents) = dirs::download_dir() {
             if let Ok(tempdir) = tempdir_in(documents) {
               if let Ok(path) = tempdir.path().normalize() {
+                temp_dirs.push(tempdir);
                 dbg!(path.metadata().unwrap().permissions().readonly());
                 let path = path.join("example.zip").as_path().to_path_buf();
 

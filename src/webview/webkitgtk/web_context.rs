@@ -9,7 +9,9 @@ use glib::FileError;
 use std::{
   cell::RefCell,
   collections::{HashSet, VecDeque},
+  path::PathBuf,
   rc::Rc,
+  str::FromStr,
   sync::{
     atomic::{AtomicBool, Ordering::SeqCst},
     Mutex,
@@ -137,10 +139,8 @@ pub trait WebContextExt {
 
   fn register_download_handler(
     &mut self,
-    handler: (
-      Box<dyn FnMut(String, &mut String) -> bool>,
-      Box<dyn Fn() -> Box<dyn Fn(String, bool) + 'static> + 'static>,
-    ),
+    download_started_callback: Box<dyn FnMut(String, &mut PathBuf) -> bool>,
+    download_completed_callback: Option<Rc<dyn Fn(String, bool) + 'static>>,
   );
 }
 
@@ -210,12 +210,53 @@ impl WebContextExt for super::WebContext {
 
   fn register_download_handler(
     &mut self,
-    handler: (
-      Box<dyn FnMut(String, &mut String) -> bool>,
-      Box<dyn Fn() -> Box<dyn Fn(String, bool) + 'static> + 'static>,
-    ),
+    download_started_callback: Box<dyn FnMut(String, &mut PathBuf) -> bool>,
+    download_completed_callback: Option<Rc<dyn Fn(String, bool) + 'static>>,
   ) {
-    actually_register_download_handler(self, handler);
+    use webkit2gtk::traits::*;
+    let context = &self.os.context;
+
+    let download_started_callback = RefCell::new(download_started_callback);
+    let failed = Rc::new(RefCell::new(false));
+
+    context.connect_download_started(move |_, download| {
+      if let Some(uri) = download.request().and_then(|req| req.uri()) {
+        let uri = uri.to_string();
+        let mut download_location = download
+          .destination()
+          .and_then(|p| PathBuf::from_str(&p).ok())
+          .unwrap_or_default();
+
+        if download_started_callback.borrow_mut()(uri, &mut download_location) {
+          download.connect_decide_destination(move |download, _| {
+            download.set_destination(&download_location.to_string_lossy());
+
+            true
+          });
+          download.connect_failed({
+            let failed = failed.clone();
+            move |_, _error| {
+              *failed.borrow_mut() = true;
+            }
+          });
+          if let Some(download_completed_callback) = download_completed_callback.clone() {
+            download.connect_finished({
+              let failed = failed.clone();
+              move |download| {
+                download_completed_callback(
+                  download
+                    .destination()
+                    .map_or_else(|| String::new(), |p| p.to_string()),
+                  !(*failed.borrow()),
+                )
+              }
+            });
+          }
+        } else {
+          download.cancel();
+        }
+      }
+    });
   }
 }
 
@@ -276,59 +317,6 @@ where
   });
 
   Ok(())
-}
-
-fn actually_register_download_handler(
-  context: &mut super::WebContext,
-  handler: (
-    Box<dyn FnMut(String, &mut String) -> bool>,
-    Box<dyn Fn() -> Box<dyn Fn(String, bool) + 'static> + 'static>,
-  ),
-) {
-  use webkit2gtk::traits::*;
-  let context = &context.os.context;
-
-  let (download_started, download_complete_builder) = handler;
-
-  let download_started = RefCell::new(download_started);
-  let failed = Rc::new(RefCell::new(false));
-
-  context.connect_download_started(move |_, download| {
-    if let Some(uri) = download.request().and_then(|req| req.uri()) {
-      let uri = uri.to_string();
-      let mut download_location = download
-        .destination()
-        .map_or_else(|| String::new(), |p| p.to_string());
-
-      if download_started.borrow_mut()(uri, &mut download_location) {
-        download.connect_decide_destination(move |download, _| {
-          download.set_destination(&download_location);
-
-          true
-        });
-        download.connect_failed({
-          let failed = failed.clone();
-          move |_, _error| {
-            *failed.borrow_mut() = true;
-          }
-        });
-        let download_complete = download_complete_builder();
-        download.connect_finished({
-          let success = !(*failed.borrow());
-          move |download| {
-            download_complete(
-              download
-                .destination()
-                .map_or_else(|| String::new(), |p| p.to_string()),
-              success,
-            )
-          }
-        });
-      } else {
-        download.cancel();
-      }
-    }
-  });
 }
 
 /// Prevents an unknown concurrency bug with loading multiple URIs at the same time on webkit2gtk.
