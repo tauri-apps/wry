@@ -37,12 +37,6 @@ pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
 use crate::Result;
-#[cfg(target_os = "android")]
-use jni::{
-  objects::{JClass, JObject},
-  sys::jobject,
-  JNIEnv,
-};
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
@@ -536,16 +530,6 @@ impl WebView {
   /// - **iOS**: available on iOS 14+ only.
   pub fn zoom(&self, scale_factor: f64) {
     self.webview.zoom(scale_factor);
-  }
-
-  #[cfg(target_os = "android")]
-  pub fn run(self, env: JNIEnv, jclass: JClass, jobject: JObject) -> jobject {
-    self.webview.run(env, jclass, jobject).unwrap()
-  }
-
-  #[cfg(target_os = "android")]
-  pub fn ipc_handler(window: &Window, arg: String) {
-    InnerWebView::ipc_handler(window, arg)
   }
 }
 
