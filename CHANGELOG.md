@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.20.1]
+
+- Add feature flag to enable private picture-in-picture flag on macos.
+  - [3cfd8c9](https://github.com/tauri-apps/wry/commit/3cfd8c9e7a43f6c35a1ea61358521bd62fc70633) fix: add feature flag to enable private picture-in-picture flag on macos ([#645](https://github.com/tauri-apps/wry/pull/645)) on 2022-08-05
+
 ## \[0.20.0]
 
 - Add `WebViewBuilder::with_clipboard`.
