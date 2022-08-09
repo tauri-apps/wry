@@ -2,8 +2,12 @@
 
 ## \[0.20.1]
 
-- Add feature flag to enable private picture-in-picture flag on macos.
+- Add android support
+  - [3218091](https://github.com/tauri-apps/wry/commit/3218091aa393dca9451840d3baa44bc9371f2e1d) Add real android support [#577](https://github.com/tauri-apps/wry/pull/577)
+- Enable private picture-in-picture on macos.
   - [3cfd8c9](https://github.com/tauri-apps/wry/commit/3cfd8c9e7a43f6c35a1ea61358521bd62fc70633) fix: add feature flag to enable private picture-in-picture flag on macos ([#645](https://github.com/tauri-apps/wry/pull/645)) on 2022-08-05
+- On macOS, fix devtool warning
+  - [2eba8c9](https://github.com/tauri-apps/wry/commit/2eba8c9c26ff5f9512b0039ac04bc7fd27a5256f) fix: devtool warning by adding parent view
 
 ## \[0.20.0]
 
