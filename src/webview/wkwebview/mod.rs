@@ -492,17 +492,17 @@ r#"Object.defineProperty(window, 'ipc', {
         w.navigate_to_string(&html);
       }
 
-      // Create a view to contain the webview, without it devtools will try to
-      // inject a subview into the frame causing an obnoxious warning.
-      // See https://github.com/tauri-apps/wry/issues/273
-      let parent_view: id = msg_send![class!(NSView), alloc];
-      let _: () = msg_send![parent_view, init];
-      parent_view.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
-      let _: () = msg_send![parent_view, addSubview:webview];
-
       // Inject the web view into the window as main content
       #[cfg(target_os = "macos")]
       {
+        // Create a view to contain the webview, without it devtools will try to
+        // inject a subview into the frame causing an obnoxious warning.
+        // See https://github.com/tauri-apps/wry/issues/273
+        let parent_view: id = msg_send![class!(NSView), alloc];
+        let _: () = msg_send![parent_view, init];
+        parent_view.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
+        let _: () = msg_send![parent_view, addSubview: webview];
+
         // Tell the webview we use layers (macOS only)
         let _: () = msg_send![webview, setWantsLayer: YES];
         // inject the webview into the window
