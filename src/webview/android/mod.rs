@@ -90,7 +90,8 @@ impl InnerWebView {
 
   pub fn print(&self) {}
 
-  pub fn eval(&self, _js: &str) -> Result<()> {
+  pub fn eval(&self, js: &str) -> Result<()> {
+    MainPipe::send(WebViewMessage::Eval(js.into()));
     Ok(())
   }
 
