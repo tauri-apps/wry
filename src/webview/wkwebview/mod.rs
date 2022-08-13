@@ -279,14 +279,22 @@ impl InnerWebView {
       // [preference setValue:@YES forKey:@"fullScreenEnabled"];
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("fullScreenEnabled")];
 
-      // Initialize webview with zero point
-      let zero = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(0., 0.));
-      let _: () = msg_send![webview, initWithFrame:zero configuration:config];
-
-      // Auto-resize on macOS
       #[cfg(target_os = "macos")]
       {
+        // Initialize webview with zero point
+        let zero = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(0., 0.));
+        let _: () = msg_send![webview, initWithFrame:zero configuration:config];
+        // Auto-resize on macOS
         webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
+      }
+
+      #[cfg(target_os = "ios")]
+      {
+        let ui_view = window.ui_view() as id;
+        let frame: CGRect = msg_send![ui_view, frame];
+        // set all autoresizingmasks
+        let () = msg_send![webview, setAutoresizingMask: 31];
+        let _: () = msg_send![webview, initWithFrame:frame configuration:config];
       }
 
       // Message handler
@@ -520,8 +528,8 @@ r#"Object.defineProperty(window, 'ipc', {
 
       #[cfg(target_os = "ios")]
       {
-        let ui_window = window.ui_window() as id;
-        let _: () = msg_send![ui_window, setContentView: webview];
+        let ui_view = window.ui_view() as id;
+        let _: () = msg_send![ui_view, addSubview: webview];
       }
 
       Ok(w)
