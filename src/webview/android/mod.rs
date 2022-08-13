@@ -4,8 +4,94 @@ use crate::{
   http::{method::Method, Request as HttpRequest, RequestParts},
   Result,
 };
+use libc::c_void;
+use once_cell::sync::OnceCell;
 use std::{rc::Rc, str::FromStr};
-use tao::platform::android::ndk_glue::*;
+use tao::platform::android::ndk_glue::{
+  jni::{objects::GlobalRef, JNIEnv},
+  ndk::looper::{FdEvent, ForeignLooper},
+};
+
+pub(crate) mod binding;
+mod main_pipe;
+use binding::*;
+use main_pipe::{MainPipe, WebViewMessage, MAIN_PIPE};
+
+#[macro_export]
+macro_rules! android_binding {
+  ($domain:ident, $package:ident, $main: ident) => {
+    android_binding!($domain, $package, $main, ::wry)
+  };
+  ($domain:ident, $package:ident, $main: ident, $wry: path) => {
+    use $wry::{
+      application::{
+        android_binding as tao_android_binding, android_fn, platform::android::ndk_glue::*,
+      },
+      webview::prelude::*,
+    };
+    tao_android_binding!($domain, $package, setup, $main);
+    android_fn!(
+      $domain,
+      $package,
+      RustWebChromeClient,
+      runInitializationScripts
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      handleRequest,
+      JObject,
+      jobject
+    );
+    android_fn!($domain, $package, Ipc, ipc, JString);
+  };
+}
+
+pub static IPC: OnceCell<UnsafeIpc> = OnceCell::new();
+pub static REQUEST_HANDLER: OnceCell<UnsafeRequestHandler> = OnceCell::new();
+
+pub struct UnsafeIpc(*mut c_void, Rc<Window>);
+impl UnsafeIpc {
+  pub fn new(f: *mut c_void, w: Rc<Window>) -> Self {
+    Self(f, w)
+  }
+}
+unsafe impl Send for UnsafeIpc {}
+unsafe impl Sync for UnsafeIpc {}
+
+pub struct UnsafeRequestHandler(Box<dyn Fn(WebResourceRequest) -> Option<WebResourceResponse>>);
+impl UnsafeRequestHandler {
+  pub fn new(f: Box<dyn Fn(WebResourceRequest) -> Option<WebResourceResponse>>) -> Self {
+    Self(f)
+  }
+}
+unsafe impl Send for UnsafeRequestHandler {}
+unsafe impl Sync for UnsafeRequestHandler {}
+
+pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
+  let mut main_pipe = MainPipe {
+    env,
+    activity,
+    initialization_scripts: vec![],
+    webview: None,
+  };
+
+  looper
+    .add_fd_with_callback(MAIN_PIPE[0], FdEvent::INPUT, move |_| {
+      let size = std::mem::size_of::<bool>();
+      let mut wake = false;
+      if libc::read(MAIN_PIPE[0], &mut wake as *mut _ as *mut _, size) == size as libc::ssize_t {
+        match main_pipe.recv() {
+          Ok(_) => true,
+          Err(_) => false,
+        }
+      } else {
+        false
+      }
+    })
+    .unwrap();
+}
 
 pub struct InnerWebView {
   pub window: Rc<Window>,
