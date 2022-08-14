@@ -4,7 +4,6 @@ use crate::{
   http::{Request as HttpRequest, Response as HttpResponse},
   Result,
 };
-use libc::c_void;
 use once_cell::sync::OnceCell;
 use std::rc::Rc;
 use tao::platform::android::ndk_glue::{
@@ -50,9 +49,9 @@ macro_rules! android_binding {
 pub static IPC: OnceCell<UnsafeIpc> = OnceCell::new();
 pub static REQUEST_HANDLER: OnceCell<UnsafeRequestHandler> = OnceCell::new();
 
-pub struct UnsafeIpc(*mut c_void, Rc<Window>);
+pub struct UnsafeIpc(Box<dyn Fn(&Window, String)>, Rc<Window>);
 impl UnsafeIpc {
-  pub fn new(f: *mut c_void, w: Rc<Window>) -> Self {
+  pub fn new(f: Box<dyn Fn(&Window, String)>, w: Rc<Window>) -> Self {
     Self(f, w)
   }
 }
@@ -153,7 +152,7 @@ impl InnerWebView {
 
     let w = window.clone();
     if let Some(i) = ipc_handler {
-      IPC.get_or_init(move || UnsafeIpc::new(Box::into_raw(Box::new(i)) as *mut _, w));
+      IPC.get_or_init(move || UnsafeIpc::new(Box::new(i), w));
     }
 
     Ok(Self { window })

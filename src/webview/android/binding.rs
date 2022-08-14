@@ -2,14 +2,11 @@ use crate::http::{
   header::{HeaderName, HeaderValue},
   RequestBuilder,
 };
-use tao::{
-  platform::android::ndk_glue::jni::{
-    errors::Error as JniError,
-    objects::{JClass, JMap, JObject, JString},
-    sys::jobject,
-    JNIEnv,
-  },
-  window::Window,
+use tao::platform::android::ndk_glue::jni::{
+  errors::Error as JniError,
+  objects::{JClass, JMap, JObject, JString},
+  sys::jobject,
+  JNIEnv,
 };
 
 use super::{MainPipe, WebViewMessage, IPC, REQUEST_HANDLER};
@@ -122,11 +119,7 @@ pub unsafe fn ipc(env: JNIEnv, _: JClass, arg: JString) {
     Ok(arg) => {
       let arg = arg.to_string_lossy().to_string();
       if let Some(w) = IPC.get() {
-        let ipc = w.0;
-        if !ipc.is_null() {
-          let ipc = &*(ipc as *mut Box<dyn Fn(&Window, String)>);
-          ipc(&w.1, arg)
-        }
+        (w.0)(&w.1, arg)
       }
     }
     Err(e) => log::error!("Failed to parse JString: {}", e),
