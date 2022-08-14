@@ -1,12 +1,12 @@
 use super::{WebContext, WebViewAttributes};
 use crate::{
   application::window::Window,
-  http::{method::Method, Request as HttpRequest, RequestParts},
+  http::{Request as HttpRequest, Response as HttpResponse},
   Result,
 };
 use libc::c_void;
 use once_cell::sync::OnceCell;
-use std::{rc::Rc, str::FromStr};
+use std::rc::Rc;
 use tao::platform::android::ndk_glue::{
   jni::{objects::GlobalRef, JNIEnv},
   ndk::looper::{FdEvent, ForeignLooper},
@@ -14,7 +14,6 @@ use tao::platform::android::ndk_glue::{
 
 pub(crate) mod binding;
 mod main_pipe;
-use binding::*;
 use main_pipe::{MainPipe, WebViewMessage, MAIN_PIPE};
 
 #[macro_export]
@@ -60,9 +59,9 @@ impl UnsafeIpc {
 unsafe impl Send for UnsafeIpc {}
 unsafe impl Sync for UnsafeIpc {}
 
-pub struct UnsafeRequestHandler(Box<dyn Fn(WebResourceRequest) -> Option<WebResourceResponse>>);
+pub struct UnsafeRequestHandler(Box<dyn Fn(HttpRequest) -> Option<HttpResponse>>);
 impl UnsafeRequestHandler {
-  pub fn new(f: Box<dyn Fn(WebResourceRequest) -> Option<WebResourceResponse>>) -> Self {
+  pub fn new(f: Box<dyn Fn(HttpRequest) -> Option<HttpResponse>>) -> Self {
     Self(f)
   }
 }
@@ -133,32 +132,18 @@ impl InnerWebView {
     }
 
     REQUEST_HANDLER.get_or_init(move || {
-      UnsafeRequestHandler::new(Box::new(move |request: WebResourceRequest| {
+      UnsafeRequestHandler::new(Box::new(move |mut request| {
         if let Some(custom_protocol) = custom_protocols
           .iter()
-          .find(|(name, _)| request.url.starts_with(&format!("https://{}.", name)))
+          .find(|(name, _)| request.uri().starts_with(&format!("https://{}.", name)))
         {
-          let path = request.url.replace(
+          *request.uri_mut() = request.uri().replace(
             &format!("https://{}.", custom_protocol.0),
             &format!("{}://", custom_protocol.0),
           );
 
-          let request = HttpRequest {
-            head: RequestParts {
-              method: Method::from_str(&request.method).unwrap_or(Method::GET),
-              uri: path,
-              headers: request.headers,
-            },
-            body: Vec::new(),
-          };
-
           if let Ok(response) = (custom_protocol.1)(&request) {
-            return Some(WebResourceResponse {
-              status: response.head.status,
-              headers: response.head.headers,
-              mimetype: response.head.mimetype,
-              body: response.body,
-            });
+            return Some(response);
           }
         }
 

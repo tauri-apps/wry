@@ -1,6 +1,6 @@
 use crate::http::{
-  header::{HeaderMap, HeaderName, HeaderValue},
-  status::StatusCode,
+  header::{HeaderName, HeaderValue},
+  RequestBuilder,
 };
 use tao::{
   platform::android::ndk_glue::jni::{
@@ -14,35 +14,14 @@ use tao::{
 
 use super::{MainPipe, WebViewMessage, IPC, REQUEST_HANDLER};
 
-pub struct WebResourceRequest {
-  /// The request url.
-  pub url: String,
-  /// The request method.
-  pub method: String,
-  /// The request headers.
-  pub headers: HeaderMap<HeaderValue>,
-}
-
-pub struct WebResourceResponse {
-  /// The response's status
-  pub status: StatusCode,
-
-  /// The response's headers
-  pub headers: HeaderMap<HeaderValue>,
-
-  /// The response's mimetype type
-  pub mimetype: Option<String>,
-
-  /// The response body.
-  pub body: Vec<u8>,
-}
-
 #[allow(non_snake_case)]
 pub unsafe fn runInitializationScripts(_: JNIEnv, _: JClass, _: JObject) {
   MainPipe::send(WebViewMessage::RunInitializationScripts);
 }
 
 fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
+  let mut request_builder = RequestBuilder::new();
+
   let uri = env
     .call_method(request, "getUrl", "()Landroid/net/Uri;", &[])?
     .l()?;
@@ -50,19 +29,24 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
     .call_method(uri, "toString", "()Ljava/lang/String;", &[])?
     .l()?
     .into();
-  let url = env.get_string(url)?.to_string_lossy().to_string();
+  request_builder = request_builder.uri(&env.get_string(url)?.to_string_lossy().to_string());
 
   let method: JString = env
     .call_method(request, "getMethod", "()Ljava/lang/String;", &[])?
     .l()?
     .into();
-  let method = env.get_string(method)?.to_string_lossy().to_string();
+  request_builder = request_builder.method(
+    env
+      .get_string(method)?
+      .to_string_lossy()
+      .to_string()
+      .as_str(),
+  );
 
   let request_headers = env
     .call_method(request, "getRequestHeaders", "()Ljava/util/Map;", &[])?
     .l()?;
   let request_headers = JMap::from_env(&env, request_headers)?;
-  let mut headers = HeaderMap::new();
   for (header, value) in request_headers.iter()? {
     let header = env.get_string(header.into())?;
     let value = env.get_string(value.into())?;
@@ -70,30 +54,25 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
       HeaderName::from_bytes(header.to_bytes()),
       HeaderValue::from_bytes(value.to_bytes()),
     ) {
-      headers.insert(header, value);
+      request_builder = request_builder.header(header, value);
     }
   }
 
   if let Some(handler) = REQUEST_HANDLER.get() {
-    let response = (handler.0)(WebResourceRequest {
-      url,
-      method,
-      headers,
-    });
+    let response = (handler.0)(request_builder.body(Vec::new()).unwrap());
     if let Some(response) = response {
-      let status_code = response.status.as_u16() as i32;
+      let status_code = response.status().as_u16() as i32;
       let reason_phrase = "OK";
       let encoding = "UTF-8";
-      let mime_type = if let Some(mime) = response.mimetype {
+      let mime_type = if let Some(mime) = response.mimetype() {
         env.new_string(mime)?.into()
       } else {
         JObject::null()
       };
-      let bytes = response.body;
 
       let hashmap = env.find_class("java/util/HashMap")?;
       let response_headers = env.new_object(hashmap, "()V", &[])?;
-      for (key, value) in response.headers.iter() {
+      for (key, value) in response.headers().iter() {
         env.call_method(
           response_headers,
           "put",
@@ -107,6 +86,8 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
           ],
         )?;
       }
+
+      let bytes = response.body;
 
       let byte_array_input_stream = env.find_class("java/io/ByteArrayInputStream")?;
       let byte_array = env.byte_array_from_slice(&bytes)?;
