@@ -1,5 +1,16 @@
 # Changelog
 
+## \[0.20.2]
+
+- Implement custom protocol on Android.
+  - [dc68289](https://github.com/tauri-apps/wry/commit/dc68289169196419b8c9cda73c73b139ea1301f9) feat(android): implement custom protocol ([#656](https://github.com/tauri-apps/wry/pull/656)) on 2022-08-13
+- Implement `WebView::eval` on Android.
+  - [690fd26](https://github.com/tauri-apps/wry/commit/690fd26a3b9bd47f9d7b1b5d2aa3dcb1c018a771) feat(android): implement eval ([#658](https://github.com/tauri-apps/wry/pull/658)) on 2022-08-13
+- On iOS, add webview as subview instead of replacing original view.
+  - [74391e0](https://github.com/tauri-apps/wry/commit/74391e0769d0e0f4be015147ddfa39bf25c90928) fix(ios): addSubview instead of setContentView ([#655](https://github.com/tauri-apps/wry/pull/655)) on 2022-08-13
+- Move WebView logic from tao to wry.
+  - [aba1ae5](https://github.com/tauri-apps/wry/commit/aba1ae5afcf96c88b1215ef66f38a5a635ecf7c3) refactor(android): move WebView logic from tao to wry ([#659](https://github.com/tauri-apps/wry/pull/659)) on 2022-08-14
+
 ## \[0.20.1]
 
 - Add android support
