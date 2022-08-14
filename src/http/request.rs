@@ -70,6 +70,12 @@ impl Request {
     &self.head.uri
   }
 
+  /// Returns a mutable reference to the associated URI.
+  #[inline]
+  pub fn uri_mut(&mut self) -> &mut String {
+    &mut self.head.uri
+  }
+
   /// Returns a reference to the associated header field map.
   #[inline]
   pub fn headers(&self) -> &HeaderMap<HeaderValue> {

@@ -40,7 +40,7 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.2"
-tao = { git = "https://github.com/tauri-apps/tao", branch = "dev", default-features = false, features = [ "serde" ] }
+tao = { version = "0.13.3", default-features = false, features = [ "serde" ] }
 http = "0.2.8"
 
 [dev-dependencies]
@@ -85,5 +85,5 @@ core-graphics = "0.22"
 objc = "0.2"
 objc_id = "0.1"
 
-[target."cfg(target_os = \"android\")"]
-dependencies = { }
+[target."cfg(target_os = \"android\")".dependencies]
+crossbeam-channel = "0.5"
