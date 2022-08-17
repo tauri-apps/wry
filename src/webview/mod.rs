@@ -166,7 +166,7 @@ pub struct WebViewAttributes {
   ///
   /// ## Platform-specific
   ///
-  /// - **macOS / Windows / Linux**: Not implemented.
+  /// - **Windows / Linux**: Not implemented.
   pub allowed_self_signed_cert_urls: Vec<Url>,
 }
 
