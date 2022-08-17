@@ -205,29 +205,10 @@ impl InnerWebView {
 
     // Safety: objc runtime calls are unsafe
     unsafe {
-      // Webview
-      let cls = match ClassDecl::new("WryWebView", class!(WKWebView)) {
-        #[allow(unused_mut)]
-        Some(mut decl) => {
-          #[cfg(target_os = "macos")]
-          add_file_drop_methods(&mut decl);
-          decl.register()
-        }
-        _ => class!(WryWebView),
-      };
-      let webview: id = msg_send![cls, alloc];
-
       // Config and custom protocol
       let config: id = msg_send![class!(WKWebViewConfiguration), new];
       let mut protocol_ptrs = Vec::new();
       for (name, function) in attributes.custom_protocols {
-        // Attempting to override builtin protocols would normally throw an exception.
-        // We check here to gracefully handle these situations.
-        #[cfg(debug_assertions)]
-        if msg_send![webview, handlesURLScheme: NSString::new(&name)] {
-          return Err(crate::Error::DuplicateCustomProtocol(name));
-        }
-
         let scheme_name = format!("{}URLSchemeHandler", name);
         let cls = ClassDecl::new(&scheme_name, class!(NSObject));
         let cls = match cls {
@@ -257,8 +238,18 @@ impl InnerWebView {
         let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:NSString::new(&name)];
       }
 
-      // Manager
+      // Webview and manager
       let manager: id = msg_send![config, userContentController];
+      let cls = match ClassDecl::new("WryWebView", class!(WKWebView)) {
+        #[allow(unused_mut)]
+        Some(mut decl) => {
+          #[cfg(target_os = "macos")]
+          add_file_drop_methods(&mut decl);
+          decl.register()
+        }
+        _ => class!(WryWebView),
+      };
+      let webview: id = msg_send![cls, alloc];
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
 
