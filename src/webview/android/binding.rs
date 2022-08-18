@@ -2,14 +2,15 @@ use crate::http::{
   header::{HeaderName, HeaderValue},
   RequestBuilder,
 };
-use tao::platform::android::ndk_glue::jni::{
+pub use tao::platform::android::ndk_glue::jni::{
   errors::Error as JniError,
   objects::{JClass, JMap, JObject, JString},
-  sys::jobject,
+  sys::{jboolean, jobject},
   JNIEnv,
 };
+use url::Url;
 
-use super::{MainPipe, WebViewMessage, IPC, REQUEST_HANDLER};
+use super::{MainPipe, WebViewMessage, ALLOW_SSL_ERROR_HANDLER, IPC, REQUEST_HANDLER};
 
 #[allow(non_snake_case)]
 pub unsafe fn runInitializationScripts(_: JNIEnv, _: JClass, _: JObject) {
@@ -111,6 +112,23 @@ pub unsafe fn handleRequest(env: JNIEnv, _: JClass, request: JObject) -> jobject
       log::error!("Failed to handle request: {}", e);
       *JObject::null()
     }
+  }
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn allowSslError(env: JNIEnv, _: JClass, url: JString) -> jboolean {
+  if let Some(handler) = ALLOW_SSL_ERROR_HANDLER.get() {
+    if let Ok(url) = env
+      .get_string(url)
+      .map_err(|_| ())
+      .and_then(|url| Url::parse(&url.to_string_lossy()).map_err(|_| ()))
+    {
+      (handler.0)(url).into()
+    } else {
+      0
+    }
+  } else {
+    0
   }
 }
 
