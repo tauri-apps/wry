@@ -397,7 +397,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific
   ///
-  /// - **macOS / Windows / Linux**: Not implemented.
+  /// - **Windows / Linux**: Not implemented.
   #[must_use]
   pub fn with_allowed_self_signed_cert_url(mut self, url: Url) -> Self {
     self.webview.allowed_self_signed_cert_urls.push(url);
