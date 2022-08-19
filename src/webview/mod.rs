@@ -162,12 +162,6 @@ pub struct WebViewAttributes {
   /// - Android: Open `chrome://inspect/#devices` in Chrome to get the devtools window. Wry's `WebView` devtools API isn't supported on Android.
   /// - iOS: Open Safari > Develop > [Your Device Name] > [Your WebView] to get the devtools window.
   pub devtools: bool,
-  /// A list of URLs that are allowed to be loaded with a self-signed certificate.
-  ///
-  /// ## Platform-specific
-  ///
-  /// - **Windows / Linux**: Not implemented.
-  pub allowed_self_signed_cert_urls: Vec<Url>,
 }
 
 impl Default for WebViewAttributes {
@@ -187,7 +181,6 @@ impl Default for WebViewAttributes {
       clipboard: false,
       devtools: false,
       zoom_hotkeys_enabled: false,
-      allowed_self_signed_cert_urls: vec![],
     }
   }
 }
@@ -390,17 +383,6 @@ impl<'a> WebViewBuilder<'a> {
     callback: impl Fn(String) -> bool + 'static,
   ) -> Self {
     self.webview.new_window_req_handler = Some(Box::new(callback));
-    self
-  }
-
-  /// Configures the given URL to be allowed to load with a self-signed certificate.
-  ///
-  /// ## Platform-specific
-  ///
-  /// - **Windows / Linux**: Not implemented.
-  #[must_use]
-  pub fn with_allowed_self_signed_cert_url(mut self, url: Url) -> Self {
-    self.webview.allowed_self_signed_cert_urls.push(url);
     self
   }
 

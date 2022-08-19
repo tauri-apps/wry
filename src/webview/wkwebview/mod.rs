@@ -6,7 +6,6 @@
 mod file_drop;
 mod web_context;
 
-use url::Url;
 pub use web_context::WebContextImpl;
 
 #[cfg(target_os = "macos")]
@@ -61,7 +60,6 @@ pub struct InnerWebView {
   // all functions pointer declarations in objc callbacks below all need to get updated.
   ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
-  respond_auth_challenge_ptr: *mut Box<dyn Fn(String) -> bool>,
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
   protocol_ptrs: Vec<*mut Box<dyn Fn(&HttpRequest) -> Result<HttpResponse>>>,
@@ -324,47 +322,6 @@ impl InnerWebView {
         null_mut()
       };
 
-      // respond auth challenge
-      extern "C" fn respond_authentication_challenge(
-        this: &Object,
-        _: Sel,
-        _webview: id,
-        challenge: id,
-        completion_handler: id,
-      ) {
-        unsafe {
-          let url_credential: id = msg_send![class!(NSURLCredential), alloc];
-          let protection_space: id = msg_send![challenge, protectionSpace];
-          let server_trust: id = msg_send![protection_space, serverTrust];
-          let credential: id = msg_send![url_credential, initWithTrust: server_trust];
-          let completion_handler = completion_handler as *mut block::Block<(NSInteger, id), c_void>;
-
-          let function = this.get_ivar::<*mut c_void>("respond_auth_challenge_fn");
-          if !function.is_null() {
-            let protocol: id = msg_send![protection_space, protocol];
-            let protocol = if protocol == nil {
-              "".to_string()
-            } else {
-              format!("{}://", NSString(protocol).to_str())
-            };
-            let host: id = msg_send![protection_space, host];
-            let host = NSString(host);
-            let port: NSInteger = msg_send![protection_space, port];
-            let url = format!("{}{}:{}", protocol, host.to_str(), port);
-
-            let function = &mut *(*function as *mut Box<dyn for<'s> Fn(String) -> bool>);
-            match (function)(url) {
-              // `0` here means AuthChallengeDisposition.useCredential
-              true => (*completion_handler).call((0, credential)),
-              // `1` here means AuthChallengeDisposition.performDefaultHandling
-              false => (*completion_handler).call((1, credential)),
-            };
-          } else {
-            (*completion_handler).call((1, credential));
-          }
-        }
-      }
-
       // Navigation handler
       extern "C" fn navigation_policy(this: &Object, _: Sel, _: id, action: id, handler: id) {
         unsafe {
@@ -378,7 +335,7 @@ impl InnerWebView {
 
           let handler = handler as *mut block::Block<(NSInteger,), c_void>;
 
-          let function = this.get_ivar::<*mut c_void>("navigation_policy_fn");
+          let function = this.get_ivar::<*mut c_void>("function");
           if !function.is_null() {
             let function = &mut *(*function as *mut Box<dyn for<'s> Fn(String, bool) -> bool>);
             match (function)(url.to_str().to_string(), is_main_frame) {
@@ -386,49 +343,27 @@ impl InnerWebView {
               false => (*handler).call((0,)),
             };
           } else {
+            log::warn!("WebView instance is dropped! This navigation handler shouldn't be called.");
             (*handler).call((1,));
           }
         }
       }
 
-      let navigation_delegate_cls = match ClassDecl::new("MyUiViewController", class!(NSObject)) {
-        Some(mut cls) => {
-          cls.add_ivar::<*mut c_void>("navigation_policy_fn");
-          cls.add_ivar::<*mut c_void>("respond_auth_challenge_fn");
-          cls.add_method(
-            sel!(webView:decidePolicyForNavigationAction:decisionHandler:),
-            navigation_policy as extern "C" fn(&Object, Sel, id, id, id),
-          );
-          cls.add_method(
-            sel!(webView:didReceiveAuthenticationChallenge:completionHandler:),
-            respond_authentication_challenge as extern "C" fn(&Object, Sel, id, id, id),
-          );
-          cls.register()
-        }
-        None => class!(UIViewController),
-      };
-
-      let navigation_delegate: id = msg_send![navigation_delegate_cls, new];
-
-      let respond_auth_challenge_ptr = {
-        let allowed_self_signed_cert_urls = attributes.allowed_self_signed_cert_urls;
-        Box::into_raw(Box::new(Box::new(move |url: String| -> bool {
-          if let Ok(url) = Url::parse(&url) {
-            allowed_self_signed_cert_urls
-              .iter()
-              .any(|u| u.host().is_some() && u.host() == url.host())
-          } else {
-            false
-          }
-        }) as Box<dyn Fn(String) -> bool>))
-      };
-      (*navigation_delegate).set_ivar(
-        "respond_auth_challenge_fn",
-        respond_auth_challenge_ptr as *mut _ as *mut c_void,
-      );
-
       let navigation_decide_policy_ptr =
         if attributes.navigation_handler.is_some() || attributes.new_window_req_handler.is_some() {
+          let cls = match ClassDecl::new("UIViewController", class!(NSObject)) {
+            Some(mut cls) => {
+              cls.add_ivar::<*mut c_void>("function");
+              cls.add_method(
+                sel!(webView:decidePolicyForNavigationAction:decisionHandler:),
+                navigation_policy as extern "C" fn(&Object, Sel, id, id, id),
+              );
+              cls.register()
+            }
+            None => class!(UIViewController),
+          };
+
+          let handler: id = msg_send![cls, new];
           let function_ptr = {
             let navigation_handler = attributes.navigation_handler;
             let new_window_req_handler = attributes.new_window_req_handler;
@@ -446,17 +381,13 @@ impl InnerWebView {
               }) as Box<dyn Fn(String, bool) -> bool>,
             ))
           };
-          (*navigation_delegate).set_ivar(
-            "navigation_policy_fn",
-            function_ptr as *mut _ as *mut c_void,
-          );
+          (*handler).set_ivar("function", function_ptr as *mut _ as *mut c_void);
 
+          let _: () = msg_send![webview, setNavigationDelegate: handler];
           function_ptr
         } else {
           null_mut()
         };
-
-      let _: () = msg_send![webview, setNavigationDelegate: navigation_delegate];
 
       // File upload panel handler
       extern "C" fn run_file_upload_panel(
@@ -534,7 +465,6 @@ impl InnerWebView {
         manager,
         ipc_handler_ptr,
         navigation_decide_policy_ptr,
-        respond_auth_challenge_ptr,
         #[cfg(target_os = "macos")]
         file_drop_ptr,
         protocol_ptrs,
@@ -748,9 +678,6 @@ impl Drop for InnerWebView {
 
       if !self.navigation_decide_policy_ptr.is_null() {
         let _ = Box::from_raw(self.navigation_decide_policy_ptr);
-      }
-      if !self.respond_auth_challenge_ptr.is_null() {
-        let _ = Box::from_raw(self.respond_auth_challenge_ptr);
       }
 
       #[cfg(target_os = "macos")]
