@@ -10,7 +10,6 @@ use tao::platform::android::ndk_glue::{
   jni::{objects::GlobalRef, JNIEnv},
   ndk::looper::{FdEvent, ForeignLooper},
 };
-use url::Url;
 
 pub(crate) mod binding;
 mod main_pipe;
@@ -43,24 +42,12 @@ macro_rules! android_binding {
       JObject,
       jobject
     );
-    android_fn!(
-      $domain,
-      $package,
-      RustWebViewClient,
-      allowSslError,
-      JString,
-      jboolean
-    );
     android_fn!($domain, $package, Ipc, ipc, JString);
   };
 }
 
 pub static IPC: OnceCell<UnsafeIpc> = OnceCell::new();
-pub static REQUEST_HANDLER: OnceCell<
-  UnsafeClosure<Box<dyn Fn(HttpRequest) -> Option<HttpResponse>>>,
-> = OnceCell::new();
-pub static ALLOW_SSL_ERROR_HANDLER: OnceCell<UnsafeClosure<Box<dyn Fn(Url) -> bool>>> =
-  OnceCell::new();
+pub static REQUEST_HANDLER: OnceCell<UnsafeRequestHandler> = OnceCell::new();
 
 pub struct UnsafeIpc(Box<dyn Fn(&Window, String)>, Rc<Window>);
 impl UnsafeIpc {
@@ -71,14 +58,14 @@ impl UnsafeIpc {
 unsafe impl Send for UnsafeIpc {}
 unsafe impl Sync for UnsafeIpc {}
 
-pub struct UnsafeClosure<T>(T);
-impl<T> UnsafeClosure<T> {
-  pub fn new(f: T) -> Self {
+pub struct UnsafeRequestHandler(Box<dyn Fn(HttpRequest) -> Option<HttpResponse>>);
+impl UnsafeRequestHandler {
+  pub fn new(f: Box<dyn Fn(HttpRequest) -> Option<HttpResponse>>) -> Self {
     Self(f)
   }
 }
-unsafe impl<T> Send for UnsafeClosure<T> {}
-unsafe impl<T> Sync for UnsafeClosure<T> {}
+unsafe impl Send for UnsafeRequestHandler {}
+unsafe impl Sync for UnsafeRequestHandler {}
 
 pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
   let mut main_pipe = MainPipe {
@@ -120,7 +107,6 @@ impl InnerWebView {
       ipc_handler,
       devtools,
       custom_protocols,
-      allowed_self_signed_cert_urls,
       ..
     } = attributes;
 
@@ -144,16 +130,8 @@ impl InnerWebView {
       ));
     }
 
-    ALLOW_SSL_ERROR_HANDLER.get_or_init(move || {
-      UnsafeClosure::new(Box::new(move |url| {
-        allowed_self_signed_cert_urls
-          .iter()
-          .any(|u| u.host().is_some() && u.host() == url.host())
-      }))
-    });
-
     REQUEST_HANDLER.get_or_init(move || {
-      UnsafeClosure::new(Box::new(move |mut request| {
+      UnsafeRequestHandler::new(Box::new(move |mut request| {
         if let Some(custom_protocol) = custom_protocols
           .iter()
           .find(|(name, _)| request.uri().starts_with(&format!("https://{}.", name)))
