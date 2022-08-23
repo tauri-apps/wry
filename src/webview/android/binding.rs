@@ -9,12 +9,7 @@ use tao::platform::android::ndk_glue::jni::{
   JNIEnv,
 };
 
-use super::{MainPipe, WebViewMessage, IPC, REQUEST_HANDLER};
-
-#[allow(non_snake_case)]
-pub unsafe fn runInitializationScripts(_: JNIEnv, _: JClass, _: JObject) {
-  MainPipe::send(WebViewMessage::RunInitializationScripts);
-}
+use super::{IPC, REQUEST_HANDLER};
 
 fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
   let mut request_builder = RequestBuilder::new();

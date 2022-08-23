@@ -20,7 +20,6 @@ pub static MAIN_PIPE: Lazy<[RawFd; 2]> = Lazy::new(|| {
 pub struct MainPipe<'a> {
   pub env: JNIEnv<'a>,
   pub activity: GlobalRef,
-  pub initialization_scripts: Vec<String>,
   pub webview: Option<GlobalRef>,
 }
 
@@ -37,7 +36,7 @@ impl MainPipe<'_> {
     let activity = self.activity.as_obj();
     if let Ok(message) = CHANNEL.1.recv() {
       match message {
-        WebViewMessage::CreateWebView(url, mut initialization_scripts, devtools) => {
+        WebViewMessage::CreateWebView(url, initialization_scripts, devtools) => {
           // Create webview
           let class = env.find_class("android/webkit/WebView")?;
           let webview =
@@ -67,42 +66,36 @@ impl MainPipe<'_> {
             &[devtools.into()],
           )?;
 
-          // Initialize scripts
-          self
-            .initialization_scripts
-            .append(&mut initialization_scripts);
+          let string_class = env.find_class("java/lang/String")?;
+          let initialization_scripts_array = env.new_object_array(
+            initialization_scripts.len() as i32,
+            string_class,
+            env.new_string("")?,
+          )?;
+          for (i, script) in initialization_scripts.into_iter().enumerate() {
+            env.set_object_array_element(
+              initialization_scripts_array,
+              i as i32,
+              env.new_string(script)?,
+            )?;
+          }
 
           // Create and set webview client
-          println!(
-            "[RUST] webview client {}/RustWebViewClient",
-            PACKAGE.get().unwrap()
-          );
           let rust_webview_client_class = find_my_class(
             env,
             activity,
             format!("{}/RustWebViewClient", PACKAGE.get().unwrap()),
           )?;
-          let webview_client = env.new_object(rust_webview_client_class, "()V", &[])?;
+          let webview_client = env.new_object(
+            rust_webview_client_class,
+            "([Ljava/lang/String;)V",
+            &[initialization_scripts_array.into()],
+          )?;
           env.call_method(
             webview,
             "setWebViewClient",
             "(Landroid/webkit/WebViewClient;)V",
             &[webview_client.into()],
-          )?;
-
-          // Create and set webchrome client
-          println!("[RUST] chrome client");
-          let rust_webchrome_client_class = find_my_class(
-            env,
-            activity,
-            format!("{}/RustWebChromeClient", PACKAGE.get().unwrap()),
-          )?;
-          let webchrome_client = env.new_object(rust_webchrome_client_class, "()V", &[])?;
-          env.call_method(
-            webview,
-            "setWebChromeClient",
-            "(Landroid/webkit/WebChromeClient;)V",
-            &[webchrome_client.into()],
           )?;
 
           // Add javascript interface (IPC)
@@ -125,19 +118,6 @@ impl MainPipe<'_> {
           )?;
           let webview = env.new_global_ref(webview)?;
           self.webview = Some(webview);
-        }
-        WebViewMessage::RunInitializationScripts => {
-          if let Some(webview) = &self.webview {
-            for s in &self.initialization_scripts {
-              let s = env.new_string(s)?;
-              env.call_method(
-                webview.as_obj(),
-                "evaluateJavascript",
-                "(Ljava/lang/String;Landroid/webkit/ValueCallback;)V",
-                &[s.into(), JObject::null().into()],
-              )?;
-            }
-          }
         }
         WebViewMessage::Eval(script) => {
           if let Some(webview) = &self.webview {
@@ -176,6 +156,5 @@ fn find_my_class<'a>(
 #[derive(Debug)]
 pub enum WebViewMessage {
   CreateWebView(String, Vec<String>, bool),
-  RunInitializationScripts,
   Eval(String),
 }
