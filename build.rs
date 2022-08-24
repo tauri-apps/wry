@@ -62,8 +62,10 @@ fn main() {
           &std::env::var(&class_extension_env).unwrap_or_default(),
         );
 
-      fs::write(kotlin_out_dir.join(file.file_name()), content)
-        .expect("Failed to write kotlin file");
+      let mut out = String::from("THIS FILE IS AUTO-GENERATED. DO NOT MODIFY!!\n\n");
+      out.push_str(&content);
+
+      fs::write(kotlin_out_dir.join(file.file_name()), out).expect("Failed to write kotlin file");
     }
   }
 }
