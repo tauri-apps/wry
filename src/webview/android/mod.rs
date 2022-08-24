@@ -31,12 +31,6 @@ macro_rules! android_binding {
     android_fn!(
       $domain,
       $package,
-      RustWebChromeClient,
-      runInitializationScripts
-    );
-    android_fn!(
-      $domain,
-      $package,
       RustWebViewClient,
       handleRequest,
       JObject,
@@ -71,7 +65,6 @@ pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
   let mut main_pipe = MainPipe {
     env,
     activity,
-    initialization_scripts: vec![],
     webview: None,
   };
 
