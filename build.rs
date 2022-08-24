@@ -43,7 +43,12 @@ fn main() {
 
       let class_extension_env = format!(
         "WRY_{}_CLASS_EXTENSION",
-        file.path().file_stem().unwrap().to_string_lossy()
+        file
+          .path()
+          .file_stem()
+          .unwrap()
+          .to_string_lossy()
+          .to_uppercase()
       );
 
       println!("cargo:rerun-if-env-changed={}", class_extension_env);
