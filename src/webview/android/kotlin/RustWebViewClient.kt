@@ -32,3 +32,5 @@ class RustWebViewClient(initScripts: Array<String>): WebViewClient() {
 
     private external fun handleRequest(request: WebResourceRequest): WebResourceResponse?
 }
+
+{{extra_code}}

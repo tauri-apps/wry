@@ -69,3 +69,5 @@ abstract class TauriActivity : AppCompatActivity() {
     private external fun memory()
     private external fun focus(focus: Boolean)
 }
+
+{{extra_code}}

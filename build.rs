@@ -25,10 +25,11 @@ fn main() {
 
     let reversed_domain = env_var("WRY_ANDROID_REVERSED_DOMAIN");
     let app_name_snake_case = env_var("WRY_ANDROID_APP_NAME_SNAKE_CASE");
-    let kotlin_out = PathBuf::from(env_var("WRY_ANDROID_KOTLIN_FILES_OUT_DIR"))
+    let kotlin_out_dir = env_var("WRY_ANDROID_KOTLIN_FILES_OUT_DIR");
+
+    let kotlin_out_dir = PathBuf::from(kotlin_out_dir)
       .canonicalize()
       .expect("Failed to canonicalize path");
-
     let kotlin_files =
       fs::read_dir(PathBuf::from(env_var("CARGO_MANIFEST_DIR")).join("src/webview/android/kotlin"))
         .expect("failed to read kotlin directory");
@@ -38,8 +39,17 @@ fn main() {
       let content = fs::read_to_string(file.path())
         .expect("failed to read kotlin file as string")
         .replace("{{app-domain-reversed}}", &reversed_domain)
-        .replace("{{app-name-snake-case}}", &app_name_snake_case);
-      fs::write(kotlin_out.join(file.file_name()), content).expect("Failed to write kotlin file");
+        .replace("{{app-name-snake-case}}", &app_name_snake_case)
+        .replace(
+          "{{extra_code}}",
+          &std::env::var(format!(
+            "WRY_{}_EXTRA_CODE",
+            file.path().file_stem().unwrap().to_string_lossy()
+          ))
+          .unwrap_or_default(),
+        );
+      fs::write(kotlin_out_dir.join(file.file_name()), content)
+        .expect("Failed to write kotlin file");
     }
   }
 }
