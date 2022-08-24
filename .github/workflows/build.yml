@@ -13,7 +13,15 @@ jobs:
           - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
           - { target: x86_64-apple-darwin, os: macos-latest }
           - { target: aarch64-apple-ios, os: macos-latest }
-          - { target: aarch64-linux-android, os: ubuntu-latest }
+          - {
+              target: aarch64-linux-android,
+              os: ubuntu-latest,
+              env: {
+                WRY_ANDROID_REVERSED_DOMAIN: "app.tauri",
+                WRY_ANDROID_APP_NAME_SNAKE_CASE: "wry",
+                WRY_ANDROID_KOTLIN_FILES_OUT_DIR: "out",
+              }
+            }
 
     runs-on: ${{ matrix.platform.os }}
 
@@ -74,8 +82,16 @@ jobs:
             ${{ matrix.platform }}-stable-cargo-core-${{ hashFiles('Cargo.toml') }}
             ${{ matrix.platform }}-stable-cargo-core-
 
+      - name: create kotlin out dir
+        if: contains(matrix.platform.target, 'android')
+        run: mkdir out
+
       - name: build wry
         run: cargo build --features tray --target ${{ matrix.platform.target }}
+        env:
+          WRY_ANDROID_REVERSED_DOMAIN: ${{ matrix.platform.env.WRY_ANDROID_REVERSED_DOMAIN }}
+          WRY_ANDROID_APP_NAME_SNAKE_CASE: ${{ matrix.platform.env.WRY_ANDROID_APP_NAME_SNAKE_CASE }}
+          WRY_ANDROID_KOTLIN_FILES_OUT_DIR: ${{ matrix.platform.env.WRY_ANDROID_KOTLIN_FILES_OUT_DIR }}
 
       - name: build tests and examples
         shell: bash
