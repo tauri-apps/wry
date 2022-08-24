@@ -50,8 +50,18 @@ fn main() {
           .to_string_lossy()
           .to_uppercase()
       );
+      let class_init_env = format!(
+        "WRY_{}_CLASS_INIT",
+        file
+          .path()
+          .file_stem()
+          .unwrap()
+          .to_string_lossy()
+          .to_uppercase()
+      );
 
       println!("cargo:rerun-if-env-changed={}", class_extension_env);
+      println!("cargo:rerun-if-env-changed={}", class_init_env);
 
       let content = fs::read_to_string(file.path())
         .expect("failed to read kotlin file as string")
@@ -60,6 +70,10 @@ fn main() {
         .replace(
           "{{class-extension}}",
           &std::env::var(&class_extension_env).unwrap_or_default(),
+        )
+        .replace(
+          "{{class-init}}",
+          &std::env::var(&class_init_env).unwrap_or_default(),
         );
 
       let mut out = String::from("THIS FILE IS AUTO-GENERATED. DO NOT MODIFY!!\n\n");

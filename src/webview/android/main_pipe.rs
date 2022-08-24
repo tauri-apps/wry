@@ -38,20 +38,16 @@ impl MainPipe<'_> {
       match message {
         WebViewMessage::CreateWebView(url, initialization_scripts, devtools) => {
           // Create webview
-          let class = env.find_class("android/webkit/WebView")?;
-          let webview =
-            env.new_object(class, "(Landroid/content/Context;)V", &[activity.into()])?;
-
-          // Enable Javascript
-          let settings = env
-            .call_method(
-              webview,
-              "getSettings",
-              "()Landroid/webkit/WebSettings;",
-              &[],
-            )?
-            .l()?;
-          env.call_method(settings, "setJavaScriptEnabled", "(Z)V", &[true.into()])?;
+          let rust_webview_class = find_my_class(
+            env,
+            activity,
+            format!("{}/RustWebView", PACKAGE.get().unwrap()),
+          )?;
+          let webview = env.new_object(
+            rust_webview_class,
+            "(Landroid/content/Context;)V",
+            &[activity.into()],
+          )?;
 
           // Load URL
           if let Ok(url) = env.new_string(url) {
@@ -59,8 +55,9 @@ impl MainPipe<'_> {
           }
 
           // Enable devtools
+          #[cfg(debug_assertions)]
           env.call_static_method(
-            class,
+            rust_webview_class,
             "setWebContentsDebuggingEnabled",
             "(Z)V",
             &[devtools.into()],
