@@ -10,8 +10,8 @@ fn main() {
     println!("cargo:rustc-link-lib=framework=WebKit");
   }
 
-  let is_android = std::env::var("TARGET")
-    .map(|t| t.ends_with("-android"))
+  let is_android = std::env::var("CARGO_CFG_TARGET_OS")
+    .map(|t| t == "android")
     .unwrap_or_default();
   if is_android {
     use std::{fs, path::PathBuf};
