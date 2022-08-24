@@ -15,6 +15,6 @@ class Ipc {
     }
 
     private external fun ipc(message: String)
-}
 
-{{extra_code}}
+    {{class-extension}}
+}

@@ -41,20 +41,20 @@ fn main() {
     for file in kotlin_files {
       let file = file.unwrap();
 
-      let extra_code_env = format!(
-        "WRY_{}_EXTRA_CODE",
+      let class_extension_env = format!(
+        "WRY_{}_CLASS_EXTENSION",
         file.path().file_stem().unwrap().to_string_lossy()
       );
 
-      println!("cargo:rerun-if-env-changed={}", extra_code_env);
+      println!("cargo:rerun-if-env-changed={}", class_extension_env);
 
       let content = fs::read_to_string(file.path())
         .expect("failed to read kotlin file as string")
         .replace("{{app-domain-reversed}}", &reversed_domain)
         .replace("{{app-name-snake-case}}", &app_name_snake_case)
         .replace(
-          "{{extra_code}}",
-          &std::env::var(&extra_code_env).unwrap_or_default(),
+          "{{class-extension}}",
+          &std::env::var(&class_extension_env).unwrap_or_default(),
         );
 
       fs::write(kotlin_out_dir.join(file.file_name()), content)
