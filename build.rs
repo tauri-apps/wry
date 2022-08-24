@@ -23,6 +23,10 @@ fn main() {
       ))
     }
 
+    println!("cargo:rerun-if-env-changed=WRY_ANDROID_REVERSED_DOMAIN");
+    println!("cargo:rerun-if-env-changed=WRY_ANDROID_APP_NAME_SNAKE_CASE");
+    println!("cargo:rerun-if-env-changed=WRY_ANDROID_KOTLIN_FILES_OUT_DIR");
+
     let reversed_domain = env_var("WRY_ANDROID_REVERSED_DOMAIN");
     let app_name_snake_case = env_var("WRY_ANDROID_APP_NAME_SNAKE_CASE");
     let kotlin_out_dir = env_var("WRY_ANDROID_KOTLIN_FILES_OUT_DIR");
@@ -36,18 +40,23 @@ fn main() {
 
     for file in kotlin_files {
       let file = file.unwrap();
+
+      let extra_code_env = format!(
+        "WRY_{}_EXTRA_CODE",
+        file.path().file_stem().unwrap().to_string_lossy()
+      );
+
+      println!("cargo:rerun-if-env-changed={}", extra_code_env);
+
       let content = fs::read_to_string(file.path())
         .expect("failed to read kotlin file as string")
         .replace("{{app-domain-reversed}}", &reversed_domain)
         .replace("{{app-name-snake-case}}", &app_name_snake_case)
         .replace(
           "{{extra_code}}",
-          &std::env::var(format!(
-            "WRY_{}_EXTRA_CODE",
-            file.path().file_stem().unwrap().to_string_lossy()
-          ))
-          .unwrap_or_default(),
+          &std::env::var(&extra_code_env).unwrap_or_default(),
         );
+
       fs::write(kotlin_out_dir.join(file.file_name()), content)
         .expect("Failed to write kotlin file");
     }
