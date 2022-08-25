@@ -76,7 +76,7 @@ fn main() {
           &std::env::var(&class_init_env).unwrap_or_default(),
         );
 
-      let mut out = String::from("THIS FILE IS AUTO-GENERATED. DO NOT MODIFY!!\n\n");
+      let mut out = String::from("/* THIS FILE IS AUTO-GENERATED. DO NOT MODIFY!! */\n\n");
       out.push_str(&content);
 
       fs::write(kotlin_out_dir.join(file.file_name()), out).expect("Failed to write kotlin file");
