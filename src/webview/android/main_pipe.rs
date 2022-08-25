@@ -55,7 +55,7 @@ impl MainPipe<'_> {
           }
 
           // Enable devtools
-          #[cfg(debug_assertions)]
+          #[cfg(any(debug_assertions, feature = "devtools"))]
           env.call_static_method(
             rust_webview_class,
             "setWebContentsDebuggingEnabled",
