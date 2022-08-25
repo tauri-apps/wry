@@ -36,7 +36,7 @@ impl MainPipe<'_> {
     let activity = self.activity.as_obj();
     if let Ok(message) = CHANNEL.1.recv() {
       match message {
-        WebViewMessage::CreateWebView(url, initialization_scripts, devtools) => {
+        WebViewMessage::CreateWebView(url, devtools) => {
           // Create webview
           let rust_webview_class = find_my_class(
             env,
@@ -63,31 +63,13 @@ impl MainPipe<'_> {
             &[devtools.into()],
           )?;
 
-          let string_class = env.find_class("java/lang/String")?;
-          let initialization_scripts_array = env.new_object_array(
-            initialization_scripts.len() as i32,
-            string_class,
-            env.new_string("")?,
-          )?;
-          for (i, script) in initialization_scripts.into_iter().enumerate() {
-            env.set_object_array_element(
-              initialization_scripts_array,
-              i as i32,
-              env.new_string(script)?,
-            )?;
-          }
-
           // Create and set webview client
           let rust_webview_client_class = find_my_class(
             env,
             activity,
             format!("{}/RustWebViewClient", PACKAGE.get().unwrap()),
           )?;
-          let webview_client = env.new_object(
-            rust_webview_client_class,
-            "([Ljava/lang/String;)V",
-            &[initialization_scripts_array.into()],
-          )?;
+          let webview_client = env.new_object(rust_webview_client_class, "()V", &[])?;
           env.call_method(
             webview,
             "setWebViewClient",
@@ -152,6 +134,6 @@ fn find_my_class<'a>(
 
 #[derive(Debug)]
 pub enum WebViewMessage {
-  CreateWebView(String, Vec<String>, bool),
+  CreateWebView(String, bool),
   Eval(String),
 }

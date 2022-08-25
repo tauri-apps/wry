@@ -17,10 +17,12 @@ fn main() {
     use std::{fs, path::PathBuf};
 
     fn env_var(var: &str) -> String {
-      std::env::var(var).expect(&format!(
-        " `{}` is not set, which is needed to generate the kotlin files for android.",
-        var
-      ))
+      std::env::var(var).unwrap_or_else(|_| {
+        panic!(
+          " `{}` is not set, which is needed to generate the kotlin files for android.",
+          var
+        )
+      })
     }
 
     println!("cargo:rerun-if-env-changed=WRY_ANDROID_REVERSED_DOMAIN");
