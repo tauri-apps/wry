@@ -92,7 +92,8 @@ pub struct WebViewAttributes {
   ///
   /// ## Platform-specific
   ///
-  /// - **Android:** The initialization scripts are only executed on custom protocol URLs.
+  /// - **Android:** The Android WebView does not provide an API for initialization scripts,
+  /// so we prepend them to each HTML head. They are only implemented on custom protocol URLs.
   pub initialization_scripts: Vec<String>,
   /// Register custom file loading protocols with pairs of scheme uri string and a handling
   /// closure.
@@ -231,7 +232,8 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific
   ///
-  /// - **Android:** The initialization scripts are only executed on custom protocol URLs.
+  /// - **Android:** The Android WebView does not provide an API for initialization scripts,
+  /// so we prepend them to each HTML head. They are only implemented on custom protocol URLs.
   pub fn with_initialization_script(mut self, js: &str) -> Self {
     self.webview.initialization_scripts.push(js.to_string());
     self
