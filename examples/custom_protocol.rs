@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -58,7 +58,7 @@ fn main() -> wry::Result<()> {
         event: WindowEvent::Moved { .. },
         ..
       } => {
-        webview.evaluate_script("console.log('hello');");
+        let _ = webview.evaluate_script("console.log('hello');");
       }
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
