@@ -475,16 +475,6 @@ impl WebView {
     Ok(())
   }
 
-  /// Moves Focus to the Webview control.
-  ///
-  /// It's usually safe to call `focus` method on `Window` which would also focus to `WebView` except Windows.
-  /// Focussing to `Window` doesn't mean focussing to `WebView` on Windows. For example, if you have
-  /// an input field on webview and lost focus, you will have to explicitly click the field even you
-  /// re-focus the window. And if you focus to `WebView`, it will lost focus to the `Window`.
-  pub fn focus(&self) {
-    self.webview.focus();
-  }
-
   /// Open the web inspector which is usually called dev tool.
   ///
   /// ## Platform-specific
