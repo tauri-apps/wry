@@ -368,10 +368,6 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn focus(&self) {
-    self.webview.grab_focus();
-  }
-
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn open_devtools(&self) {
     if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
