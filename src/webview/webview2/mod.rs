@@ -11,18 +11,21 @@ use crate::{
 
 use file_drop::FileDropController;
 
-use std::{collections::HashSet, mem::MaybeUninit, rc::Rc, sync::mpsc};
+use std::{
+  collections::HashSet, fmt::Write, iter::once, mem::MaybeUninit, os::windows::prelude::OsStrExt,
+  rc::Rc, sync::mpsc,
+};
 
 use once_cell::unsync::OnceCell;
 
 use windows::{
-  core::{Interface, PCWSTR, PWSTR},
+  core::{Interface, PCSTR, PCWSTR, PWSTR},
   Win32::{
     Foundation::{BOOL, E_FAIL, E_POINTER, FARPROC, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM},
     Globalization::{self, MAX_LOCALE_NAME},
     System::{
       Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
-      LibraryLoader::{GetProcAddress, LoadLibraryA},
+      LibraryLoader::{GetProcAddress, LoadLibraryW},
       SystemInformation::OSVERSIONINFOW,
       WinRT::EventRegistrationToken,
     },
@@ -110,27 +113,29 @@ impl InnerWebView {
           );
 
           options
-            .SetLanguage(PCWSTR(lang.as_ptr()))
+            .SetLanguage(PCWSTR::from_raw(lang.as_ptr()))
             .map_err(webview2_com::Error::WindowsError)?;
           options
         };
 
         // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
-        let _ = options.SetAdditionalBrowserArguments("--disable-features=msWebOOUI,msPdfOOUI");
+        let _ = options.SetAdditionalBrowserArguments(PCWSTR::from_raw(
+          encode_wide("--disable-features=msWebOOUI,msPdfOOUI").as_ptr(),
+        ));
 
         if let Some(data_directory) = data_directory {
           CreateCoreWebView2EnvironmentWithOptions(
-            PCWSTR::default(),
-            data_directory,
-            options,
-            environmentcreatedhandler,
+            PCWSTR::null(),
+            PCWSTR::from_raw(encode_wide(data_directory).as_ptr()),
+            &options,
+            &environmentcreatedhandler,
           )
         } else {
           CreateCoreWebView2EnvironmentWithOptions(
-            PCWSTR::default(),
-            PCWSTR::default(),
-            options,
-            environmentcreatedhandler,
+            PCWSTR::null(),
+            PCWSTR::null(),
+            &options,
+            &environmentcreatedhandler,
           )
         }
         .map_err(webview2_com::Error::WindowsError)
@@ -158,7 +163,7 @@ impl InnerWebView {
     CreateCoreWebView2ControllerCompletedHandler::wait_for_async_operation(
       Box::new(move |handler| unsafe {
         env
-          .CreateCoreWebView2Controller(hwnd, handler)
+          .CreateCoreWebView2Controller(hwnd, &handler)
           .map_err(webview2_com::Error::WindowsError)
       }),
       Box::new(move |error_code, controller| {
@@ -218,7 +223,7 @@ impl InnerWebView {
           }
         }));
       webview
-        .add_WindowCloseRequested(handler, &mut token)
+        .add_WindowCloseRequested(&handler, &mut token)
         .map_err(webview2_com::Error::WindowsError)?;
 
       let settings = webview
@@ -274,9 +279,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     let ipc_handler = attributes.ipc_handler.take();
     unsafe {
       webview.add_WebMessageReceived(
-        WebMessageReceivedEventHandler::create(Box::new(move |_, args| {
+        &WebMessageReceivedEventHandler::create(Box::new(move |_, args| {
           if let Some(args) = args {
-            let mut js = PWSTR::default();
+            let mut js = PWSTR::null();
             args.TryGetWebMessageAsString(&mut js)?;
             let js = take_pwstr(js);
             if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_MOUSE_MOVE__" {
@@ -330,9 +335,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       unsafe {
         webview
           .add_NavigationStarting(
-            NavigationStartingEventHandler::create(Box::new(move |_, args| {
+            &NavigationStartingEventHandler::create(Box::new(move |_, args| {
               if let Some(args) = args {
-                let mut uri = PWSTR::default();
+                let mut uri = PWSTR::null();
                 args.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
 
@@ -353,9 +358,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       unsafe {
         webview
           .add_NewWindowRequested(
-            NewWindowRequestedEventHandler::create(Box::new(move |_, args| {
+            &NewWindowRequestedEventHandler::create(Box::new(move |_, args| {
               if let Some(args) = args {
-                let mut uri = PWSTR::default();
+                let mut uri = PWSTR::null();
                 args.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
 
@@ -380,7 +385,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         custom_protocol_names.insert(name.clone());
         unsafe {
           webview.AddWebResourceRequestedFilter(
-            format!("https://{}.*", name),
+            PCWSTR::from_raw(encode_wide(format!("https://{}.*", name)).as_ptr()),
             COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
           )
         }
@@ -392,13 +397,13 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       unsafe {
         webview
           .add_WebResourceRequested(
-            WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
+            &WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
               if let Some(args) = args {
                 let webview_request = args.Request()?;
                 let mut request = HttpRequestBuilder::new();
 
                 // request method (GET, POST, PUT etc..)
-                let mut request_method = PWSTR::default();
+                let mut request_method = PWSTR::null();
                 webview_request.Method(&mut request_method)?;
                 let request_method = take_pwstr(request_method);
 
@@ -408,8 +413,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 headers.HasCurrentHeader(&mut has_current)?;
                 if has_current.as_bool() {
                   loop {
-                    let mut key = PWSTR::default();
-                    let mut value = PWSTR::default();
+                    let mut key = PWSTR::null();
+                    let mut value = PWSTR::null();
                     headers.GetCurrentHeader(&mut key, &mut value)?;
                     let (key, value) = (take_pwstr(key), take_pwstr(value));
                     request = request.header(&key, &value);
@@ -445,7 +450,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 }
 
                 // uri
-                let mut uri = PWSTR::default();
+                let mut uri = PWSTR::null();
                 webview_request.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
 
@@ -473,14 +478,14 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
                       // set mime type if provided
                       if let Some(mime) = sent_response.mimetype() {
-                        headers_map.push_str(&format!("Content-Type: {}\n", mime))
+                        let _ = writeln!(headers_map, "Content-Type: {}", mime);
                       }
 
                       // build headers
                       for (name, value) in sent_response.headers().iter() {
                         let header_key = name.to_string();
                         if let Ok(value) = value.to_str() {
-                          headers_map.push_str(&format!("{}: {}\n", header_key, value))
+                          let _ = writeln!(headers_map, "{}: {}", header_key, value);
                         }
                       }
 
@@ -504,11 +509,14 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
                       // FIXME: Set http response version
 
-                      let body_sent = body_sent.map(|content| content.cast().unwrap());
-                      let response =
-                        env.CreateWebResourceResponse(body_sent, status_code, "OK", headers_map)?;
+                      let response = env.CreateWebResourceResponse(
+                        body_sent.as_ref(),
+                        status_code,
+                        PCWSTR::from_raw(encode_wide("OK").as_ptr()),
+                        PCWSTR::from_raw(encode_wide(headers_map).as_ptr()),
+                      )?;
 
-                      args.SetResponse(response)?;
+                      args.SetResponse(&response)?;
                       Ok(())
                     }
                     Err(_) => Err(E_FAIL.into()),
@@ -529,7 +537,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       unsafe {
         webview
           .add_PermissionRequested(
-            PermissionRequestedEventHandler::create(Box::new(|_, args| {
+            &PermissionRequestedEventHandler::create(Box::new(|_, args| {
               if let Some(args) = args {
                 let mut kind = COREWEBVIEW2_PERMISSION_KIND_UNKNOWN_PERMISSION;
                 args.PermissionKind(&mut kind)?;
@@ -552,7 +560,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
           .Settings()?
           .cast()
           .map_err(webview2_com::Error::WindowsError)?;
-        settings.SetUserAgent(String::from(user_agent.as_str()))?;
+        settings.SetUserAgent(PCWSTR::from_raw(encode_wide(user_agent).as_ptr()))?;
       }
     }
 
@@ -564,7 +572,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
           let (_, path) = s.split_at(pos + 1);
           unsafe {
             webview
-              .NavigateToString(path.to_string())
+              .NavigateToString(PCWSTR::from_raw(encode_wide(path).as_ptr()))
               .map_err(webview2_com::Error::WindowsError)?;
           }
         }
@@ -580,14 +588,14 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         }
         unsafe {
           webview
-            .Navigate(url_string)
+            .Navigate(PCWSTR::from_raw(encode_wide(url_string).as_ptr()))
             .map_err(webview2_com::Error::WindowsError)?;
         }
       }
     } else if let Some(html) = attributes.html {
       unsafe {
         webview
-          .NavigateToString(html)
+          .NavigateToString(PCWSTR::from_raw(encode_wide(html).as_ptr()))
           .map_err(webview2_com::Error::WindowsError)?;
       }
     }
@@ -604,7 +612,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         win32wm::WM_SIZE => {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
           let mut client_rect = RECT::default();
-          win32wm::GetClientRect(hwnd, std::mem::transmute(&mut client_rect));
+          win32wm::GetClientRect(hwnd, &mut client_rect);
           let _ = (*controller).SetBounds(RECT {
             left: 0,
             top: 0,
@@ -655,7 +663,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     AddScriptToExecuteOnDocumentCreatedCompletedHandler::wait_for_async_operation(
       Box::new(move |handler| unsafe {
         handler_webview
-          .AddScriptToExecuteOnDocumentCreated(js, handler)
+          .AddScriptToExecuteOnDocumentCreated(PCWSTR::from_raw(encode_wide(js).as_ptr()), &handler)
           .map_err(webview2_com::Error::WindowsError)
       }),
       Box::new(|_, _| Ok(())),
@@ -665,8 +673,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   fn execute_script(webview: &ICoreWebView2, js: String) -> windows::core::Result<()> {
     unsafe {
       webview.ExecuteScript(
-        js,
-        ExecuteScriptCompletedHandler::create(Box::new(|_, _| (Ok(())))),
+        PCWSTR::from_raw(encode_wide(js).as_ptr()),
+        &ExecuteScriptCompletedHandler::create(Box::new(|_, _| (Ok(())))),
       )
     }
   }
@@ -698,9 +706,13 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   }
 }
 
+fn encode_wide(string: impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
+  string.as_ref().encode_wide().chain(once(0)).collect()
+}
+
 pub fn platform_webview_version() -> Result<String> {
-  let mut versioninfo = PWSTR::default();
-  unsafe { GetAvailableCoreWebView2BrowserVersionString(PCWSTR::default(), &mut versioninfo) }
+  let mut versioninfo = PWSTR::null();
+  unsafe { GetAvailableCoreWebView2BrowserVersionString(PCWSTR::null(), &mut versioninfo) }
     .map_err(webview2_com::Error::WindowsError)?;
   Ok(take_pwstr(versioninfo))
 }
@@ -716,10 +728,12 @@ fn is_windows_7() -> bool {
 }
 
 fn get_function_impl(library: &str, function: &str) -> Option<FARPROC> {
-  assert_eq!(library.chars().last(), Some('\0'));
+  let library = encode_wide(library);
   assert_eq!(function.chars().last(), Some('\0'));
+  let function = PCSTR::from_raw(function.as_ptr());
 
-  let module = unsafe { LoadLibraryA(library) }.unwrap_or_default();
+  // Library names we will use are ASCII so we can use the A version to avoid string conversion.
+  let module = unsafe { LoadLibraryW(PCWSTR::from_raw(library.as_ptr())) }.unwrap_or_default();
   if module.is_invalid() {
     None
   } else {
