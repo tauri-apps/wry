@@ -12,8 +12,8 @@ use crate::{
 use file_drop::FileDropController;
 
 use std::{
-  collections::HashSet, iter::once, mem::MaybeUninit, os::windows::prelude::OsStrExt, rc::Rc,
-  sync::mpsc,
+  collections::HashSet, fmt::Write, iter::once, mem::MaybeUninit, os::windows::prelude::OsStrExt,
+  rc::Rc, sync::mpsc,
 };
 
 use once_cell::unsync::OnceCell;
@@ -478,14 +478,14 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
                       // set mime type if provided
                       if let Some(mime) = sent_response.mimetype() {
-                        headers_map.push_str(&format!("Content-Type: {}\n", mime))
+                        let _ = writeln!(headers_map, "Content-Type: {}", mime);
                       }
 
                       // build headers
                       for (name, value) in sent_response.headers().iter() {
                         let header_key = name.to_string();
                         if let Ok(value) = value.to_str() {
-                          headers_map.push_str(&format!("{}: {}\n", header_key, value))
+                          let _ = writeln!(headers_map, "{}: {}", header_key, value);
                         }
                       }
 
@@ -612,7 +612,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         win32wm::WM_SIZE => {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
           let mut client_rect = RECT::default();
-          win32wm::GetClientRect(hwnd, std::mem::transmute(&mut client_rect));
+          win32wm::GetClientRect(hwnd, &mut client_rect);
           let _ = (*controller).SetBounds(RECT {
             left: 0,
             top: 0,
