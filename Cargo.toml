@@ -61,7 +61,7 @@ webview2-com = "0.16.0"
 windows-implement = "0.37.0"
 
   [target."cfg(target_os = \"windows\")".dependencies.windows]
-  version = "0.37.0"
+  version = "0.39.0"
   features = [
   "alloc",
   "implement",
