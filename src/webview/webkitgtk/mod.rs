@@ -269,8 +269,11 @@ impl InnerWebView {
       }
     }
 
-    // background color
-    if !attributes.transparent {
+    // Transparent
+    if attributes.transparent {
+      webview.set_background_color(&RGBA::new(0., 0., 0., 0.));
+    } else {
+      // background color
       if let Some(background_color) = attributes.background_color {
         webview.set_background_color(&RGBA::new(
           background_color.0 as _,
@@ -279,11 +282,6 @@ impl InnerWebView {
           background_color.3 as _,
         ));
       }
-    }
-
-    // Transparent
-    if attributes.transparent {
-      webview.set_background_color(&RGBA::new(0., 0., 0., 0.));
     }
 
     // File drop handling
