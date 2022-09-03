@@ -74,7 +74,7 @@ pub struct WebViewAttributes {
   ///
   /// ## Platform-specific:
   ///
-  /// - **Android**: Not implemented..
+  /// - **Android**: Not implemented.
   /// - **Windows**:
   ///   - on Windows 7, transparency is not supported and the alpha value will be ignored.
   ///   - on Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
