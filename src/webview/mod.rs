@@ -72,7 +72,7 @@ pub struct WebViewAttributes {
   ///
   /// The color uses the RGBA format.
   ///
-  /// ## Platfrom-specific:
+  /// ## Platform-specific:
   ///
   /// - **Android**: Not implemented..
   /// - **Windows**:
