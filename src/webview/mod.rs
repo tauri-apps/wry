@@ -582,7 +582,7 @@ impl WebView {
   /// - **Android**: Not implemented.
   /// - **Windows**:
   ///   - On Windows 7, transparency is not supported and the alpha value will be ignored.
-  ///   - on Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
+  ///   - On Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
   pub fn set_background_color(&self, background_color: (u8, u8, u8, u8)) -> Result<()> {
     self.webview.set_background_color(background_color)
   }
