@@ -40,7 +40,12 @@ impl MainPipe<'_> {
     let activity = self.activity.as_obj();
     if let Ok(message) = CHANNEL.1.recv() {
       match message {
-        WebViewMessage::CreateWebView(url, devtools) => {
+        WebViewMessage::CreateWebView {
+          url,
+          devtools,
+          background_color,
+          transparent,
+        } => {
           // Create webview
           let rust_webview_class = find_my_class(
             env,
@@ -66,6 +71,14 @@ impl MainPipe<'_> {
             "(Z)V",
             &[devtools.into()],
           )?;
+
+          if transparent {
+            set_background_color(env, webview, (0, 0, 0, 0))?;
+          } else {
+            if let Some(color) = background_color {
+              set_background_color(env, webview, color)?;
+            }
+          }
 
           // Create and set webview client
           let rust_webview_client_class = find_my_class(
@@ -113,6 +126,11 @@ impl MainPipe<'_> {
             )?;
           }
         }
+        WebViewMessage::SetBackgroundColor(background_color) => {
+          if let Some(webview) = &self.webview {
+            set_background_color(env, webview.as_obj(), background_color)?;
+          }
+        }
       }
     }
     Ok(())
@@ -136,8 +154,35 @@ fn find_my_class<'a>(
   Ok(my_class.into())
 }
 
+fn set_background_color<'a>(
+  env: JNIEnv<'a>,
+  webview: JObject<'a>,
+  background_color: (u8, u8, u8, u8),
+) -> Result<(), JniError> {
+  let color_class = env.find_class("android/graphics/Color")?;
+  let color = env.call_static_method(
+    color_class,
+    "argb",
+    "(IIII)I",
+    &[
+      background_color.3.into(),
+      background_color.0.into(),
+      background_color.1.into(),
+      background_color.2.into(),
+    ],
+  )?;
+  env.call_method(webview, "setBackgroundColor", "(I)V", &[color])?;
+  Ok(())
+}
+
 #[derive(Debug)]
 pub enum WebViewMessage {
-  CreateWebView(String, bool),
+  CreateWebView {
+    url: String,
+    devtools: bool,
+    background_color: Option<(u8, u8, u8, u8)>,
+    transparent: bool,
+  },
   Eval(String),
+  SetBackgroundColor((u8, u8, u8, u8)),
 }

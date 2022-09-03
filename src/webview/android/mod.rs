@@ -107,6 +107,8 @@ impl InnerWebView {
       ipc_handler,
       devtools,
       custom_protocols,
+      background_color,
+      transparent,
       ..
     } = attributes;
 
@@ -123,7 +125,12 @@ impl InnerWebView {
           .replace(&format!("{}://", name), &format!("https://{}.", name))
       }
 
-      MainPipe::send(WebViewMessage::CreateWebView(url_string, devtools));
+      MainPipe::send(WebViewMessage::CreateWebView {
+        url: url_string,
+        devtools,
+        background_color,
+        transparent,
+      });
     }
 
     REQUEST_HANDLER.get_or_init(move || {
@@ -209,6 +216,7 @@ impl InnerWebView {
   pub fn zoom(&self, _scale_factor: f64) {}
 
   pub fn set_background_color(&self, background_color: (u8, u8, u8, u8)) -> Result<()> {
+    MainPipe::send(WebViewMessage::SetBackgroundColor(background_color));
     Ok(())
   }
 }
