@@ -207,6 +207,10 @@ impl InnerWebView {
   }
 
   pub fn zoom(&self, _scale_factor: f64) {}
+
+  pub fn set_background_color(&self, background_color: (u8, u8, u8, u8)) -> Result<()> {
+    Ok(())
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {

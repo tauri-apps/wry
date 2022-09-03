@@ -412,6 +412,7 @@ impl InnerWebView {
       background_color.2 as _,
       background_color.3 as _,
     ));
+    Ok(())
   }
 }
 
