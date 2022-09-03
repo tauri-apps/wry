@@ -269,6 +269,18 @@ impl InnerWebView {
       }
     }
 
+    // background color
+    if !attributes.transparent {
+      if let Some(background_color) = attributes.background_color {
+        webview.set_background_color(&RGBA::new(
+          background_color.0 as _,
+          background_color.1 as _,
+          background_color.2 as _,
+          background_color.3 as _,
+        ));
+      }
+    }
+
     // Transparent
     if attributes.transparent {
       webview.set_background_color(&RGBA::new(0., 0., 0., 0.));
@@ -391,6 +403,15 @@ impl InnerWebView {
 
   pub fn zoom(&self, scale_factor: f64) {
     WebViewExt::set_zoom_level(&*self.webview, scale_factor);
+  }
+
+  pub fn set_background_color(&self, background_color: (u8, u8, u8, u8)) -> Result<()> {
+    self.webview.set_background_color(&RGBA::new(
+      background_color.0 as _,
+      background_color.1 as _,
+      background_color.2 as _,
+      background_color.3 as _,
+    ));
   }
 }
 

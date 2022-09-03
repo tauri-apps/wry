@@ -189,21 +189,16 @@ impl InnerWebView {
     let webview =
       unsafe { controller.CoreWebView2() }.map_err(webview2_com::Error::WindowsError)?;
 
+    // background color
+    if !attributes.transparent {
+      if let Some(background_color) = attributes.background_color {
+        set_background_color(&controller, background_color)?;
+      }
+    }
+
     // Transparent
     if attributes.transparent && !is_windows_7() {
-      let controller2: ICoreWebView2Controller2 = controller
-        .cast()
-        .map_err(webview2_com::Error::WindowsError)?;
-      unsafe {
-        controller2
-          .SetDefaultBackgroundColor(COREWEBVIEW2_COLOR {
-            R: 0,
-            G: 0,
-            B: 0,
-            A: 0,
-          })
-          .map_err(webview2_com::Error::WindowsError)?;
-      }
+      set_background_color(&controller, (0, 0, 0, 0))?;
     }
 
     // The EventRegistrationToken is an out-param from all of the event registration calls. We're
@@ -704,10 +699,38 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   pub fn zoom(&self, scale_factor: f64) {
     let _ = unsafe { self.controller.SetZoomFactor(scale_factor) };
   }
+
+  pub fn set_background_color(&self, background_color: (u8, u8, u8, u8)) -> Result<()> {
+    set_background_color(&self.controller, background_color).map_err(Into::into)
+  }
 }
 
 fn encode_wide(string: impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
   string.as_ref().encode_wide().chain(once(0)).collect()
+}
+
+pub fn set_background_color(
+  controller: &ICoreWebView2Controller,
+  background_color: (u8, u8, u8, u8),
+) -> webview2_com::Result<()> {
+  let mut color = background_color;
+  if !is_windows_7() || color.3 != 0 {
+    color.3 = 255;
+  }
+
+  let controller2: ICoreWebView2Controller2 = controller
+    .cast()
+    .map_err(webview2_com::Error::WindowsError)?;
+  unsafe {
+    controller2
+      .SetDefaultBackgroundColor(COREWEBVIEW2_COLOR {
+        R: color.0,
+        G: color.1,
+        B: color.2,
+        A: color.3,
+      })
+      .map_err(webview2_com::Error::WindowsError)
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {

@@ -266,6 +266,20 @@ impl InnerWebView {
       #[cfg(target_os = "macos")]
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("tabFocusesLinks")];
 
+      // background color
+      #[cfg(feature = "transparent")]
+      if !attributes.transparent {
+        if let Some(background_color) = attributes.background_color {
+          let r = background_color.0 as f32 / 255.;
+          let g = background_color.1 as f32 / 255.;
+          let b = background_color.2 as f32 / 255.;
+          let a = background_color.3 as f32 / 255.;
+          let color: id = msg_send![class!(NSColor), colorWithRed:r green:g blue:b alpha:a];
+          let () = msg_send![webview, setOpaque: NO];
+          let () = msg_send![webview, setBackgroundColor: color];
+        }
+      }
+
       #[cfg(feature = "transparent")]
       if attributes.transparent {
         let no: id = msg_send![class!(NSNumber), numberWithBool:0];
