@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use super::{WebContext, WebViewAttributes};
+use super::{WebContext, WebViewAttributes, RGBA};
 use crate::{
   application::window::Window,
   http::{header::HeaderValue, Request as HttpRequest, Response as HttpResponse},
@@ -20,7 +20,7 @@ use tao::platform::android::ndk_glue::{
 
 pub(crate) mod binding;
 mod main_pipe;
-use main_pipe::{MainPipe, WebViewMessage, MAIN_PIPE};
+use main_pipe::{CreateWebViewAttributes, MainPipe, WebViewMessage, MAIN_PIPE};
 
 #[macro_export]
 macro_rules! android_binding {
@@ -125,12 +125,12 @@ impl InnerWebView {
           .replace(&format!("{}://", name), &format!("https://{}.", name))
       }
 
-      MainPipe::send(WebViewMessage::CreateWebView {
+      MainPipe::send(WebViewMessage::CreateWebView(CreateWebViewAttributes {
         url: url_string,
         devtools,
         background_color,
         transparent,
-      });
+      }));
     }
 
     REQUEST_HANDLER.get_or_init(move || {
@@ -200,8 +200,6 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn focus(&self) {}
-
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn open_devtools(&self) {}
 
@@ -215,7 +213,7 @@ impl InnerWebView {
 
   pub fn zoom(&self, _scale_factor: f64) {}
 
-  pub fn set_background_color(&self, background_color: (u8, u8, u8, u8)) -> Result<()> {
+  pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
     MainPipe::send(WebViewMessage::SetBackgroundColor(background_color));
     Ok(())
   }

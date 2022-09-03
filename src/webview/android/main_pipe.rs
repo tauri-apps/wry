@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use crate::webview::RGBA;
 use crossbeam_channel::*;
 use once_cell::sync::Lazy;
 use std::os::unix::prelude::*;
@@ -40,12 +41,13 @@ impl MainPipe<'_> {
     let activity = self.activity.as_obj();
     if let Ok(message) = CHANNEL.1.recv() {
       match message {
-        WebViewMessage::CreateWebView {
-          url,
-          devtools,
-          background_color,
-          transparent,
-        } => {
+        WebViewMessage::CreateWebView(attrs) => {
+          let CreateWebViewAttributes {
+            url,
+            devtools,
+            transparent,
+            background_color,
+          } = attrs;
           // Create webview
           let rust_webview_class = find_my_class(
             env,
@@ -157,7 +159,7 @@ fn find_my_class<'a>(
 fn set_background_color<'a>(
   env: JNIEnv<'a>,
   webview: JObject<'a>,
-  background_color: (u8, u8, u8, u8),
+  background_color: RGBA,
 ) -> Result<(), JniError> {
   let color_class = env.find_class("android/graphics/Color")?;
   let color = env.call_static_method(
@@ -177,12 +179,15 @@ fn set_background_color<'a>(
 
 #[derive(Debug)]
 pub enum WebViewMessage {
-  CreateWebView {
-    url: String,
-    devtools: bool,
-    background_color: Option<(u8, u8, u8, u8)>,
-    transparent: bool,
-  },
+  CreateWebView(CreateWebViewAttributes),
   Eval(String),
-  SetBackgroundColor((u8, u8, u8, u8)),
+  SetBackgroundColor(RGBA),
+}
+
+#[derive(Debug)]
+pub struct CreateWebViewAttributes {
+  pub url: String,
+  pub devtools: bool,
+  pub transparent: bool,
+  pub background_color: Option<RGBA>,
 }

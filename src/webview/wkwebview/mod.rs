@@ -43,7 +43,7 @@ use crate::{
     dpi::{LogicalSize, PhysicalSize},
     window::Window,
   },
-  webview::{FileDropEvent, WebContext, WebViewAttributes},
+  webview::{FileDropEvent, WebContext, WebViewAttributes, RGBA},
   Result,
 };
 
@@ -651,7 +651,7 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub fn set_background_color(&self, background_color: (u8, u8, u8, u8)) -> Result<()> {
+  pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
     Ok(())
   }
 }

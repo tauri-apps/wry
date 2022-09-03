@@ -78,7 +78,7 @@ pub struct WebViewAttributes {
   /// - **Windows**:
   ///   - On Windows 7, transparency is not supported and the alpha value will be ignored.
   ///   - On Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
-  pub background_color: Option<(u8, u8, u8, u8)>,
+  pub background_color: Option<RGBA>,
   /// Whether load the provided URL to [`WebView`].
   pub url: Option<Url>,
   /// Whether page zooming by hotkeys is enabled
@@ -207,6 +207,11 @@ impl Default for WebViewAttributes {
   }
 }
 
+/// Type alias for a color in the RGBA format.
+///
+/// Each value can be 0..255 inclusive.
+pub type RGBA = (u8, u8, u8, u8);
+
 /// Builder type of [`WebView`].
 ///
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
@@ -252,7 +257,7 @@ impl<'a> WebViewBuilder<'a> {
   /// - **Windows**:
   ///   - on Windows 7, transparency is not supported and the alpha value will be ignored.
   ///   - on Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
-  pub fn with_background_color(mut self, background_color: (u8, u8, u8, u8)) -> Self {
+  pub fn with_background_color(mut self, background_color: RGBA) -> Self {
     self.webview.background_color = Some(background_color);
     self
   }
@@ -583,7 +588,7 @@ impl WebView {
   /// - **Windows**:
   ///   - On Windows 7, transparency is not supported and the alpha value will be ignored.
   ///   - On Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
-  pub fn set_background_color(&self, background_color: (u8, u8, u8, u8)) -> Result<()> {
+  pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
     self.webview.set_background_color(background_color)
   }
 }

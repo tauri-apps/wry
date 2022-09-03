@@ -5,7 +5,7 @@
 mod file_drop;
 
 use crate::{
-  webview::{WebContext, WebViewAttributes},
+  webview::{WebContext, WebViewAttributes, RGBA},
   Error, Result,
 };
 
@@ -700,7 +700,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     let _ = unsafe { self.controller.SetZoomFactor(scale_factor) };
   }
 
-  pub fn set_background_color(&self, background_color: (u8, u8, u8, u8)) -> Result<()> {
+  pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
     set_background_color(&self.controller, background_color).map_err(Into::into)
   }
 }
@@ -711,7 +711,7 @@ fn encode_wide(string: impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
 
 pub fn set_background_color(
   controller: &ICoreWebView2Controller,
-  background_color: (u8, u8, u8, u8),
+  background_color: RGBA,
 ) -> webview2_com::Result<()> {
   let mut color = background_color;
   if !is_windows_7() || color.3 != 0 {

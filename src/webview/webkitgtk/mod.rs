@@ -13,7 +13,7 @@ use std::{
   rc::Rc,
 };
 
-use gdk::{Cursor, EventMask, WindowEdge, RGBA};
+use gdk::{Cursor, EventMask, WindowEdge};
 use gio::Cancellable;
 use glib::signal::Inhibit;
 use gtk::prelude::*;
@@ -31,7 +31,7 @@ pub use web_context::WebContextImpl;
 
 use crate::{
   application::{platform::unix::*, window::Window},
-  webview::{web_context::WebContext, WebViewAttributes},
+  webview::{web_context::WebContext, WebViewAttributes, RGBA},
   Error, Result,
 };
 
@@ -271,11 +271,11 @@ impl InnerWebView {
 
     // Transparent
     if attributes.transparent {
-      webview.set_background_color(&RGBA::new(0., 0., 0., 0.));
+      webview.set_background_color(&gdk::RGBA::new(0., 0., 0., 0.));
     } else {
       // background color
       if let Some(background_color) = attributes.background_color {
-        webview.set_background_color(&RGBA::new(
+        webview.set_background_color(&gdk::RGBA::new(
           background_color.0 as _,
           background_color.1 as _,
           background_color.2 as _,
@@ -403,8 +403,8 @@ impl InnerWebView {
     WebViewExt::set_zoom_level(&*self.webview, scale_factor);
   }
 
-  pub fn set_background_color(&self, background_color: (u8, u8, u8, u8)) -> Result<()> {
-    self.webview.set_background_color(&RGBA::new(
+  pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
+    self.webview.set_background_color(&gdk::RGBA::new(
       background_color.0 as _,
       background_color.1 as _,
       background_color.2 as _,
