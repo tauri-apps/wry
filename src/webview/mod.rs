@@ -231,7 +231,12 @@ impl<'a> WebViewBuilder<'a> {
     })
   }
 
-  /// Sets whether the WebView should be transparent. Not supported on Windows 7.
+  /// Sets whether the WebView should be transparent.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// **Android**: Not implemented.
+  /// **Windows 7**: Not supported.
   pub fn with_transparent(mut self, transparent: bool) -> Self {
     self.webview.transparent = transparent;
     self
@@ -243,6 +248,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platfrom-specific:
   ///
+  /// - **Android**: Not implemented..
   /// - **Windows**:
   ///   - on Windows 7, transparency is not supported and the alpha value will be ignored.
   ///   - on Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
@@ -573,6 +579,7 @@ impl WebView {
   ///
   /// ## Platfrom-specific:
   ///
+  /// - **Android**: Not implemented.
   /// - **Windows**:
   ///   - on Windows 7, transparency is not supported and the alpha value will be ignored.
   ///   - on Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
