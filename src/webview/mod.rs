@@ -77,7 +77,7 @@ pub struct WebViewAttributes {
   /// - **Android**: Not implemented.
   /// - **Windows**:
   ///   - on Windows 7, transparency is not supported and the alpha value will be ignored.
-  ///   - on Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
+  ///   - On Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
   pub background_color: Option<(u8, u8, u8, u8)>,
   /// Whether load the provided URL to [`WebView`].
   pub url: Option<Url>,
