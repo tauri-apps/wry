@@ -9,7 +9,12 @@ import android.content.Context
 
 class RustWebView(context: Context): WebView(context) {
     init {
-        this.settings.javaScriptEnabled = true
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.setGeolocationEnabled(true)
+        settings.databaseEnabled = true
+        settings.mediaPlaybackRequiresUserGesture = false
+        settings.javaScriptCanOpenWindowsAutomatically = true
         {{class-init}}
     }
 
