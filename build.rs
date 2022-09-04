@@ -36,9 +36,11 @@ fn main() {
     let kotlin_out_dir = PathBuf::from(kotlin_out_dir)
       .canonicalize()
       .expect("Failed to canonicalize path");
-    let kotlin_files =
-      fs::read_dir(PathBuf::from(env_var("CARGO_MANIFEST_DIR")).join("src/webview/android/kotlin"))
-        .expect("failed to read kotlin directory");
+
+    let kotlin_files_path =
+      PathBuf::from(env_var("CARGO_MANIFEST_DIR")).join("src/webview/android/kotlin");
+    println!("cargo:rerun-if-changed={}", kotlin_files_path.display());
+    let kotlin_files = fs::read_dir(kotlin_files_path).expect("failed to read kotlin directory");
 
     for file in kotlin_files {
       let file = file.unwrap();
