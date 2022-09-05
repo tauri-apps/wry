@@ -177,4 +177,7 @@ pub enum Error {
   InvalidMethod(#[from] InvalidMethod),
   #[error("Infallible error, something went really wrong: {0}")]
   Infallible(#[from] std::convert::Infallible),
+  #[cfg(target_os = "android")]
+  #[error(transparent)]
+  JniError(#[from] tao::platform::android::ndk_glue::jni::errors::Error),
 }

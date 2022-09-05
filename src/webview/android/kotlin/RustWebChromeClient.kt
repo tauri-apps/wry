@@ -97,9 +97,9 @@ class RustWebChromeClient(appActivity: AppCompatActivity) : WebChromeClient() {
     super.onHideCustomView()
   }
 
+  @SuppressLint("ObsoleteSdkInt")
   override fun onPermissionRequest(request: PermissionRequest) {
-    // val isRequestPermissionRequired = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-    val isRequestPermissionRequired = true
+    val isRequestPermissionRequired = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
     val permissionList: MutableList<String> = ArrayList()
     if (listOf(*request.resources).contains("android.webkit.resource.VIDEO_CAPTURE")) {
       permissionList.add(Manifest.permission.CAMERA)

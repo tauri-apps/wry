@@ -4,8 +4,10 @@
 
 package {{app-domain-reversed}}.{{app-name-snake-case}}
 
+import android.annotation.SuppressLint
 import android.webkit.*
 import android.content.Context
+import android.os.Build
 
 class RustWebView(context: Context): WebView(context) {
     init {

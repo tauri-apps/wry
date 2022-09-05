@@ -8,6 +8,7 @@ use crate::{
   http::{header::HeaderValue, Request as HttpRequest, Response as HttpResponse},
   Result,
 };
+use crossbeam_channel::*;
 use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
 use kuchiki::NodeRef;
 use once_cell::sync::OnceCell;
@@ -242,7 +243,9 @@ impl InnerWebView {
 }
 
 pub fn platform_webview_version() -> Result<String> {
-  todo!()
+  let (tx, rx) = bounded(1);
+  MainPipe::send(WebViewMessage::GetWebViewVersion(tx));
+  rx.recv().unwrap()
 }
 
 fn with_html_head<F: FnOnce(&NodeRef)>(document: &mut NodeRef, f: F) {
