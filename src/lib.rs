@@ -178,6 +178,6 @@ pub enum Error {
   #[error("Infallible error, something went really wrong: {0}")]
   Infallible(#[from] std::convert::Infallible),
   #[cfg(target_os = "android")]
-  #[error("WebView is not initialized")]
-  WebViewNotInitialized,
+  #[error(transparent)]
+  JniError(#[from] tao::platform::android::ndk_glue::jni::errors::Error),
 }

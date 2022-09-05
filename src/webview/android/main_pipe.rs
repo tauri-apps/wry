@@ -150,14 +150,15 @@ impl MainPipe<'_> {
           }
         }
         WebViewMessage::GetWebViewVersion(tx) => {
-          if let Some(webview) = &self.webview {
-            let version = env
-              .call_method(webview, "getVersion", "()Ljava/lang/String;", &[])?
-              .l()?;
-            let version_str = env.get_string(version.into())?;
-            tx.send(Ok(version_str.to_string_lossy().into())).unwrap();
-          } else {
-            tx.send(Err(Error::WebViewNotInitialized)).unwrap();
+          match env
+            .call_method(activity, "getVersion", "()Ljava/lang/String;", &[])
+            .and_then(|v| v.l())
+            .and_then(|s| env.get_string(s.into()))
+          {
+            Ok(version) => {
+              tx.send(Ok(version.to_string_lossy().into())).unwrap();
+            }
+            Err(e) => tx.send(Err(e.into())).unwrap(),
           }
         }
       }
