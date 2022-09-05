@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use crate::webview::RGBA;
+use crate::{webview::RGBA, Error};
 use crossbeam_channel::*;
 use once_cell::sync::Lazy;
 use std::os::unix::prelude::*;
@@ -149,6 +149,17 @@ impl MainPipe<'_> {
             set_background_color(env, webview.as_obj(), background_color)?;
           }
         }
+        WebViewMessage::GetWebViewVersion(tx) => {
+          if let Some(webview) = &self.webview {
+            let version = env
+              .call_method(webview, "getVersion", "()Ljava/lang/String;", &[])?
+              .l()?;
+            let version_str = env.get_string(version.into())?;
+            tx.send(Ok(version_str.to_string_lossy().into())).unwrap();
+          } else {
+            tx.send(Err(Error::WebViewNotInitialized)).unwrap();
+          }
+        }
       }
     }
     Ok(())
@@ -181,6 +192,7 @@ pub enum WebViewMessage {
   CreateWebView(CreateWebViewAttributes),
   Eval(String),
   SetBackgroundColor(RGBA),
+  GetWebViewVersion(Sender<Result<String, Error>>),
 }
 
 #[derive(Debug)]
