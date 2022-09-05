@@ -19,7 +19,6 @@ object PermissionHelper {
   /**
    * Checks if a list of given permissions are all granted by the user
    *
-   * @since 3.0.0
    * @param permissions Permissions to check.
    * @return True if all permissions are granted, false if at least one is not.
    */
@@ -39,7 +38,6 @@ object PermissionHelper {
   /**
    * Check whether the given permission has been defined in the AndroidManifest.xml
    *
-   * @since 3.0.0
    * @param permission A permission to check.
    * @return True if the permission has been defined in the Manifest, false if not.
    */
@@ -74,7 +72,6 @@ object PermissionHelper {
   /**
    * Get the permissions defined in AndroidManifest.xml
    *
-   * @since 3.0.0
    * @return The permissions defined in AndroidManifest.xml
    */
   private fun getManifestPermissions(context: Context): Array<String>? {
@@ -98,7 +95,6 @@ object PermissionHelper {
   /**
    * Given a list of permissions, return a new list with the ones not present in AndroidManifest.xml
    *
-   * @since 3.0.0
    * @param neededPermissions The permissions needed.
    * @return The permissions not present in AndroidManifest.xml
    */
