@@ -9,11 +9,13 @@ use std::os::unix::prelude::*;
 use tao::platform::android::ndk_glue::{
   jni::{
     errors::Error as JniError,
-    objects::{GlobalRef, JClass, JObject},
+    objects::{GlobalRef, JObject},
     JNIEnv,
   },
   PACKAGE,
 };
+
+use super::find_my_class;
 
 static CHANNEL: Lazy<(Sender<WebViewMessage>, Receiver<WebViewMessage>)> = Lazy::new(|| bounded(8));
 pub static MAIN_PIPE: Lazy<[RawFd; 2]> = Lazy::new(|| {
@@ -26,6 +28,7 @@ pub struct MainPipe<'a> {
   pub env: JNIEnv<'a>,
   pub activity: GlobalRef,
   pub webview: Option<GlobalRef>,
+  pub webchrome_client: GlobalRef,
 }
 
 impl MainPipe<'_> {
@@ -101,6 +104,14 @@ impl MainPipe<'_> {
             &[webview_client.into()],
           )?;
 
+          // set webchrome client
+          env.call_method(
+            webview,
+            "setWebChromeClient",
+            "(Landroid/webkit/WebChromeClient;)V",
+            &[self.webchrome_client.as_obj().into()],
+          )?;
+
           // Add javascript interface (IPC)
           let ipc_class = find_my_class(env, activity, format!("{}/Ipc", PACKAGE.get().unwrap()))?;
           let ipc = env.new_object(ipc_class, "()V", &[])?;
@@ -142,23 +153,6 @@ impl MainPipe<'_> {
     }
     Ok(())
   }
-}
-
-fn find_my_class<'a>(
-  env: JNIEnv<'a>,
-  activity: JObject<'a>,
-  name: String,
-) -> Result<JClass<'a>, JniError> {
-  let class_name = env.new_string(name.replace('/', "."))?;
-  let my_class = env
-    .call_method(
-      activity,
-      "getAppClass",
-      "(Ljava/lang/String;)Ljava/lang/Class;",
-      &[class_name.into()],
-    )?
-    .l()?;
-  Ok(my_class.into())
 }
 
 fn set_background_color<'a>(
