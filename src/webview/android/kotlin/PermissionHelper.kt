@@ -9,10 +9,11 @@ package {{app-domain-reversed}}.{{app-name-snake-case}}
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import androidx.core.app.ActivityCompat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import kotlin.collections.List;
 
 object PermissionHelper {
   /**
@@ -80,7 +81,12 @@ object PermissionHelper {
     var requestedPermissions: Array<String>? = null
     try {
       val pm = context.packageManager
-      val packageInfo = pm.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
+      val packageInfo = if (Build.VERSION.SDK_INT >= 33) {
+        pm.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong()))
+      } else {
+        @Suppress("DEPRECATION")
+        pm.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
+      }
       if (packageInfo != null) {
         requestedPermissions = packageInfo.requestedPermissions
       }
