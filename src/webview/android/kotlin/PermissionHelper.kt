@@ -78,7 +78,7 @@ object PermissionHelper {
     var requestedPermissions: Array<String>? = null
     try {
       val pm = context.packageManager
-      val packageInfo = if (Build.VERSION.SDK_INT >= 33) {
+      val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         pm.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong()))
       } else {
         @Suppress("DEPRECATION")

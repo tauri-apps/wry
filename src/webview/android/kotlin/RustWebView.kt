@@ -12,7 +12,7 @@ import android.os.Build
 class RustWebView(context: Context): WebView(context) {
 
     val version: String
-        @SuppressLint("WebViewApiAvailability")
+        @SuppressLint("WebViewApiAvailability", "ObsoleteSdkInt")
         get() {
             val pm = context.packageManager
 
@@ -22,13 +22,16 @@ class RustWebView(context: Context): WebView(context) {
             }
 
             // Otherwise manually check WebView versions
+            var webViewPackage = "com.google.android.webview"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+              webViewPackage = "com.android.chrome"
+            }
             try {
-                val webViewPackage = "com.android.chrome"
                 @Suppress("DEPRECATION")
                 val info = pm.getPackageInfo(webViewPackage, 0)
                 return info.versionName
             } catch (ex: Exception) {
-                Logger.warn("Unable to get package info for 'com.android.chrome'$ex");
+                Logger.warn("Unable to get package info for '$webViewPackage'$ex");
             }
 
             try {
