@@ -65,7 +65,6 @@ pub struct WebViewAttributes {
   ///
   /// ## Platform-specific:
   ///
-  /// **Android**: Not implemented.
   /// **Windows 7**: Not supported.
   pub transparent: bool,
   /// Specify the webview background color. This will be ignored if `transparent` is set to `true`.
@@ -240,7 +239,6 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific:
   ///
-  /// **Android**: Not implemented.
   /// **Windows 7**: Not supported.
   pub fn with_transparent(mut self, transparent: bool) -> Self {
     self.webview.transparent = transparent;
