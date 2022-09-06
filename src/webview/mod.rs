@@ -15,6 +15,8 @@ pub mod prelude {
   pub use super::android::{binding::*, setup};
 }
 #[cfg(target_os = "android")]
+pub use android::JniHandle;
+#[cfg(target_os = "android")]
 use android::*;
 #[cfg(any(
   target_os = "linux",
@@ -659,6 +661,19 @@ impl WebviewExtMacOS for WebView {
 
   fn ns_window(&self) -> cocoa::base::id {
     self.webview.ns_window.clone()
+  }
+}
+
+#[cfg(target_os = "android")]
+/// Additional methods on `WebView` that are specific to Android
+pub trait WebviewExtAndroid {
+  fn handle(&self) -> JniHandle;
+}
+
+#[cfg(target_os = "android")]
+impl WebviewExtAndroid for WebView {
+  fn handle(&self) -> JniHandle {
+    JniHandle
   }
 }
 
