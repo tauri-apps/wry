@@ -1,5 +1,45 @@
 # Changelog
 
+## \[0.21.0]
+
+- Implement `<input type="file">` on Android.
+  - [bf39d9d](https://github.com/tauri-apps/wry/commit/bf39d9de1e997170e9efb3bb7392710b57c2ae1f) feat(android): implement dialogs and permissions ([#685](https://github.com/tauri-apps/wry/pull/685)) on 2022-09-05
+- Add `WebviewExtAndroid::handle` which can be used to execute some code using JNI context.
+  - [2bfc6c3](https://github.com/tauri-apps/wry/commit/2bfc6c3d2e0cc6c3922d125f678ab30c00b89483) feat(android): JNI execution handle ([#689](https://github.com/tauri-apps/wry/pull/689)) on 2022-09-07
+- Enable JS alert, confirm, prompt on Android.
+  - [bf39d9d](https://github.com/tauri-apps/wry/commit/bf39d9de1e997170e9efb3bb7392710b57c2ae1f) feat(android): implement dialogs and permissions ([#685](https://github.com/tauri-apps/wry/pull/685)) on 2022-09-05
+- Prompt for permissions on Android when needed.
+  - [bf39d9d](https://github.com/tauri-apps/wry/commit/bf39d9de1e997170e9efb3bb7392710b57c2ae1f) feat(android): implement dialogs and permissions ([#685](https://github.com/tauri-apps/wry/pull/685)) on 2022-09-05
+- Implement `webview_version` on Android.
+  - [9183de4](https://github.com/tauri-apps/wry/commit/9183de4f9d3129e7cba332eebca2afc846f727d0) feat(android): implement webview_version ([#687](https://github.com/tauri-apps/wry/pull/687)) on 2022-09-05
+- Enable storage, geolocation, media playback, `window.open`.
+  - [9dfffcf](https://github.com/tauri-apps/wry/commit/9dfffcfe12199d7f28bf4b8a837e28253958ac17) feat(android): enable storage, geolocation, media playback, window.open ([#684](https://github.com/tauri-apps/wry/pull/684)) on 2022-09-04
+- Improve Android initialization script implementation.
+  - [1b26d60](https://github.com/tauri-apps/wry/commit/1b26d605d6e33f5417eb6566a7381d8feb239c8b) feat(android): improve initialization scripts implementation ([#670](https://github.com/tauri-apps/wry/pull/670)) on 2022-08-24
+- WRY will now generate the needed kotlin files at build time but you need to set `WRY_ANDROID_REVERSED_DOMAIN`, `WRY_ANDROID_APP_NAME_SNAKE_CASE` and `WRY_ANDROID_KOTLIN_FILES_OUT_DIR` env vars.
+  - [b478903](https://github.com/tauri-apps/wry/commit/b4789034dc4d10ab83f6acce6b4152d79f702940) feat(android): generate kotlin files at build time ([#671](https://github.com/tauri-apps/wry/pull/671)) on 2022-08-24
+  - [103f255](https://github.com/tauri-apps/wry/commit/103f255903bdf728bf5124fb323293d172c8dd12) chore: change bump to patch on 2022-08-25
+- **Breaking change** Removed `WebView::focus`.
+  - [f338df7](https://github.com/tauri-apps/wry/commit/f338df7a2716cbbde357b81d9baa108ce679eaa5) feat(windows): auto-focus the webview ([#676](https://github.com/tauri-apps/wry/pull/676)) on 2022-08-27
+- Updated tao to `0.14`
+  - [483bad0](https://github.com/tauri-apps/wry/commit/483bad0fc7e7564500f7183547c15604fa387258) feat: tao as window dependency ([#230](https://github.com/tauri-apps/wry/pull/230)) on 2021-05-03
+  - [51430e9](https://github.com/tauri-apps/wry/commit/51430e97dfb6589c5ff71e5078438be67293d044) publish new versions ([#221](https://github.com/tauri-apps/wry/pull/221)) on 2021-05-09
+  - [0cf0089](https://github.com/tauri-apps/wry/commit/0cf0089b6d49aa9e1a8c791ec8883fce48a0dfd1) Update tao to v0.2.6 ([#271](https://github.com/tauri-apps/wry/pull/271)) on 2021-05-18
+  - [a76206c](https://github.com/tauri-apps/wry/commit/a76206c11fa0a4ba1d041aa0f25452dd80941ee9) publish new versions ([#272](https://github.com/tauri-apps/wry/pull/272)) on 2021-05-18
+  - [3c4f8b8](https://github.com/tauri-apps/wry/commit/3c4f8b8b2bd42e7634b889aa5317d909bfce593c) Update tao to v0.5 ([#365](https://github.com/tauri-apps/wry/pull/365)) on 2021-08-09
+  - [44aa1dc](https://github.com/tauri-apps/wry/commit/44aa1dc8fcc20cc5826697d69f763118d45f724a) publish new versions ([#351](https://github.com/tauri-apps/wry/pull/351)) on 2021-08-09
+  - [935cc5f](https://github.com/tauri-apps/wry/commit/935cc5fe8b73055279dc107e71a10f2701ea8b3d) Update tao to 0.13 ([#642](https://github.com/tauri-apps/wry/pull/642)) on 2022-07-27
+  - [657888a](https://github.com/tauri-apps/wry/commit/657888aac13830d97d2970bdf1c87319dadb2ffa) Publish New Versions ([#632](https://github.com/tauri-apps/wry/pull/632)) on 2022-07-27
+  - [3a91376](https://github.com/tauri-apps/wry/commit/3a91376fa2c04783a32804e6f123722749ad595e) chore(deps): update tao to 0.14 ([#691](https://github.com/tauri-apps/wry/pull/691)) on 2022-09-13
+- Allow setting the webview background color.
+  - [eb1b723](https://github.com/tauri-apps/wry/commit/eb1b7234f731759b5e091f7c88ac18ce4b507017) feat: allow setting webview bg color, closes [#197](https://github.com/tauri-apps/wry/pull/197) ([#682](https://github.com/tauri-apps/wry/pull/682)) on 2022-09-05
+- Added the `RustWebView` class on Android.
+  - [b1e8560](https://github.com/tauri-apps/wry/commit/b1e8560c3f13f2674528f6ca440ba476ddbef7c2) feat(android): define WebView class in kotlin ([#672](https://github.com/tauri-apps/wry/pull/672)) on 2022-08-24
+- Update the `windows` crate to the latest 0.39.0 release and `webview2-com` to 0.19.1 to match.
+  - [c7d7e1f](https://github.com/tauri-apps/wry/commit/c7d7e1f9c85a5db9c98aa5ded1e0eaf7fe697817) Update windows to 0.39.0 and webview2-com to 0.19.1 to match ([#679](https://github.com/tauri-apps/wry/pull/679)) on 2022-08-31
+- On Windows, automatically focus the webview when the window gains focus to match other platforms.
+  - [f338df7](https://github.com/tauri-apps/wry/commit/f338df7a2716cbbde357b81d9baa108ce679eaa5) feat(windows): auto-focus the webview ([#676](https://github.com/tauri-apps/wry/pull/676)) on 2022-08-27
+
 ## \[0.20.2]
 
 - Implement custom protocol on Android.
