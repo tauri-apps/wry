@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::path::PathBuf;
+use std::{path::PathBuf, rc::Rc, cell::RefCell};
 
 use normpath::PathExt;
-use tempfile::{tempdir, tempdir_in, TempDir};
+use tempfile::tempdir;
 
 fn main() -> wry::Result<()> {
   use wry::{
@@ -33,7 +33,7 @@ fn main() -> wry::Result<()> {
     Rejected(String),
   }
 
-  let mut temp_dirs = vec![];
+  let temp_dir = Rc::new(RefCell::new(None));
   let event_loop: EventLoop<UserEvent> = EventLoop::with_user_event();
   let proxy = event_loop.create_proxy();
   let window = WindowBuilder::new()
@@ -43,26 +43,25 @@ fn main() -> wry::Result<()> {
     .with_html(html)?
     .with_download_handler({
       let proxy = proxy.clone();
+      let tempdir_cell = temp_dir.clone();
       move |uri: String, default_path: &mut PathBuf| {
         if uri.contains("wry-v0.13.3") {
-          if let Some(documents) = dirs::download_dir() {
-            if let Ok(tempdir) = tempdir_in(documents) {
-              if let Ok(path) = tempdir.path().normalize() {
-                temp_dirs.push(tempdir);
-                dbg!(path.metadata().unwrap().permissions().readonly());
-                let path = path.join("example.zip").as_path().to_path_buf();
+          if let Ok(tempdir) = tempdir() {
+            if let Ok(path) = tempdir.path().normalize() {
+              tempdir_cell.borrow_mut().replace(tempdir);
 
-                *default_path = path.clone();
+              let path = path.join("example.zip").as_path().to_path_buf();
 
-                let submitted = proxy
-                  .send_event(UserEvent::DownloadStarted(
-                    uri.clone(),
-                    path.display().to_string(),
-                  ))
-                  .is_ok();
+              *default_path = path.clone();
 
-                return submitted;
-              }
+              let submitted = proxy
+                .send_event(UserEvent::DownloadStarted(
+                  uri.clone(),
+                  path.display().to_string(),
+                ))
+                .is_ok();
+
+              return submitted;
             }
           }
         }
@@ -96,7 +95,10 @@ fn main() -> wry::Result<()> {
         println!("Download: {}", uri);
         println!("Will write to: {:?}", temp_dir);
       }
-      Event::UserEvent(UserEvent::DownloadComplete(path, success)) => {
+      Event::UserEvent(UserEvent::DownloadComplete(mut path, success)) => {
+        if path.is_empty() {
+          path = temp_dir.borrow().as_ref().expect("Stored temp dir").path().join("example.zip").to_string_lossy().to_string();
+        }
         let metadata = PathBuf::from(&path).metadata();
         println!("Succeeded: {}", success);
         println!("Path: {}", path);
