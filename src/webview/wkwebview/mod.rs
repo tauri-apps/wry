@@ -388,7 +388,7 @@ impl InnerWebView {
         .navigation_handler
         .is_some()
         || attributes.new_window_req_handler.is_some()
-        || attributes.download_handlers.is_some()
+        || attributes.download_started_handler.is_some()
       {
         let cls = match ClassDecl::new("UIViewController", class!(NSObject)) {
           Some(mut cls) => {
@@ -429,7 +429,7 @@ impl InnerWebView {
         (*handler).set_ivar("function", function_ptr as *mut _ as *mut c_void);
 
         let has_download_handler =
-          Box::into_raw(Box::new(Box::new(attributes.download_handlers.is_some())));
+          Box::into_raw(Box::new(Box::new(attributes.download_started_handler.is_some())));
         (*handler).set_ivar(
           "HasDownloadHandler",
           has_download_handler as *mut _ as *mut c_void,
@@ -438,9 +438,7 @@ impl InnerWebView {
         let _: () = msg_send![webview, setNavigationDelegate: handler];
 
         let download_delegate =
-          if let Some((download_started_handler, download_completed_builder)) =
-            attributes.download_handlers
-          {
+          if let Some(download_started_handler) = attributes.download_started_handler {
             let cls = match ClassDecl::new("DownloadDelegate", class!(NSObject)) {
               Some(mut cls) => {
                 cls.add_ivar::<*mut c_void>("started");
@@ -465,10 +463,11 @@ impl InnerWebView {
             let download_delegate: id = msg_send![cls, new];
             let download_started_ptr = Box::into_raw(Box::new(download_started_handler));
             (*download_delegate).set_ivar("started", download_started_ptr as *mut _ as *mut c_void);
-            let download_completed_handler = download_completed_builder();
-            let download_completed_ptr = Box::into_raw(Box::new(download_completed_handler));
-            (*download_delegate)
-              .set_ivar("completed", download_completed_ptr as *mut _ as *mut c_void);
+            if let Some(download_completed_handler) = attributes.download_completed_handler {
+              let download_completed_ptr = Box::into_raw(Box::new(download_completed_handler));
+              (*download_delegate)
+                .set_ivar("completed", download_completed_ptr as *mut _ as *mut c_void);
+            }
 
             set_download_delegate(handler, download_delegate);
 
@@ -495,8 +494,8 @@ impl InnerWebView {
           let request: id = msg_send![download, originalRequest];
           let url: id = msg_send![request, URL];
           let url: id = msg_send![url, absoluteString];
-          let url = NSString(Id::from_ptr(url));
-          let path = NSString(Id::from_ptr(suggested_path));
+          let url = NSString(url);
+          let path = NSString(suggested_path);
           let mut path = path.to_str().to_string();
           let handler = handler as *mut block::Block<(id,), c_void>;
 
@@ -524,7 +523,7 @@ impl InnerWebView {
         unsafe {
           let function = this.get_ivar::<*mut c_void>("completed");
           if !function.is_null() {
-            let function = &mut *(*function as *mut Box<dyn for<'s> Fn(String, bool) -> bool>);
+            let function = &mut *(*function as *mut Rc<dyn for<'s> Fn(String, bool)>);
             function(String::new(), true);
           }
         }
@@ -533,13 +532,13 @@ impl InnerWebView {
       extern "C" fn download_did_fail(this: &Object, _: Sel, _: id, error: id, _: id) {
         unsafe {
           let description: id = msg_send![error, localizedDescription];
-          let description = NSString(Id::from_ptr(description)).to_str().to_string();
+          let description = NSString(description).to_str().to_string();
 
           eprintln!("{}", description);
 
           let function = this.get_ivar::<*mut c_void>("completed");
           if !function.is_null() {
-            let function = &mut *(*function as *mut Box<dyn for<'s> Fn(String, bool) -> bool>);
+            let function = &mut *(*function as *mut Rc<dyn for<'s> Fn(String, bool)>);
             function(String::new(), false);
           }
         }

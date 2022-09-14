@@ -354,7 +354,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         let webview4: ICoreWebView2_4 =
           webview.cast().map_err(webview2_com::Error::WindowsError)?;
 
-        let download_complete_callback = attributes.download_complete_callback.take();
+        let download_completed_handler = attributes.download_completed_handler.take();
 
         webview4
           .add_DownloadStarting(
@@ -374,7 +374,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 if allow {
                   args.SetResultFilePath(path.display().to_string())?;
                   args.SetHandled(true)?;
-                  if let Some(download_complete_callback) = download_complete_callback.clone() {
+                  if let Some(download_completed_handler) = download_completed_handler.clone() {
                     args.DownloadOperation()?.add_StateChanged(
                       StateChangedEventHandler::create(Box::new(move |download_operation, _| {
                         if let Some(download_operation) = download_operation {
@@ -387,7 +387,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                             let path = take_pwstr(path);
 
                             let success = state == COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED;
-                            download_complete_callback(path.clone(), success);
+                            download_completed_handler(path.clone(), success);
                           }
                         }
 

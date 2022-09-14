@@ -150,7 +150,7 @@ pub struct WebViewAttributes {
   /// saved and a `bool` indicating if the download succeeded.
   pub download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
 
-  pub download_complete_callback: Option<Rc<dyn Fn(String, bool) + 'static>>,
+  pub download_completed_handler: Option<Rc<dyn Fn(String, bool) + 'static>>,
 
   /// Set a new window handler to decide if incoming url is allowed to open in a new window.
   ///
@@ -192,7 +192,7 @@ impl Default for WebViewAttributes {
       file_drop_handler: None,
       navigation_handler: None,
       download_started_handler: None,
-      download_complete_callback: None,
+      download_completed_handler: None,
       new_window_req_handler: None,
       clipboard: false,
       devtools: false,
@@ -396,7 +396,7 @@ impl<'a> WebViewBuilder<'a> {
     mut self,
     complete_callback_builder: impl Fn(String, bool) + 'static,
   ) -> Self {
-    self.webview.download_complete_callback = Some(Rc::new(complete_callback_builder));
+    self.webview.download_completed_handler = Some(Rc::new(complete_callback_builder));
     self
   }
 
