@@ -714,7 +714,7 @@ pub fn set_background_color(
   background_color: RGBA,
 ) -> webview2_com::Result<()> {
   let mut color = background_color;
-  if !is_windows_7() || color.3 != 0 {
+  if is_windows_7() || color.3 != 0 {
     color.3 = 255;
   }
 
