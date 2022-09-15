@@ -438,8 +438,9 @@ impl InnerWebView {
         };
         (*handler).set_ivar("function", function_ptr as *mut _ as *mut c_void);
 
-        let has_download_handler =
-          Box::into_raw(Box::new(Box::new(attributes.download_started_handler.is_some())));
+        let has_download_handler = Box::into_raw(Box::new(Box::new(
+          attributes.download_started_handler.is_some(),
+        )));
         (*handler).set_ivar(
           "HasDownloadHandler",
           has_download_handler as *mut _ as *mut c_void,

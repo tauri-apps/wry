@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{path::PathBuf, rc::Rc, cell::RefCell};
+use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use normpath::PathExt;
 use tempfile::tempdir;
@@ -98,7 +98,13 @@ fn main() -> wry::Result<()> {
       Event::UserEvent(UserEvent::DownloadComplete(mut path, success)) => {
         let _temp_dir_guard = if path.is_empty() && success {
           let temp_dir = temp_dir.borrow_mut().take();
-          path = temp_dir.as_ref().expect("Stored temp dir").path().join("example.zip").to_string_lossy().to_string();
+          path = temp_dir
+            .as_ref()
+            .expect("Stored temp dir")
+            .path()
+            .join("example.zip")
+            .to_string_lossy()
+            .to_string();
           temp_dir
         } else {
           None
