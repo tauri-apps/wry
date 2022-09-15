@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.21.1]
+
+- Fix transparency on Windows
+  - [e31cd0a](https://github.com/tauri-apps/wry/commit/e31cd0adf4ba881a35dcccd9b5ee78bb5af8828a) fix: fix transparency on Windows, closes [#692](https://github.com/tauri-apps/wry/pull/692) on 2022-09-16
+
 ## \[0.21.0]
 
 - Implement `<input type="file">` on Android.
