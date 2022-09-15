@@ -817,7 +817,7 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
+  pub fn set_background_color(&self, _background_color: RGBA) -> Result<()> {
     Ok(())
   }
 }
