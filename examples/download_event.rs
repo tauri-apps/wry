@@ -96,9 +96,13 @@ fn main() -> wry::Result<()> {
         println!("Will write to: {:?}", temp_dir);
       }
       Event::UserEvent(UserEvent::DownloadComplete(mut path, success)) => {
-        if path.is_empty() {
-          path = temp_dir.borrow().as_ref().expect("Stored temp dir").path().join("example.zip").to_string_lossy().to_string();
-        }
+        let _temp_dir_guard = if path.is_empty() && success {
+          let temp_dir = temp_dir.borrow_mut().take();
+          path = temp_dir.as_ref().expect("Stored temp dir").path().join("example.zip").to_string_lossy().to_string();
+          temp_dir
+        } else {
+          None
+        };
         let metadata = PathBuf::from(&path).metadata();
         println!("Succeeded: {}", success);
         println!("Path: {}", path);
