@@ -237,28 +237,28 @@ impl WebContextExt for super::WebContext {
 
             true
           });
-          download.connect_failed({
-            let failed = failed.clone();
-            move |_, _error| {
-              *failed.borrow_mut() = true;
-            }
-          });
-          if let Some(download_completed_callback) = download_completed_callback.clone() {
-            download.connect_finished({
-              let failed = failed.clone();
-              move |download| {
-                download_completed_callback(
-                  download
-                    .destination()
-                    .map_or_else(|| String::new(), |p| p.to_string()),
-                  !(*failed.borrow()),
-                )
-              }
-            });
-          }
         } else {
           download.cancel();
         }
+      }
+      download.connect_failed({
+        let failed = failed.clone();
+        move |_, _error| {
+          *failed.borrow_mut() = true;
+        }
+      });
+      if let Some(download_completed_callback) = download_completed_callback.clone() {
+        download.connect_finished({
+          let failed = failed.clone();
+          move |download| {
+            download_completed_callback(
+              download
+                .destination()
+                .map_or_else(|| String::new(), |p| p.to_string()),
+              !(*failed.borrow()),
+            )
+          }
+        });
       }
     });
   }
