@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -10,6 +10,12 @@ pub use web_context::WebContext;
 
 #[cfg(target_os = "android")]
 pub(crate) mod android;
+#[cfg(target_os = "android")]
+pub mod prelude {
+  pub use super::android::{binding::*, setup};
+}
+#[cfg(target_os = "android")]
+pub use android::JniHandle;
 #[cfg(target_os = "android")]
 use android::*;
 #[cfg(any(
@@ -37,12 +43,6 @@ pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
 use crate::Result;
-#[cfg(target_os = "android")]
-use jni::{
-  objects::{JClass, JObject},
-  sys::jobject,
-  JNIEnv,
-};
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
@@ -63,8 +63,23 @@ pub struct WebViewAttributes {
   pub user_agent: Option<String>,
   /// Whether the WebView window should be visible.
   pub visible: bool,
-  /// Whether the WebView should be transparent. Not supported on Windows 7.
+  /// Whether the WebView should be transparent.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// **Windows 7**: Not supported.
   pub transparent: bool,
+  /// Specify the webview background color. This will be ignored if `transparent` is set to `true`.
+  ///
+  /// The color uses the RGBA format.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **macOS / iOS**: Not implemented.
+  /// - **Windows**:
+  ///   - On Windows 7, transparency is not supported and the alpha value will be ignored.
+  ///   - On Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
+  pub background_color: Option<RGBA>,
   /// Whether load the provided URL to [`WebView`].
   pub url: Option<Url>,
   /// Whether page zooming by hotkeys is enabled
@@ -91,6 +106,11 @@ pub struct WebViewAttributes {
   /// Initialize javascript code when loading new pages. When webview load a new page, this
   /// initialization code will be executed. It is guaranteed that code is executed before
   /// `window.onload`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Android:** The Android WebView does not provide an API for initialization scripts,
+  /// so we prepend them to each HTML head. They are only implemented on custom protocol URLs.
   pub initialization_scripts: Vec<String>,
   /// Register custom file loading protocols with pairs of scheme uri string and a handling
   /// closure.
@@ -184,6 +204,7 @@ impl Default for WebViewAttributes {
       user_agent: None,
       visible: true,
       transparent: false,
+      background_color: None,
       url: None,
       html: None,
       initialization_scripts: vec![],
@@ -200,6 +221,11 @@ impl Default for WebViewAttributes {
     }
   }
 }
+
+/// Type alias for a color in the RGBA format.
+///
+/// Each value can be 0..255 inclusive.
+pub type RGBA = (u8, u8, u8, u8);
 
 /// Builder type of [`WebView`].
 ///
@@ -225,9 +251,28 @@ impl<'a> WebViewBuilder<'a> {
     })
   }
 
-  /// Sets whether the WebView should be transparent. Not supported on Windows 7.
+  /// Sets whether the WebView should be transparent.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// **Windows 7**: Not supported.
   pub fn with_transparent(mut self, transparent: bool) -> Self {
     self.webview.transparent = transparent;
+    self
+  }
+
+  /// Specify the webview background color. This will be ignored if `transparent` is set to `true`.
+  ///
+  /// The color uses the RGBA format.
+  ///
+  /// ## Platfrom-specific:
+  ///
+  /// - **macOS / iOS**: Not implemented.
+  /// - **Windows**:
+  ///   - on Windows 7, transparency is not supported and the alpha value will be ignored.
+  ///   - on Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
+  pub fn with_background_color(mut self, background_color: RGBA) -> Self {
+    self.webview.background_color = Some(background_color);
     self
   }
 
@@ -240,6 +285,11 @@ impl<'a> WebViewBuilder<'a> {
   /// Initialize javascript code when loading new pages. When webview load a new page, this
   /// initialization code will be executed. It is guaranteed that code is executed before
   /// `window.onload`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Android:** The Android WebView does not provide an API for initialization scripts,
+  /// so we prepend them to each HTML head. They are only implemented on custom protocol URLs.
   pub fn with_initialization_script(mut self, js: &str) -> Self {
     self.webview.initialization_scripts.push(js.to_string());
     self
@@ -511,16 +561,6 @@ impl WebView {
     Ok(())
   }
 
-  /// Moves Focus to the Webview control.
-  ///
-  /// It's usually safe to call `focus` method on `Window` which would also focus to `WebView` except Windows.
-  /// Focussing to `Window` doesn't mean focussing to `WebView` on Windows. For example, if you have
-  /// an input field on webview and lost focus, you will have to explicitly click the field even you
-  /// re-focus the window. And if you focus to `WebView`, it will lost focus to the `Window`.
-  pub fn focus(&self) {
-    self.webview.focus();
-  }
-
   /// Open the web inspector which is usually called dev tool.
   ///
   /// ## Platform-specific
@@ -572,14 +612,18 @@ impl WebView {
     self.webview.zoom(scale_factor);
   }
 
-  #[cfg(target_os = "android")]
-  pub fn run(self, env: JNIEnv, jclass: JClass, jobject: JObject) -> jobject {
-    self.webview.run(env, jclass, jobject).unwrap()
-  }
-
-  #[cfg(target_os = "android")]
-  pub fn ipc_handler(window: &Window, arg: String) {
-    InnerWebView::ipc_handler(window, arg)
+  /// Specify the webview background color.
+  ///
+  /// The color uses the RGBA format.
+  ///
+  /// ## Platfrom-specific:
+  ///
+  /// - **macOS / iOS**: Not implemented.
+  /// - **Windows**:
+  ///   - On Windows 7, transparency is not supported and the alpha value will be ignored.
+  ///   - On Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
+  pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
+    self.webview.set_background_color(background_color)
   }
 }
 
@@ -651,6 +695,19 @@ impl WebviewExtMacOS for WebView {
 
   fn ns_window(&self) -> cocoa::base::id {
     self.webview.ns_window.clone()
+  }
+}
+
+#[cfg(target_os = "android")]
+/// Additional methods on `WebView` that are specific to Android
+pub trait WebviewExtAndroid {
+  fn handle(&self) -> JniHandle;
+}
+
+#[cfg(target_os = "android")]
+impl WebviewExtAndroid for WebView {
+  fn handle(&self) -> JniHandle {
+    JniHandle
   }
 }
 

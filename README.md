@@ -1,6 +1,11 @@
 <img src=".github/splash.png" alt="WRY Webview Rendering library" />
 
-[![](https://img.shields.io/crates/v/wry?style=flat-square)](https://crates.io/crates/wry) [![](https://img.shields.io/docsrs/wry?style=flat-square)](https://docs.rs/wry/) ![](https://img.shields.io/crates/l/wry?style=flat-square)
+[![](https://img.shields.io/crates/v/wry?style=flat-square)](https://crates.io/crates/wry) [![](https://img.shields.io/docsrs/wry?style=flat-square)](https://docs.rs/wry/)
+[![License](https://img.shields.io/badge/License-MIT%20or%20Apache%202-green.svg)](https://opencollective.com/tauri)
+[![Chat Server](https://img.shields.io/badge/chat-discord-7289da.svg)](https://discord.gg/SpmNs4S)
+[![website](https://img.shields.io/badge/website-tauri.app-purple.svg)](https://tauri.app)
+[![https://good-labs.github.io/greater-good-affirmation/assets/images/badge.svg](https://good-labs.github.io/greater-good-affirmation/assets/images/badge.svg)](https://good-labs.github.io/greater-good-affirmation)
+[![support](https://img.shields.io/badge/sponsor-Open%20Collective-blue.svg)](https://opencollective.com/tauri)
 
 Cross-platform WebView rendering library in Rust that supports all major desktop platforms like Windows, macOS, and Linux.
 
@@ -12,7 +17,7 @@ Cross-platform WebView rendering library in Rust that supports all major desktop
 
 ## Overview
 
-Wry connects the web engine on each platform and provides easy to use and unified interface to render WebView. It also re-exports [tao] as a module for event loop and window creation.
+WRY connects the web engine on each platform and provides easy to use and unified interface to render WebView. It also re-exports [TAO] as a module for event loop and window creation.
 
 [tao]: https://crates.io/crates/tao
 
@@ -66,7 +71,7 @@ For more information, please read the documentation below.
 
 ## Platform-specific notes
 
-All platforms use [tao](https://github.com/tauri-apps/tao) to build the window, and wry re-exports it as an application module. Here is the underlying web engine each platform uses, and some dependencies you might need to install.
+All platforms use [TAO](https://github.com/tauri-apps/tao) to build the window, and wry re-exports it as an application module. Here is the underlying web engine each platform uses, and some dependencies you might need to install.
 
 ### Linux
 
@@ -118,5 +123,13 @@ WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7,
 
 We have experimental support of mobile ends. If you are interested in playing or hacking it, please follow this [note](https://hackmd.io/XIcEwk4GSxy8APZhSa0UnA?view).
 
+When building for Android, WRY generates kotlin files that are needed to run WRY on Android and you have to set the following environment variables:
+- `WRY_ANDROID_REVERSED_DOMAIN`
+- `WRY_ANDROID_APP_NAME_SNAKE_CASE`
+- `WRY_ANDROID_KOTLIN_FILES_OUT_DIR`
+
+You can skip setting these environment variables if you are using the WRY template from our [`cargo-mobile`](https://github.com/tauri-apps/cargo-mobile) fork.
+
 ## License
+
 Apache-2.0/MIT

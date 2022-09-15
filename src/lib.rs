@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -178,6 +178,6 @@ pub enum Error {
   #[error("Infallible error, something went really wrong: {0}")]
   Infallible(#[from] std::convert::Infallible),
   #[cfg(target_os = "android")]
-  #[error("JNI error: {0}")]
-  JNIError(#[from] jni::errors::Error),
+  #[error(transparent)]
+  JniError(#[from] tao::platform::android::ndk_glue::jni::errors::Error),
 }

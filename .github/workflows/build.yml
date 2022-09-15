@@ -26,7 +26,7 @@ jobs:
           target: ${{ matrix.platform.target }}
 
       - name: install webkit2gtk (ubuntu only)
-        if: contains(matrix.platform.target, 'gnu') 
+        if: contains(matrix.platform.target, 'gnu')
         run: |
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.0 libgtksourceview-3.0-dev libayatana-appindicator3-dev

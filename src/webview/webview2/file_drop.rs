@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -74,7 +74,7 @@ impl FileDropController {
       let file_drop_handler: IDropTarget = FileDropHandler::new(window, listener).into();
 
       if RevokeDragDrop(hwnd) != Err(DRAGDROP_E_INVALIDHWND.into())
-        && RegisterDragDrop(hwnd, file_drop_handler.clone()).is_ok()
+        && RegisterDragDrop(hwnd, &file_drop_handler).is_ok()
       {
         // Not a great solution. But there is no reliable way to get the window handle of the webview, for whatever reason...
         self.drop_targets.push(file_drop_handler);
@@ -119,7 +119,7 @@ impl FileDropHandler {
     Self {
       window,
       listener,
-      cursor_effect: DROPEFFECT_NONE.into(),
+      cursor_effect: DROPEFFECT_NONE.0.into(),
       hovered_is_valid: false.into(),
     }
   }
@@ -200,9 +200,9 @@ impl IDropTarget_Impl for FileDropHandler {
       } else {
         DROPEFFECT_NONE
       };
-      *pdwEffect = cursor_effect;
+      *pdwEffect = cursor_effect.0;
       *self.hovered_is_valid.get() = hovered_is_valid;
-      *self.cursor_effect.get() = cursor_effect;
+      *self.cursor_effect.get() = cursor_effect.0;
     }
 
     (self.listener)(&self.window, FileDropEvent::Hovered(paths));

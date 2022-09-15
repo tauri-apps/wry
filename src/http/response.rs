@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -126,7 +126,7 @@ impl ResponseParts {
   /// Creates a new default instance of `ResponseParts`
   fn new() -> ResponseParts {
     ResponseParts {
-      status: StatusCode::default(),
+      status: StatusCode::OK,
       version: Version::default(),
       headers: HeaderMap::default(),
       mimetype: None,

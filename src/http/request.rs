@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -68,6 +68,12 @@ impl Request {
   #[inline]
   pub fn uri(&self) -> &str {
     &self.head.uri
+  }
+
+  /// Returns a mutable reference to the associated URI.
+  #[inline]
+  pub fn uri_mut(&mut self) -> &mut String {
+    &mut self.head.uri
   }
 
   /// Returns a reference to the associated header field map.
