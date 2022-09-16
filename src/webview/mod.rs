@@ -166,10 +166,10 @@ pub struct WebViewAttributes {
   /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
   /// parameter can be used to set the download location by assigning a new path to it - the assigned path _must_ be
   /// absolute. The closure returns a `bool` to allow or deny the download.
-  /// 
+  ///
   /// ## Platform-specific
-  /// 
-  /// - **Windows:** The assigned path cannot include a UNC (Universal Naming Convention) prefix. This prefix is 
+  ///
+  /// - **Windows:** The assigned path cannot include a UNC (Universal Naming Convention) prefix. This prefix is
   /// sometimes included when canonicalizing paths in order to differentiate between networked filesystems.
   pub download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
 
@@ -178,9 +178,9 @@ pub struct WebViewAttributes {
   /// The closure is fired when the download completes, whether it was successful.
   /// The closure takes a `String` representing the URL of the original download request, a `String` representing the
   /// filesystem path the file was downloaded to (if successful), and a `bool` indiciating if the download succeeded.
-  /// 
+  ///
   /// ## Platform-specific:
-  /// 
+  ///
   /// - **macOS**: The second parameter indicating the path the file was saved to is always empty, due to API
   /// limitations.
   pub download_completed_handler: Option<Rc<dyn Fn(String, String, bool) + 'static>>,
