@@ -356,7 +356,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         let webview4: ICoreWebView2_4 =
           webview.cast().map_err(webview2_com::Error::WindowsError)?;
 
-        let download_started_handler = attributes.download_started_handler.take();
+        let mut download_started_handler = attributes.download_started_handler.take();
         let download_completed_handler = attributes.download_completed_handler.take();
 
         webview4
@@ -389,7 +389,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                     &mut token,
                   )?;
                 }
-                if let Some(mut download_started_callback) = download_started_handler {
+                if let Some(mut download_started_callback) = &mut download_started_handler {
                   let mut path = PWSTR::null();
                   args.ResultFilePath(&mut path)?;
                   let path = take_pwstr(path);
