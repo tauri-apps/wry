@@ -358,13 +358,13 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
         webview4
           .add_DownloadStarting(
-            DownloadStartingEventHandler::create(Box::new(move |_, args| {
+            &DownloadStartingEventHandler::create(Box::new(move |_, args| {
               if let Some(args) = args {
-                let mut uri = PWSTR::default();
+                let mut uri = PWSTR::null();
                 args.DownloadOperation()?.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
 
-                let mut path = PWSTR::default();
+                let mut path = PWSTR::null();
                 args.ResultFilePath(&mut path)?;
                 let path = take_pwstr(path);
                 let mut path = PathBuf::from(&path);
@@ -372,17 +372,17 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 let allow = download_started_callback(uri, &mut path);
 
                 if allow {
-                  args.SetResultFilePath(path.display().to_string())?;
+                  args.SetResultFilePath(PCWSTR::from_raw(encode_wide(path.display().to_string())))?;
                   args.SetHandled(true)?;
                   if let Some(download_completed_handler) = download_completed_handler.clone() {
                     args.DownloadOperation()?.add_StateChanged(
-                      StateChangedEventHandler::create(Box::new(move |download_operation, _| {
+                      &StateChangedEventHandler::create(Box::new(move |download_operation, _| {
                         if let Some(download_operation) = download_operation {
                           let mut state: COREWEBVIEW2_DOWNLOAD_STATE =
                             COREWEBVIEW2_DOWNLOAD_STATE::default();
                           download_operation.State(&mut state)?;
                           if state != COREWEBVIEW2_DOWNLOAD_STATE_IN_PROGRESS {
-                            let mut path = PWSTR::default();
+                            let mut path = PWSTR::null();
                             download_operation.ResultFilePath(&mut path)?;
                             let path = take_pwstr(path);
 
