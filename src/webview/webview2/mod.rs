@@ -399,8 +399,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                   let mut path = PathBuf::from(&path);
 
                   if download_started_handler(uri, &mut path) {
+                    let simplified = dunce::simplified(&path);
                     let result_file_path =
-                      PCWSTR::from_raw(encode_wide(path.display().to_string()).as_ptr());
+                      PCWSTR::from_raw(encode_wide(simplified.as_os_str()).as_ptr());
                     args.SetResultFilePath(result_file_path)?;
                     args.SetHandled(true)?;
                   } else {
