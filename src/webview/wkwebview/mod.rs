@@ -19,6 +19,7 @@ use cocoa::{
 use std::{
   ffi::{c_void, CStr},
   os::raw::c_char,
+  path::PathBuf,
   ptr::{null, null_mut},
   rc::Rc,
   slice, str,
@@ -507,18 +508,18 @@ impl InnerWebView {
           let url: id = msg_send![url, absoluteString];
           let url = NSString(url);
           let path = NSString(suggested_path);
-          let mut path = path.to_str().to_string();
+          let mut path = PathBuf::from(path.to_str());
           let handler = handler as *mut block::Block<(id,), c_void>;
 
           let function = this.get_ivar::<*mut c_void>("started");
           if !function.is_null() {
             let function =
-              &mut *(*function as *mut Box<dyn for<'s> FnMut(String, &mut String) -> bool>);
+              &mut *(*function as *mut Box<dyn for<'s> FnMut(String, &mut PathBuf) -> bool>);
             match (function)(url.to_str().to_string(), &mut path) {
               true => {
                 // let nsstring: id = msg_send![class!(NSString), alloc];
                 // let nsstring = msg_send![nsstring, initWithBytes:path.as_ptr() length:path.len() encoding:UTF8_ENCODING];
-                let nsurl: id = msg_send![class!(NSURL), fileURLWithPath: NSString::new(&path) isDirectory: false];
+                let nsurl: id = msg_send![class!(NSURL), fileURLWithPath: NSString::new(&path.display().to_string()) isDirectory: false];
                 (*handler).call((nsurl,))
               }
               false => (*handler).call((null_mut(),)),
@@ -553,6 +554,7 @@ impl InnerWebView {
           let url: id = msg_send![url, absoluteString];
           let url = NSString(url).to_str().to_string();
 
+          #[cfg(debug_assertions)]
           eprintln!("Download failed with error: {}", description);
 
           let function = this.get_ivar::<*mut c_void>("completed");
