@@ -223,7 +223,7 @@ impl WebContextExt for super::WebContext {
     let download_started_handler = RefCell::new(download_started_handler);
     let failed = Rc::new(RefCell::new(false));
 
-    context.connect_download_started(move |_, download| {
+    context.connect_download_started(move |_context, download| {
       if let Some(uri) = download.request().and_then(|req| req.uri()) {
         let uri = uri.to_string();
         let mut download_location = download
@@ -233,10 +233,8 @@ impl WebContextExt for super::WebContext {
 
         if let Some(download_started_handler) = download_started_handler.borrow_mut().as_mut() {
           if download_started_handler(uri, &mut download_location) {
-            download.connect_decide_destination(move |download, _| {
+            download.connect_response_notify(move |download| {
               download.set_destination(&download_location.to_string_lossy());
-
-              true
             });
           } else {
             download.cancel();
