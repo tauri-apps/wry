@@ -389,13 +389,13 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                     &mut token,
                   )?;
                 }
-                if let Some(mut download_started_callback) = &mut download_started_handler {
+                if let Some(download_started_handler) = download_started_handler.as_mut() {
                   let mut path = PWSTR::null();
                   args.ResultFilePath(&mut path)?;
                   let path = take_pwstr(path);
                   let mut path = PathBuf::from(&path);
 
-                  if download_started_callback(uri, &mut path) {
+                  if download_started_handler(uri, &mut path) {
                     let result_file_path =
                       PCWSTR::from_raw(encode_wide(path.display().to_string()).as_ptr());
                     args.SetResultFilePath(result_file_path)?;
