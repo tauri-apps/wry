@@ -449,13 +449,13 @@ impl<'a> WebViewBuilder<'a> {
   /// download is allowed or not.
   pub fn with_download_handler(
     mut self,
-    started_callback: impl FnMut(String, &mut PathBuf) -> bool + 'static,
+    started_handler: impl FnMut(String, &mut PathBuf) -> bool + 'static,
   ) -> Self {
-    self.webview.download_started_handler = Some(Box::new(started_callback));
+    self.webview.download_started_handler = Some(Box::new(started_handler));
     self
   }
 
-  pub fn with_download_completed_callback(
+  pub fn with_download_completed_handler(
     mut self,
     download_completed_handler: impl Fn(String, String, bool) + 'static,
   ) -> Self {
