@@ -349,7 +349,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       }
     }
 
-    if attributes.download_started_handler.is_some() || attributes.download_completed_handler.is_some() {
+    if attributes.download_started_handler.is_some()
+      || attributes.download_completed_handler.is_some()
+    {
       unsafe {
         let webview4: ICoreWebView2_4 =
           webview.cast().map_err(webview2_com::Error::WindowsError)?;
@@ -394,7 +396,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                   let mut path = PathBuf::from(&path);
 
                   if download_started_callback(uri, &mut path) {
-                    let result_file_path = PCWSTR::from_raw(encode_wide(path.display().to_string()).as_ptr());
+                    let result_file_path =
+                      PCWSTR::from_raw(encode_wide(path.display().to_string()).as_ptr());
                     args.SetResultFilePath(result_file_path)?;
                     args.SetHandled(true)?;
                   } else {
