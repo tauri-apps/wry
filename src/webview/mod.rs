@@ -166,11 +166,6 @@ pub struct WebViewAttributes {
   /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
   /// parameter can be used to set the download location by assigning a new path to it - the assigned path _must_ be
   /// absolute. The closure returns a `bool` to allow or deny the download.
-  ///
-  /// ## Platform-specific
-  ///
-  /// - **Windows:** The assigned path cannot include a UNC (Universal Naming Convention) prefix. This prefix is
-  /// sometimes included when canonicalizing paths in order to differentiate between networked filesystems.
   pub download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
 
   /// Sets a download completion handler to manage downloads that have finished.
@@ -443,10 +438,12 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set a download handler to decide if incoming download is allowed.
+  /// Set a download started handler to manage incoming downloads.
   ///
-  /// The closure takes a `String` parameter as url and return `bool` to determine if the
-  /// download is allowed or not.
+  /// The closure takes two parameters - the first is a `String` representing the url being downloaded from and and the
+  /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
+  /// parameter can be used to set the download location by assigning a new path to it - the assigned path _must_ be
+  /// absolute. The closure returns a `bool` to allow or deny the download.
   pub fn with_download_handler(
     mut self,
     started_handler: impl FnMut(String, &mut PathBuf) -> bool + 'static,
@@ -455,6 +452,16 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Sets a download completion handler to manage downloads that have finished.
+  ///
+  /// The closure is fired when the download completes, whether it was successful.
+  /// The closure takes a `String` representing the URL of the original download request, a `String` representing the
+  /// filesystem path the file was downloaded to (if successful), and a `bool` indiciating if the download succeeded.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **macOS**: The second parameter indicating the path the file was saved to is always empty, due to API
+  /// limitations.
   pub fn with_download_completed_handler(
     mut self,
     download_completed_handler: impl Fn(String, String, bool) + 'static,
