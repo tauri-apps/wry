@@ -192,13 +192,13 @@ impl InnerWebView {
     // background color
     if !attributes.transparent {
       if let Some(background_color) = attributes.background_color {
-        set_background_color(&controller, background_color)?;
+        set_background_color(controller, background_color)?;
       }
     }
 
     // Transparent
     if attributes.transparent && !is_windows_7() {
-      set_background_color(&controller, (0, 0, 0, 0))?;
+      set_background_color(controller, (0, 0, 0, 0))?;
     }
 
     // The EventRegistrationToken is an out-param from all of the event registration calls. We're
@@ -616,12 +616,12 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
           });
         }
 
-        win32wm::WM_ENTERSIZEMOVE | win32wm::WM_SETFOCUS => {
+        win32wm::WM_SETFOCUS | win32wm::WM_ENTERSIZEMOVE => {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
           let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
         }
 
-        win32wm::WM_EXITSIZEMOVE => {
+        win32wm::WM_WINDOWPOSCHANGED => {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
           let _ = (*controller).NotifyParentWindowPositionChanged();
         }
