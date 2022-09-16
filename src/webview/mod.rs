@@ -160,17 +160,30 @@ pub struct WebViewAttributes {
   /// allow to navigate and false is not.
   pub navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
 
-  /// Set a download handlers to manage incoming downloads.
+  /// Set a download started handler to manage incoming downloads.
   ///
-  /// The first closure takes two parameters - the first is a `String` representing the url being downloaded from and and the
-  /// second is a mutable `String` reference that (possibly) represents where the file will be downloaded to. The latter
-  /// parameter can be used to set the download location by assigning a new path string to it - the assigned path _must_ be
-  /// absolute, and (on Windows) cannot include a UNC prefix. The closure returns a `bool` to allow or deny the download.
-  /// The second closure is fired when the download completes, with a `String` representing the path to where the download was
-  /// saved and a `bool` indicating if the download succeeded.
+  /// The closure takes two parameters - the first is a `String` representing the url being downloaded from and and the
+  /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
+  /// parameter can be used to set the download location by assigning a new path to it - the assigned path _must_ be
+  /// absolute. The closure returns a `bool` to allow or deny the download.
+  /// 
+  /// ## Platform-specific
+  /// 
+  /// - **Windows:** The assigned path cannot include a UNC (Universal Naming Convention) prefix. This prefix is 
+  /// sometimes included when canonicalizing paths in order to differentiate between networked filesystems.
   pub download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
 
-  pub download_completed_handler: Option<Rc<dyn Fn(String, bool) + 'static>>,
+  /// Sets a download completion handler to manage downloads that have finished.
+  ///
+  /// The closure is fired when the download completes, whether it was successful.
+  /// The closure takes a `String` representing the URL of the original download request, a `String` representing the
+  /// filesystem path the file was downloaded to (if successful), and a `bool` indiciating if the download succeeded.
+  /// 
+  /// ## Platform-specific:
+  /// 
+  /// - **macOS**: The second parameter indicating the path the file was saved to is always empty, due to API
+  /// limitations.
+  pub download_completed_handler: Option<Rc<dyn Fn(String, String, bool) + 'static>>,
 
   /// Set a new window handler to decide if incoming url is allowed to open in a new window.
   ///
@@ -444,9 +457,9 @@ impl<'a> WebViewBuilder<'a> {
 
   pub fn with_download_completed_callback(
     mut self,
-    complete_callback_builder: impl Fn(String, bool) + 'static,
+    download_completed_handler: impl Fn(String, String, bool) + 'static,
   ) -> Self {
-    self.webview.download_completed_handler = Some(Rc::new(complete_callback_builder));
+    self.webview.download_completed_handler = Some(Rc::new(download_completed_handler));
     self
   }
 

@@ -378,9 +378,12 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                           let mut path = PWSTR::null();
                           download_operation.ResultFilePath(&mut path)?;
                           let path = take_pwstr(path);
+                          let mut uri = PWSTR::null();
+                          download_operation.Uri(&mut uri)?;
+                          let uri = take_pwstr(uri);
 
                           let success = state == COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED;
-                          download_completed_handler(path.clone(), success);
+                          download_completed_handler(uri, path.clone(), success);
                         }
                       }
 

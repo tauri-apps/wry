@@ -73,7 +73,7 @@ fn main() -> wry::Result<()> {
     })
     .with_download_completed_callback({
       let proxy = proxy.clone();
-      move |path, success| {
+      move |uri, path, success| {
         let _ = proxy.send_event(UserEvent::DownloadComplete(path, success));
       }
     })
