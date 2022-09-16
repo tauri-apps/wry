@@ -616,7 +616,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
           });
         }
 
-        win32wm::WM_SETFOCUS => {
+        win32wm::WM_ENTERSIZEMOVE | win32wm::WM_SETFOCUS => {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
           let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
         }
