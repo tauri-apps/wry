@@ -349,11 +349,12 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       }
     }
 
-    if let Some(mut download_started_callback) = attributes.download_started_handler {
+    if attributes.download_started_handler.is_some() || attributes.download_completed_handler.is_some() {
       unsafe {
         let webview4: ICoreWebView2_4 =
           webview.cast().map_err(webview2_com::Error::WindowsError)?;
 
+        let download_started_handler = attributes.download_started_handler.take();
         let download_completed_handler = attributes.download_completed_handler.take();
 
         webview4
@@ -364,41 +365,42 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 args.DownloadOperation()?.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
 
-                let mut path = PWSTR::null();
-                args.ResultFilePath(&mut path)?;
-                let path = take_pwstr(path);
-                let mut path = PathBuf::from(&path);
+                if let Some(download_completed_handler) = download_completed_handler.clone() {
+                  args.DownloadOperation()?.add_StateChanged(
+                    &StateChangedEventHandler::create(Box::new(move |download_operation, _| {
+                      if let Some(download_operation) = download_operation {
+                        let mut state: COREWEBVIEW2_DOWNLOAD_STATE =
+                          COREWEBVIEW2_DOWNLOAD_STATE::default();
+                        download_operation.State(&mut state)?;
+                        if state != COREWEBVIEW2_DOWNLOAD_STATE_IN_PROGRESS {
+                          let mut path = PWSTR::null();
+                          download_operation.ResultFilePath(&mut path)?;
+                          let path = take_pwstr(path);
 
-                let allow = download_started_callback(uri, &mut path);
-
-                if allow {
-                  args.SetResultFilePath(PCWSTR::from_raw(encode_wide(path.display().to_string())))?;
-                  args.SetHandled(true)?;
-                  if let Some(download_completed_handler) = download_completed_handler.clone() {
-                    args.DownloadOperation()?.add_StateChanged(
-                      &StateChangedEventHandler::create(Box::new(move |download_operation, _| {
-                        if let Some(download_operation) = download_operation {
-                          let mut state: COREWEBVIEW2_DOWNLOAD_STATE =
-                            COREWEBVIEW2_DOWNLOAD_STATE::default();
-                          download_operation.State(&mut state)?;
-                          if state != COREWEBVIEW2_DOWNLOAD_STATE_IN_PROGRESS {
-                            let mut path = PWSTR::null();
-                            download_operation.ResultFilePath(&mut path)?;
-                            let path = take_pwstr(path);
-
-                            let success = state == COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED;
-                            download_completed_handler(path.clone(), success);
-                          }
+                          let success = state == COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED;
+                          download_completed_handler(path.clone(), success);
                         }
+                      }
 
-                        Ok(())
-                      })),
-                      &mut token,
-                    )?;
-                  };
+                      Ok(())
+                    })),
+                    &mut token,
+                  )?;
                 }
+                if let Some(mut download_started_callback) = download_started_handler {
+                  let mut path = PWSTR::null();
+                  args.ResultFilePath(&mut path)?;
+                  let path = take_pwstr(path);
+                  let mut path = PathBuf::from(&path);
 
-                args.SetCancel(!allow)?;
+                  if download_started_callback(uri, &mut path) {
+                    let result_file_path = PCWSTR::from_raw(encode_wide(path.display().to_string()).as_ptr());
+                    args.SetResultFilePath(result_file_path)?;
+                    args.SetHandled(true)?;
+                  } else {
+                    args.SetCancel(true)?;
+                  }
+                }
               }
 
               Ok(())
