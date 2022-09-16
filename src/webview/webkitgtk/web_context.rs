@@ -143,7 +143,7 @@ pub trait WebContextExt {
 
   fn register_download_handler(
     &mut self,
-    download_started_callback: Box<dyn FnMut(String, &mut PathBuf) -> bool>,
+    download_started_callback: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
     download_completed_callback: Option<Rc<dyn Fn(String, bool) + 'static>>,
   );
 }
@@ -214,13 +214,13 @@ impl WebContextExt for super::WebContext {
 
   fn register_download_handler(
     &mut self,
-    download_started_callback: Box<dyn FnMut(String, &mut PathBuf) -> bool>,
-    download_completed_callback: Option<Rc<dyn Fn(String, bool) + 'static>>,
+    download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
+    download_completed_handler: Option<Rc<dyn Fn(String, bool) + 'static>>,
   ) {
     use webkit2gtk::traits::*;
     let context = &self.os.context;
 
-    let download_started_callback = RefCell::new(download_started_callback);
+    let download_started_handler = RefCell::new(download_started_handler);
     let failed = Rc::new(RefCell::new(false));
 
     context.connect_download_started(move |_, download| {
@@ -231,14 +231,16 @@ impl WebContextExt for super::WebContext {
           .and_then(|p| PathBuf::from_str(&p).ok())
           .unwrap_or_default();
 
-        if download_started_callback.borrow_mut()(uri, &mut download_location) {
-          download.connect_decide_destination(move |download, _| {
-            download.set_destination(&download_location.to_string_lossy());
+        if let Some(download_started_handler) = download_started_handler.borrow_mut().as_mut() {
+          if download_started_handler(uri, &mut download_location) {
+            download.connect_decide_destination(move |download, _| {
+              download.set_destination(&download_location.to_string_lossy());
 
-            true
-          });
-        } else {
-          download.cancel();
+              true
+            });
+          } else {
+            download.cancel();
+          }
         }
       }
       download.connect_failed({
@@ -247,11 +249,11 @@ impl WebContextExt for super::WebContext {
           *failed.borrow_mut() = true;
         }
       });
-      if let Some(download_completed_callback) = download_completed_callback.clone() {
+      if let Some(download_completed_handler) = download_completed_handler.clone() {
         download.connect_finished({
           let failed = failed.clone();
           move |download| {
-            download_completed_callback(
+            download_completed_handler(
               download
                 .destination()
                 .map_or_else(|| String::new(), |p| p.to_string()),

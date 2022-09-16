@@ -237,9 +237,11 @@ impl InnerWebView {
       });
     }
 
-    if let Some(download_started_callback) = attributes.download_started_handler {
+    if attributes.download_started_handler.is_some()
+      || attributes.download_completed_handler.is_some()
+    {
       web_context.register_download_handler(
-        download_started_callback,
+        attributes.download_started_handler,
         attributes.download_completed_handler,
       )
     }
