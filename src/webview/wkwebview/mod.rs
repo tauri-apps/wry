@@ -417,12 +417,35 @@ impl InnerWebView {
         }
       }
 
+      extern "C" fn request_media_capture_permission(
+        _this: &Object,
+        _: Sel,
+        _webview: id,
+        _origin: id,
+        _frame: id,
+        _type: id,
+        decision_handler: id,
+      ) {
+        unsafe {
+          let decision_handler = decision_handler as *mut block::Block<(NSInteger,), c_void>;
+          //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
+          (*decision_handler).call((1,));
+        }
+      }
+
       let ui_delegate = match ClassDecl::new("WebViewUIDelegate", class!(NSObject)) {
         Some(mut ctl) => {
           ctl.add_method(
             sel!(webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:),
             run_file_upload_panel as extern "C" fn(&Object, Sel, id, id, id, id),
           );
+
+          // Disable media dialogs
+          ctl.add_method(
+            sel!(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:),
+            request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, id, id),
+          );
+
           ctl.register()
         }
         None => class!(WebViewUIDelegate),
