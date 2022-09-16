@@ -621,7 +621,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
           let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
         }
 
-        win32wm::WM_EXITSIZEMOVE=> {
+        win32wm::WM_EXITSIZEMOVE => {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
           let _ = (*controller).NotifyParentWindowPositionChanged();
         }
