@@ -77,6 +77,7 @@ fn main() -> wry::Result<()> {
         let _ = proxy.send_event(UserEvent::DownloadComplete(path, success));
       }
     })
+    .with_devtools(true)
     .build()?;
 
   #[cfg(debug_assertions)]
