@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{path::PathBuf, fs::File, io::{Write, Read}};
+use std::{
+  fs::File,
+  io::{Read, Write},
+  path::PathBuf,
+};
 
 use base64::decode;
 use tempfile::tempdir;
