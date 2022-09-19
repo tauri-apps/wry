@@ -679,10 +679,8 @@ impl Drop for InnerWebView {
       if !self.ipc_handler_ptr.is_null() {
         let _ = Box::from_raw(self.ipc_handler_ptr);
 
-        let config: id = msg_send![self.webview, configuration];
-        let manager: id = msg_send![config, userContentController];
         let ipc = NSString::new(IPC_MESSAGE_HANDLER_NAME);
-        let _: () = msg_send![manager, removeScriptMessageHandlerForName: ipc];
+        let _: () = msg_send![self.manager, removeScriptMessageHandlerForName: ipc];
       }
 
       if !self.navigation_decide_policy_ptr.is_null() {
