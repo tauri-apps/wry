@@ -450,15 +450,15 @@ impl InnerWebView {
         let _: () = msg_send![webview, setNavigationDelegate: handler];
 
         let download_delegate =
-          if let Some(download_started_handler) = attributes.download_started_handler {
+          if attributes.download_started_handler.is_some() || attributes.download_completed_handler.is_some() {
             let cls = match ClassDecl::new("DownloadDelegate", class!(NSObject)) {
               Some(mut cls) => {
                 cls.add_ivar::<*mut c_void>("started");
                 cls.add_ivar::<*mut c_void>("completed");
                 cls.add_method(
-                sel!(download:decideDestinationUsingResponse:suggestedFilename:completionHandler:),
-                download_policy as extern "C" fn(&Object, Sel, id, id, id, id),
-              );
+                  sel!(download:decideDestinationUsingResponse:suggestedFilename:completionHandler:),
+                  download_policy as extern "C" fn(&Object, Sel, id, id, id, id),
+                );
                 cls.add_method(
                   sel!(downloadDidFinish:),
                   download_did_finish as extern "C" fn(&Object, Sel, id),
@@ -473,8 +473,10 @@ impl InnerWebView {
             };
 
             let download_delegate: id = msg_send![cls, new];
-            let download_started_ptr = Box::into_raw(Box::new(download_started_handler));
-            (*download_delegate).set_ivar("started", download_started_ptr as *mut _ as *mut c_void);
+            if let Some(download_started_handler) = attributes.download_started_handler {
+              let download_started_ptr = Box::into_raw(Box::new(download_started_handler));
+              (*download_delegate).set_ivar("started", download_started_ptr as *mut _ as *mut c_void);
+            }
             if let Some(download_completed_handler) = attributes.download_completed_handler {
               let download_completed_ptr = Box::into_raw(Box::new(download_completed_handler));
               (*download_delegate)
