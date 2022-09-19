@@ -449,46 +449,47 @@ impl InnerWebView {
 
         let _: () = msg_send![webview, setNavigationDelegate: handler];
 
-        let download_delegate =
-          if attributes.download_started_handler.is_some() || attributes.download_completed_handler.is_some() {
-            let cls = match ClassDecl::new("DownloadDelegate", class!(NSObject)) {
-              Some(mut cls) => {
-                cls.add_ivar::<*mut c_void>("started");
-                cls.add_ivar::<*mut c_void>("completed");
-                cls.add_method(
-                  sel!(download:decideDestinationUsingResponse:suggestedFilename:completionHandler:),
-                  download_policy as extern "C" fn(&Object, Sel, id, id, id, id),
-                );
-                cls.add_method(
-                  sel!(downloadDidFinish:),
-                  download_did_finish as extern "C" fn(&Object, Sel, id),
-                );
-                cls.add_method(
-                  sel!(download:didFailWithError:resumeData:),
-                  download_did_fail as extern "C" fn(&Object, Sel, id, id, id),
-                );
-                cls.register()
-              }
-              None => class!(UIViewController),
-            };
-
-            let download_delegate: id = msg_send![cls, new];
-            if let Some(download_started_handler) = attributes.download_started_handler {
-              let download_started_ptr = Box::into_raw(Box::new(download_started_handler));
-              (*download_delegate).set_ivar("started", download_started_ptr as *mut _ as *mut c_void);
+        let download_delegate = if attributes.download_started_handler.is_some()
+          || attributes.download_completed_handler.is_some()
+        {
+          let cls = match ClassDecl::new("DownloadDelegate", class!(NSObject)) {
+            Some(mut cls) => {
+              cls.add_ivar::<*mut c_void>("started");
+              cls.add_ivar::<*mut c_void>("completed");
+              cls.add_method(
+                sel!(download:decideDestinationUsingResponse:suggestedFilename:completionHandler:),
+                download_policy as extern "C" fn(&Object, Sel, id, id, id, id),
+              );
+              cls.add_method(
+                sel!(downloadDidFinish:),
+                download_did_finish as extern "C" fn(&Object, Sel, id),
+              );
+              cls.add_method(
+                sel!(download:didFailWithError:resumeData:),
+                download_did_fail as extern "C" fn(&Object, Sel, id, id, id),
+              );
+              cls.register()
             }
-            if let Some(download_completed_handler) = attributes.download_completed_handler {
-              let download_completed_ptr = Box::into_raw(Box::new(download_completed_handler));
-              (*download_delegate)
-                .set_ivar("completed", download_completed_ptr as *mut _ as *mut c_void);
-            }
-
-            set_download_delegate(handler, download_delegate);
-
-            handler
-          } else {
-            null_mut()
+            None => class!(UIViewController),
           };
+
+          let download_delegate: id = msg_send![cls, new];
+          if let Some(download_started_handler) = attributes.download_started_handler {
+            let download_started_ptr = Box::into_raw(Box::new(download_started_handler));
+            (*download_delegate).set_ivar("started", download_started_ptr as *mut _ as *mut c_void);
+          }
+          if let Some(download_completed_handler) = attributes.download_completed_handler {
+            let download_completed_ptr = Box::into_raw(Box::new(download_completed_handler));
+            (*download_delegate)
+              .set_ivar("completed", download_completed_ptr as *mut _ as *mut c_void);
+          }
+
+          set_download_delegate(handler, download_delegate);
+
+          handler
+        } else {
+          null_mut()
+        };
 
         (function_ptr, download_delegate)
       } else {
@@ -541,7 +542,8 @@ impl InnerWebView {
           let url: id = msg_send![url, absoluteString];
           let url = NSString(url).to_str().to_string();
           if !function.is_null() {
-            let function = &mut *(*function as *mut Rc<dyn for<'s> Fn(String, Option<PathBuf>, bool)>);
+            let function =
+              &mut *(*function as *mut Rc<dyn for<'s> Fn(String, Option<PathBuf>, bool)>);
             function(url, None, true);
           }
         }
@@ -561,7 +563,8 @@ impl InnerWebView {
 
           let function = this.get_ivar::<*mut c_void>("completed");
           if !function.is_null() {
-            let function = &mut *(*function as *mut Rc<dyn for<'s> Fn(String, Option<PathBuf>, bool)>);
+            let function =
+              &mut *(*function as *mut Rc<dyn for<'s> Fn(String, Option<PathBuf>, bool)>);
             function(url, None, false);
           }
         }

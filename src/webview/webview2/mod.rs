@@ -383,7 +383,11 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                           let uri = take_pwstr(uri);
 
                           let success = state == COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED;
-                          download_completed_handler(uri, success.then(|| PathBuf::from(path)), success);
+                          download_completed_handler(
+                            uri,
+                            success.then(|| PathBuf::from(path)),
+                            success,
+                          );
                         }
                       }
 
