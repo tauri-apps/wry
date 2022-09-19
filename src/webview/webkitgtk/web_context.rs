@@ -144,7 +144,7 @@ pub trait WebContextExt {
   fn register_download_handler(
     &mut self,
     download_started_callback: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
-    download_completed_callback: Option<Rc<dyn Fn(String, String, bool) + 'static>>,
+    download_completed_callback: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
   );
 }
 
@@ -215,7 +215,7 @@ impl WebContextExt for super::WebContext {
   fn register_download_handler(
     &mut self,
     download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
-    download_completed_handler: Option<Rc<dyn Fn(String, String, bool) + 'static>>,
+    download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
   ) {
     use webkit2gtk::traits::*;
     let context = &self.os.context;
@@ -252,13 +252,18 @@ impl WebContextExt for super::WebContext {
           let failed = failed.clone();
           move |download| {
             if let Some(uri) = download.request().and_then(|req| req.uri()) {
+              let failed = failed.borrow();
               let uri = uri.to_string();
               download_completed_handler(
                 uri,
-                download
-                  .destination()
-                  .map_or_else(|| String::new(), |p| p.to_string()),
-                !(*failed.borrow()),
+                (!*failed)
+                  .then(|| {
+                    download
+                      .destination()
+                      .map_or_else(|| None, |p| Some(PathBuf::from(p.as_str())))
+                  })
+                  .flatten(),
+                !*failed,
               )
             }
           }

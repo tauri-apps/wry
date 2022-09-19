@@ -539,8 +539,8 @@ impl InnerWebView {
           let url: id = msg_send![url, absoluteString];
           let url = NSString(url).to_str().to_string();
           if !function.is_null() {
-            let function = &mut *(*function as *mut Rc<dyn for<'s> Fn(String, String, bool)>);
-            function(url, String::new(), true);
+            let function = &mut *(*function as *mut Rc<dyn for<'s> Fn(String, Option<PathBuf>, bool)>);
+            function(url, None, true);
           }
         }
       }
@@ -559,8 +559,8 @@ impl InnerWebView {
 
           let function = this.get_ivar::<*mut c_void>("completed");
           if !function.is_null() {
-            let function = &mut *(*function as *mut Rc<dyn for<'s> Fn(String, String, bool)>);
-            function(url, String::new(), false);
+            let function = &mut *(*function as *mut Rc<dyn for<'s> Fn(String, Option<PathBuf>, bool)>);
+            function(url, None, false);
           }
         }
       }

@@ -170,15 +170,18 @@ pub struct WebViewAttributes {
 
   /// Sets a download completion handler to manage downloads that have finished.
   ///
-  /// The closure is fired when the download completes, whether it was successful.
-  /// The closure takes a `String` representing the URL of the original download request, a `String` representing the
-  /// filesystem path the file was downloaded to (if successful), and a `bool` indiciating if the download succeeded.
+  /// The closure is fired when the download completes, whether it was successful or not.
+  /// The closure takes a `String` representing the URL of the original download request, an `Option<PathBuf>`
+  /// potentially representing the filesystem path the file was downloaded to, and a `bool` indicating if the download
+  /// succeeded. A value of `None` being passed instead of a `PathBuf` does not necessarily indicate that the download
+  /// did not succeed, and may instead indicate some other failure - always check the third parameter if you need to
+  /// know if the download succeeded.
   ///
   /// ## Platform-specific:
   ///
   /// - **macOS**: The second parameter indicating the path the file was saved to is always empty, due to API
   /// limitations.
-  pub download_completed_handler: Option<Rc<dyn Fn(String, String, bool) + 'static>>,
+  pub download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
 
   /// Set a new window handler to decide if incoming url is allowed to open in a new window.
   ///
@@ -454,9 +457,12 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Sets a download completion handler to manage downloads that have finished.
   ///
-  /// The closure is fired when the download completes, whether it was successful.
-  /// The closure takes a `String` representing the URL of the original download request, a `String` representing the
-  /// filesystem path the file was downloaded to (if successful), and a `bool` indiciating if the download succeeded.
+  /// The closure is fired when the download completes, whether it was successful or not.
+  /// The closure takes a `String` representing the URL of the original download request, an `Option<PathBuf>`
+  /// potentially representing the filesystem path the file was downloaded to, and a `bool` indicating if the download
+  /// succeeded. A value of `None` being passed instead of a `PathBuf` does not necessarily indicate that the download
+  /// did not succeed, and may instead indicate some other failure - always check the third parameter if you need to
+  /// know if the download succeeded.
   ///
   /// ## Platform-specific:
   ///
@@ -464,7 +470,7 @@ impl<'a> WebViewBuilder<'a> {
   /// limitations.
   pub fn with_download_completed_handler(
     mut self,
-    download_completed_handler: impl Fn(String, String, bool) + 'static,
+    download_completed_handler: impl Fn(String, Option<PathBuf>, bool) + 'static,
   ) -> Self {
     self.webview.download_completed_handler = Some(Rc::new(download_completed_handler));
     self

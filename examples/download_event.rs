@@ -29,7 +29,7 @@ fn main() -> wry::Result<()> {
 
   enum UserEvent {
     DownloadStarted(String, String),
-    DownloadComplete(String, bool),
+    DownloadComplete(Option<PathBuf>, bool),
     Rejected(String),
   }
 
@@ -97,26 +97,30 @@ fn main() -> wry::Result<()> {
         println!("Will write to: {:?}", temp_dir);
       }
       Event::UserEvent(UserEvent::DownloadComplete(mut path, success)) => {
-        let _temp_dir_guard = if path.is_empty() && success {
+        let _temp_dir_guard = if path.is_none() && success {
           let temp_dir = temp_dir.borrow_mut().take();
-          path = temp_dir
-            .as_ref()
-            .expect("Stored temp dir")
-            .path()
-            .join("example.zip")
-            .to_string_lossy()
-            .to_string();
+          path = Some(
+            temp_dir
+              .as_ref()
+              .expect("Stored temp dir")
+              .path()
+              .join("example.zip"),
+          );
           temp_dir
         } else {
           None
         };
-        let metadata = PathBuf::from(&path).metadata();
         println!("Succeeded: {}", success);
-        println!("Path: {}", path);
-        if let Ok(metadata) = metadata {
-          println!("Size of {}Mb", (metadata.len() / 1024) / 1024)
+        if let Some(path) = path {
+          let metadata = path.metadata();
+          println!("Path: {}", path.to_string_lossy());
+          if let Ok(metadata) = metadata {
+            println!("Size of {}Mb", (metadata.len() / 1024) / 1024)
+          } else {
+            println!("Failed to retrieve file metadata - does it exist?")
+          }
         } else {
-          println!("Failed to retrieve file metadata - does it exist?")
+          println!("No output path")
         }
       }
       Event::UserEvent(UserEvent::Rejected(uri)) => {
