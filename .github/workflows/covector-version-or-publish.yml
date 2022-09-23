@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: cargo login
-        run: cargo login ${{ secrets.CRATE_TOKEN }}
+        run: cargo login ${{ secrets.ORG_CRATES_IO_TOKEN }}
       - name: git config
         run: |
           git config --global user.name "${{ github.event.pusher.name }}"
@@ -36,9 +36,10 @@ jobs:
           createRelease: true
       - name: Create Pull Request With Versions Bumped
         id: cpr
-        uses: peter-evans/create-pull-request@v3
+        uses: tauri-apps/create-pull-request@v3
         if: steps.covector.outputs.commandRan == 'version'
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           title: "Publish New Versions"
           commit-message: "publish new versions"
           labels: "version updates"
