@@ -114,7 +114,7 @@ pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
     .unwrap();
 }
 
-pub struct InnerWebView {
+pub(crate) struct InnerWebView {
   pub window: Rc<Window>,
 }
 

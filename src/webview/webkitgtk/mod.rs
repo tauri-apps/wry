@@ -38,8 +38,8 @@ use crate::{
 mod file_drop;
 mod web_context;
 
-pub struct InnerWebView {
-  pub(crate) webview: Rc<WebView>,
+pub(crate) struct InnerWebView {
+  pub webview: Rc<WebView>,
   #[cfg(any(debug_assertions, feature = "devtools"))]
   is_inspector_open: Arc<AtomicBool>,
 }
