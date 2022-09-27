@@ -48,6 +48,7 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     mut attributes: WebViewAttributes,
+    _pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let window_rc = Rc::clone(&window);

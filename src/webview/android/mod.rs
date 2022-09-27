@@ -122,6 +122,7 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     attributes: WebViewAttributes,
+    _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let WebViewAttributes {

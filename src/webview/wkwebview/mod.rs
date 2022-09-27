@@ -69,6 +69,7 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     attributes: WebViewAttributes,
+    _pl_attrs: super::PlatformSpecificWebViewAttributes,
     mut web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     // Function for ipc handler
