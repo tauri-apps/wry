@@ -224,7 +224,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   target_os = "ios",
 ))]
 #[derive(Default)]
-struct PlatformSpecificWebViewAttributes;
+pub(crate) struct PlatformSpecificWebViewAttributes;
 
 /// Type alias for a color in the RGBA format.
 ///
