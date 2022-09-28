@@ -56,7 +56,7 @@ pub use url::Url;
 use crate::application::platform::windows::WindowExtWindows;
 use crate::application::{dpi::PhysicalSize, window::Window};
 
-use crate::http::{Request as HttpRequest, Response as HttpResponse};
+use http::{Request, Response};
 
 pub struct WebViewAttributes {
   /// Whether the WebView should have a custom user-agent.
@@ -136,7 +136,10 @@ pub struct WebViewAttributes {
   /// - iOS: Same as macOS. To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
-  pub custom_protocols: Vec<(String, Box<dyn Fn(&HttpRequest) -> Result<HttpResponse>>)>,
+  pub custom_protocols: Vec<(
+    String,
+    Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>>>,
+  )>,
   /// Set the IPC handler to receive the message from Javascript on webview to host Rust code.
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
   ///
@@ -329,7 +332,7 @@ impl<'a> WebViewBuilder<'a> {
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(&HttpRequest) -> Result<HttpResponse> + 'static,
+    F: Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>> + 'static,
   {
     self
       .webview

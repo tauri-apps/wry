@@ -11,7 +11,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
     },
-    http::{method::Method, ResponseBuilder},
+    http::{header::CONTENT_TYPE, method::Method, Response},
     webview::WebViewBuilder,
   };
 
@@ -30,11 +30,14 @@ fn main() -> wry::Result<()> {
           println!("Value sent; {:?}", body);
         }
       }
-      // Remove url scheme
-      let path = request.uri().replace("wry://", "");
-      ResponseBuilder::new()
-        .mimetype("text/html")
+
+      let path = request.uri().to_string();
+      let path = path.strip_prefix("wry://").unwrap();
+
+      Response::builder()
+        .header(CONTENT_TYPE, "text/html")
         .body(read(canonicalize(&path)?)?)
+        .map_err(Into::into)
     })
     // tell the webview to load the custom protocol
     .with_url("wry://examples/form.html")?

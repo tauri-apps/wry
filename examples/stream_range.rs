@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use wry::http::Response;
+
 fn main() -> wry::Result<()> {
   use http_range::HttpRange;
   use std::{
@@ -16,7 +18,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
     },
-    http::ResponseBuilder,
+    http::{header::CONTENT_TYPE, status::StatusCode},
     webview::WebViewBuilder,
   };
 
@@ -51,15 +53,16 @@ fn main() -> wry::Result<()> {
   let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_custom_protocol("wry".into(), move |request| {
-      // Remove url scheme
-      let path = request.uri().replace("wry://", "");
+      let path = request.uri().to_string();
+      let path = path.strip_prefix("wry://").unwrap();
+
       // Read the file content from file path
       let mut content = File::open(canonicalize(&path)?)?;
 
       // Return asset contents and mime types based on file extentions
       // If you don't want to do this manually, there are some crates for you.
       // Such as `infer` and `mime_guess`.
-      let mut status_code = 200;
+      let mut status_code = StatusCode::OK;
       let mut buf = Vec::new();
 
       // guess our mimetype from the path
@@ -72,7 +75,7 @@ fn main() -> wry::Result<()> {
       };
 
       // prepare our http response
-      let mut response = ResponseBuilder::new();
+      let mut response = Response::builder();
 
       // read our range header if it exist, so we can return partial content
       if let Some(range) = request.headers().get("range") {
@@ -98,8 +101,7 @@ fn main() -> wry::Result<()> {
           // last byte we are reading, the length of the range include the last byte
           // who should be skipped on the header
           let last_byte = range.start + real_length - 1;
-          // partial content
-          status_code = 206;
+          status_code = StatusCode::PARTIAL_CONTENT;
 
           response = response.header("Connection", "Keep-Alive");
           response = response.header("Accept-Ranges", "bytes");
@@ -120,7 +122,11 @@ fn main() -> wry::Result<()> {
         content.read_to_end(&mut buf)?;
       }
 
-      response.mimetype(mimetype).status(status_code).body(buf)
+      response
+        .header(CONTENT_TYPE, mimetype)
+        .status(status_code)
+        .body(buf)
+        .map_err(Into::into)
     })
     // tell the webview to load the custom protocol
     .with_url("wry://examples/stream.html")?
