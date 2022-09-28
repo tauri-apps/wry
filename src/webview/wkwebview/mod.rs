@@ -170,9 +170,9 @@ impl InnerWebView {
             let dictionary: id = msg_send![class!(NSMutableDictionary), alloc];
             let headers: id = msg_send![dictionary, initWithCapacity:1];
             if let Some(mime) = wanted_mime {
-              let () = msg_send![headers, setObject:NSString::new(mime.to_str().unwrap()) forKey: NSString::new(CONTENT_TYPE)];
+              let () = msg_send![headers, setObject:NSString::new(mime.to_str().unwrap()) forKey: NSString::new(CONTENT_TYPE.as_str())];
             }
-            let () = msg_send![headers, setObject:NSString::new(&content.len().to_string()) forKey: NSString::new(CONTENT_LENGTH)];
+            let () = msg_send![headers, setObject:NSString::new(&content.len().to_string()) forKey: NSString::new(CONTENT_LENGTH.as_str())];
 
             // add headers
             for (name, value) in sent_response.headers().iter() {
@@ -193,7 +193,7 @@ impl InnerWebView {
             let () = msg_send![task, didReceiveData: data];
           } else {
             let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
-            let response: id = msg_send![urlresponse, initWithURL:url statusCode:StatusCode::NOT_FOUND HTTPVersion:NSString::new(Version::HTTP_11) headerFields:null::<c_void>()];
+            let response: id = msg_send![urlresponse, initWithURL:url statusCode:StatusCode::NOT_FOUND HTTPVersion:NSString::new(format!("{:#?}", Version::HTTP_11).as_str()) headerFields:null::<c_void>()];
             let () = msg_send![task, didReceiveResponse: response];
           }
           // Finish
