@@ -6,7 +6,7 @@
 
 use crate::{webview::web_context::WebContextData, Error};
 use glib::FileError;
-use http::{Request, Response};
+use http::{header::CONTENT_TYPE, Request, Response};
 use std::{
   collections::{HashSet, VecDeque},
   rc::Rc,
@@ -242,7 +242,15 @@ where
           // FIXME: Set sent headers
 
           let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(buffer));
-          request.finish(&input, buffer.len() as i64, http_response.mimetype())
+          request.finish(
+            &input,
+            buffer.len() as i64,
+            http_response
+              .headers()
+              .get(CONTENT_TYPE)
+              .map(|h| h.to_str().unwrap())
+              .unwrap_or("text/plain"),
+          )
         }
         Err(_) => request.finish_error(&mut glib::Error::new(
           FileError::Exist,
