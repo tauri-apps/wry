@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: MIT
 
 use super::{WebContext, WebViewAttributes, RGBA};
-use crate::{
-  application::window::Window,
-  http::{header::HeaderValue, Request as HttpRequest, Response as HttpResponse},
-  Result,
-};
+use crate::{application::window::Window, Result};
 use crossbeam_channel::*;
 use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
+use http::{
+  header::{HeaderValue, CONTENT_SECURITY_POLICY, CONTENT_TYPE},
+  Request, Response,
+};
 use kuchiki::NodeRef;
 use once_cell::sync::OnceCell;
 use sha2::{Digest, Sha256};
@@ -65,9 +65,9 @@ impl UnsafeIpc {
 unsafe impl Send for UnsafeIpc {}
 unsafe impl Sync for UnsafeIpc {}
 
-pub struct UnsafeRequestHandler(Box<dyn Fn(HttpRequest) -> Option<HttpResponse>>);
+pub struct UnsafeRequestHandler(Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Vec<u8>>>>);
 impl UnsafeRequestHandler {
-  pub fn new(f: Box<dyn Fn(HttpRequest) -> Option<HttpResponse>>) -> Self {
+  pub fn new(f: Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Vec<u8>>>>) -> Self {
     Self(f)
   }
 }
@@ -115,6 +115,7 @@ pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
 }
 
 pub(crate) struct InnerWebView {
+  #[allow(unused)]
   pub window: Rc<Window>,
 }
 
@@ -159,21 +160,29 @@ impl InnerWebView {
 
     REQUEST_HANDLER.get_or_init(move || {
       UnsafeRequestHandler::new(Box::new(move |mut request| {
-        if let Some(custom_protocol) = custom_protocols
-          .iter()
-          .find(|(name, _)| request.uri().starts_with(&format!("https://{}.", name)))
-        {
-          *request.uri_mut() = request.uri().replace(
-            &format!("https://{}.", custom_protocol.0),
-            &format!("{}://", custom_protocol.0),
-          );
+        if let Some(custom_protocol) = custom_protocols.iter().find(|(name, _)| {
+          request
+            .uri()
+            .to_string()
+            .starts_with(&format!("https://{}.", name))
+        }) {
+          *request.uri_mut() = request
+            .uri()
+            .to_string()
+            .replace(
+              &format!("https://{}.", custom_protocol.0),
+              &format!("{}://", custom_protocol.0),
+            )
+            .parse()
+            .unwrap();
 
           if let Ok(mut response) = (custom_protocol.1)(&request) {
-            if response.head.mimetype.as_deref() == Some("text/html") {
+            if response.headers().get(CONTENT_TYPE) == Some(&HeaderValue::from_static("text/html"))
+            {
               if !initialization_scripts.is_empty() {
                 let mut document =
-                  kuchiki::parse_html().one(String::from_utf8_lossy(&response.body).into_owned());
-                let csp = response.head.headers.get_mut("Content-Security-Policy");
+                  kuchiki::parse_html().one(String::from_utf8_lossy(&response.body()).into_owned());
+                let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
                 let mut hashes = Vec::new();
                 with_html_head(&mut document, |head| {
                   for script in &initialization_scripts {
@@ -198,7 +207,7 @@ impl InnerWebView {
                   *csp = HeaderValue::from_str(&csp_string).unwrap();
                 }
 
-                response.body = document.to_string().as_bytes().to_vec();
+                *response.body_mut() = document.to_string().as_bytes().to_vec();
               }
             }
             return Some(response);
