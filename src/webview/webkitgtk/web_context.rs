@@ -248,8 +248,7 @@ where
             http_response
               .headers()
               .get(CONTENT_TYPE)
-              .map(|h| h.to_str().unwrap())
-              .unwrap_or("text/plain"),
+              .map(|h| h.to_str().unwrap_or("text/plain")),
           )
         }
         Err(_) => request.finish_error(&mut glib::Error::new(
