@@ -214,7 +214,7 @@ impl Default for WebViewAttributes {
 #[cfg(windows)]
 #[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
-  disable_additionl_browser_args: bool,
+  additionl_browser_args: Option<String>,
 }
 #[cfg(any(
   target_os = "linux",
@@ -484,23 +484,19 @@ impl<'a> WebViewBuilder<'a> {
 
 #[cfg(windows)]
 pub trait WebViewBuilderExtWindows {
-  /// Disables ther internal use of the additional browser arguments
-  /// passed to Webview2, so the env var like below isn't overwritten
-  /// ```
-  /// std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--disable-features=msSmartScreenProtection");
-  /// ```
+  /// Pass additional args to Webview2 upon creating the webview.
   ///
   /// ## Warning
   ///
   /// By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
-  /// so if you use this method, you also need to add disable these components by yourself if you want.
-  fn disable_additionl_browser_args(self) -> Self;
+  /// so if you use this method, you also need to disable these components by yourself if you want.
+  fn with_additionl_browser_args<S: AsRef<str>>(self, additional_args: S) -> Self;
 }
 
 #[cfg(windows)]
 impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
-  fn disable_additionl_browser_args(mut self) -> Self {
-    self.platform_specific.disable_additionl_browser_args = true;
+  fn with_additionl_browser_args<S: AsRef<str>>(mut self, additional_args: S) -> Self {
+    self.platform_specific.additionl_browser_args = Some(additional_args.as_ref().to_string());
     self
   }
 }
