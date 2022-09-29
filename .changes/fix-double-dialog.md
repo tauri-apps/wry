@@ -2,4 +2,4 @@
 "wry": minor
 ---
 
-Fix double permission dialog issue.
+Fix double permission dialog on macOS 12+ and iOS 15+.
