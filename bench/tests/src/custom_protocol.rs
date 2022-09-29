@@ -56,7 +56,7 @@ fn main() -> wry::Result<()> {
         .body(index_html.into())
         .map_err(Into::into)
     })
-    .with_url("wrybench://")?
+    .with_url("wrybench://localhost")?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

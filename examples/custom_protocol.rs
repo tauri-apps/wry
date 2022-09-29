@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use std::path::PathBuf;
+
 fn main() -> wry::Result<()> {
   use std::fs::{canonicalize, read};
 
@@ -24,15 +26,21 @@ fn main() -> wry::Result<()> {
   let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_custom_protocol("wry".into(), move |request| {
-      let path = request.uri().to_string();
-      let path = path.strip_prefix("wry://").unwrap();
+      let path = &request.uri().path();
       // Read the file content from file path
-      let content = read(canonicalize(&path)?)?;
+      let content = read(canonicalize(PathBuf::from("examples").join(
+        if path == &"/" {
+          "index.html"
+        } else {
+          // remove leading slash
+          &path[1..]
+        },
+      ))?)?;
 
       // Return asset contents and mime types based on file extentions
       // If you don't want to do this manually, there are some crates for you.
       // Such as `infer` and `mime_guess`.
-      let (data, meta) = if path.ends_with(".html") {
+      let (data, meta) = if path.ends_with(".html") || path == &"/" {
         (content, "text/html")
       } else if path.ends_with(".js") {
         (content, "text/javascript")
@@ -48,7 +56,7 @@ fn main() -> wry::Result<()> {
         .map_err(Into::into)
     })
     // tell the webview to load the custom protocol
-    .with_url("wry://examples/index.html")?
+    .with_url("wry://localhost")?
     .with_devtools(true)
     .build()?;
 

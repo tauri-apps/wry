@@ -53,8 +53,8 @@ fn main() -> wry::Result<()> {
   let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_custom_protocol("wry".into(), move |request| {
-      let path = request.uri().to_string();
-      let path = path.strip_prefix("wry://").unwrap();
+      // remove leading slash
+      let path = &request.uri().path()[1..];
 
       // Read the file content from file path
       let mut content = File::open(canonicalize(&path)?)?;
@@ -129,7 +129,7 @@ fn main() -> wry::Result<()> {
         .map_err(Into::into)
     })
     // tell the webview to load the custom protocol
-    .with_url("wry://examples/stream.html")?
+    .with_url("wry://localhost/examples/stream.html")?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

@@ -27,7 +27,7 @@ fn main() -> wry::Result<()> {
     .unwrap()
     .with_custom_protocol("wrybench".into(), move |request| {
       let path = request.uri().to_string();
-      let requested_asset_path = path.strip_prefix("wrybench://").unwrap();
+      let requested_asset_path = path.strip_prefix("wrybench://localhost").unwrap();
       let (data, mimetype): (Vec<u8>, String) = match requested_asset_path {
         "/index.css" => (
           include_bytes!("static/index.css").to_vec(),
@@ -52,7 +52,7 @@ fn main() -> wry::Result<()> {
         .body(data)
         .map_err(Into::into)
     })
-    .with_url("wrybench://")?
+    .with_url("wrybench://localhost")?
     .with_ipc_handler(handler)
     .build()?;
 
