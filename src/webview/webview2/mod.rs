@@ -462,11 +462,15 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                     &format!("https://{}.", custom_protocol.0),
                     &format!("{}://", custom_protocol.0),
                   );
-                  let final_request = request
+
+                  let final_request = match request
                     .uri(&path)
                     .method(request_method.as_str())
                     .body(body_sent)
-                    .unwrap();
+                  {
+                    Ok(req) => req,
+                    Err(_) => return Err(E_FAIL.into()),
+                  };
 
                   return match (custom_protocol.1)(&final_request) {
                     Ok(sent_response) => {
