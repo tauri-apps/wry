@@ -47,8 +47,11 @@ use crate::{
   Result,
 };
 
-use crate::http::{
-  Request as HttpRequest, RequestBuilder as HttpRequestBuilder, Response as HttpResponse,
+use http::{
+  header::{CONTENT_LENGTH, CONTENT_TYPE},
+  status::StatusCode,
+  version::Version,
+  Request, Response,
 };
 
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
@@ -64,7 +67,7 @@ pub(crate) struct InnerWebView {
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
-  protocol_ptrs: Vec<*mut Box<dyn Fn(&HttpRequest) -> Result<HttpResponse>>>,
+  protocol_ptrs: Vec<*mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>>>>,
 }
 
 impl InnerWebView {
@@ -98,8 +101,8 @@ impl InnerWebView {
       unsafe {
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
-          let function =
-            &mut *(*function as *mut Box<dyn for<'s> Fn(&'s HttpRequest) -> Result<HttpResponse>>);
+          let function = &mut *(*function
+            as *mut Box<dyn for<'s> Fn(&'s Request<Vec<u8>>) -> Result<Response<Vec<u8>>>>);
 
           // Get url request
           let request: id = msg_send![task, request];
@@ -117,7 +120,7 @@ impl InnerWebView {
           };
 
           // Prepare our HttpRequest
-          let mut http_request = HttpRequestBuilder::new()
+          let mut http_request = Request::builder()
             .uri(nsstring.to_str())
             .method(method.to_str());
 
@@ -160,7 +163,7 @@ impl InnerWebView {
           if let Ok(sent_response) = function(&final_request) {
             let content = sent_response.body();
             // default: application/octet-stream, but should be provided by the client
-            let wanted_mime = sent_response.mimetype();
+            let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
             // default to 200
             let wanted_status_code = sent_response.status().as_u16() as i32;
             // default to HTTP/1.1
@@ -169,13 +172,13 @@ impl InnerWebView {
             let dictionary: id = msg_send![class!(NSMutableDictionary), alloc];
             let headers: id = msg_send![dictionary, initWithCapacity:1];
             if let Some(mime) = wanted_mime {
-              let () = msg_send![headers, setObject:NSString::new(mime) forKey: NSString::new("content-type")];
+              let () = msg_send![headers, setObject:NSString::new(mime.to_str().unwrap()) forKey: NSString::new(CONTENT_TYPE.as_str())];
             }
-            let () = msg_send![headers, setObject:NSString::new(&content.len().to_string()) forKey: NSString::new("content-length")];
+            let () = msg_send![headers, setObject:NSString::new(&content.len().to_string()) forKey: NSString::new(CONTENT_LENGTH.as_str())];
 
             // add headers
             for (name, value) in sent_response.headers().iter() {
-              let header_key = name.to_string();
+              let header_key = name.as_str();
               if let Ok(value) = value.to_str() {
                 let () = msg_send![headers, setObject:NSString::new(value) forKey: NSString::new(&header_key)];
               }
@@ -192,7 +195,7 @@ impl InnerWebView {
             let () = msg_send![task, didReceiveData: data];
           } else {
             let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
-            let response: id = msg_send![urlresponse, initWithURL:url statusCode:404 HTTPVersion:NSString::new("HTTP/1.1") headerFields:null::<c_void>()];
+            let response: id = msg_send![urlresponse, initWithURL:url statusCode:StatusCode::NOT_FOUND HTTPVersion:NSString::new(format!("{:#?}", Version::HTTP_11).as_str()) headerFields:null::<c_void>()];
             let () = msg_send![task, didReceiveResponse: response];
           }
           // Finish

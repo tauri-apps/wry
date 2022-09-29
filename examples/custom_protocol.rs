@@ -11,7 +11,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
     },
-    http::ResponseBuilder,
+    http::{header::CONTENT_TYPE, Response},
     webview::WebViewBuilder,
   };
 
@@ -24,8 +24,8 @@ fn main() -> wry::Result<()> {
   let webview = WebViewBuilder::new(window)
     .unwrap()
     .with_custom_protocol("wry".into(), move |request| {
-      // Remove url scheme
-      let path = request.uri().replace("wry://", "");
+      let path = request.uri().to_string();
+      let path = path.strip_prefix("wry://").unwrap();
       // Read the file content from file path
       let content = read(canonicalize(&path)?)?;
 
@@ -42,7 +42,10 @@ fn main() -> wry::Result<()> {
         unimplemented!();
       };
 
-      ResponseBuilder::new().mimetype(meta).body(data)
+      Response::builder()
+        .header(CONTENT_TYPE, meta)
+        .body(data)
+        .map_err(Into::into)
     })
     // tell the webview to load the custom protocol
     .with_url("wry://examples/index.html")?

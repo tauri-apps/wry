@@ -38,10 +38,8 @@ use windows::{
 
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 
-use crate::{
-  application::{platform::windows::WindowExtWindows, window::Window},
-  http::RequestBuilder as HttpRequestBuilder,
-};
+use crate::application::{platform::windows::WindowExtWindows, window::Window};
+use http::Request;
 
 impl From<webview2_com::Error> for Error {
   fn from(err: webview2_com::Error) -> Self {
@@ -400,7 +398,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             &WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
               if let Some(args) = args {
                 let webview_request = args.Request()?;
-                let mut request = HttpRequestBuilder::new();
+                let mut request = Request::builder();
 
                 // request method (GET, POST, PUT etc..)
                 let mut request_method = PWSTR::null();
@@ -475,11 +473,6 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                       let status_code = sent_response.status().as_u16() as i32;
 
                       let mut headers_map = String::new();
-
-                      // set mime type if provided
-                      if let Some(mime) = sent_response.mimetype() {
-                        let _ = writeln!(headers_map, "Content-Type: {}", mime);
-                      }
 
                       // build headers
                       for (name, value) in sent_response.headers().iter() {
