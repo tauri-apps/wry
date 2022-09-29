@@ -208,6 +208,24 @@ impl Default for WebViewAttributes {
   }
 }
 
+#[cfg(windows)]
+#[derive(Default)]
+pub(crate) struct PlatformSpecificWebViewAttributes {
+  disable_additionl_browser_args: bool,
+}
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd",
+  target_os = "macos",
+  target_os = "android",
+  target_os = "ios",
+))]
+#[derive(Default)]
+pub(crate) struct PlatformSpecificWebViewAttributes;
+
 /// Type alias for a color in the RGBA format.
 ///
 /// Each value can be 0..255 inclusive.
@@ -220,6 +238,7 @@ pub type RGBA = (u8, u8, u8, u8);
 /// [`WebViewBuilder`] provides ability to setup initialization before web engine starts.
 pub struct WebViewBuilder<'a> {
   pub webview: WebViewAttributes,
+  platform_specific: PlatformSpecificWebViewAttributes,
   web_context: Option<&'a mut WebContext>,
   window: Window,
 }
@@ -229,11 +248,13 @@ impl<'a> WebViewBuilder<'a> {
   pub fn new(window: Window) -> Result<Self> {
     let webview = WebViewAttributes::default();
     let web_context = None;
+    let platform_specific = PlatformSpecificWebViewAttributes::default();
 
     Ok(Self {
       webview,
       web_context,
       window,
+      platform_specific,
     })
   }
 
@@ -448,8 +469,36 @@ impl<'a> WebViewBuilder<'a> {
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
   pub fn build(self) -> Result<WebView> {
     let window = Rc::new(self.window);
-    let webview = InnerWebView::new(window.clone(), self.webview, self.web_context)?;
+    let webview = InnerWebView::new(
+      window.clone(),
+      self.webview,
+      self.platform_specific,
+      self.web_context,
+    )?;
     Ok(WebView { window, webview })
+  }
+}
+
+#[cfg(windows)]
+pub trait WebViewBuilderExtWindows {
+  /// Disables ther internal use of the additional browser arguments
+  /// passed to Webview2, so the env var like below isn't overwritten
+  /// ```
+  /// std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--disable-features=msSmartScreenProtection");
+  /// ```
+  ///
+  /// ## Warning
+  ///
+  /// By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
+  /// so if you use this method, you also need to add disable these components by yourself if you want.
+  fn disable_additionl_browser_args(self) -> Self;
+}
+
+#[cfg(windows)]
+impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
+  fn disable_additionl_browser_args(mut self) -> Self {
+    self.platform_specific.disable_additionl_browser_args = true;
+    self
   }
 }
 
