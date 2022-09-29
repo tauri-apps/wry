@@ -31,8 +31,8 @@ fn main() -> wry::Result<()> {
         }
       }
 
-      let path = request.uri().to_string();
-      let path = path.strip_prefix("wry://").unwrap();
+      // remove leading slash
+      let path = &request.uri().path()[1..];
 
       Response::builder()
         .header(CONTENT_TYPE, "text/html")
@@ -40,7 +40,7 @@ fn main() -> wry::Result<()> {
         .map_err(Into::into)
     })
     // tell the webview to load the custom protocol
-    .with_url("wry://examples/form.html")?
+    .with_url("wry://localhost/examples/form.html")?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {
