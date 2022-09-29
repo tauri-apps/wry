@@ -1,6 +1,7 @@
 name: benches
 
 on:
+  pull_request:
   push:
     branches:
       - dev
