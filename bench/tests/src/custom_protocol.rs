@@ -17,7 +17,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::{Window, WindowBuilder},
     },
-    http::ResponseBuilder,
+    http::{header::CONTENT_TYPE, Response},
     webview::WebViewBuilder,
   };
 
@@ -51,9 +51,10 @@ fn main() -> wry::Result<()> {
         </body>
       </html>"#;
 
-      ResponseBuilder::new()
-        .mimetype("text/html")
+      Response::builder()
+        .header(CONTENT_TYPE, "text/html")
         .body(index_html.into())
+        .map_err(Into::into)
     })
     .with_url("wry.bench://")?
     .build()?;
