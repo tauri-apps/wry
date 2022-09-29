@@ -165,7 +165,7 @@ impl InnerWebView {
           };
 
           // send response
-          match request.body(body_sent) {
+          match http_request.body(sent_form_body) {
             Ok(final_request) => {
               if let Ok(sent_response) = function(&final_request) {
                 let content = sent_response.body();
