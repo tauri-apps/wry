@@ -32,7 +32,7 @@ fn main() -> wry::Result<()> {
   let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_ipc_handler(handler)
-    .with_custom_protocol("wry.bench".into(), move |_request| {
+    .with_custom_protocol("wrybench".into(), move |_request| {
       let index_html = r#"
       <!DOCTYPE html>
       <html lang="en">
@@ -56,7 +56,7 @@ fn main() -> wry::Result<()> {
         .body(index_html.into())
         .map_err(Into::into)
     })
-    .with_url("wry.bench://")?
+    .with_url("wrybench://")?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

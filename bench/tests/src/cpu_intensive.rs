@@ -25,9 +25,9 @@ fn main() -> wry::Result<()> {
   };
   let webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_custom_protocol("wry.bench".into(), move |request| {
+    .with_custom_protocol("wrybench".into(), move |request| {
       let path = request.uri().to_string();
-      let requested_asset_path = path.strip_prefix("wry.bench://").unwrap();
+      let requested_asset_path = path.strip_prefix("wrybench://").unwrap();
       let (data, mimetype): (Vec<u8>, String) = match requested_asset_path {
         "/index.css" => (
           include_bytes!("static/index.css").to_vec(),
@@ -52,7 +52,7 @@ fn main() -> wry::Result<()> {
         .body(data)
         .map_err(Into::into)
     })
-    .with_url("wry.bench://")?
+    .with_url("wrybench://")?
     .with_ipc_handler(handler)
     .build()?;
 
