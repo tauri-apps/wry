@@ -118,13 +118,14 @@ impl InnerWebView {
           options
         };
 
-        if !pl_attrs.disable_additionl_browser_args {
-          // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
-          // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
-          let _ = options.SetAdditionalBrowserArguments(PCWSTR::from_raw(
-            encode_wide("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection").as_ptr(),
-          ));
-        }
+        let _ = options.SetAdditionalBrowserArguments(PCWSTR::from_raw(
+          encode_wide(pl_attrs.additionl_browser_args.unwrap_or_else(|| {
+            // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
+            // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
+            "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection".to_string()
+          }))
+          .as_ptr(),
+        ));
 
         if let Some(data_directory) = data_directory {
           CreateCoreWebView2EnvironmentWithOptions(
