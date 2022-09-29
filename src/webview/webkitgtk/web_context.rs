@@ -12,7 +12,7 @@ use std::{
   rc::Rc,
   sync::{
     atomic::{AtomicBool, Ordering::SeqCst},
-    Mutex,
+    Arc, Mutex,
   },
 };
 use url::Url;

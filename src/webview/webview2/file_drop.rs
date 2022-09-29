@@ -16,6 +16,7 @@ use std::{
   path::PathBuf,
   ptr,
   rc::Rc,
+  sync::Arc,
 };
 
 use windows::Win32::{
@@ -52,7 +53,7 @@ impl FileDropController {
   pub(crate) fn listen(
     &mut self,
     hwnd: HWND,
-    window: Rc<Window>,
+    window: Arc<Window>,
     handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>,
   ) {
     let listener = Rc::new(handler);
@@ -66,7 +67,7 @@ impl FileDropController {
   fn inject(
     &mut self,
     hwnd: HWND,
-    window: Rc<Window>,
+    window: Arc<Window>,
     listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
   ) -> bool {
     // Safety: WinAPI calls are unsafe
@@ -105,7 +106,7 @@ unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL
 
 #[implement(IDropTarget)]
 pub struct FileDropHandler {
-  window: Rc<Window>,
+  window: Arc<Window>,
   listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
   cursor_effect: UnsafeCell<u32>,
   hovered_is_valid: UnsafeCell<bool>, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
@@ -113,7 +114,7 @@ pub struct FileDropHandler {
 
 impl FileDropHandler {
   pub fn new(
-    window: Rc<Window>,
+    window: Arc<Window>,
     listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
   ) -> FileDropHandler {
     Self {

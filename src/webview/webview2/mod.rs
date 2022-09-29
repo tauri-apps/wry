@@ -12,8 +12,13 @@ use crate::{
 use file_drop::FileDropController;
 
 use std::{
-  collections::HashSet, fmt::Write, iter::once, mem::MaybeUninit, os::windows::prelude::OsStrExt,
-  rc::Rc, sync::mpsc,
+  collections::HashSet,
+  fmt::Write,
+  iter::once,
+  mem::MaybeUninit,
+  os::windows::prelude::OsStrExt,
+  rc::Rc,
+  sync::{mpsc, Arc},
 };
 
 use once_cell::unsync::OnceCell;
@@ -58,7 +63,7 @@ pub(crate) struct InnerWebView {
 
 impl InnerWebView {
   pub fn new(
-    window: Rc<Window>,
+    window: Arc<Window>,
     mut attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
@@ -183,7 +188,7 @@ impl InnerWebView {
   }
 
   fn init_webview(
-    window: Rc<Window>,
+    window: Arc<Window>,
     hwnd: HWND,
     mut attributes: WebViewAttributes,
     env: &ICoreWebView2Environment,

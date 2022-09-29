@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{cell::Cell, path::PathBuf, rc::Rc};
+use std::{cell::Cell, path::PathBuf, sync::Arc};
 
 use gtk::prelude::*;
 use webkit2gtk::WebView;
@@ -11,7 +11,7 @@ use crate::{application::window::Window, webview::FileDropEvent};
 
 pub(crate) fn connect_drag_event(
   webview: Rc<WebView>,
-  window: Rc<Window>,
+  window: Arc<Window>,
   handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>,
 ) {
   let listener = Rc::new((handler, Cell::new(None)));

@@ -48,7 +48,7 @@ use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
 use windows::{Win32::Foundation::HWND, Win32::UI::WindowsAndMessaging::DestroyWindow};
 
-use std::{path::PathBuf, rc::Rc};
+use std::{path::PathBuf, rc::Rc, sync::Arc};
 
 pub use url::Url;
 
@@ -471,7 +471,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
   pub fn build(self) -> Result<WebView> {
-    let window = Rc::new(self.window);
+    let window = Arc::new(self.window);
     let webview = InnerWebView::new(
       window.clone(),
       self.webview,
@@ -512,7 +512,7 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 /// [`WebView`] presents the actual WebView window and let you still able to perform actions
 /// during event handling to it. [`WebView`] also contains the associate [`Window`] with it.
 pub struct WebView {
-  window: Rc<Window>,
+  window: Arc<Window>,
   webview: InnerWebView,
 }
 
@@ -561,7 +561,7 @@ impl WebView {
 
   /// Get the [`Window`] associate with the [`WebView`]. This can let you perform window related
   /// actions.
-  pub fn window(&self) -> &Window {
+  pub fn window(&self) -> &Arc<Window> {
     &self.window
   }
 

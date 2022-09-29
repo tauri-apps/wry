@@ -46,7 +46,7 @@ pub(crate) struct InnerWebView {
 
 impl InnerWebView {
   pub fn new(
-    window: Rc<Window>,
+    window: Arc<Window>,
     mut attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,

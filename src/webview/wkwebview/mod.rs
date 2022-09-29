@@ -19,8 +19,8 @@ use std::{
   ffi::{c_void, CStr},
   os::raw::c_char,
   ptr::{null, null_mut},
-  rc::Rc,
   slice, str,
+  sync::Arc,
 };
 
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
@@ -63,16 +63,16 @@ pub(crate) struct InnerWebView {
   pub manager: id,
   // Note that if following functions signatures are changed in the future,
   // all functions pointer declarations in objc callbacks below all need to get updated.
-  ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
+  ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Arc<Window>),
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
   #[cfg(target_os = "macos")]
-  file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
+  file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Arc<Window>),
   protocol_ptrs: Vec<*mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>>>>,
 }
 
 impl InnerWebView {
   pub fn new(
-    window: Rc<Window>,
+    window: Arc<Window>,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     mut web_context: Option<&mut WebContext>,
@@ -84,7 +84,7 @@ impl InnerWebView {
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
           let function =
-            &mut *(*function as *mut (Box<dyn for<'r> Fn(&'r Window, String)>, Rc<Window>));
+            &mut *(*function as *mut (Box<dyn for<'r> Fn(&'r Window, String)>, Arc<Window>));
           let body: id = msg_send![msg, body];
           let utf8: *const c_char = msg_send![body, UTF8String];
           let js = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");

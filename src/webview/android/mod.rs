@@ -13,7 +13,7 @@ use http::{
 use kuchiki::NodeRef;
 use once_cell::sync::OnceCell;
 use sha2::{Digest, Sha256};
-use std::rc::Rc;
+use std::sync::Arc;
 use tao::platform::android::ndk_glue::{
   jni::{
     errors::Error as JniError,
@@ -56,9 +56,9 @@ macro_rules! android_binding {
 pub static IPC: OnceCell<UnsafeIpc> = OnceCell::new();
 pub static REQUEST_HANDLER: OnceCell<UnsafeRequestHandler> = OnceCell::new();
 
-pub struct UnsafeIpc(Box<dyn Fn(&Window, String)>, Rc<Window>);
+pub struct UnsafeIpc(Box<dyn Fn(&Window, String)>, Arc<Window>);
 impl UnsafeIpc {
-  pub fn new(f: Box<dyn Fn(&Window, String)>, w: Rc<Window>) -> Self {
+  pub fn new(f: Box<dyn Fn(&Window, String)>, w: Arc<Window>) -> Self {
     Self(f, w)
   }
 }
@@ -116,12 +116,12 @@ pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
 
 pub(crate) struct InnerWebView {
   #[allow(unused)]
-  pub window: Rc<Window>,
+  pub window: Arc<Window>,
 }
 
 impl InnerWebView {
   pub fn new(
-    window: Rc<Window>,
+    window: Arc<Window>,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,

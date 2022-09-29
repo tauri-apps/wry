@@ -6,6 +6,7 @@ use std::{
   ffi::{c_void, CStr},
   path::PathBuf,
   rc::Rc,
+  sync::Arc,
 };
 
 use cocoa::base::{id, BOOL, YES};
@@ -55,9 +56,9 @@ static OBJC_DRAGGING_UPDATED: Lazy<extern "C" fn(*const Object, Sel, id) -> NSDr
 // Safety: objc runtime calls are unsafe
 pub(crate) unsafe fn set_file_drop_handler(
   webview: *mut Object,
-  window: Rc<Window>,
+  window: Arc<Window>,
   handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>,
-) -> *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>) {
+) -> *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Arc<Window>) {
   let listener = Box::into_raw(Box::new((handler, window)));
   (*webview).set_ivar("FileDropHandler", listener as *mut _ as *mut c_void);
   listener
@@ -66,9 +67,9 @@ pub(crate) unsafe fn set_file_drop_handler(
 #[allow(clippy::mut_from_ref)]
 unsafe fn get_handler(
   this: &Object,
-) -> &mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>) {
+) -> &mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Arc<Window>) {
   let delegate: *mut c_void = *this.get_ivar("FileDropHandler");
-  &mut *(delegate as *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>))
+  &mut *(delegate as *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Arc<Window>))
 }
 
 unsafe fn collect_paths(drag_info: id) -> Vec<PathBuf> {
