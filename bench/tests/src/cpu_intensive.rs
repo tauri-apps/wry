@@ -28,7 +28,7 @@ fn main() -> wry::Result<()> {
     .with_custom_protocol("wry.bench".into(), move |request| {
       let path = request.uri().to_string();
       let requested_asset_path = path.strip_prefix("wry.bench://").unwrap();
-      let (data, mimetype) = match requested_asset_path.as_str() {
+      let (data, mimetype) = match requested_asset_path {
         "/index.css" => (
           include_bytes!("static/index.css").to_vec(),
           "text/css".into(),
