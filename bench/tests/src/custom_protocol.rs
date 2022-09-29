@@ -29,7 +29,7 @@ fn main() -> wry::Result<()> {
       exit(0);
     }
   };
-  let webview = WebViewBuilder::new(window)
+  let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_ipc_handler(handler)
     .with_custom_protocol("wry.bench".into(), move |_request| {
