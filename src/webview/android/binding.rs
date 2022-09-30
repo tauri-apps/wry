@@ -55,7 +55,13 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
   }
 
   if let Some(handler) = REQUEST_HANDLER.get() {
-    let response = (handler.0)(request_builder.body(Vec::new()).unwrap());
+    let final_request = match request_builder.body(Vec::new()) {
+      Ok(req) => req,
+      Err(_) => {
+        return Ok(*JObject::null());
+      }
+    };
+    let response = (handler.0)(final_request);
     if let Some(response) = response {
       let status_code = response.status().as_u16() as i32;
       let reason_phrase = "OK";

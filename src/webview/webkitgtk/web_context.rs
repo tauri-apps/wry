@@ -228,11 +228,17 @@ where
       // FIXME: Read the method
       // FIXME: Read the headers
       // FIXME: Read the body (forms post)
-      let http_request = Request::builder()
-        .uri(uri)
-        .method("GET")
-        .body(Vec::new())
-        .unwrap();
+      let http_request = match Request::builder().uri(uri).method("GET").body(Vec::new()) {
+        Ok(req) => req,
+        Err(_) => {
+          request.finish_error(&mut glib::Error::new(
+            // TODO: use UriError when we can use 2_66 webkit2gtk feature flag
+            FileError::Exist,
+            "Could not get uri.",
+          ));
+          return;
+        }
+      };
 
       match handler(&http_request) {
         Ok(http_response) => {
