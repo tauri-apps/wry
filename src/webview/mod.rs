@@ -115,8 +115,7 @@ pub struct WebViewAttributes {
   /// Register custom file loading protocols with pairs of scheme uri string and a handling
   /// closure.
   ///
-  /// The closure takes a url string slice, and returns a two item tuple of a vector of
-  /// bytes which is the content and a mimetype string of the content.
+  /// The closure takes a [Response] and returns a [Request].
   ///
   /// # Warning
   /// Pages loaded from custom protocol will have different Origin on different platforms. And
@@ -308,8 +307,7 @@ impl<'a> WebViewBuilder<'a> {
   /// Register custom file loading protocols with pairs of scheme uri string and a handling
   /// closure.
   ///
-  /// The closure takes a url string slice, and returns a two item tuple of a
-  /// vector of bytes which is the content and a mimetype string of the content.
+  /// The closure takes a [Request] and returns a [Response]
   ///
   /// # Warning
   /// Pages loaded from custom protocol will have different Origin on different platforms. And
