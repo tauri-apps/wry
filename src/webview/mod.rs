@@ -186,6 +186,12 @@ pub struct WebViewAttributes {
   /// - Android: Open `chrome://inspect/#devices` in Chrome to get the devtools window. Wry's `WebView` devtools API isn't supported on Android.
   /// - iOS: Open Safari > Develop > [Your Device Name] > [Your WebView] to get the devtools window.
   pub devtools: bool,
+  /// Whether clicking an inactive window also clicks through to the webview. Default is `false`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// This configuration only impacts macOS.
+  pub accept_first_mouse: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -206,6 +212,7 @@ impl Default for WebViewAttributes {
       clipboard: false,
       devtools: false,
       zoom_hotkeys_enabled: false,
+      accept_first_mouse: false,
     }
   }
 }
@@ -457,6 +464,16 @@ impl<'a> WebViewBuilder<'a> {
     callback: impl Fn(String) -> bool + 'static,
   ) -> Self {
     self.webview.new_window_req_handler = Some(Box::new(callback));
+    self
+  }
+
+  /// Sets whether clicking an inactive window also clicks through to the webview. Default is `false`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// This configuration only impacts macOS.
+  pub fn with_accept_first_mouse(mut self, accept_first_mouse: bool) -> Self {
+    self.webview.accept_first_mouse = accept_first_mouse;
     self
   }
 

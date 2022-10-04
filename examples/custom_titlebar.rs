@@ -129,6 +129,7 @@ fn main() -> wry::Result<()> {
     .with_url(url)?
     .with_initialization_script(script)
     .with_ipc_handler(handler)
+    .with_accept_first_mouse(true)
     .build()?;
   webviews.insert(webview.window().id(), webview);
 
