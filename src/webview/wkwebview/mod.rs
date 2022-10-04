@@ -259,7 +259,19 @@ impl InnerWebView {
         #[allow(unused_mut)]
         Some(mut decl) => {
           #[cfg(target_os = "macos")]
-          add_file_drop_methods(&mut decl);
+          {
+            add_file_drop_methods(&mut decl);
+            if attributes.accept_first_mouse {
+              decl.add_method(
+                sel!(acceptsFirstMouse:),
+                yes as extern "C" fn(&Object, Sel, id) -> BOOL,
+              );
+            }
+
+            extern "C" fn yes(_this: &Object, _sel: Sel, _event: id) -> BOOL {
+              YES
+            }
+          }
           decl.register()
         }
         _ => class!(WryWebView),
@@ -689,7 +701,7 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
+  pub fn set_background_color(&self, _background_color: RGBA) -> Result<()> {
     Ok(())
   }
 }
