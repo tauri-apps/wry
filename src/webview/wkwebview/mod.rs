@@ -725,8 +725,6 @@ impl Drop for InnerWebView {
     // We need to drop handler closures here
     unsafe {
       if !self.ipc_handler_ptr.is_null() {
-        let _ = Box::from_raw(self.ipc_handler_ptr);
-
         let ipc = NSString::new(IPC_MESSAGE_HANDLER_NAME);
         let _: () = msg_send![self.manager, removeScriptMessageHandlerForName: ipc];
       }
@@ -748,6 +746,12 @@ impl Drop for InnerWebView {
 
       let _: Id<_> = Id::from_retained_ptr(self.webview);
       let _: Id<_> = Id::from_retained_ptr(self.manager);
+
+      // free IPC handler pointer last since removeScriptMessageHandlerForName is async
+      // and could cause race condition if we free this early.
+      if !self.ipc_handler_ptr.is_null() {
+        let _ = Box::from_raw(self.ipc_handler_ptr);
+      }
     }
   }
 }
