@@ -6,7 +6,7 @@
 
 use crate::{webview::web_context::WebContextData, Error};
 use glib::FileError;
-use http::{header::CONTENT_TYPE, Request, Response};
+use http::{header::{CONTENT_TYPE, HeaderName}, Request, Response, HeaderValue};
 use std::{
   collections::{HashSet, VecDeque},
   rc::Rc,
@@ -221,14 +221,21 @@ where
     if let Some(uri) = request.uri() {
       let uri = uri.as_str();
 
-      //let headers = unsafe {
-      //  webkit_uri_request_get_http_headers(request.clone().to_glib_none().0)
-      //};
-
       // FIXME: Read the method
-      // FIXME: Read the headers
       // FIXME: Read the body (forms post)
-      let http_request = match Request::builder().uri(uri).method("GET").body(Vec::new()) {
+      let mut http_request = Request::builder().uri(uri).method("GET");
+      if let Some(mut http_headers) = request.http_headers() {
+          if let Some(map) = http_request.headers_mut() {
+              http_headers.foreach(move |k, v| {
+                  if let Ok(name) = HeaderName::from_bytes(k.as_bytes()) {
+                      if let Ok(value) = HeaderValue::from_bytes(v.as_bytes()) {
+                        map.insert(name, value);
+                      }
+                  }
+              });
+          }
+      }
+      let http_request = match http_request.body(Vec::new()) {
         Ok(req) => req,
         Err(_) => {
           request.finish_error(&mut glib::Error::new(
