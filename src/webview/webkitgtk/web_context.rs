@@ -6,7 +6,10 @@
 
 use crate::{webview::web_context::WebContextData, Error};
 use glib::FileError;
-use http::{header::{CONTENT_TYPE, HeaderName}, Request, Response, HeaderValue};
+use http::{
+  header::{HeaderName, CONTENT_TYPE},
+  HeaderValue, Request, Response,
+};
 use std::{
   collections::{HashSet, VecDeque},
   rc::Rc,
@@ -16,7 +19,6 @@ use std::{
   },
 };
 use url::Url;
-//use webkit2gtk_sys::webkit_uri_request_get_http_headers;
 use webkit2gtk::{
   traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, UserContentManager, WebContext,
   WebContextBuilder, WebView, WebsiteDataManagerBuilder,
@@ -225,15 +227,15 @@ where
       // FIXME: Read the body (forms post)
       let mut http_request = Request::builder().uri(uri).method("GET");
       if let Some(mut http_headers) = request.http_headers() {
-          if let Some(map) = http_request.headers_mut() {
-              http_headers.foreach(move |k, v| {
-                  if let Ok(name) = HeaderName::from_bytes(k.as_bytes()) {
-                      if let Ok(value) = HeaderValue::from_bytes(v.as_bytes()) {
-                        map.insert(name, value);
-                      }
-                  }
-              });
-          }
+        if let Some(map) = http_request.headers_mut() {
+          http_headers.foreach(move |k, v| {
+            if let Ok(name) = HeaderName::from_bytes(k.as_bytes()) {
+              if let Ok(value) = HeaderValue::from_bytes(v.as_bytes()) {
+                map.insert(name, value);
+              }
+            }
+          });
+        }
       }
       let http_request = match http_request.body(Vec::new()) {
         Ok(req) => req,
