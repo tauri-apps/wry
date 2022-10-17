@@ -8,12 +8,13 @@ use crate::{webview::web_context::WebContextData, Error};
 use glib::FileError;
 use http::{
   header::{HeaderName, CONTENT_TYPE},
-  HeaderValue, Request, Response,
+  HeaderValue, Request, Response, Uri,
 };
 use soup::{MessageHeaders, MessageHeadersType};
 use std::{
   collections::{HashSet, VecDeque},
   rc::Rc,
+  str::FromStr,
   sync::{
     atomic::{AtomicBool, Ordering::SeqCst},
     Mutex,
@@ -229,12 +230,23 @@ where
     .ok_or(Error::MissingManager)?
     .register_uri_scheme_as_secure(name);
 
+  let scheme_prefix = format!("{}://", name);
   context.register_uri_scheme(name, move |request| {
     if let Some(uri) = request.uri() {
       let uri = uri.as_str();
+      let parsed_uri = Uri::from_str(uri)
+        .or_else(|_| Uri::from_str(uri.strip_prefix(&scheme_prefix).unwrap_or(uri)));
 
       // FIXME: Read the body (forms post)
-      let mut http_request = Request::builder().uri(uri).method("GET");
+      let mut http_request = Request::builder().method("GET");
+
+      if let Ok(parsed_uri) = parsed_uri {
+        http_request = http_request.uri(parsed_uri);
+      } else {
+        // fallback to the uri provided by the protocol
+        http_request = http_request.uri(uri);
+      }
+
       if webkit2gtk_minor >= HEADER_MINOR_RELEASE {
         if let Some(mut headers) = request.http_headers() {
           if let Some(map) = http_request.headers_mut() {
