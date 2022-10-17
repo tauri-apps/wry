@@ -271,11 +271,13 @@ where
           let content_type = http_response
             .headers()
             .get(CONTENT_TYPE)
-            .map(|h| h.to_str().unwrap_or("text/plain"));
+            .and_then(|h| h.to_str().ok());
           if webkit2gtk_minor >= HEADER_MINOR_RELEASE {
             let response = URISchemeResponse::new(&input, buffer.len() as i64);
             response.set_status(http_response.status().as_u16() as u32, None);
-            response.set_content_type(content_type.unwrap());
+            if let Some(content_type) = content_type {
+              response.set_content_type(content_type);
+            }
 
             let mut headers = MessageHeaders::new(MessageHeadersType::Response);
             for (name, value) in http_response.headers().into_iter() {
