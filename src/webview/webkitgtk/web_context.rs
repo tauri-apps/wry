@@ -10,6 +10,7 @@ use http::{
   header::{HeaderName, CONTENT_TYPE},
   HeaderValue, Request, Response,
 };
+use soup::{MessageHeaders, MessageHeadersType};
 use std::{
   collections::{HashSet, VecDeque},
   rc::Rc,
@@ -263,7 +264,6 @@ where
       match handler(&http_request) {
         Ok(http_response) => {
           let buffer = http_response.body();
-          // FIXME: Set sent headers
           let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(buffer));
           let content_type = http_response
             .headers()
@@ -273,7 +273,12 @@ where
             let response = URISchemeResponse::new(&input, buffer.len() as i64);
             response.set_status(http_response.status().as_u16() as u32, None);
             response.set_content_type(content_type.unwrap());
-            // response.set_http_headers(headers)
+
+            let mut headers = MessageHeaders::new(MessageHeadersType::Response);
+            for (name, value) in http_response.headers().into_iter() {
+              headers.append(name.as_str(), value.to_str().unwrap_or(""));
+            }
+            response.set_http_headers(&mut headers);
 
             request.finish_with_response(&response);
           } else {

@@ -56,6 +56,7 @@ gio = "0.15"
 glib = "0.15"
 gtk = "0.15"
 gdk = "0.15"
+soup2 = "0.2"
 
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.19.1"
@@ -91,3 +92,4 @@ kuchiki = "0.8"
 html5ever = "0.25"
 sha2 = "0.10"
 base64 = "0.13"
+
