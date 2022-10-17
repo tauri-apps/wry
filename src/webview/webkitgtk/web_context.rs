@@ -20,9 +20,10 @@ use std::{
 };
 use url::Url;
 use webkit2gtk::{
-  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, UserContentManager, WebContext,
-  WebContextBuilder, WebView, WebsiteDataManagerBuilder,
+  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, URISchemeResponse,
+  UserContentManager, WebContext, WebContextBuilder, WebView, WebsiteDataManagerBuilder,
 };
+use webkit2gtk_sys::webkit_get_minor_version;
 
 #[derive(Debug)]
 pub struct WebContextImpl {
@@ -32,6 +33,7 @@ pub struct WebContextImpl {
   registered_protocols: HashSet<String>,
   automation: bool,
   app_info: Option<ApplicationInfo>,
+  is_2_36: bool,
 }
 
 impl WebContextImpl {
@@ -78,6 +80,8 @@ impl WebContextImpl {
         .expect("invalid wry version patch"),
     );
 
+    let is_above_2_36 = unsafe { webkit_get_minor_version() >= 36 };
+
     Self {
       context,
       automation,
@@ -85,6 +89,7 @@ impl WebContextImpl {
       registered_protocols: Default::default(),
       webview_uri_loader: Rc::default(),
       app_info: Some(app_info),
+      is_2_36: is_above_2_36,
     }
   }
 
@@ -212,6 +217,7 @@ where
   F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Vec<u8>>> + 'static,
 {
   use webkit2gtk::traits::*;
+  let is_2_36 = context.os.is_2_36;
   let context = &context.os.context;
   // Enable secure context
   context
@@ -223,18 +229,23 @@ where
     if let Some(uri) = request.uri() {
       let uri = uri.as_str();
 
-      // FIXME: Read the method
       // FIXME: Read the body (forms post)
       let mut http_request = Request::builder().uri(uri).method("GET");
-      if let Some(mut http_headers) = request.http_headers() {
-        if let Some(map) = http_request.headers_mut() {
-          http_headers.foreach(move |k, v| {
-            if let Ok(name) = HeaderName::from_bytes(k.as_bytes()) {
-              if let Ok(value) = HeaderValue::from_bytes(v.as_bytes()) {
-                map.insert(name, value);
+      if is_2_36 {
+        if let Some(mut headers) = request.http_headers() {
+          if let Some(map) = http_request.headers_mut() {
+            headers.foreach(move |k, v| {
+              if let Ok(name) = HeaderName::from_bytes(k.as_bytes()) {
+                if let Ok(value) = HeaderValue::from_bytes(v.as_bytes()) {
+                  map.insert(name, value);
+                }
               }
-            }
-          });
+            });
+          }
+        }
+
+        if let Some(method) = request.http_method() {
+          http_request = http_request.method(method.as_str());
         }
       }
       let http_request = match http_request.body(Vec::new()) {
@@ -252,19 +263,22 @@ where
       match handler(&http_request) {
         Ok(http_response) => {
           let buffer = http_response.body();
-
-          // FIXME: Set status code
           // FIXME: Set sent headers
-
           let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(buffer));
-          request.finish(
-            &input,
-            buffer.len() as i64,
-            http_response
-              .headers()
-              .get(CONTENT_TYPE)
-              .map(|h| h.to_str().unwrap_or("text/plain")),
-          )
+          let content_type = http_response
+            .headers()
+            .get(CONTENT_TYPE)
+            .map(|h| h.to_str().unwrap_or("text/plain"));
+          if is_2_36 {
+            let response = URISchemeResponse::new(&input, buffer.len() as i64);
+            response.set_status(http_response.status().as_u16() as u32, None);
+            response.set_content_type(content_type.unwrap());
+            // response.set_http_headers(headers)
+
+            request.finish_with_response(&response);
+          } else {
+            request.finish(&input, buffer.len() as i64, content_type)
+          }
         }
         Err(_) => request.finish_error(&mut glib::Error::new(
           FileError::Exist,
