@@ -26,6 +26,9 @@ use webkit2gtk::{
 };
 use webkit2gtk_sys::webkit_get_minor_version;
 
+// header support was introduced in webkit2gtk 2.36
+const HEADER_MINOR_RELEASE: u32 = 36;
+
 #[derive(Debug)]
 pub struct WebContextImpl {
   context: WebContext,
@@ -34,7 +37,7 @@ pub struct WebContextImpl {
   registered_protocols: HashSet<String>,
   automation: bool,
   app_info: Option<ApplicationInfo>,
-  is_2_36: bool,
+  webkit2gtk_minor: u32,
 }
 
 impl WebContextImpl {
@@ -81,7 +84,7 @@ impl WebContextImpl {
         .expect("invalid wry version patch"),
     );
 
-    let is_above_2_36 = unsafe { webkit_get_minor_version() >= 36 };
+    let webkit2gtk_minor = unsafe { webkit_get_minor_version() };
 
     Self {
       context,
@@ -90,7 +93,7 @@ impl WebContextImpl {
       registered_protocols: Default::default(),
       webview_uri_loader: Rc::default(),
       app_info: Some(app_info),
-      is_2_36: is_above_2_36,
+      webkit2gtk_minor,
     }
   }
 
@@ -218,7 +221,7 @@ where
   F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Vec<u8>>> + 'static,
 {
   use webkit2gtk::traits::*;
-  let is_2_36 = context.os.is_2_36;
+  let webkit2gtk_minor = context.os.webkit2gtk_minor;
   let context = &context.os.context;
   // Enable secure context
   context
@@ -232,7 +235,7 @@ where
 
       // FIXME: Read the body (forms post)
       let mut http_request = Request::builder().uri(uri).method("GET");
-      if is_2_36 {
+      if webkit2gtk_minor >= HEADER_MINOR_RELEASE {
         if let Some(mut headers) = request.http_headers() {
           if let Some(map) = http_request.headers_mut() {
             headers.foreach(move |k, v| {
@@ -269,7 +272,7 @@ where
             .headers()
             .get(CONTENT_TYPE)
             .map(|h| h.to_str().unwrap_or("text/plain"));
-          if is_2_36 {
+          if webkit2gtk_minor >= HEADER_MINOR_RELEASE {
             let response = URISchemeResponse::new(&input, buffer.len() as i64);
             response.set_status(http_response.status().as_u16() as u32, None);
             response.set_content_type(content_type.unwrap());
