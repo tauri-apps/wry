@@ -6,7 +6,11 @@
 
 use crate::{webview::web_context::WebContextData, Error};
 use glib::FileError;
-use http::{header::CONTENT_TYPE, Request, Response};
+use http::{
+  header::{HeaderName, CONTENT_TYPE},
+  HeaderValue, Request, Response,
+};
+use soup::{MessageHeaders, MessageHeadersType};
 use std::{
   collections::{HashSet, VecDeque},
   rc::Rc,
@@ -16,11 +20,14 @@ use std::{
   },
 };
 use url::Url;
-//use webkit2gtk_sys::webkit_uri_request_get_http_headers;
 use webkit2gtk::{
-  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, UserContentManager, WebContext,
-  WebContextBuilder, WebView, WebsiteDataManagerBuilder,
+  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, URISchemeResponse,
+  UserContentManager, WebContext, WebContextBuilder, WebView, WebsiteDataManagerBuilder,
 };
+use webkit2gtk_sys::webkit_get_minor_version;
+
+// header support was introduced in webkit2gtk 2.36
+const HEADER_MINOR_RELEASE: u32 = 36;
 
 #[derive(Debug)]
 pub struct WebContextImpl {
@@ -30,6 +37,7 @@ pub struct WebContextImpl {
   registered_protocols: HashSet<String>,
   automation: bool,
   app_info: Option<ApplicationInfo>,
+  webkit2gtk_minor: u32,
 }
 
 impl WebContextImpl {
@@ -76,6 +84,8 @@ impl WebContextImpl {
         .expect("invalid wry version patch"),
     );
 
+    let webkit2gtk_minor = unsafe { webkit_get_minor_version() };
+
     Self {
       context,
       automation,
@@ -83,6 +93,7 @@ impl WebContextImpl {
       registered_protocols: Default::default(),
       webview_uri_loader: Rc::default(),
       app_info: Some(app_info),
+      webkit2gtk_minor,
     }
   }
 
@@ -210,6 +221,7 @@ where
   F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Vec<u8>>> + 'static,
 {
   use webkit2gtk::traits::*;
+  let webkit2gtk_minor = context.os.webkit2gtk_minor;
   let context = &context.os.context;
   // Enable secure context
   context
@@ -221,14 +233,26 @@ where
     if let Some(uri) = request.uri() {
       let uri = uri.as_str();
 
-      //let headers = unsafe {
-      //  webkit_uri_request_get_http_headers(request.clone().to_glib_none().0)
-      //};
-
-      // FIXME: Read the method
-      // FIXME: Read the headers
       // FIXME: Read the body (forms post)
-      let http_request = match Request::builder().uri(uri).method("GET").body(Vec::new()) {
+      let mut http_request = Request::builder().uri(uri).method("GET");
+      if webkit2gtk_minor >= HEADER_MINOR_RELEASE {
+        if let Some(mut headers) = request.http_headers() {
+          if let Some(map) = http_request.headers_mut() {
+            headers.foreach(move |k, v| {
+              if let Ok(name) = HeaderName::from_bytes(k.as_bytes()) {
+                if let Ok(value) = HeaderValue::from_bytes(v.as_bytes()) {
+                  map.insert(name, value);
+                }
+              }
+            });
+          }
+        }
+
+        if let Some(method) = request.http_method() {
+          http_request = http_request.method(method.as_str());
+        }
+      }
+      let http_request = match http_request.body(Vec::new()) {
         Ok(req) => req,
         Err(_) => {
           request.finish_error(&mut glib::Error::new(
@@ -243,19 +267,26 @@ where
       match handler(&http_request) {
         Ok(http_response) => {
           let buffer = http_response.body();
-
-          // FIXME: Set status code
-          // FIXME: Set sent headers
-
           let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(buffer));
-          request.finish(
-            &input,
-            buffer.len() as i64,
-            http_response
-              .headers()
-              .get(CONTENT_TYPE)
-              .map(|h| h.to_str().unwrap_or("text/plain")),
-          )
+          let content_type = http_response
+            .headers()
+            .get(CONTENT_TYPE)
+            .map(|h| h.to_str().unwrap_or("text/plain"));
+          if webkit2gtk_minor >= HEADER_MINOR_RELEASE {
+            let response = URISchemeResponse::new(&input, buffer.len() as i64);
+            response.set_status(http_response.status().as_u16() as u32, None);
+            response.set_content_type(content_type.unwrap());
+
+            let mut headers = MessageHeaders::new(MessageHeadersType::Response);
+            for (name, value) in http_response.headers().into_iter() {
+              headers.append(name.as_str(), value.to_str().unwrap_or(""));
+            }
+            response.set_http_headers(&mut headers);
+
+            request.finish_with_response(&response);
+          } else {
+            request.finish(&input, buffer.len() as i64, content_type)
+          }
         }
         Err(_) => request.finish_error(&mut glib::Error::new(
           FileError::Exist,
