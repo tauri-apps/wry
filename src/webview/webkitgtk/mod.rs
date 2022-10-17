@@ -251,7 +251,6 @@ impl InnerWebView {
     if let Some(settings) = WebViewExt::settings(&*webview) {
       settings.set_enable_webgl(true);
       settings.set_enable_webaudio(true);
-      settings.set_enable_accelerated_2d_canvas(true);
 
       // Enable clipboard
       if attributes.clipboard {
