@@ -13,7 +13,7 @@ use file_drop::FileDropController;
 
 use std::{
   collections::HashSet, fmt::Write, iter::once, mem::MaybeUninit, os::windows::prelude::OsStrExt,
-  rc::Rc, sync::mpsc,
+  path::PathBuf, rc::Rc, sync::mpsc,
 };
 
 use once_cell::unsync::OnceCell;
@@ -343,6 +343,79 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 let allow = nav_callback(uri);
 
                 args.SetCancel(!allow)?;
+              }
+
+              Ok(())
+            })),
+            &mut token,
+          )
+          .map_err(webview2_com::Error::WindowsError)?;
+      }
+    }
+
+    if attributes.download_started_handler.is_some()
+      || attributes.download_completed_handler.is_some()
+    {
+      unsafe {
+        let webview4: ICoreWebView2_4 =
+          webview.cast().map_err(webview2_com::Error::WindowsError)?;
+
+        let mut download_started_handler = attributes.download_started_handler.take();
+        let download_completed_handler = attributes.download_completed_handler.take();
+
+        webview4
+          .add_DownloadStarting(
+            &DownloadStartingEventHandler::create(Box::new(move |_, args| {
+              if let Some(args) = args {
+                let mut uri = PWSTR::null();
+                args.DownloadOperation()?.Uri(&mut uri)?;
+                let uri = take_pwstr(uri);
+
+                if let Some(download_completed_handler) = download_completed_handler.clone() {
+                  args.DownloadOperation()?.add_StateChanged(
+                    &StateChangedEventHandler::create(Box::new(move |download_operation, _| {
+                      if let Some(download_operation) = download_operation {
+                        let mut state: COREWEBVIEW2_DOWNLOAD_STATE =
+                          COREWEBVIEW2_DOWNLOAD_STATE::default();
+                        download_operation.State(&mut state)?;
+                        if state != COREWEBVIEW2_DOWNLOAD_STATE_IN_PROGRESS {
+                          let mut path = PWSTR::null();
+                          download_operation.ResultFilePath(&mut path)?;
+                          let path = take_pwstr(path);
+                          let mut uri = PWSTR::null();
+                          download_operation.Uri(&mut uri)?;
+                          let uri = take_pwstr(uri);
+
+                          let success = state == COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED;
+                          download_completed_handler(
+                            uri,
+                            success.then(|| PathBuf::from(path)),
+                            success,
+                          );
+                        }
+                      }
+
+                      Ok(())
+                    })),
+                    &mut token,
+                  )?;
+                }
+                if let Some(download_started_handler) = download_started_handler.as_mut() {
+                  let mut path = PWSTR::null();
+                  args.ResultFilePath(&mut path)?;
+                  let path = take_pwstr(path);
+                  let mut path = PathBuf::from(&path);
+
+                  if download_started_handler(uri, &mut path) {
+                    let simplified = dunce::simplified(&path);
+                    let result_file_path =
+                      PCWSTR::from_raw(encode_wide(simplified.as_os_str()).as_ptr());
+                    args.SetResultFilePath(result_file_path)?;
+                    args.SetHandled(true)?;
+                  } else {
+                    args.SetCancel(true)?;
+                  }
+                }
               }
 
               Ok(())

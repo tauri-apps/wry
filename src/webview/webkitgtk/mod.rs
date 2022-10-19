@@ -238,6 +238,15 @@ impl InnerWebView {
       });
     }
 
+    if attributes.download_started_handler.is_some()
+      || attributes.download_completed_handler.is_some()
+    {
+      web_context.register_download_handler(
+        attributes.download_started_handler,
+        attributes.download_completed_handler,
+      )
+    }
+
     // Gtk application window can only contain one widget at a time.
     // In tao, we add a GtkBox to pack menu bar. So we check if
     // there's a box widget here.

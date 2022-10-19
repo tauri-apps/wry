@@ -48,6 +48,9 @@ http = "0.2.8"
 anyhow = "1.0"
 tempfile = "3.3.0"
 http-range = "0.1.5"
+normpath = "0.3.2"
+dirs = "4.0.0"
+base64 = "0.13.0"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
 webkit2gtk = { version = "0.18.2", features = [ "v2_36" ] }
@@ -61,6 +64,7 @@ soup2 = "0.2"
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.19.1"
 windows-implement = "0.39.0"
+dunce = "1.0.2"
 
   [target."cfg(target_os = \"windows\")".dependencies.windows]
   version = "0.39.0"

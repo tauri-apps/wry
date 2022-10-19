@@ -162,6 +162,29 @@ pub struct WebViewAttributes {
   /// allow to navigate and false is not.
   pub navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
 
+  /// Set a download started handler to manage incoming downloads.
+  ///
+  /// The closure takes two parameters - the first is a `String` representing the url being downloaded from and and the
+  /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
+  /// parameter can be used to set the download location by assigning a new path to it - the assigned path _must_ be
+  /// absolute. The closure returns a `bool` to allow or deny the download.
+  pub download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
+
+  /// Sets a download completion handler to manage downloads that have finished.
+  ///
+  /// The closure is fired when the download completes, whether it was successful or not.
+  /// The closure takes a `String` representing the URL of the original download request, an `Option<PathBuf>`
+  /// potentially representing the filesystem path the file was downloaded to, and a `bool` indicating if the download
+  /// succeeded. A value of `None` being passed instead of a `PathBuf` does not necessarily indicate that the download
+  /// did not succeed, and may instead indicate some other failure - always check the third parameter if you need to
+  /// know if the download succeeded.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **macOS**: The second parameter indicating the path the file was saved to is always empty, due to API
+  /// limitations.
+  pub download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
+
   /// Set a new window handler to decide if incoming url is allowed to open in a new window.
   ///
   /// The closure take a `String` parameter as url and return `bool` to determine the url. True is
@@ -208,6 +231,8 @@ impl Default for WebViewAttributes {
       ipc_handler: None,
       file_drop_handler: None,
       navigation_handler: None,
+      download_started_handler: None,
+      download_completed_handler: None,
       new_window_req_handler: None,
       clipboard: false,
       devtools: false,
@@ -442,6 +467,41 @@ impl<'a> WebViewBuilder<'a> {
   /// allowed to navigate and false is not.
   pub fn with_navigation_handler(mut self, callback: impl Fn(String) -> bool + 'static) -> Self {
     self.webview.navigation_handler = Some(Box::new(callback));
+    self
+  }
+
+  /// Set a download started handler to manage incoming downloads.
+  ///
+  /// The closure takes two parameters - the first is a `String` representing the url being downloaded from and and the
+  /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
+  /// parameter can be used to set the download location by assigning a new path to it - the assigned path _must_ be
+  /// absolute. The closure returns a `bool` to allow or deny the download.
+  pub fn with_download_started_handler(
+    mut self,
+    started_handler: impl FnMut(String, &mut PathBuf) -> bool + 'static,
+  ) -> Self {
+    self.webview.download_started_handler = Some(Box::new(started_handler));
+    self
+  }
+
+  /// Sets a download completion handler to manage downloads that have finished.
+  ///
+  /// The closure is fired when the download completes, whether it was successful or not.
+  /// The closure takes a `String` representing the URL of the original download request, an `Option<PathBuf>`
+  /// potentially representing the filesystem path the file was downloaded to, and a `bool` indicating if the download
+  /// succeeded. A value of `None` being passed instead of a `PathBuf` does not necessarily indicate that the download
+  /// did not succeed, and may instead indicate some other failure - always check the third parameter if you need to
+  /// know if the download succeeded.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **macOS**: The second parameter indicating the path the file was saved to is always empty, due to API
+  /// limitations.
+  pub fn with_download_completed_handler(
+    mut self,
+    download_completed_handler: impl Fn(String, Option<PathBuf>, bool) + 'static,
+  ) -> Self {
+    self.webview.download_completed_handler = Some(Rc::new(download_completed_handler));
     self
   }
 
