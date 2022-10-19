@@ -41,7 +41,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)?;
   let webview = WebViewBuilder::new(window)?
     .with_html(html)?
-    .with_download_handler({
+    .with_download_started_handler({
       let proxy = proxy.clone();
       let tempdir_cell = temp_dir.clone();
       move |uri: String, default_path: &mut PathBuf| {

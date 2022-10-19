@@ -97,7 +97,7 @@ fn main() -> wry::Result<()> {
   let webview = WebViewBuilder::new(window)?
     .with_html(html)?
     .with_initialization_script(init_script)
-    .with_download_handler({
+    .with_download_started_handler({
       let proxy = proxy.clone();
       move |uri: String, _: &mut PathBuf| {
         if uri.starts_with("blob:") {

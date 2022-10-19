@@ -476,7 +476,7 @@ impl<'a> WebViewBuilder<'a> {
   /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
   /// parameter can be used to set the download location by assigning a new path to it - the assigned path _must_ be
   /// absolute. The closure returns a `bool` to allow or deny the download.
-  pub fn with_download_handler(
+  pub fn with_download_started_handler(
     mut self,
     started_handler: impl FnMut(String, &mut PathBuf) -> bool + 'static,
   ) -> Self {
