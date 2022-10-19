@@ -56,7 +56,7 @@ pub use url::Url;
 use crate::application::platform::windows::WindowExtWindows;
 use crate::application::{dpi::PhysicalSize, window::Window};
 
-use crate::http::{Request as HttpRequest, Response as HttpResponse};
+use http::{Request, Response};
 
 pub struct WebViewAttributes {
   /// Whether the WebView should have a custom user-agent.
@@ -115,8 +115,7 @@ pub struct WebViewAttributes {
   /// Register custom file loading protocols with pairs of scheme uri string and a handling
   /// closure.
   ///
-  /// The closure takes a url string slice, and returns a two item tuple of a vector of
-  /// bytes which is the content and a mimetype string of the content.
+  /// The closure takes a [Response] and returns a [Request].
   ///
   /// # Warning
   /// Pages loaded from custom protocol will have different Origin on different platforms. And
@@ -136,7 +135,10 @@ pub struct WebViewAttributes {
   /// - iOS: Same as macOS. To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
-  pub custom_protocols: Vec<(String, Box<dyn Fn(&HttpRequest) -> Result<HttpResponse>>)>,
+  pub custom_protocols: Vec<(
+    String,
+    Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>>>,
+  )>,
   /// Set the IPC handler to receive the message from Javascript on webview to host Rust code.
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
   ///
@@ -207,6 +209,12 @@ pub struct WebViewAttributes {
   /// - Android: Open `chrome://inspect/#devices` in Chrome to get the devtools window. Wry's `WebView` devtools API isn't supported on Android.
   /// - iOS: Open Safari > Develop > [Your Device Name] > [Your WebView] to get the devtools window.
   pub devtools: bool,
+  /// Whether clicking an inactive window also clicks through to the webview. Default is `false`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// This configuration only impacts macOS.
+  pub accept_first_mouse: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -229,9 +237,28 @@ impl Default for WebViewAttributes {
       clipboard: false,
       devtools: false,
       zoom_hotkeys_enabled: false,
+      accept_first_mouse: false,
     }
   }
 }
+
+#[cfg(windows)]
+#[derive(Default)]
+pub(crate) struct PlatformSpecificWebViewAttributes {
+  additionl_browser_args: Option<String>,
+}
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd",
+  target_os = "macos",
+  target_os = "android",
+  target_os = "ios",
+))]
+#[derive(Default)]
+pub(crate) struct PlatformSpecificWebViewAttributes;
 
 /// Type alias for a color in the RGBA format.
 ///
@@ -245,6 +272,7 @@ pub type RGBA = (u8, u8, u8, u8);
 /// [`WebViewBuilder`] provides ability to setup initialization before web engine starts.
 pub struct WebViewBuilder<'a> {
   pub webview: WebViewAttributes,
+  platform_specific: PlatformSpecificWebViewAttributes,
   web_context: Option<&'a mut WebContext>,
   window: Window,
 }
@@ -254,11 +282,13 @@ impl<'a> WebViewBuilder<'a> {
   pub fn new(window: Window) -> Result<Self> {
     let webview = WebViewAttributes::default();
     let web_context = None;
+    let platform_specific = PlatformSpecificWebViewAttributes::default();
 
     Ok(Self {
       webview,
       web_context,
       window,
+      platform_specific,
     })
   }
 
@@ -309,8 +339,7 @@ impl<'a> WebViewBuilder<'a> {
   /// Register custom file loading protocols with pairs of scheme uri string and a handling
   /// closure.
   ///
-  /// The closure takes a url string slice, and returns a two item tuple of a
-  /// vector of bytes which is the content and a mimetype string of the content.
+  /// The closure takes a [Request] and returns a [Response]
   ///
   /// # Warning
   /// Pages loaded from custom protocol will have different Origin on different platforms. And
@@ -333,7 +362,7 @@ impl<'a> WebViewBuilder<'a> {
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(&HttpRequest) -> Result<HttpResponse> + 'static,
+    F: Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>> + 'static,
   {
     self
       .webview
@@ -498,6 +527,16 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Sets whether clicking an inactive window also clicks through to the webview. Default is `false`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// This configuration only impacts macOS.
+  pub fn with_accept_first_mouse(mut self, accept_first_mouse: bool) -> Self {
+    self.webview.accept_first_mouse = accept_first_mouse;
+    self
+  }
+
   /// Consume the builder and create the [`WebView`].
   ///
   /// Platform-specific behavior:
@@ -508,8 +547,32 @@ impl<'a> WebViewBuilder<'a> {
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
   pub fn build(self) -> Result<WebView> {
     let window = Rc::new(self.window);
-    let webview = InnerWebView::new(window.clone(), self.webview, self.web_context)?;
+    let webview = InnerWebView::new(
+      window.clone(),
+      self.webview,
+      self.platform_specific,
+      self.web_context,
+    )?;
     Ok(WebView { window, webview })
+  }
+}
+
+#[cfg(windows)]
+pub trait WebViewBuilderExtWindows {
+  /// Pass additional args to Webview2 upon creating the webview.
+  ///
+  /// ## Warning
+  ///
+  /// By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
+  /// so if you use this method, you also need to disable these components by yourself if you want.
+  fn with_additionl_browser_args<S: AsRef<str>>(self, additional_args: S) -> Self;
+}
+
+#[cfg(windows)]
+impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
+  fn with_additionl_browser_args<S: AsRef<str>>(mut self, additional_args: S) -> Self {
+    self.platform_specific.additionl_browser_args = Some(additional_args.as_ref().to_string());
+    self
   }
 }
 

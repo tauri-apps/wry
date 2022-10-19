@@ -11,7 +11,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::{Window, WindowBuilder},
     },
-    http::ResponseBuilder,
+    http::{header::CONTENT_TYPE, Response},
     webview::WebViewBuilder,
   };
 
@@ -25,9 +25,10 @@ fn main() -> wry::Result<()> {
   };
   let webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_custom_protocol("wry.bench".into(), move |request| {
-      let requested_asset_path = request.uri().replace("wry.bench://", "");
-      let (data, mimetype) = match requested_asset_path.as_str() {
+    .with_custom_protocol("wrybench".into(), move |request| {
+      let path = request.uri().to_string();
+      let requested_asset_path = path.strip_prefix("wrybench://localhost").unwrap();
+      let (data, mimetype): (Vec<u8>, String) = match requested_asset_path {
         "/index.css" => (
           include_bytes!("static/index.css").to_vec(),
           "text/css".into(),
@@ -46,9 +47,12 @@ fn main() -> wry::Result<()> {
         ),
       };
 
-      ResponseBuilder::new().mimetype(mimetype).body(data)
+      Response::builder()
+        .header(CONTENT_TYPE, mimetype)
+        .body(data)
+        .map_err(Into::into)
     })
-    .with_url("wry.bench://")?
+    .with_url("wrybench://localhost")?
     .with_ipc_handler(handler)
     .build()?;
 

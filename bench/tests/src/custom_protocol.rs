@@ -17,7 +17,7 @@ fn main() -> wry::Result<()> {
       event_loop::{ControlFlow, EventLoop},
       window::{Window, WindowBuilder},
     },
-    http::ResponseBuilder,
+    http::{header::CONTENT_TYPE, Response},
     webview::WebViewBuilder,
   };
 
@@ -29,10 +29,10 @@ fn main() -> wry::Result<()> {
       exit(0);
     }
   };
-  let webview = WebViewBuilder::new(window)
+  let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_ipc_handler(handler)
-    .with_custom_protocol("wry.bench".into(), move |_request| {
+    .with_custom_protocol("wrybench".into(), move |_request| {
       let index_html = r#"
       <!DOCTYPE html>
       <html lang="en">
@@ -51,11 +51,12 @@ fn main() -> wry::Result<()> {
         </body>
       </html>"#;
 
-      ResponseBuilder::new()
-        .mimetype("text/html")
+      Response::builder()
+        .header(CONTENT_TYPE, "text/html")
         .body(index_html.into())
+        .map_err(Into::into)
     })
-    .with_url("wry.bench://")?
+    .with_url("wrybench://localhost")?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

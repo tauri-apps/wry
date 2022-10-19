@@ -38,10 +38,8 @@ use windows::{
 
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 
-use crate::{
-  application::{platform::windows::WindowExtWindows, window::Window},
-  http::RequestBuilder as HttpRequestBuilder,
-};
+use crate::application::{platform::windows::WindowExtWindows, window::Window};
+use http::Request;
 
 impl From<webview2_com::Error> for Error {
   fn from(err: webview2_com::Error) -> Self {
@@ -49,8 +47,8 @@ impl From<webview2_com::Error> for Error {
   }
 }
 
-pub struct InnerWebView {
-  pub(crate) controller: ICoreWebView2Controller,
+pub(crate) struct InnerWebView {
+  pub controller: ICoreWebView2Controller,
   webview: ICoreWebView2,
   // Store FileDropController in here to make sure it gets dropped when
   // the webview gets dropped, otherwise we'll have a memory leak
@@ -62,6 +60,7 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     mut attributes: WebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let hwnd = HWND(window.hwnd() as _);
@@ -69,7 +68,7 @@ impl InnerWebView {
     let file_drop_handler = attributes.file_drop_handler.take();
     let file_drop_window = window.clone();
 
-    let env = Self::create_environment(&web_context)?;
+    let env = Self::create_environment(&web_context, pl_attrs)?;
     let controller = Self::create_controller(hwnd, &env)?;
     let webview = Self::init_webview(window, hwnd, attributes, &env, &controller)?;
 
@@ -88,6 +87,7 @@ impl InnerWebView {
 
   fn create_environment(
     web_context: &Option<&mut WebContext>,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
   ) -> webview2_com::Result<ICoreWebView2Environment> {
     let (tx, rx) = mpsc::channel();
 
@@ -118,9 +118,13 @@ impl InnerWebView {
           options
         };
 
-        // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
         let _ = options.SetAdditionalBrowserArguments(PCWSTR::from_raw(
-          encode_wide("--disable-features=msWebOOUI,msPdfOOUI").as_ptr(),
+          encode_wide(pl_attrs.additionl_browser_args.unwrap_or_else(|| {
+            // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
+            // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
+            "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection".to_string()
+          }))
+          .as_ptr(),
         ));
 
         if let Some(data_directory) = data_directory {
@@ -192,13 +196,13 @@ impl InnerWebView {
     // background color
     if !attributes.transparent {
       if let Some(background_color) = attributes.background_color {
-        set_background_color(&controller, background_color)?;
+        set_background_color(controller, background_color)?;
       }
     }
 
     // Transparent
     if attributes.transparent && !is_windows_7() {
-      set_background_color(&controller, (0, 0, 0, 0))?;
+      set_background_color(controller, (0, 0, 0, 0))?;
     }
 
     // The EventRegistrationToken is an out-param from all of the event registration calls. We're
@@ -468,7 +472,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             &WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
               if let Some(args) = args {
                 let webview_request = args.Request()?;
-                let mut request = HttpRequestBuilder::new();
+                let mut request = Request::builder();
 
                 // request method (GET, POST, PUT etc..)
                 let mut request_method = PWSTR::null();
@@ -531,11 +535,15 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                     &format!("https://{}.", custom_protocol.0),
                     &format!("{}://", custom_protocol.0),
                   );
-                  let final_request = request
+
+                  let final_request = match request
                     .uri(&path)
                     .method(request_method.as_str())
                     .body(body_sent)
-                    .unwrap();
+                  {
+                    Ok(req) => req,
+                    Err(_) => return Err(E_FAIL.into()),
+                  };
 
                   return match (custom_protocol.1)(&final_request) {
                     Ok(sent_response) => {
@@ -543,11 +551,6 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                       let status_code = sent_response.status().as_u16() as i32;
 
                       let mut headers_map = String::new();
-
-                      // set mime type if provided
-                      if let Some(mime) = sent_response.mimetype() {
-                        let _ = writeln!(headers_map, "Content-Type: {}", mime);
-                      }
 
                       // build headers
                       for (name, value) in sent_response.headers().iter() {
@@ -687,11 +690,24 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             right: client_rect.right - client_rect.left,
             bottom: client_rect.bottom - client_rect.top,
           });
+
+          if wparam == WPARAM(win32wm::SIZE_MINIMIZED as _) {
+            let _ = (*controller).SetIsVisible(false);
+          }
+
+          if wparam == WPARAM(win32wm::SIZE_RESTORED as _) {
+            let _ = (*controller).SetIsVisible(true);
+          }
         }
 
-        win32wm::WM_SETFOCUS => {
+        win32wm::WM_SETFOCUS | win32wm::WM_ENTERSIZEMOVE => {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
           let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+        }
+
+        win32wm::WM_WINDOWPOSCHANGED => {
+          let controller = dwrefdata as *mut ICoreWebView2Controller;
+          let _ = (*controller).NotifyParentWindowPositionChanged();
         }
 
         win32wm::WM_DESTROY => {
@@ -787,7 +803,7 @@ pub fn set_background_color(
   background_color: RGBA,
 ) -> webview2_com::Result<()> {
   let mut color = background_color;
-  if !is_windows_7() || color.3 != 0 {
+  if is_windows_7() || color.3 != 0 {
     color.3 = 255;
   }
 

@@ -52,15 +52,20 @@ use crate::{
   Result,
 };
 
-use crate::http::{
-  Request as HttpRequest, RequestBuilder as HttpRequestBuilder, Response as HttpResponse,
+use http::{
+  header::{CONTENT_LENGTH, CONTENT_TYPE},
+  status::StatusCode,
+  version::Version,
+  Request, Response,
 };
 
-pub struct InnerWebView {
-  pub(crate) webview: id,
+const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
+
+pub(crate) struct InnerWebView {
+  pub webview: id,
   #[cfg(target_os = "macos")]
-  pub(crate) ns_window: id,
-  pub(crate) manager: id,
+  pub ns_window: id,
+  pub manager: id,
   // Note that if following functions signatures are changed in the future,
   // all functions pointer declarations in objc callbacks below all need to get updated.
   ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
@@ -68,13 +73,14 @@ pub struct InnerWebView {
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
   download_delegate: *mut Object,
-  protocol_ptrs: Vec<*mut Box<dyn Fn(&HttpRequest) -> Result<HttpResponse>>>,
+  protocol_ptrs: Vec<*mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>>>>,
 }
 
 impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     attributes: WebViewAttributes,
+    _pl_attrs: super::PlatformSpecificWebViewAttributes,
     mut web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     // Function for ipc handler
@@ -101,8 +107,8 @@ impl InnerWebView {
       unsafe {
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
-          let function =
-            &mut *(*function as *mut Box<dyn for<'s> Fn(&'s HttpRequest) -> Result<HttpResponse>>);
+          let function = &mut *(*function
+            as *mut Box<dyn for<'s> Fn(&'s Request<Vec<u8>>) -> Result<Response<Vec<u8>>>>);
 
           // Get url request
           let request: id = msg_send![task, request];
@@ -120,7 +126,7 @@ impl InnerWebView {
           };
 
           // Prepare our HttpRequest
-          let mut http_request = HttpRequestBuilder::new()
+          let mut http_request = Request::builder()
             .uri(nsstring.to_str())
             .method(method.to_str());
 
@@ -158,46 +164,55 @@ impl InnerWebView {
             http_request = http_request.header(header_field.to_str(), header_value.to_str());
           }
 
+          let respond_with_404 = || {
+            let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
+            let response: id = msg_send![urlresponse, initWithURL:url statusCode:StatusCode::NOT_FOUND HTTPVersion:NSString::new(format!("{:#?}", Version::HTTP_11).as_str()) headerFields:null::<c_void>()];
+            let () = msg_send![task, didReceiveResponse: response];
+          };
+
           // send response
-          let final_request = http_request.body(sent_form_body).unwrap();
-          if let Ok(sent_response) = function(&final_request) {
-            let content = sent_response.body();
-            // default: application/octet-stream, but should be provided by the client
-            let wanted_mime = sent_response.mimetype();
-            // default to 200
-            let wanted_status_code = sent_response.status().as_u16() as i32;
-            // default to HTTP/1.1
-            let wanted_version = format!("{:#?}", sent_response.version());
+          match http_request.body(sent_form_body) {
+            Ok(final_request) => {
+              if let Ok(sent_response) = function(&final_request) {
+                let content = sent_response.body();
+                // default: application/octet-stream, but should be provided by the client
+                let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
+                // default to 200
+                let wanted_status_code = sent_response.status().as_u16() as i32;
+                // default to HTTP/1.1
+                let wanted_version = format!("{:#?}", sent_response.version());
 
-            let dictionary: id = msg_send![class!(NSMutableDictionary), alloc];
-            let headers: id = msg_send![dictionary, initWithCapacity:1];
-            if let Some(mime) = wanted_mime {
-              let () = msg_send![headers, setObject:NSString::new(mime) forKey: NSString::new("content-type")];
-            }
-            let () = msg_send![headers, setObject:NSString::new(&content.len().to_string()) forKey: NSString::new("content-length")];
+                let dictionary: id = msg_send![class!(NSMutableDictionary), alloc];
+                let headers: id = msg_send![dictionary, initWithCapacity:1];
+                if let Some(mime) = wanted_mime {
+                  let () = msg_send![headers, setObject:NSString::new(mime.to_str().unwrap()) forKey: NSString::new(CONTENT_TYPE.as_str())];
+                }
+                let () = msg_send![headers, setObject:NSString::new(&content.len().to_string()) forKey: NSString::new(CONTENT_LENGTH.as_str())];
 
-            // add headers
-            for (name, value) in sent_response.headers().iter() {
-              let header_key = name.to_string();
-              if let Ok(value) = value.to_str() {
-                let () = msg_send![headers, setObject:NSString::new(value) forKey: NSString::new(&header_key)];
+                // add headers
+                for (name, value) in sent_response.headers().iter() {
+                  let header_key = name.as_str();
+                  if let Ok(value) = value.to_str() {
+                    let () = msg_send![headers, setObject:NSString::new(value) forKey: NSString::new(&header_key)];
+                  }
+                }
+
+                let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
+                let response: id = msg_send![urlresponse, initWithURL:url statusCode: wanted_status_code HTTPVersion:NSString::new(&wanted_version) headerFields:headers];
+                let () = msg_send![task, didReceiveResponse: response];
+
+                // Send data
+                let bytes = content.as_ptr() as *mut c_void;
+                let data: id = msg_send![class!(NSData), alloc];
+                let data: id = msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: if content.len() == 0 { NO } else { YES }];
+                let () = msg_send![task, didReceiveData: data];
+              } else {
+                respond_with_404()
               }
             }
+            Err(_) => respond_with_404(),
+          };
 
-            let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
-            let response: id = msg_send![urlresponse, initWithURL:url statusCode: wanted_status_code HTTPVersion:NSString::new(&wanted_version) headerFields:headers];
-            let () = msg_send![task, didReceiveResponse: response];
-
-            // Send data
-            let bytes = content.as_ptr() as *mut c_void;
-            let data: id = msg_send![class!(NSData), alloc];
-            let data: id = msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: if content.len() == 0 { NO } else { YES }];
-            let () = msg_send![task, didReceiveData: data];
-          } else {
-            let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
-            let response: id = msg_send![urlresponse, initWithURL:url statusCode:404 HTTPVersion:NSString::new("HTTP/1.1") headerFields:null::<c_void>()];
-            let () = msg_send![task, didReceiveResponse: response];
-          }
           // Finish
           let () = msg_send![task, didFinish];
         } else {
@@ -250,8 +265,19 @@ impl InnerWebView {
         #[allow(unused_mut)]
         Some(mut decl) => {
           #[cfg(target_os = "macos")]
-          add_file_drop_methods(&mut decl);
-          // add_download_methods(&mut decl);
+          {
+            add_file_drop_methods(&mut decl);
+            if attributes.accept_first_mouse {
+              decl.add_method(
+                sel!(acceptsFirstMouse:),
+                yes as extern "C" fn(&Object, Sel, id) -> BOOL,
+              );
+            }
+
+            extern "C" fn yes(_this: &Object, _sel: Sel, _event: id) -> BOOL {
+              YES
+            }
+          }
           decl.register()
         }
         _ => class!(WryWebView),
@@ -322,7 +348,7 @@ impl InnerWebView {
         let ipc_handler_ptr = Box::into_raw(Box::new((ipc_handler, window.clone())));
 
         (*handler).set_ivar("function", ipc_handler_ptr as *mut _ as *mut c_void);
-        let ipc = NSString::new("ipc");
+        let ipc = NSString::new(IPC_MESSAGE_HANDLER_NAME);
         let _: () = msg_send![manager, addScriptMessageHandler:handler name:ipc];
         ipc_handler_ptr
       } else {
@@ -598,12 +624,35 @@ impl InnerWebView {
         }
       }
 
+      extern "C" fn request_media_capture_permission(
+        _this: &Object,
+        _: Sel,
+        _webview: id,
+        _origin: id,
+        _frame: id,
+        _type: id,
+        decision_handler: id,
+      ) {
+        unsafe {
+          let decision_handler = decision_handler as *mut block::Block<(NSInteger,), c_void>;
+          //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
+          (*decision_handler).call((1,));
+        }
+      }
+
       let ui_delegate = match ClassDecl::new("WebViewUIDelegate", class!(NSObject)) {
         Some(mut ctl) => {
           ctl.add_method(
             sel!(webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:),
             run_file_upload_panel as extern "C" fn(&Object, Sel, id, id, id, id),
           );
+
+          // Disable media dialogs
+          ctl.add_method(
+            sel!(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:),
+            request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, id, id),
+          );
+
           ctl.register()
         }
         None => class!(WebViewUIDelegate),
@@ -858,6 +907,9 @@ impl Drop for InnerWebView {
     unsafe {
       if !self.ipc_handler_ptr.is_null() {
         let _ = Box::from_raw(self.ipc_handler_ptr);
+
+        let ipc = NSString::new(IPC_MESSAGE_HANDLER_NAME);
+        let _: () = msg_send![self.manager, removeScriptMessageHandlerForName: ipc];
       }
 
       if !self.navigation_decide_policy_ptr.is_null() {
