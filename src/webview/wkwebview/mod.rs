@@ -19,7 +19,6 @@ use cocoa::{
 use std::{
   ffi::{c_void, CStr},
   os::raw::c_char,
-  path::PathBuf,
   ptr::{null, null_mut},
   rc::Rc,
   slice, str,
@@ -46,7 +45,10 @@ use crate::{
     window::Window,
   },
   webview::{
-    wkwebview::download::{add_download_methods, set_download_delegate},
+    wkwebview::download::{
+      add_download_methods, download_did_fail, download_did_finish, download_policy,
+      set_download_delegate,
+    },
     FileDropEvent, WebContext, WebViewAttributes, RGBA,
   },
   Result,
@@ -72,7 +74,7 @@ pub(crate) struct InnerWebView {
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
-  download_delegate: *mut Object,
+  download_delegate: id,
   protocol_ptrs: Vec<*mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>>>>,
 }
 
@@ -472,9 +474,9 @@ impl InnerWebView {
           "HasDownloadHandler",
           has_download_handler as *mut _ as *mut c_void,
         );
-
         let _: () = msg_send![webview, setNavigationDelegate: handler];
 
+        // Download handler
         let download_delegate = if attributes.download_started_handler.is_some()
           || attributes.download_completed_handler.is_some()
         {
@@ -521,80 +523,6 @@ impl InnerWebView {
       } else {
         (null_mut(), null_mut())
       };
-
-      // Download handler
-      extern "C" fn download_policy(
-        this: &Object,
-        _: Sel,
-        download: id,
-        _: id,
-        suggested_path: id,
-        handler: id,
-      ) {
-        unsafe {
-          let request: id = msg_send![download, originalRequest];
-          let url: id = msg_send![request, URL];
-          let url: id = msg_send![url, absoluteString];
-          let url = NSString(url);
-          let path = NSString(suggested_path);
-          let mut path = PathBuf::from(path.to_str());
-          let handler = handler as *mut block::Block<(id,), c_void>;
-
-          let function = this.get_ivar::<*mut c_void>("started");
-          if !function.is_null() {
-            let function =
-              &mut *(*function as *mut Box<dyn for<'s> FnMut(String, &mut PathBuf) -> bool>);
-            match (function)(url.to_str().to_string(), &mut path) {
-              true => {
-                // let nsstring: id = msg_send![class!(NSString), alloc];
-                // let nsstring = msg_send![nsstring, initWithBytes:path.as_ptr() length:path.len() encoding:UTF8_ENCODING];
-                let nsurl: id = msg_send![class!(NSURL), fileURLWithPath: NSString::new(&path.display().to_string()) isDirectory: false];
-                (*handler).call((nsurl,))
-              }
-              false => (*handler).call((null_mut(),)),
-            };
-          } else {
-            log::warn!("WebView instance is dropped! This navigation handler shouldn't be called.");
-            (*handler).call((null_mut(),));
-          }
-        }
-      }
-
-      extern "C" fn download_did_finish(this: &Object, _: Sel, download: id) {
-        unsafe {
-          let function = this.get_ivar::<*mut c_void>("completed");
-          let original_request: id = msg_send![download, originalRequest];
-          let url: id = msg_send![original_request, URL];
-          let url: id = msg_send![url, absoluteString];
-          let url = NSString(url).to_str().to_string();
-          if !function.is_null() {
-            let function =
-              &mut *(*function as *mut Rc<dyn for<'s> Fn(String, Option<PathBuf>, bool)>);
-            function(url, None, true);
-          }
-        }
-      }
-
-      extern "C" fn download_did_fail(this: &Object, _: Sel, download: id, error: id, _: id) {
-        unsafe {
-          let description: id = msg_send![error, localizedDescription];
-          let description = NSString(description).to_str().to_string();
-          let original_request: id = msg_send![download, originalRequest];
-          let url: id = msg_send![original_request, URL];
-          let url: id = msg_send![url, absoluteString];
-          let url = NSString(url).to_str().to_string();
-
-          #[cfg(debug_assertions)]
-          eprintln!("Download failed with error: {}", description);
-
-          let function = this.get_ivar::<*mut c_void>("completed");
-          if !function.is_null() {
-            let function =
-              &mut *(*function as *mut Rc<dyn for<'s> Fn(String, Option<PathBuf>, bool)>);
-            function(url, None, false);
-          }
-        }
-      }
 
       // File upload panel handler
       extern "C" fn run_file_upload_panel(
