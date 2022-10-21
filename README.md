@@ -117,7 +117,7 @@ RUSTFLAGS="-l framework=WebKit" cargo build --target=x86_64-apple-darwin --relea
 
 ### Windows
 
-WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7, 8, and 10.
+WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7, 8, 10 and 11.
 
 ### Android / iOS
 
