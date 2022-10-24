@@ -10,6 +10,7 @@ use crate::{
 };
 
 use file_drop::FileDropController;
+use url::Url;
 
 use std::{
   collections::HashSet, fmt::Write, iter::once, mem::MaybeUninit, os::windows::prelude::OsStrExt,

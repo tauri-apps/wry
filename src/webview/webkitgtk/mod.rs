@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use gdk::{Cursor, EventMask, WindowEdge};
+use gio::Cancellable;
+use glib::signal::Inhibit;
+use gtk::prelude::*;
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::{
   atomic::{AtomicBool, Ordering},
@@ -12,11 +16,7 @@ use std::{
   hash::{Hash, Hasher},
   rc::Rc,
 };
-
-use gdk::{Cursor, EventMask, WindowEdge};
-use gio::Cancellable;
-use glib::signal::Inhibit;
-use gtk::prelude::*;
+use url::Url;
 use webkit2gtk::{
   traits::*, NavigationPolicyDecision, PolicyDecisionType, UserContentInjectedFrames, UserScript,
   UserScriptInjectionTime, WebView, WebViewBuilder,
