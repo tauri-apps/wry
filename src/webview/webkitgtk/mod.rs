@@ -363,7 +363,7 @@ impl InnerWebView {
   }
 
   pub fn url(&self) -> Url {
-    let uri = webview.inner().uri().unwrap();
+    let uri = self.webview.uri().unwrap();
 
     Url::parse(uri.as_str()).unwrap()
   }
