@@ -362,6 +362,12 @@ impl InnerWebView {
     let _ = self.eval("window.print()");
   }
 
+  pub fn url(&self) -> Url {
+    let uri = webview.inner().uri().unwrap();
+    
+    Url::parse(uri.as_str()).unwrap()
+  }
+
   pub fn eval(&self, js: &str) -> Result<()> {
     let cancellable: Option<&Cancellable> = None;
     self.webview.run_javascript(js, cancellable, |_| ());

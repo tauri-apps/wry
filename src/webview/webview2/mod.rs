@@ -767,6 +767,17 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     let _ = self.eval("window.print()");
   }
 
+  pub fn url(&self) -> Url {
+    let mut pwstr = PWSTR::null();
+
+    let webview = unsafe { webview.controller().CoreWebView2().unwrap() };
+    unsafe { webview.Source(&mut pwstr).unwrap() };
+
+    let uri = take_pwstr(pwstr);
+
+    Url::parse(&uri.to_string()).unwrap()
+  }
+
   pub fn eval(&self, js: &str) -> Result<()> {
     Self::execute_script(&self.webview, js.to_string())
       .map_err(|err| Error::WebView2Error(webview2_com::Error::WindowsError(err)))

@@ -636,6 +636,10 @@ impl WebView {
     &self.window
   }
 
+  pub fn url(&self) -> Url {
+    self.webview.url()
+  }
+
   /// Evaluate and run javascript code. Must be called on the same thread who created the
   /// [`WebView`]. Use [`EventLoopProxy`] and a custom event to send scripts from other threads.
   ///
