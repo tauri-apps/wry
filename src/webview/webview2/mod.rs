@@ -511,8 +511,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                         body_sent.as_ref(),
                         status_code.as_u16() as i32,
                         PCWSTR::from_raw(
-                          encode_wide(status_code.canonical_reason().unwrap_or("OK"))
-                            .as_ptr(),
+                          encode_wide(status_code.canonical_reason().unwrap_or("OK")).as_ptr(),
                         ),
                         PCWSTR::from_raw(encode_wide(headers_map).as_ptr()),
                       )?;
