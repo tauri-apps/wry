@@ -6,6 +6,7 @@
 mod file_drop;
 mod web_context;
 
+use url::Url;
 pub use web_context::WebContextImpl;
 
 #[cfg(target_os = "macos")]
@@ -534,6 +535,22 @@ r#"Object.defineProperty(window, 'ipc', {
 
       Ok(w)
     }
+  }
+
+  pub fn url(&self) -> Url {
+    let url_obj: *mut Object = unsafe { msg_send![self.webview, URL] };
+    let absolute_url: *mut Object = unsafe { msg_send![url_obj, absoluteString] };
+
+    let bytes = {
+      let bytes: *const c_char = unsafe { msg_send![absolute_url, UTF8String] };
+      bytes as *const u8
+    };
+
+    // 4 represents utf8 encoding
+    let len = unsafe { msg_send![absolute_url, lengthOfBytesUsingEncoding: 4] };
+    let bytes = unsafe { std::slice::from_raw_parts(bytes, len) };
+
+    Url::parse(std::str::from_utf8(bytes).unwrap()).unwrap()
   }
 
   pub fn eval(&self, js: &str) -> Result<()> {

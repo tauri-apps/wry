@@ -10,6 +10,7 @@ use crate::{
 };
 
 use file_drop::FileDropController;
+use url::Url;
 
 use std::{
   collections::HashSet, fmt::Write, iter::once, mem::MaybeUninit, os::windows::prelude::OsStrExt,
@@ -676,6 +677,16 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
   pub fn print(&self) {
     let _ = self.eval("window.print()");
+  }
+
+  pub fn url(&self) -> Url {
+    let mut pwstr = PWSTR::null();
+
+    unsafe { self.webview.Source(&mut pwstr).unwrap() };
+
+    let uri = take_pwstr(pwstr);
+
+    Url::parse(&uri.to_string()).unwrap()
   }
 
   pub fn eval(&self, js: &str) -> Result<()> {
