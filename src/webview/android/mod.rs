@@ -10,6 +10,7 @@ use http::{
   header::{HeaderValue, CONTENT_SECURITY_POLICY, CONTENT_TYPE},
   Request, Response,
 };
+use url::Url;
 use kuchiki::NodeRef;
 use once_cell::sync::OnceCell;
 use sha2::{Digest, Sha256};
@@ -227,6 +228,10 @@ impl InnerWebView {
   }
 
   pub fn print(&self) {}
+
+  pub fn url(&self) -> Url {
+    todo!();
+  }
 
   pub fn eval(&self, js: &str) -> Result<()> {
     MainPipe::send(WebViewMessage::Eval(js.into()));
