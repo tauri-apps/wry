@@ -57,7 +57,7 @@ gtk = "0.15"
 gdk = "0.15"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.19.1"
+webview2-com = "0.20.0"
 windows-implement = "0.39.0"
 
   [target."cfg(target_os = \"windows\")".dependencies.windows]

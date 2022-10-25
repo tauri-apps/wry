@@ -10,7 +10,6 @@ use crate::webview::FileDropEvent;
 // https://docs.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2experimentalcompositioncontroller3?view=webview2-1.0.721-prerelease&preserve-view=true
 
 use std::{
-  cell::UnsafeCell,
   ffi::OsString,
   os::{raw::c_void, windows::ffi::OsStringExt},
   path::PathBuf,
@@ -18,19 +17,24 @@ use std::{
   rc::Rc,
 };
 
-use windows::Win32::{
-  Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINTL},
-  System::{
-    Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL},
-    Ole::{
-      IDropTarget, IDropTarget_Impl, RegisterDragDrop, RevokeDragDrop, DROPEFFECT_COPY,
-      DROPEFFECT_NONE,
+use tao::platform::windows::WindowExtWindows;
+use webview2_com::Microsoft::Web::WebView2::Win32::{
+  ICoreWebView2CompositionController3, ICoreWebView2Controller,
+};
+use windows::{
+  core::Interface,
+  Win32::{
+    Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINT, POINTL},
+    Graphics::Gdi::ScreenToClient,
+    System::{
+      Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL},
+      Ole::{IDropTarget, IDropTarget_Impl, RegisterDragDrop, RevokeDragDrop},
+      SystemServices::CF_HDROP,
     },
-    SystemServices::CF_HDROP,
-  },
-  UI::{
-    Shell::{DragFinish, DragQueryFileW, HDROP},
-    WindowsAndMessaging::EnumChildWindows,
+    UI::{
+      Shell::{DragQueryFileW, HDROP},
+      WindowsAndMessaging::EnumChildWindows,
+    },
   },
 };
 
@@ -53,13 +57,14 @@ impl FileDropController {
     &mut self,
     hwnd: HWND,
     window: Rc<Window>,
+    controller: ICoreWebView2Controller,
     handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>,
   ) {
     let listener = Rc::new(handler);
 
     // Enumerate child windows to find the WebView2 "window" and override!
     enumerate_child_windows(hwnd, |hwnd| {
-      self.inject(hwnd, window.clone(), listener.clone())
+      self.inject(hwnd, window.clone(), controller.clone(), listener.clone())
     });
   }
 
@@ -67,11 +72,13 @@ impl FileDropController {
     &mut self,
     hwnd: HWND,
     window: Rc<Window>,
+    controller: ICoreWebView2Controller,
     listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
   ) -> bool {
     // Safety: WinAPI calls are unsafe
     unsafe {
-      let file_drop_handler: IDropTarget = FileDropHandler::new(window, listener).into();
+      let file_drop_handler: IDropTarget =
+        FileDropHandler::new(window, controller, listener).into();
 
       if RevokeDragDrop(hwnd) != Err(DRAGDROP_E_INVALIDHWND.into())
         && RegisterDragDrop(hwnd, &file_drop_handler).is_ok()
@@ -106,21 +113,20 @@ unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL
 #[implement(IDropTarget)]
 pub struct FileDropHandler {
   window: Rc<Window>,
+  controller: ICoreWebView2Controller,
   listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
-  cursor_effect: UnsafeCell<u32>,
-  hovered_is_valid: UnsafeCell<bool>, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
 }
 
 impl FileDropHandler {
   pub fn new(
     window: Rc<Window>,
+    controller: ICoreWebView2Controller,
     listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
   ) -> FileDropHandler {
     Self {
       window,
       listener,
-      cursor_effect: DROPEFFECT_NONE.0.into(),
-      hovered_is_valid: false.into(),
+      controller,
     }
   }
 
@@ -187,63 +193,69 @@ impl IDropTarget_Impl for FileDropHandler {
   fn DragEnter(
     &self,
     pDataObj: &Option<IDataObject>,
-    _grfKeyState: u32,
-    _pt: &POINTL,
+    grfKeyState: u32,
+    pt: &POINTL,
     pdwEffect: *mut u32,
   ) -> windows::core::Result<()> {
     let mut paths = Vec::new();
-    unsafe {
-      let hdrop = Self::collect_paths(pDataObj, &mut paths);
-      let hovered_is_valid = hdrop.is_some();
-      let cursor_effect = if hovered_is_valid {
-        DROPEFFECT_COPY
-      } else {
-        DROPEFFECT_NONE
-      };
-      *pdwEffect = cursor_effect.0;
-      *self.hovered_is_valid.get() = hovered_is_valid;
-      *self.cursor_effect.get() = cursor_effect.0;
-    }
+    unsafe { Self::collect_paths(pDataObj, &mut paths) };
 
     (self.listener)(&self.window, FileDropEvent::Hovered(paths));
 
-    Ok(())
+    if let Some(pDataObj) = pDataObj {
+      let c: ICoreWebView2CompositionController3 = self.controller.cast()?;
+      let mut point = POINT { x: pt.x, y: pt.y };
+      unsafe {
+        ScreenToClient(HWND(self.window.hwnd() as _), &mut point);
+        c.DragEnter(pDataObj, grfKeyState, point, pdwEffect)
+      }
+    } else {
+      Ok(())
+    }
   }
 
   fn DragOver(
     &self,
-    _grfKeyState: u32,
-    _pt: &POINTL,
+    grfKeyState: u32,
+    pt: &POINTL,
     pdwEffect: *mut u32,
   ) -> windows::core::Result<()> {
-    unsafe { *pdwEffect = *self.cursor_effect.get() };
-    Ok(())
+    let c: ICoreWebView2CompositionController3 = self.controller.cast()?;
+    let mut point = POINT { x: pt.x, y: pt.y };
+    unsafe {
+      ScreenToClient(HWND(self.window.hwnd() as _), &mut point);
+      c.DragOver(grfKeyState, point, pdwEffect)
+    }
   }
 
   fn DragLeave(&self) -> windows::core::Result<()> {
-    if unsafe { *self.hovered_is_valid.get() } {
-      (self.listener)(&self.window, FileDropEvent::Cancelled);
-    }
-    Ok(())
+    (self.listener)(&self.window, FileDropEvent::Cancelled);
+
+    let c: ICoreWebView2CompositionController3 = self.controller.cast()?;
+    unsafe { c.DragLeave() }
   }
 
   fn Drop(
     &self,
     pDataObj: &Option<IDataObject>,
-    _grfKeyState: u32,
-    _pt: &POINTL,
-    _pdwEffect: *mut u32,
+    grfKeyState: u32,
+    pt: &POINTL,
+    pdwEffect: *mut u32,
   ) -> windows::core::Result<()> {
     let mut paths = Vec::new();
-    unsafe {
-      let hdrop = Self::collect_paths(pDataObj, &mut paths);
-      if let Some(hdrop) = hdrop {
-        DragFinish(hdrop);
-      }
-    }
+    unsafe { Self::collect_paths(pDataObj, &mut paths) };
 
     (self.listener)(&self.window, FileDropEvent::Dropped(paths));
 
-    Ok(())
+    if let Some(pDataObj) = pDataObj {
+      let c: ICoreWebView2CompositionController3 = self.controller.cast()?;
+      let mut point = POINT { x: pt.x, y: pt.y };
+      unsafe {
+        ScreenToClient(HWND(self.window.hwnd() as _), &mut point);
+        c.Drop(pDataObj, grfKeyState, point, pdwEffect)
+      }
+    } else {
+      Ok(())
+    }
   }
 }
