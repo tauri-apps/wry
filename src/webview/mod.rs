@@ -636,6 +636,7 @@ impl WebView {
     &self.window
   }
 
+  /// Get the current url of the webview
   pub fn url(&self) -> Url {
     self.webview.url()
   }
