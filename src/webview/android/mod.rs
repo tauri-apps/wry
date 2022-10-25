@@ -9,6 +9,7 @@ use jni::{
   sys::jobject,
   JNIEnv,
 };
+use url::Url;
 
 use once_cell::sync::Lazy;
 
@@ -30,7 +31,15 @@ impl InnerWebView {
 
   pub fn print(&self) {}
 
-  pub fn eval(&self, _js: &str) -> Result<()> {
+  pub fn url(&self) -> Url {
+    let (tx, rx) = bounded(1);
+    MainPipe::send(WebViewMessage::GetUrl(tx));
+    let uri = rx.recv().unwrap();
+    Url::parse(uri.as_str()).unwrap()
+  }
+
+  pub fn eval(&self, js: &str) -> Result<()> {
+    MainPipe::send(WebViewMessage::Eval(js.into()));
     Ok(())
   }
 
