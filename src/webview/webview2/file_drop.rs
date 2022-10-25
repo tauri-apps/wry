@@ -24,11 +24,14 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{
 use windows::{
   core::Interface,
   Win32::{
-    Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINT, POINTL},
+    Foundation::{
+      self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, OLE_E_WRONGCOMPOBJ, POINT,
+      POINTL, RPC_E_CHANGED_MODE,
+    },
     Graphics::Gdi::ScreenToClient,
     System::{
       Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL},
-      Ole::{IDropTarget, IDropTarget_Impl, RegisterDragDrop, RevokeDragDrop},
+      Ole::{IDropTarget, IDropTarget_Impl, OleInitialize, RegisterDragDrop, RevokeDragDrop},
       SystemServices::CF_HDROP,
     },
     UI::{
@@ -60,6 +63,22 @@ impl FileDropController {
     controller: ICoreWebView2Controller,
     handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>,
   ) {
+    unsafe {
+      if let Err(error) = OleInitialize(ptr::null_mut()) {
+        match error.code() {
+          OLE_E_WRONGCOMPOBJ => {
+            panic!("OleInitialize failed! Result was: `OLE_E_WRONGCOMPOBJ`")
+          }
+          RPC_E_CHANGED_MODE => panic!(
+            "OleInitialize failed! Result was: `RPC_E_CHANGED_MODE`. \
+          Make sure other crates are not using multithreaded COM library \
+          on the same thread or disable drag and drop support."
+          ),
+          _ => (),
+        };
+      }
+    }
+
     let listener = Rc::new(handler);
 
     // Enumerate child windows to find the WebView2 "window" and override!
