@@ -161,6 +161,18 @@ impl MainPipe<'_> {
             Err(e) => tx.send(Err(e.into())).unwrap(),
           }
         }
+        WebViewMessage::GetUrl(tx) => {
+          if let Some(webview) = &self.webview {
+            let url = env
+              .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String", &[])
+              .and_then(|v| v.l())
+              .and_then(|s| env.get_string(s.into()))
+              .map(|u| u.to_string_lossy().into())
+              .unwrap_or_default();
+
+            tx.send(url).unwrap()
+          }
+        }
         WebViewMessage::Jni(f) => {
           if let Some(webview) = &self.webview {
             f(env, activity, webview.as_obj());
@@ -198,6 +210,7 @@ pub enum WebViewMessage {
   Eval(String),
   SetBackgroundColor(RGBA),
   GetWebViewVersion(Sender<Result<String, Error>>),
+  GetUrl(Sender<String>),
   Jni(Box<dyn FnOnce(JNIEnv, JObject, JObject) + Send>),
 }
 
