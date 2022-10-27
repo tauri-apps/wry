@@ -2,12 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{cell::RefCell, path::PathBuf, rc::Rc};
-
-use normpath::PathExt;
-use tempfile::tempdir;
-
 fn main() -> wry::Result<()> {
+  use std::{env::temp_dir, path::PathBuf};
   use wry::{
     application::{
       event::{Event, StartCause, WindowEvent},
@@ -17,7 +13,7 @@ fn main() -> wry::Result<()> {
     webview::WebViewBuilder,
   };
 
-  let html = r#"
+  const HTML: &str = r#"
     <body>
       <div>
         <p> WRYYYYYYYYYYYYYYYYYYYYYY! </p>
@@ -33,37 +29,29 @@ fn main() -> wry::Result<()> {
     Rejected(String),
   }
 
-  let temp_dir = Rc::new(RefCell::new(None));
   let event_loop: EventLoop<UserEvent> = EventLoop::with_user_event();
   let proxy = event_loop.create_proxy();
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)?;
-  let webview = WebViewBuilder::new(window)?
-    .with_html(html)?
+  let _webview = WebViewBuilder::new(window)?
+    .with_html(HTML)?
     .with_download_started_handler({
       let proxy = proxy.clone();
-      let tempdir_cell = temp_dir.clone();
       move |uri: String, default_path: &mut PathBuf| {
         if uri.contains("wry-v0.13.3") {
-          if let Ok(tempdir) = tempdir() {
-            if let Ok(path) = tempdir.path().normalize() {
-              tempdir_cell.borrow_mut().replace(tempdir);
+          let path = temp_dir().join("example.zip").as_path().to_path_buf();
 
-              let path = path.join("example.zip").as_path().to_path_buf();
+          *default_path = path.clone();
 
-              *default_path = path.clone();
+          let submitted = proxy
+            .send_event(UserEvent::DownloadStarted(
+              uri.clone(),
+              path.display().to_string(),
+            ))
+            .is_ok();
 
-              let submitted = proxy
-                .send_event(UserEvent::DownloadStarted(
-                  uri.clone(),
-                  path.display().to_string(),
-                ))
-                .is_ok();
-
-              return submitted;
-            }
-          }
+          return submitted;
         }
 
         let _ = proxy.send_event(UserEvent::Rejected(uri.clone()));
@@ -77,11 +65,7 @@ fn main() -> wry::Result<()> {
         let _ = proxy.send_event(UserEvent::DownloadComplete(path, success));
       }
     })
-    .with_devtools(true)
     .build()?;
-
-  #[cfg(debug_assertions)]
-  webview.open_devtools();
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
@@ -96,29 +80,13 @@ fn main() -> wry::Result<()> {
         println!("Download: {}", uri);
         println!("Will write to: {:?}", temp_dir);
       }
-      Event::UserEvent(UserEvent::DownloadComplete(mut path, success)) => {
-        let _temp_dir_guard = if path.is_none() && success {
-          let temp_dir = temp_dir.borrow_mut().take();
-          path = Some(
-            temp_dir
-              .as_ref()
-              .expect("Stored temp dir")
-              .path()
-              .join("example.zip"),
-          );
-          temp_dir
-        } else {
-          None
-        };
+      Event::UserEvent(UserEvent::DownloadComplete(path, success)) => {
+        let path = path.map(|_| temp_dir().join("example.zip"));
         println!("Succeeded: {}", success);
         if let Some(path) = path {
-          let metadata = path.metadata();
           println!("Path: {}", path.to_string_lossy());
-          if let Ok(metadata) = metadata {
-            println!("Size of {}Mb", (metadata.len() / 1024) / 1024)
-          } else {
-            println!("Failed to retrieve file metadata - does it exist?")
-          }
+          let metadata = path.metadata().unwrap();
+          println!("Size of {}Mb", (metadata.len() / 1024) / 1024)
         } else {
           println!("No output path")
         }

@@ -5,7 +5,7 @@
 fn main() -> wry::Result<()> {
   use wry::{
     application::{
-      event::{Event, WindowEvent},
+      event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
     },
@@ -25,8 +25,8 @@ fn main() -> wry::Result<()> {
     // The second is on webview...
     .with_transparent(true)
     // And the last is in html.
-    .with_url(
-      r#"data:text/html,
+    .with_html(
+      r#"
             <!doctype html>
             <html>
               <body style="background-color:rgba(87,87,87,0.5);">hello</body>
@@ -43,6 +43,7 @@ fn main() -> wry::Result<()> {
     *control_flow = ControlFlow::Wait;
 
     match event {
+      Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         ..

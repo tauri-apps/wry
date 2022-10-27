@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::path::PathBuf;
-
 fn main() -> wry::Result<()> {
-  use std::fs::{canonicalize, read};
+  use std::{
+    fs::{canonicalize, read},
+    path::PathBuf,
+  };
 
   use wry::{
     application::{
@@ -19,11 +20,11 @@ fn main() -> wry::Result<()> {
 
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new()
-    .with_title("Hello World")
+    .with_title("Custom Protocol")
     .build(&event_loop)
     .unwrap();
 
-  let webview = WebViewBuilder::new(window)
+  let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_custom_protocol("wry".into(), move |request| {
       let path = &request.uri().path();
@@ -57,7 +58,6 @@ fn main() -> wry::Result<()> {
     })
     // tell the webview to load the custom protocol
     .with_url("wry://localhost")?
-    .with_devtools(true)
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {
@@ -65,12 +65,6 @@ fn main() -> wry::Result<()> {
 
     match event {
       Event::NewEvents(StartCause::Init) => println!("Wry application started!"),
-      Event::WindowEvent {
-        event: WindowEvent::Moved { .. },
-        ..
-      } => {
-        let _ = webview.evaluate_script("console.log('hello');");
-      }
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         ..

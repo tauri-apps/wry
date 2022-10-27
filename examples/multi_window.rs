@@ -6,7 +6,7 @@ fn main() -> wry::Result<()> {
   use std::collections::HashMap;
   use wry::{
     application::{
-      event::{Event, WindowEvent},
+      event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget},
       window::{Window, WindowBuilder, WindowId},
     },
@@ -73,6 +73,7 @@ fn main() -> wry::Result<()> {
     *control_flow = ControlFlow::Wait;
 
     match event {
+      Event::NewEvents(StartCause::Init) => println!("Wry application started!"),
       Event::WindowEvent {
         event, window_id, ..
       } => match event {

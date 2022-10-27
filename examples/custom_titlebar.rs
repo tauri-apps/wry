@@ -1,5 +1,3 @@
-use tao::window::WindowId;
-
 // Copyright 2020-2022 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
@@ -7,7 +5,7 @@ use tao::window::WindowId;
 fn main() -> wry::Result<()> {
   use wry::{
     application::{
-      event::{Event, WindowEvent},
+      event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::{Window, WindowBuilder},
     },
@@ -15,97 +13,106 @@ fn main() -> wry::Result<()> {
   };
 
   enum UserEvents {
-    CloseWindow(WindowId),
+    CloseWindow,
   }
 
   let event_loop = EventLoop::<UserEvents>::with_user_event();
-  let mut webviews = std::collections::HashMap::new();
   let window = WindowBuilder::new()
     .with_decorations(false)
     .build(&event_loop)
     .unwrap();
 
-  let url = r#"data:text/html,
-        <body>
-          <div class='titlebar'>
-            <div class="drag-region left">Awesome WRY Window</div>
-            <div class="right">
-              <div class="titlebar-button" id="minimize">
-                <img src="https://api.iconify.design/codicon:chrome-minimize.svg" />
-              </div>
-              <div class="titlebar-button" id="maximize">
-                <img src="https://api.iconify.design/codicon:chrome-maximize.svg" />
-              </div>
-              <div class="titlebar-button" id="close">
-                <img src="https://api.iconify.design/codicon:close.svg" />
-              </div>
-            </div>
-          </div>
+  const HTML: &str = r#"
+  <html>
+
+  <head>
+      <style>
+          html {
+            font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+          }
+
+          * {
+              padding: 0;
+              margin: 0;
+              box-sizing: border-box;
+          }
+
+          main {
+            display: grid;
+            place-items: center;
+            height: calc(100vh - 30px);
+          }
+
+          .titlebar {
+              height: 30px;
+              padding-left: 5px;
+              display: grid;
+              grid-auto-flow: column;
+              grid-template-columns: 1fr max-content max-content max-content;
+              align-items: center;
+              background: #1F1F1F;
+              color: white;
+              user-select: none;
+          }
+
+          .titlebar-button {
+              display: inline-flex;
+              justify-content: center;
+              align-items: center;
+              width: 30px;
+              height: 30px;
+          }
+
+          .titlebar-button:hover {
+              background: #3b3b3b;
+          }
+
+          .titlebar-button#close:hover {
+              background: #da3d3d;
+          }
+
+          .titlebar-button img {
+              filter: invert(100%);
+          }
+      </style>
+  </head>
+
+  <body>
+      <div class="titlebar">
+          <div class="drag-region">Custom Titlebar</div>
           <div>
-            <p> WRYYYYYYYYYYYYYYYYYYYYYY! </p>
-            <button style="cursor: pointer"> Hover me! </button>
+              <div class="titlebar-button" onclick="window.ipc.postMessage('minimize')">
+                  <img src="https://api.iconify.design/codicon:chrome-minimize.svg" />
+              </div>
+              <div class="titlebar-button" onclick="window.ipc.postMessage('maximize')">
+                  <img src="https://api.iconify.design/codicon:chrome-maximize.svg" />
+              </div>
+              <div class="titlebar-button" id="close" onclick="window.ipc.postMessage('close')">
+                  <img src="https://api.iconify.design/codicon:close.svg" />
+              </div>
           </div>
-        </body>
-      "#;
+      </div>
+      <main>
+          <h4> WRYYYYYYYYYYYYYYYYYYYYYY! </h4>
+      </main>
+      <script>
+          document.addEventListener('mousedown', (e) => {
+              if (e.target.classList.contains('drag-region') && e.buttons === 1) {
+                  e.detail === 2
+                      ? window.ipc.postMessage('maximize')
+                      : window.ipc.postMessage('drag_window');
+              }
+          })
+          document.addEventListener('touchstart', (e) => {
+              if (e.target.classList.contains('drag-region')) {
+                  window.ipc.postMessage('drag_window');
+              }
+          })
+      </script>
+  </body>
 
-  let script = r#"
-  (function () {
-    window.addEventListener('DOMContentLoaded', (event) => {
-      document.getElementById('minimize').addEventListener('click', () => ipc.postMessage('minimize'));
-      document.getElementById('maximize').addEventListener('click', () => ipc.postMessage('maximize'));
-      document.getElementById('close').addEventListener('click', () => ipc.postMessage('close'));
-
-      document.addEventListener('mousedown', (e) => {
-        if (e.target.classList.contains('drag-region') && e.buttons === 1) {
-          e.detail === 2
-            ? window.ipc.postMessage('maximize')
-            : window.ipc.postMessage('drag_window');
-        }
-      })
-      document.addEventListener('touchstart', (e) => {
-        if (e.target.classList.contains('drag-region')) {
-          window.ipc.postMessage('drag_window');
-        }
-      })
-
-      const style = document.createElement('style');
-      style.textContent = `
-        * {
-          padding: 0;
-          margin: 0;
-          box-sizing: border-box;
-        }
-        .titlebar {
-          height: 30px;
-          display: grid;
-          grid-auto-flow: column;
-          grid-template-columns: 1fr max-content max-content max-content;
-          align-items: center;
-          background: #1F1F1F;
-          color: white;
-          user-select: none;
-        }
-        .titlebar-button {
-          display: inline-flex;
-          justify-content: center;
-          align-items: center;
-          width: 30px;
-          height: 30px;
-        }
-        .titlebar-button:hover {
-          background: #3b3b3b;
-        }
-        .titlebar-button:nth-child(3):hover {
-          background: #da3d3d;
-        }
-        .titlebar-button img {
-          filter: invert(100%);
-        }
-      `;
-      document.head.append(style);
-    });
-  })();
-  "#;
+  </html>
+"#;
 
   let proxy = event_loop.create_proxy();
 
@@ -117,42 +124,34 @@ fn main() -> wry::Result<()> {
       window.set_maximized(!window.is_maximized());
     }
     if req == "close" {
-      let _ = proxy.send_event(UserEvents::CloseWindow(window.id()));
+      let _ = proxy.send_event(UserEvents::CloseWindow);
     }
     if req == "drag_window" {
       let _ = window.drag_window();
     }
   };
 
-  let webview = WebViewBuilder::new(window)
-    .unwrap()
-    .with_url(url)?
-    .with_initialization_script(script)
-    .with_ipc_handler(handler)
-    .with_accept_first_mouse(true)
-    .build()?;
-  webviews.insert(webview.window().id(), webview);
+  let mut webview = Some(
+    WebViewBuilder::new(window)
+      .unwrap()
+      .with_html(HTML)?
+      .with_ipc_handler(handler)
+      .with_accept_first_mouse(true)
+      .build()?,
+  );
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
     match event {
+      Event::NewEvents(StartCause::Init) => println!("Wry application started!"),
       Event::WindowEvent {
-        event, window_id, ..
-      } => match event {
-        WindowEvent::CloseRequested => {
-          webviews.remove(&window_id);
-          if webviews.is_empty() {
-            *control_flow = ControlFlow::Exit
-          }
-        }
-        _ => (),
-      },
-      Event::UserEvent(UserEvents::CloseWindow(id)) => {
-        webviews.remove(&id);
-        if webviews.is_empty() {
-          *control_flow = ControlFlow::Exit
-        }
+        event: WindowEvent::CloseRequested,
+        ..
+      }
+      | Event::UserEvent(UserEvents::CloseWindow) => {
+        let _ = webview.take();
+        *control_flow = ControlFlow::Exit
       }
       _ => (),
     }
