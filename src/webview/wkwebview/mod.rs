@@ -679,6 +679,9 @@ r#"Object.defineProperty(window, 'ipc', {
         // expect tao::Window to hold a handle to it and release it for us
         // eventually.
         let _: () = msg_send![ns_window, setContentView: parent_view];
+        // Tell the webview receive keyboard events in the window.
+        // See https://github.com/tauri-apps/wry/issues/739
+        let _: () = msg_send![ns_window, makeFirstResponder: webview];
 
         // make sure the window is always on top when we create a new webview
         let app_class = class!(NSApplication);
