@@ -235,6 +235,9 @@ impl Default for WebViewAttributes {
       download_completed_handler: None,
       new_window_req_handler: None,
       clipboard: false,
+      #[cfg(debug_assertions)]
+      devtools: true,
+      #[cfg(not(debug_assertions))]
       devtools: false,
       zoom_hotkeys_enabled: false,
       accept_first_mouse: false,
