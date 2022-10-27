@@ -418,6 +418,10 @@ impl<'a> WebViewBuilder<'a> {
   /// - Windows: `null`
   /// - Android: Not supported
   /// - iOS: Not supported
+  ///
+  /// ## PLatform-specific:
+  ///
+  /// - **Windows:** the string can not be larger than 2 MB (2 * 1024 * 1024 bytes) in total size
   pub fn with_html(mut self, html: impl Into<String>) -> Result<Self> {
     self.webview.html = Some(html.into());
     Ok(self)
