@@ -235,6 +235,9 @@ impl Default for WebViewAttributes {
       download_completed_handler: None,
       new_window_req_handler: None,
       clipboard: false,
+      #[cfg(debug_assertions)]
+      devtools: true,
+      #[cfg(not(debug_assertions))]
       devtools: false,
       zoom_hotkeys_enabled: false,
       accept_first_mouse: false,
@@ -439,7 +442,7 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Enable web inspector which is usually called dev tool.
+  /// Enable or disable web inspector which is usually called dev tool.
   ///
   /// Note this only enables dev tool to the webview. To open it, you can call
   /// [`WebView::open_devtools`], or right click the page and open it from the context menu.
