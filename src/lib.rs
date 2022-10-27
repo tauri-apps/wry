@@ -56,7 +56,7 @@
 //!  This feature requires either `libayatana-appindicator` or `libappindicator` package installed.
 //!  You can still create those types if you disable it. They just don't create the actual objects.
 //! - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
-//! On **macOS**, enabling devtools, requires calling private apis so you should enabling this flag in release
+//! On **macOS**, enabling devtools, requires calling private apis so you should not enable this flag in release
 //! build if your app needs to publish to App Store.
 //! - `transparent`: Transparent background on **macOS** requires calling private functions.
 //! Avoid this in release build if your app needs to publish to App Store.
