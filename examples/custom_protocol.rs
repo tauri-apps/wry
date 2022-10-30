@@ -31,7 +31,7 @@ fn main() -> wry::Result<()> {
       // Read the file content from file path
       let content = read(canonicalize(PathBuf::from("examples").join(
         if path == &"/" {
-          "index.html"
+          "custom_protocol_page1.html"
         } else {
           // remove leading slash
           &path[1..]
