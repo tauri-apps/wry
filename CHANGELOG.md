@@ -1,5 +1,48 @@
 # Changelog
 
+## \[0.22.0]
+
+- Added `WebViewAttributes::with_accept_first_mouse` method for macOS.
+  - [2c23440](https://github.com/tauri-apps/wry/commit/2c23440f9c194064caa907650df39bf9c96ed99c) feat(macos): add `accept_first_mouse` option, closes [#714](https://github.com/tauri-apps/wry/pull/714) ([#715](https://github.com/tauri-apps/wry/pull/715)) on 2022-10-04
+- **Breaking change** Custom protocol now takes `Request` and returns `Response` types from `http` crate.
+  - [1510e45](https://github.com/tauri-apps/wry/commit/1510e452547a95af2e42ff5199640877beecdbd7) refactor: use `http` crate primitives instead of a custom impl ([#706](https://github.com/tauri-apps/wry/pull/706)) on 2022-09-29
+- Enabled devtools in debug mode by default.
+  - [fea0638](https://github.com/tauri-apps/wry/commit/fea0638d9ad100c00b95468aa16fc44d6517ac0d) feat: enable devtools in debug mode by default ([#741](https://github.com/tauri-apps/wry/pull/741)) on 2022-10-27
+- On Desktop, add `download_started_handler` and `download_completed_handler`. See `blob_download` and `download_event` example for their usages.
+  - [3691c4f](https://github.com/tauri-apps/wry/commit/3691c4f6c88fe43e92597caf3003c8d57b447a7b) feat: Add download started and download completed callbacks ([#530](https://github.com/tauri-apps/wry/pull/530)) on 2022-10-19
+- Fix double permission dialog on macOS 12+ and iOS 15+.
+  - [8aa7d61](https://github.com/tauri-apps/wry/commit/8aa7d61cdc9fc584805b46c3ffd700aabb633649) Fix: Remove extra soft prompt asking for media permission on every app launch in macOS ([#694](https://github.com/tauri-apps/wry/pull/694)) on 2022-09-29
+- Focus webview when window starts moving or resizing on Windows to automatically close `<select>` dropdowns. Also notify webview2 whenever the window position/size changes which fixes the `<select>` dropdown position
+  - [a1001dd](https://github.com/tauri-apps/wry/commit/a1001dd6361a0629cd1ce2f8063b7c983bf29616) fix(windows): focus webview on `WM_ENTERSIZEMOVE` and call `NotifyParentChanged` on `WM_WINDOWPOSCHANGED`. ([#695](https://github.com/tauri-apps/wry/pull/695)) on 2022-09-16
+- On Windows, hide the webview when the window is minimized to reduce memory and cpu usage.
+  - [51b49c5](https://github.com/tauri-apps/wry/commit/51b49c54e41c71d1c5f03b568094d43fb9dc32ac) feat(webview2): hide the webview when the window is minimized ([#702](https://github.com/tauri-apps/wry/pull/702)) on 2022-09-27
+- Internally return with error from custom protocol if an invalid uri was requseted such as `wry://` which doesn't contain a host.
+  - [818ce99](https://github.com/tauri-apps/wry/commit/818ce9989d816bf970ebcf93009b2d693384e436) fix: don't panic on invalid uri ([#712](https://github.com/tauri-apps/wry/pull/712)) on 2022-09-30
+- Support cross compiling ios on a non macos host.
+  - [cd08410](https://github.com/tauri-apps/wry/commit/cd08410bce326c42e8fc25a74290d254468724fe) Fix cross compilation. ([#731](https://github.com/tauri-apps/wry/pull/731)) on 2022-10-29
+- On Linux, Improve custom protocol with http headers / method added to request, and status code / http headers added to response. This feature is 2.36 only, version below it will fallback to previous implementation.
+  - [2944d91](https://github.com/tauri-apps/wry/commit/2944d91c763ff105288aa6c1370ba42a54fa8caf) feat(linux): add headers to URL scheme request ([#721](https://github.com/tauri-apps/wry/pull/721)) on 2022-10-17
+- On macOS, add WKWebview as subview of existing NSView directly.
+  - [008eca8](https://github.com/tauri-apps/wry/commit/008eca871155f393e5de1053bb1a9f63e1eafe82) On macOS, add WKWebview as subview of existing NSView directly ([#745](https://github.com/tauri-apps/wry/pull/745)) on 2022-11-07
+- Keypress on non-input element no longer triggers unsupported key feedback sound.
+  - [51c7f12](https://github.com/tauri-apps/wry/commit/51c7f12d80e2b51a188fb644a323abaf5df1b3d1) fix(macos): do not trigger unsupported key feedback sound on keypress ([#742](https://github.com/tauri-apps/wry/pull/742)) on 2022-10-30
+- Remove the IPC script message handler when the WebView is dropped on macOS.
+  - [818ce99](https://github.com/tauri-apps/wry/commit/818ce9989d816bf970ebcf93009b2d693384e436) fix: don't panic on invalid uri ([#712](https://github.com/tauri-apps/wry/pull/712)) on 2022-09-30
+- **Breaking change** Removed http error variants from `wry::Error` and replaced with generic `HttpError` variant that can be used to convert `http` crate errors.
+  - [1510e45](https://github.com/tauri-apps/wry/commit/1510e452547a95af2e42ff5199640877beecdbd7) refactor: use `http` crate primitives instead of a custom impl ([#706](https://github.com/tauri-apps/wry/pull/706)) on 2022-09-29
+- Disabled Microsoft SmartScreen by default on Windows.
+  - [a617c5b](https://github.com/tauri-apps/wry/commit/a617c5b29da3d173d43aa814106e1c7ace08d27f) feat(webview2): disable smartscreen & allow disabling internal webview2 args, closes [#704](https://github.com/tauri-apps/wry/pull/704) ([#705](https://github.com/tauri-apps/wry/pull/705)) on 2022-09-28
+- Add `WebView::url` to get the current url.
+  - [38e49bd](https://github.com/tauri-apps/wry/commit/38e49bd5f1e26e9f9507d1f2af8b0b290aa515ad) feat: add `WebView::url()` to access the current url ([#732](https://github.com/tauri-apps/wry/pull/732)) on 2022-10-25
+- **Breaking change** Removed `http` module and replaced with re-export of `http` crate.
+  - [1510e45](https://github.com/tauri-apps/wry/commit/1510e452547a95af2e42ff5199640877beecdbd7) refactor: use `http` crate primitives instead of a custom impl ([#706](https://github.com/tauri-apps/wry/pull/706)) on 2022-09-29
+- Add `WebviewBuilderExtWindows::with_additionl_browser_args` method to pass additional browser args to Webview2 On Windows. By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection` so if you use this method, you also need to disable these components by yourself if you want.
+  - [683f866](https://github.com/tauri-apps/wry/commit/683f86665366bb333cb03e05a503a69d0f8eb734) feat(webview2): add method to pass additional args, closes [#415](https://github.com/tauri-apps/wry/pull/415) ([#711](https://github.com/tauri-apps/wry/pull/711)) on 2022-09-29
+- On Windows, fix canonical reason for custom protocol response.
+  - [9d5595c](https://github.com/tauri-apps/wry/commit/9d5595c9c723b3f8046d9582ac086ccebf460a83) fix(webview2): set response reason correctly, closes [#733](https://github.com/tauri-apps/wry/pull/733) ([#734](https://github.com/tauri-apps/wry/pull/734)) on 2022-10-24
+- On macOS, make the webview first responder.
+  - [e64ad21](https://github.com/tauri-apps/wry/commit/e64ad21ad5ab9bf0b7fb15aec0065c20b61a5a80) fix(wkwebview): make webview first responder ([#740](https://github.com/tauri-apps/wry/pull/740)) on 2022-10-28
+
 ## \[0.21.1]
 
 - Fix transparency on Windows
