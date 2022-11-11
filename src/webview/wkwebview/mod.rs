@@ -280,11 +280,13 @@ impl InnerWebView {
             }
 
             extern "C" fn accept_first_mouse(this: &Object, _sel: Sel, _event: id) -> BOOL {
-              let accept: bool = *this.get_ivar(ACCEPT_FIRST_MOUSE);
-              if accept {
-                YES
-              } else {
-                NO
+              unsafe {
+                let accept: bool = *this.get_ivar(ACCEPT_FIRST_MOUSE);
+                if accept {
+                  YES
+                } else {
+                  NO
+                }
               }
             }
           }
