@@ -271,13 +271,11 @@ impl InnerWebView {
           #[cfg(target_os = "macos")]
           {
             add_file_drop_methods(&mut decl);
-            if attributes.accept_first_mouse {
-              decl.add_ivar::<bool>(ACCEPT_FIRST_MOUSE);
-              decl.add_method(
-                sel!(acceptsFirstMouse:),
-                accept_first_mouse as extern "C" fn(&Object, Sel, id) -> BOOL,
-              );
-            }
+            decl.add_ivar::<bool>(ACCEPT_FIRST_MOUSE);
+            decl.add_method(
+              sel!(acceptsFirstMouse:),
+              accept_first_mouse as extern "C" fn(&Object, Sel, id) -> BOOL,
+            );
 
             extern "C" fn accept_first_mouse(this: &Object, _sel: Sel, _event: id) -> BOOL {
               unsafe {
