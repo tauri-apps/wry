@@ -880,6 +880,8 @@ impl Drop for InnerWebView {
         }
       }
 
+      // Remove webview from window's NSView before dropping.
+      let () = msg_send![self.webview, removeFromSuperview];
       let _: Id<_> = Id::from_retained_ptr(self.webview);
       let _: Id<_> = Id::from_retained_ptr(self.manager);
     }
