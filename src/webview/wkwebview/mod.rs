@@ -63,6 +63,7 @@ use http::{
 };
 
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
+const ACCEPT_FIRST_MOUSE: &str = "accept_first_mouse";
 
 pub(crate) struct InnerWebView {
   pub webview: id,
@@ -270,15 +271,21 @@ impl InnerWebView {
           #[cfg(target_os = "macos")]
           {
             add_file_drop_methods(&mut decl);
-            if attributes.accept_first_mouse {
-              decl.add_method(
-                sel!(acceptsFirstMouse:),
-                yes as extern "C" fn(&Object, Sel, id) -> BOOL,
-              );
-            }
+            decl.add_ivar::<bool>(ACCEPT_FIRST_MOUSE);
+            decl.add_method(
+              sel!(acceptsFirstMouse:),
+              accept_first_mouse as extern "C" fn(&Object, Sel, id) -> BOOL,
+            );
 
-            extern "C" fn yes(_this: &Object, _sel: Sel, _event: id) -> BOOL {
-              YES
+            extern "C" fn accept_first_mouse(this: &Object, _sel: Sel, _event: id) -> BOOL {
+              unsafe {
+                let accept: bool = *this.get_ivar(ACCEPT_FIRST_MOUSE);
+                if accept {
+                  YES
+                } else {
+                  NO
+                }
+              }
             }
           }
           decl.register()
@@ -288,6 +295,9 @@ impl InnerWebView {
       let webview: id = msg_send![cls, alloc];
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
+
+      #[cfg(target_os = "macos")]
+      (*webview).set_ivar(ACCEPT_FIRST_MOUSE, attributes.accept_first_mouse);
 
       #[cfg(any(debug_assertions, feature = "devtools"))]
       if attributes.devtools {
