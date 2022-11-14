@@ -371,11 +371,18 @@ impl InnerWebView {
       // Navigation handler
       extern "C" fn navigation_policy(this: &Object, _: Sel, _: id, action: id, handler: id) {
         unsafe {
+          // shouldPerformDownload is only available on macOS 11.3+
+          let can_download: BOOL =
+            msg_send![action, respondsToSelector: sel!(shouldPerformDownload)];
+          let should_download: BOOL = if can_download == YES {
+            msg_send![action, shouldPerformDownload]
+          } else {
+            false
+          };
           let request: id = msg_send![action, request];
           let url: id = msg_send![request, URL];
           let url: id = msg_send![url, absoluteString];
           let url = NSString(url);
-          let should_download: bool = msg_send![action, shouldPerformDownload];
           let target_frame: id = msg_send![action, targetFrame];
           let is_main_frame: bool = msg_send![target_frame, isMainFrame];
 
@@ -491,7 +498,7 @@ impl InnerWebView {
         let download_delegate = if attributes.download_started_handler.is_some()
           || attributes.download_completed_handler.is_some()
         {
-          let cls = match ClassDecl::new("DownloadDelegate", class!(NSObject)) {
+          let cls = match ClassDecl::new("WryDownloadDelegate", class!(NSObject)) {
             Some(mut cls) => {
               cls.add_ivar::<*mut c_void>("started");
               cls.add_ivar::<*mut c_void>("completed");
