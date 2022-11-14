@@ -377,7 +377,7 @@ impl InnerWebView {
           let should_download: BOOL = if can_download == YES {
             msg_send![action, shouldPerformDownload]
           } else {
-            false
+            NO
           };
           let request: id = msg_send![action, request];
           let url: id = msg_send![request, URL];
@@ -388,7 +388,7 @@ impl InnerWebView {
 
           let handler = handler as *mut block::Block<(NSInteger,), c_void>;
 
-          if should_download {
+          if should_download == YES {
             let has_download_handler = this.get_ivar::<*mut c_void>("HasDownloadHandler");
             if !has_download_handler.is_null() {
               let has_download_handler = &mut *(*has_download_handler as *mut Box<bool>);
