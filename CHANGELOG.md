@@ -1,5 +1,14 @@
 # Changelog
 
+## \[0.22.1]
+
+- Fix `WebViewBuilder::with_accept_first_mouse` taking behavior of first initalized webview.
+  - [0647c0e](https://github.com/tauri-apps/wry/commit/0647c0efe131566ffbab0729e9d74355155c3c32) fix(macos): fix `acceptFirstMouse` for subsequent webviews, closes [#751](https://github.com/tauri-apps/wry/pull/751) ([#752](https://github.com/tauri-apps/wry/pull/752)) on 2022-11-13
+- Fix download implementation on macOS older than 11.3.
+  - [e69ddc6](https://github.com/tauri-apps/wry/commit/e69ddc6943770aa8baa02431bb037bbdcb3cbd80) fix(macos): download breaking app on macOS older than 11.3, closes [#755](https://github.com/tauri-apps/wry/pull/755) ([#756](https://github.com/tauri-apps/wry/pull/756)) on 2022-11-15
+- On macOS, remove webview from window's NSView before dropping.
+  - [3d3ea80](https://github.com/tauri-apps/wry/commit/3d3ea80808a327c546d8bbd97e06ef4b8feb32d0) On macOS, remove webview from window's NSView before dropping ([#754](https://github.com/tauri-apps/wry/pull/754)) on 2022-11-14
+
 ## \[0.22.0]
 
 - Added `WebViewAttributes::with_accept_first_mouse` method for macOS.
