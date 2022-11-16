@@ -343,6 +343,13 @@ impl InnerWebView {
         let _: () = msg_send![webview, initWithFrame:frame configuration:config];
       }
 
+      // allowsBackForwardNavigation
+      #[cfg(target_os = "macos")]
+      {
+        let value = attributes.back_forward_navigation_gestures;
+        let _: () = msg_send![webview, setAllowsBackForwardNavigationGestures: value];
+      }
+
       // Message handler
       let ipc_handler_ptr = if let Some(ipc_handler) = attributes.ipc_handler {
         let cls = ClassDecl::new("WebViewDelegate", class!(NSObject));

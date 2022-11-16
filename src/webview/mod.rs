@@ -215,6 +215,14 @@ pub struct WebViewAttributes {
   ///
   /// This configuration only impacts macOS.
   pub accept_first_mouse: bool,
+
+  /// Indicates whether horizontal swipe gestures trigger backward and forward page navigation.
+  ///
+  /// ## Platform-specific
+  ///
+  /// This configuration only impacts macOS.
+  /// [Documentation](https://developer.apple.com/documentation/webkit/wkwebview/1414995-allowsbackforwardnavigationgestu).
+  pub back_forward_navigation_gestures: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -241,6 +249,7 @@ impl Default for WebViewAttributes {
       devtools: false,
       zoom_hotkeys_enabled: false,
       accept_first_mouse: false,
+      back_forward_navigation_gestures: false,
     }
   }
 }
@@ -293,6 +302,17 @@ impl<'a> WebViewBuilder<'a> {
       window,
       platform_specific,
     })
+  }
+
+  /// Indicates whether horizontal swipe gestures trigger backward and forward page navigation.
+  ///
+  /// ## Platform-specific
+  ///
+  /// This configuration only impacts macOS.
+  /// [Documentation](https://developer.apple.com/documentation/webkit/wkwebview/1414995-allowsbackforwardnavigationgestu).
+  pub fn with_back_forward_navigation_gestures(mut self, gesture: bool) -> Self {
+    self.webview.back_forward_navigation_gestures = gesture;
+    self
   }
 
   /// Sets whether the WebView should be transparent.
