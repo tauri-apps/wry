@@ -276,6 +276,14 @@ impl InnerWebView {
               sel!(acceptsFirstMouse:),
               accept_first_mouse as extern "C" fn(&Object, Sel, id) -> BOOL,
             );
+            decl.add_method(
+              sel!(doCommandBySelector:),
+              do_command_by_selector as extern "C" fn(&Object, Sel, Sel),
+            );
+            decl.add_method(
+              sel!(keyDown:),
+              key_down as extern "C" fn(&mut Object, Sel, id),
+            );
 
             extern "C" fn accept_first_mouse(this: &Object, _sel: Sel, _event: id) -> BOOL {
               unsafe {
@@ -287,6 +295,20 @@ impl InnerWebView {
                 }
               }
             }
+
+            // Key event chain is consumed by window and cannot pass to menu.
+            // So we pass the event to menu if we have one
+            extern "C" fn key_down(_: &mut Object, _: Sel, event: id) {
+              unsafe {
+                let app = cocoa::appkit::NSApp();
+                let menu: id = msg_send![app, mainMenu];
+                if !menu.is_null() {
+                  let () = msg_send![menu, performKeyEquivalent: event];
+                }
+              }
+            }
+            // We need to declare this method to get Command+ key equivalent.
+            extern "C" fn do_command_by_selector(_: &Object, _: Sel, _: Sel) {}
           }
           decl.register()
         }
