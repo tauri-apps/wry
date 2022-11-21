@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.22.3]
+
+- On macOS, fix keyinput missing by calling superclass methods.
+  - [e40e55a](https://github.com/tauri-apps/wry/commit/e40e55a41d8d65ceda5e182c8915d37b5698c7b0) On macOS, fix keyinput missing by calling super class methods ([#764](https://github.com/tauri-apps/wry/pull/764)) on 2022-11-21
+
 ## \[0.22.2]
 
 - On macOS, add an API to enable or disable backward and forward navigation gestures.
