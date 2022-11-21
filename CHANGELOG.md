@@ -1,5 +1,13 @@
 # Changelog
 
+## \[0.22.2]
+
+- On macOS, add an API to enable or disable backward and forward navigation gestures.
+  - [487dff0](https://github.com/tauri-apps/wry/commit/487dff03a103df999e5e0c6286f75b4d1f419d25) Add the ability to navigate with swipe gesture ([#757](https://github.com/tauri-apps/wry/pull/757)) on 2022-11-16
+  - [1a0ec19](https://github.com/tauri-apps/wry/commit/1a0ec19fd533c853b744c5e2346542d2e1e5805d) Update gesture change file to patch ([#763](https://github.com/tauri-apps/wry/pull/763)) on 2022-11-21
+- On macOS, pass key event to menu if we have one on key press.
+  - [2e5e138](https://github.com/tauri-apps/wry/commit/2e5e1381789c332654a5ffee47d578042a9be87b) On macOS, pass key event to menu on key press ([#760](https://github.com/tauri-apps/wry/pull/760)) on 2022-11-21
+
 ## \[0.22.1]
 
 - Fix `WebViewBuilder::with_accept_first_mouse` taking behavior of first initalized webview.
