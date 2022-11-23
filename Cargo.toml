@@ -31,7 +31,7 @@ tray = [ "tao/tray" ]
 devtools = [ ]
 transparent = [ ]
 fullscreen = [ ]
-header = [ "webkit2gtk/v2_36" ]
+linux-header = [ "webkit2gtk/v2_36" ]
 
 [dependencies]
 libc = "0.2"
