@@ -292,7 +292,7 @@ where
       // FIXME: Read the body (forms post)
       #[allow(unused_mut)]
       let mut http_request = Request::builder().uri(uri).method("GET");
-      #[cfg(feature = "linux-header")]
+      #[cfg(feature = "linux-headers")]
       {
         use http::{header::HeaderName, HeaderValue};
 
@@ -332,7 +332,7 @@ where
             .headers()
             .get(CONTENT_TYPE)
             .and_then(|h| h.to_str().ok());
-          #[cfg(feature = "linux-header")]
+          #[cfg(feature = "linux-headers")]
           {
             use soup::{MessageHeaders, MessageHeadersType};
             use webkit2gtk::URISchemeResponse;
