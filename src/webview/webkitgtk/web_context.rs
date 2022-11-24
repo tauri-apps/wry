@@ -6,11 +6,7 @@
 
 use crate::{webview::web_context::WebContextData, Error};
 use glib::FileError;
-use http::{
-  header::{HeaderName, CONTENT_TYPE},
-  HeaderValue, Request, Response,
-};
-use soup::{MessageHeaders, MessageHeadersType};
+use http::{header::CONTENT_TYPE, Request, Response};
 use std::{
   cell::RefCell,
   collections::{HashSet, VecDeque},
@@ -24,13 +20,9 @@ use std::{
 };
 use url::Url;
 use webkit2gtk::{
-  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, URISchemeResponse,
-  UserContentManager, WebContext, WebContextBuilder, WebView, WebsiteDataManagerBuilder,
+  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, UserContentManager, WebContext,
+  WebContextBuilder, WebView, WebsiteDataManagerBuilder,
 };
-use webkit2gtk_sys::webkit_get_minor_version;
-
-// header support was introduced in webkit2gtk 2.36
-const HEADER_MINOR_RELEASE: u32 = 36;
 
 #[derive(Debug)]
 pub struct WebContextImpl {
@@ -40,7 +32,6 @@ pub struct WebContextImpl {
   registered_protocols: HashSet<String>,
   automation: bool,
   app_info: Option<ApplicationInfo>,
-  webkit2gtk_minor: u32,
 }
 
 impl WebContextImpl {
@@ -87,8 +78,6 @@ impl WebContextImpl {
         .expect("invalid wry version patch"),
     );
 
-    let webkit2gtk_minor = unsafe { webkit_get_minor_version() };
-
     Self {
       context,
       automation,
@@ -96,7 +85,6 @@ impl WebContextImpl {
       registered_protocols: Default::default(),
       webview_uri_loader: Rc::default(),
       app_info: Some(app_info),
-      webkit2gtk_minor,
     }
   }
 
@@ -290,7 +278,6 @@ where
   F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Vec<u8>>> + 'static,
 {
   use webkit2gtk::traits::*;
-  let webkit2gtk_minor = context.os.webkit2gtk_minor;
   let context = &context.os.context;
   // Enable secure context
   context
@@ -303,8 +290,12 @@ where
       let uri = uri.as_str();
 
       // FIXME: Read the body (forms post)
+      #[allow(unused_mut)]
       let mut http_request = Request::builder().uri(uri).method("GET");
-      if webkit2gtk_minor >= HEADER_MINOR_RELEASE {
+      #[cfg(feature = "linux-headers")]
+      {
+        use http::{header::HeaderName, HeaderValue};
+
         if let Some(mut headers) = request.http_headers() {
           if let Some(map) = http_request.headers_mut() {
             headers.foreach(move |k, v| {
@@ -341,7 +332,11 @@ where
             .headers()
             .get(CONTENT_TYPE)
             .and_then(|h| h.to_str().ok());
-          if webkit2gtk_minor >= HEADER_MINOR_RELEASE {
+          #[cfg(feature = "linux-headers")]
+          {
+            use soup::{MessageHeaders, MessageHeadersType};
+            use webkit2gtk::URISchemeResponse;
+
             let response = URISchemeResponse::new(&input, buffer.len() as i64);
             response.set_status(http_response.status().as_u16() as u32, None);
             if let Some(content_type) = content_type {
@@ -355,9 +350,9 @@ where
             response.set_http_headers(&mut headers);
 
             request.finish_with_response(&response);
-          } else {
-            request.finish(&input, buffer.len() as i64, content_type)
           }
+          #[cfg(not(feature = "header"))]
+          request.finish(&input, buffer.len() as i64, content_type)
         }
         Err(_) => request.finish_error(&mut glib::Error::new(
           FileError::Exist,

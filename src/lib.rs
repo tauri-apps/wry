@@ -64,6 +64,8 @@
 //! Avoid this in release build if your app needs to publish to App Store.
 //! - `dox`: Enables this in `package.metadata.docs.rs` section to skip linking some **Linux**
 //! libraries and prevent from building documentation on doc.rs fails.
+//! - `linux-headers`: Enables headers support of custom protocol request on Linux. Requires
+//! webkit2gtk v2.36 or above.
 //!
 //! [tao]: https://crates.io/crates/tao
 //! [`EventLoop`]: crate::application::event_loop::EventLoop
