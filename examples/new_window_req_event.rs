@@ -31,7 +31,7 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)?;
-  let webview = WebViewBuilder::new(window)?
+  let _webview = WebViewBuilder::new(window)?
     .with_html(html)?
     .with_new_window_req_handler(move |uri: String| {
       let submitted = proxy.send_event(UserEvent::NewWindow(uri.clone())).is_ok();
@@ -39,9 +39,6 @@ fn main() -> wry::Result<()> {
       submitted && uri.contains("wikipedia")
     })
     .build()?;
-
-  #[cfg(debug_assertions)]
-  webview.open_devtools();
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

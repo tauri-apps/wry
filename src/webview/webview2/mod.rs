@@ -698,7 +698,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             let _ = (*controller).SetIsVisible(false);
           }
 
-          if wparam == WPARAM(win32wm::SIZE_RESTORED as _) {
+          if wparam == WPARAM(win32wm::SIZE_RESTORED as _)
+            || wparam == WPARAM(win32wm::SIZE_MAXIMIZED as _)
+          {
             let _ = (*controller).SetIsVisible(true);
           }
         }
@@ -714,7 +716,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         }
 
         win32wm::WM_DESTROY => {
-          Box::from_raw(dwrefdata as *mut ICoreWebView2Controller);
+          drop(Box::from_raw(dwrefdata as *mut ICoreWebView2Controller));
         }
         _ => (),
       }

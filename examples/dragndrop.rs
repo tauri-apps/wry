@@ -2,21 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-static HTML: &str = r#"data:text/html,
-Drop files onto the window and read the console!<br>
-Dropping files onto the following form is also possible:<br><br>
-<input type="file"/>
-"#;
-
 fn main() -> wry::Result<()> {
   use wry::{
     application::{
-      event::{Event, WindowEvent},
+      event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::WindowBuilder,
     },
     webview::WebViewBuilder,
   };
+
+  const HTML: &str = r#"data:text/html,
+Drop files onto the window and read the console!<br>
+Dropping files onto the following form is also possible:<br><br>
+<input type="file"/>
+"#;
 
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
@@ -33,6 +33,7 @@ fn main() -> wry::Result<()> {
     *control_flow = ControlFlow::Wait;
 
     match event {
+      Event::NewEvents(StartCause::Init) => println!("Wry application started!"),
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         ..

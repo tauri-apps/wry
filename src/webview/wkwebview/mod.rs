@@ -25,7 +25,7 @@ use std::{
   slice, str,
 };
 
-use core_graphics::geometry::{CGPoint, CGRect, CGSize};
+use core_graphics::geometry::CGRect;
 use objc::{
   declare::ClassDecl,
   runtime::{Class, Object, Sel, BOOL},
@@ -63,6 +63,7 @@ use http::{
 };
 
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
+const ACCEPT_FIRST_MOUSE: &str = "accept_first_mouse";
 
 pub(crate) struct InnerWebView {
   pub webview: id,
@@ -270,15 +271,51 @@ impl InnerWebView {
           #[cfg(target_os = "macos")]
           {
             add_file_drop_methods(&mut decl);
-            if attributes.accept_first_mouse {
-              decl.add_method(
-                sel!(acceptsFirstMouse:),
-                yes as extern "C" fn(&Object, Sel, id) -> BOOL,
-              );
+            decl.add_ivar::<bool>(ACCEPT_FIRST_MOUSE);
+            decl.add_method(
+              sel!(acceptsFirstMouse:),
+              accept_first_mouse as extern "C" fn(&Object, Sel, id) -> BOOL,
+            );
+            decl.add_method(
+              sel!(performKeyEquivalent:),
+              perform_key_equivalent as extern "C" fn(&mut Object, Sel, id),
+            );
+            decl.add_method(
+              sel!(keyDown:),
+              key_down as extern "C" fn(&mut Object, Sel, id),
+            );
+
+            extern "C" fn accept_first_mouse(this: &Object, _sel: Sel, _event: id) -> BOOL {
+              unsafe {
+                let accept: bool = *this.get_ivar(ACCEPT_FIRST_MOUSE);
+                if accept {
+                  YES
+                } else {
+                  NO
+                }
+              }
             }
 
-            extern "C" fn yes(_this: &Object, _sel: Sel, _event: id) -> BOOL {
-              YES
+            extern "C" fn perform_key_equivalent(this: &mut Object, _: Sel, event: id) {
+              unsafe {
+                let superclass: *const Class = msg_send![this, superclass];
+                let () = msg_send![super(this, &*superclass), performKeyEquivalent: event];
+              }
+            }
+
+            // Key event chain is consumed by window and cannot pass to menu.
+            // So we pass the event to menu if we have one
+            extern "C" fn key_down(this: &mut Object, _: Sel, event: id) {
+              unsafe {
+                let superclass: *const Class = msg_send![this, superclass];
+                let () = msg_send![super(this, &*superclass), keyDown: event];
+
+                let app = cocoa::appkit::NSApp();
+                let menu: id = msg_send![app, mainMenu];
+                if !menu.is_null() {
+                  let () = msg_send![menu, performKeyEquivalent: event];
+                }
+              }
             }
           }
           decl.register()
@@ -288,6 +325,9 @@ impl InnerWebView {
       let webview: id = msg_send![cls, alloc];
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
+
+      #[cfg(target_os = "macos")]
+      (*webview).set_ivar(ACCEPT_FIRST_MOUSE, attributes.accept_first_mouse);
 
       #[cfg(any(debug_assertions, feature = "devtools"))]
       if attributes.devtools {
@@ -317,9 +357,9 @@ impl InnerWebView {
 
       #[cfg(target_os = "macos")]
       {
-        // Initialize webview with zero point
-        let zero = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(0., 0.));
-        let _: () = msg_send![webview, initWithFrame:zero configuration:config];
+        let ns_view = window.ns_view() as id;
+        let frame: CGRect = msg_send![ns_view, frame];
+        let _: () = msg_send![webview, initWithFrame:frame configuration:config];
         // Auto-resize on macOS
         webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
       }
@@ -331,6 +371,13 @@ impl InnerWebView {
         // set all autoresizingmasks
         let () = msg_send![webview, setAutoresizingMask: 31];
         let _: () = msg_send![webview, initWithFrame:frame configuration:config];
+      }
+
+      // allowsBackForwardNavigation
+      #[cfg(target_os = "macos")]
+      {
+        let value = attributes.back_forward_navigation_gestures;
+        let _: () = msg_send![webview, setAllowsBackForwardNavigationGestures: value];
       }
 
       // Message handler
@@ -361,17 +408,24 @@ impl InnerWebView {
       // Navigation handler
       extern "C" fn navigation_policy(this: &Object, _: Sel, _: id, action: id, handler: id) {
         unsafe {
+          // shouldPerformDownload is only available on macOS 11.3+
+          let can_download: BOOL =
+            msg_send![action, respondsToSelector: sel!(shouldPerformDownload)];
+          let should_download: BOOL = if can_download == YES {
+            msg_send![action, shouldPerformDownload]
+          } else {
+            NO
+          };
           let request: id = msg_send![action, request];
           let url: id = msg_send![request, URL];
           let url: id = msg_send![url, absoluteString];
           let url = NSString(url);
-          let should_download: bool = msg_send![action, shouldPerformDownload];
           let target_frame: id = msg_send![action, targetFrame];
           let is_main_frame: bool = msg_send![target_frame, isMainFrame];
 
           let handler = handler as *mut block::Block<(NSInteger,), c_void>;
 
-          if should_download {
+          if should_download == YES {
             let has_download_handler = this.get_ivar::<*mut c_void>("HasDownloadHandler");
             if !has_download_handler.is_null() {
               let has_download_handler = &mut *(*has_download_handler as *mut Box<bool>);
@@ -481,7 +535,7 @@ impl InnerWebView {
         let download_delegate = if attributes.download_started_handler.is_some()
           || attributes.download_completed_handler.is_some()
         {
-          let cls = match ClassDecl::new("DownloadDelegate", class!(NSObject)) {
+          let cls = match ClassDecl::new("WryDownloadDelegate", class!(NSObject)) {
             Some(mut cls) => {
               cls.add_ivar::<*mut c_void>("started");
               cls.add_ivar::<*mut c_void>("completed");
@@ -663,22 +717,16 @@ r#"Object.defineProperty(window, 'ipc', {
       // Inject the web view into the window as main content
       #[cfg(target_os = "macos")]
       {
-        // Create a view to contain the webview, without it devtools will try to
-        // inject a subview into the frame causing an obnoxious warning.
-        // See https://github.com/tauri-apps/wry/issues/273
-        let parent_view: id = msg_send![class!(NSView), alloc];
-        let _: () = msg_send![parent_view, init];
-        parent_view.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
-        let _: () = msg_send![parent_view, addSubview: webview];
+        let ns_view = window.ns_view() as id;
+        let _: () = msg_send![ns_view, addSubview: webview];
 
         // Tell the webview we use layers (macOS only)
         let _: () = msg_send![webview, setWantsLayer: YES];
         // inject the webview into the window
         let ns_window = window.ns_window() as id;
-        // NOTE: We ignore the fact that we may get back the existing view as we
-        // expect tao::Window to hold a handle to it and release it for us
-        // eventually.
-        let _: () = msg_send![ns_window, setContentView: parent_view];
+        // Tell the webview receive keyboard events in the window.
+        // See https://github.com/tauri-apps/wry/issues/739
+        let _: () = msg_send![ns_window, makeFirstResponder: webview];
 
         // make sure the window is always on top when we create a new webview
         let app_class = class!(NSApplication);
@@ -876,6 +924,8 @@ impl Drop for InnerWebView {
         }
       }
 
+      // Remove webview from window's NSView before dropping.
+      let () = msg_send![self.webview, removeFromSuperview];
       let _: Id<_> = Id::from_retained_ptr(self.webview);
       let _: Id<_> = Id::from_retained_ptr(self.manager);
     }

@@ -215,6 +215,14 @@ pub struct WebViewAttributes {
   ///
   /// This configuration only impacts macOS.
   pub accept_first_mouse: bool,
+
+  /// Indicates whether horizontal swipe gestures trigger backward and forward page navigation.
+  ///
+  /// ## Platform-specific
+  ///
+  /// This configuration only impacts macOS.
+  /// [Documentation](https://developer.apple.com/documentation/webkit/wkwebview/1414995-allowsbackforwardnavigationgestu).
+  pub back_forward_navigation_gestures: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -235,9 +243,13 @@ impl Default for WebViewAttributes {
       download_completed_handler: None,
       new_window_req_handler: None,
       clipboard: false,
+      #[cfg(debug_assertions)]
+      devtools: true,
+      #[cfg(not(debug_assertions))]
       devtools: false,
       zoom_hotkeys_enabled: false,
       accept_first_mouse: false,
+      back_forward_navigation_gestures: false,
     }
   }
 }
@@ -290,6 +302,17 @@ impl<'a> WebViewBuilder<'a> {
       window,
       platform_specific,
     })
+  }
+
+  /// Indicates whether horizontal swipe gestures trigger backward and forward page navigation.
+  ///
+  /// ## Platform-specific
+  ///
+  /// This configuration only impacts macOS.
+  /// [Documentation](https://developer.apple.com/documentation/webkit/wkwebview/1414995-allowsbackforwardnavigationgestu).
+  pub fn with_back_forward_navigation_gestures(mut self, gesture: bool) -> Self {
+    self.webview.back_forward_navigation_gestures = gesture;
+    self
   }
 
   /// Sets whether the WebView should be transparent.
@@ -418,6 +441,10 @@ impl<'a> WebViewBuilder<'a> {
   /// - Windows: `null`
   /// - Android: Not supported
   /// - iOS: Not supported
+  ///
+  /// ## PLatform-specific:
+  ///
+  /// - **Windows:** the string can not be larger than 2 MB (2 * 1024 * 1024 bytes) in total size
   pub fn with_html(mut self, html: impl Into<String>) -> Result<Self> {
     self.webview.html = Some(html.into());
     Ok(self)
@@ -435,7 +462,7 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Enable web inspector which is usually called dev tool.
+  /// Enable or disable web inspector which is usually called dev tool.
   ///
   /// Note this only enables dev tool to the webview. To open it, you can call
   /// [`WebView::open_devtools`], or right click the page and open it from the context menu.

@@ -8,7 +8,7 @@ use http::{
 };
 use tao::platform::android::ndk_glue::jni::{
   errors::Error as JniError,
-  objects::{JClass, JMap, JObject, JString},
+  objects::{JClass, JMap, JObject, JString, JValue},
   sys::jobject,
   JNIEnv,
 };
@@ -93,7 +93,11 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
 
       let byte_array_input_stream = env.find_class("java/io/ByteArrayInputStream")?;
       let byte_array = env.byte_array_from_slice(&bytes)?;
-      let stream = env.new_object(byte_array_input_stream, "([B)V", &[byte_array.into()])?;
+      let stream = env.new_object(
+        byte_array_input_stream,
+        "([B)V",
+        &[JValue::Object(unsafe { JObject::from_raw(byte_array) })],
+      )?;
 
       let web_resource_response_class = env.find_class("android/webkit/WebResourceResponse")?;
       let web_resource_response = env.new_object(
