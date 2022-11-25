@@ -308,7 +308,7 @@ impl InnerWebView {
             extern "C" fn key_down(this: &mut Object, _: Sel, event: id) {
               unsafe {
                 let keycode: u16 = msg_send![event, keyCode];
-                // Arrow key should not send for text
+                // Arrow keys are handled by other event chains
                 if !(123..=126).contains(&keycode) {
                   let superclass: *const Class = msg_send![this, superclass];
                   let () = msg_send![super(this, &*superclass), keyDown: event];
