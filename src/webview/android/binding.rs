@@ -65,11 +65,28 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
     if let Some(response) = response {
       let status_code = response.status().as_u16() as i32;
       let reason_phrase = "OK";
-      let encoding = "UTF-8";
-      let mime_type = if let Some(mime) = response.headers().get(CONTENT_TYPE) {
-        env.new_string(mime.to_str().unwrap())?.into()
+      let (mime_type, encoding) = if let Some(content_type) = response.headers().get(CONTENT_TYPE) {
+        let content_type = content_type.to_str().unwrap().trim();
+        let mut s = content_type.split(';');
+        let mime_type = s.next().unwrap().trim();
+        let mut encoding = None;
+        for token in s {
+          let token = token.trim();
+          if token.starts_with("charset=") {
+            encoding.replace(token.split('=').nth(1).unwrap());
+            break;
+          }
+        }
+        (
+          env.new_string(mime_type)?.into(),
+          if let Some(encoding) = encoding {
+            env.new_string(&encoding)?.into()
+          } else {
+            JObject::null().into()
+          },
+        )
       } else {
-        JObject::null()
+        (JObject::null().into(), JObject::null().into())
       };
 
       let hashmap = env.find_class("java/util/HashMap")?;
@@ -103,7 +120,7 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
       let web_resource_response = env.new_object(
         web_resource_response_class,
         "(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/util/Map;Ljava/io/InputStream;)V",
-        &[mime_type.into(), env.new_string(encoding)?.into(), status_code.into(), env.new_string(reason_phrase)?.into(), response_headers.into(), stream.into()],
+        &[mime_type, encoding, status_code.into(), env.new_string(reason_phrase)?.into(), response_headers.into(), stream.into()],
       )?;
 
       return Ok(*web_resource_response);
