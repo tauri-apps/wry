@@ -150,10 +150,8 @@ fn main() -> wry::Result<()> {
         ..
       }
       | Event::UserEvent(UserEvents::CloseWindow) => {
-        webview
-          .as_ref()
-          .unwrap()
-          .navigate_to_url("https://google.com");
+        let _ = webview.take();
+        *control_flow = ControlFlow::Exit
       }
       _ => (),
     }
