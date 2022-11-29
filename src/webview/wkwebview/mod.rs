@@ -787,7 +787,7 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  fn navigate_to_url(&self, url: &str) {
+  pub fn navigate_to_url(&self, url: &str) {
     // Safety: objc runtime calls are unsafe
     unsafe {
       let url: id = msg_send![class!(NSURL), URLWithString: NSString::new(url)];
