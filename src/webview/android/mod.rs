@@ -258,6 +258,10 @@ impl InnerWebView {
     MainPipe::send(WebViewMessage::SetBackgroundColor(background_color));
     Ok(())
   }
+
+  pub fn navigate_to_url(&self, url: &str) {
+    MainPipe::send(WebViewMessage::NavigateToUrl(url.to_string()));
+  }
 }
 
 #[derive(Clone, Copy)]
