@@ -4,8 +4,9 @@
 
 use gdk::{Cursor, EventMask, WindowEdge};
 use gio::Cancellable;
-use glib::signal::Inhibit;
+use glib::{signal::Inhibit, translate::from_glib_full};
 use gtk::prelude::*;
+use javascriptcore_rs_sys::jsc_value_to_json;
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::{
   atomic::{AtomicBool, Ordering},
@@ -359,7 +360,10 @@ impl InnerWebView {
   }
 
   pub fn print(&self) {
-    let _ = self.eval("window.print()");
+    let _ = self.eval(
+      "window.print()",
+      None::<Box<dyn FnOnce(String) + Send + 'static>>,
+    );
   }
 
   pub fn url(&self) -> Url {
@@ -368,9 +372,32 @@ impl InnerWebView {
     Url::parse(uri.as_str()).unwrap()
   }
 
-  pub fn eval(&self, js: &str) -> Result<()> {
+  pub fn eval(
+    &self,
+    js: &str,
+    callback: Option<impl FnOnce(String) + Send + 'static>,
+  ) -> Result<()> {
     let cancellable: Option<&Cancellable> = None;
-    self.webview.run_javascript(js, cancellable, |_| ());
+
+    match callback {
+      Some(callback) => {
+        self.webview.run_javascript(js, cancellable, |result| {
+          let mut result_str = String::new();
+
+          if let Ok(js_result) = result {
+            if let Some(js_value) = js_result.js_value() {
+              unsafe {
+                result_str = from_glib_full(jsc_value_to_json(js_value.as_ptr(), 0));
+              }
+            }
+          }
+
+          callback(result_str);
+        });
+      }
+      None => self.webview.run_javascript(js, cancellable, |_| ()),
+    };
+
     Ok(())
   }
 

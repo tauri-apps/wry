@@ -672,8 +672,12 @@ impl WebView {
   /// [`WebView`]. Use [`EventLoopProxy`] and a custom event to send scripts from other threads.
   ///
   /// [`EventLoopProxy`]: crate::application::event_loop::EventLoopProxy
+  ///
+  /// - **Windows / Android:** Callback function not implemented.
   pub fn evaluate_script(&self, js: &str) -> Result<()> {
-    self.webview.eval(js)
+    self
+      .webview
+      .eval(js, None::<Box<dyn Fn(String) + Send + 'static>>)
   }
 
   /// Launch print modal for the webview content.

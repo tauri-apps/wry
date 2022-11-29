@@ -1,0 +1,59 @@
+// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
+
+fn main() -> wry::Result<()> {
+  use wry::{
+    application::{
+      event::{Event, StartCause, WindowEvent},
+      event_loop::{ControlFlow, EventLoop},
+      window::{Window, WindowBuilder},
+    },
+    webview::WebViewBuilder,
+  };
+
+  enum UserEvents {
+    ExecEval(),
+  }
+
+  let event_loop = EventLoop::<UserEvents>::with_user_event();
+  let proxy = event_loop.create_proxy();
+
+  let window = WindowBuilder::new()
+    .with_title("Hello World")
+    .build(&event_loop)?;
+
+  let ipc_handler = move |_: &Window, req: String| match req.as_str() {
+    "exec-eval" => {
+      let _ = proxy.send_event(UserEvents::ExecEval());
+    }
+    _ => {}
+  };
+
+  let _webview = WebViewBuilder::new(window)?
+    .with_html(
+      r#"
+      <button onclick="window.ipc.postMessage('exec-eval')">Exec eval</button>
+    "#,
+    )?
+    .with_ipc_handler(ipc_handler)
+    .build()?;
+
+  event_loop.run(move |event, _, control_flow| {
+    *control_flow = ControlFlow::Wait;
+
+    match event {
+      Event::UserEvent(UserEvents::ExecEval()) => {
+        _webview
+          .evaluate_script("if (!foo) { var foo = 'morbin'; } `${foo} time`")
+          .unwrap();
+      }
+      Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
+      Event::WindowEvent {
+        event: WindowEvent::CloseRequested,
+        ..
+      } => *control_flow = ControlFlow::Exit,
+      _ => (),
+    }
+  });
+}
