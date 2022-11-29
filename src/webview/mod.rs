@@ -746,6 +746,10 @@ impl WebView {
   pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
     self.webview.set_background_color(background_color)
   }
+
+  pub fn navigate_to_url(&self, url: &str) {
+    self.webview.navigate_to_url(url)
+  }
 }
 
 /// An event enumeration sent to [`FileDropHandler`].

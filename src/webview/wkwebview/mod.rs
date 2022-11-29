@@ -712,7 +712,7 @@ r#"Object.defineProperty(window, 'ipc', {
             w.navigate_to_string(path);
           }
         } else {
-          w.navigate(url.as_str());
+          w.navigate_to_url(url.as_str());
         }
       } else if let Some(html) = attributes.html {
         w.navigate_to_string(&html);
@@ -787,7 +787,7 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  fn navigate(&self, url: &str) {
+  fn navigate_to_url(&self, url: &str) {
     // Safety: objc runtime calls are unsafe
     unsafe {
       let url: id = msg_send![class!(NSURL), URLWithString: NSString::new(url)];
