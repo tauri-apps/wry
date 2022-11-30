@@ -178,6 +178,17 @@ impl MainPipe<'_> {
             f(env, activity, webview.as_obj());
           }
         }
+        WebViewMessage::LoadUrl(url) => {
+          if let Some(webview) = &self.webview {
+            let s = env.new_string(url)?;
+            env.call_method(
+              webview.as_obj(),
+              "loadUrl",
+              "(Ljava/lang/String;)V",
+              &[s.into()],
+            )?;
+          }
+        }
       }
     }
     Ok(())
@@ -212,6 +223,7 @@ pub enum WebViewMessage {
   GetWebViewVersion(Sender<Result<String, Error>>),
   GetUrl(Sender<String>),
   Jni(Box<dyn FnOnce(JNIEnv, JObject, JObject) + Send>),
+  LoadUrl(String),
 }
 
 #[derive(Debug)]
