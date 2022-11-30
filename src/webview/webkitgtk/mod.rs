@@ -428,7 +428,7 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn navigate_to_url(&self, url: &str) {
+  pub fn load_url(&self, url: &str) {
     self.webview.load_uri(url)
   }
 }

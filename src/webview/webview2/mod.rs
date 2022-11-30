@@ -808,7 +808,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     set_background_color(&self.controller, background_color).map_err(Into::into)
   }
 
-  pub fn navigate_to_url(&self, url: &str) {
+  pub fn load_url(&self, url: &str) {
     let url = encode_wide(url);
     let _ = unsafe { self.webview.Navigate(PCWSTR::from_raw(url.as_ptr())) };
   }

@@ -2,4 +2,4 @@
 "wry": "patch"
 ---
 
-Add `Webiew::navigate_to_url`.
+Add `Webiew::load_url`.
