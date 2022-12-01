@@ -2,4 +2,4 @@
 "wry": patch
 ---
 
-Fix a typo in a method name of `WebViewBuilderExtWindows`.
+Change typo in `WebViewBuilderExtWindows::with_additionl_browser_args`. to `WebViewBuilderExtWindows::with_additional_browser_args`.
