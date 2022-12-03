@@ -26,7 +26,6 @@ use std::{
   slice, str,
 };
 
-use core_graphics::geometry::{CGRect, CGSize};
 use objc::{
   declare::ClassDecl,
   runtime::{Class, Object, Sel, BOOL},
@@ -328,8 +327,7 @@ impl InnerWebView {
 
       #[cfg(target_os = "macos")]
       {
-        let ns_view = window.ns_view() as id;
-        // let frame: CGRect = msg_send![ns_view, frame];
+        use core_graphics::geometry::{CGRect, CGSize};
         let frame: CGRect = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(0., 0.));
         let _: () = msg_send![webview, initWithFrame:frame configuration:config];
         // Auto-resize on macOS
