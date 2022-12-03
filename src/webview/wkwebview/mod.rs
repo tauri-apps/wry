@@ -13,7 +13,6 @@ pub use web_context::WebContextImpl;
 #[cfg(target_os = "macos")]
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
 use cocoa::{
-  appkit::CGPoint,
   base::{id, nil, NO, YES},
   foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
@@ -26,6 +25,7 @@ use std::{
   slice, str,
 };
 
+use core_graphics::geometry::CGRect;
 use objc::{
   declare::ClassDecl,
   runtime::{Class, Object, Sel, BOOL},
@@ -327,7 +327,7 @@ impl InnerWebView {
 
       #[cfg(target_os = "macos")]
       {
-        use core_graphics::geometry::{CGRect, CGSize};
+        use core_graphics::geometry::{CGPoint, CGSize};
         let frame: CGRect = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(0., 0.));
         let _: () = msg_send![webview, initWithFrame:frame configuration:config];
         // Auto-resize on macOS
