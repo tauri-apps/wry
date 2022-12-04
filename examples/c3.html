@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+</head>
+
+<body>
+<!-- Load c3.css -->
+<link href="/c3.css" rel="stylesheet">
+
+<!-- Load d3.js and c3.js -->
+<script src="/d3-5.8.2.min.js" charset="utf-8"></script>
+<script src="/c3.min.js"></script>
+<div id="chart"></div>
+<script>
+let x = function() {
+  d3.csv('/c3_1.csv').then(data => console.log(data));
+}
+setInterval(x, 100);
+</script>
+</body>
+
+</html>
