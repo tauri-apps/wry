@@ -41,19 +41,21 @@ fn main() -> wry::Result<()> {
       // Return asset contents and mime types based on file extentions
       // If you don't want to do this manually, there are some crates for you.
       // Such as `infer` and `mime_guess`.
-      let (data, meta) = if path.ends_with(".html") || path == &"/" {
-        (content, "text/html")
+      let mimetype = if path.ends_with(".html") || path == &"/" {
+        "text/html"
       } else if path.ends_with(".js") {
-        (content, "text/javascript")
+        "text/javascript"
       } else if path.ends_with(".png") {
-        (content, "image/png")
+        "image/png"
+      } else if path.ends_with(".wasm") {
+        "application/wasm"
       } else {
         unimplemented!();
       };
 
       Response::builder()
-        .header(CONTENT_TYPE, meta)
-        .body(data)
+        .header(CONTENT_TYPE, mimetype)
+        .body(content)
         .map_err(Into::into)
     })
     // tell the webview to load the custom protocol
