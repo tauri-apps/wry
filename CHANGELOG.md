@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.23.1]
+
+- Fixes usage of the `linux-headers` feature.
+  - [64a72ff](https://github.com/tauri-apps/wry/commit/64a72ffd2369f51d36bdb00973f71326e8395016) fix(wry): correctly use the linux-headers feature on 2022-12-05
+
 ## \[0.23.0]
 
 - Properly parse the content type header for the `android.webkit.WebResourceResponse` mime type.
