@@ -1,5 +1,18 @@
 # Changelog
 
+## \[0.23.0]
+
+- Properly parse the content type header for the `android.webkit.WebResourceResponse` mime type.
+  - [1db5ea6](https://github.com/tauri-apps/wry/commit/1db5ea68c2028db77788ec8c78ee0ab75a7a5f7f) fix(android): properly parse content-type for response mime type ([#772](https://github.com/tauri-apps/wry/pull/772)) on 2022-11-27
+- Change typo in `WebViewBuilderExtWindows::with_additionl_browser_args`. to `WebViewBuilderExtWindows::with_additional_browser_args`.
+  - [db1c290](https://github.com/tauri-apps/wry/commit/db1c290c0d8b58f6612ef9bef244a06261fb2a6e) fix(windows): Fix typo in method name of `WebViewBuilderExtWindows` ([#781](https://github.com/tauri-apps/wry/pull/781)) on 2022-12-02
+- Add `Webiew::load_url`.
+  - [a2b9531](https://github.com/tauri-apps/wry/commit/a2b9531b0e8397dcf74c049ccf6c7fa125288ca8) feat: add `Webiew::navigate_to_url`, closes [#776](https://github.com/tauri-apps/wry/pull/776) ([#777](https://github.com/tauri-apps/wry/pull/777)) on 2022-11-30
+- Change the type of `WebViewBuilderExtWindows::with_additional_browser_args` argument from `AsRef<str>` to `Into<String>` to reduce extra allocation.
+  - [b0ff06a](https://github.com/tauri-apps/wry/commit/b0ff06aba5aea77f067aee1e9bf8ac8c245ac5e8) perf: reduce extra allocation at `WebViewBuilderExtWindows::with_additional_browser_args` argument ([#783](https://github.com/tauri-apps/wry/pull/783)) on 2022-12-03
+- Validate custom protocol response status code on Android.
+  - [7f585c7](https://github.com/tauri-apps/wry/commit/7f585c7dc947936387faf565f3f5cbe62148daaf) feat(android): validate custom protocol response status code ([#779](https://github.com/tauri-apps/wry/pull/779)) on 2022-11-30
+
 ## \[0.22.5]
 
 - On macOS, fix arrow keys misprint text on textarea.
