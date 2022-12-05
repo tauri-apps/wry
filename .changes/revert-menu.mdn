@@ -1,6 +1,0 @@
----
-"wry": patch
----
-
-On macOS, revert content view to native NSView.
-
