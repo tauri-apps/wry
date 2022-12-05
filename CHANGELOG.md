@@ -12,6 +12,13 @@
   - [b0ff06a](https://github.com/tauri-apps/wry/commit/b0ff06aba5aea77f067aee1e9bf8ac8c245ac5e8) perf: reduce extra allocation at `WebViewBuilderExtWindows::with_additional_browser_args` argument ([#783](https://github.com/tauri-apps/wry/pull/783)) on 2022-12-03
 - Validate custom protocol response status code on Android.
   - [7f585c7](https://github.com/tauri-apps/wry/commit/7f585c7dc947936387faf565f3f5cbe62148daaf) feat(android): validate custom protocol response status code ([#779](https://github.com/tauri-apps/wry/pull/779)) on 2022-11-30
+- [https://github.com/tauri-apps/wry/commit/04422bc1b579d9388ce03c2388b8f415dbc0747b] On macOS, revert content view to native NSView ([#782])(https://github.com/tauri-apps/wry/pull/782)
+
+## \[0.22.6]
+
+- Fixes usage of the `linux-headers` feature.
+  - [14c5ae7](https://github.com/tauri-apps/wry/commit/14c5ae7d41b506c8a398d4735062b46cd0770447) fix(wry): correctly use the linux-headers feature on 2022-12-05
+
 
 ## \[0.22.5]
 
