@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.22.6]
+
+- Fixes usage of the `linux-headers` feature.
+  - [14c5ae7](https://github.com/tauri-apps/wry/commit/14c5ae7d41b506c8a398d4735062b46cd0770447) fix(wry): correctly use the linux-headers feature on 2022-12-05
+
 ## \[0.22.5]
 
 - On macOS, fix arrow keys misprint text on textarea.
