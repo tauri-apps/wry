@@ -26,6 +26,8 @@ fn main() -> wry::Result<()> {
   file_menu.add_item(
     MenuItemAttributes::new("Quit").with_accelerators(&Accelerator::new(
       Some(ModifiersState::SUPER),
+      // Some(ModifiersState::SHIFT),
+      // None,
       KeyCode::KeyQ,
     )),
   );
