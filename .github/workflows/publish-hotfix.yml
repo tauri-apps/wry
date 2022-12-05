@@ -1,0 +1,36 @@
+name: version or publish
+
+on:
+  push:
+    branches:
+      - "0.*"
+
+jobs:
+  version-or-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    outputs:
+      change: ${{ steps.covector.outputs.change }}
+      commandRan: ${{ steps.covector.outputs.commandRan }}
+      successfulPublish: ${{ steps.covector.outputs.successfulPublish }}
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: cargo login
+        run: cargo login ${{ secrets.ORG_CRATES_IO_TOKEN }}
+      - name: git config
+        run: |
+          git config --global user.name "${{ github.event.pusher.name }}"
+          git config --global user.email "${{ github.event.pusher.email }}"
+      - name: covector version or publish (publish when no change files present)
+        uses: jbolda/covector/packages/action@covector-v0
+        id: covector
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CARGO_AUDIT_OPTIONS: ${{ secrets.CARGO_AUDIT_OPTIONS }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          command: "version-or-publish"
+          createRelease: true
