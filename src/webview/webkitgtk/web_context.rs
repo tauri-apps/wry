@@ -351,7 +351,7 @@ where
 
             request.finish_with_response(&response);
           }
-          #[cfg(not(feature = "header"))]
+          #[cfg(not(feature = "linux-headers"))]
           request.finish(&input, buffer.len() as i64, content_type)
         }
         Err(_) => request.finish_error(&mut glib::Error::new(
