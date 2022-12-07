@@ -69,9 +69,17 @@ impl InnerWebView {
     let file_drop_handler = attributes.file_drop_handler.take();
     let file_drop_window = window.clone();
 
+    let browser_accelerator_keys = pl_attrs.browser_accelerator_keys;
     let env = Self::create_environment(&web_context, pl_attrs)?;
     let controller = Self::create_controller(hwnd, &env)?;
-    let webview = Self::init_webview(window, hwnd, attributes, &env, &controller)?;
+    let webview = Self::init_webview(
+      window,
+      hwnd,
+      attributes,
+      &env,
+      &controller,
+      browser_accelerator_keys,
+    )?;
 
     if let Some(file_drop_handler) = file_drop_handler {
       let mut controller = FileDropController::new();
@@ -190,6 +198,7 @@ impl InnerWebView {
     mut attributes: WebViewAttributes,
     env: &ICoreWebView2Environment,
     controller: &ICoreWebView2Controller,
+    browser_accelerator_keys: bool,
   ) -> webview2_com::Result<ICoreWebView2> {
     let webview =
       unsafe { controller.CoreWebView2() }.map_err(webview2_com::Error::WindowsError)?;
@@ -245,6 +254,13 @@ impl InnerWebView {
         settings
           .SetAreDevToolsEnabled(true)
           .map_err(webview2_com::Error::WindowsError)?;
+      }
+      if !browser_accelerator_keys {
+        if let Ok(settings3) = settings.cast::<ICoreWebView2Settings3>() {
+          settings3
+            .SetAreBrowserAcceleratorKeysEnabled(false)
+            .map_err(webview2_com::Error::WindowsError)?;
+        }
       }
 
       let settings5 = settings.cast::<ICoreWebView2Settings5>()?;

@@ -255,9 +255,18 @@ impl Default for WebViewAttributes {
 }
 
 #[cfg(windows)]
-#[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   additional_browser_args: Option<String>,
+  browser_accelerator_keys: bool,
+}
+#[cfg(windows)]
+impl Default for PlatformSpecificWebViewAttributes {
+  fn default() -> Self {
+    Self {
+      additional_browser_args: None,
+      browser_accelerator_keys: true, // This is WebView2's default behavior
+    }
+  }
 }
 #[cfg(any(
   target_os = "linux",
@@ -593,12 +602,24 @@ pub trait WebViewBuilderExtWindows {
   /// By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
   /// so if you use this method, you also need to disable these components by yourself if you want.
   fn with_additional_browser_args<S: Into<String>>(self, additional_args: S) -> Self;
+
+  /// Determines whether browser-specific accelerator keys are enabled. When this setting is set to
+  /// `false`, it disables all accelerator keys that access features specific to a web browser.
+  /// The default value is `true`. See the following link to know more details.
+  ///
+  /// https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2settings#arebrowseracceleratorkeysenabled
+  fn with_browser_accelerator_keys(self, enabled: bool) -> Self;
 }
 
 #[cfg(windows)]
 impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
   fn with_additional_browser_args<S: Into<String>>(mut self, additional_args: S) -> Self {
     self.platform_specific.additional_browser_args = Some(additional_args.into());
+    self
+  }
+
+  fn with_browser_accelerator_keys(mut self, enabled: bool) -> Self {
+    self.platform_specific.browser_accelerator_keys = enabled;
     self
   }
 }
