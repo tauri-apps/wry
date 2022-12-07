@@ -99,17 +99,19 @@ pub extern "C" fn download_did_finish(this: &Object, _: Sel, download: id) {
   }
 }
 
-pub extern "C" fn download_did_fail(this: &Object, _: Sel, download: id, error: id, _: id) {
+pub extern "C" fn download_did_fail(this: &Object, _: Sel, download: id, _error: id, _: id) {
   unsafe {
-    let description: id = msg_send![error, localizedDescription];
-    let description = NSString(description).to_str().to_string();
+    #[cfg(debug_assertions)]
+    {
+      let description: id = msg_send![_error, localizedDescription];
+      let description = NSString(description).to_str().to_string();
+      eprintln!("Download failed with error: {}", description);
+    }
+
     let original_request: id = msg_send![download, originalRequest];
     let url: id = msg_send![original_request, URL];
     let url: id = msg_send![url, absoluteString];
     let url = NSString(url).to_str().to_string();
-
-    #[cfg(debug_assertions)]
-    eprintln!("Download failed with error: {}", description);
 
     let function = this.get_ivar::<*mut c_void>("completed");
     if !function.is_null() {
