@@ -36,7 +36,7 @@ fn main() -> wry::Result<()> {
 
       Response::builder()
         .header(CONTENT_TYPE, "text/html")
-        .body(read(canonicalize(&path)?)?)
+        .body(read(canonicalize(&path)?)?.into())
         .map_err(Into::into)
     })
     // tell the webview to load the custom protocol

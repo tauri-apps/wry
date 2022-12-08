@@ -57,7 +57,7 @@ fn main() -> wry::Result<()> {
       let path = &request.uri().path()[1..];
 
       // Read the file content from file path
-      let mut content = File::open(canonicalize(&path)?)?;
+      let mut content = File::open(canonicalize(path)?)?;
 
       // Return asset contents and mime types based on file extentions
       // If you don't want to do this manually, there are some crates for you.
@@ -125,7 +125,7 @@ fn main() -> wry::Result<()> {
       response
         .header(CONTENT_TYPE, mimetype)
         .status(status_code)
-        .body(buf)
+        .body(buf.into())
         .map_err(Into::into)
     })
     // tell the webview to load the custom protocol

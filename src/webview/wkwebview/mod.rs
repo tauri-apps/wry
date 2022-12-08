@@ -18,6 +18,7 @@ use cocoa::{
 };
 
 use std::{
+  borrow::Cow,
   ffi::{c_void, CStr},
   os::raw::c_char,
   ptr::{null, null_mut},
@@ -77,7 +78,7 @@ pub(crate) struct InnerWebView {
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
   download_delegate: id,
-  protocol_ptrs: Vec<*mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>>>>,
+  protocol_ptrs: Vec<*mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>>,
 }
 
 impl InnerWebView {
