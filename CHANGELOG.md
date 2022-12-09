@@ -1,5 +1,14 @@
 # Changelog
 
+## \[0.23.2]
+
+- On macOS, remove all custom keydown implementations. This will bring back keydown regression but should allow all accelerator working.
+  - [fee4bf2](https://github.com/tauri-apps/wry/commit/fee4bf2eb384d9c315530bd8f5af146909706cf6) Remove all keydown implementations ([#798](https://github.com/tauri-apps/wry/pull/798)) on 2022-12-10
+- Suppress `unused_variables` warning reported only in release build.
+  - [4e23c0f](https://github.com/tauri-apps/wry/commit/4e23c0f84b5a954be78418d56e37366395de030f) fix(macos): suppress `unused_variables` warning reported only in release build ([#790](https://github.com/tauri-apps/wry/pull/790)) on 2022-12-07
+- Add `WebViewBuilderExtWindows::with_browser_accelerator_keys` method to allow disabling browser-specific accelerator keys enabled in WebView2 by default. When `false` is passed, it disables all accelerator keys that access features specific to a web browser. See [the official WebView2 document](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2\_core/corewebview2settings#arebrowseracceleratorkeysenabled) for more details.
+  - [6e622ff](https://github.com/tauri-apps/wry/commit/6e622ffbdad2312bf3906d278a75956a3a6eeadd) feat(windows): Allow disabling browser-specific accelerator keys ([#792](https://github.com/tauri-apps/wry/pull/792)) on 2022-12-07
+
 ## \[0.23.1]
 
 - Fixes usage of the `linux-headers` feature.
@@ -17,13 +26,12 @@
   - [b0ff06a](https://github.com/tauri-apps/wry/commit/b0ff06aba5aea77f067aee1e9bf8ac8c245ac5e8) perf: reduce extra allocation at `WebViewBuilderExtWindows::with_additional_browser_args` argument ([#783](https://github.com/tauri-apps/wry/pull/783)) on 2022-12-03
 - Validate custom protocol response status code on Android.
   - [7f585c7](https://github.com/tauri-apps/wry/commit/7f585c7dc947936387faf565f3f5cbe62148daaf) feat(android): validate custom protocol response status code ([#779](https://github.com/tauri-apps/wry/pull/779)) on 2022-11-30
-- [https://github.com/tauri-apps/wry/commit/04422bc1b579d9388ce03c2388b8f415dbc0747b] On macOS, revert content view to native NSView ([#782])(https://github.com/tauri-apps/wry/pull/782)
+- \[https://github.com/tauri-apps/wry/commit/04422bc1b579d9388ce03c2388b8f415dbc0747b] On macOS, revert content view to native NSView (\[#782])(https://github.com/tauri-apps/wry/pull/782)
 
 ## \[0.22.6]
 
 - Fixes usage of the `linux-headers` feature.
   - [14c5ae7](https://github.com/tauri-apps/wry/commit/14c5ae7d41b506c8a398d4735062b46cd0770447) fix(wry): correctly use the linux-headers feature on 2022-12-05
-
 
 ## \[0.22.5]
 
