@@ -9,6 +9,10 @@ on:
 env:
   LC_ALL: en_US.UTF-8 # This prevents strace from changing it's number format to use commas.
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   bench:
     strategy:
