@@ -6,6 +6,9 @@ on:
       - dev
   workflow_dispatch:
 
+env:
+  LC_ALL: en_US.UTF-8 # This prevents strace from changing it's number format to use commas.
+
 jobs:
   bench:
     strategy:
