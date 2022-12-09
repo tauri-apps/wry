@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust_version: [stable]
+        rust: [nightly]
         platform:
           - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
 
@@ -22,10 +22,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - name: install stable
+      - name: install ${{ matrix.rust }}
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: ${{ matrix.rust }}
           override: true
           components: rust-src
           target: ${{ matrix.platform.target }}
