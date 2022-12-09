@@ -23,11 +23,21 @@ fn main() -> wry::Result<()> {
 
   let mut menu = MenuBar::new();
   let mut file_menu = MenuBar::new();
+  file_menu.add_native_item(tao::menu::MenuItem::Cut);
+  file_menu.add_native_item(tao::menu::MenuItem::Copy);
+  file_menu.add_native_item(tao::menu::MenuItem::Paste);
   file_menu.add_item(
     MenuItemAttributes::new("Quit").with_accelerators(&Accelerator::new(
-      Some(ModifiersState::SUPER),
-      // Some(ModifiersState::SHIFT),
-      // None,
+      Some(ModifiersState::CONTROL | ModifiersState::SHIFT),
+      KeyCode::KeyQ,
+    )),
+  );
+  file_menu.add_item(
+    MenuItemAttributes::new("Quit").with_accelerators(&Accelerator::new(None, KeyCode::KeyQ)),
+  );
+  file_menu.add_item(
+    MenuItemAttributes::new("Quit").with_accelerators(&Accelerator::new(
+      Some(ModifiersState::SHIFT),
       KeyCode::KeyQ,
     )),
   );
@@ -63,6 +73,8 @@ fn main() -> wry::Result<()> {
         (content, "text/javascript")
       } else if path.ends_with(".png") {
         (content, "image/png")
+      } else if path.ends_with(".wasm") {
+        (content, "application/wasm")
       } else {
         unimplemented!();
       };
@@ -87,7 +99,7 @@ fn main() -> wry::Result<()> {
       } => *control_flow = ControlFlow::Exit,
       Event::MenuEvent { menu_id, .. } => {
         println!("Menu clicked! {:?}", menu_id);
-        *control_flow = ControlFlow::Exit;
+        // *control_flow = ControlFlow::Exit;
       }
       _ => (),
     }
