@@ -50,7 +50,7 @@ fn main() -> wry::Result<()> {
       let content = if path == "/" {
         PAGE1_HTML.into()
       } else {
-        // 1.. for removing leading slash
+        // `1..` for removing leading slash
         read(canonicalize(PathBuf::from("examples").join(&path[1..]))?)?.into()
       };
 
