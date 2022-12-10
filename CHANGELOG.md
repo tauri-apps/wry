@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.23.3]
+
+- Fix the beep sound on macOS
+  - [94256c3](https://github.com/tauri-apps/wry/commit/94256c3adb1d6c005e0386f8b20f01d597b52f28) Fix beep sound, closes [#799](https://github.com/tauri-apps/wry/pull/799) ([#801](https://github.com/tauri-apps/wry/pull/801)) on 2022-12-10
+
 ## \[0.23.2]
 
 - On macOS, remove all custom keydown implementations. This will bring back keydown regression but should allow all accelerator working.
