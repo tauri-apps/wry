@@ -31,9 +31,11 @@ fn main() {
       let reversed_domain = env_var("WRY_ANDROID_REVERSED_DOMAIN");
       let app_name_snake_case = env_var("WRY_ANDROID_APP_NAME_SNAKE_CASE");
 
-      let kotlin_out_dir = PathBuf::from(kotlin_out_dir)
+      let kotlin_out_dir = PathBuf::from(&kotlin_out_dir)
         .canonicalize()
-        .expect("Failed to canonicalize path");
+        .unwrap_or_else(move |_| {
+          panic!("Failed to canonicalize `WRY_ANDROID_KOTLIN_FILES_OUT_DIR` path {kotlin_out_dir}")
+        });
 
       let kotlin_files_path =
         PathBuf::from(env_var("CARGO_MANIFEST_DIR")).join("src/webview/android/kotlin");
