@@ -256,9 +256,11 @@ impl Default for WebViewAttributes {
 }
 
 #[cfg(windows)]
+#[derive(Clone)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   additional_browser_args: Option<String>,
   browser_accelerator_keys: bool,
+  theme: Option<Theme>,
 }
 #[cfg(windows)]
 impl Default for PlatformSpecificWebViewAttributes {
@@ -266,6 +268,7 @@ impl Default for PlatformSpecificWebViewAttributes {
     Self {
       additional_browser_args: None,
       browser_accelerator_keys: true, // This is WebView2's default behavior
+      theme: None,
     }
   }
 }
@@ -610,6 +613,11 @@ pub trait WebViewBuilderExtWindows {
   ///
   /// https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2settings#arebrowseracceleratorkeysenabled
   fn with_browser_accelerator_keys(self, enabled: bool) -> Self;
+
+  /// Specifies the theme of webview2. This affects things like `prefers-color-scheme`.
+  ///
+  /// Defaults to [`Theme::Auto`] which will follow the OS defaults.
+  fn with_theme(self, theme: Theme) -> Self;
 }
 
 #[cfg(windows)]
@@ -621,6 +629,11 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 
   fn with_browser_accelerator_keys(mut self, enabled: bool) -> Self {
     self.platform_specific.browser_accelerator_keys = enabled;
+    self
+  }
+
+  fn with_theme(mut self, theme: Theme) -> Self {
+    self.platform_specific.theme = Some(theme);
     self
   }
 }
@@ -796,12 +809,19 @@ pub fn webview_version() -> Result<String> {
 pub trait WebviewExtWindows {
   /// Returns WebView2 Controller
   fn controller(&self) -> ICoreWebView2Controller;
+
+  // Changes the webview2 theme.
+  fn set_theme(&self, theme: Theme);
 }
 
 #[cfg(target_os = "windows")]
 impl WebviewExtWindows for WebView {
   fn controller(&self) -> ICoreWebView2Controller {
     self.webview.controller.clone()
+  }
+
+  fn set_theme(&self, theme: Theme) {
+    self.webview.set_theme(theme)
   }
 }
 
@@ -856,6 +876,13 @@ impl WebviewExtAndroid for WebView {
   fn handle(&self) -> JniHandle {
     JniHandle
   }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Theme {
+  Dark,
+  Light,
+  Auto,
 }
 
 #[cfg(test)]

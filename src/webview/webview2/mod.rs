@@ -42,6 +42,8 @@ use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 use crate::application::{platform::windows::WindowExtWindows, window::Window};
 use http::Request;
 
+use super::Theme;
+
 impl From<webview2_com::Error> for Error {
   fn from(err: webview2_com::Error) -> Self {
     Error::WebView2Error(err)
@@ -69,17 +71,9 @@ impl InnerWebView {
     let file_drop_handler = attributes.file_drop_handler.take();
     let file_drop_window = window.clone();
 
-    let browser_accelerator_keys = pl_attrs.browser_accelerator_keys;
-    let env = Self::create_environment(&web_context, pl_attrs)?;
+    let env = Self::create_environment(&web_context, pl_attrs.clone())?;
     let controller = Self::create_controller(hwnd, &env)?;
-    let webview = Self::init_webview(
-      window,
-      hwnd,
-      attributes,
-      &env,
-      &controller,
-      browser_accelerator_keys,
-    )?;
+    let webview = Self::init_webview(window, hwnd, attributes, &env, &controller, pl_attrs)?;
 
     if let Some(file_drop_handler) = file_drop_handler {
       let mut controller = FileDropController::new();
@@ -198,10 +192,15 @@ impl InnerWebView {
     mut attributes: WebViewAttributes,
     env: &ICoreWebView2Environment,
     controller: &ICoreWebView2Controller,
-    browser_accelerator_keys: bool,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
   ) -> webview2_com::Result<ICoreWebView2> {
     let webview =
       unsafe { controller.CoreWebView2() }.map_err(webview2_com::Error::WindowsError)?;
+
+    // theme
+    if let Some(theme) = pl_attrs.theme {
+      set_theme(&webview, theme);
+    }
 
     // background color
     if !attributes.transparent {
@@ -255,7 +254,7 @@ impl InnerWebView {
           .SetAreDevToolsEnabled(true)
           .map_err(webview2_com::Error::WindowsError)?;
       }
-      if !browser_accelerator_keys {
+      if !pl_attrs.browser_accelerator_keys {
         if let Ok(settings3) = settings.cast::<ICoreWebView2Settings3>() {
           settings3
             .SetAreBrowserAcceleratorKeysEnabled(false)
@@ -828,6 +827,10 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     let url = encode_wide(url);
     let _ = unsafe { self.webview.Navigate(PCWSTR::from_raw(url.as_ptr())) };
   }
+
+  pub fn set_theme(&self, theme: Theme) {
+    set_theme(&self.webview, theme);
+  }
 }
 
 fn encode_wide(string: impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
@@ -855,6 +858,21 @@ pub fn set_background_color(
         A: color.3,
       })
       .map_err(webview2_com::Error::WindowsError)
+  }
+}
+
+fn set_theme(webview: &ICoreWebView2, theme: Theme) {
+  unsafe {
+    let _ = webview
+      .cast::<ICoreWebView2_13>()
+      .unwrap()
+      .Profile()
+      .unwrap()
+      .SetPreferredColorScheme(match theme {
+        Theme::Dark => COREWEBVIEW2_PREFERRED_COLOR_SCHEME_DARK,
+        Theme::Light => COREWEBVIEW2_PREFERRED_COLOR_SCHEME_LIGHT,
+        Theme::Auto => COREWEBVIEW2_PREFERRED_COLOR_SCHEME_AUTO,
+      });
   }
 }
 
