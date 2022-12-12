@@ -13,7 +13,7 @@ use http::{
 use kuchiki::NodeRef;
 use once_cell::sync::OnceCell;
 use sha2::{Digest, Sha256};
-use std::rc::Rc;
+use std::{borrow::Cow, rc::Rc};
 use tao::platform::android::ndk_glue::{
   jni::{
     errors::Error as JniError,
@@ -66,9 +66,11 @@ impl UnsafeIpc {
 unsafe impl Send for UnsafeIpc {}
 unsafe impl Sync for UnsafeIpc {}
 
-pub struct UnsafeRequestHandler(Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Vec<u8>>>>);
+pub struct UnsafeRequestHandler(
+  Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Cow<'static, [u8]>>>>,
+);
 impl UnsafeRequestHandler {
-  pub fn new(f: Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Vec<u8>>>>) -> Self {
+  pub fn new(f: Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Cow<'static, [u8]>>>>) -> Self {
     Self(f)
   }
 }
@@ -182,7 +184,7 @@ impl InnerWebView {
             {
               if !initialization_scripts.is_empty() {
                 let mut document =
-                  kuchiki::parse_html().one(String::from_utf8_lossy(&response.body()).into_owned());
+                  kuchiki::parse_html().one(String::from_utf8_lossy(response.body()).into_owned());
                 let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
                 let mut hashes = Vec::new();
                 with_html_head(&mut document, |head| {
@@ -208,7 +210,7 @@ impl InnerWebView {
                   *csp = HeaderValue::from_str(&csp_string).unwrap();
                 }
 
-                *response.body_mut() = document.to_string().as_bytes().to_vec();
+                *response.body_mut() = document.to_string().into_bytes().into();
               }
             }
             return Some(response);

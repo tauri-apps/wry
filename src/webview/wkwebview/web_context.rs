@@ -6,10 +6,11 @@ use crate::Result;
 
 use crate::webview::web_context::WebContextData;
 use http::{Request, Response};
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct WebContextImpl {
-  protocols: Vec<*mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>>>>,
+  protocols: Vec<*mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>>,
 }
 
 impl WebContextImpl {
@@ -23,7 +24,7 @@ impl WebContextImpl {
 
   pub fn registered_protocols(
     &mut self,
-    handler: *mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>>>,
+    handler: *mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>,
   ) {
     self.protocols.push(handler);
   }

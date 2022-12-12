@@ -48,6 +48,7 @@ use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
 use windows::{Win32::Foundation::HWND, Win32::UI::WindowsAndMessaging::DestroyWindow};
 
+use std::borrow::Cow;
 use std::{path::PathBuf, rc::Rc};
 
 pub use url::Url;
@@ -137,7 +138,7 @@ pub struct WebViewAttributes {
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
   pub custom_protocols: Vec<(
     String,
-    Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>>>,
+    Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>,
   )>,
   /// Set the IPC handler to receive the message from Javascript on webview to host Rust code.
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
@@ -394,7 +395,7 @@ impl<'a> WebViewBuilder<'a> {
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>> + 'static,
+    F: Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>> + 'static,
   {
     self
       .webview
