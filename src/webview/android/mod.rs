@@ -188,7 +188,8 @@ impl InnerWebView {
                 let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
                 let mut hashes = Vec::new();
                 with_html_head(&mut document, |head| {
-                  for script in &initialization_scripts {
+                  // iterate in reverse order since we are prepending each script to the head tag
+                  for script in initialization_scripts.iter().rev() {
                     let script_el =
                       NodeRef::new_element(QualName::new(None, ns!(html), "script".into()), None);
                     script_el.append(NodeRef::new_text(script));
