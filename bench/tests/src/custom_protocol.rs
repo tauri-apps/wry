@@ -5,6 +5,24 @@
 use serde::{Deserialize, Serialize};
 use std::process::exit;
 
+const INDEX_HTML: &[u8] = br#"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body>
+    <h1>Welcome to WRY!</h1>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        ipc.postMessage('dom-loaded')
+    })
+    </script>
+</body>
+</html>"#;
+
 #[derive(Debug, Serialize, Deserialize)]
 struct MessageParameters {
   message: String,
@@ -33,27 +51,9 @@ fn main() -> wry::Result<()> {
     .unwrap()
     .with_ipc_handler(handler)
     .with_custom_protocol("wrybench".into(), move |_request| {
-      let index_html = r#"
-      <!DOCTYPE html>
-      <html lang="en">
-        <head>
-          <meta charset="UTF-8" />
-          <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        </head>
-        <body>
-          <h1>Welcome to WRY!</h1>
-          <script>
-            document.addEventListener('DOMContentLoaded', () => {
-              ipc.postMessage('dom-loaded')
-            })
-          </script>
-        </body>
-      </html>"#;
-
       Response::builder()
         .header(CONTENT_TYPE, "text/html")
-        .body(index_html.into())
+        .body(INDEX_HTML.into())
         .map_err(Into::into)
     })
     .with_url("wrybench://localhost")?
