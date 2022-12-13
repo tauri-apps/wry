@@ -1,5 +1,12 @@
 # Changelog
 
+## \[0.23.4]
+
+- Fixes Android initialization scripts order.
+  - [800cc48](https://github.com/tauri-apps/wry/commit/800cc48b46ba9e5ce968efd5708aeb71b63832f9) fix(android): initialization scripts order ([#808](https://github.com/tauri-apps/wry/pull/808)) on 2022-12-12
+- Improve panic error messages on the build script.
+  - [4ec7386](https://github.com/tauri-apps/wry/commit/4ec7386740ab2edb3b56d72668841af3f329cefd) feat: improve build script panic messages ([#807](https://github.com/tauri-apps/wry/pull/807)) on 2022-12-12
+
 ## \[0.23.3]
 
 - Fix the beep sound on macOS
