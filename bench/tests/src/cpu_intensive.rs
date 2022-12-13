@@ -23,26 +23,26 @@ fn main() -> wry::Result<()> {
       exit(0);
     }
   };
-  let webview = WebViewBuilder::new(window)
+  let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_custom_protocol("wrybench".into(), move |request| {
       let path = request.uri().to_string();
       let requested_asset_path = path.strip_prefix("wrybench://localhost").unwrap();
-      let (data, mimetype): (Vec<u8>, String) = match requested_asset_path {
+      let (data, mimetype): (_, String) = match requested_asset_path {
         "/index.css" => (
-          include_bytes!("static/index.css").to_vec(),
+          include_bytes!("static/index.css").as_slice().into(),
           "text/css".into(),
         ),
         "/site.js" => (
-          include_bytes!("static/site.js").to_vec(),
+          include_bytes!("static/site.js").as_slice().into(),
           "text/javascript".into(),
         ),
         "/worker.js" => (
-          include_bytes!("static/worker.js").to_vec(),
+          include_bytes!("static/worker.js").as_slice().into(),
           "text/javascript".into(),
         ),
         _ => (
-          include_bytes!("static/index.html").to_vec(),
+          include_bytes!("static/index.html").as_slice().into(),
           "text/html".into(),
         ),
       };
