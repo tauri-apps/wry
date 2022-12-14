@@ -794,7 +794,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
     let uri = take_pwstr(pwstr);
 
-    Url::parse(&uri.to_string()).unwrap()
+    Url::parse(&uri).unwrap()
   }
 
   pub fn eval(&self, js: &str) -> Result<()> {

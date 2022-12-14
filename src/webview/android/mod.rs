@@ -143,11 +143,8 @@ impl InnerWebView {
     if let Some(u) = url {
       let mut url_string = String::from(u.as_str());
       let name = u.scheme();
-      let schemes = custom_protocols
-        .iter()
-        .map(|(name, _)| name.as_str())
-        .collect::<Vec<_>>();
-      if schemes.contains(&name) {
+      let is_custom_protocol = custom_protocols.iter().any(|(n, _)| n == name);
+      if is_custom_protocol {
         url_string = u
           .as_str()
           .replace(&format!("{}://", name), &format!("https://{}.", name))

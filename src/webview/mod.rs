@@ -853,15 +853,15 @@ pub trait WebviewExtMacOS {
 #[cfg(target_os = "macos")]
 impl WebviewExtMacOS for WebView {
   fn webview(&self) -> cocoa::base::id {
-    self.webview.webview.clone()
+    self.webview.webview
   }
 
   fn manager(&self) -> cocoa::base::id {
-    self.webview.manager.clone()
+    self.webview.manager
   }
 
   fn ns_window(&self) -> cocoa::base::id {
-    self.webview.ns_window.clone()
+    self.webview.ns_window
   }
 }
 
