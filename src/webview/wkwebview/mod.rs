@@ -113,7 +113,7 @@ impl InnerWebView {
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
           let function = &mut *(*function
-            as *mut Box<dyn for<'s> Fn(&'s Request<Vec<u8>>) -> Result<Response<Vec<u8>>>>);
+            as *mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>);
 
           // Get url request
           let request: id = msg_send![task, request];
