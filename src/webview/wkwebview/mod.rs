@@ -24,6 +24,7 @@ use std::{
   ptr::{null, null_mut},
   rc::Rc,
   slice, str,
+  sync::{Arc, Mutex},
 };
 
 use core_graphics::geometry::CGRect;
@@ -71,6 +72,7 @@ pub(crate) struct InnerWebView {
   #[cfg(target_os = "macos")]
   pub ns_window: id,
   pub manager: id,
+  pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
   // Note that if following functions signatures are changed in the future,
   // all functions pointer declarations in objc callbacks below all need to get updated.
   ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
@@ -402,10 +404,14 @@ impl InnerWebView {
               let has_download_handler = &mut *(*has_download_handler as *mut Box<bool>);
               if **has_download_handler {
                 (*handler).call((2,));
+              } else {
+                (*handler).call((0,));
               }
+            } else {
+              (*handler).call((0,));
             }
           } else {
-            let function = this.get_ivar::<*mut c_void>("function");
+            let function = this.get_ivar::<*mut c_void>("navigation_policy_function");
             if !function.is_null() {
               let function = &mut *(*function as *mut Box<dyn for<'s> Fn(String, bool) -> bool>);
               match (function)(url.to_str().to_string(), is_main_frame) {
@@ -413,9 +419,6 @@ impl InnerWebView {
                 false => (*handler).call((0,)),
               };
             } else {
-              log::warn!(
-                "WebView instance is dropped! This navigation handler shouldn't be called."
-              );
               (*handler).call((1,));
             }
           }
@@ -449,31 +452,58 @@ impl InnerWebView {
         }
       }
 
+      extern "C" fn did_commit_navigation(this: &Object, _: Sel, webview: id, _navigation: id) {
+        unsafe {
+          let pending_scripts_ptr: *mut c_void = *this.get_ivar("pending_scripts");
+          let pending_scripts = &(*(pending_scripts_ptr as *mut Arc<Mutex<Option<Vec<String>>>>));
+          let mut pending_scripts_ = pending_scripts.lock().unwrap();
+          if let Some(pending_scripts) = &*pending_scripts_ {
+            for script in pending_scripts {
+              let _: id = msg_send![webview, evaluateJavaScript:NSString::new(script) completionHandler:null::<*const c_void>()];
+            }
+            *pending_scripts_ = None;
+          }
+        }
+      }
+
+      let pending_scripts = Arc::new(Mutex::new(Some(Vec::new())));
+
+      let navigation_delegate_cls = match ClassDecl::new("UIViewController", class!(NSObject)) {
+        Some(mut cls) => {
+          cls.add_ivar::<*mut c_void>("pending_scripts");
+          cls.add_ivar::<*mut c_void>("navigation_policy_function");
+          cls.add_ivar::<*mut c_void>("HasDownloadHandler");
+          cls.add_method(
+            sel!(webView:decidePolicyForNavigationAction:decisionHandler:),
+            navigation_policy as extern "C" fn(&Object, Sel, id, id, id),
+          );
+          cls.add_method(
+            sel!(webView:decidePolicyForNavigationResponse:decisionHandler:),
+            navigation_policy_response as extern "C" fn(&Object, Sel, id, id, id),
+          );
+          cls.add_method(
+            sel!(webView:didCommitNavigation:),
+            did_commit_navigation as extern "C" fn(&Object, Sel, id, id),
+          );
+          add_download_methods(&mut cls);
+          cls.register()
+        }
+        None => class!(UIViewController),
+      };
+
+      let navigation_policy_handler: id = msg_send![navigation_delegate_cls, new];
+
+      (*navigation_policy_handler).set_ivar(
+        "pending_scripts",
+        Box::into_raw(Box::new(pending_scripts.clone())) as *mut c_void,
+      );
+
       let (navigation_decide_policy_ptr, download_delegate) = if attributes
         .navigation_handler
         .is_some()
         || attributes.new_window_req_handler.is_some()
         || attributes.download_started_handler.is_some()
       {
-        let cls = match ClassDecl::new("UIViewController", class!(NSObject)) {
-          Some(mut cls) => {
-            cls.add_ivar::<*mut c_void>("function");
-            cls.add_ivar::<*mut c_void>("HasDownloadHandler");
-            cls.add_method(
-              sel!(webView:decidePolicyForNavigationAction:decisionHandler:),
-              navigation_policy as extern "C" fn(&Object, Sel, id, id, id),
-            );
-            cls.add_method(
-              sel!(webView:decidePolicyForNavigationResponse:decisionHandler:),
-              navigation_policy_response as extern "C" fn(&Object, Sel, id, id, id),
-            );
-            add_download_methods(&mut cls);
-            cls.register()
-          }
-          None => class!(UIViewController),
-        };
-
-        let handler: id = msg_send![cls, new];
         let function_ptr = {
           let navigation_handler = attributes.navigation_handler;
           let new_window_req_handler = attributes.new_window_req_handler;
@@ -491,16 +521,18 @@ impl InnerWebView {
             }) as Box<dyn Fn(String, bool) -> bool>,
           ))
         };
-        (*handler).set_ivar("function", function_ptr as *mut _ as *mut c_void);
+        (*navigation_policy_handler).set_ivar(
+          "navigation_policy_function",
+          function_ptr as *mut _ as *mut c_void,
+        );
 
         let has_download_handler = Box::into_raw(Box::new(Box::new(
           attributes.download_started_handler.is_some(),
         )));
-        (*handler).set_ivar(
+        (*navigation_policy_handler).set_ivar(
           "HasDownloadHandler",
           has_download_handler as *mut _ as *mut c_void,
         );
-        let _: () = msg_send![webview, setNavigationDelegate: handler];
 
         // Download handler
         let download_delegate = if attributes.download_started_handler.is_some()
@@ -538,9 +570,9 @@ impl InnerWebView {
               .set_ivar("completed", download_completed_ptr as *mut _ as *mut c_void);
           }
 
-          set_download_delegate(handler, download_delegate);
+          set_download_delegate(navigation_policy_handler, download_delegate);
 
-          handler
+          navigation_policy_handler
         } else {
           null_mut()
         };
@@ -549,6 +581,8 @@ impl InnerWebView {
       } else {
         (null_mut(), null_mut())
       };
+
+      let _: () = msg_send![webview, setNavigationDelegate: navigation_policy_handler];
 
       // File upload panel handler
       extern "C" fn run_file_upload_panel(
@@ -647,6 +681,7 @@ impl InnerWebView {
         #[cfg(target_os = "macos")]
         ns_window,
         manager,
+        pending_scripts,
         ipc_handler_ptr,
         navigation_decide_policy_ptr,
         #[cfg(target_os = "macos")]
@@ -753,9 +788,13 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn eval(&self, js: &str) -> Result<()> {
-    // Safety: objc runtime calls are unsafe
-    unsafe {
-      let _: id = msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()];
+    if let Some(scripts) = &mut *self.pending_scripts.lock().unwrap() {
+      scripts.push(js.into());
+    } else {
+      // Safety: objc runtime calls are unsafe
+      unsafe {
+        let _: id = msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()];
+      }
     }
     Ok(())
   }
