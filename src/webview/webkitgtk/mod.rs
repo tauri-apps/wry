@@ -108,6 +108,17 @@ impl InnerWebView {
       close_window.gtk_window().close();
     });
 
+    // document title changed handler
+    if let Some(document_title_changed_handler) = attributes.document_title_changed_handler {
+      let w = window_rc.clone();
+      webview.connect_title_notify(move |webview| {
+        document_title_changed_handler(
+          &w,
+          webview.title().map(|t| t.to_string()).unwrap_or_default(),
+        )
+      });
+    }
+
     webview.add_events(
       EventMask::POINTER_MOTION_MASK
         | EventMask::BUTTON1_MOTION_MASK
