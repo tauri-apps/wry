@@ -48,8 +48,7 @@ use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
 use windows::{Win32::Foundation::HWND, Win32::UI::WindowsAndMessaging::DestroyWindow};
 
-use std::borrow::Cow;
-use std::{path::PathBuf, rc::Rc};
+use std::{borrow::Cow, path::PathBuf, rc::Rc};
 
 pub use url::Url;
 

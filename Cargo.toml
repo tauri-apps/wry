@@ -60,12 +60,12 @@ gdk = "0.15"
 soup2 = "0.2"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.19.1"
-windows-implement = "0.39.0"
+webview2-com = "0.21.0"
+windows-implement = "0.43.0"
 dunce = "1.0.3"
 
   [target."cfg(target_os = \"windows\")".dependencies.windows]
-  version = "0.39.0"
+  version = "0.43.0"
   features = [
   "implement",
   "Win32_Foundation",
@@ -94,3 +94,6 @@ kuchiki = "0.8"
 html5ever = "0.25"
 sha2 = "0.10"
 base64 = "0.13"
+
+[patch.crates-io]
+tao = { git = "https://github.com/silvanshade/tao", branch = "update-windows" }
