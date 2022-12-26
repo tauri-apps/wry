@@ -37,7 +37,8 @@ macro_rules! android_binding {
   ($domain:ident, $package:ident, $main: ident, $wry: path) => {
     use $wry::{
       application::{
-        android_binding as tao_android_binding, android_fn, platform::android::ndk_glue::*,
+        android_binding as tao_android_binding, android_fn, generate_package_name,
+        platform::android::ndk_glue::*,
       },
       webview::prelude::*,
     };
@@ -47,10 +48,10 @@ macro_rules! android_binding {
       $package,
       RustWebViewClient,
       handleRequest,
-      JObject,
+      [JObject],
       jobject
     );
-    android_fn!($domain, $package, Ipc, ipc, JString);
+    android_fn!($domain, $package, Ipc, ipc, [JString]);
   };
 }
 
@@ -204,7 +205,6 @@ impl InnerWebView {
                   } else {
                     format!("{} script-src {}", csp_string, hashes.join(" "))
                   };
-                  println!("[CSP] {}", csp_string);
                   *csp = HeaderValue::from_str(&csp_string).unwrap();
                 }
 
