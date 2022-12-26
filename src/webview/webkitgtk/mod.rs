@@ -7,10 +7,8 @@ use gio::Cancellable;
 use glib::signal::Inhibit;
 use gtk::prelude::*;
 #[cfg(any(debug_assertions, feature = "devtools"))]
-use std::sync::{
-  atomic::{AtomicBool, Ordering},
-  Arc,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::{
   collections::hash_map::DefaultHasher,
   hash::{Hash, Hasher},
