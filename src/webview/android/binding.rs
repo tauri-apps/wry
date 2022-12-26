@@ -13,7 +13,7 @@ use tao::platform::android::ndk_glue::jni::{
   JNIEnv,
 };
 
-use super::{IPC, REQUEST_HANDLER};
+use super::{IPC, REQUEST_HANDLER, TITLE_CHANGE_HANDLER};
 
 fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
   let mut request_builder = Request::builder();
@@ -162,6 +162,19 @@ pub unsafe fn ipc(env: JNIEnv, _: JClass, arg: JString) {
       let arg = arg.to_string_lossy().to_string();
       if let Some(w) = IPC.get() {
         (w.0)(&w.1, arg)
+      }
+    }
+    Err(e) => log::warn!("Failed to parse JString: {}", e),
+  }
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn handleReceivedTitle(env: JNIEnv, _: JClass, _webview: JObject, title: JString) {
+  match env.get_string(title) {
+    Ok(title) => {
+      let title = title.to_string_lossy().to_string();
+      if let Some(w) = TITLE_CHANGE_HANDLER.get() {
+        (w.0)(&w.1, title)
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),

@@ -52,11 +52,19 @@ macro_rules! android_binding {
       jobject
     );
     android_fn!($domain, $package, Ipc, ipc, [JString]);
+    android_fn!(
+      $domain,
+      $package,
+      RustWebChromeClient,
+      handleReceivedTitle,
+      [JObject, JString],
+    );
   };
 }
 
 pub static IPC: OnceCell<UnsafeIpc> = OnceCell::new();
 pub static REQUEST_HANDLER: OnceCell<UnsafeRequestHandler> = OnceCell::new();
+pub static TITLE_CHANGE_HANDLER: OnceCell<UnsafeTitleHandler> = OnceCell::new();
 
 pub struct UnsafeIpc(Box<dyn Fn(&Window, String)>, Rc<Window>);
 impl UnsafeIpc {
@@ -77,6 +85,15 @@ impl UnsafeRequestHandler {
 }
 unsafe impl Send for UnsafeRequestHandler {}
 unsafe impl Sync for UnsafeRequestHandler {}
+
+pub struct UnsafeTitleHandler(Box<dyn Fn(&Window, String)>, Rc<Window>);
+impl UnsafeTitleHandler {
+  pub fn new(f: Box<dyn Fn(&Window, String)>, w: Rc<Window>) -> Self {
+    Self(f, w)
+  }
+}
+unsafe impl Send for UnsafeTitleHandler {}
+unsafe impl Sync for UnsafeTitleHandler {}
 
 pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
   // we must create the WebChromeClient here because it calls `registerForActivityResult`,
@@ -222,6 +239,11 @@ impl InnerWebView {
     let w = window.clone();
     if let Some(i) = ipc_handler {
       IPC.get_or_init(move || UnsafeIpc::new(Box::new(i), w));
+    }
+
+    let w = window.clone();
+    if let Some(i) = attributes.document_title_changed_handler {
+      TITLE_CHANGE_HANDLER.get_or_init(move || UnsafeTitleHandler::new(i, w));
     }
 
     Ok(Self { window })
