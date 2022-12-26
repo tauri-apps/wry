@@ -468,7 +468,8 @@ impl InnerWebView {
 
       let pending_scripts = Arc::new(Mutex::new(Some(Vec::new())));
 
-      let navigation_delegate_cls = match ClassDecl::new("UIViewController", class!(NSObject)) {
+      let navigation_delegate_cls = match ClassDecl::new("WryNavigationDelegate", class!(NSObject))
+      {
         Some(mut cls) => {
           cls.add_ivar::<*mut c_void>("pending_scripts");
           cls.add_ivar::<*mut c_void>("navigation_policy_function");
@@ -488,7 +489,7 @@ impl InnerWebView {
           add_download_methods(&mut cls);
           cls.register()
         }
-        None => class!(UIViewController),
+        None => class!(WryNavigationDelegate),
       };
 
       let navigation_policy_handler: id = msg_send![navigation_delegate_cls, new];
