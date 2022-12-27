@@ -83,6 +83,8 @@ pub struct WebViewAttributes {
   pub background_color: Option<RGBA>,
   /// Whether load the provided URL to [`WebView`].
   pub url: Option<Url>,
+  /// Headers used when loading the requested `url`.
+  pub headers: Option<http::HeaderMap>,
   /// Whether page zooming by hotkeys is enabled
   ///
   /// ## Platform-specific
@@ -234,6 +236,7 @@ impl Default for WebViewAttributes {
       transparent: false,
       background_color: None,
       url: None,
+      headers: None,
       html: None,
       initialization_scripts: vec![],
       custom_protocols: vec![],
@@ -433,15 +436,21 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Specify headers used when loading the requested `url`.
+  pub fn with_headers(mut self, headers: http::HeaderMap) -> Self {
+    self.webview.headers = Some(headers);
+    self
+  }
+
   /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the
-  /// [`WebView`]. The provided URL must be valid.
+  /// [`WebView`]. The provided URL must be valid. This will be ignored if `url` or `request` is already provided.
   pub fn with_url(mut self, url: &str) -> Result<Self> {
     self.webview.url = Some(Url::parse(url)?);
     Ok(self)
   }
 
   /// Load the provided HTML string when the builder calling [`WebViewBuilder::build`] to create the
-  /// [`WebView`]. This will be ignored if `url` is already provided.
+  /// [`WebView`]. This will be ignored if `url` or `request` is already provided.
   ///
   /// # Warning
   /// The Page loaded from html string will have different Origin on different platforms. And
@@ -784,6 +793,10 @@ impl WebView {
 
   pub fn load_url(&self, url: &str) {
     self.webview.load_url(url)
+  }
+
+  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
+    self.webview.load_url_with_headers(url, headers)
   }
 }
 

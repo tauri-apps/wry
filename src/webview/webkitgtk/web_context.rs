@@ -21,8 +21,8 @@ use std::{
 };
 use url::Url;
 use webkit2gtk::{
-  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, UserContentManager, WebContext,
-  WebContextBuilder, WebView, WebsiteDataManagerBuilder,
+  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, URIRequest, UserContentManager,
+  WebContext, WebContextBuilder, WebView, WebsiteDataManagerBuilder,
 };
 
 #[derive(Debug)]
@@ -124,7 +124,7 @@ pub trait WebContextExt {
   /// Add a [`WebView`] to the queue waiting to be opened.
   ///
   /// See the `WebviewUriLoader` for more information.
-  fn queue_load_uri(&self, webview: Rc<WebView>, url: Url);
+  fn queue_load_uri(&self, webview: Rc<WebView>, url: Url, headers: Option<http::HeaderMap>);
 
   /// Flush all queued [`WebView`]s waiting to load a uri.
   ///
@@ -177,8 +177,8 @@ impl WebContextExt for super::WebContext {
     }
   }
 
-  fn queue_load_uri(&self, webview: Rc<WebView>, url: Url) {
-    self.os.webview_uri_loader.push(webview, url)
+  fn queue_load_uri(&self, webview: Rc<WebView>, url: Url, headers: Option<http::HeaderMap>) {
+    self.os.webview_uri_loader.push(webview, url, headers)
   }
 
   fn flush_queue_loader(&self) {
@@ -402,7 +402,7 @@ where
 #[derive(Debug, Default)]
 struct WebviewUriLoader {
   lock: AtomicBool,
-  queue: Mutex<VecDeque<(Rc<WebView>, Url)>>,
+  queue: Mutex<VecDeque<(Rc<WebView>, Url, Option<http::HeaderMap>)>>,
 }
 
 impl WebviewUriLoader {
@@ -417,13 +417,13 @@ impl WebviewUriLoader {
   }
 
   /// Add a [`WebView`] to the queue.
-  fn push(&self, webview: Rc<WebView>, url: Url) {
+  fn push(&self, webview: Rc<WebView>, url: Url, headers: Option<http::HeaderMap>) {
     let mut queue = self.queue.lock().expect("poisoned load queue");
-    queue.push_back((webview, url))
+    queue.push_back((webview, url, headers))
   }
 
   /// Remove a [`WebView`] from the queue and return it.
-  fn pop(&self) -> Option<(Rc<WebView>, Url)> {
+  fn pop(&self) -> Option<(Rc<WebView>, Url, Option<http::HeaderMap>)> {
     let mut queue = self.queue.lock().expect("poisoned load queue");
     queue.pop_front()
   }
@@ -431,7 +431,7 @@ impl WebviewUriLoader {
   /// Load the next uri to load if the lock is not engaged.
   fn flush(self: Rc<Self>) {
     if !self.is_locked() {
-      if let Some((webview, url)) = self.pop() {
+      if let Some((webview, url, headers)) = self.pop() {
         // we do not need to listen to failed events because those will finish the change event anyways
         webview.connect_load_changed(move |_, event| {
           if let LoadEvent::Finished = event {
@@ -440,7 +440,22 @@ impl WebviewUriLoader {
           };
         });
 
-        webview.load_uri(url.as_str());
+        if let Some(headers) = headers {
+          let req = URIRequest::builder().uri(url.as_str()).build();
+
+          if let Some(ref mut req_headers) = req.http_headers() {
+            for (header, value) in headers.iter() {
+              req_headers.append(
+                header.to_string().as_str(),
+                value.to_str().unwrap_or_default(),
+              );
+            }
+          }
+
+          webview.load_request(&req);
+        } else {
+          webview.load_uri(url.as_str());
+        }
       } else {
         self.unlock();
       }
