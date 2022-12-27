@@ -715,7 +715,7 @@ r#"Object.defineProperty(window, 'ipc', {
             w.navigate_to_string(path);
           }
         } else {
-          w.navigate_to_url(url.as_str());
+          w.navigate_to_url(url.as_str(), attributes.headers);
         }
       } else if let Some(html) = attributes.html {
         w.navigate_to_string(&html);
@@ -816,14 +816,25 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn load_url(&self, url: &str) {
-    self.navigate_to_url(url)
+    self.navigate_to_url(url, None)
   }
 
-  fn navigate_to_url(&self, url: &str) {
+  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
+    self.navigate_to_url(url, Some(headers))
+  }
+
+  fn navigate_to_url(&self, url: &str, headers: Option<http::HeaderMap>) {
     // Safety: objc runtime calls are unsafe
     unsafe {
       let url: id = msg_send![class!(NSURL), URLWithString: NSString::new(url)];
-      let request: id = msg_send![class!(NSURLRequest), requestWithURL: url];
+      let request: id = msg_send![class!(NSMutableURLRequest), requestWithURL: url];
+      if let Some(headers) = headers {
+        for (name, value) in headers.iter() {
+          let key = NSString::new(name.as_str());
+          let value = NSString::new(value.to_str().unwrap_or_default());
+          let _: () = msg_send![request, addValue:key.as_ptr() forHTTPHeaderField:value.as_ptr()];
+        }
+      }
       let () = msg_send![self.webview, loadRequest: request];
     }
   }
@@ -997,5 +1008,9 @@ impl NSString {
       let bytes = slice::from_raw_parts(bytes as *const u8, len);
       str::from_utf8_unchecked(bytes)
     }
+  }
+
+  fn as_ptr(&self) -> id {
+    self.0
   }
 }

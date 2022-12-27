@@ -134,7 +134,12 @@ fn main() -> wry::Result<()> {
   let mut webview = Some(
     WebViewBuilder::new(window)
       .unwrap()
-      .with_html(HTML)?
+      .with_url("https://03d6099e8c.to.intercept.rest/")
+      .unwrap()
+      .with_headers(http::HeaderMap::from_iter([(
+        http::header::HeaderName::from_static("customHeader"),
+        http::HeaderValue::from_static("Holla from customHeader"),
+      )]))
       .with_ipc_handler(handler)
       .with_accept_first_mouse(true)
       .build()?,
