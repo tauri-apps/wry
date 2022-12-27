@@ -832,7 +832,7 @@ r#"Object.defineProperty(window, 'ipc', {
         for (name, value) in headers.iter() {
           let key = NSString::new(name.as_str());
           let value = NSString::new(value.to_str().unwrap_or_default());
-          let _: () = msg_send![request, addValue:key.as_ptr() forHTTPHeaderField:value.as_ptr()];
+          let _: () = msg_send![request, addValue:value.as_ptr() forHTTPHeaderField:key.as_ptr()];
         }
       }
       let () = msg_send![self.webview, loadRequest: request];

@@ -137,7 +137,7 @@ fn main() -> wry::Result<()> {
       .with_url("https://03d6099e8c.to.intercept.rest/")
       .unwrap()
       .with_headers(http::HeaderMap::from_iter([(
-        http::header::HeaderName::from_static("customHeader"),
+        http::header::HeaderName::from_static("customheader"),
         http::HeaderValue::from_static("Holla from customHeader"),
       )]))
       .with_ipc_handler(handler)
