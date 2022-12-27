@@ -138,6 +138,7 @@ impl InnerWebView {
       custom_protocols,
       background_color,
       transparent,
+      headers,
       ..
     } = attributes;
 
@@ -156,6 +157,7 @@ impl InnerWebView {
         devtools,
         background_color,
         transparent,
+        headers,
       }));
     }
 
@@ -260,7 +262,14 @@ impl InnerWebView {
   }
 
   pub fn load_url(&self, url: &str) {
-    MainPipe::send(WebViewMessage::LoadUrl(url.to_string()));
+    MainPipe::send(WebViewMessage::LoadUrlWithHeaders(url.to_string(), None));
+  }
+
+  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
+    MainPipe::send(WebViewMessage::LoadUrlWithHeaders(
+      url.to_string(),
+      Some(headers),
+    ));
   }
 }
 

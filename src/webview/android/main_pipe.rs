@@ -12,7 +12,7 @@ use tao::platform::android::ndk_glue::{
     objects::{GlobalRef, JObject},
     JNIEnv,
   },
-  PACKAGE,
+  JMap, PACKAGE,
 };
 
 use super::find_my_class;
@@ -50,6 +50,7 @@ impl MainPipe<'_> {
             devtools,
             transparent,
             background_color,
+            headers,
           } = attrs;
           // Create webview
           let rust_webview_class = find_my_class(
@@ -65,12 +66,22 @@ impl MainPipe<'_> {
 
           // Load URL
           if let Ok(url) = env.new_string(url) {
-            env.call_method(
-              webview,
-              "loadUrlMainThread",
-              "(Ljava/lang/String;)V",
-              &[url.into()],
-            )?;
+            if let Some(headers) = headers {
+              let headers_map = create_headers_map(&env, headers)?;
+              env.call_method(
+                webview,
+                "loadUrlMainThread",
+                "(Ljava/lang/String;Ljava/util/Map;)V",
+                &[url.into(), headers_map.into()],
+              )?;
+            } else {
+              env.call_method(
+                webview,
+                "loadUrlMainThread",
+                "(Ljava/lang/String;)V",
+                &[url.into()],
+              )?;
+            }
           }
 
           // Enable devtools
@@ -178,15 +189,25 @@ impl MainPipe<'_> {
             f(env, activity, webview.as_obj());
           }
         }
-        WebViewMessage::LoadUrl(url) => {
+        WebViewMessage::LoadUrlWithHeaders(url, headers) => {
           if let Some(webview) = &self.webview {
-            let s = env.new_string(url)?;
-            env.call_method(
-              webview.as_obj(),
-              "loadUrl",
-              "(Ljava/lang/String;)V",
-              &[s.into()],
-            )?;
+            let url = env.new_string(url)?;
+            if let Some(headers) = headers {
+              let headers_map = create_headers_map(&env, headers)?;
+              env.call_method(
+                webview.as_obj(),
+                "loadUrl",
+                "(Ljava/lang/String;Ljava/util/Map;)V",
+                &[url.into(), headers_map.into()],
+              )?;
+            } else {
+              env.call_method(
+                webview.as_obj(),
+                "loadUrl",
+                "(Ljava/lang/String;)V",
+                &[url.into()],
+              )?;
+            }
           }
         }
       }
@@ -223,7 +244,7 @@ pub enum WebViewMessage {
   GetWebViewVersion(Sender<Result<String, Error>>),
   GetUrl(Sender<String>),
   Jni(Box<dyn FnOnce(JNIEnv, JObject, JObject) + Send>),
-  LoadUrl(String),
+  LoadUrlWithHeaders(String, Option<http::HeaderMap>),
 }
 
 #[derive(Debug)]
@@ -232,4 +253,19 @@ pub struct CreateWebViewAttributes {
   pub devtools: bool,
   pub transparent: bool,
   pub background_color: Option<RGBA>,
+  pub headers: Option<http::HeaderMap>,
+}
+
+fn create_headers_map<'a, 'b>(
+  env: &'a JNIEnv,
+  headers: http::HeaderMap,
+) -> Result<JMap<'a, 'b>, JniError> {
+  let obj = env.new_object("java/util/HashMap", "()V", &[])?;
+  let headers_map = JMap::from_env(&env, obj)?;
+  for (name, value) in headers.iter() {
+    let key = env.new_string(name)?;
+    let value = env.new_string(value.to_str().unwrap_or_default())?;
+    headers_map.put(key.into(), value.into())?;
+  }
+  Ok(headers_map)
 }
