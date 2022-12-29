@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-package {{app-domain-reversed}}.{{app-name-snake-case}}
+package {{package}}
 
 import android.annotation.SuppressLint
 import android.os.Build
@@ -96,7 +96,7 @@ abstract class TauriActivity : AppCompatActivity() {
 
     companion object {
         init {
-            System.loadLibrary("{{app-name-snake-case}}")
+            System.loadLibrary("{{library}}")
         }
     }
 
