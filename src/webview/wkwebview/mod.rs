@@ -406,7 +406,7 @@ impl InnerWebView {
                   if !function.is_null() {
                     let function = &mut *(*function
                       as *mut (Box<dyn for<'r> Fn(&'r Window, String)>, Rc<Window>));
-                    let title: id = msg_send![*of_object, title];
+                    let title: id = msg_send![of_object, title];
                     (function.0)(&function.1, NSString(title).to_str().to_string());
                   }
                 }
