@@ -677,34 +677,11 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             .as_str()
             .replace(&format!("{}://", name), &format!("https://{}.", name))
         }
-        let url = PCWSTR::from_raw(encode_wide(url_string).as_ptr());
 
         if let Some(headers) = attributes.headers {
-          let headers_map = {
-            let mut headers_map = String::new();
-            for (name, value) in headers.iter() {
-              let header_key = name.to_string();
-              if let Ok(value) = value.to_str() {
-                let _ = writeln!(headers_map, "{}: {}", header_key, value);
-              }
-            }
-            encode_wide(headers_map)
-          };
-
-          let env = env.cast::<ICoreWebView2Environment9>().unwrap();
-
-          unsafe {
-            if let Ok(request) = env.CreateWebResourceRequest(
-              PCWSTR::from_raw(url.as_ptr()),
-              PCWSTR::from_raw(encode_wide("GET").as_ptr()),
-              None,
-              PCWSTR::from_raw(headers_map.as_ptr()),
-            ) {
-              let webview: ICoreWebView2_10 = webview.cast().unwrap();
-              webview.NavigateWithWebResourceRequest(&request).unwrap();
-            }
-          }
+          load_url_with_headers(&webview, env, &url_string, headers);
         } else {
+          let url = PCWSTR::from_raw(encode_wide(url_string).as_ptr());
           unsafe {
             webview
               .Navigate(url)
@@ -860,32 +837,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   }
 
   pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
-    let url = encode_wide(url);
-
-    let headers_map = {
-      let mut headers_map = String::new();
-      for (name, value) in headers.iter() {
-        let header_key = name.to_string();
-        if let Ok(value) = value.to_str() {
-          let _ = writeln!(headers_map, "{}: {}", header_key, value);
-        }
-      }
-      encode_wide(headers_map)
-    };
-
-    unsafe {
-      let env = self.env.cast::<ICoreWebView2Environment9>().unwrap();
-
-      if let Ok(request) = env.CreateWebResourceRequest(
-        PCWSTR::from_raw(url.as_ptr()),
-        PCWSTR::null(),
-        None,
-        PCWSTR::from_raw(headers_map.as_ptr()),
-      ) {
-        let webview: ICoreWebView2_10 = self.webview.cast().unwrap();
-        let _ = webview.NavigateWithWebResourceRequest(&request);
-      }
-    };
+    load_url_with_headers(&self.webview, &self.env, url, headers);
   }
 
   pub fn set_theme(&self, theme: Theme) {
@@ -895,6 +847,40 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
 fn encode_wide(string: impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
   string.as_ref().encode_wide().chain(once(0)).collect()
+}
+
+fn load_url_with_headers(
+  webview: &ICoreWebView2,
+  env: &ICoreWebView2Environment,
+  url: &str,
+  headers: http::HeaderMap,
+) {
+  let url = encode_wide(url);
+
+  let headers_map = {
+    let mut headers_map = String::new();
+    for (name, value) in headers.iter() {
+      let header_key = name.to_string();
+      if let Ok(value) = value.to_str() {
+        let _ = writeln!(headers_map, "{}: {}", header_key, value);
+      }
+    }
+    encode_wide(headers_map)
+  };
+
+  unsafe {
+    let env = env.cast::<ICoreWebView2Environment9>().unwrap();
+
+    if let Ok(request) = env.CreateWebResourceRequest(
+      PCWSTR::from_raw(url.as_ptr()),
+      PCWSTR::from_raw(encode_wide("GET").as_ptr()),
+      None,
+      PCWSTR::from_raw(headers_map.as_ptr()),
+    ) {
+      let webview: ICoreWebView2_10 = webview.cast().unwrap();
+      let _ = webview.NavigateWithWebResourceRequest(&request);
+    }
+  };
 }
 
 pub fn set_background_color(
