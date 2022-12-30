@@ -272,6 +272,27 @@ impl InnerWebView {
         .map_err(webview2_com::Error::WindowsError)?;
     }
 
+    // document title changed handler
+    if let Some(document_title_changed_handler) = attributes.document_title_changed_handler {
+      let window_c = window.clone();
+      unsafe {
+        webview
+          .add_DocumentTitleChanged(
+            &DocumentTitleChangedEventHandler::create(Box::new(move |webview, _| {
+              let mut title = PWSTR::null();
+              if let Some(webview) = webview {
+                webview.DocumentTitle(&mut title)?;
+                let title = take_pwstr(title);
+                document_title_changed_handler(&window_c, title);
+              }
+              Ok(())
+            })),
+            &mut token,
+          )
+          .map_err(webview2_com::Error::WindowsError)?;
+      }
+    }
+
     // Initialize scripts
     Self::add_script_to_execute_on_document_created(
       &webview,

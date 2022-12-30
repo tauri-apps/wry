@@ -492,4 +492,13 @@ class RustWebChromeClient(appActivity: AppCompatActivity) : WebChromeClient() {
     val storageDir = activity.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
     return File.createTempFile(imageFileName, ".jpg", storageDir)
   }
+
+  override fun onReceivedTitle(
+      view: WebView,
+      title: String
+  ) {
+    handleReceivedTitle(view, title)
+  }
+
+  private external fun handleReceivedTitle(webview: WebView, title: String);
 }
