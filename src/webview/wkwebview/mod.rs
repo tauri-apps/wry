@@ -387,7 +387,6 @@ impl InnerWebView {
         let cls = match cls {
           Some(mut cls) => {
             cls.add_ivar::<*mut c_void>("function");
-            cls.add_ivar::<id>("webview");
             cls.add_method(
               sel!(observeValueForKeyPath:ofObject:change:context:),
               observe_value_for_key_path as extern "C" fn(&Object, Sel, id, id, id, id),
@@ -396,7 +395,7 @@ impl InnerWebView {
               this: &Object,
               _sel: Sel,
               key_path: id,
-              _of_object: id,
+              of_object: id,
               _change: id,
               _context: id,
             ) {
@@ -407,8 +406,7 @@ impl InnerWebView {
                   if !function.is_null() {
                     let function = &mut *(*function
                       as *mut (Box<dyn for<'r> Fn(&'r Window, String)>, Rc<Window>));
-                    let webview = this.get_ivar::<id>("webview");
-                    let title: id = msg_send![*webview, title];
+                    let title: id = msg_send![*of_object, title];
                     (function.0)(&function.1, NSString(title).to_str().to_string());
                   }
                 }
@@ -423,7 +421,6 @@ impl InnerWebView {
         let document_title_changed_handler =
           Box::into_raw(Box::new((document_title_changed_handler, window.clone())));
 
-        (*handler).set_ivar("webview", webview);
         (*handler).set_ivar(
           "function",
           document_title_changed_handler as *mut _ as *mut c_void,
