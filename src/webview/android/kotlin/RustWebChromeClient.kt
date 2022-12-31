@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-package {{app-domain-reversed}}.{{app-name-snake-case}}
+package {{package}}
 
 // taken from https://github.com/ionic-team/capacitor/blob/6658bca41e78239347e458175b14ca8bd5c1d6e8/android/capacitor/src/main/java/com/getcapacitor/BridgeWebChromeClient.java
 
@@ -37,7 +37,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 
-class RustWebChromeClient(appActivity: AppCompatActivity) : WebChromeClient() {  
+class RustWebChromeClient(appActivity: AppCompatActivity) : WebChromeClient() {
   private interface PermissionListener {
     fun onPermissionSelect(isGranted: Boolean?)
   }
@@ -51,7 +51,7 @@ class RustWebChromeClient(appActivity: AppCompatActivity) : WebChromeClient() {
   private var activityLauncher: ActivityResultLauncher<Intent>
   private var permissionListener: PermissionListener? = null
   private var activityListener: ActivityResultListener? = null
-  
+
   init {
     activity = appActivity
     val permissionCallback =
@@ -492,4 +492,13 @@ class RustWebChromeClient(appActivity: AppCompatActivity) : WebChromeClient() {
     val storageDir = activity.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
     return File.createTempFile(imageFileName, ".jpg", storageDir)
   }
+
+  override fun onReceivedTitle(
+      view: WebView,
+      title: String
+  ) {
+    handleReceivedTitle(view, title)
+  }
+
+  private external fun handleReceivedTitle(webview: WebView, title: String);
 }

@@ -124,9 +124,9 @@ WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7,
 We have experimental support of mobile ends. If you are interested in playing or hacking it, please follow this [note](https://hackmd.io/XIcEwk4GSxy8APZhSa0UnA?view).
 
 When building for Android, WRY generates kotlin files that are needed to run WRY on Android and you have to set the following environment variables:
-- `WRY_ANDROID_REVERSED_DOMAIN`
-- `WRY_ANDROID_APP_NAME_SNAKE_CASE`
-- `WRY_ANDROID_KOTLIN_FILES_OUT_DIR`
+- `WRY_ANDROID_PACKAGE` which is usually a reversed domain name, for example: `com.wry.example`
+- `WRY_ANDROID_LIBRARY` for example: `wry_app`
+- `WRY_ANDROID_KOTLIN_FILES_OUT_DIR` for example: `path/to/app/src/main/kotlin/com/wry/example`
 
 You can skip setting these environment variables if you are using the WRY template from our [`cargo-mobile`](https://github.com/tauri-apps/cargo-mobile) fork.
 

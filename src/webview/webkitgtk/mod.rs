@@ -8,12 +8,11 @@ use glib::signal::Inhibit;
 use gtk::prelude::*;
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use std::{
   collections::hash_map::DefaultHasher,
   hash::{Hash, Hasher},
   rc::Rc,
-  sync::Mutex,
+  sync::{Arc, Mutex},
 };
 use url::Url;
 use webkit2gtk::{
@@ -105,6 +104,17 @@ impl InnerWebView {
     webview.connect_close(move |_| {
       close_window.gtk_window().close();
     });
+
+    // document title changed handler
+    if let Some(document_title_changed_handler) = attributes.document_title_changed_handler {
+      let w = window_rc.clone();
+      webview.connect_title_notify(move |webview| {
+        document_title_changed_handler(
+          &w,
+          webview.title().map(|t| t.to_string()).unwrap_or_default(),
+        )
+      });
+    }
 
     webview.add_events(
       EventMask::POINTER_MOTION_MASK

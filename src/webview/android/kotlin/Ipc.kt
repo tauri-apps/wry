@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-package {{app-domain-reversed}}.{{app-name-snake-case}}
+package {{package}}
 
 import android.webkit.*
 
@@ -14,7 +14,7 @@ class Ipc {
 
     companion object {
         init {
-            System.loadLibrary("{{app-name-snake-case}}")
+            System.loadLibrary("{{library}}")
         }
     }
 
