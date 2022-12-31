@@ -129,7 +129,7 @@ fn main() -> wry::Result<()> {
         .map_err(Into::into)
     })
     // tell the webview to load the custom protocol
-    .with_url("wry://localhost/examples/stream.html")?
+    .with_url("wry://localhost/examples/stream.html", None)?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

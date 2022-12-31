@@ -22,7 +22,7 @@ fn main() -> wry::Result<()> {
     .with_title("Hello World")
     .build(&event_loop)?;
   let _webview = WebViewBuilder::new(window)?
-    .with_url("http://neverssl.com")?
+    .with_url("http://neverssl.com", None)?
     .with_navigation_handler(move |uri: String| {
       let submitted = proxy.send_event(UserEvent::Navigation(uri.clone())).is_ok();
 

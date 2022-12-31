@@ -32,7 +32,7 @@ fn main() -> wry::Result<()> {
     .with_title("Hello World")
     .build(&event_loop)?;
   let _webview = WebViewBuilder::new(window)?
-    .with_html(html)?
+    .with_html(html, None)?
     .with_new_window_req_handler(move |uri: String| {
       let submitted = proxy.send_event(UserEvent::NewWindow(uri.clone())).is_ok();
 

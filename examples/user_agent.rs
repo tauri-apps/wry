@@ -27,7 +27,10 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)?;
   let _webview = WebViewBuilder::new(window)?
     .with_user_agent(&user_agent_string)
-    .with_url("https://www.whatismybrowser.com/detect/what-is-my-user-agent")?
+    .with_url(
+      "https://www.whatismybrowser.com/detect/what-is-my-user-agent",
+      None,
+    )?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

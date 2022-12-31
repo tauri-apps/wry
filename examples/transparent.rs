@@ -36,6 +36,7 @@ fn main() -> wry::Result<()> {
                 };
               </script>
             </html>"#,
+      None,
     )?
     .build()?;
 

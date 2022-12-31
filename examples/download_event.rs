@@ -35,7 +35,7 @@ fn main() -> wry::Result<()> {
     .with_title("Hello World")
     .build(&event_loop)?;
   let _webview = WebViewBuilder::new(window)?
-    .with_html(HTML)?
+    .with_html(HTML, None)?
     .with_download_started_handler({
       let proxy = proxy.clone();
       move |uri: String, default_path: &mut PathBuf| {

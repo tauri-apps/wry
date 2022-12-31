@@ -22,7 +22,7 @@ Dropping files onto the following form is also possible:<br><br>
   let window = WindowBuilder::new().build(&event_loop).unwrap();
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_url(HTML)?
+    .with_url(HTML, None)?
     .with_file_drop_handler(|_, data| {
       println!("Window 1: {:?}", data);
       false // Returning true will block the OS default behaviour.
