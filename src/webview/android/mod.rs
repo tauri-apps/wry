@@ -283,12 +283,8 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn load_url(&self, url: &str) {
-    MainPipe::send(WebViewMessage::LoadUrl(url.to_string(), None));
-  }
-
-  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
-    MainPipe::send(WebViewMessage::LoadUrl(url.to_string(), Some(headers)));
+  pub fn load_url(&self, url: &str, headers: Option<http::HeaderMap>) {
+    MainPipe::send(WebViewMessage::LoadUrl(url.to_string(), headers));
   }
 }
 

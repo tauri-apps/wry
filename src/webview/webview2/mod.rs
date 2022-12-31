@@ -852,13 +852,13 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     set_background_color(&self.controller, background_color).map_err(Into::into)
   }
 
-  pub fn load_url(&self, url: &str) {
-    let url = encode_wide(url);
-    let _ = unsafe { self.webview.Navigate(PCWSTR::from_raw(url.as_ptr())) };
-  }
-
-  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
-    load_url_with_headers(&self.webview, &self.env, url, headers);
+  pub fn load_url(&self, url: &str, headers: Option<http::HeaderMap>) {
+    if let Some(headers) = headers {
+      load_url_with_headers(&self.webview, &self.env, url, headers);
+    } else {
+      let url = encode_wide(url);
+      let _ = unsafe { self.webview.Navigate(PCWSTR::from_raw(url.as_ptr())) };
+    }
   }
 
   pub fn set_theme(&self, theme: Theme) {

@@ -457,23 +457,23 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn load_url(&self, url: &str) {
-    self.webview.load_uri(url)
-  }
+  pub fn load_url(&self, url: &str, headers: Option<http::HeaderMap>) {
+    if let Some(headers) = headers {
+      let req = URIRequest::builder().uri(url).build();
 
-  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
-    let req = URIRequest::builder().uri(url).build();
-
-    if let Some(ref mut req_headers) = req.http_headers() {
-      for (header, value) in headers.iter() {
-        req_headers.append(
-          header.to_string().as_str(),
-          value.to_str().unwrap_or_default(),
-        );
+      if let Some(ref mut req_headers) = req.http_headers() {
+        for (header, value) in headers.iter() {
+          req_headers.append(
+            header.to_string().as_str(),
+            value.to_str().unwrap_or_default(),
+          );
+        }
       }
-    }
 
-    self.webview.load_request(&req);
+      self.webview.load_request(&req);
+    } else {
+      self.webview.load_uri(url)
+    }
   }
 }
 
