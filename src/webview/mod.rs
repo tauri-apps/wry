@@ -439,21 +439,24 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Specify headers used when loading the requested `url`.
-  pub fn with_headers(mut self, headers: http::HeaderMap) -> Self {
+  /// Load the provided URL with given headers when the builder calling [`WebViewBuilder::build`] to create the
+  /// [`WebView`]. The provided URL must be valid.
+  pub fn with_url_and_headers(mut self, url: &str, headers: http::HeaderMap) -> Result<Self> {
+    self.webview.url = Some(url.parse()?);
     self.webview.headers = Some(headers);
-    self
+    Ok(self)
   }
 
   /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the
-  /// [`WebView`]. The provided URL must be valid. This will be ignored if `url` or `request` is already provided.
+  /// [`WebView`]. The provided URL must be valid.
   pub fn with_url(mut self, url: &str) -> Result<Self> {
     self.webview.url = Some(Url::parse(url)?);
+    self.webview.headers = None;
     Ok(self)
   }
 
   /// Load the provided HTML string when the builder calling [`WebViewBuilder::build`] to create the
-  /// [`WebView`]. This will be ignored if `url` or `request` is already provided.
+  /// [`WebView`]. This will be ignored if `url` is provided.
   ///
   /// # Warning
   /// The Page loaded from html string will have different Origin on different platforms. And
