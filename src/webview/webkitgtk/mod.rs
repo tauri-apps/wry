@@ -8,17 +8,16 @@ use glib::signal::Inhibit;
 use gtk::prelude::*;
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use std::{
   collections::hash_map::DefaultHasher,
   hash::{Hash, Hasher},
   rc::Rc,
-  sync::Mutex,
+  sync::{Arc, Mutex},
 };
 use url::Url;
 use webkit2gtk::{
-  traits::*, LoadEvent, NavigationPolicyDecision, PolicyDecisionType, UserContentInjectedFrames,
-  UserScript, UserScriptInjectionTime, WebView, WebViewBuilder,
+  traits::*, LoadEvent, NavigationPolicyDecision, PolicyDecisionType, URIRequest,
+  UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView, WebViewBuilder,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -361,7 +360,7 @@ impl InnerWebView {
 
     // Navigation
     if let Some(url) = attributes.url {
-      web_context.queue_load_uri(Rc::clone(&w.webview), url);
+      web_context.queue_load_uri(Rc::clone(&w.webview), url, attributes.headers);
       web_context.flush_queue_loader();
     } else if let Some(html) = attributes.html {
       w.webview.load_html(&html, Some("http://localhost"));
@@ -460,6 +459,21 @@ impl InnerWebView {
 
   pub fn load_url(&self, url: &str) {
     self.webview.load_uri(url)
+  }
+
+  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
+    let req = URIRequest::builder().uri(url).build();
+
+    if let Some(ref mut req_headers) = req.http_headers() {
+      for (header, value) in headers.iter() {
+        req_headers.append(
+          header.to_string().as_str(),
+          value.to_str().unwrap_or_default(),
+        );
+      }
+    }
+
+    self.webview.load_request(&req);
   }
 }
 

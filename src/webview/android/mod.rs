@@ -21,7 +21,7 @@ use tao::platform::android::ndk_glue::{
     JNIEnv,
   },
   ndk::looper::{FdEvent, ForeignLooper},
-  PACKAGE,
+  JMap, PACKAGE,
 };
 use url::Url;
 
@@ -155,6 +155,7 @@ impl InnerWebView {
       custom_protocols,
       background_color,
       transparent,
+      headers,
       ..
     } = attributes;
 
@@ -173,6 +174,7 @@ impl InnerWebView {
         devtools,
         background_color,
         transparent,
+        headers,
       }));
     }
 
@@ -282,7 +284,11 @@ impl InnerWebView {
   }
 
   pub fn load_url(&self, url: &str) {
-    MainPipe::send(WebViewMessage::LoadUrl(url.to_string()));
+    MainPipe::send(WebViewMessage::LoadUrl(url.to_string(), None));
+  }
+
+  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
+    MainPipe::send(WebViewMessage::LoadUrl(url.to_string(), Some(headers)));
   }
 }
 
@@ -341,4 +347,18 @@ fn find_my_class<'a>(
     )?
     .l()?;
   Ok(my_class.into())
+}
+
+fn create_headers_map<'a, 'b>(
+  env: &'a JNIEnv,
+  headers: &http::HeaderMap,
+) -> std::result::Result<JMap<'a, 'b>, JniError> {
+  let obj = env.new_object("java/util/HashMap", "()V", &[])?;
+  let headers_map = JMap::from_env(&env, obj)?;
+  for (name, value) in headers.iter() {
+    let key = env.new_string(name)?;
+    let value = env.new_string(value.to_str().unwrap_or_default())?;
+    headers_map.put(key.into(), value.into())?;
+  }
+  Ok(headers_map)
 }
