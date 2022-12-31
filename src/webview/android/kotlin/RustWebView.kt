@@ -8,6 +8,7 @@ import android.annotation.SuppressLint
 import android.webkit.*
 import android.content.Context
 import android.os.Build
+import kotlin.collections.Map
 
 class RustWebView(context: Context): WebView(context) {
     init {
@@ -23,6 +24,12 @@ class RustWebView(context: Context): WebView(context) {
     fun loadUrlMainThread(url: String) {
         post {
           super.loadUrl(url)
+        }
+    }
+
+    fun loadUrlMainThread(url: String, additionalHttpHeaders: Map<String, String>) {
+        post {
+          super.loadUrl(url, additionalHttpHeaders)
         }
     }
 
