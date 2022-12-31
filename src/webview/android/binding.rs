@@ -13,7 +13,7 @@ use tao::platform::android::ndk_glue::jni::{
   JNIEnv,
 };
 
-use super::{IPC, REQUEST_HANDLER};
+use super::{create_headers_map, IPC, REQUEST_HANDLER};
 
 fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
   let mut request_builder = Request::builder();
@@ -105,22 +105,7 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
         (JObject::null().into(), JObject::null().into())
       };
 
-      let hashmap = env.find_class("java/util/HashMap")?;
-      let response_headers = env.new_object(hashmap, "()V", &[])?;
-      for (key, value) in response.headers().iter() {
-        env.call_method(
-          response_headers,
-          "put",
-          "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
-          &[
-            env.new_string(key.as_str())?.into(),
-            // TODO can we handle this better?
-            env
-              .new_string(String::from_utf8_lossy(value.as_bytes()))?
-              .into(),
-          ],
-        )?;
-      }
+      let response_headers = create_headers_map(&env, response.headers())?;
 
       let bytes = response.body();
 
