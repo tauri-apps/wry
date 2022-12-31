@@ -771,7 +771,7 @@ r#"Object.defineProperty(window, 'ipc', {
             w.navigate_to_string(path);
           }
         } else {
-          w.load_url(url.as_str(), attributes.headers);
+          w.navigate_to_url(url.as_str(), attributes.headers);
         }
       } else if let Some(html) = attributes.html {
         w.navigate_to_string(&html);
@@ -871,7 +871,15 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub fn load_url(&self, url: &str, headers: Option<http::HeaderMap>) {
+  pub fn load_url(&self, url: &str) {
+    self.navigate_to_url(url, None)
+  }
+
+  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
+    self.navigate_to_url(url, Some(headers))
+  }
+
+  fn navigate_to_url(&self, url: &str, headers: Option<http::HeaderMap>) {
     // Safety: objc runtime calls are unsafe
     unsafe {
       let url: id = msg_send![class!(NSURL), URLWithString: NSString::new(url)];

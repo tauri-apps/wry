@@ -1,5 +1,5 @@
 ---
-"wry": "minor"
+"wry": "patch"
 ---
 
-Add headers argument to `WebViewBuilder::with_url`, `WebViewBuilder::with_html` and `WebView::load_url`.
+Add `WebViewBuilder::with_headers` and `WebView::load_url_with_headers` to navigate to urls with headers.

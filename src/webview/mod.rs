@@ -439,16 +439,21 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Specify headers used when loading the requested `url`.
+  pub fn with_headers(mut self, headers: http::HeaderMap) -> Self {
+    self.webview.headers = Some(headers);
+    self
+  }
+
   /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the
-  /// [`WebView`]. The provided URL must be valid.
-  pub fn with_url(mut self, url: &str, headers: Option<http::HeaderMap>) -> Result<Self> {
+  /// [`WebView`]. The provided URL must be valid. This will be ignored if `url` or `request` is already provided.
+  pub fn with_url(mut self, url: &str) -> Result<Self> {
     self.webview.url = Some(Url::parse(url)?);
-    self.webview.headers = headers;
     Ok(self)
   }
 
   /// Load the provided HTML string when the builder calling [`WebViewBuilder::build`] to create the
-  /// [`WebView`]. This will be ignored if `url` is already provided.
+  /// [`WebView`]. This will be ignored if `url` or `request` is already provided.
   ///
   /// # Warning
   /// The Page loaded from html string will have different Origin on different platforms. And
@@ -465,13 +470,8 @@ impl<'a> WebViewBuilder<'a> {
   /// ## PLatform-specific:
   ///
   /// - **Windows:** the string can not be larger than 2 MB (2 * 1024 * 1024 bytes) in total size
-  pub fn with_html(
-    mut self,
-    html: impl Into<String>,
-    headers: Option<http::HeaderMap>,
-  ) -> Result<Self> {
+  pub fn with_html(mut self, html: impl Into<String>) -> Result<Self> {
     self.webview.html = Some(html.into());
-    self.webview.headers = headers;
     Ok(self)
   }
 
@@ -803,8 +803,12 @@ impl WebView {
     self.webview.set_background_color(background_color)
   }
 
-  pub fn load_url(&self, url: &str, headers: Option<http::HeaderMap>) {
-    self.webview.load_url(url, headers)
+  pub fn load_url(&self, url: &str) {
+    self.webview.load_url(url)
+  }
+
+  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
+    self.webview.load_url_with_headers(url, headers)
   }
 }
 
