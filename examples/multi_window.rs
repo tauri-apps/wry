@@ -50,7 +50,6 @@ fn main() -> wry::Result<()> {
           <button onclick="window.ipc.postMessage('close')">Close current window</button>
           <input oninput="window.ipc.postMessage(`change-title:${this.value}`)" />
       "#,
-        None,
       )
       .unwrap()
       .with_ipc_handler(handler)

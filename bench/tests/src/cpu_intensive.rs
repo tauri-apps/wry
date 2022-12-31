@@ -52,7 +52,7 @@ fn main() -> wry::Result<()> {
         .body(data)
         .map_err(Into::into)
     })
-    .with_url("wrybench://localhost", None)?
+    .with_url("wrybench://localhost")?
     .with_ipc_handler(handler)
     .build()?;
 

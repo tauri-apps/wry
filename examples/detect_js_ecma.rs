@@ -122,7 +122,7 @@ fn main() -> wry::Result<()> {
     .unwrap();
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_html(HTML, None)?
+    .with_html(HTML)?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {
