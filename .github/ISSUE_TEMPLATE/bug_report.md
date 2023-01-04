@@ -11,7 +11,7 @@ assignees: ''
 A clear and concise description of what the bug is.
 
 **Steps To Reproduce**
-Steps to reproduce the behavior:
+Steps to reproduce the behavior. It **must** uses wry directly instead of just tauri dependency.
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.
@@ -23,7 +23,7 @@ If applicable, add screenshots to help explain your problem.
 OS:
 Rustc:
 
-**Would you assign yourself to resolve this bug?**
+**Would you want to assign yourself to resolve this bug?**
 - [ ] Yes
 - [ ] No
 
