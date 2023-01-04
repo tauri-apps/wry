@@ -22,7 +22,7 @@ Please make sure to read the Pull Request Guidelines: https://github.com/tauri-a
 - [ ] No
 
 ### Checklist
-- [ ] This PR will resolve #___ (Check the box even if there's no issue.)
+- [ ] This PR will resolve #___
 - [ ] A change file is added if any packages will require a version bump due to this PR per [the instructions in the readme](https://github.com/tauri-apps/wry/blob/dev/.changes/readme.md).
 - [ ] I have added a convincing reason for adding this feature, if necessary
 - [ ] It can be built on all targets and pass CI/CD.
