@@ -16,7 +16,7 @@ A clear and concise description of what you want to happen.
 **Describe alternatives you've considered**
 A clear and concise description of any alternative solutions or features you've considered.
 
-**Would you assign yourself to implement this feature?**
+**Would you want to assign yourself to implement this feature?**
 - [ ] Yes
 - [ ] No
 
