@@ -10,7 +10,6 @@ Please make sure to read the Pull Request Guidelines: https://github.com/tauri-a
 - [ ] Bugfix
 - [ ] Feature
 - [ ] Docs
-- [ ] New Binding issue #___
 - [ ] Code style update
 - [ ] Refactor
 - [ ] Build-related changes
@@ -19,12 +18,13 @@ Please make sure to read the Pull Request Guidelines: https://github.com/tauri-a
 ### Does this PR introduce a breaking change?
 <!-- If yes, please describe the impact and migration path for existing applications in an attached issue. -->
 
-- [ ] Yes, and the changes were approved in issue #___
+- [ ] Yes
 - [ ] No
 
 ### Checklist
-- [ ] When resolving issues, they are referenced in the PR's title (e.g `fix: remove a typo, closes #___, #___`)
+- [ ] This PR will resolve #___
 - [ ] A change file is added if any packages will require a version bump due to this PR per [the instructions in the readme](https://github.com/tauri-apps/wry/blob/dev/.changes/readme.md).
 - [ ] I have added a convincing reason for adding this feature, if necessary
+- [ ] It can be built on all targets and pass CI/CD.
 
 ### Other information
