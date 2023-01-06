@@ -23,7 +23,7 @@ class Logger {
       verbose(LOG_TAG_CORE, message)
     }
 
-    private fun verbose(tag: String, message: String) {
+    fun verbose(tag: String, message: String) {
       if (!shouldLog()) {
         return
       }

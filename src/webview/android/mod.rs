@@ -29,6 +29,12 @@ pub(crate) mod binding;
 mod main_pipe;
 use main_pipe::{CreateWebViewAttributes, MainPipe, WebViewMessage, MAIN_PIPE};
 
+pub struct Context<'a> {
+  pub env: JNIEnv<'a>,
+  pub activity: JObject<'a>,
+  pub webview: JObject<'a>,
+}
+
 #[macro_export]
 macro_rules! android_binding {
   ($domain:ident, $package:ident, $main: ident) => {
@@ -98,7 +104,7 @@ unsafe impl Sync for UnsafeTitleHandler {}
 pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
   // we must create the WebChromeClient here because it calls `registerForActivityResult`,
   // which gives an `LifecycleOwners must call register before they are STARTED.` error when called outside the onCreate hook
-  let rust_webchrome_client_class = find_my_class(
+  let rust_webchrome_client_class = find_class(
     env,
     activity.as_obj(),
     format!("{}/RustWebChromeClient", PACKAGE.get().unwrap()),
@@ -144,7 +150,7 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let WebViewAttributes {
@@ -175,6 +181,7 @@ impl InnerWebView {
         background_color,
         transparent,
         headers,
+        pl_attrs,
       }));
     }
 
@@ -332,7 +339,8 @@ fn hash_script(script: &str) -> String {
   format!("'sha256-{}'", base64::encode(hash))
 }
 
-fn find_my_class<'a>(
+/// Finds a class in the project scope.
+pub fn find_class<'a>(
   env: JNIEnv<'a>,
   activity: JObject<'a>,
   name: String,
