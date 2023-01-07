@@ -6,12 +6,21 @@ on:
       - dev
   workflow_dispatch:
 
+env:
+  RUST_BACKTRACE: 1
+  CARGO_PROFILE_DEV_DEBUG: 0 # This would add unnecessary bloat to the target folder, decreasing cache efficiency.
+  LC_ALL: en_US.UTF-8 # This prevents strace from changing it's number format to use commas.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   bench:
     strategy:
       fail-fast: false
       matrix:
-        rust_version: [stable]
+        rust: [nightly]
         platform:
           - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
 
@@ -19,10 +28,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - name: install stable
+      - name: install ${{ matrix.rust }}
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: ${{ matrix.rust }}
           override: true
           components: rust-src
           target: ${{ matrix.platform.target }}
@@ -42,52 +51,11 @@ jobs:
           sudo dpkg -i hyperfine_1.11.0_amd64.deb
           pip install memory_profiler
 
-      - name: get current date
-        run: echo "CURRENT_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
-
-      - name: cache cargo registry
-        uses: actions/cache@v2.1.4
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: ~/.cargo/registry
-          # Add date to the cache to keep it up to date
-          key: ${{ matrix.platform }}-stable-cargo-registry-${{ hashFiles('Cargo.toml') }}-${{ env.CURRENT_DATE }}
-          # Restore from outdated cache for speed
-          restore-keys: |
-            ${{ matrix.platform }}-stable-cargo-registry-${{ hashFiles('Cargo.toml') }}
-            ${{ matrix.platform }}-stable-cargo-registry-
-
-      - name: cache cargo index
-        uses: actions/cache@v2.1.4
-        with:
-          path: ~/.cargo/git
-          # Add date to the cache to keep it up to date
-          key: ${{ matrix.platform }}-stable-cargo-index-${{ hashFiles('Cargo.toml') }}-${{ env.CURRENT_DATE }}
-          # Restore from outdated cache for speed
-          restore-keys: |
-            ${{ matrix.platform }}-stable-cargo-index-${{ hashFiles('Cargo.toml') }}
-            ${{ matrix.platform }}-stable-cargo-index-
-
-      - name: cache cargo target
-        uses: actions/cache@v2
-        with:
-          path: target
-          # Add date to the cache to keep it up to date
-          key: ${{ matrix.platform }}-stable-cargo-core-${{ hashFiles('Cargo.toml') }}-${{ env.CURRENT_DATE }}
-          # Restore from outdated cache for speed
-          restore-keys: |
-            ${{ matrix.platform }}-stable-cargo-core-${{ hashFiles('Cargo.toml') }}
-            ${{ matrix.platform }}-stable-cargo-core-
-
-      - name: cache cargo `bench/tests` target
-        uses: actions/cache@v2
-        with:
-          path: bench/tests/target
-          # Add date to the cache to keep it up to date
-          key: ubuntu-latest-nightly-cargo-benches-${{ hashFiles('bench/tests/Cargo.toml') }}-${{ env.CURRENT_DATE }}
-          # Restore from outdated cache for speed
-          restore-keys: |
-            ${{ matrix.platform }}-stable-cargo-benches-${{ hashFiles('bench/tests/Cargo.toml') }}
-            ${{ matrix.platform }}-stable-cargo-benches-
+          workspaces: |
+            .
+            bench/tests
 
       - name: run benchmarks
         run: |

@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -8,6 +8,7 @@ use crate::{webview::web_context::WebContextData, Error};
 use glib::FileError;
 use http::{header::CONTENT_TYPE, Request, Response};
 use std::{
+  borrow::Cow,
   cell::RefCell,
   collections::{HashSet, VecDeque},
   path::PathBuf,
@@ -20,8 +21,8 @@ use std::{
 };
 use url::Url;
 use webkit2gtk::{
-  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, UserContentManager, WebContext,
-  WebContextBuilder, WebView, WebsiteDataManagerBuilder,
+  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, URIRequest, UserContentManager,
+  WebContext, WebContextBuilder, WebView, WebsiteDataManagerBuilder,
 };
 
 #[derive(Debug)]
@@ -110,7 +111,7 @@ pub trait WebContextExt {
   /// relying on the platform's implementation to properly handle duplicated scheme handlers.
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Vec<u8>>> + 'static;
+    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static;
 
   /// Register a custom protocol to the web context, only if it is not a duplicate scheme.
   ///
@@ -118,12 +119,12 @@ pub trait WebContextExt {
   /// function will return `Err(Error::DuplicateCustomProtocol)`.
   fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Vec<u8>>> + 'static;
+    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static;
 
   /// Add a [`WebView`] to the queue waiting to be opened.
   ///
   /// See the `WebviewUriLoader` for more information.
-  fn queue_load_uri(&self, webview: Rc<WebView>, url: Url);
+  fn queue_load_uri(&self, webview: Rc<WebView>, url: Url, headers: Option<http::HeaderMap>);
 
   /// Flush all queued [`WebView`]s waiting to load a uri.
   ///
@@ -155,7 +156,7 @@ impl WebContextExt for super::WebContext {
 
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Vec<u8>>> + 'static,
+    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
   {
     actually_register_uri_scheme(self, name, handler)?;
     if self.os.registered_protocols.insert(name.to_string()) {
@@ -167,7 +168,7 @@ impl WebContextExt for super::WebContext {
 
   fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Vec<u8>>> + 'static,
+    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
   {
     if self.os.registered_protocols.insert(name.to_string()) {
       actually_register_uri_scheme(self, name, handler)
@@ -176,8 +177,8 @@ impl WebContextExt for super::WebContext {
     }
   }
 
-  fn queue_load_uri(&self, webview: Rc<WebView>, url: Url) {
-    self.os.webview_uri_loader.push(webview, url)
+  fn queue_load_uri(&self, webview: Rc<WebView>, url: Url, headers: Option<http::HeaderMap>) {
+    self.os.webview_uri_loader.push(webview, url, headers)
   }
 
   fn flush_queue_loader(&self) {
@@ -275,7 +276,7 @@ fn actually_register_uri_scheme<F>(
   handler: F,
 ) -> crate::Result<()>
 where
-  F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Vec<u8>>> + 'static,
+  F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
 {
   use webkit2gtk::traits::*;
   let context = &context.os.context;
@@ -351,7 +352,7 @@ where
 
             request.finish_with_response(&response);
           }
-          #[cfg(not(feature = "header"))]
+          #[cfg(not(feature = "linux-headers"))]
           request.finish(&input, buffer.len() as i64, content_type)
         }
         Err(_) => request.finish_error(&mut glib::Error::new(
@@ -401,7 +402,7 @@ where
 #[derive(Debug, Default)]
 struct WebviewUriLoader {
   lock: AtomicBool,
-  queue: Mutex<VecDeque<(Rc<WebView>, Url)>>,
+  queue: Mutex<VecDeque<(Rc<WebView>, Url, Option<http::HeaderMap>)>>,
 }
 
 impl WebviewUriLoader {
@@ -416,13 +417,13 @@ impl WebviewUriLoader {
   }
 
   /// Add a [`WebView`] to the queue.
-  fn push(&self, webview: Rc<WebView>, url: Url) {
+  fn push(&self, webview: Rc<WebView>, url: Url, headers: Option<http::HeaderMap>) {
     let mut queue = self.queue.lock().expect("poisoned load queue");
-    queue.push_back((webview, url))
+    queue.push_back((webview, url, headers))
   }
 
   /// Remove a [`WebView`] from the queue and return it.
-  fn pop(&self) -> Option<(Rc<WebView>, Url)> {
+  fn pop(&self) -> Option<(Rc<WebView>, Url, Option<http::HeaderMap>)> {
     let mut queue = self.queue.lock().expect("poisoned load queue");
     queue.pop_front()
   }
@@ -430,7 +431,7 @@ impl WebviewUriLoader {
   /// Load the next uri to load if the lock is not engaged.
   fn flush(self: Rc<Self>) {
     if !self.is_locked() {
-      if let Some((webview, url)) = self.pop() {
+      if let Some((webview, url, headers)) = self.pop() {
         // we do not need to listen to failed events because those will finish the change event anyways
         webview.connect_load_changed(move |_, event| {
           if let LoadEvent::Finished = event {
@@ -439,7 +440,22 @@ impl WebviewUriLoader {
           };
         });
 
-        webview.load_uri(url.as_str());
+        if let Some(headers) = headers {
+          let req = URIRequest::builder().uri(url.as_str()).build();
+
+          if let Some(ref mut req_headers) = req.http_headers() {
+            for (header, value) in headers.iter() {
+              req_headers.append(
+                header.to_string().as_str(),
+                value.to_str().unwrap_or_default(),
+              );
+            }
+          }
+
+          webview.load_request(&req);
+        } else {
+          webview.load_uri(url.as_str());
+        }
       } else {
         self.unlock();
       }
