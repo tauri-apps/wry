@@ -1,6 +1,6 @@
 # Mobile Setup for Wry
 
-We evaluate [tauri-mobile](https://github.com/tauri-apps/tauri-mobile) to create a mobile project for both Xcode and Android studio.
+We use [tauri-mobile](https://github.com/tauri-apps/tauri-mobile) to create a mobile project for both Xcode and Android studio.
 
 ## Prerequisite
 
@@ -14,7 +14,7 @@ We evaluate [tauri-mobile](https://github.com/tauri-apps/tauri-mobile) to create
 #### Using Android Studio:
 If you have Android Studio installed, it ships with a version of JDK so you don't have to install it manually. It is usually at `<path of android studio installation>/jre` and can be used for `JAVA_HOME` env var. 
 
-> you can find it on Windows at `C:\Program Files\Android\Android Studio\jre`
+> you can find it on Windows for example at `C:\Program Files\Android\Android Studio\jre`
 
 #### Using the terminal:
 
@@ -75,14 +75,13 @@ There are two ways to install the sdk and ndk.
 
 You can use the SDK Manager in Android Studio to install:
 
-> Note: you may need to tick `Show Package Details` in the right bottom corner to be able to see some of these components 
-
 1. Android Sdk Platform 33
 2. Android SDK Platform-Tools
 3. NDK (Side by side) 25.0.8775105
 5. Android SDK Build-Tools 33.0.
 6. Android SDK Command-line Tools
 
+> Note: you may need to tick `Show Package Details` in the right bottom corner to be able to see some of these components
 
 #### Using the terminal:
 
@@ -216,10 +215,13 @@ Now lets bootstrap a project to develop a tauri or wry project for mobile.
     # Stylized name (Hello):
     # Domain (example.com): tauri.app
     # Detected template packs:
-    #   [0] tauri
-    #   [1] wry
+    #   [0] bevy
+    #   [1] bevy-demo
+    #   [2] wgpu
+    #   [3] winit
+    #   [4] wry
     #   Enter an index for a template pack above.
-    # Template pack (0): 
+    # Template pack (0): 4
     ```
 
 ## Build and Run on Device
@@ -244,7 +246,6 @@ First time running the app will be blocked. Go to your phone's `Settings > Priva
 
 - Open the project in Android Studio `cargo android open`
 - Click `Trust Project`, `Use Embedded JDK`
-- (optional?) From my setup, I also need to add `abiFilters += listOf("arm64-v8a")` under `create("arm")` branch in `:app`'s '`build.gradle.kts`.
 - Choose an emulator. I usually choose Pixel 4 API 32
 - (optional) if you face this error `Device supports x86, but APK only supports armeabi-v7a` then check this [Stack Overflow answer](https://stackoverflow.com/questions/41775988/what-is-the-reason-for-the-error-device-supports-x86-but-apk-only-supports-arm/43742161#43742161) to fix it.
 - Press run button.
@@ -289,25 +290,6 @@ If you don't have access to Android Studio or don't want or when running in WSL,
 - `cargo apple open`
 - Choose a simulator.
 - Press run button.
-
-## Custom Protocols
-
-### Android
-
-Same as others.
-
-(TODO: add how does its scheme actually looks like.)
-
-### iOS
-
-Same as macOS.
-
-> To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
-
-
-## IPC
-
-Both support `ipc.PostMessage()`.
 
 ## Devtools
 
