@@ -31,6 +31,8 @@ fn main() {
       let package = env_var("WRY_ANDROID_PACKAGE");
       let library = env_var("WRY_ANDROID_LIBRARY");
 
+      println!("cargo:rerun-if-changed={kotlin_out_dir}");
+
       let kotlin_out_dir = PathBuf::from(&kotlin_out_dir)
         .canonicalize()
         .unwrap_or_else(move |_| {
