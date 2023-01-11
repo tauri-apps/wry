@@ -6,13 +6,10 @@ use crate::{webview::RGBA, Error};
 use crossbeam_channel::*;
 use once_cell::sync::Lazy;
 use std::os::unix::prelude::*;
-use tao::platform::android::ndk_glue::{
-  jni::{
-    errors::Error as JniError,
-    objects::{GlobalRef, JObject, JString},
-    JNIEnv,
-  },
-  PACKAGE,
+use tao::platform::android::ndk_glue::jni::{
+  errors::Error as JniError,
+  objects::{GlobalRef, JObject, JString},
+  JNIEnv,
 };
 
 use super::{create_headers_map, find_class};
@@ -54,11 +51,7 @@ impl MainPipe<'_> {
             pl_attrs,
           } = attrs;
           // Create webview
-          let rust_webview_class = find_class(
-            env,
-            activity,
-            format!("{}/RustWebView", PACKAGE.get().unwrap()),
-          )?;
+          let rust_webview_class = find_class(env, activity, "RustWebView")?;
           let webview = env.new_object(
             rust_webview_class,
             "(Landroid/content/Context;)V",
@@ -88,11 +81,7 @@ impl MainPipe<'_> {
           }
 
           // Create and set webview client
-          let rust_webview_client_class = find_class(
-            env,
-            activity,
-            format!("{}/RustWebViewClient", PACKAGE.get().unwrap()),
-          )?;
+          let rust_webview_client_class = find_class(env, activity, "RustWebViewClient")?;
           let webview_client = env.new_object(rust_webview_client_class, "()V", &[])?;
           env.call_method(
             webview,
@@ -110,7 +99,7 @@ impl MainPipe<'_> {
           )?;
 
           // Add javascript interface (IPC)
-          let ipc_class = find_class(env, activity, format!("{}/Ipc", PACKAGE.get().unwrap()))?;
+          let ipc_class = find_class(env, activity, "Ipc")?;
           let ipc = env.new_object(ipc_class, "()V", &[])?;
           let ipc_str = env.new_string("ipc")?;
           env.call_method(

@@ -12,7 +12,7 @@ pub use web_context::WebContext;
 pub(crate) mod android;
 #[cfg(target_os = "android")]
 pub mod prelude {
-  pub use super::android::{binding::*, find_class, setup, Context};
+  pub use super::android::{binding::*, find_class, package_name, setup, Context};
 }
 #[cfg(target_os = "android")]
 pub use android::JniHandle;
