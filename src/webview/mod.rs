@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -386,7 +386,9 @@ impl<'a> WebViewBuilder<'a> {
   /// - **Android:** The Android WebView does not provide an API for initialization scripts,
   /// so we prepend them to each HTML head. They are only implemented on custom protocol URLs.
   pub fn with_initialization_script(mut self, js: &str) -> Self {
-    self.webview.initialization_scripts.push(js.to_string());
+    if !js.is_empty() {
+      self.webview.initialization_scripts.push(js.to_string());
+    }
     self
   }
 

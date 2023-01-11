@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -30,6 +30,8 @@ fn main() {
     if let Ok(kotlin_out_dir) = std::env::var("WRY_ANDROID_KOTLIN_FILES_OUT_DIR") {
       let package = env_var("WRY_ANDROID_PACKAGE");
       let library = env_var("WRY_ANDROID_LIBRARY");
+
+      println!("cargo:rerun-if-changed={kotlin_out_dir}");
 
       let kotlin_out_dir = PathBuf::from(&kotlin_out_dir)
         .canonicalize()

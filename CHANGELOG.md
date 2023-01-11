@@ -1,5 +1,33 @@
 # Changelog
 
+## \[0.24.0]
+
+- Changed env vars used when building for Android; changed `WRY_ANDROID_REVERSED_DOMAIN` to `WRY_ANDROID_PACKAGE` and `WRY_ANDROID_APP_NAME_SNAKE_CASE` to `WRY_ANDROID_LIBRARY`.
+  - [dfe6a5e](https://github.com/tauri-apps/wry/commit/dfe6a5e78acca05d9e0808c8f4ed974a8657b847) refactor: improve android env vars naming ([#829](https://github.com/tauri-apps/wry/pull/829)) on 2022-12-30
+- Fixes Android initialization scripts order.
+  - [7f819c0](https://github.com/tauri-apps/wry/commit/7f819c0ec3d3aaaf582d9eecde09f5e539c45743) fix(android): initialization scripts order ([#808](https://github.com/tauri-apps/wry/pull/808)) on 2022-12-12
+- Remove redundant `.clone()` calls and avoid unnecessary heap allocations.
+  - [45f2b21](https://github.com/tauri-apps/wry/commit/45f2b2127e73718b71f349eae1847d1764c748f5) perf: remove redundant `.clone()` calls and avoid unnecessary heap allocations ([#812](https://github.com/tauri-apps/wry/pull/812)) on 2022-12-14
+- Change return type of [custom protocol handlers](https://docs.rs/wry/latest/wry/webview/struct.WebViewBuilder.html#method.with_custom_protocol) from `Result<Response<Vec<u8>>>` to `Result<Response<Cow<'static, [u8]>>>`. This allows the handlers to return static resources without heap allocations. This is effective when you embed some large files like bundled JavaScript source as `&'static [u8]` using [`include_bytes!`](https://doc.rust-lang.org/std/macro.include_bytes.html).
+  - [ddd3461](https://github.com/tauri-apps/wry/commit/ddd34614be8a0ba826eff8acbf4b06710ce2ba65) perf: Change return type of custom protocol handler from `Vec<u8>` to `Cow<'static, [u8]>`, closes [#796](https://github.com/tauri-apps/wry/pull/796) ([#797](https://github.com/tauri-apps/wry/pull/797)) on 2022-12-12
+- Ensures that the script passed to `.with_initialization_script("here")` is not empty.
+  - [ceb209e](https://github.com/tauri-apps/wry/commit/ceb209eddc20d284be748ee382ba8aef7686863b) fix empty string bug (fix: [#833](https://github.com/tauri-apps/wry/pull/833)) ([#836](https://github.com/tauri-apps/wry/pull/836)) on 2023-01-08
+- Add APIs to process webview document title change.
+  - [14a0ee3](https://github.com/tauri-apps/wry/commit/14a0ee323e8e596f45d4a57d2d86abcf0a848bc8) feat: add document title changed handler, closes [#804](https://github.com/tauri-apps/wry/pull/804) ([#825](https://github.com/tauri-apps/wry/pull/825)) on 2022-12-30
+- Evaluate scripts after the page load starts on Linux and macOS.
+  - [ca7c8e4](https://github.com/tauri-apps/wry/commit/ca7c8e44832b3236f08022f7ea3469be9a65aa3f) fix(unix): race condition on script eval ([#815](https://github.com/tauri-apps/wry/pull/815)) on 2022-12-14
+- Improve panic error messages on the build script.
+  - [5b9f21d](https://github.com/tauri-apps/wry/commit/5b9f21d38974881c2d6f4456990f5863484e7382) feat: improve build script panic messages ([#807](https://github.com/tauri-apps/wry/pull/807)) on 2022-12-12
+- Add `WebViewBuilder::with_url_and_headers` and `WebView::load_url_with_headers` to navigate to urls with headers.
+  - [8ae93b9](https://github.com/tauri-apps/wry/commit/8ae93b9c76b2efe14e93febd009e31fc459275a8) feat: add headers when loading URLs, closes [#816](https://github.com/tauri-apps/wry/pull/816) ([#826](https://github.com/tauri-apps/wry/pull/826)) on 2023-01-01
+  - [e246bd1](https://github.com/tauri-apps/wry/commit/e246bd164eb9df1b0e48123a542bbd240958c9db) chore: update headers change file on 2023-01-01
+- Change class declare name from `UIViewController` to `WryNavigationDelegate` to avoid class name conflict on iOS.
+  - [fca42a0](https://github.com/tauri-apps/wry/commit/fca42a0730e75a142f7f354c6ac3f6d6a0f4711f) fix(ios): navigation delegate class name conflict ([#824](https://github.com/tauri-apps/wry/pull/824)) on 2022-12-27
+- Rerun build script if the `WRY_ANDROID_KOTLIN_FILES_OUT_DIR` directory changes.
+  - [1cf92e2](https://github.com/tauri-apps/wry/commit/1cf92e2b68b1d9109de3924a3cd1fd10cb8c7c17) feat(build): rerun if kotlin out directory changes ([#839](https://github.com/tauri-apps/wry/pull/839)) on 2023-01-10
+- On Windows, Add `WebviewBuilderExtWindows::with_theme` and `WebviewExtWindows::set_theme` to change webview2 theme.
+  - [563a497](https://github.com/tauri-apps/wry/commit/563a497d7f842c760ad05a0017059e7781c2b810) feat(webview2): add theme API, closes [#806](https://github.com/tauri-apps/wry/pull/806) ([#809](https://github.com/tauri-apps/wry/pull/809)) on 2022-12-13
+
 ## \[0.23.4]
 
 - Fixes Android initialization scripts order.
