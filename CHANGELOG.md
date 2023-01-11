@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.24.1]
+
+- Update `tao` to `0.16.0`
+  - [a27a66b](https://github.com/tauri-apps/wry/commit/a27a66baccc86873110b0aa67ddad1f3a8dbd205) chore: update tao to 0.16.0 on 2023-01-11
+
 ## \[0.24.0]
 
 - Changed env vars used when building for Android; changed `WRY_ANDROID_REVERSED_DOMAIN` to `WRY_ANDROID_PACKAGE` and `WRY_ANDROID_APP_NAME_SNAKE_CASE` to `WRY_ANDROID_LIBRARY`.
