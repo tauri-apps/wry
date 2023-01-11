@@ -104,8 +104,12 @@ unsafe impl Sync for UnsafeTitleHandler {}
 pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
   // we must create the WebChromeClient here because it calls `registerForActivityResult`,
   // which gives an `LifecycleOwners must call register before they are STARTED.` error when called outside the onCreate hook
-  let rust_webchrome_client_class =
-    find_class(env, activity.as_obj(), "RustWebChromeClient").unwrap();
+  let rust_webchrome_client_class = find_class(
+    env,
+    activity.as_obj(),
+    format!("{}/RustWebChromeClient", PACKAGE.get().unwrap()),
+  )
+  .unwrap();
   let webchrome_client = env
     .new_object(
       rust_webchrome_client_class,
@@ -335,19 +339,13 @@ fn hash_script(script: &str) -> String {
   format!("'sha256-{}'", base64::encode(hash))
 }
 
-/// Returns the package name.
-pub fn package_name() -> &'static str {
-  PACKAGE.get().unwrap()
-}
-
 /// Finds a class in the project scope.
 pub fn find_class<'a>(
   env: JNIEnv<'a>,
   activity: JObject<'a>,
-  name: &str,
+  name: String,
 ) -> std::result::Result<JClass<'a>, JniError> {
-  let class_name =
-    env.new_string(format!("{}/{}", PACKAGE.get().unwrap(), name).replace('/', "."))?;
+  let class_name = env.new_string(name.replace('/', "."))?;
   let my_class = env
     .call_method(
       activity,
