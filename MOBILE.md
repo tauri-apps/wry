@@ -118,6 +118,8 @@ Install required SDK and NDK components
 ```bash
 export ANDROID_SDK_ROOT="$HOME/.android"
 ~/.android/cmdline-tools/latest/bin/sdkmanager "platforms;android-33" "platform-tools" "ndk;25.0.8775105" "build-tools;33.0.0"
+# Install the emulator if you plan on using a virtual device later
+~/.android/cmdline-tools/latest/bin/sdkmanager "emulator"
 ```
 
 ##### Windows
