@@ -118,11 +118,13 @@ impl MainPipe<'_> {
           )?;
 
           if let Some(on_webview_created) = pl_attrs.on_webview_created {
-            on_webview_created(super::Context {
+            if let Err(e) = on_webview_created(super::Context {
               env,
               activity,
               webview,
-            })?;
+            }) {
+              log::warn!("failed to run webview created hook: {e}");
+            }
           }
 
           let webview = env.new_global_ref(webview)?;
