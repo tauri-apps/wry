@@ -200,7 +200,7 @@ impl InnerWebView {
             let should_inject_scripts = response
               .headers()
               .get(CONTENT_TYPE)
-              // Content-Type must begin with the media type, but is case-insensitive. 
+              // Content-Type must begin with the media type, but is case-insensitive.
               // It may also be followed by any number of semicolon-delimited key value pairs.
               // We don't care about these here.
               // source: https://httpwg.org/specs/rfc9110.html#rfc.section.8.3.1
