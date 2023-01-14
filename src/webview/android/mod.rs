@@ -197,8 +197,18 @@ impl InnerWebView {
             .unwrap();
 
           if let Ok(mut response) = (custom_protocol.1)(&request) {
-            if response.headers().get(CONTENT_TYPE) == Some(&HeaderValue::from_static("text/html"))
-            {
+            let should_inject_scripts = response
+              .headers()
+              .get(CONTENT_TYPE)
+              // Content-Type must begin with the media type, but is case-insensitive.
+              // It may also be followed by any number of semicolon-delimited key value pairs.
+              // We don't care about these here.
+              // source: https://httpwg.org/specs/rfc9110.html#rfc.section.8.3.1
+              .and_then(|content_type| content_type.to_str().ok())
+              .map(|content_type_str| content_type_str.to_lowercase().starts_with("text/html"))
+              .unwrap_or_default();
+
+            if should_inject_scripts {
               if !initialization_scripts.is_empty() {
                 let mut document =
                   kuchiki::parse_html().one(String::from_utf8_lossy(response.body()).into_owned());
