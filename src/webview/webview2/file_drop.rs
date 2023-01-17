@@ -19,7 +19,8 @@ use std::{
 };
 
 use windows::Win32::{
-  Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINTL},
+  Foundation::{self as win32f, BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINT, POINTL},
+  Graphics::Gdi::ScreenToClient,
   System::{
     Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL},
     Ole::{
@@ -36,7 +37,9 @@ use windows::Win32::{
 
 use windows_implement::implement;
 
-use crate::application::window::Window;
+use crate::application::{
+  dpi::PhysicalPosition, platform::windows::WindowExtWindows, window::Window,
+};
 
 pub(crate) struct FileDropController {
   drop_targets: Vec<IDropTarget>,
@@ -188,7 +191,7 @@ impl IDropTarget_Impl for FileDropHandler {
     &self,
     pDataObj: &Option<IDataObject>,
     _grfKeyState: u32,
-    _pt: &POINTL,
+    pt: &POINTL,
     pdwEffect: *mut u32,
   ) -> windows::core::Result<()> {
     let mut paths = Vec::new();
@@ -203,9 +206,18 @@ impl IDropTarget_Impl for FileDropHandler {
       *pdwEffect = cursor_effect.0;
       *self.hovered_is_valid.get() = hovered_is_valid;
       *self.cursor_effect.get() = cursor_effect.0;
+
+      let mut pt = POINT { x: pt.x, y: pt.y };
+      ScreenToClient(HWND(self.window.hwnd() as _), &mut pt);
     }
 
-    (self.listener)(&self.window, FileDropEvent::Hovered(paths));
+    (self.listener)(
+      &self.window,
+      FileDropEvent::Hovered {
+        paths,
+        position: PhysicalPosition::new(pt.x as _, pt.y as _),
+      },
+    );
 
     Ok(())
   }
@@ -231,7 +243,7 @@ impl IDropTarget_Impl for FileDropHandler {
     &self,
     pDataObj: &Option<IDataObject>,
     _grfKeyState: u32,
-    _pt: &POINTL,
+    pt: &POINTL,
     _pdwEffect: *mut u32,
   ) -> windows::core::Result<()> {
     let mut paths = Vec::new();
@@ -240,9 +252,18 @@ impl IDropTarget_Impl for FileDropHandler {
       if let Some(hdrop) = hdrop {
         DragFinish(hdrop);
       }
+
+      let mut pt = POINT { x: pt.x, y: pt.y };
+      ScreenToClient(HWND(self.window.hwnd() as _), &mut pt);
     }
 
-    (self.listener)(&self.window, FileDropEvent::Dropped(paths));
+    (self.listener)(
+      &self.window,
+      FileDropEvent::Dropped {
+        paths,
+        position: PhysicalPosition::new(pt.x as _, pt.y as _),
+      },
+    );
 
     Ok(())
   }
