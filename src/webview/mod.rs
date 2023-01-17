@@ -831,7 +831,7 @@ pub enum FileDropEvent {
   /// The file(s) have been dropped onto the window.
   Dropped {
     paths: Vec<PathBuf>,
-    // (x,y) coords in physical pixels relative to the top-left corner of the window.
+    /// The position of the mouse cursor.
     position: PhysicalPosition<f64>,
   },
   /// The file drop was aborted.
