@@ -825,7 +825,7 @@ pub enum FileDropEvent {
   /// The file(s) have been dragged onto the window, but have not been dropped yet.
   Hovered {
     paths: Vec<PathBuf>,
-    // (x,y) coords in physical pixels relative to the top-left corner of the window.
+    /// The position of the mouse cursor.
     position: PhysicalPosition<f64>,
   },
   /// The file(s) have been dropped onto the window.
