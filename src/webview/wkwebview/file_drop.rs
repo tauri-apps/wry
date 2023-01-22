@@ -118,7 +118,7 @@ extern "C" fn dragging_entered(this: &mut Object, sel: Sel, drag_info: id) -> NS
   let dl: NSPoint = unsafe { msg_send![this, draggingLocation] };
   let scale_factor = listener.1.scale_factor();
   let ns_window = listener.1.ns_window() as id;
-  let frame: NSRect = msg_send![ns_window, frame];
+  let frame: NSRect = unsafe { msg_send![ns_window, frame] };
   let position =
     LogicalPosition::<f64>::from((dl.x, frame.size.height - dl.y)).to_physical(scale_factor);
 
@@ -137,7 +137,7 @@ extern "C" fn perform_drag_operation(this: &mut Object, sel: Sel, drag_info: id)
   let dl: NSPoint = unsafe { msg_send![this, draggingLocation] };
   let scale_factor = listener.1.scale_factor();
   let ns_window = listener.1.ns_window() as id;
-  let frame: NSRect = msg_send![ns_window, frame];
+  let frame: NSRect = unsafe { msg_send![ns_window, frame] };
   let position =
     LogicalPosition::<f64>::from((dl.x, frame.size.height - dl.y)).to_physical(scale_factor);
 
