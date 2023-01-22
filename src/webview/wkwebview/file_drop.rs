@@ -10,7 +10,7 @@ use std::{
 
 use cocoa::{
   base::{id, BOOL, YES},
-  foundation::NSPoint,
+  foundation::{NSPoint, NSRect},
 };
 use objc::{
   declare::ClassDecl,
@@ -19,7 +19,7 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-  application::{dpi::LogicalPosition, window::Window},
+  application::{dpi::LogicalPosition, platform::macos::WindowExtMacOS, window::Window},
   webview::FileDropEvent,
 };
 
@@ -117,7 +117,10 @@ extern "C" fn dragging_entered(this: &mut Object, sel: Sel, drag_info: id) -> NS
 
   let dl: NSPoint = unsafe { msg_send![this, draggingLocation] };
   let scale_factor = listener.1.scale_factor();
-  let position = LogicalPosition::<f64>::from((dl.x, dl.y)).to_physical(scale_factor);
+  let ns_window = listener.1.ns_window();
+  let frame: NSRect = msg_send![ns_window, frame];
+  let position =
+    LogicalPosition::<f64>::from((dl.x, frame.size.height - dl.y)).to_physical(scale_factor);
 
   if !listener.0(&listener.1, FileDropEvent::Hovered { paths, position }) {
     // Reject the Wry file drop (invoke the OS default behaviour)
@@ -133,7 +136,10 @@ extern "C" fn perform_drag_operation(this: &mut Object, sel: Sel, drag_info: id)
 
   let dl: NSPoint = unsafe { msg_send![this, draggingLocation] };
   let scale_factor = listener.1.scale_factor();
-  let position = LogicalPosition::<f64>::from((dl.x, dl.y)).to_physical(scale_factor);
+  let ns_window = listener.1.ns_window();
+  let frame: NSRect = msg_send![ns_window, frame];
+  let position =
+    LogicalPosition::<f64>::from((dl.x, frame.size.height - dl.y)).to_physical(scale_factor);
 
   if !listener.0(&listener.1, FileDropEvent::Dropped { paths, position }) {
     // Reject the Wry file drop (invoke the OS default behaviour)
