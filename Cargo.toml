@@ -53,7 +53,7 @@ base64 = "0.13.1"
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
 webkit2gtk = { version = "0.18.2", features = [ "v2_22" ] }
 webkit2gtk-sys = "0.18"
-gio = "0.15"
+gio = "0.16"
 glib = "0.15"
 gtk = "0.15"
 gdk = "0.15"
