@@ -56,7 +56,7 @@ webkit2gtk-sys = "0.18"
 gio = "0.15"
 glib = "0.15"
 gtk = "0.15"
-gdk = "0.15"
+gdk = "0.16"
 soup2 = "0.2"
 
 [target."cfg(target_os = \"windows\")".dependencies]
