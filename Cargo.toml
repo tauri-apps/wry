@@ -54,7 +54,7 @@ base64 = "0.13.1"
 webkit2gtk = { version = "0.18.2", features = [ "v2_22" ] }
 webkit2gtk-sys = "0.18"
 gio = "0.15"
-glib = "0.15"
+glib = "0.16"
 gtk = "0.15"
 gdk = "0.15"
 soup2 = "0.2"
