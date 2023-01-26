@@ -21,6 +21,8 @@ fn main() -> wry::Result<()> {
     webview::WebViewBuilder,
   };
 
+  let event_loop = EventLoop::new();
+
   let mut menu = MenuBar::new();
   let mut file_menu = MenuBar::new();
   file_menu.add_item(
@@ -33,7 +35,6 @@ fn main() -> wry::Result<()> {
   );
   menu.add_submenu("File", true, file_menu);
 
-  let event_loop = EventLoop::new();
   let window = WindowBuilder::new()
     .with_title("Custom Protocol")
     .with_menu(menu)
@@ -63,6 +64,8 @@ fn main() -> wry::Result<()> {
         (content, "text/javascript")
       } else if path.ends_with(".png") {
         (content, "image/png")
+      } else if path.ends_with(".wasm") {
+        (content, "application/wasm")
       } else {
         unimplemented!();
       };

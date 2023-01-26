@@ -56,7 +56,6 @@ fn main() -> wry::Result<()> {
       // remove leading slash
       let path = &request.uri().path()[1..];
 
-      dbg!(&request);
       // Read the file content from file path
       let mut content = File::open(canonicalize(&path)?)?;
 
