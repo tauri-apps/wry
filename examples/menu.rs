@@ -23,6 +23,8 @@ fn main() -> wry::Result<()> {
     webview::WebViewBuilder,
   };
 
+  let event_loop = EventLoop::new();
+
   let mut menu = MenuBar::new();
   let mut file_menu = MenuBar::new();
   file_menu.add_native_item(tao::menu::MenuItem::Cut);
@@ -45,7 +47,6 @@ fn main() -> wry::Result<()> {
   );
   menu.add_submenu("File", true, file_menu);
 
-  let event_loop = EventLoop::new();
   let window = WindowBuilder::new()
     .with_title("Custom Protocol")
     .with_menu(menu)
