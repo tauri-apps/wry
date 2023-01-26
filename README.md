@@ -80,7 +80,7 @@ Tao uses [gtk-rs](https://gtk-rs.org/) and its related libraries for window crea
 #### Arch Linux / Manjaro:
 
 ```bash
-sudo pacman -S webkit2gtk
+sudo pacman -S webkit2gtk-4.1
 sudo pacman -S libappindicator-gtk3 # For tray feature
 ```
 
@@ -98,7 +98,7 @@ sudo apt install libappindicator3-dev
 #### Fedora
 
 ```bash
-sudo dnf install gtk3-devel webkit2gtk3-devel
+sudo dnf install gtk3-devel webkit2gtk4.1-devel
 # For tray feature
 sudo dnf install libappindicator-gtk3-devel
 ```
