@@ -89,7 +89,7 @@ The `libayatana-indicator` package can be installed from the Arch User Repositor
 #### Debian / Ubuntu:
 
 ```bash
-sudo apt install libwebkit2gtk-4.0-dev
+sudo apt install libwebkit2gtk-4.1-dev
 # For tray feature, choose one of following package
 sudo apt install libayatana-appindicator3-dev
 sudo apt install libappindicator3-dev
