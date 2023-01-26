@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -13,7 +13,7 @@ use tao::platform::android::ndk_glue::jni::{
   JNIEnv,
 };
 
-use super::{IPC, REQUEST_HANDLER};
+use super::{create_headers_map, IPC, REQUEST_HANDLER, TITLE_CHANGE_HANDLER};
 
 fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
   let mut request_builder = Request::builder();
@@ -105,22 +105,7 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
         (JObject::null().into(), JObject::null().into())
       };
 
-      let hashmap = env.find_class("java/util/HashMap")?;
-      let response_headers = env.new_object(hashmap, "()V", &[])?;
-      for (key, value) in response.headers().iter() {
-        env.call_method(
-          response_headers,
-          "put",
-          "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
-          &[
-            env.new_string(key.as_str())?.into(),
-            // TODO can we handle this better?
-            env
-              .new_string(String::from_utf8_lossy(value.as_bytes()))?
-              .into(),
-          ],
-        )?;
-      }
+      let response_headers = create_headers_map(&env, response.headers())?;
 
       let bytes = response.body();
 
@@ -162,6 +147,19 @@ pub unsafe fn ipc(env: JNIEnv, _: JClass, arg: JString) {
       let arg = arg.to_string_lossy().to_string();
       if let Some(w) = IPC.get() {
         (w.0)(&w.1, arg)
+      }
+    }
+    Err(e) => log::warn!("Failed to parse JString: {}", e),
+  }
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn handleReceivedTitle(env: JNIEnv, _: JClass, _webview: JObject, title: JString) {
+  match env.get_string(title) {
+    Ok(title) => {
+      let title = title.to_string_lossy().to_string();
+      if let Some(w) = TITLE_CHANGE_HANDLER.get() {
+        (w.0)(&w.1, title)
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),

@@ -1,6 +1,8 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
+
+const PAGE1_HTML: &[u8] = include_bytes!("custom_protocol_page1.html");
 
 fn main() -> wry::Result<()> {
   use std::{
@@ -25,11 +27,21 @@ fn main() -> wry::Result<()> {
 
   let mut menu = MenuBar::new();
   let mut file_menu = MenuBar::new();
+  file_menu.add_native_item(tao::menu::MenuItem::Cut);
+  file_menu.add_native_item(tao::menu::MenuItem::Copy);
+  file_menu.add_native_item(tao::menu::MenuItem::Paste);
   file_menu.add_item(
     MenuItemAttributes::new("Quit").with_accelerators(&Accelerator::new(
-      Some(ModifiersState::SUPER),
-      // Some(ModifiersState::SHIFT),
-      // None,
+      Some(ModifiersState::CONTROL | ModifiersState::SHIFT),
+      KeyCode::KeyQ,
+    )),
+  );
+  file_menu.add_item(
+    MenuItemAttributes::new("Quit").with_accelerators(&Accelerator::new(None, KeyCode::KeyQ)),
+  );
+  file_menu.add_item(
+    MenuItemAttributes::new("Quit").with_accelerators(&Accelerator::new(
+      Some(ModifiersState::SHIFT),
       KeyCode::KeyQ,
     )),
   );
@@ -44,21 +56,19 @@ fn main() -> wry::Result<()> {
   let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_custom_protocol("wry".into(), move |request| {
-      let path = &request.uri().path();
+      let path = request.uri().path();
       // Read the file content from file path
-      let content = read(canonicalize(PathBuf::from("examples").join(
-        if path == &"/" {
-          "custom_protocol_page1.html"
-        } else {
-          // remove leading slash
-          &path[1..]
-        },
-      ))?)?;
+      let content = if path == "/" {
+        PAGE1_HTML.into()
+      } else {
+        // `1..` for removing leading slash
+        read(canonicalize(PathBuf::from("examples").join(&path[1..]))?)?.into()
+      };
 
       // Return asset contents and mime types based on file extentions
       // If you don't want to do this manually, there are some crates for you.
       // Such as `infer` and `mime_guess`.
-      let (data, meta) = if path.ends_with(".html") || path == &"/" {
+      let (data, meta) = if path.ends_with(".html") || path == "/" {
         (content, "text/html")
       } else if path.ends_with(".js") {
         (content, "text/javascript")
@@ -90,7 +100,7 @@ fn main() -> wry::Result<()> {
       } => *control_flow = ControlFlow::Exit,
       Event::MenuEvent { menu_id, .. } => {
         println!("Menu clicked! {:?}", menu_id);
-        *control_flow = ControlFlow::Exit;
+        // *control_flow = ControlFlow::Exit;
       }
       _ => (),
     }
