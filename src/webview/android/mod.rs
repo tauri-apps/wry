@@ -51,6 +51,22 @@ macro_rules! android_binding {
       [JObject],
       jobject
     );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      withAssetLoader,
+      [jboolean] // this is unnecessary but I could not find a way to pass an empty args
+      jboolean
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      assetLoaderDomain,
+      [jboolean] // this is unnecessary but I could not find a way to pass an empty args
+      jstring
+    );
     android_fn!($domain, $package, Ipc, ipc, [JString]);
     android_fn!(
       $domain,
@@ -65,6 +81,8 @@ macro_rules! android_binding {
 pub static IPC: OnceCell<UnsafeIpc> = OnceCell::new();
 pub static REQUEST_HANDLER: OnceCell<UnsafeRequestHandler> = OnceCell::new();
 pub static TITLE_CHANGE_HANDLER: OnceCell<UnsafeTitleHandler> = OnceCell::new();
+pub static WITH_ASSET_LOADER: OnceCell<bool> = OnceCell::new();
+pub static ASSET_LOADER_DOMAIN: OnceCell<Option<String>> = OnceCell::new();
 
 pub struct UnsafeIpc(Box<dyn Fn(&Window, String)>, Rc<Window>);
 impl UnsafeIpc {
@@ -144,7 +162,7 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let WebViewAttributes {
@@ -158,6 +176,12 @@ impl InnerWebView {
       headers,
       ..
     } = attributes;
+
+    let super::PlatformSpecificWebViewAttributes {
+      with_asset_loader,
+      asset_loader_domain,
+      ..
+    } = pl_attrs;
 
     if let Some(u) = url {
       let mut url_string = String::from(u.as_str());
@@ -177,6 +201,9 @@ impl InnerWebView {
         headers,
       }));
     }
+
+    WITH_ASSET_LOADER.get_or_init(move || with_asset_loader);
+    ASSET_LOADER_DOMAIN.get_or_init(move || asset_loader_domain);
 
     REQUEST_HANDLER.get_or_init(move || {
       UnsafeRequestHandler::new(Box::new(move |mut request| {
