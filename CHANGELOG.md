@@ -1,5 +1,14 @@
 # Changelog
 
+## \[0.25.0]
+
+- **Breaking Change:** Bump webkit2gtk to 0.19. This will use webkit2gtk-4.1 as dependency from now on. Also Bump gtk version: 0.15 -> 0.16.
+  - [c5f3b36](https://github.com/tauri-apps/wry/commit/c5f3b36b7ac4613971ddf56397932c44a9c74878) Bump gtk version 0.15 -> 0.16 ([#851](https://github.com/tauri-apps/wry/pull/851)) on 2023-01-26
+- **Breaking** Add position of the drop to `FileDropEvent` struct.
+  - [bce39e2](https://github.com/tauri-apps/wry/commit/bce39e2be195194e547b0021e770e45a3df15fa1) feat: add file drop position ([#847](https://github.com/tauri-apps/wry/pull/847)) on 2023-01-17
+- On Android, fix the injection of `intialization_scripts` for devServers where the `Content-Type` header includes more information than just `"text/plain"`.
+  - [87216c7](https://github.com/tauri-apps/wry/commit/87216c7f01d5f65641422343dd0aa7f08ea61d0d) fix: make the Content-Type check spec compliant ([#844](https://github.com/tauri-apps/wry/pull/844)) on 2023-01-14
+
 ## \[0.24.1]
 
 - Update `tao` to `0.16.0`

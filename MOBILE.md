@@ -118,6 +118,8 @@ Install required SDK and NDK components
 ```bash
 export ANDROID_SDK_ROOT="$HOME/.android"
 ~/.android/cmdline-tools/latest/bin/sdkmanager "platforms;android-33" "platform-tools" "ndk;25.0.8775105" "build-tools;33.0.0"
+# Install the emulator if you plan on using a virtual device later
+~/.android/cmdline-tools/latest/bin/sdkmanager "emulator"
 ```
 
 ##### Windows
@@ -144,6 +146,8 @@ Install required SDK and NDK components
 ```powershell
 $env:ANDROID_SDK_ROOT="$HOME\.android"
 &"$env:ANDROID_SDK_ROOT\cmdline-tools\latest\bin\sdkmanager.exe" "platforms;android-33" "platform-tools" "ndk;25.0.8775105" "build-tools;33.0.0"
+# Install the emulator if you plan on using a virtual device later
+&"$env:ANDROID_SDK_ROOT\cmdline-tools\latest\bin\sdkmanager.exe" "emulator"
 ```
 
 > Note: the location you moved the `cmdline-tools` directory into will be the location of your android SDK.

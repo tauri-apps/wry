@@ -42,6 +42,7 @@ use wkwebview::*;
 pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
+use crate::application::dpi::PhysicalPosition;
 use crate::Result;
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
@@ -865,9 +866,17 @@ impl WebView {
 #[derive(Debug, Serialize, Clone)]
 pub enum FileDropEvent {
   /// The file(s) have been dragged onto the window, but have not been dropped yet.
-  Hovered(Vec<PathBuf>),
+  Hovered {
+    paths: Vec<PathBuf>,
+    /// The position of the mouse cursor.
+    position: PhysicalPosition<f64>,
+  },
   /// The file(s) have been dropped onto the window.
-  Dropped(Vec<PathBuf>),
+  Dropped {
+    paths: Vec<PathBuf>,
+    /// The position of the mouse cursor.
+    position: PhysicalPosition<f64>,
+  },
   /// The file drop was aborted.
   Cancelled,
 }

@@ -8,14 +8,20 @@ use std::{
   rc::Rc,
 };
 
-use cocoa::base::{id, BOOL, YES};
+use cocoa::{
+  base::{id, BOOL, YES},
+  foundation::{NSPoint, NSRect},
+};
 use objc::{
   declare::ClassDecl,
   runtime::{class_getInstanceMethod, method_getImplementation, Object, Sel},
 };
 use once_cell::sync::Lazy;
 
-use crate::{application::window::Window, webview::FileDropEvent};
+use crate::{
+  application::{dpi::LogicalPosition, platform::macos::WindowExtMacOS, window::Window},
+  webview::FileDropEvent,
+};
 
 pub(crate) type NSDragOperation = cocoa::foundation::NSUInteger;
 #[allow(non_upper_case_globals)]
@@ -109,7 +115,14 @@ extern "C" fn dragging_entered(this: &mut Object, sel: Sel, drag_info: id) -> NS
   let listener = unsafe { get_handler(this) };
   let paths = unsafe { collect_paths(drag_info) };
 
-  if !listener.0(&listener.1, FileDropEvent::Hovered(paths)) {
+  let dl: NSPoint = unsafe { msg_send![this, draggingLocation] };
+  let scale_factor = listener.1.scale_factor();
+  let ns_window = listener.1.ns_window() as id;
+  let frame: NSRect = unsafe { msg_send![ns_window, frame] };
+  let position =
+    LogicalPosition::<f64>::from((dl.x, frame.size.height - dl.y)).to_physical(scale_factor);
+
+  if !listener.0(&listener.1, FileDropEvent::Hovered { paths, position }) {
     // Reject the Wry file drop (invoke the OS default behaviour)
     OBJC_DRAGGING_ENTERED(this, sel, drag_info)
   } else {
@@ -121,7 +134,14 @@ extern "C" fn perform_drag_operation(this: &mut Object, sel: Sel, drag_info: id)
   let listener = unsafe { get_handler(this) };
   let paths = unsafe { collect_paths(drag_info) };
 
-  if !listener.0(&listener.1, FileDropEvent::Dropped(paths)) {
+  let dl: NSPoint = unsafe { msg_send![this, draggingLocation] };
+  let scale_factor = listener.1.scale_factor();
+  let ns_window = listener.1.ns_window() as id;
+  let frame: NSRect = unsafe { msg_send![ns_window, frame] };
+  let position =
+    LogicalPosition::<f64>::from((dl.x, frame.size.height - dl.y)).to_physical(scale_factor);
+
+  if !listener.0(&listener.1, FileDropEvent::Dropped { paths, position }) {
     // Reject the Wry file drop (invoke the OS default behaviour)
     OBJC_PERFORM_DRAG_OPERATION(this, sel, drag_info)
   } else {
