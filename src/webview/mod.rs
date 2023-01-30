@@ -947,6 +947,26 @@ impl WebviewExtMacOS for WebView {
   }
 }
 
+/// Additional methods on `WebView` that are specific to iOS.
+#[cfg(target_os = "ios")]
+pub trait WebviewExtIOS {
+  /// Returns WKWebView handle
+  fn webview(&self) -> cocoa::base::id;
+  /// Returns WKWebView manager [(userContentController)](https://developer.apple.com/documentation/webkit/wkscriptmessagehandler/1396222-usercontentcontroller) handle
+  fn manager(&self) -> cocoa::base::id;
+}
+
+#[cfg(target_os = "ios")]
+impl WebviewExtIOS for WebView {
+  fn webview(&self) -> cocoa::base::id {
+    self.webview.webview
+  }
+
+  fn manager(&self) -> cocoa::base::id {
+    self.webview.manager
+  }
+}
+
 #[cfg(target_os = "android")]
 /// Additional methods on `WebView` that are specific to Android
 pub trait WebviewExtAndroid {
