@@ -168,7 +168,7 @@ export JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
 # If you are using Android studio, on Linux, it is:
 export JAVA_HOME=/opt/android-studio/jre
 # And on macOS, it is:
-export JAVA_HOME="/Applications/Android\ Studio.app/Contents/jbr/Contents/Home"
+export JAVA_HOME=/Applications/Android\ Studio.app/Contents/jbr/Contents/Home
 ```
 
 - Setting `ANDROID_HOME`:
