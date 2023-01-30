@@ -12,7 +12,7 @@ pub use web_context::WebContext;
 pub(crate) mod android;
 #[cfg(target_os = "android")]
 pub mod prelude {
-  pub use super::android::{binding::*, setup};
+  pub use super::android::{binding::*, find_class, setup, Context};
 }
 #[cfg(target_os = "android")]
 pub use android::JniHandle;
@@ -286,11 +286,23 @@ impl Default for PlatformSpecificWebViewAttributes {
   target_os = "netbsd",
   target_os = "openbsd",
   target_os = "macos",
-  target_os = "android",
   target_os = "ios",
 ))]
 #[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes;
+
+#[cfg(target_os = "android")]
+#[derive(Default)]
+pub(crate) struct PlatformSpecificWebViewAttributes {
+  on_webview_created: Option<
+    Box<
+      dyn Fn(
+          prelude::Context,
+        ) -> std::result::Result<(), tao::platform::android::ndk_glue::jni::errors::Error>
+        + Send,
+    >,
+  >,
+}
 
 /// Type alias for a color in the RGBA format.
 ///
@@ -661,6 +673,37 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 
   fn with_theme(mut self, theme: Theme) -> Self {
     self.platform_specific.theme = Some(theme);
+    self
+  }
+}
+
+#[cfg(target_os = "android")]
+pub trait WebViewBuilderExtAndroid {
+  fn on_webview_created<
+    F: Fn(
+        prelude::Context<'_>,
+      ) -> std::result::Result<(), tao::platform::android::ndk_glue::jni::errors::Error>
+      + Send
+      + 'static,
+  >(
+    self,
+    f: F,
+  ) -> Self;
+}
+
+#[cfg(target_os = "android")]
+impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
+  fn on_webview_created<
+    F: Fn(
+        prelude::Context<'_>,
+      ) -> std::result::Result<(), tao::platform::android::ndk_glue::jni::errors::Error>
+      + Send
+      + 'static,
+  >(
+    mut self,
+    f: F,
+  ) -> Self {
+    self.platform_specific.on_webview_created = Some(Box::new(f));
     self
   }
 }

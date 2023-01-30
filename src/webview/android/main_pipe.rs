@@ -15,7 +15,7 @@ use tao::platform::android::ndk_glue::{
   PACKAGE,
 };
 
-use super::{create_headers_map, find_my_class};
+use super::{create_headers_map, find_class};
 
 static CHANNEL: Lazy<(Sender<WebViewMessage>, Receiver<WebViewMessage>)> = Lazy::new(|| bounded(8));
 pub static MAIN_PIPE: Lazy<[RawFd; 2]> = Lazy::new(|| {
@@ -32,7 +32,7 @@ pub struct MainPipe<'a> {
 }
 
 impl MainPipe<'_> {
-  pub fn send(message: WebViewMessage) {
+  pub(crate) fn send(message: WebViewMessage) {
     let size = std::mem::size_of::<bool>();
     if let Ok(()) = CHANNEL.0.send(message) {
       unsafe { libc::write(MAIN_PIPE[1], &true as *const _ as *const _, size) };
@@ -51,9 +51,10 @@ impl MainPipe<'_> {
             transparent,
             background_color,
             headers,
+            pl_attrs,
           } = attrs;
           // Create webview
-          let rust_webview_class = find_my_class(
+          let rust_webview_class = find_class(
             env,
             activity,
             format!("{}/RustWebView", PACKAGE.get().unwrap()),
@@ -87,7 +88,7 @@ impl MainPipe<'_> {
           }
 
           // Create and set webview client
-          let rust_webview_client_class = find_my_class(
+          let rust_webview_client_class = find_class(
             env,
             activity,
             format!("{}/RustWebViewClient", PACKAGE.get().unwrap()),
@@ -109,7 +110,7 @@ impl MainPipe<'_> {
           )?;
 
           // Add javascript interface (IPC)
-          let ipc_class = find_my_class(env, activity, format!("{}/Ipc", PACKAGE.get().unwrap()))?;
+          let ipc_class = find_class(env, activity, format!("{}/Ipc", PACKAGE.get().unwrap()))?;
           let ipc = env.new_object(ipc_class, "()V", &[])?;
           let ipc_str = env.new_string("ipc")?;
           env.call_method(
@@ -126,7 +127,19 @@ impl MainPipe<'_> {
             "(Landroid/view/View;)V",
             &[webview.into()],
           )?;
+
+          if let Some(on_webview_created) = pl_attrs.on_webview_created {
+            if let Err(e) = on_webview_created(super::Context {
+              env,
+              activity,
+              webview,
+            }) {
+              log::warn!("failed to run webview created hook: {e}");
+            }
+          }
+
           let webview = env.new_global_ref(webview)?;
+
           self.webview = Some(webview);
         }
         WebViewMessage::Eval(script) => {
@@ -233,7 +246,7 @@ fn set_background_color<'a>(
   Ok(())
 }
 
-pub enum WebViewMessage {
+pub(crate) enum WebViewMessage {
   CreateWebView(CreateWebViewAttributes),
   Eval(String),
   SetBackgroundColor(RGBA),
@@ -243,11 +256,11 @@ pub enum WebViewMessage {
   LoadUrl(String, Option<http::HeaderMap>),
 }
 
-#[derive(Debug)]
-pub struct CreateWebViewAttributes {
+pub(crate) struct CreateWebViewAttributes {
   pub url: String,
   pub devtools: bool,
   pub transparent: bool,
   pub background_color: Option<RGBA>,
   pub headers: Option<http::HeaderMap>,
+  pub pl_attrs: crate::webview::PlatformSpecificWebViewAttributes,
 }
