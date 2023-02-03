@@ -183,9 +183,15 @@ impl MainPipe<'_> {
           }
         }
         WebViewMessage::Jni(f) => {
-          if let Some(webview) = &self.webview {
-            f(env, activity, webview.as_obj());
-          }
+          f(
+            env,
+            activity,
+            self
+              .webview
+              .as_ref()
+              .map(|w| w.as_obj().clone())
+              .unwrap_or_default(),
+          );
         }
         WebViewMessage::LoadUrl(url, headers) => {
           if let Some(webview) = &self.webview {
