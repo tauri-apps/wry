@@ -702,10 +702,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         if let Some(headers) = attributes.headers {
           load_url_with_headers(&webview, env, &url_string, headers);
         } else {
-          let url = PCWSTR::from_raw(encode_wide(url_string).as_ptr());
           unsafe {
             webview
-              .Navigate(url)
+              .Navigate(PCWSTR::from_raw(encode_wide(url_string).as_ptr()))
               .map_err(webview2_com::Error::WindowsError)?;
           }
         }
