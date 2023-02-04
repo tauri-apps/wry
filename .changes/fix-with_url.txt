@@ -1,0 +1,5 @@
+---
+"wry": patch
+---
+
+Fix the WebViewBuilder::with_url when the projet use mimalloc (https://github.com/tauri-apps/wry/issues/863)
