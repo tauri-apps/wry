@@ -115,7 +115,7 @@ extern "C" fn dragging_entered(this: &mut Object, sel: Sel, drag_info: id) -> NS
   let listener = unsafe { get_handler(this) };
   let paths = unsafe { collect_paths(drag_info) };
 
-  let dl: NSPoint = unsafe { msg_send![this, draggingLocation] };
+  let dl: NSPoint = unsafe { msg_send![drag_info, draggingLocation] };
   let scale_factor = listener.1.scale_factor();
   let ns_window = listener.1.ns_window() as id;
   let frame: NSRect = unsafe { msg_send![ns_window, frame] };
@@ -134,7 +134,7 @@ extern "C" fn perform_drag_operation(this: &mut Object, sel: Sel, drag_info: id)
   let listener = unsafe { get_handler(this) };
   let paths = unsafe { collect_paths(drag_info) };
 
-  let dl: NSPoint = unsafe { msg_send![this, draggingLocation] };
+  let dl: NSPoint = unsafe { msg_send![drag_info, draggingLocation] };
   let scale_factor = listener.1.scale_factor();
   let ns_window = listener.1.ns_window() as id;
   let frame: NSRect = unsafe { msg_send![ns_window, frame] };
