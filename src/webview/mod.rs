@@ -261,23 +261,6 @@ impl Default for WebViewAttributes {
   }
 }
 
-#[cfg(target_os = "android")]
-#[derive(Clone)]
-pub(crate) struct PlatformSpecificWebViewAttributes {
-  with_asset_loader: bool,
-  asset_loader_domain: Option<String>,
-}
-
-#[cfg(target_os = "android")]
-impl Default for PlatformSpecificWebViewAttributes {
-  fn default() -> Self {
-    Self {
-      with_asset_loader: false,
-      asset_loader_domain: None,
-    }
-  }
-}
-
 #[cfg(windows)]
 #[derive(Clone)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
@@ -318,6 +301,8 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
         + Send,
     >,
   >,
+  with_asset_loader: bool,
+  asset_loader_domain: Option<String>,
 }
 
 /// Type alias for a color in the RGBA format.
@@ -652,35 +637,6 @@ impl<'a> WebViewBuilder<'a> {
   }
 }
 
-#[cfg(feature = "protocol")]
-#[cfg(target_os = "android")]
-pub trait WebViewBuilderExtAndroid {
-  /// Use [WebviewAssetLoader](https://developer.android.com/reference/kotlin/androidx/webkit/WebViewAssetLoader)
-  /// to load assets from Android's `asset` folder when using `with_url` as `<protocol>://assets/` (e.g.:
-  /// `wry://assets/index.html`). Note that this registers a custom protocol with the provided
-  /// String, similar to [`with_custom_protocol`], but also sets the WebViewAssetLoader with the
-  /// necessary domain (which is fixed as `<protocol>.assets`). This cannot be used in conjunction
-  /// to `with_custom_protocol` for Android, as it changes the way in which requests are handled.
-  fn with_asset_loader(self, protocol: String) -> Self;
-}
-
-#[cfg(feature = "protocol")]
-#[cfg(target_os = "android")]
-impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
-  fn with_asset_loader(mut self, protocol: String) -> Self {
-    // register custom protocol with empty Response return,
-    // this is necessary due to the need of fixing a domain
-    // in WebViewAssetLoader.
-    self.webview.custom_protocols.push((
-      protocol.clone(),
-      Box::new(|_| Ok(Response::builder().body(Vec::new().into())?)),
-    ));
-    self.platform_specific.with_asset_loader = true;
-    self.platform_specific.asset_loader_domain = Some(format!("{}.assets", protocol));
-    self
-  }
-}
-
 #[cfg(windows)]
 pub trait WebViewBuilderExtWindows {
   /// Pass additional args to Webview2 upon creating the webview.
@@ -734,6 +690,15 @@ pub trait WebViewBuilderExtAndroid {
     self,
     f: F,
   ) -> Self;
+
+  /// Use [WebviewAssetLoader](https://developer.android.com/reference/kotlin/androidx/webkit/WebViewAssetLoader)
+  /// to load assets from Android's `asset` folder when using `with_url` as `<protocol>://assets/` (e.g.:
+  /// `wry://assets/index.html`). Note that this registers a custom protocol with the provided
+  /// String, similar to [`with_custom_protocol`], but also sets the WebViewAssetLoader with the
+  /// necessary domain (which is fixed as `<protocol>.assets`). This cannot be used in conjunction
+  /// to `with_custom_protocol` for Android, as it changes the way in which requests are handled.
+  #[cfg(feature = "protocol")]
+  fn with_asset_loader(self, protocol: String) -> Self;
 }
 
 #[cfg(target_os = "android")]
@@ -749,6 +714,20 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     f: F,
   ) -> Self {
     self.platform_specific.on_webview_created = Some(Box::new(f));
+    self
+  }
+
+  #[cfg(feature = "protocol")]
+  fn with_asset_loader(mut self, protocol: String) -> Self {
+    // register custom protocol with empty Response return,
+    // this is necessary due to the need of fixing a domain
+    // in WebViewAssetLoader.
+    self.webview.custom_protocols.push((
+      protocol.clone(),
+      Box::new(|_| Ok(Response::builder().body(Vec::new().into())?)),
+    ));
+    self.platform_specific.with_asset_loader = true;
+    self.platform_specific.asset_loader_domain = Some(format!("{}.assets", protocol));
     self
   }
 }

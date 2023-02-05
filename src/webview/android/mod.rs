@@ -184,9 +184,9 @@ impl InnerWebView {
     } = attributes;
 
     let super::PlatformSpecificWebViewAttributes {
+      on_webview_created,
       with_asset_loader,
       asset_loader_domain,
-      ..
     } = pl_attrs;
 
     if let Some(u) = url {
@@ -205,7 +205,7 @@ impl InnerWebView {
         background_color,
         transparent,
         headers,
-        pl_attrs,
+        on_webview_created,
       }));
     }
 
