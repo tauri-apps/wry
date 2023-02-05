@@ -210,8 +210,9 @@ impl InnerWebView {
     }
 
     WITH_ASSET_LOADER.get_or_init(move || with_asset_loader);
-    ASSET_LOADER_DOMAIN
-      .get_or_init(move || asset_loader_domain.unwrap_or(String::from("wry.assets")));
+    if let Some(domain) = asset_loader_domain {
+      ASSET_LOADER_DOMAIN.get_or_init(move || domain);
+    }
 
     REQUEST_HANDLER.get_or_init(move || {
       UnsafeRequestHandler::new(Box::new(move |mut request| {
