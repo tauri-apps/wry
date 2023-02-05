@@ -12,9 +12,10 @@ We use [tauri-mobile](https://github.com/tauri-apps/tauri-mobile) to create a mo
 ### 1. Installing JDK
 
 #### Using Android Studio:
-If you have Android Studio installed, it ships with a version of JDK so you don't have to install it manually. It is usually at `<path of android studio installation>/jre` and can be used for `JAVA_HOME` env var. 
+If you have Android Studio installed, it ships with a version of JDK so you don't have to install it manually. It is usually at `<path of android studio installation>/jre`. It will be used for `JAVA_HOME` env var. 
 
-> you can find it on Windows for example at `C:\Program Files\Android\Android Studio\jre`
+> On macOS, it can be found at `/Applications/Android\ Studio.app/Contents/jbr/Contents/Home`
+> On Windows, it can be found at `C:\Program Files\Android\Android Studio\jre`
 
 #### Using the terminal:
 
@@ -116,7 +117,7 @@ mv cmdline-tools ~/.android
 Install required SDK and NDK components
 
 ```bash
-export ANDROID_SDK_ROOT="$HOME/.android"
+export ANDROID_HOME="$HOME/.android"
 ~/.android/cmdline-tools/latest/bin/sdkmanager "platforms;android-33" "platform-tools" "ndk;25.0.8775105" "build-tools;33.0.0"
 # Install the emulator if you plan on using a virtual device later
 ~/.android/cmdline-tools/latest/bin/sdkmanager "emulator"
@@ -144,10 +145,10 @@ mv cmdline-tools $HOME\.android
 Install required SDK and NDK components
 
 ```powershell
-$env:ANDROID_SDK_ROOT="$HOME\.android"
-&"$env:ANDROID_SDK_ROOT\cmdline-tools\latest\bin\sdkmanager.exe" "platforms;android-33" "platform-tools" "ndk;25.0.8775105" "build-tools;33.0.0"
+$env:ANDROID_HOME="$HOME\.android"
+&"$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.exe" "platforms;android-33" "platform-tools" "ndk;25.0.8775105" "build-tools;33.0.0"
 # Install the emulator if you plan on using a virtual device later
-&"$env:ANDROID_SDK_ROOT\cmdline-tools\latest\bin\sdkmanager.exe" "emulator"
+&"$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.exe" "emulator"
 ```
 
 > Note: the location you moved the `cmdline-tools` directory into will be the location of your android SDK.
@@ -159,14 +160,37 @@ You'll need to set up some environment variables to get everything to work prope
 
 ##### Linux/WSL/macOS
 
+- Setting `JAVA_HOME`:
+
 ```bash
-# .bashrc or .zshrc
-export JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64" # if you are using Android studio, the location is different, see the section above about JDK
-export ANDROID_SDK_ROOT="$HOME/.android" # if you are using Android studio, the sdk location will be at `~/Android/Sdk`
-export NDK_HOME="$ANDROID_SDK_ROOT/ndk/25.0.8775105"
-export PATH="$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin"
-export PATH="$PATH:$ANDROID_SDK_ROOT/platform-tools"
+# In .bashrc or .zshrc:
+export JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
+# If you are using Android studio, on Linux, it is:
+export JAVA_HOME=/opt/android-studio/jre
+# And on macOS, it is:
+export JAVA_HOME=/Applications/Android\ Studio.app/Contents/jbr/Contents/Home
 ```
+
+- Setting `ANDROID_HOME`:
+
+
+```bash
+export ANDROID_HOME="$HOME/.android"
+# If you are using Android studio, on Linux, it is:
+expoert ANDROID_HOME="$HOME/Android/Sdk"
+# And on macOS, it is:
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+```
+
+- Setting `PATH`:
+
+
+```bash
+export NDK_HOME="$ANDROID_HOME/ndk/25.0.8775105" # The patch version might be different
+export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin"
+export PATH="$PATH:$ANDROID_HOME/platform-tools"
+```
+
 > For WSL:
 > you also need to get ADB to connect to your emulator that is running on Windows
 >    ```bash
@@ -186,7 +210,7 @@ Function Add-PATHEntry($path) { $newPath = [System.Environment]::GetEnvironmentV
 
 Add-EnvVar JAVA_HOME "$env:LocalAppData\Java\jdk-11.0.2" # if you are using Android studio, the location is different, see the section above about JDK
 $env:SDK_ROOT="$HOME\.android"# if you are using Android studio, the sdk location will be at `$env:LocalAppData\Android\Sdk`
-Add-EnvVar ANDROID_SDK_ROOT "$env:SDK_ROOT" 
+Add-EnvVar ANDROID_HOME "$env:SDK_ROOT" 
 Add-EnvVar NDK_HOME "$env:SDK_ROOT\ndk\25.0.8775105"
 
 Add-PATHEntry "$env:SDK_ROOT\cmdline-tools\latest\bin"
@@ -261,11 +285,11 @@ If you don't have access to Android Studio or don't want or when running in WSL,
 1. List available emulators
    - Linux/WSL/macOS:
      ```bash
-     $ANDROID_SDK_ROOT/emulator/emulator -list-avds
+     $ANDROID_HOME/emulator/emulator -list-avds
      ```
    - Windows:
      ```powershell
-     &"$env:ANDROID_SDK_ROOT\emulator\emulator" -list-avds
+     &"$env:ANDROID_HOME\emulator\emulator" -list-avds
      ```
     you should now see a list of available emulators like the following, you'll need one of them for the next step:
     ```
@@ -275,11 +299,11 @@ If you don't have access to Android Studio or don't want or when running in WSL,
 2. Start the emulator with the name of the desired emulator:
    - Linux/WSL/macOS:
      ```bash
-     $ANDROID_SDK_ROOT/emulator/emulator -avd Resizable_API_33
+     $ANDROID_HOME/emulator/emulator -avd Resizable_API_33
      ```
    - Windows:
      ```powershell
-      &"$env:ANDROID_SDK_ROOT\emulator\emulator" -avd Resizable_API_33
+      &"$env:ANDROID_HOME\emulator\emulator" -avd Resizable_API_33
      ```
 3. In a new terminal window, run:
     ```bash

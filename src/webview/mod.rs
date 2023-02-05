@@ -12,7 +12,7 @@ pub use web_context::WebContext;
 pub(crate) mod android;
 #[cfg(target_os = "android")]
 pub mod prelude {
-  pub use super::android::{binding::*, setup};
+  pub use super::android::{binding::*, find_class, setup, Context};
 }
 #[cfg(target_os = "android")]
 pub use android::JniHandle;
@@ -306,6 +306,19 @@ impl Default for PlatformSpecificWebViewAttributes {
 ))]
 #[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes;
+
+#[cfg(target_os = "android")]
+#[derive(Default)]
+pub(crate) struct PlatformSpecificWebViewAttributes {
+  on_webview_created: Option<
+    Box<
+      dyn Fn(
+          prelude::Context,
+        ) -> std::result::Result<(), tao::platform::android::ndk_glue::jni::errors::Error>
+        + Send,
+    >,
+  >,
+}
 
 /// Type alias for a color in the RGBA format.
 ///
@@ -709,6 +722,37 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
   }
 }
 
+#[cfg(target_os = "android")]
+pub trait WebViewBuilderExtAndroid {
+  fn on_webview_created<
+    F: Fn(
+        prelude::Context<'_>,
+      ) -> std::result::Result<(), tao::platform::android::ndk_glue::jni::errors::Error>
+      + Send
+      + 'static,
+  >(
+    self,
+    f: F,
+  ) -> Self;
+}
+
+#[cfg(target_os = "android")]
+impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
+  fn on_webview_created<
+    F: Fn(
+        prelude::Context<'_>,
+      ) -> std::result::Result<(), tao::platform::android::ndk_glue::jni::errors::Error>
+      + Send
+      + 'static,
+  >(
+    mut self,
+    f: F,
+  ) -> Self {
+    self.platform_specific.on_webview_created = Some(Box::new(f));
+    self
+  }
+}
+
 /// The fundamental type to present a [`WebView`].
 ///
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
@@ -945,6 +989,26 @@ impl WebviewExtMacOS for WebView {
 
   fn ns_window(&self) -> cocoa::base::id {
     self.webview.ns_window
+  }
+}
+
+/// Additional methods on `WebView` that are specific to iOS.
+#[cfg(target_os = "ios")]
+pub trait WebviewExtIOS {
+  /// Returns WKWebView handle
+  fn webview(&self) -> cocoa::base::id;
+  /// Returns WKWebView manager [(userContentController)](https://developer.apple.com/documentation/webkit/wkscriptmessagehandler/1396222-usercontentcontroller) handle
+  fn manager(&self) -> cocoa::base::id;
+}
+
+#[cfg(target_os = "ios")]
+impl WebviewExtIOS for WebView {
+  fn webview(&self) -> cocoa::base::id {
+    self.webview.webview
+  }
+
+  fn manager(&self) -> cocoa::base::id {
+    self.webview.manager
   }
 }
 

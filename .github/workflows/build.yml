@@ -29,7 +29,7 @@ jobs:
         if: contains(matrix.platform.target, 'gnu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y webkit2gtk-4.0 libgtksourceview-3.0-dev libayatana-appindicator3-dev
+          sudo apt-get install -y webkit2gtk-4.1 libgtksourceview-3.0-dev libayatana-appindicator3-dev
 
       - name: install webview2 (windows only)
         if: contains(matrix.platform.target, 'windows')
