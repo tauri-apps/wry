@@ -179,11 +179,9 @@ pub unsafe fn withAssetLoader(_: JNIEnv, _: JClass, _: jboolean) -> jboolean {
 #[allow(non_snake_case)]
 pub unsafe fn assetLoaderDomain(env: JNIEnv, _: JClass, _: jboolean) -> jstring {
   // the _: jboolean parameter is here simply because of android_fn!
-  let domain = ASSET_LOADER_DOMAIN
-    .get()
-    .unwrap_or(&None)
-    .clone()
-    .unwrap_or(String::from("wry.assets"));
-
-  env.new_string(domain).unwrap().into_raw()
+  if let Some(domain) = ASSET_LOADER_DOMAIN.get() {
+    env.new_string(domain).unwrap().into_raw()
+  } else {
+    env.new_string("wry.assets").unwrap().into_raw()
+  }
 }

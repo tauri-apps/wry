@@ -82,7 +82,7 @@ pub static IPC: OnceCell<UnsafeIpc> = OnceCell::new();
 pub static REQUEST_HANDLER: OnceCell<UnsafeRequestHandler> = OnceCell::new();
 pub static TITLE_CHANGE_HANDLER: OnceCell<UnsafeTitleHandler> = OnceCell::new();
 pub static WITH_ASSET_LOADER: OnceCell<bool> = OnceCell::new();
-pub static ASSET_LOADER_DOMAIN: OnceCell<Option<String>> = OnceCell::new();
+pub static ASSET_LOADER_DOMAIN: OnceCell<String> = OnceCell::new();
 
 pub struct UnsafeIpc(Box<dyn Fn(&Window, String)>, Rc<Window>);
 impl UnsafeIpc {
@@ -203,7 +203,8 @@ impl InnerWebView {
     }
 
     WITH_ASSET_LOADER.get_or_init(move || with_asset_loader);
-    ASSET_LOADER_DOMAIN.get_or_init(move || asset_loader_domain);
+    ASSET_LOADER_DOMAIN
+      .get_or_init(move || asset_loader_domain.unwrap_or(String::from("wry.assets")));
 
     REQUEST_HANDLER.get_or_init(move || {
       UnsafeRequestHandler::new(Box::new(move |mut request| {
