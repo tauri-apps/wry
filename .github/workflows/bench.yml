@@ -45,7 +45,6 @@ jobs:
       - name: install depedencies
         run: |
           python -m pip install --upgrade pip
-          sudo echo 'deb http://it.archive.ubuntu.com/ubuntu/ jammy main universe restricted multiverse' >> /etc/apt/sources.list
           sudo apt-get update
           sudo apt-get install -y add-apt-repository
           sudo add-apt-repository 'deb http://it.archive.ubuntu.com/ubuntu/ jammy main universe restricted multiverse'
