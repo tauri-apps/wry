@@ -45,7 +45,10 @@ jobs:
       - name: install depedencies
         run: |
           python -m pip install --upgrade pip
-          sudo echo “deb http://archive.ubuntu.com/ubuntu/jammy main restricted” >> /etc/apt/sources.list
+          sudo echo 'deb http://it.archive.ubuntu.com/ubuntu/ jammy main universe restricted multiverse' >> /etc/apt/sources.list
+          sudo apt-get update
+          sudo apt-get install -y add-apt-repository
+          sudo add-apt-repository 'deb http://it.archive.ubuntu.com/ubuntu/ jammy main universe restricted multiverse'
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.1-dev libayatana-appindicator3-dev xvfb
           wget https://github.com/sharkdp/hyperfine/releases/download/v1.11.0/hyperfine_1.11.0_amd64.deb
