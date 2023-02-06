@@ -584,55 +584,63 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                     Err(_) => return Err(E_FAIL.into()),
                   };
 
-                  return match (custom_protocol.1)(&final_request) {
-                    Ok(sent_response) => {
-                      let content = sent_response.body();
-                      let status_code = sent_response.status();
+                  let deferral = args.GetDeferral()?;
 
-                      let mut headers_map = String::new();
+                  (custom_protocol.1)(WryRequest(final_request, &|resp| {
+                    match resp {
+                      Ok(sent_response) => {
+                        let content = sent_response.body();
+                        let status_code = sent_response.status();
 
-                      // build headers
-                      for (name, value) in sent_response.headers().iter() {
-                        let header_key = name.to_string();
-                        if let Ok(value) = value.to_str() {
-                          let _ = writeln!(headers_map, "{}: {}", header_key, value);
+                        let mut headers_map = String::new();
+
+                        // build headers
+                        for (name, value) in sent_response.headers().iter() {
+                          let header_key = name.to_string();
+                          if let Ok(value) = value.to_str() {
+                            let _ = writeln!(headers_map, "{}: {}", header_key, value);
+                          }
                         }
-                      }
 
-                      let mut body_sent = None;
-                      if !content.is_empty() {
-                        let stream = CreateStreamOnHGlobal(0, true)?;
-                        stream.SetSize(content.len() as u64)?;
-                        let mut cb_write = MaybeUninit::uninit();
-                        if stream
-                          .Write(
-                            content.as_ptr() as *const _,
-                            content.len() as u32,
-                            Some(cb_write.as_mut_ptr()),
-                          )
-                          .is_ok()
-                          && cb_write.assume_init() as usize == content.len()
-                        {
-                          body_sent = Some(stream);
+                        let mut body_sent = None;
+                        if !content.is_empty() {
+                          let stream = CreateStreamOnHGlobal(0, true)?;
+                          stream.SetSize(content.len() as u64)?;
+                          let mut cb_write = MaybeUninit::uninit();
+                          if stream
+                            .Write(
+                              content.as_ptr() as *const _,
+                              content.len() as u32,
+                              Some(cb_write.as_mut_ptr()),
+                            )
+                            .is_ok()
+                            && cb_write.assume_init() as usize == content.len()
+                          {
+                            body_sent = Some(stream);
+                          }
                         }
+
+                        // FIXME: Set http response version
+
+                        let response = env.CreateWebResourceResponse(
+                          body_sent.as_ref(),
+                          status_code.as_u16() as i32,
+                          PCWSTR::from_raw(
+                            encode_wide(status_code.canonical_reason().unwrap_or("OK")).as_ptr(),
+                          ),
+                          PCWSTR::from_raw(encode_wide(headers_map).as_ptr()),
+                        )?;
+
+                        args.SetResponse(&response)?;
                       }
-
-                      // FIXME: Set http response version
-
-                      let response = env.CreateWebResourceResponse(
-                        body_sent.as_ref(),
-                        status_code.as_u16() as i32,
-                        PCWSTR::from_raw(
-                          encode_wide(status_code.canonical_reason().unwrap_or("OK")).as_ptr(),
-                        ),
-                        PCWSTR::from_raw(encode_wide(headers_map).as_ptr()),
-                      )?;
-
-                      args.SetResponse(&response)?;
-                      Ok(())
+                      Err(_) => {
+                        // TODO: Handle this error
+                        // Err(E_FAIL.into()),
+                      }
                     }
-                    Err(_) => Err(E_FAIL.into()),
-                  };
+
+                    let _ = unsafe { deferral.Complete()? }; // TODO: This ignores the error which is bad, but given this is an async operation I don't know what we should do?
+                  }));
                 }
               }
 

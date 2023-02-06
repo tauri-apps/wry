@@ -2,15 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use crate::Result;
+use crate::webview::WryRequest;
 
 use crate::webview::web_context::WebContextData;
-use http::{Request, Response};
-use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct WebContextImpl {
-  protocols: Vec<*mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>>,
+  protocols: Vec<*mut Box<dyn Fn(WryRequest)>>,
 }
 
 impl WebContextImpl {
@@ -22,10 +20,7 @@ impl WebContextImpl {
 
   pub fn set_allows_automation(&mut self, _flag: bool) {}
 
-  pub fn registered_protocols(
-    &mut self,
-    handler: *mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>,
-  ) {
+  pub fn registered_protocols(&mut self, handler: *mut Box<dyn Fn(WryRequest)>) {
     self.protocols.push(handler);
   }
 }

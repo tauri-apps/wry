@@ -59,6 +59,17 @@ use crate::application::{dpi::PhysicalSize, window::Window};
 
 use http::{Request, Response};
 
+pub struct WryRequest<'a>(
+  Request<Vec<u8>>,
+  &'a dyn Fn(Result<Response<Cow<'static, [u8]>>>),
+);
+
+impl WryRequest<'_> {
+  pub fn respond(&self, resp: Result<Response<Cow<'static, [u8]>>>) {
+    (self.1)(resp);
+  }
+}
+
 pub struct WebViewAttributes {
   /// Whether the WebView should have a custom user-agent.
   pub user_agent: Option<String>,
@@ -138,10 +149,7 @@ pub struct WebViewAttributes {
   /// - iOS: Same as macOS. To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
-  pub custom_protocols: Vec<(
-    String,
-    Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>,
-  )>,
+  pub custom_protocols: Vec<(String, Box<dyn Fn(WryRequest) + 'static>)>,
   /// Set the IPC handler to receive the message from Javascript on webview to host Rust code.
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
   ///
@@ -420,6 +428,21 @@ impl<'a> WebViewBuilder<'a> {
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
     F: Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>> + 'static,
+  {
+    self.webview.custom_protocols.push((
+      name,
+      Box::new(move |req| {
+        req.respond(handler(&req.0));
+      }),
+    ));
+    self
+  }
+
+  /// Async variant of [with_custom_protocol](Self::with_custom_protocol).
+  #[cfg(feature = "protocol")]
+  pub fn with_custom_protocol_async<F>(mut self, name: String, handler: F) -> Self
+  where
+    F: Fn(WryRequest) + 'static,
   {
     self
       .webview

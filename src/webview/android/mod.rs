@@ -203,6 +203,10 @@ impl InnerWebView {
             .parse()
             .unwrap();
 
+          // (custom_protocol.1)(WryRequest(request, &|resp| {
+          // }));
+
+          // TODO: Convert this to be async
           if let Ok(mut response) = (custom_protocol.1)(&request) {
             let should_inject_scripts = response
               .headers()
