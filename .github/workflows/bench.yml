@@ -42,12 +42,14 @@ jobs:
           python-version: "3.x"
           architecture: x64
 
+      - name: add custom deb repository
+        uses: myci-actions/add-deb-repo@10
+        with:
+          repo: deb http://it.archive.ubuntu.com/ubuntu/ jammy main universe restricted multiverse
+
       - name: install depedencies
         run: |
           python -m pip install --upgrade pip
-          sudo apt-get update
-          sudo apt-get install -y add-apt-repository
-          sudo add-apt-repository 'deb http://it.archive.ubuntu.com/ubuntu/ jammy main universe restricted multiverse'
           sudo apt-get update
           sudo apt-get install -y webkit2gtk-4.1-dev libayatana-appindicator3-dev xvfb
           wget https://github.com/sharkdp/hyperfine/releases/download/v1.11.0/hyperfine_1.11.0_amd64.deb
