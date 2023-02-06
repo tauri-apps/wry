@@ -367,6 +367,16 @@ pub fn find_class<'a>(
   Ok(my_class.into())
 }
 
+/// Dispatch a closure to run on the Android context.
+///
+/// The closure takes the JNI env, the Android activity instance and the possibly null webview.
+pub fn dispatch<F>(func: F)
+where
+  F: FnOnce(JNIEnv, JObject, JObject) + Send + 'static,
+{
+  MainPipe::send(WebViewMessage::Jni(Box::new(func)));
+}
+
 fn create_headers_map<'a, 'b>(
   env: &'a JNIEnv,
   headers: &http::HeaderMap,
