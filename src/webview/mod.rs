@@ -42,8 +42,7 @@ use wkwebview::*;
 pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
-use crate::application::dpi::PhysicalPosition;
-use crate::Result;
+use crate::{application::dpi::PhysicalPosition, Result};
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
@@ -302,6 +301,8 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
         + Send,
     >,
   >,
+  with_asset_loader: bool,
+  asset_loader_domain: Option<String>,
 }
 
 /// Type alias for a color in the RGBA format.
@@ -408,11 +409,11 @@ impl<'a> WebViewBuilder<'a> {
   /// - Linux: Though it's same as macOS, there's a [bug] that Origin header in the request will be
   /// empty. So the only way to pass the server is setting `Access-Control-Allow-Origin: *`.
   /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.examples` in `custom_protocol` example)
-  /// - Android: Custom protocol on Android is fixed to `https://tauri.wry/` due to its design and
-  /// our approach to use it. On Android, We only handle the scheme name and ignore the closure. So
-  /// when you load the url like `wry://assets/index.html`, it will become
-  /// `https://tauri.wry/assets/index.html`. Android has `assets` and `resource` path finder to
-  /// locate your files in those directories. For more information, see [Loading in-app content](https://developer.android.com/guide/webapps/load-local-content) page.
+  /// - Android: For loading content from the `assets` folder (which is copied to the Andorid apk) please
+  /// use the function [`with_asset_loader`] from [`WebViewBuilderExtAndroid`] instead.
+  /// This function on Android can only be used to serve assets you can embed in the binary or are
+  /// elsewhere in Android (provided the app has appropriate access), but not from the `assets`
+  /// folder which lives within the apk. For the cases where this can be used, it works the same as in macOS and Linux.
   /// - iOS: Same as macOS. To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
@@ -689,6 +690,15 @@ pub trait WebViewBuilderExtAndroid {
     self,
     f: F,
   ) -> Self;
+
+  /// Use [WebviewAssetLoader](https://developer.android.com/reference/kotlin/androidx/webkit/WebViewAssetLoader)
+  /// to load assets from Android's `asset` folder when using `with_url` as `<protocol>://assets/` (e.g.:
+  /// `wry://assets/index.html`). Note that this registers a custom protocol with the provided
+  /// String, similar to [`with_custom_protocol`], but also sets the WebViewAssetLoader with the
+  /// necessary domain (which is fixed as `<protocol>.assets`). This cannot be used in conjunction
+  /// to `with_custom_protocol` for Android, as it changes the way in which requests are handled.
+  #[cfg(feature = "protocol")]
+  fn with_asset_loader(self, protocol: String) -> Self;
 }
 
 #[cfg(target_os = "android")]
@@ -704,6 +714,20 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     f: F,
   ) -> Self {
     self.platform_specific.on_webview_created = Some(Box::new(f));
+    self
+  }
+
+  #[cfg(feature = "protocol")]
+  fn with_asset_loader(mut self, protocol: String) -> Self {
+    // register custom protocol with empty Response return,
+    // this is necessary due to the need of fixing a domain
+    // in WebViewAssetLoader.
+    self.webview.custom_protocols.push((
+      protocol.clone(),
+      Box::new(|_| Ok(Response::builder().body(Vec::new().into())?)),
+    ));
+    self.platform_specific.with_asset_loader = true;
+    self.platform_specific.asset_loader_domain = Some(format!("{}.assets", protocol));
     self
   }
 }

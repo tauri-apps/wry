@@ -57,6 +57,22 @@ macro_rules! android_binding {
       [JObject],
       jobject
     );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      withAssetLoader,
+      [],
+      jboolean
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      assetLoaderDomain,
+      [],
+      jstring
+    );
     android_fn!($domain, $package, Ipc, ipc, [JString]);
     android_fn!(
       $domain,
@@ -71,6 +87,8 @@ macro_rules! android_binding {
 pub static IPC: OnceCell<UnsafeIpc> = OnceCell::new();
 pub static REQUEST_HANDLER: OnceCell<UnsafeRequestHandler> = OnceCell::new();
 pub static TITLE_CHANGE_HANDLER: OnceCell<UnsafeTitleHandler> = OnceCell::new();
+pub static WITH_ASSET_LOADER: OnceCell<bool> = OnceCell::new();
+pub static ASSET_LOADER_DOMAIN: OnceCell<String> = OnceCell::new();
 
 pub struct UnsafeIpc(Box<dyn Fn(&Window, String)>, Rc<Window>);
 impl UnsafeIpc {
@@ -165,6 +183,12 @@ impl InnerWebView {
       ..
     } = attributes;
 
+    let super::PlatformSpecificWebViewAttributes {
+      on_webview_created,
+      with_asset_loader,
+      asset_loader_domain,
+    } = pl_attrs;
+
     if let Some(u) = url {
       let mut url_string = String::from(u.as_str());
       let name = u.scheme();
@@ -181,8 +205,13 @@ impl InnerWebView {
         background_color,
         transparent,
         headers,
-        pl_attrs,
+        on_webview_created,
       }));
+    }
+
+    WITH_ASSET_LOADER.get_or_init(move || with_asset_loader);
+    if let Some(domain) = asset_loader_domain {
+      ASSET_LOADER_DOMAIN.get_or_init(move || domain);
     }
 
     REQUEST_HANDLER.get_or_init(move || {

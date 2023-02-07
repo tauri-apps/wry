@@ -51,7 +51,7 @@ impl MainPipe<'_> {
             transparent,
             background_color,
             headers,
-            pl_attrs,
+            on_webview_created,
           } = attrs;
           // Create webview
           let rust_webview_class = find_class(
@@ -93,7 +93,11 @@ impl MainPipe<'_> {
             activity,
             format!("{}/RustWebViewClient", PACKAGE.get().unwrap()),
           )?;
-          let webview_client = env.new_object(rust_webview_client_class, "()V", &[])?;
+          let webview_client = env.new_object(
+            rust_webview_client_class,
+            "(Landroid/content/Context;)V",
+            &[activity.into()],
+          )?;
           env.call_method(
             webview,
             "setWebViewClient",
@@ -128,7 +132,7 @@ impl MainPipe<'_> {
             &[webview.into()],
           )?;
 
-          if let Some(on_webview_created) = pl_attrs.on_webview_created {
+          if let Some(on_webview_created) = on_webview_created {
             if let Err(e) = on_webview_created(super::Context {
               env,
               activity,
@@ -264,5 +268,12 @@ pub(crate) struct CreateWebViewAttributes {
   pub transparent: bool,
   pub background_color: Option<RGBA>,
   pub headers: Option<http::HeaderMap>,
-  pub pl_attrs: crate::webview::PlatformSpecificWebViewAttributes,
+  pub on_webview_created: Option<
+    Box<
+      dyn Fn(
+          super::Context,
+        ) -> std::result::Result<(), tao::platform::android::ndk_glue::jni::errors::Error>
+        + Send,
+    >,
+  >,
 }
