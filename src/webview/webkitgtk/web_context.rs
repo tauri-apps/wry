@@ -4,11 +4,13 @@
 
 //! Unix platform extensions for [`WebContext`](super::WebContext).
 
-use crate::{webview::web_context::WebContextData, Error};
+use crate::{
+  webview::{web_context::WebContextData, WryRequest},
+  Error,
+};
 use glib::FileError;
-use http::{header::CONTENT_TYPE, Request, Response};
+use http::{header::CONTENT_TYPE, Request};
 use std::{
-  borrow::Cow,
   cell::RefCell,
   collections::{HashSet, VecDeque},
   path::PathBuf,
@@ -156,7 +158,7 @@ impl WebContextExt for super::WebContext {
 
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
+    F: Fn(WryRequest) + 'static,
   {
     actually_register_uri_scheme(self, name, handler)?;
     if self.os.registered_protocols.insert(name.to_string()) {
@@ -168,7 +170,7 @@ impl WebContextExt for super::WebContext {
 
   fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
+    F: Fn(WryRequest) + 'static,
   {
     if self.os.registered_protocols.insert(name.to_string()) {
       actually_register_uri_scheme(self, name, handler)
@@ -276,7 +278,7 @@ fn actually_register_uri_scheme<F>(
   handler: F,
 ) -> crate::Result<()>
 where
-  F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
+  F: Fn(WryRequest) + 'static,
 {
   use webkit2gtk::traits::*;
   let context = &context.os.context;
@@ -325,44 +327,41 @@ where
         }
       };
 
-      handler(WryRequest(
-        http_request,
-        &|resp| match handler(&http_request) {
-          Ok(http_response) => {
-            let buffer = http_response.body();
-            let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(buffer));
-            let content_type = http_response
-              .headers()
-              .get(CONTENT_TYPE)
-              .and_then(|h| h.to_str().ok());
-            #[cfg(feature = "linux-headers")]
-            {
-              use soup::{MessageHeaders, MessageHeadersType};
-              use webkit2gtk::URISchemeResponse;
+      handler(WryRequest(http_request, &|resp| match resp {
+        Ok(http_response) => {
+          let buffer = http_response.body();
+          let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(buffer));
+          let content_type = http_response
+            .headers()
+            .get(CONTENT_TYPE)
+            .and_then(|h| h.to_str().ok());
+          #[cfg(feature = "linux-headers")]
+          {
+            use soup::{MessageHeaders, MessageHeadersType};
+            use webkit2gtk::URISchemeResponse;
 
-              let response = URISchemeResponse::new(&input, buffer.len() as i64);
-              response.set_status(http_response.status().as_u16() as u32, None);
-              if let Some(content_type) = content_type {
-                response.set_content_type(content_type);
-              }
-
-              let mut headers = MessageHeaders::new(MessageHeadersType::Response);
-              for (name, value) in http_response.headers().into_iter() {
-                headers.append(name.as_str(), value.to_str().unwrap_or(""));
-              }
-              response.set_http_headers(&mut headers);
-
-              request.finish_with_response(&response);
+            let response = URISchemeResponse::new(&input, buffer.len() as i64);
+            response.set_status(http_response.status().as_u16() as u32, None);
+            if let Some(content_type) = content_type {
+              response.set_content_type(content_type);
             }
-            #[cfg(not(feature = "linux-headers"))]
-            request.finish(&input, buffer.len() as i64, content_type)
+
+            let mut headers = MessageHeaders::new(MessageHeadersType::Response);
+            for (name, value) in http_response.headers().into_iter() {
+              headers.append(name.as_str(), value.to_str().unwrap_or(""));
+            }
+            response.set_http_headers(&mut headers);
+
+            request.finish_with_response(&response);
           }
-          Err(_) => request.finish_error(&mut glib::Error::new(
-            FileError::Exist,
-            "Could not get requested file.",
-          )),
-        },
-      ));
+          #[cfg(not(feature = "linux-headers"))]
+          request.finish(&input, buffer.len() as i64, content_type)
+        }
+        Err(_) => request.finish_error(&mut glib::Error::new(
+          FileError::Exist,
+          "Could not get requested file.",
+        )),
+      }));
     } else {
       request.finish_error(&mut glib::Error::new(
         FileError::Exist,
