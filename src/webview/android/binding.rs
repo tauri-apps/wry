@@ -171,14 +171,12 @@ pub unsafe fn handleReceivedTitle(env: JNIEnv, _: JClass, _webview: JObject, tit
 }
 
 #[allow(non_snake_case)]
-pub unsafe fn withAssetLoader(_: JNIEnv, _: JClass, _: jboolean) -> jboolean {
-  // the _: jboolean parameter is here simply because of android_fn!
+pub unsafe fn withAssetLoader(_: JNIEnv, _: JClass) -> jboolean {
   (*WITH_ASSET_LOADER.get().unwrap_or(&false)).into()
 }
 
 #[allow(non_snake_case)]
-pub unsafe fn assetLoaderDomain(env: JNIEnv, _: JClass, _: jboolean) -> jstring {
-  // the _: jboolean parameter is here simply because of android_fn!
+pub unsafe fn assetLoaderDomain(env: JNIEnv, _: JClass) -> jstring {
   if let Some(domain) = ASSET_LOADER_DOMAIN.get() {
     env.new_string(domain).unwrap().into_raw()
   } else {

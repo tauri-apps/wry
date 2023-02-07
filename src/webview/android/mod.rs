@@ -62,7 +62,7 @@ macro_rules! android_binding {
       $package,
       RustWebViewClient,
       withAssetLoader,
-      [jboolean] // this is unnecessary but I could not find a way to pass an empty args
+      [],
       jboolean
     );
     android_fn!(
@@ -70,7 +70,7 @@ macro_rules! android_binding {
       $package,
       RustWebViewClient,
       assetLoaderDomain,
-      [jboolean] // this is unnecessary but I could not find a way to pass an empty args
+      [],
       jstring
     );
     android_fn!($domain, $package, Ipc, ipc, [JString]);
