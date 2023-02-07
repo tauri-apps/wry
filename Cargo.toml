@@ -2,7 +2,7 @@ workspace = { }
 
 [package]
 name = "wry"
-version = "0.26.0"
+version = "0.27.0"
 authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -59,15 +59,14 @@ gtk = "0.16"
 gdk = "0.16"
 soup3 = "0.3"
 
-
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.22"
 windows-implement = "0.44"
 dunce = "1"
 
-[target."cfg(target_os = \"windows\")".dependencies.windows]
-version = "0.44.0"
-features = [
+  [target."cfg(target_os = \"windows\")".dependencies.windows]
+  version = "0.44.0"
+  features = [
   "implement",
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
@@ -79,7 +78,7 @@ features = [
   "Win32_System_SystemServices",
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
-  "Win32_Globalization",
+  "Win32_Globalization"
 ]
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
