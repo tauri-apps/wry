@@ -5,7 +5,7 @@
 mod file_drop;
 
 use crate::{
-  webview::{WebContext, WebViewAttributes, RGBA},
+  webview::{WebContext, WebViewAttributes, WryRequest, RGBA},
   Error, Result,
 };
 
@@ -604,8 +604,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
                         let mut body_sent = None;
                         if !content.is_empty() {
-                          let stream = CreateStreamOnHGlobal(0, true)?;
-                          stream.SetSize(content.len() as u64)?;
+                          let stream = CreateStreamOnHGlobal(0, true).unwrap();
+                          stream.SetSize(content.len() as u64).unwrap();
                           let mut cb_write = MaybeUninit::uninit();
                           if stream
                             .Write(
@@ -622,16 +622,18 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
                         // FIXME: Set http response version
 
-                        let response = env.CreateWebResourceResponse(
-                          body_sent.as_ref(),
-                          status_code.as_u16() as i32,
-                          PCWSTR::from_raw(
-                            encode_wide(status_code.canonical_reason().unwrap_or("OK")).as_ptr(),
-                          ),
-                          PCWSTR::from_raw(encode_wide(headers_map).as_ptr()),
-                        )?;
+                        let response = env
+                          .CreateWebResourceResponse(
+                            body_sent.as_ref(),
+                            status_code.as_u16() as i32,
+                            PCWSTR::from_raw(
+                              encode_wide(status_code.canonical_reason().unwrap_or("OK")).as_ptr(),
+                            ),
+                            PCWSTR::from_raw(encode_wide(headers_map).as_ptr()),
+                          )
+                          .unwrap();
 
-                        args.SetResponse(&response)?;
+                        args.SetResponse(&response).unwrap();
                       }
                       Err(_) => {
                         // TODO: Handle this error
@@ -639,7 +641,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                       }
                     }
 
-                    let _ = unsafe { deferral.Complete()? }; // TODO: This ignores the error which is bad, but given this is an async operation I don't know what we should do?
+                    let _ = deferral.Complete().unwrap(); // TODO: This ignores the error which is bad, but given this is an async operation I don't know what we should do?
                   }));
                 }
               }
