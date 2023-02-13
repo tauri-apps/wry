@@ -1,5 +1,16 @@
 # Changelog
 
+## \[0.27.0]
+
+- Add function to dispatch closure with the Android context.
+  - [a9e186c](https://github.com/tauri-apps/wry/commit/a9e186cab4456d7ac2c265e61e71b345f7d269c4) feat(android): add function to dispatch closure to the Android context ([#864](https://github.com/tauri-apps/wry/pull/864)) on 2023-02-06
+- On macOS, fix crash when getting dragging position.
+  - [a8f7cef](https://github.com/tauri-apps/wry/commit/a8f7cefaac72d3e9fd2f8901f790a777d9888357) Fix crash when getting drag position ([#867](https://github.com/tauri-apps/wry/pull/867)) on 2023-02-04
+- On Android, `wry` can again load assets from the apk's `asset` folder via a custom protocol. This is set by `WebViewBuilder`'s method `with_asset_loader`, which is exclusive to Android (by virtue of existing within `WebViewBuilderExtAndroid`).
+  - [077eb3a](https://github.com/tauri-apps/wry/commit/077eb3a7ca520d07e73f899da60ce23eef941e6f) fix(android): restore asset loading functionality to android (fix: [#846](https://github.com/tauri-apps/wry/pull/846)) ([#854](https://github.com/tauri-apps/wry/pull/854)) on 2023-02-07
+- Update `webview2-com` to `0.22` and `windows-rs` to `0.44` which bumps the MSRV of this crate on Windows to `1.64`.
+  - [496bfb5](https://github.com/tauri-apps/wry/commit/496bfb5c7be55e9c2bb674e241f9d7d2620e2acd) chore(deps): update to windows-rs 0.44 and webview2-com 0.22 ([#871](https://github.com/tauri-apps/wry/pull/871)) on 2023-02-06
+
 ## \[0.26.0]
 
 - Added `WebViewBuilderExtAndroid` trait and with `on_webview_created` hook.
