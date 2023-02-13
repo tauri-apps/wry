@@ -612,7 +612,7 @@ impl InnerWebView {
               );
               cls.register()
             }
-            None => class!(UIViewController),
+            None => class!(WryDownloadDelegate),
           };
 
           let download_delegate: id = msg_send![cls, new];
