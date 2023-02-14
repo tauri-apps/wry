@@ -756,6 +756,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         win32wm::WM_WINDOWPOSCHANGED => {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
           let _ = (*controller).NotifyParentWindowPositionChanged();
+          resize_webview(controller);
         }
 
         win32wm::WM_DESTROY => {
