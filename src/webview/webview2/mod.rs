@@ -726,6 +726,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         );
       };
 
+      trace_msg(msg);
+
       match msg {
         win32wm::WM_DPICHANGED | win32wm::WM_SETTINGCHANGE | win32wm::WM_DISPLAYCHANGE => {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
