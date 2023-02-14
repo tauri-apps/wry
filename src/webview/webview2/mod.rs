@@ -698,17 +698,32 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       _uidsubclass: usize,
       dwrefdata: usize,
     ) -> LRESULT {
-      trace_msg(msg);
-
       let resize_webview = |controller: *mut ICoreWebView2Controller| {
         let mut client_rect = RECT::default();
         win32wm::GetClientRect(hwnd, &mut client_rect);
+        println!(
+          "  WINDOW: left: {}, top: {}, right: {}, bottom: {}",
+          client_rect.left, client_rect.top, client_rect.right, client_rect.bottom
+        );
+
+        let mut rec = RECT::default();
+        (*controller).Bounds(&mut rec);
+        println!(
+          "  WEBVIEW BEFORE: left: {}, top: {}, right: {}, bottom: {}",
+          rec.left, rec.top, rec.right, rec.bottom
+        );
         let _ = (*controller).SetBounds(RECT {
           left: 0,
           top: 0,
           right: client_rect.right - client_rect.left,
           bottom: client_rect.bottom - client_rect.top,
         });
+        let mut rec = RECT::default();
+        (*controller).Bounds(&mut rec);
+        println!(
+          "  WEBVIEW AFTER: left: {}, top: {}, right: {}, bottom: {}",
+          rec.left, rec.top, rec.right, rec.bottom
+        );
       };
 
       match msg {
