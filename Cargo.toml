@@ -32,6 +32,7 @@ devtools = [ ]
 transparent = [ ]
 fullscreen = [ ]
 linux-headers = [ "webkit2gtk/v2_36" ]
+resize-delay = [ ]
 
 [dependencies]
 libc = "0.2"

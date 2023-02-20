@@ -730,6 +730,10 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
           let controller = dwrefdata as *mut ICoreWebView2Controller;
           let mut client_rect = RECT::default();
           win32wm::GetClientRect(hwnd, &mut client_rect);
+
+          #[cfg(feature = "resize-delay")]
+          std::thread::sleep(std::time::Duration::from_nanos(1));
+
           let _ = (*controller).SetBounds(RECT {
             left: 0,
             top: 0,
