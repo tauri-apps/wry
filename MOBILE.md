@@ -177,7 +177,7 @@ export JAVA_HOME=/Applications/Android\ Studio.app/Contents/jbr/Contents/Home
 ```bash
 export ANDROID_HOME="$HOME/.android"
 # If you are using Android studio, on Linux, it is:
-expoert ANDROID_HOME="$HOME/Android/Sdk"
+export ANDROID_HOME="$HOME/Android/Sdk"
 # And on macOS, it is:
 export ANDROID_HOME="$HOME/Library/Android/sdk"
 ```
