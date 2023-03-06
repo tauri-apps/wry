@@ -266,7 +266,7 @@ impl InnerWebView {
 
       let settings6 = settings.cast::<ICoreWebView2Settings6>()?;
       settings6
-        .SetIsSwipeNavigationEnabled(attributes.swipe_navigation_enabled)
+        .SetIsSwipeNavigationEnabled(attributes.back_forward_navigation_gestures)
         .map_err(webview2_com::Error::WindowsError)?;
 
       let mut rect = RECT::default();
