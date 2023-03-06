@@ -90,6 +90,12 @@ pub struct WebViewAttributes {
   ///
   /// **macOS / Linux / Android / iOS**: Unsupported
   pub zoom_hotkeys_enabled: bool,
+  /// Whether or not swipe navigation is enabled.
+  ///
+  /// ## Platform-specific
+  ///
+  /// **macOS / Linux / Android / iOS**: Unsupported
+  pub swipe_navigation_enabled: bool,
   /// Whether load the provided html string to [`WebView`].
   /// This will be ignored if the `url` is provided.
   ///
@@ -254,6 +260,7 @@ impl Default for WebViewAttributes {
       #[cfg(not(debug_assertions))]
       devtools: false,
       zoom_hotkeys_enabled: false,
+      swipe_navigation_enabled: false,
       accept_first_mouse: false,
       back_forward_navigation_gestures: false,
       document_title_changed_handler: None,
@@ -529,6 +536,16 @@ impl<'a> WebViewBuilder<'a> {
   /// **macOS / Linux / Android / iOS**: Unsupported
   pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
     self.webview.zoom_hotkeys_enabled = zoom;
+    self
+  }
+
+  /// Whether or not swipe navigation is enabled
+  ///
+  /// ## Platform-specific
+  ///
+  /// **macOS / Linux / Android / iOS**: Unsupported
+  pub fn with_swipe_navigation(mut self, swipe: bool) -> Self {
+    self.webview.swipe_navigation_enabled = swipe;
     self
   }
 
