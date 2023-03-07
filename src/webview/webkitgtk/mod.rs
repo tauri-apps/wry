@@ -266,12 +266,14 @@ impl InnerWebView {
     }
     webview.grab_focus();
 
+    if let Some(context) = WebViewExt::context(&*webview) {
+      context.set_property("use-system-appearance-for-scrollbars", false);
+    }
+
     // Enable webgl, webaudio, canvas features as default.
     if let Some(settings) = WebViewExt::settings(&*webview) {
       settings.set_enable_webgl(true);
       settings.set_enable_webaudio(true);
-      settings
-        .set_enable_back_forward_navigation_gestures(attributes.back_forward_navigation_gestures);
 
       // Enable clipboard
       if attributes.clipboard {
