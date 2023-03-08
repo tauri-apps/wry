@@ -117,7 +117,7 @@ pub struct WebViewAttributes {
   /// Register custom file loading protocols with pairs of scheme uri string and a handling
   /// closure.
   ///
-  /// The closure takes a [Response] and returns a [Request].
+  /// The closure takes a [Request] and returns a [Response].
   ///
   /// # Warning
   /// Pages loaded from custom protocol will have different Origin on different platforms. And
