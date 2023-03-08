@@ -267,7 +267,8 @@ impl InnerWebView {
     webview.grab_focus();
 
     if let Some(context) = WebViewExt::context(&*webview) {
-      context.set_property("use-system-appearance-for-scrollbars", false);
+      use webkit2gtk::WebContextExt;
+      context.set_use_system_appearance_for_scrollbars(false);
     }
 
     // Enable webgl, webaudio, canvas features as default.
