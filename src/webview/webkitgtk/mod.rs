@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use gdk::{Cursor, EventButton, EventMask, ModifierType, WindowEdge};
+use gdk::EventMask;
 use gio::Cancellable;
-use glib::signal::Inhibit;
 use gtk::prelude::*;
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -34,6 +33,8 @@ use crate::{
 };
 
 mod file_drop;
+mod synthetic_mouse_events;
+mod undecorated_resizing;
 mod web_context;
 
 pub(crate) struct InnerWebView {
@@ -122,198 +123,9 @@ impl InnerWebView {
         | EventMask::BUTTON_PRESS_MASK
         | EventMask::TOUCH_MASK,
     );
-    webview.connect_motion_notify_event(|webview, event| {
-      // This one should be GtkWindow
-      if let Some(widget) = webview.parent() {
-        // This one should be GtkWindow
-        if let Some(window) = widget.parent() {
-          // Safe to unwrap unless this is not from tao
-          let window: gtk::Window = window.downcast().unwrap();
-          if !window.is_decorated() && window.is_resizable() {
-            if let Some(window) = window.window() {
-              let (cx, cy) = event.root();
-              let edge = hit_test(&window, cx, cy);
-              // FIXME: calling `window.begin_resize_drag` seems to revert the cursor back to normal style
-              window.set_cursor(
-                Cursor::from_name(
-                  &window.display(),
-                  match edge {
-                    WindowEdge::North => "n-resize",
-                    WindowEdge::South => "s-resize",
-                    WindowEdge::East => "e-resize",
-                    WindowEdge::West => "w-resize",
-                    WindowEdge::NorthWest => "nw-resize",
-                    WindowEdge::NorthEast => "ne-resize",
-                    WindowEdge::SouthEast => "se-resize",
-                    WindowEdge::SouthWest => "sw-resize",
-                    _ => "default",
-                  },
-                )
-                .as_ref(),
-              );
-            }
-          }
-        }
-      }
-      Inhibit(false)
-    });
-    let create_button_event = move |event: &EventButton, pressed: bool| {
-      let event_name = if pressed { "mousedown" } else { "mouseup" };
-      let (button, buttons) = if event.button() == 8 { (3, 8) } else { (4, 16) };
-      let (x, y) = event.position();
-      let (x, y) = (x as i32, y as i32);
-      let modifers_state = event.state();
-      format!(
-        r#"(() => {{
-          const el = document.elementFromPoint({x},{y});
-          const ev = new MouseEvent('{event_name}', {{
-            view: window,
-            button: {button},
-            buttons: {buttons},
-            x: {x},
-            y: {y},
-            bubbles: true,
-            detail: {detail},
-            cancelBubble: false,
-            cancelable: true,
-            clientX: {x},
-            clientY: {y},
-            composed: true,
-            layerX: {x},
-            layerY: {y},
-            pageX: {x},
-            pageY: {y},
-            screenX: window.screenX + {x},
-            screenY: window.screenY + {y},
-            ctrlKey: {ctrl_key},
-            metaKey: {meta_key},
-            shiftKey: {shift_key},
-            altKey: {alt_key},
-          }});
-          el.dispatchEvent(ev)
-          if (!ev.defaultPrevented && "{event_name}" === "mouseup") {{
-            if (ev.button === 3) {{
-              window.history.back();
-            }}
-            if (ev.button === 4) {{
-              window.history.forward();
-            }}
-          }}
-        }})()"#,
-        event_name = event_name,
-        x = x,
-        y = y,
-        detail = event.click_count().unwrap_or(1),
-        ctrl_key = modifers_state.contains(ModifierType::CONTROL_MASK),
-        alt_key = modifers_state.contains(ModifierType::MOD1_MASK),
-        shift_key = modifers_state.contains(ModifierType::SHIFT_MASK),
-        meta_key = modifers_state.contains(ModifierType::META_MASK),
-        button = button,
-        buttons = buttons,
-      )
-    };
-    webview.connect_button_press_event(move |webview, event| {
-      let mut inhibit = false;
-      match event.button() {
-        1 => {
-          let (cx, cy) = event.root();
-          // This one should be GtkBox
-          if let Some(widget) = webview.parent() {
-            // This one should be GtkWindow
-            if let Some(window) = widget.parent() {
-              // Safe to unwrap unless this is not from tao
-              let window: gtk::Window = window.downcast().unwrap();
-              if !window.is_decorated() && window.is_resizable() {
-                if let Some(window) = window.window() {
-                  // Safe to unwrap since it's a valid GtkWindow
-                  let result = hit_test(&window, cx, cy);
 
-                  // we ignore the `__Unknown` variant so the webview receives the click correctly if it is not on the edges.
-                  match result {
-                    WindowEdge::__Unknown(_) => (),
-                    _ => window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.time()),
-                  }
-                }
-              }
-            }
-          }
-        }
-        8 => {
-          inhibit = true;
-          webview.run_javascript(
-            &create_button_event(event, true),
-            None::<&gio::Cancellable>,
-            |_| {},
-          );
-        }
-        9 => {
-          inhibit = true;
-          webview.run_javascript(
-            &create_button_event(event, true),
-            None::<&gio::Cancellable>,
-            |_| {},
-          );
-        }
-        _ => {}
-      }
-      Inhibit(inhibit)
-    });
-    webview.connect_button_release_event(move |webview, event| {
-      let mut inhibit = false;
-      match event.button() {
-        8 => {
-          inhibit = true;
-          webview.run_javascript(
-            &create_button_event(event, false),
-            None::<&gio::Cancellable>,
-            |_| {},
-          );
-        }
-        9 => {
-          inhibit = true;
-          webview.run_javascript(
-            &create_button_event(event, false),
-            None::<&gio::Cancellable>,
-            |_| {},
-          );
-        }
-        _ => {}
-      }
-      Inhibit(inhibit)
-    });
-    webview.connect_touch_event(|webview, event| {
-      // This one should be GtkBox
-      if let Some(widget) = webview.parent() {
-        // This one should be GtkWindow
-        if let Some(window) = widget.parent() {
-          // Safe to unwrap unless this is not from tao
-          let window: gtk::Window = window.downcast().unwrap();
-          if !window.is_decorated() && window.is_resizable() && !window.is_maximized() {
-            if let Some(window) = window.window() {
-              if let Some((cx, cy)) = event.root_coords() {
-                if let Some(device) = event.device() {
-                  let result = hit_test(&window, cx, cy);
-
-                  // we ignore the `__Unknown` variant so the window receives the click correctly if it is not on the edges.
-                  match result {
-                    WindowEdge::__Unknown(_) => (),
-                    _ => window.begin_resize_drag_for_device(
-                      result,
-                      &device,
-                      0,
-                      cx as i32,
-                      cy as i32,
-                      event.time(),
-                    ),
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-      Inhibit(false)
-    });
+    synthetic_mouse_events::setup(&webview);
+    undecorated_resizing::setup(&webview);
 
     if attributes.navigation_handler.is_some() || attributes.new_window_req_handler.is_some() {
       webview.connect_decide_policy(move |_webview, policy_decision, policy_type| {
