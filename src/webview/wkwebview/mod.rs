@@ -276,6 +276,7 @@ impl InnerWebView {
         Some(mut decl) => {
           #[cfg(target_os = "macos")]
           {
+            decl.add_ivar::<id>("webview");
             add_file_drop_methods(&mut decl);
             synthetic_mouse_events::setup(&mut decl);
             decl.add_ivar::<bool>(ACCEPT_FIRST_MOUSE);
@@ -300,6 +301,8 @@ impl InnerWebView {
         _ => class!(WryWebView),
       };
       let webview: id = msg_send![cls, alloc];
+      (*webview).set_ivar("webview", webview);
+
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
 

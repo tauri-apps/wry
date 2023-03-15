@@ -19,41 +19,47 @@ pub unsafe fn setup(decl: &mut ClassDecl) {
   );
 }
 
-fn other_mouse_down(this: &Object, _sel: Sel, event: id) {
+extern "C" fn other_mouse_down(this: &Object, _sel: Sel, event: id) {
   if event.eventType() == NSEventType::NSOtherMouseDown {
-    let button_number = event.buttonNumber();
-    match button_number {
-      4 => {
-        let js = create_js_mouse_event(this, event, true, true);
-        let _: id = msg_send![this, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
-      }
-      5 => {
-        let js = create_js_mouse_event(this, event, true, false);
-        let _: id = msg_send![this, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
-      }
+    let webview = this.get_ivar::<id>("webview");
+    if webview != nil {
+      let button_number = event.buttonNumber();
+      match button_number {
+        4 => {
+          let js = create_js_mouse_event(webview, event, true, true);
+          let _: id = msg_send![webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+        }
+        5 => {
+          let js = create_js_mouse_event(webview, event, true, false);
+          let _: id = msg_send![webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+        }
 
-      _ => {}
+        _ => {}
+      }
     }
   }
 }
-fn other_mouse_up(this: &Object, _sel: Sel, event: id) {
+extern "C" fn other_mouse_up(this: &Object, _sel: Sel, event: id) {
   if event.eventType() == NSEventType::NSOtherMouseUp {
-    let button_number = event.buttonNumber();
-    match button_number {
-      4 => {
-        let js = create_js_mouse_event(this, event, false, true);
-        let _: id = msg_send![this, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+    let webview = this.get_ivar::<id>("webview");
+    if webview != nil {
+      let button_number = event.buttonNumber();
+      match button_number {
+        4 => {
+          let js = create_js_mouse_event(webview, event, false, true);
+          let _: id = msg_send![webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+        }
+        5 => {
+          let js = create_js_mouse_event(webview, event, false, false);
+          let _: id = msg_send![webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+        }
+        _ => {}
       }
-      5 => {
-        let js = create_js_mouse_event(this, event, false, false);
-        let _: id = msg_send![this, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
-      }
-      _ => {}
     }
   }
 }
 
-unsafe fn create_js_mouse_event(view: &Object, event: id, down: bool, back_button: bool) -> String {
+unsafe fn create_js_mouse_event(view: id, event: id, down: bool, back_button: bool) -> String {
   let event_name = if down { "mousedown" } else { "mouseup" };
   let (button, buttons) = if back_button { (3, 8) } else { (4, 16) };
   let mods_flags = event.modifierFlags();
