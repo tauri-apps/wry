@@ -1,7 +1,6 @@
 use super::NSString;
 use cocoa::appkit::{NSEvent, NSEventModifierFlags, NSEventType, NSView};
 use cocoa::base::{id, nil};
-use cocoa::foundation::NSPoint;
 use objc::{
   declare::ClassDecl,
   runtime::{Object, Sel},
@@ -22,16 +21,16 @@ pub unsafe fn setup(decl: &mut ClassDecl) {
 extern "C" fn other_mouse_down(this: &Object, _sel: Sel, event: id) {
   if event.eventType() == NSEventType::NSOtherMouseDown {
     let webview = this.get_ivar::<id>("webview");
-    if webview != nil {
+    if *webview != nil {
       let button_number = event.buttonNumber();
       match button_number {
         4 => {
-          let js = create_js_mouse_event(webview, event, true, true);
-          let _: id = msg_send![webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+          let js = create_js_mouse_event(*webview, event, true, true);
+          let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
         }
         5 => {
-          let js = create_js_mouse_event(webview, event, true, false);
-          let _: id = msg_send![webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+          let js = create_js_mouse_event(*webview, event, true, false);
+          let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
         }
 
         _ => {}
@@ -42,16 +41,16 @@ extern "C" fn other_mouse_down(this: &Object, _sel: Sel, event: id) {
 extern "C" fn other_mouse_up(this: &Object, _sel: Sel, event: id) {
   if event.eventType() == NSEventType::NSOtherMouseUp {
     let webview = this.get_ivar::<id>("webview");
-    if webview != nil {
+    if *webview != nil {
       let button_number = event.buttonNumber();
       match button_number {
         4 => {
-          let js = create_js_mouse_event(webview, event, false, true);
-          let _: id = msg_send![webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+          let js = create_js_mouse_event(*webview, event, false, true);
+          let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
         }
         5 => {
-          let js = create_js_mouse_event(webview, event, false, false);
-          let _: id = msg_send![webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+          let js = create_js_mouse_event(*webview, event, false, false);
+          let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
         }
         _ => {}
       }
