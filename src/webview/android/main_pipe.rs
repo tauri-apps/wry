@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -9,13 +9,13 @@ use std::os::unix::prelude::*;
 use tao::platform::android::ndk_glue::{
   jni::{
     errors::Error as JniError,
-    objects::{GlobalRef, JObject},
+    objects::{GlobalRef, JObject, JString},
     JNIEnv,
   },
   PACKAGE,
 };
 
-use super::find_my_class;
+use super::{create_headers_map, find_class};
 
 static CHANNEL: Lazy<(Sender<WebViewMessage>, Receiver<WebViewMessage>)> = Lazy::new(|| bounded(8));
 pub static MAIN_PIPE: Lazy<[RawFd; 2]> = Lazy::new(|| {
@@ -32,7 +32,7 @@ pub struct MainPipe<'a> {
 }
 
 impl MainPipe<'_> {
-  pub fn send(message: WebViewMessage) {
+  pub(crate) fn send(message: WebViewMessage) {
     let size = std::mem::size_of::<bool>();
     if let Ok(()) = CHANNEL.0.send(message) {
       unsafe { libc::write(MAIN_PIPE[1], &true as *const _ as *const _, size) };
@@ -50,9 +50,11 @@ impl MainPipe<'_> {
             devtools,
             transparent,
             background_color,
+            headers,
+            on_webview_created,
           } = attrs;
           // Create webview
-          let rust_webview_class = find_my_class(
+          let rust_webview_class = find_class(
             env,
             activity,
             format!("{}/RustWebView", PACKAGE.get().unwrap()),
@@ -65,12 +67,7 @@ impl MainPipe<'_> {
 
           // Load URL
           if let Ok(url) = env.new_string(url) {
-            env.call_method(
-              webview,
-              "loadUrlMainThread",
-              "(Ljava/lang/String;)V",
-              &[url.into()],
-            )?;
+            load_url(env, webview, url, headers, true)?;
           }
 
           // Enable devtools
@@ -91,12 +88,16 @@ impl MainPipe<'_> {
           }
 
           // Create and set webview client
-          let rust_webview_client_class = find_my_class(
+          let rust_webview_client_class = find_class(
             env,
             activity,
             format!("{}/RustWebViewClient", PACKAGE.get().unwrap()),
           )?;
-          let webview_client = env.new_object(rust_webview_client_class, "()V", &[])?;
+          let webview_client = env.new_object(
+            rust_webview_client_class,
+            "(Landroid/content/Context;)V",
+            &[activity.into()],
+          )?;
           env.call_method(
             webview,
             "setWebViewClient",
@@ -113,7 +114,7 @@ impl MainPipe<'_> {
           )?;
 
           // Add javascript interface (IPC)
-          let ipc_class = find_my_class(env, activity, format!("{}/Ipc", PACKAGE.get().unwrap()))?;
+          let ipc_class = find_class(env, activity, format!("{}/Ipc", PACKAGE.get().unwrap()))?;
           let ipc = env.new_object(ipc_class, "()V", &[])?;
           let ipc_str = env.new_string("ipc")?;
           env.call_method(
@@ -130,7 +131,19 @@ impl MainPipe<'_> {
             "(Landroid/view/View;)V",
             &[webview.into()],
           )?;
+
+          if let Some(on_webview_created) = on_webview_created {
+            if let Err(e) = on_webview_created(super::Context {
+              env,
+              activity,
+              webview,
+            }) {
+              log::warn!("failed to run webview created hook: {e}");
+            }
+          }
+
           let webview = env.new_global_ref(webview)?;
+
           self.webview = Some(webview);
         }
         WebViewMessage::Eval(script) => {
@@ -161,15 +174,61 @@ impl MainPipe<'_> {
             Err(e) => tx.send(Err(e.into())).unwrap(),
           }
         }
-        WebViewMessage::Jni(f) => {
+        WebViewMessage::GetUrl(tx) => {
           if let Some(webview) = &self.webview {
-            f(env, activity, webview.as_obj());
+            let url = env
+              .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String", &[])
+              .and_then(|v| v.l())
+              .and_then(|s| env.get_string(s.into()))
+              .map(|u| u.to_string_lossy().into())
+              .unwrap_or_default();
+
+            tx.send(url).unwrap()
+          }
+        }
+        WebViewMessage::Jni(f) => {
+          if let Some(w) = &self.webview {
+            f(env, activity, w.as_obj());
+          } else {
+            f(env, activity, JObject::null());
+          }
+        }
+        WebViewMessage::LoadUrl(url, headers) => {
+          if let Some(webview) = &self.webview {
+            let url = env.new_string(url)?;
+            load_url(env, webview.as_obj(), url, headers, false)?;
           }
         }
       }
     }
     Ok(())
   }
+}
+
+fn load_url<'a>(
+  env: JNIEnv<'a>,
+  webview: JObject<'a>,
+  url: JString<'a>,
+  headers: Option<http::HeaderMap>,
+  main_thread: bool,
+) -> Result<(), JniError> {
+  let function = if main_thread {
+    "loadUrlMainThread"
+  } else {
+    "loadUrl"
+  };
+  if let Some(headers) = headers {
+    let headers_map = create_headers_map(&env, &headers)?;
+    env.call_method(
+      webview,
+      function,
+      "(Ljava/lang/String;Ljava/util/Map;)V",
+      &[url.into(), headers_map.into()],
+    )?;
+  } else {
+    env.call_method(webview, function, "(Ljava/lang/String;)V", &[url.into()])?;
+  }
+  Ok(())
 }
 
 fn set_background_color<'a>(
@@ -193,18 +252,28 @@ fn set_background_color<'a>(
   Ok(())
 }
 
-pub enum WebViewMessage {
+pub(crate) enum WebViewMessage {
   CreateWebView(CreateWebViewAttributes),
   Eval(String),
   SetBackgroundColor(RGBA),
   GetWebViewVersion(Sender<Result<String, Error>>),
+  GetUrl(Sender<String>),
   Jni(Box<dyn FnOnce(JNIEnv, JObject, JObject) + Send>),
+  LoadUrl(String, Option<http::HeaderMap>),
 }
 
-#[derive(Debug)]
-pub struct CreateWebViewAttributes {
+pub(crate) struct CreateWebViewAttributes {
   pub url: String,
   pub devtools: bool,
   pub transparent: bool,
   pub background_color: Option<RGBA>,
+  pub headers: Option<http::HeaderMap>,
+  pub on_webview_created: Option<
+    Box<
+      dyn Fn(
+          super::Context,
+        ) -> std::result::Result<(), tao::platform::android::ndk_glue::jni::errors::Error>
+        + Send,
+    >,
+  >,
 }

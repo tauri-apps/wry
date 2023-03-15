@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -8,18 +8,21 @@ use crate::{webview::web_context::WebContextData, Error};
 use glib::FileError;
 use http::{header::CONTENT_TYPE, Request, Response};
 use std::{
+  borrow::Cow,
+  cell::RefCell,
   collections::{HashSet, VecDeque},
+  path::PathBuf,
   rc::Rc,
+  str::FromStr,
   sync::{
     atomic::{AtomicBool, Ordering::SeqCst},
     Mutex,
   },
 };
 use url::Url;
-//use webkit2gtk_sys::webkit_uri_request_get_http_headers;
 use webkit2gtk::{
-  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, UserContentManager, WebContext,
-  WebContextBuilder, WebView, WebsiteDataManagerBuilder,
+  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, URIRequest, UserContentManager,
+  WebContext, WebContextBuilder, WebView, WebsiteDataManagerBuilder,
 };
 
 #[derive(Debug)]
@@ -108,7 +111,7 @@ pub trait WebContextExt {
   /// relying on the platform's implementation to properly handle duplicated scheme handlers.
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Vec<u8>>> + 'static;
+    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static;
 
   /// Register a custom protocol to the web context, only if it is not a duplicate scheme.
   ///
@@ -116,12 +119,12 @@ pub trait WebContextExt {
   /// function will return `Err(Error::DuplicateCustomProtocol)`.
   fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Vec<u8>>> + 'static;
+    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static;
 
   /// Add a [`WebView`] to the queue waiting to be opened.
   ///
   /// See the `WebviewUriLoader` for more information.
-  fn queue_load_uri(&self, webview: Rc<WebView>, url: Url);
+  fn queue_load_uri(&self, webview: Rc<WebView>, url: Url, headers: Option<http::HeaderMap>);
 
   /// Flush all queued [`WebView`]s waiting to load a uri.
   ///
@@ -134,6 +137,12 @@ pub trait WebContextExt {
   fn allows_automation(&self) -> bool;
 
   fn register_automation(&mut self, webview: WebView);
+
+  fn register_download_handler(
+    &mut self,
+    download_started_callback: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
+    download_completed_callback: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
+  );
 }
 
 impl WebContextExt for super::WebContext {
@@ -147,7 +156,7 @@ impl WebContextExt for super::WebContext {
 
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Vec<u8>>> + 'static,
+    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
   {
     actually_register_uri_scheme(self, name, handler)?;
     if self.os.registered_protocols.insert(name.to_string()) {
@@ -159,7 +168,7 @@ impl WebContextExt for super::WebContext {
 
   fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Vec<u8>>> + 'static,
+    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
   {
     if self.os.registered_protocols.insert(name.to_string()) {
       actually_register_uri_scheme(self, name, handler)
@@ -168,8 +177,8 @@ impl WebContextExt for super::WebContext {
     }
   }
 
-  fn queue_load_uri(&self, webview: Rc<WebView>, url: Url) {
-    self.os.webview_uri_loader.push(webview, url)
+  fn queue_load_uri(&self, webview: Rc<WebView>, url: Url, headers: Option<http::HeaderMap>) {
+    self.os.webview_uri_loader.push(webview, url, headers)
   }
 
   fn flush_queue_loader(&self) {
@@ -199,6 +208,66 @@ impl WebContextExt for super::WebContext {
       });
     }
   }
+
+  fn register_download_handler(
+    &mut self,
+    download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
+    download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
+  ) {
+    use webkit2gtk::traits::*;
+    let context = &self.os.context;
+
+    let download_started_handler = RefCell::new(download_started_handler);
+    let failed = Rc::new(RefCell::new(false));
+
+    context.connect_download_started(move |_context, download| {
+      if let Some(uri) = download.request().and_then(|req| req.uri()) {
+        let uri = uri.to_string();
+        let mut download_location = download
+          .destination()
+          .and_then(|p| PathBuf::from_str(&p).ok())
+          .unwrap_or_default();
+
+        if let Some(download_started_handler) = download_started_handler.borrow_mut().as_mut() {
+          if download_started_handler(uri, &mut download_location) {
+            download.connect_response_notify(move |download| {
+              download.set_destination(&download_location.to_string_lossy());
+            });
+          } else {
+            download.cancel();
+          }
+        }
+      }
+      download.connect_failed({
+        let failed = failed.clone();
+        move |_, _error| {
+          *failed.borrow_mut() = true;
+        }
+      });
+      if let Some(download_completed_handler) = download_completed_handler.clone() {
+        download.connect_finished({
+          let failed = failed.clone();
+          move |download| {
+            if let Some(uri) = download.request().and_then(|req| req.uri()) {
+              let failed = failed.borrow();
+              let uri = uri.to_string();
+              download_completed_handler(
+                uri,
+                (!*failed)
+                  .then(|| {
+                    download
+                      .destination()
+                      .map_or_else(|| None, |p| Some(PathBuf::from(p.as_str())))
+                  })
+                  .flatten(),
+                !*failed,
+              )
+            }
+          }
+        });
+      }
+    });
+  }
 }
 
 fn actually_register_uri_scheme<F>(
@@ -207,7 +276,7 @@ fn actually_register_uri_scheme<F>(
   handler: F,
 ) -> crate::Result<()>
 where
-  F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Vec<u8>>> + 'static,
+  F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
 {
   use webkit2gtk::traits::*;
   let context = &context.os.context;
@@ -221,35 +290,70 @@ where
     if let Some(uri) = request.uri() {
       let uri = uri.as_str();
 
-      //let headers = unsafe {
-      //  webkit_uri_request_get_http_headers(request.clone().to_glib_none().0)
-      //};
-
-      // FIXME: Read the method
-      // FIXME: Read the headers
       // FIXME: Read the body (forms post)
-      let http_request = Request::builder()
-        .uri(uri)
-        .method("GET")
-        .body(Vec::new())
-        .unwrap();
+      #[allow(unused_mut)]
+      let mut http_request = Request::builder().uri(uri).method("GET");
+      #[cfg(feature = "linux-headers")]
+      {
+        use http::{header::HeaderName, HeaderValue};
+
+        if let Some(mut headers) = request.http_headers() {
+          if let Some(map) = http_request.headers_mut() {
+            headers.foreach(move |k, v| {
+              if let Ok(name) = HeaderName::from_bytes(k.as_bytes()) {
+                if let Ok(value) = HeaderValue::from_bytes(v.as_bytes()) {
+                  map.insert(name, value);
+                }
+              }
+            });
+          }
+        }
+
+        if let Some(method) = request.http_method() {
+          http_request = http_request.method(method.as_str());
+        }
+      }
+      let http_request = match http_request.body(Vec::new()) {
+        Ok(req) => req,
+        Err(_) => {
+          request.finish_error(&mut glib::Error::new(
+            // TODO: use UriError when we can use 2_66 webkit2gtk feature flag
+            FileError::Exist,
+            "Could not get uri.",
+          ));
+          return;
+        }
+      };
 
       match handler(&http_request) {
         Ok(http_response) => {
           let buffer = http_response.body();
-
-          // FIXME: Set status code
-          // FIXME: Set sent headers
-
           let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(buffer));
-          request.finish(
-            &input,
-            buffer.len() as i64,
-            http_response
-              .headers()
-              .get(CONTENT_TYPE)
-              .map(|h| h.to_str().unwrap_or("text/plain")),
-          )
+          let content_type = http_response
+            .headers()
+            .get(CONTENT_TYPE)
+            .and_then(|h| h.to_str().ok());
+          #[cfg(feature = "linux-headers")]
+          {
+            use soup::{MessageHeaders, MessageHeadersType};
+            use webkit2gtk::URISchemeResponse;
+
+            let response = URISchemeResponse::new(&input, buffer.len() as i64);
+            response.set_status(http_response.status().as_u16() as u32, None);
+            if let Some(content_type) = content_type {
+              response.set_content_type(content_type);
+            }
+
+            let mut headers = MessageHeaders::new(MessageHeadersType::Response);
+            for (name, value) in http_response.headers().into_iter() {
+              headers.append(name.as_str(), value.to_str().unwrap_or(""));
+            }
+            response.set_http_headers(&mut headers);
+
+            request.finish_with_response(&response);
+          }
+          #[cfg(not(feature = "linux-headers"))]
+          request.finish(&input, buffer.len() as i64, content_type)
         }
         Err(_) => request.finish_error(&mut glib::Error::new(
           FileError::Exist,
@@ -298,7 +402,7 @@ where
 #[derive(Debug, Default)]
 struct WebviewUriLoader {
   lock: AtomicBool,
-  queue: Mutex<VecDeque<(Rc<WebView>, Url)>>,
+  queue: Mutex<VecDeque<(Rc<WebView>, Url, Option<http::HeaderMap>)>>,
 }
 
 impl WebviewUriLoader {
@@ -313,13 +417,13 @@ impl WebviewUriLoader {
   }
 
   /// Add a [`WebView`] to the queue.
-  fn push(&self, webview: Rc<WebView>, url: Url) {
+  fn push(&self, webview: Rc<WebView>, url: Url, headers: Option<http::HeaderMap>) {
     let mut queue = self.queue.lock().expect("poisoned load queue");
-    queue.push_back((webview, url))
+    queue.push_back((webview, url, headers))
   }
 
   /// Remove a [`WebView`] from the queue and return it.
-  fn pop(&self) -> Option<(Rc<WebView>, Url)> {
+  fn pop(&self) -> Option<(Rc<WebView>, Url, Option<http::HeaderMap>)> {
     let mut queue = self.queue.lock().expect("poisoned load queue");
     queue.pop_front()
   }
@@ -327,7 +431,7 @@ impl WebviewUriLoader {
   /// Load the next uri to load if the lock is not engaged.
   fn flush(self: Rc<Self>) {
     if !self.is_locked() {
-      if let Some((webview, url)) = self.pop() {
+      if let Some((webview, url, headers)) = self.pop() {
         // we do not need to listen to failed events because those will finish the change event anyways
         webview.connect_load_changed(move |_, event| {
           if let LoadEvent::Finished = event {
@@ -336,7 +440,22 @@ impl WebviewUriLoader {
           };
         });
 
-        webview.load_uri(url.as_str());
+        if let Some(headers) = headers {
+          let req = URIRequest::builder().uri(url.as_str()).build();
+
+          if let Some(ref mut req_headers) = req.http_headers() {
+            for (header, value) in headers.iter() {
+              req_headers.append(
+                header.to_string().as_str(),
+                value.to_str().unwrap_or_default(),
+              );
+            }
+          }
+
+          webview.load_request(&req);
+        } else {
+          webview.load_uri(url.as_str());
+        }
       } else {
         self.unlock();
       }

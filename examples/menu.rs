@@ -12,8 +12,11 @@ fn main() -> wry::Result<()> {
 
   use wry::{
     application::{
+      accelerator::Accelerator,
       event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
+      keyboard::{KeyCode, ModifiersState},
+      menu::{MenuBar, MenuItemAttributes},
       window::WindowBuilder,
     },
     http::{header::CONTENT_TYPE, Response},
@@ -21,8 +24,32 @@ fn main() -> wry::Result<()> {
   };
 
   let event_loop = EventLoop::new();
+
+  let mut menu = MenuBar::new();
+  let mut file_menu = MenuBar::new();
+  file_menu.add_native_item(tao::menu::MenuItem::Cut);
+  file_menu.add_native_item(tao::menu::MenuItem::Copy);
+  file_menu.add_native_item(tao::menu::MenuItem::Paste);
+  file_menu.add_item(
+    MenuItemAttributes::new("Quit").with_accelerators(&Accelerator::new(
+      Some(ModifiersState::CONTROL | ModifiersState::SHIFT),
+      KeyCode::KeyQ,
+    )),
+  );
+  file_menu.add_item(
+    MenuItemAttributes::new("Quit").with_accelerators(&Accelerator::new(None, KeyCode::KeyQ)),
+  );
+  file_menu.add_item(
+    MenuItemAttributes::new("Quit").with_accelerators(&Accelerator::new(
+      Some(ModifiersState::SHIFT),
+      KeyCode::KeyQ,
+    )),
+  );
+  menu.add_submenu("File", true, file_menu);
+
   let window = WindowBuilder::new()
     .with_title("Custom Protocol")
+    .with_menu(menu)
     .build(&event_loop)
     .unwrap();
 
@@ -41,21 +68,21 @@ fn main() -> wry::Result<()> {
       // Return asset contents and mime types based on file extentions
       // If you don't want to do this manually, there are some crates for you.
       // Such as `infer` and `mime_guess`.
-      let mimetype = if path.ends_with(".html") || path == "/" {
-        "text/html"
+      let (data, meta) = if path.ends_with(".html") || path == "/" {
+        (content, "text/html")
       } else if path.ends_with(".js") {
-        "text/javascript"
+        (content, "text/javascript")
       } else if path.ends_with(".png") {
-        "image/png"
+        (content, "image/png")
       } else if path.ends_with(".wasm") {
-        "application/wasm"
+        (content, "application/wasm")
       } else {
         unimplemented!();
       };
 
       Response::builder()
-        .header(CONTENT_TYPE, mimetype)
-        .body(content)
+        .header(CONTENT_TYPE, meta)
+        .body(data)
         .map_err(Into::into)
     })
     // tell the webview to load the custom protocol
@@ -71,6 +98,10 @@ fn main() -> wry::Result<()> {
         event: WindowEvent::CloseRequested,
         ..
       } => *control_flow = ControlFlow::Exit,
+      Event::MenuEvent { menu_id, .. } => {
+        println!("Menu clicked! {:?}", menu_id);
+        // *control_flow = ControlFlow::Exit;
+      }
       _ => (),
     }
   });

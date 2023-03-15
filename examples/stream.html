@@ -1,4 +1,4 @@
-<!-- Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+<!-- Copyright 2020-2023 Tauri Programme within The Commons Conservancy
      SPDX-License-Identifier: Apache-2.0
      SPDX-License-Identifier: MIT -->
 
@@ -13,7 +13,7 @@
 
 <body>
   <video id="video_source" style="width: 90vw; height: 90vh" controls="" autoplay="" name="media">
-    <source src="wry://examples/test_video.mp4" type="video/mp4" />
+    <source src="wry://localhost/examples/test_video.mp4" type="video/mp4" />
   </video>
 
   <script>
@@ -21,7 +21,7 @@
         if (navigator.userAgent.includes("Windows")) {
           const video = document.getElementById("video_source");
           const sources = video.getElementsByTagName("source");
-          sources[0].src = "https://wry.examples/test_video.mp4";
+          sources[0].src = "https://wry.localhost/examples/test_video.mp4";
           video.load();
         }
       })();

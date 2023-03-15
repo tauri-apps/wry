@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -31,16 +31,16 @@ fn main() -> wry::Result<()> {
         }
       }
 
-      let path = request.uri().to_string();
-      let path = path.strip_prefix("wry://").unwrap();
+      // remove leading slash
+      let path = &request.uri().path()[1..];
 
       Response::builder()
         .header(CONTENT_TYPE, "text/html")
-        .body(read(canonicalize(&path)?)?)
+        .body(read(canonicalize(&path)?)?.into())
         .map_err(Into::into)
     })
     // tell the webview to load the custom protocol
-    .with_url("wry://examples/form.html")?
+    .with_url("wry://localhost/examples/form.html")?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

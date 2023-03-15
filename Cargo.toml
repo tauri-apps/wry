@@ -2,7 +2,7 @@ workspace = { }
 
 [package]
 name = "wry"
-version = "0.21.1"
+version = "0.27.0"
 authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -26,42 +26,46 @@ default = [ "file-drop", "objc-exception", "protocol" ]
 objc-exception = [ "objc/exception" ]
 file-drop = [ ]
 protocol = [ ]
-dox = [ "tao/dox" ]
+dox = [ "tao/dox", "webkit2gtk/dox", "soup3/dox" ]
 tray = [ "tao/tray" ]
 devtools = [ ]
 transparent = [ ]
 fullscreen = [ ]
+linux-headers = [ "webkit2gtk/v2_36" ]
 
 [dependencies]
 libc = "0.2"
 log = "0.4"
-once_cell = "1.15"
+once_cell = "1"
 serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.3"
-tao = { version = "0.14", default-features = false, features = [ "serde" ] }
-http = "0.2.8"
+tao = { version = "0.18.0", default-features = false, features = [ "serde" ] }
+http = "0.2.9"
 
 [dev-dependencies]
 anyhow = "1.0"
-tempfile = "3.3.0"
 http-range = "0.1.5"
+dirs = "4.0.0"
+base64 = "0.13.1"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
-webkit2gtk = { version = "0.18", features = [ "v2_22" ] }
-webkit2gtk-sys = "0.18"
-gio = "0.15"
-glib = "0.15"
-gtk = "0.15"
-gdk = "0.15"
+webkit2gtk = { version = "0.19.2", features = [ "v2_38" ] }
+webkit2gtk-sys = "0.19.1"
+gio = "0.16"
+glib = "0.16"
+gtk = "0.16"
+gdk = "0.16"
+soup3 = "0.3"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.20.0"
-windows-implement = "0.39.0"
+webview2-com = "0.22"
+windows-implement = "0.44"
+dunce = "1"
 
   [target."cfg(target_os = \"windows\")".dependencies.windows]
-  version = "0.39.0"
+  version = "0.44.0"
   features = [
   "implement",
   "Win32_Foundation",

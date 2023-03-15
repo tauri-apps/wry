@@ -1,25 +1,38 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-package {{app-domain-reversed}}.{{app-name-snake-case}}
+package {{package}}
 
 import android.webkit.*
+import android.content.Context
+import androidx.webkit.WebViewAssetLoader
 
-class RustWebViewClient: WebViewClient() {
+class RustWebViewClient(context: Context): WebViewClient() {
+    private val assetLoader = WebViewAssetLoader.Builder()
+        .setDomain(assetLoaderDomain())
+        .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(context))
+        .build()
+
     override fun shouldInterceptRequest(
         view: WebView,
         request: WebResourceRequest
     ): WebResourceResponse? {
-        return handleRequest(request)
+        if (withAssetLoader()) {
+            return assetLoader.shouldInterceptRequest(request.url)
+        } else {
+            return handleRequest(request)
+        }
     }
 
     companion object {
         init {
-            System.loadLibrary("{{app-name-snake-case}}")
+            System.loadLibrary("{{library}}")
         }
     }
 
+    private external fun assetLoaderDomain(): String
+    private external fun withAssetLoader(): Boolean
     private external fun handleRequest(request: WebResourceRequest): WebResourceResponse?
 
     {{class-extension}}

@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -56,7 +56,7 @@
 //!  This feature requires either `libayatana-appindicator` or `libappindicator` package installed.
 //!  You can still create those types if you disable it. They just don't create the actual objects.
 //! - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
-//! On **macOS**, enabling devtools, requires calling private apis so you should enabling this flag in release
+//! On **macOS**, enabling devtools, requires calling private apis so you should not enable this flag in release
 //! build if your app needs to publish to App Store.
 //! - `transparent`: Transparent background on **macOS** requires calling private functions.
 //! Avoid this in release build if your app needs to publish to App Store.
@@ -64,6 +64,8 @@
 //! Avoid this in release build if your app needs to publish to App Store.
 //! - `dox`: Enables this in `package.metadata.docs.rs` section to skip linking some **Linux**
 //! libraries and prevent from building documentation on doc.rs fails.
+//! - `linux-headers`: Enables headers support of custom protocol request on Linux. Requires
+//! webkit2gtk v2.36 or above.
 //!
 //! [tao]: https://crates.io/crates/tao
 //! [`EventLoop`]: crate::application::event_loop::EventLoop

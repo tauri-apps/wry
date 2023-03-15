@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -53,11 +53,11 @@ fn main() -> wry::Result<()> {
   let _webview = WebViewBuilder::new(window)
     .unwrap()
     .with_custom_protocol("wry".into(), move |request| {
-      let path = request.uri().to_string();
-      let path = path.strip_prefix("wry://").unwrap();
+      // remove leading slash
+      let path = &request.uri().path()[1..];
 
       // Read the file content from file path
-      let mut content = File::open(canonicalize(&path)?)?;
+      let mut content = File::open(canonicalize(path)?)?;
 
       // Return asset contents and mime types based on file extentions
       // If you don't want to do this manually, there are some crates for you.
@@ -125,11 +125,11 @@ fn main() -> wry::Result<()> {
       response
         .header(CONTENT_TYPE, mimetype)
         .status(status_code)
-        .body(buf)
+        .body(buf.into())
         .map_err(Into::into)
     })
     // tell the webview to load the custom protocol
-    .with_url("wry://examples/stream.html")?
+    .with_url("wry://localhost/examples/stream.html")?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

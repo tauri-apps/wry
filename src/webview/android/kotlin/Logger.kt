@@ -1,8 +1,8 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-package {{app-domain-reversed}}.{{app-name-snake-case}}
+package {{package}}
 
 // taken from https://github.com/ionic-team/capacitor/blob/6658bca41e78239347e458175b14ca8bd5c1d6e8/android/capacitor/src/main/java/com/getcapacitor/Logger.java
 
@@ -23,7 +23,7 @@ class Logger {
       verbose(LOG_TAG_CORE, message)
     }
 
-    private fun verbose(tag: String, message: String) {
+    fun verbose(tag: String, message: String) {
       if (!shouldLog()) {
         return
       }

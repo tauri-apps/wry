@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -13,7 +13,7 @@ use http::{
 use kuchiki::NodeRef;
 use once_cell::sync::OnceCell;
 use sha2::{Digest, Sha256};
-use std::rc::Rc;
+use std::{borrow::Cow, rc::Rc};
 use tao::platform::android::ndk_glue::{
   jni::{
     errors::Error as JniError,
@@ -21,12 +21,19 @@ use tao::platform::android::ndk_glue::{
     JNIEnv,
   },
   ndk::looper::{FdEvent, ForeignLooper},
-  PACKAGE,
+  JMap, PACKAGE,
 };
+use url::Url;
 
 pub(crate) mod binding;
 mod main_pipe;
 use main_pipe::{CreateWebViewAttributes, MainPipe, WebViewMessage, MAIN_PIPE};
+
+pub struct Context<'a> {
+  pub env: JNIEnv<'a>,
+  pub activity: JObject<'a>,
+  pub webview: JObject<'a>,
+}
 
 #[macro_export]
 macro_rules! android_binding {
@@ -36,7 +43,8 @@ macro_rules! android_binding {
   ($domain:ident, $package:ident, $main: ident, $wry: path) => {
     use $wry::{
       application::{
-        android_binding as tao_android_binding, android_fn, platform::android::ndk_glue::*,
+        android_binding as tao_android_binding, android_fn, generate_package_name,
+        platform::android::ndk_glue::*,
       },
       webview::prelude::*,
     };
@@ -46,15 +54,41 @@ macro_rules! android_binding {
       $package,
       RustWebViewClient,
       handleRequest,
-      JObject,
+      [JObject],
       jobject
     );
-    android_fn!($domain, $package, Ipc, ipc, JString);
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      withAssetLoader,
+      [],
+      jboolean
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      assetLoaderDomain,
+      [],
+      jstring
+    );
+    android_fn!($domain, $package, Ipc, ipc, [JString]);
+    android_fn!(
+      $domain,
+      $package,
+      RustWebChromeClient,
+      handleReceivedTitle,
+      [JObject, JString],
+    );
   };
 }
 
 pub static IPC: OnceCell<UnsafeIpc> = OnceCell::new();
 pub static REQUEST_HANDLER: OnceCell<UnsafeRequestHandler> = OnceCell::new();
+pub static TITLE_CHANGE_HANDLER: OnceCell<UnsafeTitleHandler> = OnceCell::new();
+pub static WITH_ASSET_LOADER: OnceCell<bool> = OnceCell::new();
+pub static ASSET_LOADER_DOMAIN: OnceCell<String> = OnceCell::new();
 
 pub struct UnsafeIpc(Box<dyn Fn(&Window, String)>, Rc<Window>);
 impl UnsafeIpc {
@@ -65,19 +99,30 @@ impl UnsafeIpc {
 unsafe impl Send for UnsafeIpc {}
 unsafe impl Sync for UnsafeIpc {}
 
-pub struct UnsafeRequestHandler(Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Vec<u8>>>>);
+pub struct UnsafeRequestHandler(
+  Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Cow<'static, [u8]>>>>,
+);
 impl UnsafeRequestHandler {
-  pub fn new(f: Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Vec<u8>>>>) -> Self {
+  pub fn new(f: Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Cow<'static, [u8]>>>>) -> Self {
     Self(f)
   }
 }
 unsafe impl Send for UnsafeRequestHandler {}
 unsafe impl Sync for UnsafeRequestHandler {}
 
+pub struct UnsafeTitleHandler(Box<dyn Fn(&Window, String)>, Rc<Window>);
+impl UnsafeTitleHandler {
+  pub fn new(f: Box<dyn Fn(&Window, String)>, w: Rc<Window>) -> Self {
+    Self(f, w)
+  }
+}
+unsafe impl Send for UnsafeTitleHandler {}
+unsafe impl Sync for UnsafeTitleHandler {}
+
 pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
   // we must create the WebChromeClient here because it calls `registerForActivityResult`,
   // which gives an `LifecycleOwners must call register before they are STARTED.` error when called outside the onCreate hook
-  let rust_webchrome_client_class = find_my_class(
+  let rust_webchrome_client_class = find_class(
     env,
     activity.as_obj(),
     format!("{}/RustWebChromeClient", PACKAGE.get().unwrap()),
@@ -123,7 +168,7 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let WebViewAttributes {
@@ -134,17 +179,21 @@ impl InnerWebView {
       custom_protocols,
       background_color,
       transparent,
+      headers,
       ..
     } = attributes;
+
+    let super::PlatformSpecificWebViewAttributes {
+      on_webview_created,
+      with_asset_loader,
+      asset_loader_domain,
+    } = pl_attrs;
 
     if let Some(u) = url {
       let mut url_string = String::from(u.as_str());
       let name = u.scheme();
-      let schemes = custom_protocols
-        .iter()
-        .map(|(name, _)| name.as_str())
-        .collect::<Vec<_>>();
-      if schemes.contains(&name) {
+      let is_custom_protocol = custom_protocols.iter().any(|(n, _)| n == name);
+      if is_custom_protocol {
         url_string = u
           .as_str()
           .replace(&format!("{}://", name), &format!("https://{}.", name))
@@ -155,7 +204,14 @@ impl InnerWebView {
         devtools,
         background_color,
         transparent,
+        headers,
+        on_webview_created,
       }));
+    }
+
+    WITH_ASSET_LOADER.get_or_init(move || with_asset_loader);
+    if let Some(domain) = asset_loader_domain {
+      ASSET_LOADER_DOMAIN.get_or_init(move || domain);
     }
 
     REQUEST_HANDLER.get_or_init(move || {
@@ -177,15 +233,26 @@ impl InnerWebView {
             .unwrap();
 
           if let Ok(mut response) = (custom_protocol.1)(&request) {
-            if response.headers().get(CONTENT_TYPE) == Some(&HeaderValue::from_static("text/html"))
-            {
+            let should_inject_scripts = response
+              .headers()
+              .get(CONTENT_TYPE)
+              // Content-Type must begin with the media type, but is case-insensitive.
+              // It may also be followed by any number of semicolon-delimited key value pairs.
+              // We don't care about these here.
+              // source: https://httpwg.org/specs/rfc9110.html#rfc.section.8.3.1
+              .and_then(|content_type| content_type.to_str().ok())
+              .map(|content_type_str| content_type_str.to_lowercase().starts_with("text/html"))
+              .unwrap_or_default();
+
+            if should_inject_scripts {
               if !initialization_scripts.is_empty() {
                 let mut document =
-                  kuchiki::parse_html().one(String::from_utf8_lossy(&response.body()).into_owned());
+                  kuchiki::parse_html().one(String::from_utf8_lossy(response.body()).into_owned());
                 let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
                 let mut hashes = Vec::new();
                 with_html_head(&mut document, |head| {
-                  for script in &initialization_scripts {
+                  // iterate in reverse order since we are prepending each script to the head tag
+                  for script in initialization_scripts.iter().rev() {
                     let script_el =
                       NodeRef::new_element(QualName::new(None, ns!(html), "script".into()), None);
                     script_el.append(NodeRef::new_text(script));
@@ -203,11 +270,10 @@ impl InnerWebView {
                   } else {
                     format!("{} script-src {}", csp_string, hashes.join(" "))
                   };
-                  println!("[CSP] {}", csp_string);
                   *csp = HeaderValue::from_str(&csp_string).unwrap();
                 }
 
-                *response.body_mut() = document.to_string().as_bytes().to_vec();
+                *response.body_mut() = document.to_string().into_bytes().into();
               }
             }
             return Some(response);
@@ -223,10 +289,22 @@ impl InnerWebView {
       IPC.get_or_init(move || UnsafeIpc::new(Box::new(i), w));
     }
 
+    let w = window.clone();
+    if let Some(i) = attributes.document_title_changed_handler {
+      TITLE_CHANGE_HANDLER.get_or_init(move || UnsafeTitleHandler::new(i, w));
+    }
+
     Ok(Self { window })
   }
 
   pub fn print(&self) {}
+
+  pub fn url(&self) -> Url {
+    let (tx, rx) = bounded(1);
+    MainPipe::send(WebViewMessage::GetUrl(tx));
+    let uri = rx.recv().unwrap();
+    Url::parse(uri.as_str()).unwrap()
+  }
 
   pub fn eval(&self, js: &str) -> Result<()> {
     MainPipe::send(WebViewMessage::Eval(js.into()));
@@ -249,6 +327,14 @@ impl InnerWebView {
   pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
     MainPipe::send(WebViewMessage::SetBackgroundColor(background_color));
     Ok(())
+  }
+
+  pub fn load_url(&self, url: &str) {
+    MainPipe::send(WebViewMessage::LoadUrl(url.to_string(), None));
+  }
+
+  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
+    MainPipe::send(WebViewMessage::LoadUrl(url.to_string(), Some(headers)));
   }
 }
 
@@ -292,7 +378,8 @@ fn hash_script(script: &str) -> String {
   format!("'sha256-{}'", base64::encode(hash))
 }
 
-fn find_my_class<'a>(
+/// Finds a class in the project scope.
+pub fn find_class<'a>(
   env: JNIEnv<'a>,
   activity: JObject<'a>,
   name: String,
@@ -307,4 +394,28 @@ fn find_my_class<'a>(
     )?
     .l()?;
   Ok(my_class.into())
+}
+
+/// Dispatch a closure to run on the Android context.
+///
+/// The closure takes the JNI env, the Android activity instance and the possibly null webview.
+pub fn dispatch<F>(func: F)
+where
+  F: FnOnce(JNIEnv, JObject, JObject) + Send + 'static,
+{
+  MainPipe::send(WebViewMessage::Jni(Box::new(func)));
+}
+
+fn create_headers_map<'a, 'b>(
+  env: &'a JNIEnv,
+  headers: &http::HeaderMap,
+) -> std::result::Result<JMap<'a, 'b>, JniError> {
+  let obj = env.new_object("java/util/HashMap", "()V", &[])?;
+  let headers_map = JMap::from_env(&env, obj)?;
+  for (name, value) in headers.iter() {
+    let key = env.new_string(name)?;
+    let value = env.new_string(value.to_str().unwrap_or_default())?;
+    headers_map.put(key.into(), value.into())?;
+  }
+  Ok(headers_map)
 }

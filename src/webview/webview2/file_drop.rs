@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -17,7 +17,6 @@ use std::{
   rc::Rc,
 };
 
-use tao::platform::windows::WindowExtWindows;
 use webview2_com::Microsoft::Web::WebView2::Win32::{
   ICoreWebView2CompositionController3, ICoreWebView2Controller,
 };
@@ -31,8 +30,11 @@ use windows::{
     Graphics::Gdi::ScreenToClient,
     System::{
       Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL},
-      Ole::{IDropTarget, IDropTarget_Impl, OleInitialize, RegisterDragDrop, RevokeDragDrop},
-      SystemServices::CF_HDROP,
+      Ole::{
+        IDropTarget, IDropTarget_Impl, OleInitialize, RegisterDragDrop, RevokeDragDrop, CF_HDROP,
+        DROPEFFECT,
+      },
+      SystemServices::MODIFIERKEYS_FLAGS,
     },
     UI::{
       Shell::{DragQueryFileW, HDROP},
@@ -43,7 +45,9 @@ use windows::{
 
 use windows_implement::implement;
 
-use crate::application::window::Window;
+use crate::application::{
+  dpi::PhysicalPosition, platform::windows::WindowExtWindows, window::Window,
+};
 
 pub(crate) struct FileDropController {
   drop_targets: Vec<IDropTarget>,
@@ -170,13 +174,13 @@ impl FileDropHandler {
         let hdrop = HDROP(medium.Anonymous.hGlobal);
 
         // The second parameter (0xFFFFFFFF) instructs the function to return the item count
-        let item_count = DragQueryFileW(hdrop, 0xFFFFFFFF, &mut []);
+        let item_count = DragQueryFileW(hdrop, 0xFFFFFFFF, None);
 
         for i in 0..item_count {
           // Get the length of the path string NOT including the terminating null character.
           // Previously, this was using a fixed size array of MAX_PATH length, but the
           // Windows API allows longer paths under certain circumstances.
-          let character_count = DragQueryFileW(hdrop, i, &mut []) as usize;
+          let character_count = DragQueryFileW(hdrop, i, None) as usize;
           let str_len = character_count + 1;
 
           // Fill path_buf with the null-terminated file name
@@ -212,21 +216,32 @@ impl IDropTarget_Impl for FileDropHandler {
   fn DragEnter(
     &self,
     pDataObj: &Option<IDataObject>,
-    grfKeyState: u32,
+    grfKeyState: MODIFIERKEYS_FLAGS,
     pt: &POINTL,
-    pdwEffect: *mut u32,
+    pdwEffect: *mut DROPEFFECT,
   ) -> windows::core::Result<()> {
     let mut paths = Vec::new();
     unsafe { Self::collect_paths(pDataObj, &mut paths) };
 
-    (self.listener)(&self.window, FileDropEvent::Hovered(paths));
+    (self.listener)(
+      &self.window,
+      FileDropEvent::Hovered {
+        paths,
+        position: PhysicalPosition::new(pt.x as _, pt.y as _),
+      },
+    );
 
     if let Some(pDataObj) = pDataObj {
       let c: ICoreWebView2CompositionController3 = self.controller.cast()?;
       let mut point = POINT { x: pt.x, y: pt.y };
       unsafe {
         ScreenToClient(HWND(self.window.hwnd() as _), &mut point);
-        c.DragEnter(pDataObj, grfKeyState, point, pdwEffect)
+        c.DragEnter(
+          pDataObj,
+          grfKeyState.0,
+          point,
+          &mut (*pdwEffect).0 as *mut _,
+        )
       }
     } else {
       Ok(())
@@ -235,15 +250,15 @@ impl IDropTarget_Impl for FileDropHandler {
 
   fn DragOver(
     &self,
-    grfKeyState: u32,
+    grfKeyState: MODIFIERKEYS_FLAGS,
     pt: &POINTL,
-    pdwEffect: *mut u32,
+    pdwEffect: *mut DROPEFFECT,
   ) -> windows::core::Result<()> {
     let c: ICoreWebView2CompositionController3 = self.controller.cast()?;
     let mut point = POINT { x: pt.x, y: pt.y };
     unsafe {
       ScreenToClient(HWND(self.window.hwnd() as _), &mut point);
-      c.DragOver(grfKeyState, point, pdwEffect)
+      c.DragOver(grfKeyState.0, point, &mut (*pdwEffect).0 as *mut _)
     }
   }
 
@@ -257,21 +272,32 @@ impl IDropTarget_Impl for FileDropHandler {
   fn Drop(
     &self,
     pDataObj: &Option<IDataObject>,
-    grfKeyState: u32,
+    grfKeyState: MODIFIERKEYS_FLAGS,
     pt: &POINTL,
-    pdwEffect: *mut u32,
+    pdwEffect: *mut DROPEFFECT,
   ) -> windows::core::Result<()> {
     let mut paths = Vec::new();
     unsafe { Self::collect_paths(pDataObj, &mut paths) };
 
-    (self.listener)(&self.window, FileDropEvent::Dropped(paths));
+    (self.listener)(
+      &self.window,
+      FileDropEvent::Dropped {
+        paths,
+        position: PhysicalPosition::new(pt.x as _, pt.y as _),
+      },
+    );
 
     if let Some(pDataObj) = pDataObj {
       let c: ICoreWebView2CompositionController3 = self.controller.cast()?;
       let mut point = POINT { x: pt.x, y: pt.y };
       unsafe {
         ScreenToClient(HWND(self.window.hwnd() as _), &mut point);
-        c.Drop(pDataObj, grfKeyState, point, pdwEffect)
+        c.Drop(
+          pDataObj,
+          grfKeyState.0,
+          point,
+          &mut (*pdwEffect).0 as *mut _,
+        )
       }
     } else {
       Ok(())

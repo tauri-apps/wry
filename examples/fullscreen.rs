@@ -1,11 +1,11 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
 fn main() -> wry::Result<()> {
   use wry::{
     application::{
-      event::{Event, WindowEvent},
+      event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoop},
       window::{Fullscreen, WindowBuilder},
     },
@@ -27,6 +27,7 @@ fn main() -> wry::Result<()> {
     *control_flow = ControlFlow::Wait;
 
     match event {
+      Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         ..

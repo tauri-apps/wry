@@ -1,4 +1,4 @@
-// Copyright 2020-2022 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -12,7 +12,7 @@ pub use web_context::WebContext;
 pub(crate) mod android;
 #[cfg(target_os = "android")]
 pub mod prelude {
-  pub use super::android::{binding::*, setup};
+  pub use super::android::{binding::*, dispatch, find_class, setup, Context};
 }
 #[cfg(target_os = "android")]
 pub use android::JniHandle;
@@ -42,13 +42,13 @@ use wkwebview::*;
 pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
-use crate::Result;
+use crate::{application::dpi::PhysicalPosition, Result};
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
 use windows::{Win32::Foundation::HWND, Win32::UI::WindowsAndMessaging::DestroyWindow};
 
-use std::{path::PathBuf, rc::Rc};
+use std::{borrow::Cow, path::PathBuf, rc::Rc};
 
 pub use url::Url;
 
@@ -82,6 +82,8 @@ pub struct WebViewAttributes {
   pub background_color: Option<RGBA>,
   /// Whether load the provided URL to [`WebView`].
   pub url: Option<Url>,
+  /// Headers used when loading the requested `url`.
+  pub headers: Option<http::HeaderMap>,
   /// Whether page zooming by hotkeys is enabled
   ///
   /// ## Platform-specific
@@ -115,8 +117,7 @@ pub struct WebViewAttributes {
   /// Register custom file loading protocols with pairs of scheme uri string and a handling
   /// closure.
   ///
-  /// The closure takes a url string slice, and returns a two item tuple of a vector of
-  /// bytes which is the content and a mimetype string of the content.
+  /// The closure takes a [Request] and returns a [Response].
   ///
   /// # Warning
   /// Pages loaded from custom protocol will have different Origin on different platforms. And
@@ -138,7 +139,7 @@ pub struct WebViewAttributes {
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
   pub custom_protocols: Vec<(
     String,
-    Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>>>,
+    Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>,
   )>,
   /// Set the IPC handler to receive the message from Javascript on webview to host Rust code.
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
@@ -162,6 +163,29 @@ pub struct WebViewAttributes {
   /// The closure take a `String` parameter as url and return `bool` to determine the url. True is
   /// allow to navigate and false is not.
   pub navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
+
+  /// Set a download started handler to manage incoming downloads.
+  ///
+  /// The closure takes two parameters - the first is a `String` representing the url being downloaded from and and the
+  /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
+  /// parameter can be used to set the download location by assigning a new path to it - the assigned path _must_ be
+  /// absolute. The closure returns a `bool` to allow or deny the download.
+  pub download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
+
+  /// Sets a download completion handler to manage downloads that have finished.
+  ///
+  /// The closure is fired when the download completes, whether it was successful or not.
+  /// The closure takes a `String` representing the URL of the original download request, an `Option<PathBuf>`
+  /// potentially representing the filesystem path the file was downloaded to, and a `bool` indicating if the download
+  /// succeeded. A value of `None` being passed instead of a `PathBuf` does not necessarily indicate that the download
+  /// did not succeed, and may instead indicate some other failure - always check the third parameter if you need to
+  /// know if the download succeeded.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **macOS**: The second parameter indicating the path the file was saved to is always empty, due to API
+  /// limitations.
+  pub download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
 
   /// Set a new window handler to decide if incoming url is allowed to open in a new window.
   ///
@@ -187,6 +211,22 @@ pub struct WebViewAttributes {
   /// - Android: Open `chrome://inspect/#devices` in Chrome to get the devtools window. Wry's `WebView` devtools API isn't supported on Android.
   /// - iOS: Open Safari > Develop > [Your Device Name] > [Your WebView] to get the devtools window.
   pub devtools: bool,
+  /// Whether clicking an inactive window also clicks through to the webview. Default is `false`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// This configuration only impacts macOS.
+  pub accept_first_mouse: bool,
+
+  /// Indicates whether horizontal swipe gestures trigger backward and forward page navigation.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Android / iOS:** Unsupported.
+  pub back_forward_navigation_gestures: bool,
+
+  /// Set a handler closure to process the change of the webview's document title.
+  pub document_title_changed_handler: Option<Box<dyn Fn(&Window, String)>>,
 }
 
 impl Default for WebViewAttributes {
@@ -197,24 +237,45 @@ impl Default for WebViewAttributes {
       transparent: false,
       background_color: None,
       url: None,
+      headers: None,
       html: None,
       initialization_scripts: vec![],
       custom_protocols: vec![],
       ipc_handler: None,
       file_drop_handler: None,
       navigation_handler: None,
+      download_started_handler: None,
+      download_completed_handler: None,
       new_window_req_handler: None,
       clipboard: false,
+      #[cfg(debug_assertions)]
+      devtools: true,
+      #[cfg(not(debug_assertions))]
       devtools: false,
       zoom_hotkeys_enabled: false,
+      accept_first_mouse: false,
+      back_forward_navigation_gestures: false,
+      document_title_changed_handler: None,
     }
   }
 }
 
 #[cfg(windows)]
-#[derive(Default)]
+#[derive(Clone)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
-  disable_additionl_browser_args: bool,
+  additional_browser_args: Option<String>,
+  browser_accelerator_keys: bool,
+  theme: Option<Theme>,
+}
+#[cfg(windows)]
+impl Default for PlatformSpecificWebViewAttributes {
+  fn default() -> Self {
+    Self {
+      additional_browser_args: None,
+      browser_accelerator_keys: true, // This is WebView2's default behavior
+      theme: None,
+    }
+  }
 }
 #[cfg(any(
   target_os = "linux",
@@ -223,11 +284,25 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   target_os = "netbsd",
   target_os = "openbsd",
   target_os = "macos",
-  target_os = "android",
   target_os = "ios",
 ))]
 #[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes;
+
+#[cfg(target_os = "android")]
+#[derive(Default)]
+pub(crate) struct PlatformSpecificWebViewAttributes {
+  on_webview_created: Option<
+    Box<
+      dyn Fn(
+          prelude::Context,
+        ) -> std::result::Result<(), tao::platform::android::ndk_glue::jni::errors::Error>
+        + Send,
+    >,
+  >,
+  with_asset_loader: bool,
+  asset_loader_domain: Option<String>,
+}
 
 /// Type alias for a color in the RGBA format.
 ///
@@ -259,6 +334,16 @@ impl<'a> WebViewBuilder<'a> {
       window,
       platform_specific,
     })
+  }
+
+  /// Indicates whether horizontal swipe gestures trigger backward and forward page navigation.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Android / iOS:** Unsupported.
+  pub fn with_back_forward_navigation_gestures(mut self, gesture: bool) -> Self {
+    self.webview.back_forward_navigation_gestures = gesture;
+    self
   }
 
   /// Sets whether the WebView should be transparent.
@@ -301,15 +386,16 @@ impl<'a> WebViewBuilder<'a> {
   /// - **Android:** The Android WebView does not provide an API for initialization scripts,
   /// so we prepend them to each HTML head. They are only implemented on custom protocol URLs.
   pub fn with_initialization_script(mut self, js: &str) -> Self {
-    self.webview.initialization_scripts.push(js.to_string());
+    if !js.is_empty() {
+      self.webview.initialization_scripts.push(js.to_string());
+    }
     self
   }
 
   /// Register custom file loading protocols with pairs of scheme uri string and a handling
   /// closure.
   ///
-  /// The closure takes a url string slice, and returns a two item tuple of a
-  /// vector of bytes which is the content and a mimetype string of the content.
+  /// The closure takes a [Request] and returns a [Response]
   ///
   /// # Warning
   /// Pages loaded from custom protocol will have different Origin on different platforms. And
@@ -321,18 +407,18 @@ impl<'a> WebViewBuilder<'a> {
   /// - Linux: Though it's same as macOS, there's a [bug] that Origin header in the request will be
   /// empty. So the only way to pass the server is setting `Access-Control-Allow-Origin: *`.
   /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.examples` in `custom_protocol` example)
-  /// - Android: Custom protocol on Android is fixed to `https://tauri.wry/` due to its design and
-  /// our approach to use it. On Android, We only handle the scheme name and ignore the closure. So
-  /// when you load the url like `wry://assets/index.html`, it will become
-  /// `https://tauri.wry/assets/index.html`. Android has `assets` and `resource` path finder to
-  /// locate your files in those directories. For more information, see [Loading in-app content](https://developer.android.com/guide/webapps/load-local-content) page.
+  /// - Android: For loading content from the `assets` folder (which is copied to the Andorid apk) please
+  /// use the function [`with_asset_loader`] from [`WebViewBuilderExtAndroid`] instead.
+  /// This function on Android can only be used to serve assets you can embed in the binary or are
+  /// elsewhere in Android (provided the app has appropriate access), but not from the `assets`
+  /// folder which lives within the apk. For the cases where this can be used, it works the same as in macOS and Linux.
   /// - iOS: Same as macOS. To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(&Request<Vec<u8>>) -> Result<Response<Vec<u8>>> + 'static,
+    F: Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>> + 'static,
   {
     self
       .webview
@@ -367,15 +453,24 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Load the provided URL with given headers when the builder calling [`WebViewBuilder::build`] to create the
+  /// [`WebView`]. The provided URL must be valid.
+  pub fn with_url_and_headers(mut self, url: &str, headers: http::HeaderMap) -> Result<Self> {
+    self.webview.url = Some(url.parse()?);
+    self.webview.headers = Some(headers);
+    Ok(self)
+  }
+
   /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the
   /// [`WebView`]. The provided URL must be valid.
   pub fn with_url(mut self, url: &str) -> Result<Self> {
     self.webview.url = Some(Url::parse(url)?);
+    self.webview.headers = None;
     Ok(self)
   }
 
   /// Load the provided HTML string when the builder calling [`WebViewBuilder::build`] to create the
-  /// [`WebView`]. This will be ignored if `url` is already provided.
+  /// [`WebView`]. This will be ignored if `url` is provided.
   ///
   /// # Warning
   /// The Page loaded from html string will have different Origin on different platforms. And
@@ -388,6 +483,10 @@ impl<'a> WebViewBuilder<'a> {
   /// - Windows: `null`
   /// - Android: Not supported
   /// - iOS: Not supported
+  ///
+  /// ## PLatform-specific:
+  ///
+  /// - **Windows:** the string can not be larger than 2 MB (2 * 1024 * 1024 bytes) in total size
   pub fn with_html(mut self, html: impl Into<String>) -> Result<Self> {
     self.webview.html = Some(html.into());
     Ok(self)
@@ -405,7 +504,7 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Enable web inspector which is usually called dev tool.
+  /// Enable or disable web inspector which is usually called dev tool.
   ///
   /// Note this only enables dev tool to the webview. To open it, you can call
   /// [`WebView::open_devtools`], or right click the page and open it from the context menu.
@@ -440,6 +539,41 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Set a download started handler to manage incoming downloads.
+  ///
+  /// The closure takes two parameters - the first is a `String` representing the url being downloaded from and and the
+  /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
+  /// parameter can be used to set the download location by assigning a new path to it - the assigned path _must_ be
+  /// absolute. The closure returns a `bool` to allow or deny the download.
+  pub fn with_download_started_handler(
+    mut self,
+    started_handler: impl FnMut(String, &mut PathBuf) -> bool + 'static,
+  ) -> Self {
+    self.webview.download_started_handler = Some(Box::new(started_handler));
+    self
+  }
+
+  /// Sets a download completion handler to manage downloads that have finished.
+  ///
+  /// The closure is fired when the download completes, whether it was successful or not.
+  /// The closure takes a `String` representing the URL of the original download request, an `Option<PathBuf>`
+  /// potentially representing the filesystem path the file was downloaded to, and a `bool` indicating if the download
+  /// succeeded. A value of `None` being passed instead of a `PathBuf` does not necessarily indicate that the download
+  /// did not succeed, and may instead indicate some other failure - always check the third parameter if you need to
+  /// know if the download succeeded.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **macOS**: The second parameter indicating the path the file was saved to is always empty, due to API
+  /// limitations.
+  pub fn with_download_completed_handler(
+    mut self,
+    download_completed_handler: impl Fn(String, Option<PathBuf>, bool) + 'static,
+  ) -> Self {
+    self.webview.download_completed_handler = Some(Rc::new(download_completed_handler));
+    self
+  }
+
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
   ///
   /// macOS doesn't provide such method and is always enabled by default. But you still need to add menu
@@ -459,6 +593,25 @@ impl<'a> WebViewBuilder<'a> {
     callback: impl Fn(String) -> bool + 'static,
   ) -> Self {
     self.webview.new_window_req_handler = Some(Box::new(callback));
+    self
+  }
+
+  /// Sets whether clicking an inactive window also clicks through to the webview. Default is `false`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// This configuration only impacts macOS.
+  pub fn with_accept_first_mouse(mut self, accept_first_mouse: bool) -> Self {
+    self.webview.accept_first_mouse = accept_first_mouse;
+    self
+  }
+
+  /// Set a handler closure to process the change of the webview's document title.
+  pub fn with_document_title_changed_handler(
+    mut self,
+    callback: impl Fn(&Window, String) + 'static,
+  ) -> Self {
+    self.webview.document_title_changed_handler = Some(Box::new(callback));
     self
   }
 
@@ -484,23 +637,95 @@ impl<'a> WebViewBuilder<'a> {
 
 #[cfg(windows)]
 pub trait WebViewBuilderExtWindows {
-  /// Disables ther internal use of the additional browser arguments
-  /// passed to Webview2, so the env var like below isn't overwritten
-  /// ```
-  /// std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--disable-features=msSmartScreenProtection");
-  /// ```
+  /// Pass additional args to Webview2 upon creating the webview.
   ///
   /// ## Warning
   ///
   /// By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
-  /// so if you use this method, you also need to add disable these components by yourself if you want.
-  fn disable_additionl_browser_args(self) -> Self;
+  /// so if you use this method, you also need to disable these components by yourself if you want.
+  fn with_additional_browser_args<S: Into<String>>(self, additional_args: S) -> Self;
+
+  /// Determines whether browser-specific accelerator keys are enabled. When this setting is set to
+  /// `false`, it disables all accelerator keys that access features specific to a web browser.
+  /// The default value is `true`. See the following link to know more details.
+  ///
+  /// https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2settings#arebrowseracceleratorkeysenabled
+  fn with_browser_accelerator_keys(self, enabled: bool) -> Self;
+
+  /// Specifies the theme of webview2. This affects things like `prefers-color-scheme`.
+  ///
+  /// Defaults to [`Theme::Auto`] which will follow the OS defaults.
+  fn with_theme(self, theme: Theme) -> Self;
 }
 
 #[cfg(windows)]
 impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
-  fn disable_additionl_browser_args(mut self) -> Self {
-    self.platform_specific.disable_additionl_browser_args = true;
+  fn with_additional_browser_args<S: Into<String>>(mut self, additional_args: S) -> Self {
+    self.platform_specific.additional_browser_args = Some(additional_args.into());
+    self
+  }
+
+  fn with_browser_accelerator_keys(mut self, enabled: bool) -> Self {
+    self.platform_specific.browser_accelerator_keys = enabled;
+    self
+  }
+
+  fn with_theme(mut self, theme: Theme) -> Self {
+    self.platform_specific.theme = Some(theme);
+    self
+  }
+}
+
+#[cfg(target_os = "android")]
+pub trait WebViewBuilderExtAndroid {
+  fn on_webview_created<
+    F: Fn(
+        prelude::Context<'_>,
+      ) -> std::result::Result<(), tao::platform::android::ndk_glue::jni::errors::Error>
+      + Send
+      + 'static,
+  >(
+    self,
+    f: F,
+  ) -> Self;
+
+  /// Use [WebviewAssetLoader](https://developer.android.com/reference/kotlin/androidx/webkit/WebViewAssetLoader)
+  /// to load assets from Android's `asset` folder when using `with_url` as `<protocol>://assets/` (e.g.:
+  /// `wry://assets/index.html`). Note that this registers a custom protocol with the provided
+  /// String, similar to [`with_custom_protocol`], but also sets the WebViewAssetLoader with the
+  /// necessary domain (which is fixed as `<protocol>.assets`). This cannot be used in conjunction
+  /// to `with_custom_protocol` for Android, as it changes the way in which requests are handled.
+  #[cfg(feature = "protocol")]
+  fn with_asset_loader(self, protocol: String) -> Self;
+}
+
+#[cfg(target_os = "android")]
+impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
+  fn on_webview_created<
+    F: Fn(
+        prelude::Context<'_>,
+      ) -> std::result::Result<(), tao::platform::android::ndk_glue::jni::errors::Error>
+      + Send
+      + 'static,
+  >(
+    mut self,
+    f: F,
+  ) -> Self {
+    self.platform_specific.on_webview_created = Some(Box::new(f));
+    self
+  }
+
+  #[cfg(feature = "protocol")]
+  fn with_asset_loader(mut self, protocol: String) -> Self {
+    // register custom protocol with empty Response return,
+    // this is necessary due to the need of fixing a domain
+    // in WebViewAssetLoader.
+    self.webview.custom_protocols.push((
+      protocol.clone(),
+      Box::new(|_| Ok(Response::builder().body(Vec::new().into())?)),
+    ));
+    self.platform_specific.with_asset_loader = true;
+    self.platform_specific.asset_loader_domain = Some(format!("{}.assets", protocol));
     self
   }
 }
@@ -563,6 +788,11 @@ impl WebView {
   /// actions.
   pub fn window(&self) -> &Window {
     &self.window
+  }
+
+  /// Get the current url of the webview
+  pub fn url(&self) -> Url {
+    self.webview.url()
   }
 
   /// Evaluate and run javascript code. Must be called on the same thread who created the
@@ -643,6 +873,14 @@ impl WebView {
   pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
     self.webview.set_background_color(background_color)
   }
+
+  pub fn load_url(&self, url: &str) {
+    self.webview.load_url(url)
+  }
+
+  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
+    self.webview.load_url_with_headers(url, headers)
+  }
 }
 
 /// An event enumeration sent to [`FileDropHandler`].
@@ -650,9 +888,17 @@ impl WebView {
 #[derive(Debug, Serialize, Clone)]
 pub enum FileDropEvent {
   /// The file(s) have been dragged onto the window, but have not been dropped yet.
-  Hovered(Vec<PathBuf>),
+  Hovered {
+    paths: Vec<PathBuf>,
+    /// The position of the mouse cursor.
+    position: PhysicalPosition<f64>,
+  },
   /// The file(s) have been dropped onto the window.
-  Dropped(Vec<PathBuf>),
+  Dropped {
+    paths: Vec<PathBuf>,
+    /// The position of the mouse cursor.
+    position: PhysicalPosition<f64>,
+  },
   /// The file drop was aborted.
   Cancelled,
 }
@@ -667,12 +913,19 @@ pub fn webview_version() -> Result<String> {
 pub trait WebviewExtWindows {
   /// Returns WebView2 Controller
   fn controller(&self) -> ICoreWebView2Controller;
+
+  // Changes the webview2 theme.
+  fn set_theme(&self, theme: Theme);
 }
 
 #[cfg(target_os = "windows")]
 impl WebviewExtWindows for WebView {
   fn controller(&self) -> ICoreWebView2Controller {
     self.webview.controller.clone()
+  }
+
+  fn set_theme(&self, theme: Theme) {
+    self.webview.set_theme(theme)
   }
 }
 
@@ -704,15 +957,35 @@ pub trait WebviewExtMacOS {
 #[cfg(target_os = "macos")]
 impl WebviewExtMacOS for WebView {
   fn webview(&self) -> cocoa::base::id {
-    self.webview.webview.clone()
+    self.webview.webview
   }
 
   fn manager(&self) -> cocoa::base::id {
-    self.webview.manager.clone()
+    self.webview.manager
   }
 
   fn ns_window(&self) -> cocoa::base::id {
-    self.webview.ns_window.clone()
+    self.webview.ns_window
+  }
+}
+
+/// Additional methods on `WebView` that are specific to iOS.
+#[cfg(target_os = "ios")]
+pub trait WebviewExtIOS {
+  /// Returns WKWebView handle
+  fn webview(&self) -> cocoa::base::id;
+  /// Returns WKWebView manager [(userContentController)](https://developer.apple.com/documentation/webkit/wkscriptmessagehandler/1396222-usercontentcontroller) handle
+  fn manager(&self) -> cocoa::base::id;
+}
+
+#[cfg(target_os = "ios")]
+impl WebviewExtIOS for WebView {
+  fn webview(&self) -> cocoa::base::id {
+    self.webview.webview
+  }
+
+  fn manager(&self) -> cocoa::base::id {
+    self.webview.manager
   }
 }
 
@@ -727,6 +1000,13 @@ impl WebviewExtAndroid for WebView {
   fn handle(&self) -> JniHandle {
     JniHandle
   }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Theme {
+  Dark,
+  Light,
+  Auto,
 }
 
 #[cfg(test)]
