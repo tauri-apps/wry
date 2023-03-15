@@ -68,7 +68,6 @@ unsafe fn create_js_mouse_event(view: id, event: id, down: bool, back_button: bo
   let mods_flags = event.modifierFlags();
   let window_point = event.locationInWindow();
   let view_point = view.convertPoint_fromView_(window_point, nil);
-  let view_rect = NSView::frame(view);
   let x = view_point.x as u32;
   let y = view_point.y as u32;
 
