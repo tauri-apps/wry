@@ -159,6 +159,6 @@ unsafe fn create_js_mouse_event(view: id, event: id, down: bool, back_button: bo
   )
 }
 
-fn has_button(buttons: u32, button: u32) -> bool {
+fn has_button(buttons: u64, button: u64) -> bool {
   (buttons & !button) != buttons
 }
