@@ -25,11 +25,11 @@ extern "C" fn other_mouse_down(this: &Object, _sel: Sel, event: id) {
       if *webview != nil {
         let button_number = event.buttonNumber();
         match button_number {
-          4 => {
+          3 => {
             let js = create_js_mouse_event(*webview, event, true, true);
             let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
           }
-          5 => {
+          4 => {
             let js = create_js_mouse_event(*webview, event, true, false);
             let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
           }
@@ -47,11 +47,11 @@ extern "C" fn other_mouse_up(this: &Object, _sel: Sel, event: id) {
       if *webview != nil {
         let button_number = event.buttonNumber();
         match button_number {
-          4 => {
+          3 => {
             let js = create_js_mouse_event(*webview, event, false, true);
             let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
           }
-          5 => {
+          4 => {
             let js = create_js_mouse_event(*webview, event, false, false);
             let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
           }
@@ -69,8 +69,8 @@ unsafe fn create_js_mouse_event(view: id, event: id, down: bool, back_button: bo
   let window_point = event.locationInWindow();
   let view_point = view.convertPoint_fromView_(window_point, nil);
   let view_rect = NSView::frame(view);
-  let x = view_point.x as f64;
-  let y = view_rect.size.height as f64 - view_point.y as f64;
+  let x = view_point.x as u32;
+  let y = view_point.y as u32;
 
   format!(
     r#"(() => {{
