@@ -18,7 +18,7 @@ pub unsafe fn setup(decl: &mut ClassDecl) {
   );
 }
 
-extern "C" fn other_mouse_down(this: &Object, _sel: Sel, event: id) {
+unsafe extern "C" fn other_mouse_down(this: &Object, _sel: Sel, event: id) {
   if event.eventType() == NSEventType::NSOtherMouseDown {
     let webview = this.get_ivar::<id>("webview");
     if *webview != nil {
@@ -38,7 +38,7 @@ extern "C" fn other_mouse_down(this: &Object, _sel: Sel, event: id) {
     }
   }
 }
-extern "C" fn other_mouse_up(this: &Object, _sel: Sel, event: id) {
+unsafe extern "C" fn other_mouse_up(this: &Object, _sel: Sel, event: id) {
   if event.eventType() == NSEventType::NSOtherMouseUp {
     let webview = this.get_ivar::<id>("webview");
     if *webview != nil {
