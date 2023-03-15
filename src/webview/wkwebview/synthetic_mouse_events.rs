@@ -25,11 +25,11 @@ fn other_mouse_down(this: &Object, _sel: Sel, event: id) {
     match button_number {
       4 => {
         let js = create_js_mouse_event(event, true, true);
-        let _: id = msg_send![this, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()];
+        let _: id = msg_send![this, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
       }
       5 => {
         let js = create_js_mouse_event(event, true, false);
-        let _: id = msg_send![this, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()];
+        let _: id = msg_send![this, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
       }
 
       _ => {}
@@ -42,11 +42,11 @@ fn other_mouse_up(this: &Object, _sel: Sel, event: id) {
     match button_number {
       4 => {
         let js = create_js_mouse_event(event, false, true);
-        let _: id = msg_send![this, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()];
+        let _: id = msg_send![this, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
       }
       5 => {
         let js = create_js_mouse_event(event, false, false);
-        let _: id = msg_send![this, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()];
+        let _: id = msg_send![this, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
       }
       _ => {}
     }
