@@ -28,16 +28,21 @@ extern "C" fn other_mouse_down(this: &Object, _sel: Sel, event: id) {
           3 => {
             let js = create_js_mouse_event(*webview, event, true, true);
             let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+            return;
           }
           4 => {
             let js = create_js_mouse_event(*webview, event, true, false);
             let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+            return;
           }
 
           _ => {}
         }
       }
     }
+
+    let next_responder: id = msg_send![this, nextResponder];
+    let _: () = msg_send![next_responder, otherMouseDown: event];
   }
 }
 extern "C" fn other_mouse_up(this: &Object, _sel: Sel, event: id) {
@@ -50,15 +55,20 @@ extern "C" fn other_mouse_up(this: &Object, _sel: Sel, event: id) {
           3 => {
             let js = create_js_mouse_event(*webview, event, false, true);
             let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+            return;
           }
           4 => {
             let js = create_js_mouse_event(*webview, event, false, false);
             let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+            return;
           }
           _ => {}
         }
       }
     }
+
+    let next_responder: id = msg_send![this, nextResponder];
+    let _: () = msg_send![next_responder, otherMouseUp: event];
   }
 }
 
