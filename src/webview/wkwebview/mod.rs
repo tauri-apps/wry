@@ -5,6 +5,8 @@
 mod download;
 #[cfg(target_os = "macos")]
 mod file_drop;
+#[cfg(target_os = "macos")]
+mod synthetic_mouse_events;
 mod web_context;
 
 use url::Url;
@@ -275,6 +277,7 @@ impl InnerWebView {
           #[cfg(target_os = "macos")]
           {
             add_file_drop_methods(&mut decl);
+            synthetic_mouse_events::setup(&mut decl);
             decl.add_ivar::<bool>(ACCEPT_FIRST_MOUSE);
             decl.add_method(
               sel!(acceptsFirstMouse:),
