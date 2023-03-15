@@ -85,7 +85,7 @@ unsafe fn create_js_mouse_event(view: id, event: id, down: bool, back_button: bo
   let view_point = view.convertPoint_fromView_(window_point, nil);
   let x = view_point.x as u32;
   let y = view_point.y as u32;
-  let pressed_buttons = event.pressedMouseButtons();
+  let pressed_buttons = NSEvent::pressedMouseButtons(event);
   // js equivalent https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/buttons
   let mut buttons = 0;
   // left button
