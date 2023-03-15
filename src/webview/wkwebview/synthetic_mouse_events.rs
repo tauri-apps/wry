@@ -1,5 +1,5 @@
 use super::NSString;
-use cocoa::appkit::{NSEvent, NSEventType, NSView};
+use cocoa::appkit::{NSEvent, NSEventModifierFlags, NSEventType, NSView};
 use cocoa::base::id;
 use cocoa::foundation::NSPoint;
 use objc::{
@@ -104,10 +104,10 @@ unsafe fn create_js_mouse_event(event: id, down: bool, back_button: bool) -> Str
     x = x,
     y = y,
     detail = event.clickCount()
-    ctrl_key = mods_flags.contains(ModifierType::CONTROL_MASK),
-    alt_key = mods_flags.contains(ModifierType::MOD1_MASK),
-    shift_key = mods_flags.contains(ModifierType::SHIFT_MASK),
-    meta_key = mods_flags.contains(ModifierType::META_MASK),
+    ctrl_key = mods_flags.contains(NSEventModifierFlags::NSControlKeyMask),
+    alt_key = mods_flags.contains(NSEventModifierFlags::NSAlternateKeyMask),
+    shift_key = mods_flags.contains(NSEventModifierFlags::NSShiftKeyMask),
+    meta_key = mods_flags.contains(NSEventModifierFlags::NSCommandKeyMask),
     button = button,
     buttons = buttons,
   )
