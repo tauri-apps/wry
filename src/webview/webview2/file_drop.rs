@@ -37,7 +37,7 @@ use windows::{
       SystemServices::MODIFIERKEYS_FLAGS,
     },
     UI::{
-      Shell::{DragQueryFileW, HDROP},
+      Shell::{DragFinish, DragQueryFileW, HDROP},
       WindowsAndMessaging::EnumChildWindows,
     },
   },
@@ -223,6 +223,9 @@ impl IDropTarget_Impl for FileDropHandler {
     let mut paths = Vec::new();
     unsafe { Self::collect_paths(pDataObj, &mut paths) };
 
+    let mut pt = POINT { x: pt.x, y: pt.y };
+    unsafe { ScreenToClient(HWND(self.window.hwnd() as _), &mut pt) };
+
     (self.listener)(
       &self.window,
       FileDropEvent::Hovered {
@@ -233,16 +236,7 @@ impl IDropTarget_Impl for FileDropHandler {
 
     if let Some(pDataObj) = pDataObj {
       let c: ICoreWebView2CompositionController3 = self.controller.cast()?;
-      let mut point = POINT { x: pt.x, y: pt.y };
-      unsafe {
-        ScreenToClient(HWND(self.window.hwnd() as _), &mut point);
-        c.DragEnter(
-          pDataObj,
-          grfKeyState.0,
-          point,
-          &mut (*pdwEffect).0 as *mut _,
-        )
-      }
+      unsafe { c.DragEnter(pDataObj, grfKeyState.0, pt, &mut (*pdwEffect).0 as *mut _) }
     } else {
       Ok(())
     }
@@ -277,7 +271,13 @@ impl IDropTarget_Impl for FileDropHandler {
     pdwEffect: *mut DROPEFFECT,
   ) -> windows::core::Result<()> {
     let mut paths = Vec::new();
-    unsafe { Self::collect_paths(pDataObj, &mut paths) };
+    let hdrop = unsafe { Self::collect_paths(pDataObj, &mut paths) };
+    if let Some(hdrop) = hdrop {
+      unsafe { DragFinish(hdrop) };
+    }
+
+    let mut pt = POINT { x: pt.x, y: pt.y };
+    unsafe { ScreenToClient(HWND(self.window.hwnd() as _), &mut pt) };
 
     (self.listener)(
       &self.window,
@@ -289,16 +289,7 @@ impl IDropTarget_Impl for FileDropHandler {
 
     if let Some(pDataObj) = pDataObj {
       let c: ICoreWebView2CompositionController3 = self.controller.cast()?;
-      let mut point = POINT { x: pt.x, y: pt.y };
-      unsafe {
-        ScreenToClient(HWND(self.window.hwnd() as _), &mut point);
-        c.Drop(
-          pDataObj,
-          grfKeyState.0,
-          point,
-          &mut (*pdwEffect).0 as *mut _,
-        )
-      }
+      unsafe { c.Drop(pDataObj, grfKeyState.0, pt, &mut (*pdwEffect).0 as *mut _) }
     } else {
       Ok(())
     }
