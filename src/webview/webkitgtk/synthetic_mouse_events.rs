@@ -2,16 +2,12 @@ use gdk::{EventButton, ModifierType};
 use gtk::prelude::*;
 use webkit2gtk::{WebView, WebViewExt};
 
-/// Mouse Back button
-const MOUSE_BUTTON4: u32 = 8;
-/// Mouse Forward button
-const MOUSE_BUTTON5: u32 = 9;
-
 pub fn setup(webview: &WebView) {
   webview.connect_button_press_event(move |webview, event| {
     let mut inhibit = false;
     match event.button() {
-      MOUSE_BUTTON4 => {
+      // back button
+      8 => {
         inhibit = true;
         webview.run_javascript(
           &create_js_mouse_event(event, true),
@@ -19,7 +15,8 @@ pub fn setup(webview: &WebView) {
           |_| {},
         );
       }
-      MOUSE_BUTTON5 => {
+      // forward button
+      9 => {
         inhibit = true;
         webview.run_javascript(
           &create_js_mouse_event(event, true),
@@ -36,7 +33,8 @@ pub fn setup(webview: &WebView) {
   webview.connect_button_release_event(move |webview, event| {
     let mut inhibit = false;
     match event.button() {
-      MOUSE_BUTTON4 => {
+      // back button
+      8 => {
         inhibit = true;
         webview.run_javascript(
           &create_js_mouse_event(event, false),
@@ -44,7 +42,8 @@ pub fn setup(webview: &WebView) {
           |_| {},
         );
       }
-      MOUSE_BUTTON5 => {
+      // forward button
+      9 => {
         inhibit = true;
         webview.run_javascript(
           &create_js_mouse_event(event, false),
@@ -60,15 +59,31 @@ pub fn setup(webview: &WebView) {
 
 fn create_js_mouse_event(event: &EventButton, pressed: bool) -> String {
   let event_name = if pressed { "mousedown" } else { "mouseup" };
-  // js events equivalent for mouse back/forward buttons
-  let (button, buttons) = if event.button() == MOUSE_BUTTON4 {
-    (3, 8)
-  } else {
-    (4, 16)
-  };
+  // js equivalent https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/button
+  let button = if event.button() == 8 { 3 } else { 4 };
   let (x, y) = event.position();
   let (x, y) = (x as i32, y as i32);
   let modifers_state = event.state();
+  let mut buttons = 0;
+  if modifers_state.contains(ModifierType::BUTTON1_MASK) {
+    buttons += 1;
+  }
+  // right button
+  if modifers_state.contains(ModifierType::BUTTON2_MASK) {
+    buttons += 2;
+  }
+  // middle button
+  if modifers_state.contains(ModifierType::BUTTON3_MASK) {
+    buttons += 4;
+  }
+  // back button
+  if modifers_state.contains(ModifierType::BUTTON4_MASK) {
+    buttons += 9;
+  }
+  // forward button
+  if modifers_state.contains(ModifierType::BUTTON5_MASK) {
+    buttons += 16;
+  }
   format!(
     r#"(() => {{
         const el = document.elementFromPoint({x},{y});
@@ -113,7 +128,7 @@ fn create_js_mouse_event(event: &EventButton, pressed: bool) -> String {
     ctrl_key = modifers_state.contains(ModifierType::CONTROL_MASK),
     alt_key = modifers_state.contains(ModifierType::MOD1_MASK),
     shift_key = modifers_state.contains(ModifierType::SHIFT_MASK),
-    meta_key = modifers_state.contains(ModifierType::META_MASK),
+    meta_key = modifers_state.contains(ModifierType::SUPER_MASK),
     button = button,
     buttons = buttons,
   )

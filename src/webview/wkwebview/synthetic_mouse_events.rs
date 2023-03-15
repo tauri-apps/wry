@@ -25,11 +25,13 @@ extern "C" fn other_mouse_down(this: &Object, _sel: Sel, event: id) {
       if *webview != nil {
         let button_number = event.buttonNumber();
         match button_number {
+          // back button
           3 => {
             let js = create_js_mouse_event(*webview, event, true, true);
             let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
             return;
           }
+          // forward button
           4 => {
             let js = create_js_mouse_event(*webview, event, true, false);
             let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
@@ -52,11 +54,13 @@ extern "C" fn other_mouse_up(this: &Object, _sel: Sel, event: id) {
       if *webview != nil {
         let button_number = event.buttonNumber();
         match button_number {
+          // back button
           3 => {
             let js = create_js_mouse_event(*webview, event, false, true);
             let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
             return;
           }
+          // forward button
           4 => {
             let js = create_js_mouse_event(*webview, event, false, false);
             let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
@@ -74,12 +78,36 @@ extern "C" fn other_mouse_up(this: &Object, _sel: Sel, event: id) {
 
 unsafe fn create_js_mouse_event(view: id, event: id, down: bool, back_button: bool) -> String {
   let event_name = if down { "mousedown" } else { "mouseup" };
-  let (button, buttons) = if back_button { (3, 8) } else { (4, 16) };
+  // js equivalent https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/button
+  let button = if back_button { 3 } else { 4 };
   let mods_flags = event.modifierFlags();
   let window_point = event.locationInWindow();
   let view_point = view.convertPoint_fromView_(window_point, nil);
   let x = view_point.x as u32;
   let y = view_point.y as u32;
+  let pressed_buttons = even.pressedMouseButtons();
+  // js equivalent https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/buttons
+  let mut buttons = 0;
+  // left button
+  if has_button(pressed_buttons, 0) {
+    buttons += 1;
+  }
+  // right button
+  if has_button(pressed_buttons, 1) {
+    buttons += 2;
+  }
+  // middle button
+  if has_button(pressed_buttons, 2) {
+    buttons += 4;
+  }
+  // back button
+  if has_button(pressed_buttons, 3) {
+    buttons += 9;
+  }
+  // forward button
+  if has_button(pressed_buttons, 4) {
+    buttons += 16;
+  }
 
   format!(
     r#"(() => {{
@@ -129,4 +157,8 @@ unsafe fn create_js_mouse_event(view: id, event: id, down: bool, back_button: bo
     button = button,
     buttons = buttons,
   )
+}
+
+fn has_button(buttons: u32, button: u32) {
+  (buttons & !button) != buttons
 }
