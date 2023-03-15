@@ -1,5 +1,12 @@
-use cocoa::appkit::{NSEvent, NSEventType};
+use super::NSString;
+use cocoa::appkit::{NSEvent, NSEventType, NSView};
+use cocoa::base::id;
 use cocoa::foundation::NSPoint;
+use objc::{
+  declare::ClassDecl,
+  runtime::{Object, Sel},
+};
+use std::ptr::null;
 
 pub unsafe fn setup(decl: &mut ClassDecl) {
   decl.add_method(
