@@ -1,6 +1,8 @@
 use super::NSString;
-use cocoa::appkit::{NSEvent, NSEventModifierFlags, NSEventType, NSView};
-use cocoa::base::{id, nil};
+use cocoa::{
+  appkit::{NSEvent, NSEventModifierFlags, NSEventType, NSView},
+  base::{id, nil},
+};
 use objc::{
   declare::ClassDecl,
   runtime::{Object, Sel},
@@ -85,29 +87,8 @@ unsafe fn create_js_mouse_event(view: id, event: id, down: bool, back_button: bo
   let view_point = view.convertPoint_fromView_(window_point, nil);
   let x = view_point.x as u32;
   let y = view_point.y as u32;
-  let pressed_buttons = NSEvent::pressedMouseButtons(event);
   // js equivalent https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/buttons
-  let mut buttons = 0;
-  // left button
-  if has_button(pressed_buttons, 0) {
-    buttons += 1;
-  }
-  // right button
-  if has_button(pressed_buttons, 1) {
-    buttons += 2;
-  }
-  // middle button
-  if has_button(pressed_buttons, 2) {
-    buttons += 4;
-  }
-  // back button
-  if has_button(pressed_buttons, 3) {
-    buttons += 9;
-  }
-  // forward button
-  if has_button(pressed_buttons, 4) {
-    buttons += 16;
-  }
+  let buttons = NSEvent::pressedMouseButtons(event);
 
   format!(
     r#"(() => {{
@@ -157,8 +138,4 @@ unsafe fn create_js_mouse_event(view: id, event: id, down: bool, back_button: bo
     button = button,
     buttons = buttons,
   )
-}
-
-fn has_button(buttons: u64, button: u64) -> bool {
-  (buttons & !button) != buttons
 }
