@@ -345,6 +345,10 @@ impl InnerWebView {
         // set all autoresizingmasks
         let () = msg_send![webview, setAutoresizingMask: 31];
         let _: () = msg_send![webview, initWithFrame:frame configuration:config];
+
+        // disable scroll bounce by default
+        let scroll: id = msg_send![webview, scrollView];
+        let _: () = msg_send![scroll, setBounces: NO];
       }
 
       // allowsBackForwardNavigation
