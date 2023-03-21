@@ -4,9 +4,8 @@
 
 use gdk::{Cursor, EventMask, WindowEdge};
 use gio::Cancellable;
-use glib::{signal::Inhibit, translate::from_glib_full};
+use glib::signal::Inhibit;
 use gtk::prelude::*;
-use javascriptcore_rs_sys::jsc_value_to_json;
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
@@ -36,6 +35,8 @@ use crate::{
 
 mod file_drop;
 mod web_context;
+
+use javascriptcore::ValueExt;
 
 pub(crate) struct InnerWebView {
   pub webview: Rc<WebView>,
@@ -421,8 +422,8 @@ impl InnerWebView {
 
             if let Ok(js_result) = result {
               if let Some(js_value) = js_result.js_value() {
-                unsafe {
-                  result_str = from_glib_full(jsc_value_to_json(js_value.as_ptr(), 0));
+                if let Some(json_str) = js_value.to_json(0) {
+                  result_str = json_str.to_string();
                 }
               }
             }
