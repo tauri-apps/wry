@@ -113,7 +113,7 @@ impl InnerWebView {
           let mut lang = [0; MAX_LOCALE_NAME as usize];
           Globalization::LCIDToLocaleName(
             lcid as u32,
-            &mut lang,
+            Some(&mut lang),
             Globalization::LOCALE_ALLOW_NEUTRAL_NAMES,
           );
 
@@ -249,13 +249,8 @@ impl InnerWebView {
         .SetIsZoomControlEnabled(attributes.zoom_hotkeys_enabled)
         .map_err(webview2_com::Error::WindowsError)?;
       settings
-        .SetAreDevToolsEnabled(false)
+        .SetAreDevToolsEnabled(attributes.devtools)
         .map_err(webview2_com::Error::WindowsError)?;
-      if attributes.devtools {
-        settings
-          .SetAreDevToolsEnabled(true)
-          .map_err(webview2_com::Error::WindowsError)?;
-      }
       if !pl_attrs.browser_accelerator_keys {
         if let Ok(settings3) = settings.cast::<ICoreWebView2Settings3>() {
           settings3
@@ -265,7 +260,14 @@ impl InnerWebView {
       }
 
       let settings5 = settings.cast::<ICoreWebView2Settings5>()?;
-      let _ = settings5.SetIsPinchZoomEnabled(attributes.zoom_hotkeys_enabled);
+      settings5
+        .SetIsPinchZoomEnabled(attributes.zoom_hotkeys_enabled)
+        .map_err(webview2_com::Error::WindowsError)?;
+
+      let settings6 = settings.cast::<ICoreWebView2Settings6>()?;
+      settings6
+        .SetIsSwipeNavigationEnabled(attributes.back_forward_navigation_gestures)
+        .map_err(webview2_com::Error::WindowsError)?;
 
       let mut rect = RECT::default();
       win32wm::GetClientRect(hwnd, &mut rect);
@@ -548,7 +550,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                       .Read(
                         buffer.as_mut_ptr() as *mut _,
                         buffer.len() as u32,
-                        &mut cb_read,
+                        Some(&mut cb_read),
                       )
                       .ok()?;
 
@@ -608,7 +610,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                           .Write(
                             content.as_ptr() as *const _,
                             content.len() as u32,
-                            cb_write.as_mut_ptr(),
+                            Some(cb_write.as_mut_ptr()),
                           )
                           .is_ok()
                           && cb_write.assume_init() as usize == content.len()
@@ -702,10 +704,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         if let Some(headers) = attributes.headers {
           load_url_with_headers(&webview, env, &url_string, headers);
         } else {
-          let url = PCWSTR::from_raw(encode_wide(url_string).as_ptr());
           unsafe {
             webview
-              .Navigate(url)
+              .Navigate(PCWSTR::from_raw(encode_wide(url_string).as_ptr()))
               .map_err(webview2_com::Error::WindowsError)?;
           }
         }

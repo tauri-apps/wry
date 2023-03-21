@@ -6,6 +6,7 @@ use http::{
   header::{HeaderName, HeaderValue, CONTENT_TYPE},
   Request,
 };
+pub use tao::platform::android::ndk_glue::jni::sys::{jboolean, jstring};
 use tao::platform::android::ndk_glue::jni::{
   errors::Error as JniError,
   objects::{JClass, JMap, JObject, JString, JValue},
@@ -13,7 +14,10 @@ use tao::platform::android::ndk_glue::jni::{
   JNIEnv,
 };
 
-use super::{create_headers_map, IPC, REQUEST_HANDLER, TITLE_CHANGE_HANDLER};
+use super::{
+  create_headers_map, ASSET_LOADER_DOMAIN, IPC, REQUEST_HANDLER, TITLE_CHANGE_HANDLER,
+  WITH_ASSET_LOADER,
+};
 
 fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
   let mut request_builder = Request::builder();
@@ -163,5 +167,19 @@ pub unsafe fn handleReceivedTitle(env: JNIEnv, _: JClass, _webview: JObject, tit
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),
+  }
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn withAssetLoader(_: JNIEnv, _: JClass) -> jboolean {
+  (*WITH_ASSET_LOADER.get().unwrap_or(&false)).into()
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn assetLoaderDomain(env: JNIEnv, _: JClass) -> jstring {
+  if let Some(domain) = ASSET_LOADER_DOMAIN.get() {
+    env.new_string(domain).unwrap().into_raw()
+  } else {
+    env.new_string("wry.assets").unwrap().into_raw()
   }
 }

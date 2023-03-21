@@ -80,7 +80,7 @@ Tao uses [gtk-rs](https://gtk-rs.org/) and its related libraries for window crea
 #### Arch Linux / Manjaro:
 
 ```bash
-sudo pacman -S webkit2gtk
+sudo pacman -S webkit2gtk-4.1
 sudo pacman -S libappindicator-gtk3 # For tray feature
 ```
 
@@ -89,7 +89,7 @@ The `libayatana-indicator` package can be installed from the Arch User Repositor
 #### Debian / Ubuntu:
 
 ```bash
-sudo apt install libwebkit2gtk-4.0-dev
+sudo apt install libwebkit2gtk-4.1-dev
 # For tray feature, choose one of following package
 sudo apt install libayatana-appindicator3-dev
 sudo apt install libappindicator3-dev
@@ -98,7 +98,7 @@ sudo apt install libappindicator3-dev
 #### Fedora
 
 ```bash
-sudo dnf install gtk3-devel webkit2gtk3-devel
+sudo dnf install gtk3-devel webkit2gtk4.1-devel
 # For tray feature
 sudo dnf install libappindicator-gtk3-devel
 ```
@@ -121,14 +121,13 @@ WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7,
 
 ### Android / iOS
 
-We have experimental support of mobile ends. If you are interested in playing or hacking it, please follow this [note](https://hackmd.io/XIcEwk4GSxy8APZhSa0UnA?view).
+Wry supports mobile with the help of  [`tauri-mobile`](https://github.com/tauri-apps/tauri-mobile) CLI to create template project. If you are interested in playing or hacking it, please follow [MOBILE.md](MOBILE.md).
 
-When building for Android, WRY generates kotlin files that are needed to run WRY on Android and you have to set the following environment variables:
-- `WRY_ANDROID_PACKAGE` which is the revers domain name of your android project and the app name in snake_case for example: `com.wry.example.wry_app`
+If you wish to create Android project yourself, there are a few kotlin files that are needed to run wry on Android and you have to set the following environment variables:
+
+- `WRY_ANDROID_PACKAGE` which is the reversed domain name of your android project and the app name in snake_case for example: `com.wry.example.wry_app`
 - `WRY_ANDROID_LIBRARY` for example: if your cargo project has a lib name `wry_app`, it will generate `libwry_app.so` so you se this env var to `wry_app`
 - `WRY_ANDROID_KOTLIN_FILES_OUT_DIR` for example: `path/to/app/src/main/kotlin/com/wry/example`
-
-You can skip setting these environment variables if you are using the WRY template from our [`cargo-mobile`](https://github.com/tauri-apps/cargo-mobile) fork.
 
 ## License
 
