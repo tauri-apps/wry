@@ -813,10 +813,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       webview.ExecuteScript(
         PCWSTR::from_raw(encode_wide(js).as_ptr()),
         &ExecuteScriptCompletedHandler::create(Box::new(|_, return_str| {
-          let json_value: serde_json::Value = serde_json::from_str(&return_str).unwrap();
-
-          callback(json_value.to_string());
-
+          callback(return_str);
           Ok(())
         })),
       )
