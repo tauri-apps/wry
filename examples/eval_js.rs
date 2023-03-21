@@ -44,8 +44,33 @@ fn main() -> wry::Result<()> {
 
     match event {
       Event::UserEvent(UserEvents::ExecEval()) => {
+        // String
         _webview
-          .evaluate_script("if (!foo) { var foo = 'morbin'; } `${foo} time`")
+          .evaluate_script_with_callback(
+            "if (!foo) { var foo = 'morbin'; } `${foo} time`",
+            |result| println!("String: {:?}", result),
+          )
+          .unwrap();
+
+        // Number
+        _webview
+          .evaluate_script_with_callback("var num = 9527; num", |result| {
+            println!("Number: {:?}", result)
+          })
+          .unwrap();
+
+        // Object
+        _webview
+          .evaluate_script_with_callback("var obj = { thank: 'you', '95': 27 }; obj", |result| {
+            println!("Object: {:?}", result)
+          })
+          .unwrap();
+
+        // Array
+        _webview
+          .evaluate_script_with_callback("var ary = [1,2,3,4,'5']; ary", |result| {
+            println!("Array: {:?}", result)
+          })
           .unwrap();
       }
       Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
