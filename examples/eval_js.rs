@@ -72,6 +72,12 @@ fn main() -> wry::Result<()> {
             println!("Array: {:?}", result)
           })
           .unwrap();
+        // Exception thrown
+        _webview
+          .evaluate_script_with_callback("throw new Error()", |result| {
+            println!("Exception Occured: {:?}", result)
+          })
+          .unwrap();
       }
       Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
       Event::WindowEvent {

@@ -813,7 +813,10 @@ impl WebView {
   ///
   /// [`EventLoopProxy`]: crate::application::event_loop::EventLoopProxy
   ///
-  /// - ** Android:** Callback function not implemented.
+  /// Please note that if an exception is thrown during execution, we will ignore the error
+  /// and call the callback function.
+  ///
+  /// - ** Android:** Not implemented.
   pub fn evaluate_script_with_callback(
     &self,
     js: &str,
