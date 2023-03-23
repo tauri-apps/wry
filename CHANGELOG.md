@@ -1,5 +1,20 @@
 # Changelog
 
+## \[0.27.1]
+
+- On Windows, Linux and macOS, add method `evaluate_script_with_callback` to execute javascipt with a callback.
+  Evaluated result will be serialized into JSON string and pass to the callback.
+  - [2647731](https://github.com/tauri-apps/wry/commit/2647731c1f084565895a5306fa6465ee6cd271c2) feat: support callback function in eval ([#778](https://github.com/tauri-apps/wry/pull/778)) on 2023-03-23
+- On iOS, set webview scroll bounce default to NO.
+  - [4d61cf1](https://github.com/tauri-apps/wry/commit/4d61cf122dc0e5b2cef818e0fd491dbd0fd47621) fix(ios): set scroll bounce default to NO ([#907](https://github.com/tauri-apps/wry/pull/907)) on 2023-03-20
+- Update the value returned on a `None` value of `ClassDecl::new("WryDownloadDelegate", class!(NSObject))`
+  from `UIViewController` to `WryDownloadDelegate`.
+  - [7795356](https://github.com/tauri-apps/wry/commit/7795356a45b1bd015fad0e9973fc5af58c8c339b) fix: WryDownloadDelegate call after first time on 2023-02-20
+- On Linux, disable system appearance for scrollbars.
+  - [530a8b7](https://github.com/tauri-apps/wry/commit/530a8b73766dc54736ae6de9528683b27430eaa6) fix(linux): disable system appearance for scrollbars ([#897](https://github.com/tauri-apps/wry/pull/897)) on 2023-03-08
+- On Windows and Linux, implement `WebviewBuilder::with_back_forward_navigation_gestures` and `WebviewAttributes::back_forward_navigation_gestures` to control swipe navigation. Disabled by default.
+  - [15b4ddf](https://github.com/tauri-apps/wry/commit/15b4ddf7698cf04b90ffcc3164ccb7b62daf6ed0) feat(win\&linux): implement the option to control gesture navigation ([#896](https://github.com/tauri-apps/wry/pull/896)) on 2023-03-07
+
 ## \[0.27.0]
 
 - Add function to dispatch closure with the Android context.
