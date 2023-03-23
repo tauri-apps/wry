@@ -813,9 +813,9 @@ impl WebView {
   ///
   /// [`EventLoopProxy`]: crate::application::event_loop::EventLoopProxy
   ///
-  /// Exception is ignored because of the limitation on windows. You can catch it your self and return as string as a workaround.
+  /// Exception is ignored because of the limitation on windows. You can catch it yourself and return as string as a workaround.
   ///
-  /// - ** Android:** Not implemented.
+  /// - ** Android:** Not implemented yet.
   pub fn evaluate_script_with_callback(
     &self,
     js: &str,

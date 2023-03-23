@@ -1,5 +1,5 @@
 ---
-"wry": "minor"
+"wry": patch
 ---
 
 On Windows, Linux and macOS, add method `evaluate_script_with_callback` to execute javascipt with a callback.
