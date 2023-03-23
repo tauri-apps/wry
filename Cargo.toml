@@ -51,6 +51,7 @@ dirs = "4.0.0"
 base64 = "0.13.1"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
+javascriptcore-rs = { version = "0.17.0", features = [ "v2_28" ] }
 webkit2gtk = { version = "0.19.2", features = [ "v2_38" ] }
 webkit2gtk-sys = "0.19.1"
 gio = "0.16"

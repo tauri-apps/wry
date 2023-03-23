@@ -67,6 +67,8 @@ use http::{
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
 const ACCEPT_FIRST_MOUSE: &str = "accept_first_mouse";
 
+const NS_JSON_WRITING_FRAGMENTS_ALLOWED: u64 = 4;
+
 pub(crate) struct InnerWebView {
   pub webview: id,
   #[cfg(target_os = "macos")]
@@ -848,15 +850,37 @@ r#"Object.defineProperty(window, 'ipc', {
     Url::parse(std::str::from_utf8(bytes).unwrap()).unwrap()
   }
 
-  pub fn eval(&self, js: &str) -> Result<()> {
+  pub fn eval(&self, js: &str, callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {
     if let Some(scripts) = &mut *self.pending_scripts.lock().unwrap() {
       scripts.push(js.into());
     } else {
       // Safety: objc runtime calls are unsafe
       unsafe {
-        let _: id = msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()];
+        let _: id = match callback {
+          Some(callback) => {
+            let handler = block::ConcreteBlock::new(|val: id, _err: id| {
+              let mut result = String::new();
+
+              if val != nil {
+                let serializer = class!(NSJSONSerialization);
+                let json_ns_data: NSData = msg_send![serializer, dataWithJSONObject:val options:NS_JSON_WRITING_FRAGMENTS_ALLOWED error:nil];
+                let json_string = NSString::from(json_ns_data);
+
+                result = json_string.to_str().to_string();
+              }
+
+              callback(result)
+            });
+
+            msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:handler]
+          }
+          None => {
+            msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()]
+          }
+        };
       }
     }
+
     Ok(())
   }
 
@@ -1078,3 +1102,17 @@ impl NSString {
     self.0
   }
 }
+
+impl From<NSData> for NSString {
+  fn from(value: NSData) -> Self {
+    Self(unsafe {
+      let ns_string: id = msg_send![class!(NSString), alloc];
+      let ns_string: id = msg_send![ns_string, initWithData:value encoding:UTF8_ENCODING];
+      let _: () = msg_send![ns_string, autorelease];
+
+      ns_string
+    })
+  }
+}
+
+struct NSData(id);

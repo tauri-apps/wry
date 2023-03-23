@@ -306,7 +306,7 @@ impl InnerWebView {
     Url::parse(uri.as_str()).unwrap()
   }
 
-  pub fn eval(&self, js: &str) -> Result<()> {
+  pub fn eval(&self, js: &str, _callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {
     MainPipe::send(WebViewMessage::Eval(js.into()));
     Ok(())
   }

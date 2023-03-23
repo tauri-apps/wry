@@ -36,6 +36,8 @@ use crate::{
 mod file_drop;
 mod web_context;
 
+use javascriptcore::ValueExt;
+
 pub(crate) struct InnerWebView {
   pub webview: Rc<WebView>,
   #[cfg(any(debug_assertions, feature = "devtools"))]
@@ -391,7 +393,10 @@ impl InnerWebView {
   }
 
   pub fn print(&self) {
-    let _ = self.eval("window.print()");
+    let _ = self.eval(
+      "window.print()",
+      None::<Box<dyn FnOnce(String) + Send + 'static>>,
+    );
   }
 
   pub fn url(&self) -> Url {
@@ -400,13 +405,36 @@ impl InnerWebView {
     Url::parse(uri.as_str()).unwrap()
   }
 
-  pub fn eval(&self, js: &str) -> Result<()> {
+  pub fn eval(
+    &self,
+    js: &str,
+    callback: Option<impl FnOnce(String) + Send + 'static>,
+  ) -> Result<()> {
     if let Some(pending_scripts) = &mut *self.pending_scripts.lock().unwrap() {
       pending_scripts.push(js.into());
     } else {
       let cancellable: Option<&Cancellable> = None;
-      self.webview.run_javascript(js, cancellable, |_| ());
+
+      match callback {
+        Some(callback) => {
+          self.webview.run_javascript(js, cancellable, |result| {
+            let mut result_str = String::new();
+
+            if let Ok(js_result) = result {
+              if let Some(js_value) = js_result.js_value() {
+                if let Some(json_str) = js_value.to_json(0) {
+                  result_str = json_str.to_string();
+                }
+              }
+            }
+
+            callback(result_str);
+          });
+        }
+        None => self.webview.run_javascript(js, cancellable, |_| ()),
+      };
     }
+
     Ok(())
   }
 
