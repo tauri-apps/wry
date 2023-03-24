@@ -2,6 +2,4 @@
 "wry": patch
 ---
 
-On Windows when a frameless window (decorations set to false) is minimized it will be resized to a 
-small resolution. This resize can cause a significant delay when un-minimizing and redrawing the 
-content of the webview after the original window dimensions are restored.
+Revert [`51b49c54`](https://github.com/tauri-apps/wry/commit/51b49c54e41c71d1c5f03b568094d43fb9dc32ac) which hid the webview when minimized on Windows.
