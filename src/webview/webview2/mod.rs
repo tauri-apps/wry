@@ -738,16 +738,6 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             right: client_rect.right - client_rect.left,
             bottom: client_rect.bottom - client_rect.top,
           });
-
-          if wparam == WPARAM(win32wm::SIZE_MINIMIZED as _) {
-            let _ = (*controller).SetIsVisible(false);
-          }
-
-          if wparam == WPARAM(win32wm::SIZE_RESTORED as _)
-            || wparam == WPARAM(win32wm::SIZE_MAXIMIZED as _)
-          {
-            let _ = (*controller).SetIsVisible(true);
-          }
         }
 
         win32wm::WM_SETFOCUS | win32wm::WM_ENTERSIZEMOVE => {
