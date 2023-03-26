@@ -70,6 +70,7 @@ impl InnerWebView {
       webview = webview.user_content_manager(web_context.manager());
       webview = webview.web_context(web_context.context());
       webview = webview.is_controlled_by_automation(web_context.allows_automation());
+      webview = webview.is_ephemeral(attributes.as_incognito);
       webview.build()
     };
 

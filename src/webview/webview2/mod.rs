@@ -73,7 +73,8 @@ impl InnerWebView {
     let file_drop_window = window.clone();
 
     let env = Self::create_environment(&web_context, pl_attrs.clone())?;
-    let controller = Self::create_controller(hwnd, &env)?;
+
+    let controller = Self::create_controller(hwnd, &env, attributes.as_incognito)?;
     let webview = Self::init_webview(window, hwnd, attributes, &env, &controller, pl_attrs)?;
 
     if let Some(file_drop_handler) = file_drop_handler {
@@ -165,14 +166,18 @@ impl InnerWebView {
   fn create_controller(
     hwnd: HWND,
     env: &ICoreWebView2Environment,
+    as_incognito: bool
   ) -> webview2_com::Result<ICoreWebView2Controller> {
     let (tx, rx) = mpsc::channel();
-    let env = env.clone();
+    let env = env.clone().cast::<ICoreWebView2Environment10>()?;
+    let controller_opts = unsafe {env.CreateCoreWebView2ControllerOptions()?};
+
+    unsafe {controller_opts.SetIsInPrivateModeEnabled(incognito)?}
 
     CreateCoreWebView2ControllerCompletedHandler::wait_for_async_operation(
       Box::new(move |handler| unsafe {
         env
-          .CreateCoreWebView2Controller(hwnd, &handler)
+          .CreateCoreWebView2ControllerWithOptions(hwnd, &controller_opts, &handler)
           .map_err(webview2_com::Error::WindowsError)
       }),
       Box::new(move |error_code, controller| {
@@ -794,27 +799,17 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     )
   }
 
-  fn execute_script(
-    webview: &ICoreWebView2,
-    js: String,
-    callback: impl FnOnce(String) + Send + 'static,
-  ) -> windows::core::Result<()> {
+  fn execute_script(webview: &ICoreWebView2, js: String) -> windows::core::Result<()> {
     unsafe {
       webview.ExecuteScript(
         PCWSTR::from_raw(encode_wide(js).as_ptr()),
-        &ExecuteScriptCompletedHandler::create(Box::new(|_, return_str| {
-          callback(return_str);
-          Ok(())
-        })),
+        &ExecuteScriptCompletedHandler::create(Box::new(|_, _| (Ok(())))),
       )
     }
   }
 
   pub fn print(&self) {
-    let _ = self.eval(
-      "window.print()",
-      None::<Box<dyn FnOnce(String) + Send + 'static>>,
-    );
+    let _ = self.eval("window.print()");
   }
 
   pub fn url(&self) -> Url {
@@ -827,17 +822,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     Url::parse(&uri).unwrap()
   }
 
-  pub fn eval(
-    &self,
-    js: &str,
-    callback: Option<impl FnOnce(String) + Send + 'static>,
-  ) -> Result<()> {
-    match callback {
-      Some(callback) => Self::execute_script(&self.webview, js.to_string(), callback)
-        .map_err(|err| Error::WebView2Error(webview2_com::Error::WindowsError(err))),
-      None => Self::execute_script(&self.webview, js.to_string(), |_| ())
-        .map_err(|err| Error::WebView2Error(webview2_com::Error::WindowsError(err))),
-    }
+  pub fn eval(&self, js: &str) -> Result<()> {
+    Self::execute_script(&self.webview, js.to_string())
+      .map_err(|err| Error::WebView2Error(webview2_com::Error::WindowsError(err)))
   }
 
   #[cfg(any(debug_assertions, feature = "devtools"))]
