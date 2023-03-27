@@ -227,6 +227,9 @@ pub struct WebViewAttributes {
 
   /// Set a handler closure to process the change of the webview's document title.
   pub document_title_changed_handler: Option<Box<dyn Fn(&Window, String)>>,
+
+  /// Whether all media can be played without user interaction.
+  pub autoplay: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -256,6 +259,7 @@ impl Default for WebViewAttributes {
       accept_first_mouse: false,
       back_forward_navigation_gestures: false,
       document_title_changed_handler: None,
+      autoplay: true,
     }
   }
 }
@@ -374,6 +378,12 @@ impl<'a> WebViewBuilder<'a> {
   /// Sets whether the WebView should be transparent.
   pub fn with_visible(mut self, visible: bool) -> Self {
     self.webview.visible = visible;
+    self
+  }
+
+  /// Sets whether all media can be played without user interaction.
+  pub fn with_autoplay(mut self, autoplay: bool) -> Self {
+    self.webview.autoplay = autoplay;
     self
   }
 

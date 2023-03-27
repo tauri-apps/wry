@@ -301,6 +301,7 @@ impl InnerWebView {
       let webview: id = msg_send![cls, alloc];
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
+      let _no: id = msg_send![class!(NSNumber), numberWithBool:0];
 
       #[cfg(target_os = "macos")]
       (*webview).set_ivar(ACCEPT_FIRST_MOUSE, attributes.accept_first_mouse);
@@ -315,15 +316,19 @@ impl InnerWebView {
 
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("allowsPictureInPictureMediaPlayback")];
 
+      if attributes.autoplay {
+        // FIXME: No idea how to make this not crash the webview, we need to set it to `WKAudiovisualMediaTypeNone` which _should_ be `0` https://developer.apple.com/documentation/webkit/wkaudiovisualmediatypes/wkaudiovisualmediatypenone
+        let _: id = msg_send![config, setValue:_no forKey:NSString::new("mediaTypesRequiringUserActionForPlayback")];
+      }
+
       #[cfg(target_os = "macos")]
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("tabFocusesLinks")];
 
       #[cfg(feature = "transparent")]
       if attributes.transparent {
-        let no: id = msg_send![class!(NSNumber), numberWithBool:0];
         // Equivalent Obj-C:
         // [config setValue:@NO forKey:@"drawsBackground"];
-        let _: id = msg_send![config, setValue:no forKey:NSString::new("drawsBackground")];
+        let _: id = msg_send![config, setValue:_no forKey:NSString::new("drawsBackground")];
       }
 
       #[cfg(feature = "fullscreen")]

@@ -16,6 +16,7 @@ class RustWebView(context: Context): WebView(context) {
         settings.domStorageEnabled = true
         settings.setGeolocationEnabled(true)
         settings.databaseEnabled = true
+        // TODO: Make this configurable
         settings.mediaPlaybackRequiresUserGesture = false
         settings.javaScriptCanOpenWindowsAutomatically = true
         {{class-init}}
