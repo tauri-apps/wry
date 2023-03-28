@@ -336,6 +336,11 @@ impl InnerWebView {
   pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
     MainPipe::send(WebViewMessage::LoadUrl(url.to_string(), Some(headers)));
   }
+
+  pub fn clear_all_browsing_data(&self) -> Result() {
+    MainPipe::send(WebViewMessage::ClearAllBrowsingData);
+    Ok(())
+  }
 }
 
 #[derive(Clone, Copy)]

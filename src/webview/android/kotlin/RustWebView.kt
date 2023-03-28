@@ -33,5 +33,16 @@ class RustWebView(context: Context): WebView(context) {
         }
     }
 
+    fun clearAllBrowsingData() {
+        try {
+            super.context.deleteDatabase("webviewCache.db");
+            super.context.deleteDatabase("webview.db");
+            super.clearCache(true);
+            super.clearHistory();
+            super.clearFormData();
+        } catch (ignore: Exception) { }
+
+    }
+
     {{class-extension}}
 }
