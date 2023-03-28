@@ -908,9 +908,11 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn clear_all_browsing_data(&self) -> Result<()> {
-    let store: id = msg_send![class!(WKWebsiteDataStore), defaultDataStore];
-    let all_data_types: id = msg_send![class!(WKWebsiteDataStore), allWebsiteDataTypes];
-    let _: () = msg_send![store, removeDataOfTypes:all_data_types modifiedSince:null::<*const c_void>() completionHandler:null::<*const c_void>()];
+    unsafe {
+      let store: id = msg_send![class!(WKWebsiteDataStore), defaultDataStore];
+      let all_data_types: id = msg_send![class!(WKWebsiteDataStore), allWebsiteDataTypes];
+      let _: () = msg_send![store, removeDataOfTypes:all_data_types modifiedSince:null::<*const c_void>() completionHandler:null::<*const c_void>()];
+    }
     Ok(())
   }
 
