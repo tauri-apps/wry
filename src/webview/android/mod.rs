@@ -337,7 +337,7 @@ impl InnerWebView {
     MainPipe::send(WebViewMessage::LoadUrl(url.to_string(), Some(headers)));
   }
 
-  pub fn clear_all_browsing_data(&self) -> Result() {
+  pub fn clear_all_browsing_data(&self) -> Result<()> {
     MainPipe::send(WebViewMessage::ClearAllBrowsingData);
     Ok(())
   }
