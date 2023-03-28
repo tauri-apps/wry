@@ -907,6 +907,13 @@ r#"Object.defineProperty(window, 'ipc', {
     self.navigate_to_url(url, Some(headers))
   }
 
+  pub fn clear_all_browsing_data(&self) -> Result<()> {
+    let store: id = msg_send![class!(WKWebsiteDataStore), defaultDataStore];
+    let all_data_types: id = msg_send![class!(WKWebsiteDataStore), allWebsiteDataTypes];
+    let _: () = msg_send![store, removeDataOfTypes: all_data_types, modifiedSince:null, completionHandler:null::<*const c_void>()];
+    Ok(())
+  }
+
   fn navigate_to_url(&self, url: &str, headers: Option<http::HeaderMap>) {
     // Safety: objc runtime calls are unsafe
     unsafe {

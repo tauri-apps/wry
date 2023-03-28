@@ -870,6 +870,22 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     load_url_with_headers(&self.webview, &self.env, url, headers);
   }
 
+  pub fn clear_all_browsing_data(&self) -> Result<()> {
+    let handler = ClearBrowsingDataCompletedHandler::create(Box::new(move |_| Ok(())));
+    unsafe {
+      self
+        .webview
+        .cast::<ICoreWebView2_13>()
+        .map_err(|e| Error::WebView2Error(webview2_com::Error::WindowsError(e)))?
+        .Profile()
+        .map_err(|e| Error::WebView2Error(webview2_com::Error::WindowsError(e)))?
+        .cast::<ICoreWebView2Profile2>()
+        .map_err(|e| Error::WebView2Error(webview2_com::Error::WindowsError(e)))?
+        .ClearBrowsingDataAll(&handler)
+        .map_err(|e| Error::WebView2Error(webview2_com::Error::WindowsError(e)))
+    }
+  }
+
   pub fn set_theme(&self, theme: Theme) {
     set_theme(&self.webview, theme);
   }

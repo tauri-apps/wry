@@ -18,6 +18,7 @@ use url::Url;
 use webkit2gtk::{
   traits::*, LoadEvent, NavigationPolicyDecision, PolicyDecisionType, URIRequest,
   UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView, WebViewBuilder,
+  WebsiteDataManagerExtManual, WebsiteDataTypes,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -509,6 +510,22 @@ impl InnerWebView {
     }
 
     self.webview.load_request(&req);
+  }
+
+  pub fn clear_all_browsing_data(&self) -> Result<()> {
+    if let Some(context) = WebViewExt::context(&*self.webview) {
+      use webkit2gtk::WebContextExt;
+      if let Some(data_manger) = context.website_data_manager() {
+        data_manger.clear(
+          WebsiteDataTypes::ALL,
+          glib::TimeSpan::from_seconds(0),
+          None::<&Cancellable>,
+          |_| {},
+        );
+      }
+    }
+
+    Ok(())
   }
 }
 

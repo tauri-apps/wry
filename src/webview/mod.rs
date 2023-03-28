@@ -895,12 +895,19 @@ impl WebView {
     self.webview.set_background_color(background_color)
   }
 
+  /// Navigate to the specified url
   pub fn load_url(&self, url: &str) {
     self.webview.load_url(url)
   }
 
+  /// Navigate to the specified url using the specified headers
   pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
     self.webview.load_url_with_headers(url, headers)
+  }
+
+  /// Clear all browsing data
+  pub fn clear_all_browsing_data(&self) -> Result<()> {
+    self.webview.clear_all_browsing_data()
   }
 }
 
