@@ -172,7 +172,7 @@ impl InnerWebView {
     let env = env.clone().cast::<ICoreWebView2Environment10>()?;
     let controller_opts = unsafe {env.CreateCoreWebView2ControllerOptions()?};
 
-    unsafe {controller_opts.SetIsInPrivateModeEnabled(incognito)?}
+    unsafe {controller_opts.SetIsInPrivateModeEnabled(as_incognito)?}
 
     CreateCoreWebView2ControllerCompletedHandler::wait_for_async_operation(
       Box::new(move |handler| unsafe {
