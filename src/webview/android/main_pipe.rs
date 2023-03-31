@@ -160,7 +160,7 @@ impl MainPipe<'_> {
         WebViewMessage::GetUrl(tx) => {
           if let Some(webview) = &self.webview {
             let url = env
-              .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String", &[])
+              .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String;", &[])
               .and_then(|v| v.l())
               .and_then(|s| env.get_string(s.into()))
               .map(|u| u.to_string_lossy().into())
