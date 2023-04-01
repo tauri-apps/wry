@@ -73,7 +73,6 @@ impl InnerWebView {
     let file_drop_window = window.clone();
 
     let env = Self::create_environment(&web_context, pl_attrs.clone())?;
-
     let controller = Self::create_controller(hwnd, &env, attributes.as_incognito)?;
     let webview = Self::init_webview(window, hwnd, attributes, &env, &controller, pl_attrs)?;
 
@@ -799,17 +798,27 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     )
   }
 
-  fn execute_script(webview: &ICoreWebView2, js: String) -> windows::core::Result<()> {
+  fn execute_script(
+    webview: &ICoreWebView2,
+    js: String,
+    callback: impl FnOnce(String) + Send + 'static,
+  ) -> windows::core::Result<()> {
     unsafe {
       webview.ExecuteScript(
         PCWSTR::from_raw(encode_wide(js).as_ptr()),
-        &ExecuteScriptCompletedHandler::create(Box::new(|_, _| (Ok(())))),
+        &ExecuteScriptCompletedHandler::create(Box::new(|_, return_str| {
+          callback(return_str);
+          Ok(())
+        })),
       )
     }
   }
 
   pub fn print(&self) {
-    let _ = self.eval("window.print()");
+    let _ = self.eval(
+      "window.print()",
+      None::<Box<dyn FnOnce(String) + Send + 'static>>,
+    );
   }
 
   pub fn url(&self) -> Url {
@@ -822,9 +831,17 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     Url::parse(&uri).unwrap()
   }
 
-  pub fn eval(&self, js: &str) -> Result<()> {
-    Self::execute_script(&self.webview, js.to_string())
-      .map_err(|err| Error::WebView2Error(webview2_com::Error::WindowsError(err)))
+  pub fn eval(
+    &self,
+    js: &str,
+    callback: Option<impl FnOnce(String) + Send + 'static>,
+  ) -> Result<()> {
+    match callback {
+      Some(callback) => Self::execute_script(&self.webview, js.to_string(), callback)
+        .map_err(|err| Error::WebView2Error(webview2_com::Error::WindowsError(err))),
+      None => Self::execute_script(&self.webview, js.to_string(), |_| ())
+        .map_err(|err| Error::WebView2Error(webview2_com::Error::WindowsError(err))),
+    }
   }
 
   #[cfg(any(debug_assertions, feature = "devtools"))]
