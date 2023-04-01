@@ -34,18 +34,7 @@ fn main() -> wry::Result<()> {
       </body>
       </html>
     "#;
-
-    let js = r#"
-    let cookie = document.getElementById("cookie");
-        cookie.innerHTML = document.cookie;
-        function createCookie() {
-          let rand = Math.random();
-          let c = `token=${rand}`;
-          document.cookie = c;
-          cookie.innerHTML = c;
-        }
-    "#;
-
+    
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
       .with_title("Hello World")
