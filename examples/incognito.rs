@@ -15,9 +15,16 @@ fn main() -> wry::Result<()> {
     let html = r#"
       <!DOCTYPE html>
       <html>
-        <head>
-        <script>
-        let cookie = document.getElementById("cookie");
+        <body>
+        <h1>Your cookie is: </h1>
+        <p id="cookie"></p>
+        <button onclick="createCookie()">Create cookie</button>
+      </body>
+      </html>
+    "#;
+
+    let js = r#"
+    let cookie = document.getElementById("cookie");
         cookie.innerHTML = document.cookie;
         function createCookie() {
           let rand = Math.random();
@@ -25,14 +32,6 @@ fn main() -> wry::Result<()> {
           document.cookie = c;
           cookie.innerHTML = c;
         }
-        </script>
-        </head>
-        <body>
-        <h1>Your cookie is: </h1>
-        <p id="cookie"></p>
-        <button onclick="createCookie()">Create cookie</button>
-      </body>
-      </html>
     "#;
     
     let event_loop = EventLoop::new();
@@ -47,7 +46,10 @@ fn main() -> wry::Result<()> {
       *control_flow = ControlFlow::Wait;
   
       match event {
-        Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
+        Event::NewEvents(StartCause::Init) => {
+          println!("Wry has started!");
+          _webview.evaluate_script(js).unwrap();
+        },
         Event::WindowEvent {
           event: WindowEvent::CloseRequested,
           ..
