@@ -11,13 +11,47 @@ fn main() -> wry::Result<()> {
       },
       webview::WebViewBuilder,
     };
-  
+
+    let html = r#"
+      <!DOCTYPE html>
+      <html>
+        <head>
+        <script>
+        let cookie = document.getElementById("cookie");
+        cookie.innerHTML = document.cookie;
+        function createCookie() {
+          let rand = Math.random();
+          let c = `token=${rand}`;
+          document.cookie = c;
+          cookie.innerHTML = c;
+        }
+        </script>
+        </head>
+        <body>
+        <h1>Your cookie is: </h1>
+        <p id="cookie"></p>
+        <button onclick="createCookie()">Create cookie</button>
+      </body>
+      </html>
+    "#;
+
+    let js = r#"
+    let cookie = document.getElementById("cookie");
+        cookie.innerHTML = document.cookie;
+        function createCookie() {
+          let rand = Math.random();
+          let c = `token=${rand}`;
+          document.cookie = c;
+          cookie.innerHTML = c;
+        }
+    "#;
+
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
       .with_title("Hello World")
       .build(&event_loop)?;
     let _webview = WebViewBuilder::new(window)?
-      .with_url("https://login.live.com")? // could be replaced with any website that accepts sign-ins (had to work on a codespace)
+      .with_html(html)? // could be replaced with any website that accepts sign-ins (had to work on a codespace)
       .build()?;
   
     event_loop.run(move |event, _, control_flow| {
