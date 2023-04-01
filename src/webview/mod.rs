@@ -229,6 +229,9 @@ pub struct WebViewAttributes {
   pub document_title_changed_handler: Option<Box<dyn Fn(&Window, String)>>,
 
   /// Run the WebView as incognito
+  /// ## Platform-specific:
+  ///
+  /// - **Android:** Unsupported.
   pub as_incognito: bool
 }
 
@@ -620,7 +623,10 @@ impl<'a> WebViewBuilder<'a> {
   }
 
   /// Runs the WebView as incognito.
-  /// **macOS  / Android / iOS**: Currently unsupported.
+  /// 
+  /// ## Platform-specific:
+  ///
+  /// - **Android:** Unsupported.
   pub fn as_incognito(mut self, incognito: bool) -> Self {
     self.webview.as_incognito = incognito;
     self
