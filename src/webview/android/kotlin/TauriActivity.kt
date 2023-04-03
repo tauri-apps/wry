@@ -121,7 +121,6 @@ abstract class TauriActivity : AppCompatActivity() {
     private external fun destroy()
     private external fun memory()
     private external fun focus(focus: Boolean)
-    private external fun goBack(): Boolean
 
     {{class-extension}}
 }
