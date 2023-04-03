@@ -909,9 +909,12 @@ r#"Object.defineProperty(window, 'ipc', {
 
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     unsafe {
-      let store: id = msg_send![class!(WKWebsiteDataStore), defaultDataStore];
+      let config: id = msg_send![self.webview, configuration];
+      let store: id = msg_send![config, websiteDataStore];
       let all_data_types: id = msg_send![class!(WKWebsiteDataStore), allWebsiteDataTypes];
-      let _: () = msg_send![store, removeDataOfTypes:all_data_types modifiedSince:null::<*const c_void>() completionHandler:null::<*const c_void>()];
+      let date: id = msg_send![class!(NSDate), dateWithTimeIntervalSince1970: 0.0];
+      let handler = block::ConcreteBlock::new(|| {});
+      let _: () = msg_send![store, removeDataOfTypes:all_data_types modifiedSince:date completionHandler:handler];
     }
     Ok(())
   }
