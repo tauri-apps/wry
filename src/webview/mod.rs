@@ -229,10 +229,6 @@ pub struct WebViewAttributes {
   pub document_title_changed_handler: Option<Box<dyn Fn(&Window, String)>>,
 
   /// Whether all media can be played without user interaction.
-  ///
-  /// ## Platform-specific:
-  ///
-  /// - **Android:** Unsupported. Autoplay will always be enabled in new windows.
   pub autoplay: bool,
 }
 

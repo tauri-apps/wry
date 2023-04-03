@@ -16,7 +16,6 @@ class RustWebView(context: Context): WebView(context) {
         settings.domStorageEnabled = true
         settings.setGeolocationEnabled(true)
         settings.databaseEnabled = true
-        // TODO: Make this configurable
         settings.mediaPlaybackRequiresUserGesture = false
         settings.javaScriptCanOpenWindowsAutomatically = true
         {{class-init}}
@@ -31,6 +30,13 @@ class RustWebView(context: Context): WebView(context) {
     fun loadUrlMainThread(url: String, additionalHttpHeaders: Map<String, String>) {
         post {
           super.loadUrl(url, additionalHttpHeaders)
+        }
+    }
+
+    fun setAutoPlay(enable: Boolean) {
+        post {
+          val settings = super.getSettings()
+          settings.setMediaPlaybackRequiresUserGesture(!enable)
         }
     }
 

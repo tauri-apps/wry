@@ -180,6 +180,7 @@ impl InnerWebView {
       background_color,
       transparent,
       headers,
+      autoplay,
       ..
     } = attributes;
 
@@ -206,6 +207,7 @@ impl InnerWebView {
         transparent,
         headers,
         on_webview_created,
+        autoplay,
       }));
     }
 
