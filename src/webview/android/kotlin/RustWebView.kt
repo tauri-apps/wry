@@ -40,7 +40,9 @@ class RustWebView(context: Context): WebView(context) {
             super.clearCache(true);
             super.clearHistory();
             super.clearFormData();
-        } catch (ignore: Exception) { }
+        } catch (ignore: Exception) {
+            Logger.error("Unable to create temporary media capture file: " + ex.message)
+        }
 
     }
 
