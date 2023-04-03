@@ -232,7 +232,7 @@ pub struct WebViewAttributes {
   ///
   /// ## Platform-specific:
   ///
-  /// - **Android:** Autoplay will always be enabled on window creation.
+  /// - **Android:** Unsupported. Autoplay will always be enabled in new windows.
   pub autoplay: bool,
 }
 
@@ -656,8 +656,8 @@ pub trait WebViewBuilderExtWindows {
   /// ## Warning
   ///
   /// By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
-  /// so if you use this method, you also need to disable these components by yourself if you want.
-  /// Furthermore you need to add `--autoplay-policy=no-user-gesture-required` if autoplay is enabled.
+  /// and `--autoplay-policy=no-user-gesture-required` if autoplay is enabled
+  /// so if you use this method, you have to add these arguments yourself if you want to keep the same behavior.
   fn with_additional_browser_args<S: Into<String>>(self, additional_args: S) -> Self;
 
   /// Determines whether browser-specific accelerator keys are enabled. When this setting is set to
