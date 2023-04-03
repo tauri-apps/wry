@@ -14,7 +14,7 @@ pub use web_context::WebContextImpl;
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
 use cocoa::{
   base::{id, nil, NO, YES},
-  foundation::{NSDictionary, NSFastEnumeration, NSInteger, NSUInteger},
+  foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
 
 use std::{
@@ -316,9 +316,7 @@ impl InnerWebView {
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("allowsPictureInPictureMediaPlayback")];
 
       if attributes.autoplay {
-        let none: NSUInteger = 0;
-        // FIXME: No idea how to make this not crash the webview, we need to set it to `WKAudiovisualMediaTypeNone` which _should_ be `0` https://developer.apple.com/documentation/webkit/wkaudiovisualmediatypes/wkaudiovisualmediatypenone
-        let _: id = msg_send![config, setValue:none forKey:NSString::new("mediaTypesRequiringUserActionForPlayback")];
+        let _: id = msg_send![config, setMediaTypesRequiringUserActionForPlayback:0];
       }
 
       #[cfg(target_os = "macos")]
