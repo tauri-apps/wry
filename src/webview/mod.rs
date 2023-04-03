@@ -229,6 +229,10 @@ pub struct WebViewAttributes {
   pub document_title_changed_handler: Option<Box<dyn Fn(&Window, String)>>,
 
   /// Whether all media can be played without user interaction.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Android:** Autoplay will always be enabled on window creation.
   pub autoplay: bool,
 }
 
@@ -653,6 +657,7 @@ pub trait WebViewBuilderExtWindows {
   ///
   /// By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
   /// so if you use this method, you also need to disable these components by yourself if you want.
+  /// Furthermore you need to add `--autoplay-policy=no-user-gesture-required` if autoplay is enabled.
   fn with_additional_browser_args<S: Into<String>>(self, additional_args: S) -> Self;
 
   /// Determines whether browser-specific accelerator keys are enabled. When this setting is set to
