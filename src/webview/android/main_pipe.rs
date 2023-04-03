@@ -65,6 +65,13 @@ impl MainPipe<'_> {
             &[activity.into()],
           )?;
 
+          env.set_field(
+            activity,
+            "m_webview",
+            format!("L{}/RustWebView;", PACKAGE.get().unwrap()),
+            webview.into(),
+          )?;
+
           // Load URL
           if let Ok(url) = env.new_string(url) {
             load_url(env, webview, url, headers, true)?;
