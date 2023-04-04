@@ -52,6 +52,7 @@ impl MainPipe<'_> {
             background_color,
             headers,
             on_webview_created,
+            autoplay,
           } = attrs;
           // Create webview
           let rust_webview_class = find_class(
@@ -63,6 +64,16 @@ impl MainPipe<'_> {
             rust_webview_class,
             "(Landroid/content/Context;)V",
             &[activity.into()],
+          )?;
+
+          // set media autoplay
+          env.call_method(webview, "setAutoPlay", "(Z)V", &[autoplay.into()])?;
+
+          env.set_field(
+            activity,
+            "m_webview",
+            format!("L{}/RustWebView;", PACKAGE.get().unwrap()),
+            webview.into(),
           )?;
 
           // Load URL
@@ -268,6 +279,7 @@ pub(crate) struct CreateWebViewAttributes {
   pub transparent: bool,
   pub background_color: Option<RGBA>,
   pub headers: Option<http::HeaderMap>,
+  pub autoplay: bool,
   pub on_webview_created: Option<
     Box<
       dyn Fn(

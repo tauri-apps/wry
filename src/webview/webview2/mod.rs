@@ -71,8 +71,8 @@ impl InnerWebView {
     let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
     let file_drop_handler = attributes.file_drop_handler.take();
     let file_drop_window = window.clone();
-
-    let env = Self::create_environment(&web_context, pl_attrs.clone())?;
+    
+    let env = Self::create_environment(&web_context, pl_attrs.clone(), attributes.autoplay)?;
     let controller = Self::create_controller(hwnd, &env, attributes.as_incognito)?;
     let webview = Self::init_webview(window, hwnd, attributes, &env, &controller, pl_attrs)?;
 
@@ -93,6 +93,7 @@ impl InnerWebView {
   fn create_environment(
     web_context: &Option<&mut WebContext>,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
+    autoplay: bool,
   ) -> webview2_com::Result<ICoreWebView2Environment> {
     let (tx, rx) = mpsc::channel();
 
@@ -127,7 +128,14 @@ impl InnerWebView {
           encode_wide(pl_attrs.additional_browser_args.unwrap_or_else(|| {
             // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
             // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
-            "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection".to_string()
+            format!(
+              "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection{}",
+              if autoplay {
+                " --autoplay-policy=no-user-gesture-required"
+              } else {
+                ""
+              }
+            )
           }))
           .as_ptr(),
         ));
