@@ -232,7 +232,7 @@ pub struct WebViewAttributes {
   /// ## Platform-specific:
   ///
   /// - **Android:** Unsupported.
-  pub as_incognito: bool
+  pub as_incognito: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -262,7 +262,7 @@ impl Default for WebViewAttributes {
       accept_first_mouse: false,
       back_forward_navigation_gestures: false,
       document_title_changed_handler: None,
-      as_incognito: false
+      as_incognito: false,
     }
   }
 }
@@ -623,7 +623,7 @@ impl<'a> WebViewBuilder<'a> {
   }
 
   /// Runs the WebView as incognito.
-  /// 
+  ///
   /// ## Platform-specific:
   ///
   /// - **Android:** Unsupported.

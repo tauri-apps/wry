@@ -165,13 +165,13 @@ impl InnerWebView {
   fn create_controller(
     hwnd: HWND,
     env: &ICoreWebView2Environment,
-    as_incognito: bool
+    as_incognito: bool,
   ) -> webview2_com::Result<ICoreWebView2Controller> {
     let (tx, rx) = mpsc::channel();
     let env = env.clone().cast::<ICoreWebView2Environment10>()?;
-    let controller_opts = unsafe {env.CreateCoreWebView2ControllerOptions()?};
+    let controller_opts = unsafe { env.CreateCoreWebView2ControllerOptions()? };
 
-    unsafe {controller_opts.SetIsInPrivateModeEnabled(as_incognito)?}
+    unsafe { controller_opts.SetIsInPrivateModeEnabled(as_incognito)? }
 
     CreateCoreWebView2ControllerCompletedHandler::wait_for_async_operation(
       Box::new(move |handler| unsafe {
