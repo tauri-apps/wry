@@ -243,9 +243,9 @@ impl InnerWebView {
       // Incognito mode
       
       let data_store = if (attributes.as_incognito == false) {
-        msg_send![class!(WKWebsiteDataStore), defaultDataStore];
+        msg_send![class!(WKWebsiteDataStore), defaultDataStore]
       } else {
-        msg_send![class!(WKWebsiteDataStore), nonPersistentDataStore];
+        msg_send![class!(WKWebsiteDataStore), nonPersistentDataStore]
       };
 
       for (name, function) in attributes.custom_protocols {
