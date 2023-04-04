@@ -59,12 +59,12 @@ impl InnerWebView {
     let mut default_context;
     let web_context = match web_context {
       Some(w) => w,
-      None if (attributes.as_incognito == false) => {
-        default_context = Default::default();
-        &mut default_context
-      }
       None => {
-        default_context = WebContext::new_ephemeral();
+        default_context = if attributes.as_incognito {
+          WebContext::new_ephemeral()
+        } else {
+          Default::default()
+        };
         &mut default_context
       }
     };
