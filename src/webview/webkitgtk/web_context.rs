@@ -61,12 +61,12 @@ impl WebContextImpl {
     Self::create_context(context)
   }
 
-  pub fn new_ephemeral() -> Self { 
+  pub fn new_ephemeral() -> Self {
     let context = WebContext::new_ephemeral();
 
     Self::create_context(context)
   }
-  
+
   pub fn create_context(context: WebContext) -> Self {
     use webkit2gtk::traits::*;
     let automation = false;
@@ -96,7 +96,6 @@ impl WebContextImpl {
       app_info: Some(app_info),
     }
   }
-
 
   pub fn set_allows_automation(&mut self, flag: bool) {
     use webkit2gtk::traits::*;

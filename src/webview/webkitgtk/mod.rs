@@ -16,8 +16,8 @@ use std::{
 };
 use url::Url;
 use webkit2gtk::{
-  traits::*, LoadEvent, NavigationPolicyDecision, PolicyDecisionType, URIRequest,
-  UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView, WebViewBuilder, SettingsExt,
+  traits::*, LoadEvent, NavigationPolicyDecision, PolicyDecisionType, SettingsExt, URIRequest,
+  UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView, WebViewBuilder,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
