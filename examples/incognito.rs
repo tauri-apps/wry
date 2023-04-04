@@ -11,13 +11,12 @@ fn main() -> wry::Result<()> {
     },
     webview::WebViewBuilder,
   };
+  use http::Response;
+  use std::borrow::Cow;
 
   let html = r#"
       <!DOCTYPE html>
       <html>
-        <head>
-          
-        </head>
         <body>
         <h1>Your cookie is: </h1>
         <p id="cookie"></p>
@@ -47,20 +46,29 @@ fn main() -> wry::Result<()> {
 
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new()
-    .with_title("Hello World")
+    .with_title("WRY Incognito!")
     .build(&event_loop)?;
+  
+  // Use custom protocol as a workaround for example issues with Windows
+  #[cfg(windows)]
   let _webview = WebViewBuilder::new(window)?
-    .with_html(html)?
     .as_incognito(false)
-    .build()?;
+    .with_custom_protocol("incognito".to_owned(), |_req| {
+      let cow = Cow::from(html.as_bytes());
+      Ok(Response::builder().body(cow).unwrap())
+    }).with_url("https://incognito.localhost")?.build()?;
+
+  // Use the HTML directly for non-Windows OSes
+  #[cfg(not(windows))]
+  let _webview = WebViewBuilder::new(window)?
+    .as_incognito(false)
+    .with_html(html)?.build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
     match event {
-      Event::NewEvents(StartCause::Init) => {
-        println!("Wry has started!");
-      }
+      Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         ..
