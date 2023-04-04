@@ -22,7 +22,7 @@ use std::{
 use url::Url;
 use webkit2gtk::{
   traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, URIRequest, UserContentManager,
-  WebContext, WebContextBuilder, WebView, WebsiteDataManagerBuilder, WebsiteDataManager,
+  WebContext, WebContextBuilder, WebView, WebsiteDataManagerBuilder,
 };
 
 #[derive(Debug)]
@@ -37,8 +37,6 @@ pub struct WebContextImpl {
 
 impl WebContextImpl {
   pub fn new(data: &WebContextData) -> Self {
-    use webkit2gtk::traits::*;
-
     let mut context_builder = WebContextBuilder::new();
     if let Some(data_directory) = data.data_directory() {
       let data_manager = WebsiteDataManagerBuilder::new()
@@ -58,45 +56,19 @@ impl WebContextImpl {
       }
       context_builder = context_builder.website_data_manager(&data_manager);
     }
-
     let context = context_builder.build();
 
-    let automation = false;
-    context.set_automation_allowed(automation);
-
-    // e.g. wry 0.9.4
-    let app_info = ApplicationInfo::new();
-    app_info.set_name(env!("CARGO_PKG_NAME"));
-    app_info.set_version(
-      env!("CARGO_PKG_VERSION_MAJOR")
-        .parse()
-        .expect("invalid wry version major"),
-      env!("CARGO_PKG_VERSION_MINOR")
-        .parse()
-        .expect("invalid wry version minor"),
-      env!("CARGO_PKG_VERSION_PATCH")
-        .parse()
-        .expect("invalid wry version patch"),
-    );
-
-    Self {
-      context,
-      automation,
-      manager: UserContentManager::new(),
-      registered_protocols: Default::default(),
-      webview_uri_loader: Rc::default(),
-      app_info: Some(app_info),
-    }
+    Self::create_context(context)
   }
 
-  pub fn new_ephemeral() -> Self {
-    use webkit2gtk::traits::*;
-    let website_data_manager = WebsiteDataManager::new_ephemeral();
-  
-    let context = WebContextBuilder::new()
-      .website_data_manager(&website_data_manager)
-      .build();
+  pub fn new_ephemeral() -> Self { 
+    let context = WebContext::new_ephemeral();
 
+    Self::create_context(context)
+  }
+  
+  pub fn create_context(context: WebContext) -> Self {
+    use webkit2gtk::traits::*;
     let automation = false;
     context.set_automation_allowed(automation);
 
