@@ -69,6 +69,13 @@ impl MainPipe<'_> {
           // set media autoplay
           env.call_method(webview, "setAutoPlay", "(Z)V", &[autoplay.into()])?;
 
+          env.set_field(
+            activity,
+            "m_webview",
+            format!("L{}/RustWebView;", PACKAGE.get().unwrap()),
+            webview.into(),
+          )?;
+
           // Load URL
           if let Ok(url) = env.new_string(url) {
             load_url(env, webview, url, headers, true)?;
@@ -181,7 +188,7 @@ impl MainPipe<'_> {
         WebViewMessage::GetUrl(tx) => {
           if let Some(webview) = &self.webview {
             let url = env
-              .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String", &[])
+              .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String;", &[])
               .and_then(|v| v.l())
               .and_then(|s| env.get_string(s.into()))
               .map(|u| u.to_string_lossy().into())
