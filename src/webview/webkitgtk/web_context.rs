@@ -22,7 +22,7 @@ use std::{
 use url::Url;
 use webkit2gtk::{
   traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, URIRequest, UserContentManager,
-  WebContext, WebContextBuilder, WebView, WebsiteDataManagerBuilder,
+  WebContext, WebContextBuilder, WebView, WebsiteDataManagerBuilder, WebsiteDataManager,
 };
 
 #[derive(Debug)]
@@ -88,6 +88,43 @@ impl WebContextImpl {
       app_info: Some(app_info),
     }
   }
+
+  pub fn new_ephemeral() -> Self {
+    use webkit2gtk::traits::*;
+    let website_data_manager = WebsiteDataManager::new_ephemeral();
+  
+    let context = WebContextBuilder::new()
+      .website_data_manager(&website_data_manager)
+      .build();
+
+    let automation = false;
+    context.set_automation_allowed(automation);
+
+    // e.g. wry 0.9.4
+    let app_info = ApplicationInfo::new();
+    app_info.set_name(env!("CARGO_PKG_NAME"));
+    app_info.set_version(
+      env!("CARGO_PKG_VERSION_MAJOR")
+        .parse()
+        .expect("invalid wry version major"),
+      env!("CARGO_PKG_VERSION_MINOR")
+        .parse()
+        .expect("invalid wry version minor"),
+      env!("CARGO_PKG_VERSION_PATCH")
+        .parse()
+        .expect("invalid wry version patch"),
+    );
+
+    Self {
+      context,
+      automation,
+      manager: UserContentManager::new(),
+      registered_protocols: Default::default(),
+      webview_uri_loader: Rc::default(),
+      app_info: Some(app_info),
+    }
+  }
+
 
   pub fn set_allows_automation(&mut self, flag: bool) {
     use webkit2gtk::traits::*;

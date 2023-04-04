@@ -17,7 +17,7 @@ use std::{
 use url::Url;
 use webkit2gtk::{
   traits::*, LoadEvent, NavigationPolicyDecision, PolicyDecisionType, URIRequest,
-  UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView, WebViewBuilder,
+  UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView, WebViewBuilder, SettingsExt,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -59,8 +59,12 @@ impl InnerWebView {
     let mut default_context;
     let web_context = match web_context {
       Some(w) => w,
-      None => {
+      None if (attributes.as_incognito == false) => {
         default_context = Default::default();
+        &mut default_context
+      }
+      None => {
+        default_context = WebContext::new_ephemeral();
         &mut default_context
       }
     };
@@ -70,7 +74,6 @@ impl InnerWebView {
       webview = webview.user_content_manager(web_context.manager());
       webview = webview.web_context(web_context.context());
       webview = webview.is_controlled_by_automation(web_context.allows_automation());
-      webview = webview.is_ephemeral(attributes.as_incognito);
       webview.build()
     };
 
@@ -81,7 +84,6 @@ impl InnerWebView {
     let w = window_rc.clone();
     let ipc_handler = attributes.ipc_handler.take();
     let manager = web_context.manager();
-
     // Use the window hash as the script handler name to prevent from conflict when sharing same
     // web context.
     let window_hash = {
