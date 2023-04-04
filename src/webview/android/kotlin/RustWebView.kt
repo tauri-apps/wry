@@ -33,5 +33,12 @@ class RustWebView(context: Context): WebView(context) {
         }
     }
 
+    fun setAutoPlay(enable: Boolean) {
+        post {
+          val settings = super.getSettings()
+          settings.setMediaPlaybackRequiresUserGesture(!enable)
+        }
+    }
+
     {{class-extension}}
 }
