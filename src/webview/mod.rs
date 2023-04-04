@@ -233,6 +233,9 @@ pub struct WebViewAttributes {
   ///
   /// - **Android:** Unsupported.
   pub as_incognito: bool,
+  
+  /// Whether all media can be played without user interaction.
+  pub autoplay: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -263,6 +266,7 @@ impl Default for WebViewAttributes {
       back_forward_navigation_gestures: false,
       document_title_changed_handler: None,
       as_incognito: false,
+      autoplay: true
     }
   }
 }
@@ -381,6 +385,12 @@ impl<'a> WebViewBuilder<'a> {
   /// Sets whether the WebView should be transparent.
   pub fn with_visible(mut self, visible: bool) -> Self {
     self.webview.visible = visible;
+    self
+  }
+
+  /// Sets whether all media can be played without user interaction.
+  pub fn with_autoplay(mut self, autoplay: bool) -> Self {
+    self.webview.autoplay = autoplay;
     self
   }
 
@@ -659,7 +669,8 @@ pub trait WebViewBuilderExtWindows {
   /// ## Warning
   ///
   /// By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
-  /// so if you use this method, you also need to disable these components by yourself if you want.
+  /// and `--autoplay-policy=no-user-gesture-required` if autoplay is enabled
+  /// so if you use this method, you have to add these arguments yourself if you want to keep the same behavior.
   fn with_additional_browser_args<S: Into<String>>(self, additional_args: S) -> Self;
 
   /// Determines whether browser-specific accelerator keys are enabled. When this setting is set to

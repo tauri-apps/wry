@@ -325,6 +325,10 @@ impl InnerWebView {
 
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("allowsPictureInPictureMediaPlayback")];
 
+      if attributes.autoplay {
+        let _: id = msg_send![config, setMediaTypesRequiringUserActionForPlayback:0];
+      }
+
       #[cfg(target_os = "macos")]
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("tabFocusesLinks")];
 
