@@ -241,11 +241,10 @@ impl InnerWebView {
       let mut protocol_ptrs = Vec::new();
 
       // Incognito mode
-
-      let data_store: id = if (attributes.incognito == false) {
-        msg_send![class!(WKWebsiteDataStore), defaultDataStore]
-      } else {
+      let data_store: id = if attributes.incognito {
         msg_send![class!(WKWebsiteDataStore), nonPersistentDataStore]
+      } else {
+        msg_send![class!(WKWebsiteDataStore), defaultDataStore]
       };
 
       for (name, function) in attributes.custom_protocols {
