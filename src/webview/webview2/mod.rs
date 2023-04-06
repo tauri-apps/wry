@@ -73,7 +73,7 @@ impl InnerWebView {
     let file_drop_window = window.clone();
 
     let env = Self::create_environment(&web_context, pl_attrs.clone(), attributes.autoplay)?;
-    let controller = Self::create_controller(hwnd, &env, attributes.as_incognito)?;
+    let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
     let webview = Self::init_webview(window, hwnd, attributes, &env, &controller, pl_attrs)?;
 
     if let Some(file_drop_handler) = file_drop_handler {
@@ -173,13 +173,13 @@ impl InnerWebView {
   fn create_controller(
     hwnd: HWND,
     env: &ICoreWebView2Environment,
-    as_incognito: bool,
+    incognito: bool,
   ) -> webview2_com::Result<ICoreWebView2Controller> {
     let (tx, rx) = mpsc::channel();
     let env = env.clone().cast::<ICoreWebView2Environment10>()?;
     let controller_opts = unsafe { env.CreateCoreWebView2ControllerOptions()? };
 
-    unsafe { controller_opts.SetIsInPrivateModeEnabled(as_incognito)? }
+    unsafe { controller_opts.SetIsInPrivateModeEnabled(incognito)? }
 
     CreateCoreWebView2ControllerCompletedHandler::wait_for_async_operation(
       Box::new(move |handler| unsafe {

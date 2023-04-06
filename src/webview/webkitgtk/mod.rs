@@ -58,7 +58,7 @@ impl InnerWebView {
 
     // default_context allows us to create a scoped context on-demand
     let mut default_context;
-    let web_context = if attributes.as_incognito {
+    let web_context = if attributes.incognito {
       default_context = WebContext::new_ephemeral();
       &mut default_context
     } else {

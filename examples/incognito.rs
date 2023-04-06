@@ -52,7 +52,7 @@ fn main() -> wry::Result<()> {
   // Use custom protocol as a workaround for example issues with Windows
   #[cfg(windows)]
   let _webview = WebViewBuilder::new(window)?
-    .as_incognito(false)
+    .with_incognito(false)
     .with_custom_protocol("incognito".to_owned(), |_req| {
       let cow = Cow::from(html.as_bytes());
       Ok(Response::builder().body(cow).unwrap())
@@ -63,7 +63,7 @@ fn main() -> wry::Result<()> {
   // Use the HTML directly for non-Windows OSes
   #[cfg(not(windows))]
   let _webview = WebViewBuilder::new(window)?
-    .as_incognito(false)
+    .with_incognito(false)
     .with_html(html)?
     .build()?;
 

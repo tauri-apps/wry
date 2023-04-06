@@ -232,7 +232,7 @@ pub struct WebViewAttributes {
   /// ## Platform-specific:
   ///
   /// - **Android:** Unsupported.
-  pub as_incognito: bool,
+  pub incognito: bool,
 
   /// Whether all media can be played without user interaction.
   pub autoplay: bool,
@@ -265,7 +265,7 @@ impl Default for WebViewAttributes {
       accept_first_mouse: false,
       back_forward_navigation_gestures: false,
       document_title_changed_handler: None,
-      as_incognito: false,
+      incognito: false,
       autoplay: true,
     }
   }
@@ -637,8 +637,8 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific:
   ///
   /// - **Android:** Unsupported.
-  pub fn as_incognito(mut self, incognito: bool) -> Self {
-    self.webview.as_incognito = incognito;
+  pub fn with_incognito(mut self, incognito: bool) -> Self {
+    self.webview.incognito = incognito;
     self
   }
 
