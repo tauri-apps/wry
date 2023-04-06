@@ -228,10 +228,12 @@ pub struct WebViewAttributes {
   /// Set a handler closure to process the change of the webview's document title.
   pub document_title_changed_handler: Option<Box<dyn Fn(&Window, String)>>,
 
-  /// Run the WebView as incognito
+  /// Run the WebView with incognito mode. Note that WebContext will be ingored if incognito is
+  /// enabled. 
+  ///
   /// ## Platform-specific:
   ///
-  /// - **Android:** Unsupported.
+  /// - **Android:** Unsupported yet.
   pub incognito: bool,
 
   /// Whether all media can be played without user interaction.
@@ -632,11 +634,12 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Runs the WebView as incognito.
+  /// Run the WebView with incognito mode. Note that WebContext will be ingored if incognito is
+  /// enabled. 
   ///
   /// ## Platform-specific:
   ///
-  /// - **Android:** Unsupported.
+  /// - **Android:** Unsupported yet.
   pub fn with_incognito(mut self, incognito: bool) -> Self {
     self.webview.incognito = incognito;
     self
