@@ -229,7 +229,7 @@ pub struct WebViewAttributes {
   pub document_title_changed_handler: Option<Box<dyn Fn(&Window, String)>>,
 
   /// Run the WebView with incognito mode. Note that WebContext will be ingored if incognito is
-  /// enabled. 
+  /// enabled.
   ///
   /// ## Platform-specific:
   ///
@@ -635,7 +635,7 @@ impl<'a> WebViewBuilder<'a> {
   }
 
   /// Run the WebView with incognito mode. Note that WebContext will be ingored if incognito is
-  /// enabled. 
+  /// enabled.
   ///
   /// ## Platform-specific:
   ///
