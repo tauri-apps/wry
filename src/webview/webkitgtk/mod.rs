@@ -16,9 +16,9 @@ use std::{
 };
 use url::Url;
 use webkit2gtk::{
-  traits::*, AutoplayPolicy, LoadEvent, NavigationPolicyDecision, PolicyDecisionType, SettingsExt, URIRequest,
-  UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView, WebViewBuilder,
-  WebsitePoliciesBuilder,
+  traits::*, AutoplayPolicy, LoadEvent, NavigationPolicyDecision, PolicyDecisionType, SettingsExt,
+  URIRequest, UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView,
+  WebViewBuilder, WebsitePoliciesBuilder,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -58,15 +58,16 @@ impl InnerWebView {
 
     // default_context allows us to create a scoped context on-demand
     let mut default_context;
-    let web_context = match web_context {
-      Some(w) => w,
-      None => {
-        default_context = if attributes.as_incognito {
-          WebContext::new_ephemeral()
-        } else {
-          Default::default()
-        };
-        &mut default_context
+    let web_context = if attributes.as_incognito {
+      default_context = WebContext::new_ephemeral();
+      &mut default_context
+    } else {
+      match web_context {
+        Some(w) => w,
+        None => {
+          default_context = Default::default();
+          &mut default_context
+        }
       }
     };
 

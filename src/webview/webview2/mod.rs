@@ -71,7 +71,7 @@ impl InnerWebView {
     let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
     let file_drop_handler = attributes.file_drop_handler.take();
     let file_drop_window = window.clone();
-    
+
     let env = Self::create_environment(&web_context, pl_attrs.clone(), attributes.autoplay)?;
     let controller = Self::create_controller(hwnd, &env, attributes.as_incognito)?;
     let webview = Self::init_webview(window, hwnd, attributes, &env, &controller, pl_attrs)?;

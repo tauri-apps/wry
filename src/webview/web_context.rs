@@ -52,7 +52,7 @@ impl WebContext {
     target_os = "netbsd",
     target_os = "openbsd"
   ))]
-  pub fn new_ephemeral() -> Self {
+  pub(crate) fn new_ephemeral() -> Self {
     let data = WebContextData::default();
     let os = WebContextImpl::new_ephemeral();
     Self { data, os }

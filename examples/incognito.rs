@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: MIT
 
 fn main() -> wry::Result<()> {
+  use http::Response;
+  use std::borrow::Cow;
   use wry::{
     application::{
       event::{Event, StartCause, WindowEvent},
@@ -11,8 +13,6 @@ fn main() -> wry::Result<()> {
     },
     webview::WebViewBuilder,
   };
-  use http::Response;
-  use std::borrow::Cow;
 
   let html = r#"
       <!DOCTYPE html>
@@ -48,7 +48,7 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new()
     .with_title("WRY Incognito!")
     .build(&event_loop)?;
-  
+
   // Use custom protocol as a workaround for example issues with Windows
   #[cfg(windows)]
   let _webview = WebViewBuilder::new(window)?
@@ -56,13 +56,16 @@ fn main() -> wry::Result<()> {
     .with_custom_protocol("incognito".to_owned(), |_req| {
       let cow = Cow::from(html.as_bytes());
       Ok(Response::builder().body(cow).unwrap())
-    }).with_url("https://incognito.localhost")?.build()?;
+    })
+    .with_url("https://incognito.localhost")?
+    .build()?;
 
   // Use the HTML directly for non-Windows OSes
   #[cfg(not(windows))]
   let _webview = WebViewBuilder::new(window)?
     .as_incognito(false)
-    .with_html(html)?.build()?;
+    .with_html(html)?
+    .build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

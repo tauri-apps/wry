@@ -233,7 +233,7 @@ pub struct WebViewAttributes {
   ///
   /// - **Android:** Unsupported.
   pub as_incognito: bool,
-  
+
   /// Whether all media can be played without user interaction.
   pub autoplay: bool,
 }
@@ -266,7 +266,7 @@ impl Default for WebViewAttributes {
       back_forward_navigation_gestures: false,
       document_title_changed_handler: None,
       as_incognito: false,
-      autoplay: true
+      autoplay: true,
     }
   }
 }

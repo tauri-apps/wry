@@ -241,7 +241,7 @@ impl InnerWebView {
       let mut protocol_ptrs = Vec::new();
 
       // Incognito mode
-      
+
       let data_store = if (attributes.as_incognito == false) {
         msg_send![class!(WKWebsiteDataStore), defaultDataStore]
       } else {
