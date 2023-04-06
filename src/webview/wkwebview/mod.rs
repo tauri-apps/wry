@@ -239,6 +239,14 @@ impl InnerWebView {
       // Config and custom protocol
       let config: id = msg_send![class!(WKWebViewConfiguration), new];
       let mut protocol_ptrs = Vec::new();
+
+      // Incognito mode
+      let data_store: id = if attributes.incognito {
+        msg_send![class!(WKWebsiteDataStore), nonPersistentDataStore]
+      } else {
+        msg_send![class!(WKWebsiteDataStore), defaultDataStore]
+      };
+
       for (name, function) in attributes.custom_protocols {
         let scheme_name = format!("{}URLSchemeHandler", name);
         let cls = ClassDecl::new(&scheme_name, class!(NSObject));
@@ -299,6 +307,7 @@ impl InnerWebView {
         _ => class!(WryWebView),
       };
       let webview: id = msg_send![cls, alloc];
+      let () = msg_send![config, setWebsiteDataStore: data_store];
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
 

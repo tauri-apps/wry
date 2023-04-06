@@ -45,6 +45,19 @@ impl WebContext {
     Self { data, os }
   }
 
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+  ))]
+  pub(crate) fn new_ephemeral() -> Self {
+    let data = WebContextData::default();
+    let os = WebContextImpl::new_ephemeral();
+    Self { data, os }
+  }
+
   /// A reference to the data directory the context was created with.
   pub fn data_directory(&self) -> Option<&Path> {
     self.data.data_directory()

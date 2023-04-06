@@ -37,8 +37,6 @@ pub struct WebContextImpl {
 
 impl WebContextImpl {
   pub fn new(data: &WebContextData) -> Self {
-    use webkit2gtk::traits::*;
-
     let mut context_builder = WebContextBuilder::new();
     if let Some(data_directory) = data.data_directory() {
       let data_manager = WebsiteDataManagerBuilder::new()
@@ -58,9 +56,19 @@ impl WebContextImpl {
       }
       context_builder = context_builder.website_data_manager(&data_manager);
     }
-
     let context = context_builder.build();
 
+    Self::create_context(context)
+  }
+
+  pub fn new_ephemeral() -> Self {
+    let context = WebContext::new_ephemeral();
+
+    Self::create_context(context)
+  }
+
+  pub fn create_context(context: WebContext) -> Self {
+    use webkit2gtk::traits::*;
     let automation = false;
     context.set_automation_allowed(automation);
 
