@@ -242,7 +242,7 @@ impl InnerWebView {
 
       // Incognito mode
 
-      let data_store = if (attributes.incognito == false) {
+      let data_store: id = if (attributes.incognito == false) {
         msg_send![class!(WKWebsiteDataStore), defaultDataStore]
       } else {
         msg_send![class!(WKWebsiteDataStore), nonPersistentDataStore]
