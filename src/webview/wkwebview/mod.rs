@@ -5,10 +5,8 @@
 mod download;
 #[cfg(target_os = "macos")]
 mod file_drop;
-mod web_context;
 
 use url::Url;
-pub use web_context::WebContextImpl;
 
 #[cfg(target_os = "macos")]
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
@@ -91,7 +89,7 @@ impl InnerWebView {
     window: Rc<Window>,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
-    mut web_context: Option<&mut WebContext>,
+    _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     // Function for ipc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
@@ -267,11 +265,7 @@ impl InnerWebView {
         };
         let handler: id = msg_send![cls, new];
         let function = Box::into_raw(Box::new(function));
-        if let Some(context) = &mut web_context {
-          context.os.registered_protocols(function);
-        } else {
-          protocol_ptrs.push(function);
-        }
+        protocol_ptrs.push(function);
 
         (*handler).set_ivar("function", function as *mut _ as *mut c_void);
         let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:NSString::new(&name)];
