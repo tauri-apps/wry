@@ -10,8 +10,6 @@
   target_os = "openbsd"
 ))]
 use crate::webview::webkitgtk::WebContextImpl;
-#[cfg(any(target_os = "macos", target_os = "ios"))]
-use crate::webview::wkwebview::WebContextImpl;
 
 use std::path::{Path, PathBuf};
 
@@ -80,11 +78,21 @@ impl WebContextData {
   }
 }
 
-#[cfg(any(target_os = "windows", target_os = "android"))]
+#[cfg(any(
+  target_os = "windows",
+  target_os = "android",
+  target_os = "macos",
+  target_os = "ios"
+))]
 #[derive(Debug)]
 pub(crate) struct WebContextImpl;
 
-#[cfg(any(target_os = "windows", target_os = "android"))]
+#[cfg(any(
+  target_os = "windows",
+  target_os = "android",
+  target_os = "macos",
+  target_os = "ios"
+))]
 impl WebContextImpl {
   fn new(_data: &WebContextData) -> Self {
     Self
