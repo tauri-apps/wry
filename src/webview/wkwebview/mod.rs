@@ -303,14 +303,6 @@ impl InnerWebView {
       #[cfg(target_os = "macos")]
       (*webview).set_ivar(ACCEPT_FIRST_MOUSE, attributes.accept_first_mouse);
 
-      #[cfg(any(debug_assertions, feature = "devtools"))]
-      if attributes.devtools {
-        // Equivalent Obj-C:
-        // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
-        let dev = NSString::new("developerExtrasEnabled");
-        let _: id = msg_send![_preference, setValue:_yes forKey:dev];
-      }
-
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("allowsPictureInPictureMediaPlayback")];
 
       #[cfg(target_os = "macos")]
@@ -345,6 +337,18 @@ impl InnerWebView {
         // set all autoresizingmasks
         let () = msg_send![webview, setAutoresizingMask: 31];
         let _: () = msg_send![webview, initWithFrame:frame configuration:config];
+      }
+
+      #[cfg(any(debug_assertions, feature = "devtools"))]
+      if attributes.devtools {
+        let has_inspectable_property: BOOL =
+          msg_send![webview, respondsToSelector: sel!(setInspectable:)];
+        if has_inspectable_property == YES {
+          let _: () = msg_send![webview, setInspectable: YES];
+        }
+        // this cannot be on an `else` statement, it does not work on macOS :(
+        let dev = NSString::new("developerExtrasEnabled");
+        let _: id = msg_send![_preference, setValue:_yes forKey:dev];
       }
 
       // allowsBackForwardNavigation
