@@ -1,5 +1,14 @@
 # Changelog
 
+## \[0.27.3]
+
+- Adds a way to launch a WebView as incognito through a new API at WebViewBuilder named as `with_incognito`.
+  - [8698836](https://github.com/tauri-apps/wry/commit/86988368a4e833b21089d119c934529ecfe306b7) feat: Add a way to launch WebViews as incognito `WebView::as_incognito`, closes [#908](https://github.com/tauri-apps/wry/pull/908) ([#916](https://github.com/tauri-apps/wry/pull/916)) on 2023-04-06
+- On macOS and iOS, remove webcontext implementation since we don't actually use it. This also fix segfault if users drop webcontext early.
+  - [3cc45cb](https://github.com/tauri-apps/wry/commit/3cc45cb86b93c56cf2444bfc37dc6ba229d4222e) Remove webcontext implementation on wkwebview ([#922](https://github.com/tauri-apps/wry/pull/922)) on 2023-04-07
+- Use the new WKWebView `inspectable` property if available (iOS 16.4, macOS 13.3).
+  - [c3f7304](https://github.com/tauri-apps/wry/commit/c3f7304dbfd45d1e1c27b53be2369c737e946b69) feat(macos): use WKWebView's inspectable property ([#923](https://github.com/tauri-apps/wry/pull/923)) on 2023-04-08
+
 ## \[0.27.2]
 
 - On Android, Add support for native back button navigation.
