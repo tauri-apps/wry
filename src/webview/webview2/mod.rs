@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 mod file_drop;
+mod ipc;
 
 use crate::{
   webview::{WebContext, WebViewAttributes, RGBA},
@@ -307,6 +308,12 @@ impl InnerWebView {
           )
           .map_err(webview2_com::Error::WindowsError)?;
       }
+    }
+
+    // Add host object
+    let s = PCWSTR::from_raw(encode_wide("ipc").as_ptr());
+    unsafe {
+      webview.AddHostObjectToScript(s, &mut ipc::PostMessage.into())?;
     }
 
     // Initialize scripts
