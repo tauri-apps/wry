@@ -32,10 +32,7 @@ impl InnerWebView {
   pub fn print(&self) {}
 
   pub fn url(&self) -> Url {
-    let (tx, rx) = bounded(1);
-    MainPipe::send(WebViewMessage::GetUrl(tx));
-    let uri = rx.recv().unwrap();
-    Url::parse(uri.as_str()).unwrap()
+    panic!("Unsupported in android");
   }
 
   pub fn eval(&self, js: &str) -> Result<()> {
