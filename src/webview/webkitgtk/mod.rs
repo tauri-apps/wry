@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use gdk::{Cursor, EventMask, WindowEdge};
+use gdk::{Cursor, EventMask, WindowEdge, RGBA};
 use gio::Cancellable;
 use glib::signal::Inhibit;
 use gtk::prelude::*;
