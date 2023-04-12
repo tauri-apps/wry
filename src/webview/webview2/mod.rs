@@ -652,7 +652,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   }
 
   pub fn url(&self) -> Url {
-    let mut pwstr = PWSTR::null();
+    let mut pwstr = PWSTR::default();
 
     unsafe { self.webview.Source(&mut pwstr).unwrap() };
 
