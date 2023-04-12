@@ -36,7 +36,6 @@ impl InnerWebView {
   }
 
   pub fn eval(&self, js: &str) -> Result<()> {
-    MainPipe::send(WebViewMessage::Eval(js.into()));
     Ok(())
   }
 
