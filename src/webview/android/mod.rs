@@ -131,7 +131,7 @@ pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
   let webchrome_client = env
     .new_object(
       rust_webchrome_client_class,
-      "(Landroidx/appcompat/app/AppCompatActivity;)V",
+      &format!("(L{}/WryActivity;)V", PACKAGE.get().unwrap()),
       &[activity.as_obj().into()],
     )
     .unwrap();
