@@ -37,10 +37,10 @@ pub struct Context<'a> {
 
 #[macro_export]
 macro_rules! android_binding {
-  ($domain:ident, $package:ident, $main: ident) => {
+  ($domain:ident, $package:ident, $main:ident) => {
     android_binding!($domain, $package, $main, ::wry)
   };
-  ($domain:ident, $package:ident, $main: ident, $wry: path) => {
+  ($domain:ident, $package:ident, $main:ident, $wry:path) => {
     use $wry::{
       application::{
         android_binding as tao_android_binding, android_fn, generate_package_name,
@@ -48,7 +48,7 @@ macro_rules! android_binding {
       },
       webview::prelude::*,
     };
-    tao_android_binding!($domain, $package, setup, $main);
+    tao_android_binding!($domain, $package, WryActivity, setup, $main);
     android_fn!(
       $domain,
       $package,
@@ -175,6 +175,7 @@ impl InnerWebView {
       url,
       initialization_scripts,
       ipc_handler,
+      #[cfg(any(debug_assertions, feature = "devtools"))]
       devtools,
       custom_protocols,
       background_color,
@@ -202,6 +203,7 @@ impl InnerWebView {
 
       MainPipe::send(WebViewMessage::CreateWebView(CreateWebViewAttributes {
         url: url_string,
+        #[cfg(any(debug_assertions, feature = "devtools"))]
         devtools,
         background_color,
         transparent,

@@ -12,7 +12,7 @@ import android.webkit.WebView
 import android.view.KeyEvent
 import androidx.appcompat.app.AppCompatActivity
 
-abstract class TauriActivity : AppCompatActivity() {
+abstract class WryActivity : AppCompatActivity() {
     lateinit var m_webview: RustWebView
 
     val version: String
@@ -112,7 +112,7 @@ abstract class TauriActivity : AppCompatActivity() {
         }
     }
 
-    private external fun create(activity: TauriActivity)
+    private external fun create(activity: WryActivity)
     private external fun start()
     private external fun resume()
     private external fun pause()

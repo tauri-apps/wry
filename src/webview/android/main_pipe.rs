@@ -47,12 +47,14 @@ impl MainPipe<'_> {
         WebViewMessage::CreateWebView(attrs) => {
           let CreateWebViewAttributes {
             url,
+            #[cfg(any(debug_assertions, feature = "devtools"))]
             devtools,
             transparent,
             background_color,
             headers,
             on_webview_created,
             autoplay,
+            ..
           } = attrs;
           // Create webview
           let rust_webview_class = find_class(
@@ -275,6 +277,7 @@ pub(crate) enum WebViewMessage {
 
 pub(crate) struct CreateWebViewAttributes {
   pub url: String,
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub devtools: bool,
   pub transparent: bool,
   pub background_color: Option<RGBA>,
