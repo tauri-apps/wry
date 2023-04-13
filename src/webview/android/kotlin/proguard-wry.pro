@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-License-Identifier: MIT
 
--keep class androidx.appcompat.app.AppCompatActivity { }
-
 -keep class {{package}}.* {
   native <methods>;
 }
