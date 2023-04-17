@@ -1,16 +1,22 @@
+use std::{cell::RefCell, rc::Rc};
+
 use gdk::{EventButton, ModifierType};
 use gtk::prelude::*;
 use webkit2gtk::{WebView, WebViewExt};
 
 pub fn setup(webview: &WebView) {
+  let bf_state = BackForwardState(Rc::new(RefCell::new(0)));
+
+  let bf_state_c = bf_state.clone();
   webview.connect_button_press_event(move |webview, event| {
     let mut inhibit = false;
     match event.button() {
       // back button
       8 => {
         inhibit = true;
+        bf_state_c.set(BACK);
         webview.run_javascript(
-          &create_js_mouse_event(event, true),
+          &create_js_mouse_event(event, true, &bf_state_c),
           None::<&gio::Cancellable>,
           |_| {},
         );
@@ -18,8 +24,9 @@ pub fn setup(webview: &WebView) {
       // forward button
       9 => {
         inhibit = true;
+        bf_state_c.set(FORWARD);
         webview.run_javascript(
-          &create_js_mouse_event(event, true),
+          &create_js_mouse_event(event, true, &bf_state_c),
           None::<&gio::Cancellable>,
           |_| {},
         );
@@ -30,14 +37,16 @@ pub fn setup(webview: &WebView) {
     Inhibit(inhibit)
   });
 
+  let bf_state_c = bf_state.clone();
   webview.connect_button_release_event(move |webview, event| {
     let mut inhibit = false;
     match event.button() {
       // back button
       8 => {
         inhibit = true;
+        bf_state_c.remove(BACK);
         webview.run_javascript(
-          &create_js_mouse_event(event, false),
+          &create_js_mouse_event(event, false, &bf_state_c),
           None::<&gio::Cancellable>,
           |_| {},
         );
@@ -45,8 +54,9 @@ pub fn setup(webview: &WebView) {
       // forward button
       9 => {
         inhibit = true;
+        bf_state_c.remove(FORWARD);
         webview.run_javascript(
-          &create_js_mouse_event(event, false),
+          &create_js_mouse_event(event, false, &bf_state_c),
           None::<&gio::Cancellable>,
           |_| {},
         );
@@ -57,7 +67,7 @@ pub fn setup(webview: &WebView) {
   });
 }
 
-fn create_js_mouse_event(event: &EventButton, pressed: bool) -> String {
+fn create_js_mouse_event(event: &EventButton, pressed: bool, state: &BackForwardState) -> String {
   let event_name = if pressed { "mousedown" } else { "mouseup" };
   // js equivalent https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/button
   let button = if event.button() == 8 { 3 } else { 4 };
@@ -65,25 +75,32 @@ fn create_js_mouse_event(event: &EventButton, pressed: bool) -> String {
   let (x, y) = (x as i32, y as i32);
   let modifers_state = event.state();
   let mut buttons = 0;
+  // left button
   if modifers_state.contains(ModifierType::BUTTON1_MASK) {
     buttons += 1;
   }
   // right button
-  if modifers_state.contains(ModifierType::BUTTON2_MASK) {
+  if modifers_state.contains(ModifierType::BUTTON3_MASK) {
     buttons += 2;
   }
   // middle button
-  if modifers_state.contains(ModifierType::BUTTON3_MASK) {
+  if modifers_state.contains(ModifierType::BUTTON2_MASK) {
     buttons += 4;
   }
   // back button
-  if modifers_state.contains(ModifierType::BUTTON4_MASK) {
-    buttons += 9;
+  if state.has(BACK) {
+    buttons += 8;
   }
+  // if modifers_state.contains(ModifierType::BUTTON4_MASK) {
+  //   buttons += 8;
+  // }
   // forward button
-  if modifers_state.contains(ModifierType::BUTTON5_MASK) {
+  if state.has(FORWARD) {
     buttons += 16;
   }
+  // if modifers_state.contains(ModifierType::BUTTON5_MASK) {
+  //   buttons += 16;
+  // }
   format!(
     r#"(() => {{
         const el = document.elementFromPoint({x},{y});
@@ -132,4 +149,27 @@ fn create_js_mouse_event(event: &EventButton, pressed: bool) -> String {
     button = button,
     buttons = buttons,
   )
+}
+
+// Internal modifiers to track whether BACK/FORWARD buttons are pressed
+const BACK: u8 = 0b01;
+const FORWARD: u8 = 0b10;
+
+/// A single u8 that stores whether [BACK] and [FORWARD] are pressed or not
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct BackForwardState(Rc<RefCell<u8>>);
+
+impl BackForwardState {
+  fn set(&self, button: u8) {
+    *self.0.borrow_mut() |= button
+  }
+
+  fn remove(&self, button: u8) {
+    *self.0.borrow_mut() &= !button
+  }
+
+  fn has(&self, button: u8) -> bool {
+    let state = *self.0.borrow();
+    state & !button != state
+  }
 }
