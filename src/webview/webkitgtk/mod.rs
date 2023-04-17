@@ -527,8 +527,9 @@ impl InnerWebView {
     if let Some(context) = WebViewExt::context(&*self.webview) {
       use webkit2gtk::WebContextExt;
       if let Some(data_manger) = context.website_data_manager() {
-        data_manger.clear(
-          WebsiteDataTypes::ALL,
+        webkit2gtk::WebsiteDataManagerExtManual::clear(
+          &data_manger,
+          webkit2gtk::WebsiteDataTypes::ALL,
           glib::TimeSpan::from_seconds(0),
           None::<&Cancellable>,
           |_| {},
