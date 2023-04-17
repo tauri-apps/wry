@@ -15,8 +15,9 @@ use std::{
 };
 use url::Url;
 use webkit2gtk::{
-  traits::*, LoadEvent, NavigationPolicyDecision, PolicyDecisionType, URIRequest,
-  UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView, WebViewBuilder,
+  traits::*, AutoplayPolicy, LoadEvent, NavigationPolicyDecision, PolicyDecisionType, SettingsExt,
+  URIRequest, UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView,
+  WebViewBuilder, WebsitePoliciesBuilder,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -37,6 +38,8 @@ mod synthetic_mouse_events;
 mod undecorated_resizing;
 mod web_context;
 
+use javascriptcore::ValueExt;
+
 pub(crate) struct InnerWebView {
   pub webview: Rc<WebView>,
   #[cfg(any(debug_assertions, feature = "devtools"))]
@@ -56,11 +59,16 @@ impl InnerWebView {
 
     // default_context allows us to create a scoped context on-demand
     let mut default_context;
-    let web_context = match web_context {
-      Some(w) => w,
-      None => {
-        default_context = Default::default();
-        &mut default_context
+    let web_context = if attributes.incognito {
+      default_context = WebContext::new_ephemeral();
+      &mut default_context
+    } else {
+      match web_context {
+        Some(w) => w,
+        None => {
+          default_context = Default::default();
+          &mut default_context
+        }
       }
     };
 
@@ -69,6 +77,13 @@ impl InnerWebView {
       webview = webview.user_content_manager(web_context.manager());
       webview = webview.web_context(web_context.context());
       webview = webview.is_controlled_by_automation(web_context.allows_automation());
+      if attributes.autoplay {
+        webview = webview.website_policies(
+          &WebsitePoliciesBuilder::new()
+            .autoplay(AutoplayPolicy::Allow)
+            .build(),
+        );
+      }
       webview.build()
     };
 
@@ -79,7 +94,6 @@ impl InnerWebView {
     let w = window_rc.clone();
     let ipc_handler = attributes.ipc_handler.take();
     let manager = web_context.manager();
-
     // Use the window hash as the script handler name to prevent from conflict when sharing same
     // web context.
     let window_hash = {
@@ -301,7 +315,10 @@ impl InnerWebView {
   }
 
   pub fn print(&self) {
-    let _ = self.eval("window.print()");
+    let _ = self.eval(
+      "window.print()",
+      None::<Box<dyn FnOnce(String) + Send + 'static>>,
+    );
   }
 
   pub fn url(&self) -> Url {
@@ -310,13 +327,36 @@ impl InnerWebView {
     Url::parse(uri.as_str()).unwrap()
   }
 
-  pub fn eval(&self, js: &str) -> Result<()> {
+  pub fn eval(
+    &self,
+    js: &str,
+    callback: Option<impl FnOnce(String) + Send + 'static>,
+  ) -> Result<()> {
     if let Some(pending_scripts) = &mut *self.pending_scripts.lock().unwrap() {
       pending_scripts.push(js.into());
     } else {
       let cancellable: Option<&Cancellable> = None;
-      self.webview.run_javascript(js, cancellable, |_| ());
+
+      match callback {
+        Some(callback) => {
+          self.webview.run_javascript(js, cancellable, |result| {
+            let mut result_str = String::new();
+
+            if let Ok(js_result) = result {
+              if let Some(js_value) = js_result.js_value() {
+                if let Some(json_str) = js_value.to_json(0) {
+                  result_str = json_str.to_string();
+                }
+              }
+            }
+
+            callback(result_str);
+          });
+        }
+        None => self.webview.run_javascript(js, cancellable, |_| ()),
+      };
     }
+
     Ok(())
   }
 

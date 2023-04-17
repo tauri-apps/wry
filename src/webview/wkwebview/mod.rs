@@ -7,10 +7,8 @@ mod download;
 mod file_drop;
 #[cfg(target_os = "macos")]
 mod synthetic_mouse_events;
-mod web_context;
 
 use url::Url;
-pub use web_context::WebContextImpl;
 
 #[cfg(target_os = "macos")]
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
@@ -69,6 +67,8 @@ use http::{
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
 const ACCEPT_FIRST_MOUSE: &str = "accept_first_mouse";
 
+const NS_JSON_WRITING_FRAGMENTS_ALLOWED: u64 = 4;
+
 pub(crate) struct InnerWebView {
   pub webview: id,
   #[cfg(target_os = "macos")]
@@ -91,7 +91,7 @@ impl InnerWebView {
     window: Rc<Window>,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
-    mut web_context: Option<&mut WebContext>,
+    _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     // Function for ipc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
@@ -239,6 +239,14 @@ impl InnerWebView {
       // Config and custom protocol
       let config: id = msg_send![class!(WKWebViewConfiguration), new];
       let mut protocol_ptrs = Vec::new();
+
+      // Incognito mode
+      let data_store: id = if attributes.incognito {
+        msg_send![class!(WKWebsiteDataStore), nonPersistentDataStore]
+      } else {
+        msg_send![class!(WKWebsiteDataStore), defaultDataStore]
+      };
+
       for (name, function) in attributes.custom_protocols {
         let scheme_name = format!("{}URLSchemeHandler", name);
         let cls = ClassDecl::new(&scheme_name, class!(NSObject));
@@ -259,11 +267,7 @@ impl InnerWebView {
         };
         let handler: id = msg_send![cls, new];
         let function = Box::into_raw(Box::new(function));
-        if let Some(context) = &mut web_context {
-          context.os.registered_protocols(function);
-        } else {
-          protocol_ptrs.push(function);
-        }
+        protocol_ptrs.push(function);
 
         (*handler).set_ivar("function", function as *mut _ as *mut c_void);
         let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:NSString::new(&name)];
@@ -303,21 +307,18 @@ impl InnerWebView {
       let webview: id = msg_send![cls, alloc];
       (*webview).set_ivar("webview", webview);
 
+      let () = msg_send![config, setWebsiteDataStore: data_store];
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
 
       #[cfg(target_os = "macos")]
       (*webview).set_ivar(ACCEPT_FIRST_MOUSE, attributes.accept_first_mouse);
 
-      #[cfg(any(debug_assertions, feature = "devtools"))]
-      if attributes.devtools {
-        // Equivalent Obj-C:
-        // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
-        let dev = NSString::new("developerExtrasEnabled");
-        let _: id = msg_send![_preference, setValue:_yes forKey:dev];
-      }
-
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("allowsPictureInPictureMediaPlayback")];
+
+      if attributes.autoplay {
+        let _: id = msg_send![config, setMediaTypesRequiringUserActionForPlayback:0];
+      }
 
       #[cfg(target_os = "macos")]
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("tabFocusesLinks")];
@@ -351,6 +352,22 @@ impl InnerWebView {
         // set all autoresizingmasks
         let () = msg_send![webview, setAutoresizingMask: 31];
         let _: () = msg_send![webview, initWithFrame:frame configuration:config];
+
+        // disable scroll bounce by default
+        let scroll: id = msg_send![webview, scrollView];
+        let _: () = msg_send![scroll, setBounces: NO];
+      }
+
+      #[cfg(any(debug_assertions, feature = "devtools"))]
+      if attributes.devtools {
+        let has_inspectable_property: BOOL =
+          msg_send![webview, respondsToSelector: sel!(setInspectable:)];
+        if has_inspectable_property == YES {
+          let _: () = msg_send![webview, setInspectable: YES];
+        }
+        // this cannot be on an `else` statement, it does not work on macOS :(
+        let dev = NSString::new("developerExtrasEnabled");
+        let _: id = msg_send![_preference, setValue:_yes forKey:dev];
       }
 
       // allowsBackForwardNavigation
@@ -850,15 +867,37 @@ r#"Object.defineProperty(window, 'ipc', {
     Url::parse(std::str::from_utf8(bytes).unwrap()).unwrap()
   }
 
-  pub fn eval(&self, js: &str) -> Result<()> {
+  pub fn eval(&self, js: &str, callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {
     if let Some(scripts) = &mut *self.pending_scripts.lock().unwrap() {
       scripts.push(js.into());
     } else {
       // Safety: objc runtime calls are unsafe
       unsafe {
-        let _: id = msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()];
+        let _: id = match callback {
+          Some(callback) => {
+            let handler = block::ConcreteBlock::new(|val: id, _err: id| {
+              let mut result = String::new();
+
+              if val != nil {
+                let serializer = class!(NSJSONSerialization);
+                let json_ns_data: NSData = msg_send![serializer, dataWithJSONObject:val options:NS_JSON_WRITING_FRAGMENTS_ALLOWED error:nil];
+                let json_string = NSString::from(json_ns_data);
+
+                result = json_string.to_str().to_string();
+              }
+
+              callback(result)
+            });
+
+            msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:handler]
+          }
+          None => {
+            msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()]
+          }
+        };
       }
     }
+
     Ok(())
   }
 
@@ -1080,3 +1119,17 @@ impl NSString {
     self.0
   }
 }
+
+impl From<NSData> for NSString {
+  fn from(value: NSData) -> Self {
+    Self(unsafe {
+      let ns_string: id = msg_send![class!(NSString), alloc];
+      let ns_string: id = msg_send![ns_string, initWithData:value encoding:UTF8_ENCODING];
+      let _: () = msg_send![ns_string, autorelease];
+
+      ns_string
+    })
+  }
+}
+
+struct NSData(id);

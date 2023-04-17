@@ -2,7 +2,7 @@ workspace = { }
 
 [package]
 name = "wry"
-version = "0.27.0"
+version = "0.27.3"
 authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -41,7 +41,7 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.3"
-tao = { version = "0.18.0", default-features = false, features = [ "serde" ] }
+tao = { version = "0.19", default-features = false, features = [ "serde" ] }
 http = "0.2.9"
 
 [dev-dependencies]
@@ -51,6 +51,7 @@ dirs = "4.0.0"
 base64 = "0.13.1"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
+javascriptcore-rs = { version = "0.17.0", features = [ "v2_28" ] }
 webkit2gtk = { version = "0.19.2", features = [ "v2_38" ] }
 webkit2gtk-sys = "0.19.1"
 gio = "0.16"

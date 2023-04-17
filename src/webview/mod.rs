@@ -227,6 +227,17 @@ pub struct WebViewAttributes {
 
   /// Set a handler closure to process the change of the webview's document title.
   pub document_title_changed_handler: Option<Box<dyn Fn(&Window, String)>>,
+
+  /// Run the WebView with incognito mode. Note that WebContext will be ingored if incognito is
+  /// enabled.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Android:** Unsupported yet.
+  pub incognito: bool,
+
+  /// Whether all media can be played without user interaction.
+  pub autoplay: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -256,6 +267,8 @@ impl Default for WebViewAttributes {
       accept_first_mouse: false,
       back_forward_navigation_gestures: false,
       document_title_changed_handler: None,
+      incognito: false,
+      autoplay: true,
     }
   }
 }
@@ -374,6 +387,12 @@ impl<'a> WebViewBuilder<'a> {
   /// Sets whether the WebView should be transparent.
   pub fn with_visible(mut self, visible: bool) -> Self {
     self.webview.visible = visible;
+    self
+  }
+
+  /// Sets whether all media can be played without user interaction.
+  pub fn with_autoplay(mut self, autoplay: bool) -> Self {
+    self.webview.autoplay = autoplay;
     self
   }
 
@@ -615,6 +634,17 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Run the WebView with incognito mode. Note that WebContext will be ingored if incognito is
+  /// enabled.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Android:** Unsupported yet.
+  pub fn with_incognito(mut self, incognito: bool) -> Self {
+    self.webview.incognito = incognito;
+    self
+  }
+
   /// Consume the builder and create the [`WebView`].
   ///
   /// Platform-specific behavior:
@@ -642,7 +672,8 @@ pub trait WebViewBuilderExtWindows {
   /// ## Warning
   ///
   /// By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
-  /// so if you use this method, you also need to disable these components by yourself if you want.
+  /// and `--autoplay-policy=no-user-gesture-required` if autoplay is enabled
+  /// so if you use this method, you have to add these arguments yourself if you want to keep the same behavior.
   fn with_additional_browser_args<S: Into<String>>(self, additional_args: S) -> Self;
 
   /// Determines whether browser-specific accelerator keys are enabled. When this setting is set to
@@ -799,8 +830,29 @@ impl WebView {
   /// [`WebView`]. Use [`EventLoopProxy`] and a custom event to send scripts from other threads.
   ///
   /// [`EventLoopProxy`]: crate::application::event_loop::EventLoopProxy
+  ///
   pub fn evaluate_script(&self, js: &str) -> Result<()> {
-    self.webview.eval(js)
+    self
+      .webview
+      .eval(js, None::<Box<dyn Fn(String) + Send + 'static>>)
+  }
+
+  /// Evaluate and run javascript code with callback function. The evaluation result will be
+  /// serialized into a JSON string and passed to the callback function. Must be called on the
+  /// same thread who created the [`WebView`]. Use [`EventLoopProxy`] and a custom event to
+  /// send scripts from other threads.
+  ///
+  /// [`EventLoopProxy`]: crate::application::event_loop::EventLoopProxy
+  ///
+  /// Exception is ignored because of the limitation on windows. You can catch it yourself and return as string as a workaround.
+  ///
+  /// - ** Android:** Not implemented yet.
+  pub fn evaluate_script_with_callback(
+    &self,
+    js: &str,
+    callback: impl Fn(String) + Send + 'static,
+  ) -> Result<()> {
+    self.webview.eval(js, Some(callback))
   }
 
   /// Launch print modal for the webview content.

@@ -37,10 +37,10 @@ pub struct Context<'a> {
 
 #[macro_export]
 macro_rules! android_binding {
-  ($domain:ident, $package:ident, $main: ident) => {
+  ($domain:ident, $package:ident, $main:ident) => {
     android_binding!($domain, $package, $main, ::wry)
   };
-  ($domain:ident, $package:ident, $main: ident, $wry: path) => {
+  ($domain:ident, $package:ident, $main:ident, $wry:path) => {
     use $wry::{
       application::{
         android_binding as tao_android_binding, android_fn, generate_package_name,
@@ -48,7 +48,7 @@ macro_rules! android_binding {
       },
       webview::prelude::*,
     };
-    tao_android_binding!($domain, $package, setup, $main);
+    tao_android_binding!($domain, $package, WryActivity, setup, $main);
     android_fn!(
       $domain,
       $package,
@@ -131,7 +131,7 @@ pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
   let webchrome_client = env
     .new_object(
       rust_webchrome_client_class,
-      "(Landroidx/appcompat/app/AppCompatActivity;)V",
+      &format!("(L{}/WryActivity;)V", PACKAGE.get().unwrap()),
       &[activity.as_obj().into()],
     )
     .unwrap();
@@ -175,11 +175,13 @@ impl InnerWebView {
       url,
       initialization_scripts,
       ipc_handler,
+      #[cfg(any(debug_assertions, feature = "devtools"))]
       devtools,
       custom_protocols,
       background_color,
       transparent,
       headers,
+      autoplay,
       ..
     } = attributes;
 
@@ -201,11 +203,13 @@ impl InnerWebView {
 
       MainPipe::send(WebViewMessage::CreateWebView(CreateWebViewAttributes {
         url: url_string,
+        #[cfg(any(debug_assertions, feature = "devtools"))]
         devtools,
         background_color,
         transparent,
         headers,
         on_webview_created,
+        autoplay,
       }));
     }
 
@@ -306,7 +310,7 @@ impl InnerWebView {
     Url::parse(uri.as_str()).unwrap()
   }
 
-  pub fn eval(&self, js: &str) -> Result<()> {
+  pub fn eval(&self, js: &str, _callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {
     MainPipe::send(WebViewMessage::Eval(js.into()));
     Ok(())
   }
