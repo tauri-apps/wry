@@ -2,4 +2,4 @@
 "wry": "minor"
 ---
 
-On Linux, add synthesized event for mouse backward and forward buttons.
+On Linux and macOS, add synthesized event for mouse backward and forward buttons.
