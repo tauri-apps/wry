@@ -72,8 +72,8 @@ impl InnerWebView {
     let file_drop_handler = attributes.file_drop_handler.take();
     let file_drop_window = window.clone();
 
-    let env = Self::create_environment(&web_context, pl_attrs.clone())?;
-    let controller = Self::create_controller(hwnd, &env)?;
+    let env = Self::create_environment(&web_context, pl_attrs.clone(), attributes.autoplay)?;
+    let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
     let webview = Self::init_webview(window, hwnd, attributes, &env, &controller, pl_attrs)?;
 
     if let Some(file_drop_handler) = file_drop_handler {
@@ -93,6 +93,7 @@ impl InnerWebView {
   fn create_environment(
     web_context: &Option<&mut WebContext>,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
+    autoplay: bool,
   ) -> webview2_com::Result<ICoreWebView2Environment> {
     let (tx, rx) = mpsc::channel();
 
@@ -127,7 +128,14 @@ impl InnerWebView {
           encode_wide(pl_attrs.additional_browser_args.unwrap_or_else(|| {
             // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
             // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
-            "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection".to_string()
+            format!(
+              "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection{}",
+              if autoplay {
+                " --autoplay-policy=no-user-gesture-required"
+              } else {
+                ""
+              }
+            )
           }))
           .as_ptr(),
         ));
@@ -165,14 +173,18 @@ impl InnerWebView {
   fn create_controller(
     hwnd: HWND,
     env: &ICoreWebView2Environment,
+    incognito: bool,
   ) -> webview2_com::Result<ICoreWebView2Controller> {
     let (tx, rx) = mpsc::channel();
-    let env = env.clone();
+    let env = env.clone().cast::<ICoreWebView2Environment10>()?;
+    let controller_opts = unsafe { env.CreateCoreWebView2ControllerOptions()? };
+
+    unsafe { controller_opts.SetIsInPrivateModeEnabled(incognito)? }
 
     CreateCoreWebView2ControllerCompletedHandler::wait_for_async_operation(
       Box::new(move |handler| unsafe {
         env
-          .CreateCoreWebView2Controller(hwnd, &handler)
+          .CreateCoreWebView2ControllerWithOptions(hwnd, &controller_opts, &handler)
           .map_err(webview2_com::Error::WindowsError)
       }),
       Box::new(move |error_code, controller| {

@@ -4,13 +4,16 @@
 
 package {{package}}
 
+import {{package}}.RustWebView
 import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
+import android.view.KeyEvent
 import androidx.appcompat.app.AppCompatActivity
 
-abstract class TauriActivity : AppCompatActivity() {
+abstract class WryActivity : AppCompatActivity() {
+    lateinit var m_webview: RustWebView
 
     val version: String
         @SuppressLint("WebViewApiAvailability", "ObsoleteSdkInt")
@@ -91,6 +94,14 @@ abstract class TauriActivity : AppCompatActivity() {
         memory()
     }
 
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK && m_webview?.canGoBack()) {
+            m_webview?.goBack()
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
     fun getAppClass(name: String): Class<*> {
         return Class.forName(name)
     }
@@ -101,7 +112,7 @@ abstract class TauriActivity : AppCompatActivity() {
         }
     }
 
-    private external fun create(activity: TauriActivity)
+    private external fun create(activity: WryActivity)
     private external fun start()
     private external fun resume()
     private external fun pause()

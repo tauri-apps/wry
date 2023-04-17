@@ -1,5 +1,29 @@
 # Changelog
 
+## \[0.27.3]
+
+- Adds a way to launch a WebView as incognito through a new API at WebViewBuilder named as `with_incognito`.
+  - [8698836](https://github.com/tauri-apps/wry/commit/86988368a4e833b21089d119c934529ecfe306b7) feat: Add a way to launch WebViews as incognito `WebView::as_incognito`, closes [#908](https://github.com/tauri-apps/wry/pull/908) ([#916](https://github.com/tauri-apps/wry/pull/916)) on 2023-04-06
+- On macOS and iOS, remove webcontext implementation since we don't actually use it. This also fix segfault if users drop webcontext early.
+  - [3cc45cb](https://github.com/tauri-apps/wry/commit/3cc45cb86b93c56cf2444bfc37dc6ba229d4222e) Remove webcontext implementation on wkwebview ([#922](https://github.com/tauri-apps/wry/pull/922)) on 2023-04-07
+- Use the new WKWebView `inspectable` property if available (iOS 16.4, macOS 13.3).
+  - [c3f7304](https://github.com/tauri-apps/wry/commit/c3f7304dbfd45d1e1c27b53be2369c737e946b69) feat(macos): use WKWebView's inspectable property ([#923](https://github.com/tauri-apps/wry/pull/923)) on 2023-04-08
+
+## \[0.27.2]
+
+- On Android, Add support for native back button navigation.
+  - [fc232a3](https://github.com/tauri-apps/wry/commit/fc232a32268a13ec89965450dd6cf0abca064b24) feat(android): add support for native back navigation ([#918](https://github.com/tauri-apps/wry/pull/918)) on 2023-04-03
+- Fix `WebView::url` getter on Android.
+  - [427cf92](https://github.com/tauri-apps/wry/commit/427cf9222d7152f911aa70eb778eb7aa90c83fac) Unify custom porotocol across Android/iOS ([#546](https://github.com/tauri-apps/wry/pull/546)) on 2022-04-11
+  - [b89398a](https://github.com/tauri-apps/wry/commit/b89398a9bb17303544a1f04303783f311c6dc77f) Publish New Versions ([#547](https://github.com/tauri-apps/wry/pull/547)) on 2022-04-26
+  - [c22744a](https://github.com/tauri-apps/wry/commit/c22744a0c11e9c78f548dc3786e6be30c1d6f46f) fix(android): use correct method signature ([#917](https://github.com/tauri-apps/wry/pull/917)) on 2023-03-31
+- Add Webview attribute to enable/disable autoplay. Enabled by default.
+  - [6a523cc](https://github.com/tauri-apps/wry/commit/6a523cc7a633236e1fb562e0626e0aedc67ec2fc) feat: Add setting to enable autoplay ([#913](https://github.com/tauri-apps/wry/pull/913)) on 2023-04-04
+- Fix the `WebViewBuilder::with_url` when the projet use `mimalloc`
+  - [c22744a](https://github.com/tauri-apps/wry/commit/c22744a0c11e9c78f548dc3786e6be30c1d6f46f) fix(android): use correct method signature ([#917](https://github.com/tauri-apps/wry/pull/917)) on 2023-03-31
+- Revert [`51b49c54`](https://github.com/tauri-apps/wry/commit/51b49c54e41c71d1c5f03b568094d43fb9dc32ac) which hid the webview when minimized on Windows.
+  - [f76568a](https://github.com/tauri-apps/wry/commit/f76568a1cc8f7e56f36633d2f6e700af684bb213) fix(windows): Ignore resize event when minimizing frameless windows ([#909](https://github.com/tauri-apps/wry/pull/909)) on 2023-03-24
+
 ## \[0.27.1]
 
 - On Windows, Linux and macOS, add method `evaluate_script_with_callback` to execute javascipt with a callback.

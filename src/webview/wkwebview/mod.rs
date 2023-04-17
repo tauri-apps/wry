@@ -5,10 +5,8 @@
 mod download;
 #[cfg(target_os = "macos")]
 mod file_drop;
-mod web_context;
 
 use url::Url;
-pub use web_context::WebContextImpl;
 
 #[cfg(target_os = "macos")]
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
@@ -91,7 +89,7 @@ impl InnerWebView {
     window: Rc<Window>,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
-    mut web_context: Option<&mut WebContext>,
+    _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     // Function for ipc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
@@ -239,6 +237,14 @@ impl InnerWebView {
       // Config and custom protocol
       let config: id = msg_send![class!(WKWebViewConfiguration), new];
       let mut protocol_ptrs = Vec::new();
+
+      // Incognito mode
+      let data_store: id = if attributes.incognito {
+        msg_send![class!(WKWebsiteDataStore), nonPersistentDataStore]
+      } else {
+        msg_send![class!(WKWebsiteDataStore), defaultDataStore]
+      };
+
       for (name, function) in attributes.custom_protocols {
         let scheme_name = format!("{}URLSchemeHandler", name);
         let cls = ClassDecl::new(&scheme_name, class!(NSObject));
@@ -259,11 +265,7 @@ impl InnerWebView {
         };
         let handler: id = msg_send![cls, new];
         let function = Box::into_raw(Box::new(function));
-        if let Some(context) = &mut web_context {
-          context.os.registered_protocols(function);
-        } else {
-          protocol_ptrs.push(function);
-        }
+        protocol_ptrs.push(function);
 
         (*handler).set_ivar("function", function as *mut _ as *mut c_void);
         let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:NSString::new(&name)];
@@ -299,21 +301,18 @@ impl InnerWebView {
         _ => class!(WryWebView),
       };
       let webview: id = msg_send![cls, alloc];
+      let () = msg_send![config, setWebsiteDataStore: data_store];
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
 
       #[cfg(target_os = "macos")]
       (*webview).set_ivar(ACCEPT_FIRST_MOUSE, attributes.accept_first_mouse);
 
-      #[cfg(any(debug_assertions, feature = "devtools"))]
-      if attributes.devtools {
-        // Equivalent Obj-C:
-        // [[config preferences] setValue:@YES forKey:@"developerExtrasEnabled"];
-        let dev = NSString::new("developerExtrasEnabled");
-        let _: id = msg_send![_preference, setValue:_yes forKey:dev];
-      }
-
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("allowsPictureInPictureMediaPlayback")];
+
+      if attributes.autoplay {
+        let _: id = msg_send![config, setMediaTypesRequiringUserActionForPlayback:0];
+      }
 
       #[cfg(target_os = "macos")]
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("tabFocusesLinks")];
@@ -351,6 +350,18 @@ impl InnerWebView {
         // disable scroll bounce by default
         let scroll: id = msg_send![webview, scrollView];
         let _: () = msg_send![scroll, setBounces: NO];
+      }
+
+      #[cfg(any(debug_assertions, feature = "devtools"))]
+      if attributes.devtools {
+        let has_inspectable_property: BOOL =
+          msg_send![webview, respondsToSelector: sel!(setInspectable:)];
+        if has_inspectable_property == YES {
+          let _: () = msg_send![webview, setInspectable: YES];
+        }
+        // this cannot be on an `else` statement, it does not work on macOS :(
+        let dev = NSString::new("developerExtrasEnabled");
+        let _: id = msg_send![_preference, setValue:_yes forKey:dev];
       }
 
       // allowsBackForwardNavigation

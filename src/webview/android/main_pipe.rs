@@ -47,11 +47,14 @@ impl MainPipe<'_> {
         WebViewMessage::CreateWebView(attrs) => {
           let CreateWebViewAttributes {
             url,
+            #[cfg(any(debug_assertions, feature = "devtools"))]
             devtools,
             transparent,
             background_color,
             headers,
             on_webview_created,
+            autoplay,
+            ..
           } = attrs;
           // Create webview
           let rust_webview_class = find_class(
@@ -63,6 +66,16 @@ impl MainPipe<'_> {
             rust_webview_class,
             "(Landroid/content/Context;)V",
             &[activity.into()],
+          )?;
+
+          // set media autoplay
+          env.call_method(webview, "setAutoPlay", "(Z)V", &[autoplay.into()])?;
+
+          env.set_field(
+            activity,
+            "m_webview",
+            format!("L{}/RustWebView;", PACKAGE.get().unwrap()),
+            webview.into(),
           )?;
 
           // Load URL
@@ -177,7 +190,7 @@ impl MainPipe<'_> {
         WebViewMessage::GetUrl(tx) => {
           if let Some(webview) = &self.webview {
             let url = env
-              .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String", &[])
+              .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String;", &[])
               .and_then(|v| v.l())
               .and_then(|s| env.get_string(s.into()))
               .map(|u| u.to_string_lossy().into())
@@ -270,10 +283,12 @@ pub(crate) enum WebViewMessage {
 
 pub(crate) struct CreateWebViewAttributes {
   pub url: String,
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   pub devtools: bool,
   pub transparent: bool,
   pub background_color: Option<RGBA>,
   pub headers: Option<http::HeaderMap>,
+  pub autoplay: bool,
   pub on_webview_created: Option<
     Box<
       dyn Fn(

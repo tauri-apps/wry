@@ -43,7 +43,13 @@ class RustWebView(context: Context): WebView(context) {
         } catch (ignore: Exception) {
             Logger.error("Unable to create temporary media capture file: " + ex.message)
         }
+    }
 
+    fun setAutoPlay(enable: Boolean) {
+        post {
+          val settings = super.getSettings()
+          settings.setMediaPlaybackRequiresUserGesture(!enable)
+        }
     }
 
     {{class-extension}}
