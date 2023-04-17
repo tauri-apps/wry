@@ -45,8 +45,7 @@ extern "C" fn other_mouse_down(this: &Object, _sel: Sel, event: id) {
       }
     }
 
-    let next_responder: id = msg_send![this, nextResponder];
-    let _: () = msg_send![next_responder, otherMouseDown: event];
+    let _: () = msg_send![this, mouseDown: event];
   }
 }
 extern "C" fn other_mouse_up(this: &Object, _sel: Sel, event: id) {
@@ -73,8 +72,7 @@ extern "C" fn other_mouse_up(this: &Object, _sel: Sel, event: id) {
       }
     }
 
-    let next_responder: id = msg_send![this, nextResponder];
-    let _: () = msg_send![next_responder, otherMouseUp: event];
+    let _: () = msg_send![this, mouseUp: event];
   }
 }
 
