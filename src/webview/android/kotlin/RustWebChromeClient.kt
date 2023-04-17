@@ -28,8 +28,6 @@ import androidx.activity.result.ActivityResult
 import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.IOException
@@ -37,7 +35,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 
-class RustWebChromeClient(appActivity: AppCompatActivity) : WebChromeClient() {
+class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
   private interface PermissionListener {
     fun onPermissionSelect(isGranted: Boolean?)
   }
@@ -46,7 +44,7 @@ class RustWebChromeClient(appActivity: AppCompatActivity) : WebChromeClient() {
     fun onActivityResult(result: ActivityResult?)
   }
 
-  private val activity: AppCompatActivity
+  private val activity: WryActivity
   private var permissionLauncher: ActivityResultLauncher<Array<String>>
   private var activityLauncher: ActivityResultLauncher<Intent>
   private var permissionListener: PermissionListener? = null
