@@ -522,6 +522,23 @@ impl InnerWebView {
 
     self.webview.load_request(&req);
   }
+
+  pub fn clear_all_browsing_data(&self) -> Result<()> {
+    if let Some(context) = WebViewExt::context(&*self.webview) {
+      use webkit2gtk::WebContextExt;
+      if let Some(data_manger) = context.website_data_manager() {
+        webkit2gtk::WebsiteDataManagerExtManual::clear(
+          &data_manger,
+          webkit2gtk::WebsiteDataTypes::ALL,
+          glib::TimeSpan::from_seconds(0),
+          None::<&Cancellable>,
+          |_| {},
+        );
+      }
+    }
+
+    Ok(())
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {

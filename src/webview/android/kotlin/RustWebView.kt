@@ -33,6 +33,18 @@ class RustWebView(context: Context): WebView(context) {
         }
     }
 
+    fun clearAllBrowsingData() {
+        try {
+            super.context.deleteDatabase("webviewCache.db");
+            super.context.deleteDatabase("webview.db");
+            super.clearCache(true);
+            super.clearHistory();
+            super.clearFormData();
+        } catch (ignore: Exception) {
+            Logger.error("Unable to create temporary media capture file: " + ex.message)
+        }
+    }
+
     fun setAutoPlay(enable: Boolean) {
         post {
           val settings = super.getSettings()

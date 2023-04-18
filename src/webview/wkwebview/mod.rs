@@ -918,6 +918,18 @@ r#"Object.defineProperty(window, 'ipc', {
     self.navigate_to_url(url, Some(headers))
   }
 
+  pub fn clear_all_browsing_data(&self) -> Result<()> {
+    unsafe {
+      let config: id = msg_send![self.webview, configuration];
+      let store: id = msg_send![config, websiteDataStore];
+      let all_data_types: id = msg_send![class!(WKWebsiteDataStore), allWebsiteDataTypes];
+      let date: id = msg_send![class!(NSDate), dateWithTimeIntervalSince1970: 0.0];
+      let handler = block::ConcreteBlock::new(|| {});
+      let _: () = msg_send![store, removeDataOfTypes:all_data_types modifiedSince:date completionHandler:handler];
+    }
+    Ok(())
+  }
+
   fn navigate_to_url(&self, url: &str, headers: Option<http::HeaderMap>) {
     // Safety: objc runtime calls are unsafe
     unsafe {
