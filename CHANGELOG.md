@@ -1,5 +1,14 @@
 # Changelog
 
+## \[0.28.0]
+
+- Add `Webview::clear_browsing_data` method.
+  - [5f0c9e4](https://github.com/tauri-apps/wry/commit/5f0c9e4595baf5d60ec407b391f873ab52abf923) feat: add `Webview::clear_browsing_data` ([#915](https://github.com/tauri-apps/wry/pull/915)) on 2023-04-18
+- On Android, generate a `proguard-wry.pro` file that could be used to keep the necessary symbols for wry when using minification.
+  - [ced4c0b](https://github.com/tauri-apps/wry/commit/ced4c0b4459ceb0ff89d07b84d6396c60cfd75e5) feat: generate proguard rule file for android ([#927](https://github.com/tauri-apps/wry/pull/927)) on 2023-04-17
+- Update `tao` to `0.19`
+  - [d560981](https://github.com/tauri-apps/wry/commit/d56098113f9764e31f73aa84144ee84be8e2aead) refactor: rename `TauriActivity` to `WryActivity` ([#926](https://github.com/tauri-apps/wry/pull/926)) on 2023-04-17
+
 ## \[0.27.3]
 
 - Adds a way to launch a WebView as incognito through a new API at WebViewBuilder named as `with_incognito`.
