@@ -5,6 +5,8 @@
 mod download;
 #[cfg(target_os = "macos")]
 mod file_drop;
+#[cfg(target_os = "macos")]
+mod synthetic_mouse_events;
 
 use url::Url;
 
@@ -278,7 +280,9 @@ impl InnerWebView {
         Some(mut decl) => {
           #[cfg(target_os = "macos")]
           {
+            decl.add_ivar::<id>("webview");
             add_file_drop_methods(&mut decl);
+            synthetic_mouse_events::setup(&mut decl);
             decl.add_ivar::<bool>(ACCEPT_FIRST_MOUSE);
             decl.add_method(
               sel!(acceptsFirstMouse:),
@@ -301,6 +305,8 @@ impl InnerWebView {
         _ => class!(WryWebView),
       };
       let webview: id = msg_send![cls, alloc];
+      (*webview).set_ivar("webview", webview);
+
       let () = msg_send![config, setWebsiteDataStore: data_store];
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
