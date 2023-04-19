@@ -35,8 +35,8 @@ class RustWebView(context: Context): WebView(context) {
 
     fun clearAllBrowsingData() {
         try {
-            super.context.deleteDatabase("webviewCache.db");
-            super.context.deleteDatabase("webview.db");
+            super.getContext().deleteDatabase("webviewCache.db");
+            super.getContext().deleteDatabase("webview.db");
             super.clearCache(true);
             super.clearHistory();
             super.clearFormData();
