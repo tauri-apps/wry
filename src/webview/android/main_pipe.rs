@@ -54,6 +54,7 @@ impl MainPipe<'_> {
             headers,
             on_webview_created,
             autoplay,
+            user_agent,
             ..
           } = attrs;
           // Create webview
@@ -71,11 +72,22 @@ impl MainPipe<'_> {
           // set media autoplay
           env.call_method(webview, "setAutoPlay", "(Z)V", &[autoplay.into()])?;
 
-          env.set_field(
+          // set user-agent
+          if let Some(user_agent) = user_agent {
+            let user_agent = env.new_string(user_agent)?;
+            env.call_method(
+              webview,
+              "setUserAgent",
+              "(Ljava/lang/String;)V",
+              &[user_agent.into()],
+            )?;
+          }
+
+          env.call_method(
             activity,
-            "m_webview",
-            format!("L{}/RustWebView;", PACKAGE.get().unwrap()),
-            webview.into(),
+            "setWebView",
+            format!("(L{}/RustWebView;)V", PACKAGE.get().unwrap()),
+            &[webview.into()],
           )?;
 
           // Load URL
@@ -289,12 +301,6 @@ pub(crate) struct CreateWebViewAttributes {
   pub background_color: Option<RGBA>,
   pub headers: Option<http::HeaderMap>,
   pub autoplay: bool,
-  pub on_webview_created: Option<
-    Box<
-      dyn Fn(
-          super::Context,
-        ) -> std::result::Result<(), tao::platform::android::ndk_glue::jni::errors::Error>
-        + Send,
-    >,
-  >,
+  pub on_webview_created: Option<Box<dyn Fn(super::Context) -> Result<(), JniError> + Send>>,
+  pub user_agent: Option<String>,
 }

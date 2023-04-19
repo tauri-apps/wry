@@ -182,6 +182,7 @@ impl InnerWebView {
       transparent,
       headers,
       autoplay,
+      user_agent,
       ..
     } = attributes;
 
@@ -210,6 +211,7 @@ impl InnerWebView {
         headers,
         on_webview_created,
         autoplay,
+        user_agent,
       }));
     }
 

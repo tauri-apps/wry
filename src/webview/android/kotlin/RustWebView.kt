@@ -52,5 +52,12 @@ class RustWebView(context: Context): WebView(context) {
         }
     }
 
+    fun setUserAgent(ua: String) {
+        post {
+          val settings = super.getSettings()
+          settings.setUserAgentString(ua)
+        }
+    }
+
     {{class-extension}}
 }
