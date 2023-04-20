@@ -7,13 +7,9 @@
 }
 
 -keep class {{package}}.WryActivity {
-  {{package}}.RustWebView m_webview;
-
   public <init>(...);
 
-  void setM_webview({{package}}.RustWebView);
-  {{package}}.RustWebView getM_webview();
-
+  void setWebView({{package}}.RustWebView);
   java.lang.Class getAppClass(...);
   java.lang.String getVersion();
 }
@@ -29,6 +25,7 @@
 
   void loadUrlMainThread(...);
   void setAutoPlay(...);
+  void setUserAgent(...);
 }
 
 -keep class {{package}}.RustWebChromeClient,{{package}}.RustWebViewClient {
