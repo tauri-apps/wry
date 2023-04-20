@@ -1,5 +1,14 @@
 # Changelog
 
+## \[0.29.0]
+
+- Fix unresolved reference in kotlin files when building for android.
+  - [ed36c0b](https://github.com/tauri-apps/wry/commit/ed36c0b032cdf27c926577ee72658ad9f0785a5f) fix(android): fix unresolved reference in kotlin files ([#932](https://github.com/tauri-apps/wry/pull/932)) on 2023-04-19
+- Support modifying user agent string on Android.
+  - [4a320b0](https://github.com/tauri-apps/wry/commit/4a320b0bdef81d36a1f85a083c2abbabaf958521) feat(android): add support modifying user agent string ([#933](https://github.com/tauri-apps/wry/pull/933)) on 2023-04-20
+- On Linux and macOS, add synthesized event for mouse backward and forward buttons.
+  - [6ef820b](https://github.com/tauri-apps/wry/commit/6ef820b97dd505bacdc7d3f906112ffe0a6a1e60) feat: synthesize forward/backward mouse button on Linux and macOS ([#900](https://github.com/tauri-apps/wry/pull/900)) on 2023-04-18
+
 ## \[0.28.0]
 
 - Add `Webview::clear_browsing_data` method.
