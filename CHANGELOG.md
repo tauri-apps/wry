@@ -1,6 +1,6 @@
 # Changelog
 
-## \[0.29.0]
+## \[0.28.1]
 
 - Fix unresolved reference in kotlin files when building for android.
   - [ed36c0b](https://github.com/tauri-apps/wry/commit/ed36c0b032cdf27c926577ee72658ad9f0785a5f) fix(android): fix unresolved reference in kotlin files ([#932](https://github.com/tauri-apps/wry/pull/932)) on 2023-04-19
