@@ -31,8 +31,6 @@ fn main() {
       let package = env_var("WRY_ANDROID_PACKAGE");
       let library = env_var("WRY_ANDROID_LIBRARY");
 
-      println!("cargo:rerun-if-changed={kotlin_out_dir}");
-
       let kotlin_out_dir = PathBuf::from(&kotlin_out_dir)
         .canonicalize()
         .unwrap_or_else(move |_| {
@@ -41,6 +39,7 @@ fn main() {
 
       let kotlin_files_path =
         PathBuf::from(env_var("CARGO_MANIFEST_DIR")).join("src/webview/android/kotlin");
+      println!("cargo:rerun-if-changed={}", kotlin_files_path.display());
       let kotlin_files = fs::read_dir(kotlin_files_path).expect("failed to read kotlin directory");
 
       for file in kotlin_files {
