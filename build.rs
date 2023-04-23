@@ -41,7 +41,6 @@ fn main() {
 
       let kotlin_files_path =
         PathBuf::from(env_var("CARGO_MANIFEST_DIR")).join("src/webview/android/kotlin");
-      println!("cargo:rerun-if-changed={}", kotlin_files_path.display());
       let kotlin_files = fs::read_dir(kotlin_files_path).expect("failed to read kotlin directory");
 
       for file in kotlin_files {
@@ -96,7 +95,9 @@ fn main() {
         let mut out = String::from(auto_generated_comment);
         out.push_str(&content);
 
-        fs::write(kotlin_out_dir.join(file.file_name()), out).expect("Failed to write kotlin file");
+        let out_path = kotlin_out_dir.join(file.file_name());
+        fs::write(&out_path, out).expect("Failed to write kotlin file");
+        println!("cargo:rerun-if-changed={}", out_path.display());
       }
     }
   }
