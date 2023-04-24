@@ -45,9 +45,7 @@ tao = { version = "0.19", default-features = false, features = [ "serde" ] }
 http = "0.2.9"
 
 [dev-dependencies]
-anyhow = "1.0"
 http-range = "0.1.5"
-dirs = "4.0.0"
 base64 = "0.13.1"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
