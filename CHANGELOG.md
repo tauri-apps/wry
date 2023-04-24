@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.28.2]
+
+- Adjust `cargo:rerun-if-changed` instruction for Android files.
+  - [cc934fe](https://github.com/tauri-apps/wry/commit/cc934fe799836e4cc72d796f5eddba868a9b585e) refactor(build): adjust rerun-if-changed instruction for Android files ([#940](https://github.com/tauri-apps/wry/pull/940)) on 2023-04-24
+
 ## \[0.28.1]
 
 - Fix unresolved reference in kotlin files when building for android.
