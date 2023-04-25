@@ -12,63 +12,56 @@ use std::{ffi::c_void, ptr::null};
 pub unsafe fn setup(decl: &mut ClassDecl) {
   decl.add_method(
     sel!(otherMouseDown:),
-    other_mouse_down as extern "C" fn(&Object, Sel, id),
+    other_mouse_down as extern "C" fn(&mut Object, Sel, id),
   );
   decl.add_method(
     sel!(otherMouseUp:),
-    other_mouse_up as extern "C" fn(&Object, Sel, id),
+    other_mouse_up as extern "C" fn(&mut Object, Sel, id),
   );
 }
 
-extern "C" fn other_mouse_down(this: &Object, _sel: Sel, event: id) {
+extern "C" fn other_mouse_down(this: &mut Object, _sel: Sel, event: id) {
   unsafe {
     if event.eventType() == NSEventType::NSOtherMouseDown {
-      let webview = this.get_ivar::<id>("webview");
-      if *webview != nil {
-        let button_number = event.buttonNumber();
-        match button_number {
-          // back button
-          3 => {
-            let js = create_js_mouse_event(*webview, event, true, true);
-            let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
-            return;
-          }
-          // forward button
-          4 => {
-            let js = create_js_mouse_event(*webview, event, true, false);
-            let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
-            return;
-          }
-
-          _ => {}
+      let button_number = event.buttonNumber();
+      match button_number {
+        // back button
+        3 => {
+          let js = create_js_mouse_event(this, event, true, true);
+          let _: id = msg_send![this, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+          return;
         }
+        // forward button
+        4 => {
+          let js = create_js_mouse_event(this, event, true, false);
+          let _: id = msg_send![this, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+          return;
+        }
+        _ => {}
       }
     }
 
     let _: () = msg_send![this, mouseDown: event];
   }
 }
-extern "C" fn other_mouse_up(this: &Object, _sel: Sel, event: id) {
+extern "C" fn other_mouse_up(this: &mut Object, _sel: Sel, event: id) {
   unsafe {
     if event.eventType() == NSEventType::NSOtherMouseUp {
-      let webview = this.get_ivar::<id>("webview");
-      if *webview != nil {
-        let button_number = event.buttonNumber();
-        match button_number {
-          // back button
-          3 => {
-            let js = create_js_mouse_event(*webview, event, false, true);
-            let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
-            return;
-          }
-          // forward button
-          4 => {
-            let js = create_js_mouse_event(*webview, event, false, false);
-            let _: id = msg_send![*webview, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
-            return;
-          }
-          _ => {}
+      let button_number = event.buttonNumber();
+      match button_number {
+        // back button
+        3 => {
+          let js = create_js_mouse_event(this, event, false, true);
+          let _: id = msg_send![this, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+          return;
         }
+        // forward button
+        4 => {
+          let js = create_js_mouse_event(this, event, false, false);
+          let _: id = msg_send![this, evaluateJavaScript:NSString::new(&js) completionHandler:null::<*const c_void>()];
+          return;
+        }
+        _ => {}
       }
     }
 
