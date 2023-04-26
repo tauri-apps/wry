@@ -2,4 +2,4 @@
 "wry": patch
 ---
 
-Remove redundant webview ivar in WryWebView.
+On iOS, fix panic at runtime due to setting webview ivar.
