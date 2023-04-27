@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.28.3]
+
+- On iOS, fix panic at runtime due to setting webview ivar.
+  - [c9002c1](https://github.com/tauri-apps/wry/commit/c9002c1e043e8a948fff2e671ccb04153a10dcd5) fix(macos): remove `webview` ivar in `WryWebView` ([#943](https://github.com/tauri-apps/wry/pull/943)) on 2023-04-26
+
 ## \[0.28.2]
 
 - Adjust `cargo:rerun-if-changed` instruction for Android files.
