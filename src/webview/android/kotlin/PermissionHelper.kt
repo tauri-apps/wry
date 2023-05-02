@@ -6,14 +6,11 @@ package {{package}}
 
 // taken from https://github.com/ionic-team/capacitor/blob/6658bca41e78239347e458175b14ca8bd5c1d6e8/android/capacitor/src/main/java/com/getcapacitor/PermissionHelper.java
 
-import android.content.Context;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
-import android.os.Build;
-import androidx.core.app.ActivityCompat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import kotlin.collections.List;
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.app.ActivityCompat
+import java.util.ArrayList
 
 object PermissionHelper {
   /**
@@ -44,7 +41,7 @@ object PermissionHelper {
   fun hasDefinedPermission(context: Context, permission: String): Boolean {
     var hasPermission = false
     val requestedPermissions = getManifestPermissions(context)
-    if (requestedPermissions != null && requestedPermissions.isNotEmpty()) {
+    if (!requestedPermissions.isNullOrEmpty()) {
       val requestedPermissionsList = listOf(*requestedPermissions)
       val requestedPermissionsArrayList = ArrayList(requestedPermissionsList)
       if (requestedPermissionsArrayList.contains(permission)) {
@@ -87,7 +84,7 @@ object PermissionHelper {
       if (packageInfo != null) {
         requestedPermissions = packageInfo.requestedPermissions
       }
-    } catch (ex: Exception) {
+    } catch (_: Exception) {
     }
     return requestedPermissions
   }
@@ -101,7 +98,7 @@ object PermissionHelper {
   fun getUndefinedPermissions(context: Context, neededPermissions: Array<String?>): Array<String?> {
     val undefinedPermissions = ArrayList<String?>()
     val requestedPermissions = getManifestPermissions(context)
-    if (requestedPermissions != null && requestedPermissions.isNotEmpty()) {
+    if (!requestedPermissions.isNullOrEmpty()) {
       val requestedPermissionsList = listOf(*requestedPermissions)
       val requestedPermissionsArrayList = ArrayList(requestedPermissionsList)
       for (permission in neededPermissions) {

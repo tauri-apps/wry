@@ -2,25 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+@file:Suppress("ObsoleteSdkInt", "RedundantOverride", "QueryPermissionsNeeded", "SimpleDateFormat")
+
 package {{package}}
 
 // taken from https://github.com/ionic-team/capacitor/blob/6658bca41e78239347e458175b14ca8bd5c1d6e8/android/capacitor/src/main/java/com/getcapacitor/BridgeWebChromeClient.java
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ActivityNotFoundException
-import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import android.text.TextUtils
-import android.util.Log
 import android.view.View
 import android.webkit.*
 import android.widget.EditText
@@ -29,11 +26,11 @@ import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
+import com.example.ttt.WryActivity
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
-
 
 class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
   private interface PermissionListener {
@@ -95,7 +92,6 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
     super.onHideCustomView()
   }
 
-  @SuppressLint("ObsoleteSdkInt")
   override fun onPermissionRequest(request: PermissionRequest) {
     val isRequestPermissionRequired = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
     val permissionList: MutableList<String> = ArrayList()
@@ -333,7 +329,6 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
     }
   }
 
-  @SuppressLint("QueryPermissionsNeeded")
   private fun showImageCapturePicker(filePathCallback: ValueCallback<Array<Uri?>?>): Boolean {
     val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
     if (takePictureIntent.resolveActivity(activity.packageManager) == null) {
@@ -359,7 +354,6 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
     return true
   }
 
-  @SuppressLint("QueryPermissionsNeeded")
   private fun showVideoCapturePicker(filePathCallback: ValueCallback<Array<Uri?>?>): Boolean {
     val takeVideoIntent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
     if (takeVideoIntent.resolveActivity(activity.packageManager) == null) {
@@ -481,7 +475,6 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
     )
   }
 
-  @SuppressLint("SimpleDateFormat")
   @Throws(IOException::class)
   private fun createImageFile(activity: Activity): File {
     // Create an image file name
@@ -498,5 +491,5 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
     handleReceivedTitle(view, title)
   }
 
-  private external fun handleReceivedTitle(webview: WebView, title: String);
+  private external fun handleReceivedTitle(webview: WebView, title: String)
 }

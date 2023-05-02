@@ -37,19 +37,19 @@ abstract class WryActivity : AppCompatActivity() {
                 val info = packageManager.getPackageInfo(webViewPackage, 0)
                 return info.versionName
             } catch (ex: Exception) {
-                Logger.warn("Unable to get package info for '$webViewPackage'$ex");
+                Logger.warn("Unable to get package info for '$webViewPackage'$ex")
             }
 
             try {
                 @Suppress("DEPRECATION")
-                val info = packageManager.getPackageInfo("com.android.webview", 0);
+                val info = packageManager.getPackageInfo("com.android.webview", 0)
                 return info.versionName
             } catch (ex: Exception) {
-                Logger.warn("Unable to get package info for 'com.android.webview'$ex");
+                Logger.warn("Unable to get package info for 'com.android.webview'$ex")
             }
 
             // Could not detect any webview, return empty string
-            return "";
+            return ""
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -99,8 +99,8 @@ abstract class WryActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK && mWebView?.canGoBack()) {
-            mWebView?.goBack()
+        if (keyCode == KeyEvent.KEYCODE_BACK && mWebView.canGoBack()) {
+            mWebView.goBack()
             return true
         }
         return super.onKeyDown(keyCode, event)

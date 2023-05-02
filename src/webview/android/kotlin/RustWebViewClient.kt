@@ -18,10 +18,10 @@ class RustWebViewClient(context: Context): WebViewClient() {
         view: WebView,
         request: WebResourceRequest
     ): WebResourceResponse? {
-        if (withAssetLoader()) {
-            return assetLoader.shouldInterceptRequest(request.url)
+        return if (withAssetLoader()) {
+            assetLoader.shouldInterceptRequest(request.url)
         } else {
-            return handleRequest(request)
+            handleRequest(request)
         }
     }
 
