@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+@file:Suppress("unused", "MemberVisibilityCanBePrivate")
+
 package {{package}}
 
 // taken from https://github.com/ionic-team/capacitor/blob/6658bca41e78239347e458175b14ca8bd5c1d6e8/android/capacitor/src/main/java/com/getcapacitor/Logger.java
 
-import android.text.TextUtils;
-import android.util.Log;
+import android.text.TextUtils
+import android.util.Log
+import com.example.ttt.BuildConfig
 
 class Logger {
   companion object {
@@ -23,7 +26,7 @@ class Logger {
       verbose(LOG_TAG_CORE, message)
     }
 
-    fun verbose(tag: String, message: String) {
+    private fun verbose(tag: String, message: String) {
       if (!shouldLog()) {
         return
       }

@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+@file:Suppress("unused", "SetJavaScriptEnabled")
+
 package {{package}}
 
-import android.annotation.SuppressLint
 import android.webkit.*
 import android.content.Context
-import android.os.Build
 import kotlin.collections.Map
 
 class RustWebView(context: Context): WebView(context) {
@@ -35,28 +35,24 @@ class RustWebView(context: Context): WebView(context) {
 
     fun clearAllBrowsingData() {
         try {
-            super.getContext().deleteDatabase("webviewCache.db");
-            super.getContext().deleteDatabase("webview.db");
-            super.clearCache(true);
-            super.clearHistory();
-            super.clearFormData();
+            super.getContext().deleteDatabase("webviewCache.db")
+            super.getContext().deleteDatabase("webview.db")
+            super.clearCache(true)
+            super.clearHistory()
+            super.clearFormData()
         } catch (ex: Exception) {
             Logger.error("Unable to create temporary media capture file: " + ex.message)
         }
     }
 
     fun setAutoPlay(enable: Boolean) {
-        post {
-          val settings = super.getSettings()
-          settings.setMediaPlaybackRequiresUserGesture(!enable)
-        }
+        val settings = super.getSettings()
+        settings.mediaPlaybackRequiresUserGesture = !enable
     }
 
     fun setUserAgent(ua: String) {
-        post {
-          val settings = super.getSettings()
-          settings.setUserAgentString(ua)
-        }
+        val settings = super.getSettings()
+        settings.userAgentString = ua
     }
 
     {{class-extension}}
