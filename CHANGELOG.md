@@ -1,5 +1,23 @@
 # Changelog
 
+## \[0.24.2]
+
+- On macOS and iOS, remove webcontext implementation since we don't actually use it. This also fix segfault if users drop webcontext early.
+  - [663d5b1](https://github.com/tauri-apps/wry/commit/663d5b183fdbea195b5dfc2f3c5d3f083ead071a) Remove webcontext implementation on wkwebview ([#922](https://github.com/tauri-apps/wry/pull/922)) on 2023-04-07
+- Fix the WebViewBuilder::with_url when the projet use mimalloc (https://github.com/tauri-apps/wry/issues/863)
+  - [9944b5d](https://github.com/tauri-apps/wry/commit/9944b5da6624af16177c749c3e8029a2fced292b) Rename fix-with_url.txt to fix-with_url.md on 2023-05-06
+- Revert [`51b49c54`](https://github.com/tauri-apps/wry/commit/51b49c54e41c71d1c5f03b568094d43fb9dc32ac) which hid the webview when minimized on Windows.
+  - [18a6b64](https://github.com/tauri-apps/wry/commit/18a6b64439ec42c9eb43d3b2581140a41b782bbf) fix(windows): Ignore resize event when minimizing frameless windows ([#909](https://github.com/tauri-apps/wry/pull/909)) on 2023-03-24
+- Use the new WKWebView `inspectable` property if available (iOS 16.4, macOS 13.3).
+  - [c83f6fa](https://github.com/tauri-apps/wry/commit/c83f6fab3f7c38284547f421c263215479063ad3) feat(macos): use WKWebView's inspectable property ([#923](https://github.com/tauri-apps/wry/pull/923)) on 2023-04-08
+- On iOS, set webview scroll bounce default to NO.
+  - [2f61cfa](https://github.com/tauri-apps/wry/commit/2f61cfa95f31a928b670417f2e1deb6b74d64d2b) fix(ios): set scroll bounce default to NO ([#907](https://github.com/tauri-apps/wry/pull/907)) on 2023-03-20
+- Update the value returned on a `None` value of `ClassDecl::new("WryDownloadDelegate", class!(NSObject))`
+  from `UIViewController` to `WryDownloadDelegate`.
+  - [8b51cfe](https://github.com/tauri-apps/wry/commit/8b51cfe9928500ff87f9be7961eb406fcac97923) fix: WryDownloadDelegate call after first time on 2023-02-20
+- On Linux, disable system appearance for scrollbars.
+  - [f43aad0](https://github.com/tauri-apps/wry/commit/f43aad0d214638df5ee0be9035846e8b0cb56d56) fix(linux): disable system appearance for scrollbars ([#897](https://github.com/tauri-apps/wry/pull/897)) on 2023-03-08
+
 ## \[0.24.1]
 
 - Update `tao` to `0.16.0`
