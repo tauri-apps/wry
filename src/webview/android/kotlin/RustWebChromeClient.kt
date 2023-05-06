@@ -26,7 +26,6 @@ import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
-import com.example.ttt.WryActivity
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat

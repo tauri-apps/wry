@@ -10,7 +10,6 @@ package {{package}}
 
 import android.text.TextUtils
 import android.util.Log
-import com.example.ttt.BuildConfig
 
 class Logger {
   companion object {
