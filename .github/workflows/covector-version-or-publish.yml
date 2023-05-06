@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - dev
+      - v0.24.1
 
 jobs:
   version-or-publish:
