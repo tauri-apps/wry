@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.24.3]
+
+- On macOS/iOS, remove web_context module declaration.
+  - [24c3777](https://github.com/tauri-apps/wry/commit/24c37775da4f2c3c1e9fdb06ed2e5024d1d17e77) On macOS/iOS, remove web_context declaration on 2023-05-06
+
 ## \[0.24.2]
 
 - On macOS and iOS, remove webcontext implementation since we don't actually use it. This also fix segfault if users drop webcontext early.
