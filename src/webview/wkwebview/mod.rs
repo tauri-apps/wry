@@ -5,7 +5,6 @@
 mod download;
 #[cfg(target_os = "macos")]
 mod file_drop;
-mod web_context;
 
 use url::Url;
 
