@@ -15,7 +15,7 @@ fn main() -> wry::Result<()> {
 
   enum UserEvents {
     CloseWindow(WindowId),
-    NewWindow(),
+    NewWindow,
   }
 
   fn create_new_window(
@@ -30,7 +30,7 @@ fn main() -> wry::Result<()> {
     let window_id = window.id();
     let handler = move |window: &Window, req: String| match req.as_str() {
       "new-window" => {
-        let _ = proxy.send_event(UserEvents::NewWindow());
+        let _ = proxy.send_event(UserEvents::NewWindow);
       }
       "close" => {
         let _ = proxy.send_event(UserEvents::CloseWindow(window.id()));
@@ -76,19 +76,16 @@ fn main() -> wry::Result<()> {
       Event::NewEvents(StartCause::Init) => println!("Wry application started!"),
       Event::WindowEvent {
         event, window_id, ..
-      } => match event {
-        WindowEvent::CloseRequested => {
-          webviews.remove(&window_id);
-          if webviews.is_empty() {
-            *control_flow = ControlFlow::Exit
-          }
+      } if event == WindowEvent::CloseRequested => {
+        webviews.remove(&window_id);
+        if webviews.is_empty() {
+          *control_flow = ControlFlow::Exit
         }
-        _ => (),
-      },
-      Event::UserEvent(UserEvents::NewWindow()) => {
+      }
+      Event::UserEvent(UserEvents::NewWindow) => {
         let new_window = create_new_window(
           format!("Window {}", webviews.len() + 1),
-          &event_loop,
+          event_loop,
           proxy.clone(),
         );
         webviews.insert(new_window.0, new_window.1);

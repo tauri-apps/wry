@@ -203,7 +203,7 @@ impl InnerWebView {
                 for (name, value) in sent_response.headers().iter() {
                   let header_key = name.as_str();
                   if let Ok(value) = value.to_str() {
-                    let () = msg_send![headers, setObject:NSString::new(value) forKey: NSString::new(&header_key)];
+                    let () = msg_send![headers, setObject:NSString::new(value) forKey: NSString::new(header_key)];
                   }
                 }
 
@@ -1022,8 +1022,7 @@ r#"Object.defineProperty(window, 'ipc', {
   #[cfg(target_os = "macos")]
   pub fn inner_size(&self, scale_factor: f64) -> PhysicalSize<u32> {
     let view_frame = unsafe { NSView::frame(self.webview) };
-    let logical: LogicalSize<f64> =
-      (view_frame.size.width as f64, view_frame.size.height as f64).into();
+    let logical: LogicalSize<f64> = (view_frame.size.width, view_frame.size.height).into();
     logical.to_physical(scale_factor)
   }
 
@@ -1077,7 +1076,7 @@ impl Drop for InnerWebView {
       }
 
       if !self.download_delegate.is_null() {
-        drop(self.download_delegate.drop_in_place());
+        self.download_delegate.drop_in_place();
       }
 
       for ptr in self.protocol_ptrs.iter() {

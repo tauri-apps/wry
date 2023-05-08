@@ -45,22 +45,19 @@ fn main() -> wry::Result<()> {
           *default_path = path.clone();
 
           let submitted = proxy
-            .send_event(UserEvent::DownloadStarted(
-              uri.clone(),
-              path.display().to_string(),
-            ))
+            .send_event(UserEvent::DownloadStarted(uri, path.display().to_string()))
             .is_ok();
 
           return submitted;
         }
 
-        let _ = proxy.send_event(UserEvent::Rejected(uri.clone()));
+        let _ = proxy.send_event(UserEvent::Rejected(uri));
 
         false
       }
     })
     .with_download_completed_handler({
-      let proxy = proxy.clone();
+      let proxy = proxy;
       move |_uri, path, success| {
         let _ = proxy.send_event(UserEvent::DownloadComplete(path, success));
       }
