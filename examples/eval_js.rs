@@ -13,7 +13,7 @@ fn main() -> wry::Result<()> {
   };
 
   enum UserEvents {
-    ExecEval(),
+    ExecEval,
   }
 
   let event_loop = EventLoop::<UserEvents>::with_user_event();
@@ -23,11 +23,10 @@ fn main() -> wry::Result<()> {
     .with_title("Hello World")
     .build(&event_loop)?;
 
-  let ipc_handler = move |_: &Window, req: String| match req.as_str() {
-    "exec-eval" => {
-      let _ = proxy.send_event(UserEvents::ExecEval());
+  let ipc_handler = move |_: &Window, req: String| {
+    if req == "exec-eval" {
+      let _ = proxy.send_event(UserEvents::ExecEval);
     }
-    _ => {}
   };
 
   let _webview = WebViewBuilder::new(window)?
@@ -43,7 +42,7 @@ fn main() -> wry::Result<()> {
     *control_flow = ControlFlow::Wait;
 
     match event {
-      Event::UserEvent(UserEvents::ExecEval()) => {
+      Event::UserEvent(UserEvents::ExecEval) => {
         // String
         _webview
           .evaluate_script_with_callback(
