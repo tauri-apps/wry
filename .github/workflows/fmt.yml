@@ -17,9 +17,14 @@ jobs:
             profile: minimal
             toolchain: stable
             override: true
-            components: rustfmt
+            components: rustfmt,clippy
       - name: fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
+      - name: clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all --examples -- -D warnings
