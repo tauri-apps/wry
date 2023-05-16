@@ -125,9 +125,7 @@ pub struct WebViewAttributes {
   /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
   /// different Origin headers across platforms:
   ///
-  /// - macOS: `<scheme_name>://<path>` (so it will be `wry://examples` in `custom_protocol` example)
-  /// - Linux: Though it's same as macOS, there's a [bug] that Origin header in the request will be
-  /// empty. So the only way to pass the server is setting `Access-Control-Allow-Origin: *`.
+  /// - macOS and Linux: `<scheme_name>://<path>` (so it will be `wry://examples` in `custom_protocol` example). On Linux, You need to enable `linux-headers` feature flag.
   /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.examples` in `custom_protocol` example)
   /// - Android: Custom protocol on Android is fixed to `https://tauri.wry/` due to its design and
   /// our approach to use it. On Android, We only handle the scheme name and ignore the closure. So
@@ -422,9 +420,7 @@ impl<'a> WebViewBuilder<'a> {
   /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
   /// different Origin headers across platforms:
   ///
-  /// - macOS: `<scheme_name>://<path>` (so it will be `wry://examples` in `custom_protocol` example)
-  /// - Linux: Though it's same as macOS, there's a [bug] that Origin header in the request will be
-  /// empty. So the only way to pass the server is setting `Access-Control-Allow-Origin: *`.
+  /// - macOS and Linux: `<scheme_name>://<path>` (so it will be `wry://examples` in `custom_protocol` example). On Linux, You need to enable `linux-headers` feature flag.
   /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.examples` in `custom_protocol` example)
   /// - Android: For loading content from the `assets` folder (which is copied to the Andorid apk) please
   /// use the function [`with_asset_loader`] from [`WebViewBuilderExtAndroid`] instead.
