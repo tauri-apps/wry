@@ -4,6 +4,7 @@
 
 use gdk::EventMask;
 use gio::Cancellable;
+use glib::ffi::GFALSE;
 use gtk::prelude::*;
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -86,6 +87,16 @@ impl InnerWebView {
       }
       webview.build()
     };
+
+    // Disable input preedit,fcitx input editor can anchor at edit cursor position
+    if let Some(input_context) = webview.input_method_context() {
+      unsafe {
+        webkit2gtk::ffi::webkit_input_method_context_set_enable_preedit(
+          input_context.as_ptr(),
+          GFALSE,
+        )
+      };
+    }
 
     web_context.register_automation(webview.clone());
 
