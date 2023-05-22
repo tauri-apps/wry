@@ -128,7 +128,7 @@ impl FileDropHandler {
   }
 
   unsafe fn collect_paths(
-    data_obj: &Option<IDataObject>,
+    data_obj: Option<&IDataObject>,
     paths: &mut Vec<PathBuf>,
   ) -> Option<HDROP> {
     let drop_format = FORMATETC {
@@ -145,7 +145,7 @@ impl FileDropHandler {
       .GetData(&drop_format)
     {
       Ok(medium) => {
-        let hdrop = HDROP(medium.Anonymous.hGlobal);
+        let hdrop = HDROP(medium.Anonymous.hGlobal.0);
 
         // The second parameter (0xFFFFFFFF) instructs the function to return the item count
         let item_count = DragQueryFileW(hdrop, 0xFFFFFFFF, None);
@@ -189,7 +189,7 @@ impl FileDropHandler {
 impl IDropTarget_Impl for FileDropHandler {
   fn DragEnter(
     &self,
-    pDataObj: &Option<IDataObject>,
+    pDataObj: Option<&IDataObject>,
     _grfKeyState: MODIFIERKEYS_FLAGS,
     pt: &POINTL,
     pdwEffect: *mut DROPEFFECT,
@@ -241,7 +241,7 @@ impl IDropTarget_Impl for FileDropHandler {
 
   fn Drop(
     &self,
-    pDataObj: &Option<IDataObject>,
+    pDataObj: Option<&IDataObject>,
     _grfKeyState: MODIFIERKEYS_FLAGS,
     pt: &POINTL,
     _pdwEffect: *mut DROPEFFECT,

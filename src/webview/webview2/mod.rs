@@ -20,9 +20,11 @@ use std::{
 use once_cell::unsync::OnceCell;
 
 use windows::{
-  core::{Interface, PCSTR, PCWSTR, PWSTR},
+  core::{ComInterface, PCSTR, PCWSTR, PWSTR},
   Win32::{
-    Foundation::{BOOL, E_FAIL, E_POINTER, FARPROC, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM},
+    Foundation::{
+      BOOL, E_FAIL, E_POINTER, FARPROC, HGLOBAL, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM,
+    },
     Globalization::{self, MAX_LOCALE_NAME},
     System::{
       Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
@@ -615,7 +617,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
                       let mut body_sent = None;
                       if !content.is_empty() {
-                        let stream = CreateStreamOnHGlobal(0, true)?;
+                        let stream = CreateStreamOnHGlobal(HGLOBAL(0), true)?;
                         stream.SetSize(content.len() as u64)?;
                         let mut cb_write = MaybeUninit::uninit();
                         if stream
