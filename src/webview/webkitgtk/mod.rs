@@ -87,6 +87,11 @@ impl InnerWebView {
       webview.build()
     };
 
+    // Disable input preedit,fcitx input editor can anchor at edit cursor position
+    if let Some(input_context) = webview.input_method_context() {
+      input_context.set_enable_preedit(false);
+    }
+
     web_context.register_automation(webview.clone());
 
     // Message handler
