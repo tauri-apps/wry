@@ -60,7 +60,7 @@ soup3 = "0.3"
 
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.22"
-windows-implement = "0.44"
+windows-implement = "0.48"
 dunce = "1"
 
   [target."cfg(target_os = \"windows\")".dependencies.windows]
