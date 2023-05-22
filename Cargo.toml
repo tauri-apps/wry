@@ -59,7 +59,7 @@ gdk = "0.16"
 soup3 = "0.3"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.22"
+webview2-com = "0.25"
 windows-implement = "0.44"
 dunce = "1"
 
