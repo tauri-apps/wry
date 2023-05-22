@@ -46,7 +46,7 @@ http = "0.2.9"
 
 [dev-dependencies]
 http-range = "0.1.5"
-base64 = "0.21.1"
+base64 = "0.21"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
 javascriptcore-rs = { version = "0.17.0", features = [ "v2_28" ] }
