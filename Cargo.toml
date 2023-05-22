@@ -64,7 +64,7 @@ windows-implement = "0.44"
 dunce = "1"
 
   [target."cfg(target_os = \"windows\")".dependencies.windows]
-  version = "0.44.0"
+  version = "0.48.0"
   features = [
   "implement",
   "Win32_Foundation",
