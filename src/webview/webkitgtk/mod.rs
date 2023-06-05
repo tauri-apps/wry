@@ -299,7 +299,7 @@ impl InnerWebView {
       web_context.queue_load_uri(Rc::clone(&w.webview), url, attributes.headers);
       web_context.flush_queue_loader();
     } else if let Some(html) = attributes.html {
-      w.webview.load_html(&html, Some("http://localhost"));
+      w.webview.load_html(&html, None);
     }
 
     let pending_scripts = w.pending_scripts.clone();

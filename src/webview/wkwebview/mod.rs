@@ -953,8 +953,7 @@ r#"Object.defineProperty(window, 'ipc', {
   fn navigate_to_string(&self, html: &str) {
     // Safety: objc runtime calls are unsafe
     unsafe {
-      let url: id = msg_send![class!(NSURL), URLWithString: NSString::new("http://localhost")];
-      let () = msg_send![self.webview, loadHTMLString:NSString::new(html) baseURL:url];
+      let () = msg_send![self.webview, loadHTMLString:NSString::new(html) baseURL:nil];
     }
   }
 

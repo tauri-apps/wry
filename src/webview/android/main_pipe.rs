@@ -47,6 +47,7 @@ impl MainPipe<'_> {
         WebViewMessage::CreateWebView(attrs) => {
           let CreateWebViewAttributes {
             url,
+            html,
             #[cfg(any(debug_assertions, feature = "devtools"))]
             devtools,
             transparent,
@@ -90,9 +91,15 @@ impl MainPipe<'_> {
             &[webview.into()],
           )?;
 
-          // Load URL
-          if let Ok(url) = env.new_string(url) {
-            load_url(env, webview, url, headers, true)?;
+          // Navigation
+          if let Some(u) = url {
+            if let Ok(url) = env.new_string(u) {
+              load_url(env, webview, url, headers, true)?;
+            }
+          } else if let Some(h) = html {
+            if let Ok(html) = env.new_string(h) {
+              load_html(env, webview, html)?;
+            }
           }
 
           // Enable devtools
@@ -261,6 +268,16 @@ fn load_url<'a>(
   Ok(())
 }
 
+fn load_html<'a>(env: JNIEnv<'a>, webview: JObject<'a>, html: JString<'a>) -> Result<(), JniError> {
+  env.call_method(
+    webview,
+    "loadHTMLMainThread",
+    "(Ljava/lang/String;)V",
+    &[html.into()],
+  )?;
+  Ok(())
+}
+
 fn set_background_color<'a>(
   env: JNIEnv<'a>,
   webview: JObject<'a>,
@@ -294,7 +311,8 @@ pub(crate) enum WebViewMessage {
 }
 
 pub(crate) struct CreateWebViewAttributes {
-  pub url: String,
+  pub url: Option<String>,
+  pub html: Option<String>,
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub devtools: bool,
   pub transparent: bool,

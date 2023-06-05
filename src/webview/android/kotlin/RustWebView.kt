@@ -33,6 +33,12 @@ class RustWebView(context: Context): WebView(context) {
         }
     }
 
+    fun loadHTMLMainThread(html: String) {
+        post {
+          super.loadData(html, "text/html", null)
+        }
+    }
+
     fun clearAllBrowsingData() {
         try {
             super.getContext().deleteDatabase("webviewCache.db")
