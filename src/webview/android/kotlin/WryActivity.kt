@@ -55,7 +55,6 @@ abstract class WryActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         create(this)
-        getSupportActionBar()?.hide()
     }
 
     override fun onStart() {
