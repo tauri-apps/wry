@@ -24,6 +24,7 @@
   public <init>(...);
 
   void loadUrlMainThread(...);
+  void loadHTMLMainThread(...);
   void setAutoPlay(...);
   void setUserAgent(...);
 }

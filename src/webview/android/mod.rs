@@ -4,6 +4,7 @@
 
 use super::{WebContext, WebViewAttributes, RGBA};
 use crate::{application::window::Window, Result};
+use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
 use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
 use http::{
@@ -173,6 +174,7 @@ impl InnerWebView {
   ) -> Result<Self> {
     let WebViewAttributes {
       url,
+      html,
       initialization_scripts,
       ipc_handler,
       #[cfg(any(debug_assertions, feature = "devtools"))]
@@ -192,7 +194,7 @@ impl InnerWebView {
       asset_loader_domain,
     } = pl_attrs;
 
-    if let Some(u) = url {
+    let url = if let Some(u) = url {
       let mut url_string = String::from(u.as_str());
       let name = u.scheme();
       let is_custom_protocol = custom_protocols.iter().any(|(n, _)| n == name);
@@ -201,19 +203,23 @@ impl InnerWebView {
           .as_str()
           .replace(&format!("{}://", name), &format!("https://{}.", name))
       }
+      Some(url_string)
+    } else {
+      None
+    };
 
-      MainPipe::send(WebViewMessage::CreateWebView(CreateWebViewAttributes {
-        url: url_string,
-        #[cfg(any(debug_assertions, feature = "devtools"))]
-        devtools,
-        background_color,
-        transparent,
-        headers,
-        on_webview_created,
-        autoplay,
-        user_agent,
-      }));
-    }
+    MainPipe::send(WebViewMessage::CreateWebView(CreateWebViewAttributes {
+      url,
+      html,
+      #[cfg(any(debug_assertions, feature = "devtools"))]
+      devtools,
+      background_color,
+      transparent,
+      headers,
+      on_webview_created,
+      autoplay,
+      user_agent,
+    }));
 
     WITH_ASSET_LOADER.get_or_init(move || with_asset_loader);
     if let Some(domain) = asset_loader_domain {
@@ -386,7 +392,7 @@ fn hash_script(script: &str) -> String {
   let mut hasher = Sha256::new();
   hasher.update(script);
   let hash = hasher.finalize();
-  format!("'sha256-{}'", base64::encode(hash))
+  format!("'sha256-{}'", general_purpose::STANDARD.encode(hash))
 }
 
 /// Finds a class in the project scope.

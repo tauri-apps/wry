@@ -94,16 +94,12 @@ pub struct WebViewAttributes {
   /// This will be ignored if the `url` is provided.
   ///
   /// # Warning
-  /// The loaded from html string will have different Origin on different platforms. And
-  /// servers which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
-  /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
-  /// different Origin headers across platforms:
   ///
-  /// - macOS: `http://localhost`
-  /// - Linux: `http://localhost`
-  /// - Windows: `null`
-  /// - Android: Not supported
-  /// - iOS: Not supported
+  /// The Page loaded from html string will have `null` origin.
+  ///
+  /// ## PLatform-specific:
+  ///
+  /// - **Windows:** the string can not be larger than 2 MB (2 * 1024 * 1024 bytes) in total size
   pub html: Option<String>,
   /// Initialize javascript code when loading new pages. When webview load a new page, this
   /// initialization code will be executed. It is guaranteed that code is executed before
@@ -488,16 +484,8 @@ impl<'a> WebViewBuilder<'a> {
   /// [`WebView`]. This will be ignored if `url` is provided.
   ///
   /// # Warning
-  /// The Page loaded from html string will have different Origin on different platforms. And
-  /// servers which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
-  /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
-  /// different Origin headers across platforms:
   ///
-  /// - macOS: `http://localhost`
-  /// - Linux: `http://localhost`
-  /// - Windows: `null`
-  /// - Android: Not supported
-  /// - iOS: Not supported
+  /// The Page loaded from html string will have `null` origin.
   ///
   /// ## PLatform-specific:
   ///
