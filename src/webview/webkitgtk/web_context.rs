@@ -5,7 +5,9 @@
 //! Unix platform extensions for [`WebContext`](super::WebContext).
 
 use crate::{webview::web_context::WebContextData, Error};
-use glib::FileError;
+use gdk::prelude::{InputStreamExt, InputStreamExtManual};
+use gio::Cancellable;
+use glib::{Bytes, FileError};
 use http::{header::CONTENT_TYPE, Request, Response};
 use std::{
   borrow::Cow,
@@ -301,11 +303,13 @@ where
       // FIXME: Read the body (forms post)
       #[allow(unused_mut)]
       let mut http_request = Request::builder().uri(uri).method("GET");
+      let body;
       #[cfg(feature = "linux-headers")]
       {
         use http::{header::HeaderName, HeaderValue};
 
-        if let Some(mut headers) = request.http_headers() {
+        // Set request http headers
+        if let Some(headers) = request.http_headers() {
           if let Some(map) = http_request.headers_mut() {
             headers.foreach(move |k, v| {
               if let Ok(name) = HeaderName::from_bytes(k.as_bytes()) {
@@ -317,11 +321,39 @@ where
           }
         }
 
+        // Set request http method
         if let Some(method) = request.http_method() {
           http_request = http_request.method(method.as_str());
         }
+
+        // Set request http body
+        let cancellable: Option<&Cancellable> = None;
+        body = request
+          .http_body()
+          .map(|s| {
+            const BUFFER_LEN: usize = 1024;
+            let mut result = Vec::new();
+            let mut buffer = vec![0; BUFFER_LEN];
+            while let Ok(count) = s.read(&mut buffer[..], cancellable) {
+              if count == BUFFER_LEN {
+                result.append(&mut buffer);
+                buffer.resize(BUFFER_LEN, 0);
+              } else {
+                buffer.truncate(count);
+                result.append(&mut buffer);
+                break;
+              }
+            }
+            result
+          })
+          .unwrap_or(Vec::new());
       }
-      let http_request = match http_request.body(Vec::new()) {
+      #[cfg(not(feature = "linux-headers"))]
+      {
+        body = Vec::new();
+      }
+
+      let http_request = match http_request.body(body) {
         Ok(req) => req,
         Err(_) => {
           request.finish_error(&mut glib::Error::new(
