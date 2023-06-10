@@ -55,7 +55,7 @@ macro_rules! android_binding {
       $package,
       RustWebViewClient,
       handleRequest,
-      [JObject],
+      [JObject, JString],
       jobject
     );
     android_fn!(
@@ -175,7 +175,7 @@ impl InnerWebView {
     let WebViewAttributes {
       url,
       html,
-      initialization_scripts,
+      mut initialization_scripts,
       ipc_handler,
       #[cfg(any(debug_assertions, feature = "devtools"))]
       devtools,
@@ -187,6 +187,8 @@ impl InnerWebView {
       user_agent,
       ..
     } = attributes;
+
+    initialization_scripts.insert(0, include_str!("./request-interceptor.js").into());
 
     let super::PlatformSpecificWebViewAttributes {
       on_webview_created,

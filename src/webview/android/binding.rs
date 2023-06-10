@@ -19,7 +19,7 @@ use super::{
   WITH_ASSET_LOADER,
 };
 
-fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
+fn handle_request(env: JNIEnv, request: JObject, body: JString) -> Result<jobject, JniError> {
   let mut request_builder = Request::builder();
 
   let uri = env
@@ -29,7 +29,8 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
     .call_method(uri, "toString", "()Ljava/lang/String;", &[])?
     .l()?
     .into();
-  request_builder = request_builder.uri(&env.get_string(url)?.to_string_lossy().to_string());
+  let uri = env.get_string(url)?.to_string_lossy().to_string();
+  request_builder = request_builder.uri(&uri);
 
   let method: JString = env
     .call_method(request, "getMethod", "()Ljava/lang/String;", &[])?
@@ -58,8 +59,10 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
     }
   }
 
+  let body = env.get_string(body)?.to_bytes().to_vec();
+
   if let Some(handler) = REQUEST_HANDLER.get() {
-    let final_request = match request_builder.body(Vec::new()) {
+    let final_request = match request_builder.body(body) {
       Ok(req) => req,
       Err(e) => {
         log::warn!("Failed to build response: {}", e);
@@ -135,8 +138,8 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
 }
 
 #[allow(non_snake_case)]
-pub unsafe fn handleRequest(env: JNIEnv, _: JClass, request: JObject) -> jobject {
-  match handle_request(env, request) {
+pub unsafe fn handleRequest(env: JNIEnv, _: JClass, request: JObject, body: JString) -> jobject {
+  match handle_request(env, request, body) {
     Ok(response) => response,
     Err(e) => {
       log::warn!("Failed to handle request: {}", e);

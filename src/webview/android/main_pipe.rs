@@ -119,24 +119,6 @@ impl MainPipe<'_> {
             }
           }
 
-          // Create and set webview client
-          let rust_webview_client_class = find_class(
-            env,
-            activity,
-            format!("{}/RustWebViewClient", PACKAGE.get().unwrap()),
-          )?;
-          let webview_client = env.new_object(
-            rust_webview_client_class,
-            "(Landroid/content/Context;)V",
-            &[activity.into()],
-          )?;
-          env.call_method(
-            webview,
-            "setWebViewClient",
-            "(Landroid/webkit/WebViewClient;)V",
-            &[webview_client.into()],
-          )?;
-
           // set webchrome client
           env.call_method(
             webview,

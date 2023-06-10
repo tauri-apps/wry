@@ -8,7 +8,7 @@ import android.webkit.*
 import android.content.Context
 import androidx.webkit.WebViewAssetLoader
 
-class RustWebViewClient(context: Context): WebViewClient() {
+class RustWebViewClient(context: Context, private val requestBodyMap: Map<String, String>): WebViewClient() {
     private val assetLoader = WebViewAssetLoader.Builder()
         .setDomain(assetLoaderDomain())
         .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(context))
@@ -21,7 +21,7 @@ class RustWebViewClient(context: Context): WebViewClient() {
         return if (withAssetLoader()) {
             assetLoader.shouldInterceptRequest(request.url)
         } else {
-            handleRequest(request)
+            handleRequest(request, requestBodyMap[request.url.toString()] ?: "")
         }
     }
 
@@ -33,7 +33,7 @@ class RustWebViewClient(context: Context): WebViewClient() {
 
     private external fun assetLoaderDomain(): String
     private external fun withAssetLoader(): Boolean
-    private external fun handleRequest(request: WebResourceRequest): WebResourceResponse?
+    private external fun handleRequest(request: WebResourceRequest, body: String): WebResourceResponse?
 
     {{class-extension}}
 }

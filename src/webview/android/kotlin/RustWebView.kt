@@ -11,6 +11,8 @@ import android.content.Context
 import kotlin.collections.Map
 
 class RustWebView(context: Context): WebView(context) {
+    private val requestBodyMap: MutableMap<String, String> = mutableMapOf()
+
     init {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
@@ -18,6 +20,14 @@ class RustWebView(context: Context): WebView(context) {
         settings.databaseEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
         settings.javaScriptCanOpenWindowsAutomatically = true
+
+        val interceptor = Interceptor { id, body ->
+          requestBodyMap[id] = body
+        }
+        addJavascriptInterface(interceptor, "__WRY_INTERCEPTOR__")
+
+        this.webViewClient = RustWebViewClient(context, requestBodyMap)
+
         {{class-init}}
     }
 
@@ -62,4 +72,11 @@ class RustWebView(context: Context): WebView(context) {
     }
 
     {{class-extension}}
+}
+
+class Interceptor(private val handler: (id: String, body: String) -> Unit) {
+    @JavascriptInterface
+    fun onRequest(id: String, body: String) {
+        handler(id, body)
+    }
 }
