@@ -5,9 +5,7 @@
 //! Unix platform extensions for [`WebContext`](super::WebContext).
 
 use crate::{webview::web_context::WebContextData, Error};
-use gdk::prelude::{InputStreamExt, InputStreamExtManual};
-use gio::Cancellable;
-use glib::{Bytes, FileError};
+use glib::FileError;
 use http::{header::CONTENT_TYPE, Request, Response};
 use std::{
   borrow::Cow,
@@ -304,27 +302,31 @@ where
       #[allow(unused_mut)]
       let mut http_request = Request::builder().uri(uri).method("GET");
       let body;
-      #[cfg(feature = "linux-headers")]
-      {
-        use http::{header::HeaderName, HeaderValue};
+      use http::{header::HeaderName, HeaderValue};
 
-        // Set request http headers
-        if let Some(headers) = request.http_headers() {
-          if let Some(map) = http_request.headers_mut() {
-            headers.foreach(move |k, v| {
-              if let Ok(name) = HeaderName::from_bytes(k.as_bytes()) {
-                if let Ok(value) = HeaderValue::from_bytes(v.as_bytes()) {
-                  map.insert(name, value);
-                }
+      // Set request http headers
+      if let Some(headers) = request.http_headers() {
+        if let Some(map) = http_request.headers_mut() {
+          headers.foreach(move |k, v| {
+            if let Ok(name) = HeaderName::from_bytes(k.as_bytes()) {
+              if let Ok(value) = HeaderValue::from_bytes(v.as_bytes()) {
+                map.insert(name, value);
               }
-            });
-          }
+            }
+          });
         }
+      }
 
-        // Set request http method
-        if let Some(method) = request.http_method() {
-          http_request = http_request.method(method.as_str());
-        }
+      // Set request http method
+      if let Some(method) = request.http_method() {
+        http_request = http_request.method(method.as_str());
+      }
+
+      #[cfg(feature = "linux-body")]
+      {
+        use gdk::prelude::{InputStreamExt, InputStreamExtManual};
+        use gio::Cancellable;
+        use glib::Bytes;
 
         // Set request http body
         let cancellable: Option<&Cancellable> = None;
@@ -348,7 +350,7 @@ where
           })
           .unwrap_or(Vec::new());
       }
-      #[cfg(not(feature = "linux-headers"))]
+      #[cfg(not(feature = "linux-body"))]
       {
         body = Vec::new();
       }
@@ -373,27 +375,23 @@ where
             .headers()
             .get(CONTENT_TYPE)
             .and_then(|h| h.to_str().ok());
-          #[cfg(feature = "linux-headers")]
-          {
-            use soup::{MessageHeaders, MessageHeadersType};
-            use webkit2gtk::URISchemeResponse;
 
-            let response = URISchemeResponse::new(&input, buffer.len() as i64);
-            response.set_status(http_response.status().as_u16() as u32, None);
-            if let Some(content_type) = content_type {
-              response.set_content_type(content_type);
-            }
+          use soup::{MessageHeaders, MessageHeadersType};
+          use webkit2gtk::URISchemeResponse;
 
-            let mut headers = MessageHeaders::new(MessageHeadersType::Response);
-            for (name, value) in http_response.headers().into_iter() {
-              headers.append(name.as_str(), value.to_str().unwrap_or(""));
-            }
-            response.set_http_headers(&mut headers);
-
-            request.finish_with_response(&response);
+          let response = URISchemeResponse::new(&input, buffer.len() as i64);
+          response.set_status(http_response.status().as_u16() as u32, None);
+          if let Some(content_type) = content_type {
+            response.set_content_type(content_type);
           }
-          #[cfg(not(feature = "linux-headers"))]
-          request.finish(&input, buffer.len() as i64, content_type)
+
+          let mut headers = MessageHeaders::new(MessageHeadersType::Response);
+          for (name, value) in http_response.headers().into_iter() {
+            headers.append(name.as_str(), value.to_str().unwrap_or(""));
+          }
+          response.set_http_headers(&mut headers);
+
+          request.finish_with_response(&response);
         }
         Err(_) => request.finish_error(&mut glib::Error::new(
           FileError::Exist,
