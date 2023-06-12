@@ -29,7 +29,7 @@ class RustWebViewClient(context: Context): WebViewClient() {
         view: WebView,
         request: WebResourceRequest
     ): Boolean {
-        return shouldOverride(request.getUrl().toString())
+        return shouldOverride(request.url.toString())
     }
 
 
