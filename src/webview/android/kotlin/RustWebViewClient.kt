@@ -25,6 +25,14 @@ class RustWebViewClient(context: Context): WebViewClient() {
         }
     }
 
+    override fun shouldOverrideUrlLoading(
+        view: WebView,
+        request: WebResourceRequest
+    ): Boolean {
+        return shouldOverride(request.url.toString())
+    }
+
+
     companion object {
         init {
             System.loadLibrary("{{library}}")
@@ -34,6 +42,7 @@ class RustWebViewClient(context: Context): WebViewClient() {
     private external fun assetLoaderDomain(): String
     private external fun withAssetLoader(): Boolean
     private external fun handleRequest(request: WebResourceRequest): WebResourceResponse?
+    private external fun shouldOverride(url: String): Boolean
 
     {{class-extension}}
 }

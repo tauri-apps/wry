@@ -74,6 +74,14 @@ macro_rules! android_binding {
       [],
       jstring
     );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      shouldOverride,
+      [JString],
+      jboolean
+    );
     android_fn!($domain, $package, Ipc, ipc, [JString]);
     android_fn!(
       $domain,
@@ -90,6 +98,7 @@ pub static REQUEST_HANDLER: OnceCell<UnsafeRequestHandler> = OnceCell::new();
 pub static TITLE_CHANGE_HANDLER: OnceCell<UnsafeTitleHandler> = OnceCell::new();
 pub static WITH_ASSET_LOADER: OnceCell<bool> = OnceCell::new();
 pub static ASSET_LOADER_DOMAIN: OnceCell<String> = OnceCell::new();
+pub static URL_LOADING_OVERRIDE: OnceCell<UnsafeUrlLoadingOverride> = OnceCell::new();
 
 pub struct UnsafeIpc(Box<dyn Fn(&Window, String)>, Rc<Window>);
 impl UnsafeIpc {
@@ -119,6 +128,15 @@ impl UnsafeTitleHandler {
 }
 unsafe impl Send for UnsafeTitleHandler {}
 unsafe impl Sync for UnsafeTitleHandler {}
+
+pub struct UnsafeUrlLoadingOverride(Box<dyn Fn(String) -> bool>);
+impl UnsafeUrlLoadingOverride {
+  pub fn new(f: Box<dyn Fn(String) -> bool>) -> Self {
+    Self(f)
+  }
+}
+unsafe impl Send for UnsafeUrlLoadingOverride {}
+unsafe impl Sync for UnsafeUrlLoadingOverride {}
 
 pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
   // we must create the WebChromeClient here because it calls `registerForActivityResult`,
@@ -304,6 +322,10 @@ impl InnerWebView {
     let w = window.clone();
     if let Some(i) = attributes.document_title_changed_handler {
       TITLE_CHANGE_HANDLER.get_or_init(move || UnsafeTitleHandler::new(i, w));
+    }
+
+    if let Some(i) = attributes.navigation_handler {
+      URL_LOADING_OVERRIDE.get_or_init(move || UnsafeUrlLoadingOverride::new(i));
     }
 
     Ok(Self { window })

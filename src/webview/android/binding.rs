@@ -16,7 +16,7 @@ use tao::platform::android::ndk_glue::jni::{
 
 use super::{
   create_headers_map, ASSET_LOADER_DOMAIN, IPC, REQUEST_HANDLER, TITLE_CHANGE_HANDLER,
-  WITH_ASSET_LOADER,
+  URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
 };
 
 fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
@@ -143,6 +143,28 @@ pub unsafe fn handleRequest(env: JNIEnv, _: JClass, request: JObject) -> jobject
       *JObject::null()
     }
   }
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn shouldOverride(env: JNIEnv, _: JClass, url: JString) -> jboolean {
+  match env.get_string(url) {
+    Ok(url) => {
+      let url = url.to_string_lossy().to_string();
+      URL_LOADING_OVERRIDE
+        .get()
+        // We negate the result of the function because the logic for the android
+        // client is different from how the navigation_handler is defined.
+        //
+        // https://developer.android.com/reference/android/webkit/WebViewClient#shouldOverrideUrlLoading(android.webkit.WebView,%20android.webkit.WebResourceRequest)
+        .map(|f| !f.0(url))
+        .unwrap_or(false)
+    }
+    Err(e) => {
+      log::warn!("Failed to parse JString: {}", e);
+      false
+    }
+  }
+  .into()
 }
 
 pub unsafe fn ipc(env: JNIEnv, _: JClass, arg: JString) {
