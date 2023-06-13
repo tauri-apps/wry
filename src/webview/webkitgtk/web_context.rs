@@ -301,27 +301,61 @@ where
       // FIXME: Read the body (forms post)
       #[allow(unused_mut)]
       let mut http_request = Request::builder().uri(uri).method("GET");
-      #[cfg(feature = "linux-headers")]
-      {
-        use http::{header::HeaderName, HeaderValue};
+      let body;
+      use http::{header::HeaderName, HeaderValue};
 
-        if let Some(mut headers) = request.http_headers() {
-          if let Some(map) = http_request.headers_mut() {
-            headers.foreach(move |k, v| {
-              if let Ok(name) = HeaderName::from_bytes(k.as_bytes()) {
-                if let Ok(value) = HeaderValue::from_bytes(v.as_bytes()) {
-                  map.insert(name, value);
-                }
+      // Set request http headers
+      if let Some(headers) = request.http_headers() {
+        if let Some(map) = http_request.headers_mut() {
+          headers.foreach(move |k, v| {
+            if let Ok(name) = HeaderName::from_bytes(k.as_bytes()) {
+              if let Ok(value) = HeaderValue::from_bytes(v.as_bytes()) {
+                map.insert(name, value);
               }
-            });
-          }
-        }
-
-        if let Some(method) = request.http_method() {
-          http_request = http_request.method(method.as_str());
+            }
+          });
         }
       }
-      let http_request = match http_request.body(Vec::new()) {
+
+      // Set request http method
+      if let Some(method) = request.http_method() {
+        http_request = http_request.method(method.as_str());
+      }
+
+      #[cfg(feature = "linux-body")]
+      {
+        use gdk::prelude::{InputStreamExt, InputStreamExtManual};
+        use gio::Cancellable;
+        use glib::Bytes;
+
+        // Set request http body
+        let cancellable: Option<&Cancellable> = None;
+        body = request
+          .http_body()
+          .map(|s| {
+            const BUFFER_LEN: usize = 1024;
+            let mut result = Vec::new();
+            let mut buffer = vec![0; BUFFER_LEN];
+            while let Ok(count) = s.read(&mut buffer[..], cancellable) {
+              if count == BUFFER_LEN {
+                result.append(&mut buffer);
+                buffer.resize(BUFFER_LEN, 0);
+              } else {
+                buffer.truncate(count);
+                result.append(&mut buffer);
+                break;
+              }
+            }
+            result
+          })
+          .unwrap_or(Vec::new());
+      }
+      #[cfg(not(feature = "linux-body"))]
+      {
+        body = Vec::new();
+      }
+
+      let http_request = match http_request.body(body) {
         Ok(req) => req,
         Err(_) => {
           request.finish_error(&mut glib::Error::new(
@@ -341,27 +375,23 @@ where
             .headers()
             .get(CONTENT_TYPE)
             .and_then(|h| h.to_str().ok());
-          #[cfg(feature = "linux-headers")]
-          {
-            use soup::{MessageHeaders, MessageHeadersType};
-            use webkit2gtk::URISchemeResponse;
 
-            let response = URISchemeResponse::new(&input, buffer.len() as i64);
-            response.set_status(http_response.status().as_u16() as u32, None);
-            if let Some(content_type) = content_type {
-              response.set_content_type(content_type);
-            }
+          use soup::{MessageHeaders, MessageHeadersType};
+          use webkit2gtk::URISchemeResponse;
 
-            let mut headers = MessageHeaders::new(MessageHeadersType::Response);
-            for (name, value) in http_response.headers().into_iter() {
-              headers.append(name.as_str(), value.to_str().unwrap_or(""));
-            }
-            response.set_http_headers(&mut headers);
-
-            request.finish_with_response(&response);
+          let response = URISchemeResponse::new(&input, buffer.len() as i64);
+          response.set_status(http_response.status().as_u16() as u32, None);
+          if let Some(content_type) = content_type {
+            response.set_content_type(content_type);
           }
-          #[cfg(not(feature = "linux-headers"))]
-          request.finish(&input, buffer.len() as i64, content_type)
+
+          let mut headers = MessageHeaders::new(MessageHeadersType::Response);
+          for (name, value) in http_response.headers().into_iter() {
+            headers.append(name.as_str(), value.to_str().unwrap_or(""));
+          }
+          response.set_http_headers(&mut headers);
+
+          request.finish_with_response(&response);
         }
         Err(_) => request.finish_error(&mut glib::Error::new(
           FileError::Exist,
