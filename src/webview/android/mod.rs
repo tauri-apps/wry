@@ -82,6 +82,14 @@ macro_rules! android_binding {
       [JString],
       jboolean
     );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebView,
+      shouldOverride,
+      [JString],
+      jboolean
+    );
     android_fn!($domain, $package, Ipc, ipc, [JString]);
     android_fn!(
       $domain,
