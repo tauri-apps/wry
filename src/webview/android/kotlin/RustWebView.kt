@@ -23,13 +23,25 @@ class RustWebView(context: Context): WebView(context) {
 
     fun loadUrlMainThread(url: String) {
         post {
-          super.loadUrl(url)
+          loadUrl(url)
         }
     }
 
     fun loadUrlMainThread(url: String, additionalHttpHeaders: Map<String, String>) {
         post {
-          super.loadUrl(url, additionalHttpHeaders)
+          loadUrl(url, additionalHttpHeaders)
+        }
+    }
+
+    override fun loadUrl(url: String) {
+        if (!shouldOverride(url)) {
+            super.loadUrl(url);
+        }
+    }
+
+    override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
+        if (!shouldOverride(url)) {
+            super.loadUrl(url, additionalHttpHeaders);
         }
     }
 
@@ -60,6 +72,8 @@ class RustWebView(context: Context): WebView(context) {
         val settings = super.getSettings()
         settings.userAgentString = ua
     }
+
+    private external fun shouldOverride(url: String): Boolean
 
     {{class-extension}}
 }
