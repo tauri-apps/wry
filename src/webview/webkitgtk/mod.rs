@@ -136,6 +136,14 @@ impl InnerWebView {
       });
     }
 
+    if let Some(on_load_handler) = attributes.on_load_handler {
+      let w = window_rc.clone();
+      webview.connect_load_changed(move |webview, load_event| match load_event {
+        LoadEvent::Committed => f(&w, webview.uri().unwrap().to_string()),
+        _ => (), // Do nothing, in the futre we could add addition handlers here
+      });
+    }
+
     webview.add_events(
       EventMask::POINTER_MOTION_MASK
         | EventMask::BUTTON1_MOTION_MASK
