@@ -32,6 +32,10 @@ class RustWebViewClient(context: Context): WebViewClient() {
         return shouldOverride(request.url.toString())
     }
 
+    override fun onPageStarted(WebView view, String url, Bitmap favicon) {
+        return onPageLoad(url)
+    }
+
 
     companion object {
         init {
@@ -43,6 +47,7 @@ class RustWebViewClient(context: Context): WebViewClient() {
     private external fun withAssetLoader(): Boolean
     private external fun handleRequest(request: WebResourceRequest): WebResourceResponse?
     private external fun shouldOverride(url: String): Boolean
+    private external fun onPageLoad(url: String)
 
     {{class-extension}}
 }
