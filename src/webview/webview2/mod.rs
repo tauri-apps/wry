@@ -311,6 +311,26 @@ impl InnerWebView {
       }
     }
 
+    if let Some(on_load_handler) = attributes.on_load_handler {
+      let window_c = window.clone();
+      unsafe {
+        webview
+          .add_ContentLoading(
+            &ContentLoadingEventHandler::create(Box::new(move |webview, _| {
+              let mut pwstr = PWSTR::null();
+              if let Some(webview) = webview {
+                webview.Source(&mut pwstr).unwrap();
+                let uri = take_pwstr(pwstr);
+                on_load_handler(&window_c, uri)
+              }
+              Ok(())
+            })),
+            &mut token,
+          )
+          .map_err(webview2_com::Error::WindowsError)?;
+      }
+    }
+
     // Initialize scripts
     Self::add_script_to_execute_on_document_created(
       &webview,
