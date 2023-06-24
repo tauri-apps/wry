@@ -233,7 +233,7 @@ pub struct WebViewAttributes {
   /// Whether all media can be played without user interaction.
   pub autoplay: bool,
 
-  pub on_load_handler: Option<Box<dyn Fn(&Window, String)>>,
+  pub on_load_handler: Option<Box<dyn Fn(&Window, Url)>>,
 }
 
 impl Default for WebViewAttributes {
@@ -635,7 +635,7 @@ impl<'a> WebViewBuilder<'a> {
   /// Set a handler to process changes in page location.
   ///
   /// The handler will be called when the webview begins loading the content for the new page.
-  pub fn with_on_load_handler(mut self, handler: impl Fn(&Window, String) + 'static) -> Self {
+  pub fn with_on_load_handler(mut self, handler: impl Fn(&Window, Url) + 'static) -> Self {
     self.webview.on_load_handler = Some(Box::new(handler));
     self
   }

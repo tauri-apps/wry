@@ -212,7 +212,7 @@ pub unsafe fn onPageLoad(env: JNIEnv, _: JClass, url: JString) {
     Ok(url) => {
       let url = url.to_string_lossy().to_string();
       if let Some(h) = ON_LOAD_HANDLER.get() {
-        (h.0)(&h.1, url)
+        (h.0)(&h.1, Url::parse(url).unwrap())
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),

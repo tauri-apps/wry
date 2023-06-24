@@ -317,11 +317,8 @@ impl InnerWebView {
         webview
           .add_ContentLoading(
             &ContentLoadingEventHandler::create(Box::new(move |webview, _| {
-              let mut pwstr = PWSTR::null();
               if let Some(webview) = webview {
-                webview.Source(&mut pwstr).unwrap();
-                let uri = take_pwstr(pwstr);
-                on_load_handler(&window_c, uri)
+                on_load_handler(&window_c, window.url())
               }
               Ok(())
             })),

@@ -139,7 +139,7 @@ impl InnerWebView {
     if let Some(on_load_handler) = attributes.on_load_handler {
       let w = window_rc.clone();
       webview.connect_load_changed(move |webview, load_event| match load_event {
-        LoadEvent::Committed => f(&w, webview.uri().unwrap().to_string()),
+        LoadEvent::Committed => f(&w, webview.uri().unwrap()),
         _ => (), // Do nothing, in the futre we could add addition handlers here
       });
     }
