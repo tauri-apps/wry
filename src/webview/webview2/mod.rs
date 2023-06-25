@@ -600,7 +600,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                     Err(_) => return Err(E_FAIL.into()),
                   };
 
-                  return match (custom_protocol.1)(&final_request) {
+                  return match (custom_protocol.1)(final_request) {
                     Ok(sent_response) => {
                       let content = sent_response.body();
                       let status_code = sent_response.status();

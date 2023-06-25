@@ -83,7 +83,7 @@ pub(crate) struct InnerWebView {
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
   download_delegate: id,
-  protocol_ptrs: Vec<*mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>>,
+  protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>>,
 }
 
 impl InnerWebView {
@@ -118,7 +118,7 @@ impl InnerWebView {
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
           let function = &mut *(*function
-            as *mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>);
+            as *mut Box<dyn Fn(Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>);
 
           // Get url request
           let request: id = msg_send![task, request];
@@ -183,7 +183,7 @@ impl InnerWebView {
           // send response
           match http_request.body(sent_form_body) {
             Ok(final_request) => {
-              if let Ok(sent_response) = function(&final_request) {
+              if let Ok(sent_response) = function(final_request) {
                 let content = sent_response.body();
                 // default: application/octet-stream, but should be provided by the client
                 let wanted_mime = sent_response.headers().get(CONTENT_TYPE);

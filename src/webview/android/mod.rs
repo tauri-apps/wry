@@ -270,7 +270,7 @@ impl InnerWebView {
             .parse()
             .unwrap();
 
-          if let Ok(mut response) = (custom_protocol.1)(&request) {
+          if let Ok(mut response) = (custom_protocol.1)(request) {
             let should_inject_scripts = response
               .headers()
               .get(CONTENT_TYPE)
