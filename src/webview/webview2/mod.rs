@@ -743,15 +743,17 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     ) -> LRESULT {
       match msg {
         win32wm::WM_SIZE => {
-          let controller = dwrefdata as *mut ICoreWebView2Controller;
-          let mut client_rect = RECT::default();
-          win32wm::GetClientRect(hwnd, &mut client_rect);
-          let _ = (*controller).SetBounds(RECT {
-            left: 0,
-            top: 0,
-            right: client_rect.right - client_rect.left,
-            bottom: client_rect.bottom - client_rect.top,
-          });
+          if wparam.0 != win32wm::SIZE_MINIMIZED as usize {
+            let controller = dwrefdata as *mut ICoreWebView2Controller;
+            let mut client_rect = RECT::default();
+            win32wm::GetClientRect(hwnd, &mut client_rect);
+            let _ = (*controller).SetBounds(RECT {
+              left: 0,
+              top: 0,
+              right: client_rect.right - client_rect.left,
+              bottom: client_rect.bottom - client_rect.top,
+            });
+          }
         }
 
         win32wm::WM_SETFOCUS | win32wm::WM_ENTERSIZEMOVE => {
