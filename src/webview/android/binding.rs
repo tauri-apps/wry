@@ -13,6 +13,7 @@ use tao::platform::android::ndk_glue::jni::{
   sys::jobject,
   JNIEnv,
 };
+use url::Url;
 
 use super::{
   create_headers_map, ASSET_LOADER_DOMAIN, IPC, ON_LOAD_HANDLER, REQUEST_HANDLER,
@@ -212,7 +213,7 @@ pub unsafe fn onPageLoad(env: JNIEnv, _: JClass, url: JString) {
     Ok(url) => {
       let url = url.to_string_lossy().to_string();
       if let Some(h) = ON_LOAD_HANDLER.get() {
-        (h.0)(&h.1, Url::parse(url).unwrap())
+        (h.0)(&h.1, Url::parse(&url).unwrap())
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),

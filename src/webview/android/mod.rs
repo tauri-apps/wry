@@ -90,14 +90,7 @@ macro_rules! android_binding {
       [JString],
       jboolean
     );
-    android_fn!(
-      $domain,
-      $package,
-      RustWebViewClient,
-      onPageLoad,
-      [JString],
-      void
-    );
+    android_fn!($domain, $package, RustWebViewClient, onPageLoad, [JString]);
     android_fn!($domain, $package, Ipc, ipc, [JString]);
     android_fn!(
       $domain,
@@ -155,9 +148,9 @@ impl UnsafeUrlLoadingOverride {
 unsafe impl Send for UnsafeUrlLoadingOverride {}
 unsafe impl Sync for UnsafeUrlLoadingOverride {}
 
-pub struct UnsafeOnLoadHandler(Box<dyn Fn(&Window, String)>, Rc<Window>);
+pub struct UnsafeOnLoadHandler(Box<dyn Fn(&Window, Url)>, Rc<Window>);
 impl UnsafeOnLoadHandler {
-  pub fn new(f: Box<dyn Fn(&Window, String)>, w: Rc<Window>) -> Self {
+  pub fn new(f: Box<dyn Fn(&Window, Url)>, w: Rc<Window>) -> Self {
     Self(f, w)
   }
 }
@@ -356,7 +349,7 @@ impl InnerWebView {
 
     let w = window.clone();
     if let Some(h) = attributes.on_load_handler {
-      ON_LOAD_HANDLER.get_or_init(move || UnsafeOnLoadHandler(h, w));
+      ON_LOAD_HANDLER.get_or_init(move || UnsafeOnLoadHandler::new(h, w));
     }
 
     Ok(Self { window })

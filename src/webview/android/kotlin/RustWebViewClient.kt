@@ -6,6 +6,7 @@ package {{package}}
 
 import android.webkit.*
 import android.content.Context
+import android.graphics.Bitmap
 import androidx.webkit.WebViewAssetLoader
 
 class RustWebViewClient(context: Context): WebViewClient() {
@@ -32,7 +33,7 @@ class RustWebViewClient(context: Context): WebViewClient() {
         return shouldOverride(request.url.toString())
     }
 
-    override fun onPageStarted(WebView view, String url, Bitmap favicon) {
+    override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?): Unit {
         return onPageLoad(url)
     }
 
