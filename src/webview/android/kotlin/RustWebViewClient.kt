@@ -33,8 +33,16 @@ class RustWebViewClient(context: Context): WebViewClient() {
         return shouldOverride(request.url.toString())
     }
 
+    override fun onLoadResource(view: WebView, url: String): Unit {
+        return onPageNavigating(url)
+    }
+
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?): Unit {
-        return onPageLoad(url)
+        return onPageLoading(url)
+    }
+
+    override fun onPageFinished(view: WebView, url: String): Unit {
+        return onPageLoaded(url)
     }
 
 
@@ -48,7 +56,9 @@ class RustWebViewClient(context: Context): WebViewClient() {
     private external fun withAssetLoader(): Boolean
     private external fun handleRequest(request: WebResourceRequest): WebResourceResponse?
     private external fun shouldOverride(url: String): Boolean
-    private external fun onPageLoad(url: String)
+    private external fun onPageNavigating(url: String)
+    private external fun onPageLoading(url: String)
+    private external fun onPageLoaded(url: String)
 
     {{class-extension}}
 }

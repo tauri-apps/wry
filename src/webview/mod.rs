@@ -233,7 +233,14 @@ pub struct WebViewAttributes {
   /// Whether all media can be played without user interaction.
   pub autoplay: bool,
 
-  pub on_load_handler: Option<Box<dyn Fn(&Window, Url)>>,
+  /// Set a handler closer to process chages to navigation.
+  pub on_page_navigating_handler: Option<Box<dyn Fn(String)>>,
+
+  /// Set a handler closer to process to start of loading a new page.
+  pub on_page_loading_handler: Option<Box<dyn Fn(String)>>,
+
+  /// Set a handler closer to process when a new page has been loaded.
+  pub on_page_loaded_handler: Option<Box<dyn Fn(String)>>,
 }
 
 impl Default for WebViewAttributes {
@@ -265,7 +272,9 @@ impl Default for WebViewAttributes {
       document_title_changed_handler: None,
       incognito: false,
       autoplay: true,
-      on_load_handler: None,
+      on_page_navigating_handler: None,
+      on_page_loading_handler: None,
+      on_page_loaded_handler: None,
     }
   }
 }
@@ -632,11 +641,27 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set a handler to process changes in page location.
+  /// Set a handler to process when navigation to new page begins.
+  ///
+  /// The handler will be called when the webview begins requesting context for a new URL.
+  pub fn with_on_page_navigating_handler(mut self, handler: impl Fn(String) + 'static) -> Self {
+    self.webview.on_page_navigating_handler = Some(Box::new(handler));
+    self
+  }
+
+  /// Set a handler to process when a new page start loading.
   ///
   /// The handler will be called when the webview begins loading the content for the new page.
-  pub fn with_on_load_handler(mut self, handler: impl Fn(&Window, Url) + 'static) -> Self {
-    self.webview.on_load_handler = Some(Box::new(handler));
+  pub fn with_on_page_loading_handler(mut self, handler: impl Fn(String) + 'static) -> Self {
+    self.webview.on_page_loading_handler = Some(Box::new(handler));
+    self
+  }
+
+  /// Set a handler to process when a new page has been loaded.
+  ///
+  /// The handler will be called when the webview the content for the new page has been fully loaded.
+  pub fn with_on_page_loaded_handler(mut self, handler: impl Fn(String) + 'static) -> Self {
+    self.webview.on_page_loaded_handler = Some(Box::new(handler));
     self
   }
 

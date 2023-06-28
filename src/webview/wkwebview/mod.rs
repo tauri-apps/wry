@@ -528,13 +528,24 @@ impl InnerWebView {
         }
       }
 
+      extern "C" fn did_start_navigation(this: &Object, _: Sel, _webview: id, _navigation: id) {
+        unsafe {
+          // Call on_load_handler
+          let on_navigating = this.get_ivar::<*mut c_void>("on_page_navigating_function");
+          if !on_navigating.is_null() {
+            let on_navigating = &mut *(*on_navigating as *mut Box<dyn Fn()>);
+            on_navigating();
+          }
+        }
+      }
+
       extern "C" fn did_commit_navigation(this: &Object, _: Sel, webview: id, _navigation: id) {
         unsafe {
           // Call on_load_handler
-          let on_load = this.get_ivar::<*mut c_void>("on_load_function");
-          if !on_load.is_null() {
-            let on_load = &mut *(*on_load as *mut Box<dyn Fn()>);
-            on_load();
+          let on_loading = this.get_ivar::<*mut c_void>("on_page_loading_function");
+          if !on_loading.is_null() {
+            let on_loading = &mut *(*on_loading as *mut Box<dyn Fn()>);
+            on_loading();
           }
 
           // Inject scripts
@@ -552,12 +563,25 @@ impl InnerWebView {
 
       let pending_scripts = Arc::new(Mutex::new(Some(Vec::new())));
 
+      extern "C" fn did_finish_navigation(this: &Object, _: Sel, _webview: id, _navigation: id) {
+        unsafe {
+          // Call on_load_handler
+          let on_loaded = this.get_ivar::<*mut c_void>("on_page_loaded_function");
+          if !on_loaded.is_null() {
+            let on_loaded = &mut *(*on_loaded as *mut Box<dyn Fn()>);
+            on_loaded();
+          }
+        }
+      }
+
       let navigation_delegate_cls = match ClassDecl::new("WryNavigationDelegate", class!(NSObject))
       {
         Some(mut cls) => {
           cls.add_ivar::<*mut c_void>("pending_scripts");
           cls.add_ivar::<*mut c_void>("navigation_policy_function");
-          cls.add_ivar::<*mut c_void>("on_load_function");
+          cls.add_ivar::<*mut c_void>("on_page_navigating_function");
+          cls.add_ivar::<*mut c_void>("on_page_loading_function");
+          cls.add_ivar::<*mut c_void>("on_page_loaded_function");
           cls.add_ivar::<*mut c_void>("HasDownloadHandler");
           cls.add_method(
             sel!(webView:decidePolicyForNavigationAction:decisionHandler:),
@@ -568,8 +592,16 @@ impl InnerWebView {
             navigation_policy_response as extern "C" fn(&Object, Sel, id, id, id),
           );
           cls.add_method(
+            sel!(webView:didStartProvisionalNavigation:),
+            did_start_navigation as extern "C" fn(&Object, Sel, id, id),
+          );
+          cls.add_method(
             sel!(webView:didCommitNavigation:),
             did_commit_navigation as extern "C" fn(&Object, Sel, id, id),
+          );
+          cls.add_method(
+            sel!(webView:didFinishNavigation:),
+            did_finish_navigation as extern "C" fn(&Object, Sel, id, id),
           );
           add_download_methods(&mut cls);
           cls.register()
@@ -589,7 +621,9 @@ impl InnerWebView {
         .is_some()
         || attributes.new_window_req_handler.is_some()
         || attributes.download_started_handler.is_some()
-        || attributes.on_load_handler.is_some()
+        || attributes.on_page_navigating_handler.is_some()
+        || attributes.on_page_loading_handler.is_some()
+        || attributes.on_page_loaded_handler.is_some()
       {
         let function_ptr = {
           let navigation_handler = attributes.navigation_handler;
@@ -613,13 +647,34 @@ impl InnerWebView {
           function_ptr as *mut _ as *mut c_void,
         );
 
-        if let Some(on_load_handler) = attributes.on_load_handler {
-          let window_c = window.clone();
-          let on_load_handler = Box::into_raw(Box::new(Box::new(move || {
-            on_load_handler(&window_c, url(webview));
+        if let Some(on_page_navigating_handler) = attributes.on_page_navigating_handler {
+          let on_page_navigating_handler = Box::into_raw(Box::new(Box::new(move || {
+            on_page_navigating_handler(url_from_webview(webview));
           }) as Box<dyn Fn()>));
-          (*navigation_policy_handler)
-            .set_ivar("on_load_function", on_load_handler as *mut _ as *mut c_void);
+          (*navigation_policy_handler).set_ivar(
+            "on_page_navigating_function",
+            on_page_navigating_handler as *mut _ as *mut c_void,
+          );
+        }
+
+        if let Some(on_page_loading_handler) = attributes.on_page_loading_handler {
+          let on_page_loading_handler = Box::into_raw(Box::new(Box::new(move || {
+            on_page_loading_handler(url_from_webview(webview));
+          }) as Box<dyn Fn()>));
+          (*navigation_policy_handler).set_ivar(
+            "on_page_loading_function",
+            on_page_loading_handler as *mut _ as *mut c_void,
+          );
+        }
+
+        if let Some(on_page_loaded_handler) = attributes.on_page_loaded_handler {
+          let on_page_loaded_handler = Box::into_raw(Box::new(Box::new(move || {
+            on_page_loaded_handler(url_from_webview(webview));
+          }) as Box<dyn Fn()>));
+          (*navigation_policy_handler).set_ivar(
+            "on_page_loaded_function",
+            on_page_loaded_handler as *mut _ as *mut c_void,
+          );
         }
 
         let has_download_handler = Box::into_raw(Box::new(Box::new(
@@ -869,7 +924,7 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn url(&self) -> Url {
-    url(self.webview)
+    Url::parse(&url_from_webview(self.webview)).unwrap()
   }
 
   pub fn eval(&self, js: &str, callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {
@@ -1043,7 +1098,7 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 }
 
-pub fn url(webview: *mut Object) -> Url {
+pub fn url_from_webview(webview: id) -> String {
   let url_obj: *mut Object = unsafe { msg_send![webview, URL] };
   let absolute_url: *mut Object = unsafe { msg_send![url_obj, absoluteString] };
 
@@ -1056,7 +1111,7 @@ pub fn url(webview: *mut Object) -> Url {
   let len = unsafe { msg_send![absolute_url, lengthOfBytesUsingEncoding: 4] };
   let bytes = unsafe { std::slice::from_raw_parts(bytes, len) };
 
-  Url::parse(std::str::from_utf8(bytes).unwrap()).unwrap()
+  std::str::from_utf8(bytes).unwrap().into()
 }
 
 pub fn platform_webview_version() -> Result<String> {

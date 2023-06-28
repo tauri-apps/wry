@@ -136,11 +136,30 @@ impl InnerWebView {
       });
     }
 
-    if let Some(on_load_handler) = attributes.on_load_handler {
-      let w = window_rc.clone();
+    let on_page_navigating_handler = attribute.on_page_navigating_handler.take();
+    let on_page_loading_handler = attribute.on_page_loading_handler.take();
+    let on_page_loaded_handler = attribute.on_page_loaded_handler.take();
+    if on_page_navigating_handler.is_some()
+      || on_page_loading_handler.is_some()
+      || on_page_loaded_handler.is_some()
+    {
       webview.connect_load_changed(move |webview, load_event| match load_event {
-        LoadEvent::Committed => f(&w, webview.uri().unwrap()),
-        _ => (), // Do nothing, in the futre we could add addition handlers here
+        LoadEvent::Started => {
+          if let Some(f) = on_page_navigating_handler {
+            f(webview.uri().unwrap().to_string());
+          }
+        }
+        LoadEvent::Committed => {
+          if let Some(f) = on_page_loading_handler {
+            f(webview.uri().unwrap().to_string());
+          }
+        }
+        LoadEvent::Finished => {
+          if let Some(f) = on_page_loaded_handler {
+            f(webview.uri().unwrap().to_string());
+          }
+        }
+        _ => (),
       });
     }
 

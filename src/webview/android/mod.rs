@@ -90,7 +90,27 @@ macro_rules! android_binding {
       [JString],
       jboolean
     );
-    android_fn!($domain, $package, RustWebViewClient, onPageLoad, [JString]);
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      onPageNavigating,
+      [JString]
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      onPageLoading,
+      [JString]
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      onPageLoaded,
+      [JString]
+    );
     android_fn!($domain, $package, Ipc, ipc, [JString]);
     android_fn!(
       $domain,
@@ -108,7 +128,9 @@ pub static TITLE_CHANGE_HANDLER: OnceCell<UnsafeTitleHandler> = OnceCell::new();
 pub static WITH_ASSET_LOADER: OnceCell<bool> = OnceCell::new();
 pub static ASSET_LOADER_DOMAIN: OnceCell<String> = OnceCell::new();
 pub static URL_LOADING_OVERRIDE: OnceCell<UnsafeUrlLoadingOverride> = OnceCell::new();
-pub static ON_LOAD_HANDLER: OnceCell<UnsafeOnLoadHandler> = OnceCell::new();
+pub static ON_NAVIGATING_HANDLER: OnceCell<UnsafeOnPageNavigatingHandler> = OnceCell::new();
+pub static ON_LOADING_HANDLER: OnceCell<UnsafeOnPageLoadingHandler> = OnceCell::new();
+pub static ON_LOADED_HANDLER: OnceCell<UnsafeOnPageLoadedHandler> = OnceCell::new();
 
 pub struct UnsafeIpc(Box<dyn Fn(&Window, String)>, Rc<Window>);
 impl UnsafeIpc {
@@ -148,14 +170,32 @@ impl UnsafeUrlLoadingOverride {
 unsafe impl Send for UnsafeUrlLoadingOverride {}
 unsafe impl Sync for UnsafeUrlLoadingOverride {}
 
-pub struct UnsafeOnLoadHandler(Box<dyn Fn(&Window, Url)>, Rc<Window>);
-impl UnsafeOnLoadHandler {
-  pub fn new(f: Box<dyn Fn(&Window, Url)>, w: Rc<Window>) -> Self {
-    Self(f, w)
+pub struct UnsafeOnPageNavigatingHandler(Box<dyn Fn(String)>);
+impl UnsafeOnPageNavigatingHandler {
+  pub fn new(f: Box<dyn Fn(String)>) -> Self {
+    Self(f)
   }
 }
-unsafe impl Send for UnsafeOnLoadHandler {}
-unsafe impl Sync for UnsafeOnLoadHandler {}
+unsafe impl Send for UnsafeOnPageNavigatingHandler {}
+unsafe impl Sync for UnsafeOnPageNavigatingHandler {}
+
+pub struct UnsafeOnPageLoadingHandler(Box<dyn Fn(String)>);
+impl UnsafeOnPageLoadingHandler {
+  pub fn new(f: Box<dyn Fn(String)>) -> Self {
+    Self(f)
+  }
+}
+unsafe impl Send for UnsafeOnPageLoadingHandler {}
+unsafe impl Sync for UnsafeOnPageLoadingHandler {}
+
+pub struct UnsafeOnPageLoadedHandler(Box<dyn Fn(String)>);
+impl UnsafeOnPageLoadedHandler {
+  pub fn new(f: Box<dyn Fn(String)>) -> Self {
+    Self(f)
+  }
+}
+unsafe impl Send for UnsafeOnPageLoadedHandler {}
+unsafe impl Sync for UnsafeOnPageLoadedHandler {}
 
 pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
   // we must create the WebChromeClient here because it calls `registerForActivityResult`,
@@ -347,9 +387,16 @@ impl InnerWebView {
       URL_LOADING_OVERRIDE.get_or_init(move || UnsafeUrlLoadingOverride::new(i));
     }
 
-    let w = window.clone();
-    if let Some(h) = attributes.on_load_handler {
-      ON_LOAD_HANDLER.get_or_init(move || UnsafeOnLoadHandler::new(h, w));
+    if let Some(h) = attributes.on_page_navigating_handler {
+      ON_NAVIGATING_HANDLER.get_or_init(move || UnsafeOnPageNavigatingHandler::new(h));
+    }
+
+    if let Some(h) = attributes.on_page_loading_handler {
+      ON_LOADING_HANDLER.get_or_init(move || UnsafeOnPageLoadingHandler::new(h));
+    }
+
+    if let Some(h) = attributes.on_page_loaded_handler {
+      ON_LOADED_HANDLER.get_or_init(move || UnsafeOnPageLoadedHandler::new(h));
     }
 
     Ok(Self { window })

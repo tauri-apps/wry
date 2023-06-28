@@ -311,14 +311,45 @@ impl InnerWebView {
       }
     }
 
-    if let Some(on_load_handler) = attributes.on_load_handler {
-      let window_c = window.clone();
+    if let Some(on_page_navigating_handler) = attributes.on_page_navigating_handler {
+      unsafe {
+        webview
+          .add_NavigationStarting(
+            &NavigationStartingEventHandler::create(Box::new(move |webview, _| {
+              if let Some(webview) = webview {
+                on_page_navigating_handler(url_from_webview(&webview))
+              }
+              Ok(())
+            })),
+            &mut token,
+          )
+          .map_err(webview2_com::Error::WindowsError)?;
+      }
+    }
+
+    if let Some(on_page_loading_handler) = attributes.on_page_loading_handler {
       unsafe {
         webview
           .add_ContentLoading(
             &ContentLoadingEventHandler::create(Box::new(move |webview, _| {
               if let Some(webview) = webview {
-                on_load_handler(&window_c, window.url())
+                on_page_loading_handler(url_from_webview(&webview))
+              }
+              Ok(())
+            })),
+            &mut token,
+          )
+          .map_err(webview2_com::Error::WindowsError)?;
+      }
+    }
+
+    if let Some(on_page_loaded_handler) = attributes.on_page_loaded_handler {
+      unsafe {
+        webview
+          .add_NavigationCompleted(
+            &NavigationCompletedEventHandler::create(Box::new(move |webview, _| {
+              if let Some(webview) = webview {
+                on_page_loaded_handler(url_from_webview(&webview))
               }
               Ok(())
             })),
@@ -849,13 +880,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   }
 
   pub fn url(&self) -> Url {
-    let mut pwstr = PWSTR::null();
-
-    unsafe { self.webview.Source(&mut pwstr).unwrap() };
-
-    let uri = take_pwstr(pwstr);
-
-    Url::parse(&uri).unwrap()
+    Url::parse(&url_from_webview(&self.webview)).unwrap()
   }
 
   pub fn eval(
@@ -1063,4 +1088,12 @@ fn get_windows_ver() -> Option<(u32, u32, u32)> {
   } else {
     None
   }
+}
+
+fn url_from_webview(webview: &ICoreWebView2) -> String {
+  let mut pwstr = PWSTR::null();
+
+  unsafe { webview.Source(&mut pwstr).unwrap() };
+
+  take_pwstr(pwstr)
 }

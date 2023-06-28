@@ -13,11 +13,11 @@ use tao::platform::android::ndk_glue::jni::{
   sys::jobject,
   JNIEnv,
 };
-use url::Url;
 
 use super::{
-  create_headers_map, ASSET_LOADER_DOMAIN, IPC, ON_LOAD_HANDLER, REQUEST_HANDLER,
-  TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
+  create_headers_map, ASSET_LOADER_DOMAIN, IPC, ON_LOADED_HANDLER, ON_LOADING_HANDLER,
+  ON_NAVIGATING_HANDLER, REQUEST_HANDLER, TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE,
+  WITH_ASSET_LOADER,
 };
 
 fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
@@ -208,12 +208,38 @@ pub unsafe fn assetLoaderDomain(env: JNIEnv, _: JClass) -> jstring {
 }
 
 #[allow(non_snake_case)]
-pub unsafe fn onPageLoad(env: JNIEnv, _: JClass, url: JString) {
+pub unsafe fn onPageNavigating(env: JNIEnv, _: JClass, url: JString) {
   match env.get_string(url) {
     Ok(url) => {
       let url = url.to_string_lossy().to_string();
-      if let Some(h) = ON_LOAD_HANDLER.get() {
-        (h.0)(&h.1, Url::parse(&url).unwrap())
+      if let Some(h) = ON_NAVIGATING_HANDLER.get() {
+        (h.0)(url)
+      }
+    }
+    Err(e) => log::warn!("Failed to parse JString: {}", e),
+  }
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn onPageLoading(env: JNIEnv, _: JClass, url: JString) {
+  match env.get_string(url) {
+    Ok(url) => {
+      let url = url.to_string_lossy().to_string();
+      if let Some(h) = ON_LOADING_HANDLER.get() {
+        (h.0)(url)
+      }
+    }
+    Err(e) => log::warn!("Failed to parse JString: {}", e),
+  }
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn onPageLoaded(env: JNIEnv, _: JClass, url: JString) {
+  match env.get_string(url) {
+    Ok(url) => {
+      let url = url.to_string_lossy().to_string();
+      if let Some(h) = ON_LOADED_HANDLER.get() {
+        (h.0)(url)
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),
