@@ -233,13 +233,13 @@ pub struct WebViewAttributes {
   /// Whether all media can be played without user interaction.
   pub autoplay: bool,
 
-  /// Set a handler closer to process chages to navigation.
+  /// Set a handler closure to process changes to navigation.
   pub on_page_navigating_handler: Option<Box<dyn Fn(String)>>,
 
-  /// Set a handler closer to process to start of loading a new page.
+  /// Set a handler closure to process to start of loading a new page.
   pub on_page_loading_handler: Option<Box<dyn Fn(String)>>,
 
-  /// Set a handler closer to process when a new page has been loaded.
+  /// Set a handler closure to process when a new page has been loaded.
   pub on_page_loaded_handler: Option<Box<dyn Fn(String)>>,
 }
 
