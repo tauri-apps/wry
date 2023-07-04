@@ -311,13 +311,13 @@ impl InnerWebView {
       }
     }
 
-    if let Some(on_page_navigating_handler) = attributes.on_page_navigating_handler {
+    if let Some(on_navigation_started_handler) = attributes.on_navigation_started_handler {
       unsafe {
         webview
           .add_NavigationStarting(
             &NavigationStartingEventHandler::create(Box::new(move |webview, _| {
               if let Some(webview) = webview {
-                on_page_navigating_handler(url_from_webview(&webview))
+                on_navigation_started_handler(url_from_webview(&webview))
               }
               Ok(())
             })),

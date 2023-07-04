@@ -621,7 +621,7 @@ impl InnerWebView {
         .is_some()
         || attributes.new_window_req_handler.is_some()
         || attributes.download_started_handler.is_some()
-        || attributes.on_page_navigating_handler.is_some()
+        || attributes.on_navigation_started_handler.is_some()
         || attributes.on_page_loading_handler.is_some()
         || attributes.on_page_loaded_handler.is_some()
       {
@@ -647,13 +647,13 @@ impl InnerWebView {
           function_ptr as *mut _ as *mut c_void,
         );
 
-        if let Some(on_page_navigating_handler) = attributes.on_page_navigating_handler {
-          let on_page_navigating_handler = Box::into_raw(Box::new(Box::new(move || {
-            on_page_navigating_handler(url_from_webview(webview));
+        if let Some(on_navigation_started_handler) = attributes.on_navigation_started_handler {
+          let on_navigation_started_handler = Box::into_raw(Box::new(Box::new(move || {
+            on_navigation_started_handler(url_from_webview(webview));
           }) as Box<dyn Fn()>));
           (*navigation_policy_handler).set_ivar(
             "on_page_navigating_function",
-            on_page_navigating_handler as *mut _ as *mut c_void,
+            on_navigation_started_handler as *mut _ as *mut c_void,
           );
         }
 

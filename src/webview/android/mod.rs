@@ -387,7 +387,7 @@ impl InnerWebView {
       URL_LOADING_OVERRIDE.get_or_init(move || UnsafeUrlLoadingOverride::new(i));
     }
 
-    if let Some(h) = attributes.on_page_navigating_handler {
+    if let Some(h) = attributes.on_navigation_started_handler {
       ON_NAVIGATING_HANDLER.get_or_init(move || UnsafeOnPageNavigatingHandler::new(h));
     }
 
