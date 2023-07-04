@@ -1076,8 +1076,6 @@ fn get_windows_ver() -> Option<(u32, u32, u32)> {
 
 fn url_from_webview(webview: &ICoreWebView2) -> String {
   let mut pwstr = PWSTR::null();
-
   unsafe { webview.Source(&mut pwstr).unwrap() };
-
   take_pwstr(pwstr)
 }
