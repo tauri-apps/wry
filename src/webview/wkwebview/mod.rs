@@ -528,17 +528,6 @@ impl InnerWebView {
         }
       }
 
-      extern "C" fn did_start_navigation(this: &Object, _: Sel, _webview: id, _navigation: id) {
-        unsafe {
-          // Call on_load_handler
-          let on_navigating = this.get_ivar::<*mut c_void>("on_page_navigating_function");
-          if !on_navigating.is_null() {
-            let on_navigating = &mut *(*on_navigating as *mut Box<dyn Fn()>);
-            on_navigating();
-          }
-        }
-      }
-
       extern "C" fn did_commit_navigation(this: &Object, _: Sel, webview: id, _navigation: id) {
         unsafe {
           // Call on_load_handler
@@ -579,7 +568,6 @@ impl InnerWebView {
         Some(mut cls) => {
           cls.add_ivar::<*mut c_void>("pending_scripts");
           cls.add_ivar::<*mut c_void>("navigation_policy_function");
-          cls.add_ivar::<*mut c_void>("on_page_navigating_function");
           cls.add_ivar::<*mut c_void>("on_page_loading_function");
           cls.add_ivar::<*mut c_void>("on_page_loaded_function");
           cls.add_ivar::<*mut c_void>("HasDownloadHandler");
@@ -590,10 +578,6 @@ impl InnerWebView {
           cls.add_method(
             sel!(webView:decidePolicyForNavigationResponse:decisionHandler:),
             navigation_policy_response as extern "C" fn(&Object, Sel, id, id, id),
-          );
-          cls.add_method(
-            sel!(webView:didStartProvisionalNavigation:),
-            did_start_navigation as extern "C" fn(&Object, Sel, id, id),
           );
           cls.add_method(
             sel!(webView:didCommitNavigation:),
@@ -621,7 +605,6 @@ impl InnerWebView {
         .is_some()
         || attributes.new_window_req_handler.is_some()
         || attributes.download_started_handler.is_some()
-        || attributes.on_navigation_started_handler.is_some()
         || attributes.on_page_loading_handler.is_some()
         || attributes.on_page_loaded_handler.is_some()
       {
@@ -646,16 +629,6 @@ impl InnerWebView {
           "navigation_policy_function",
           function_ptr as *mut _ as *mut c_void,
         );
-
-        if let Some(on_navigation_started_handler) = attributes.on_navigation_started_handler {
-          let on_navigation_started_handler = Box::into_raw(Box::new(Box::new(move || {
-            on_navigation_started_handler(url_from_webview(webview));
-          }) as Box<dyn Fn()>));
-          (*navigation_policy_handler).set_ivar(
-            "on_page_navigating_function",
-            on_navigation_started_handler as *mut _ as *mut c_void,
-          );
-        }
 
         if let Some(on_page_loading_handler) = attributes.on_page_loading_handler {
           let on_page_loading_handler = Box::into_raw(Box::new(Box::new(move || {

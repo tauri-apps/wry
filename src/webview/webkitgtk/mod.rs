@@ -136,26 +136,17 @@ impl InnerWebView {
       });
     }
 
-    let on_navigation_started_handler = attributes.on_navigation_started_handler.take();
     let on_page_loading_handler = attributes.on_page_loading_handler.take();
     let on_page_loaded_handler = attributes.on_page_loaded_handler.take();
-    if on_navigation_started_handler.is_some()
-      || on_page_loading_handler.is_some()
-      || on_page_loaded_handler.is_some()
-    {
+    if on_page_loading_handler.is_some() || on_page_loaded_handler.is_some() {
       webview.connect_load_changed(move |webview, load_event| match load_event {
-        LoadEvent::Started => {
-          if let Some(f) = on_navigation_started_handler {
-            f(webview.uri().unwrap().to_string());
-          }
-        }
         LoadEvent::Committed => {
-          if let Some(f) = on_page_loading_handler {
+          if let Some(ref f) = on_page_loading_handler {
             f(webview.uri().unwrap().to_string());
           }
         }
         LoadEvent::Finished => {
-          if let Some(f) = on_page_loaded_handler {
+          if let Some(ref f) = on_page_loaded_handler {
             f(webview.uri().unwrap().to_string());
           }
         }

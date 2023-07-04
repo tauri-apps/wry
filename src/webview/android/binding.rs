@@ -208,7 +208,7 @@ pub unsafe fn assetLoaderDomain(env: JNIEnv, _: JClass) -> jstring {
 }
 
 #[allow(non_snake_case)]
-pub unsafe fn onPageNavigating(env: JNIEnv, _: JClass, url: JString) {
+pub unsafe fn onNavigationStarted(env: JNIEnv, _: JClass, url: JString) {
   match env.get_string(url) {
     Ok(url) => {
       let url = url.to_string_lossy().to_string();

@@ -233,10 +233,6 @@ pub struct WebViewAttributes {
   /// Whether all media can be played without user interaction.
   pub autoplay: bool,
 
-  /// Set a handler closure to process changes to navigation. This is called after the navigation
-  /// handler.
-  pub on_navigation_started_handler: Option<Box<dyn Fn(String)>>,
-
   /// Set a handler closure to process to start of loading a new page.
   pub on_page_loading_handler: Option<Box<dyn Fn(String)>>,
 
@@ -273,7 +269,6 @@ impl Default for WebViewAttributes {
       document_title_changed_handler: None,
       incognito: false,
       autoplay: true,
-      on_navigation_started_handler: None,
       on_page_loading_handler: None,
       on_page_loaded_handler: None,
     }
@@ -639,16 +634,6 @@ impl<'a> WebViewBuilder<'a> {
   /// - **Android:** Unsupported yet.
   pub fn with_incognito(mut self, incognito: bool) -> Self {
     self.webview.incognito = incognito;
-    self
-  }
-
-  /// Set a handler to process when navigation to new page begins.
-  ///
-  /// The handler will be called when the webview begins requesting context for a new URL.
-  /// This handler is called after the navigation_handler has been called to determine whether
-  /// nagivdation should be allow.
-  pub fn with_on_navigation_started_handler(mut self, handler: impl Fn(String) + 'static) -> Self {
-    self.webview.on_navigation_started_handler = Some(Box::new(handler));
     self
   }
 

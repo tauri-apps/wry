@@ -94,13 +94,6 @@ macro_rules! android_binding {
       $domain,
       $package,
       RustWebViewClient,
-      onPageNavigating,
-      [JString]
-    );
-    android_fn!(
-      $domain,
-      $package,
-      RustWebViewClient,
       onPageLoading,
       [JString]
     );
@@ -128,7 +121,6 @@ pub static TITLE_CHANGE_HANDLER: OnceCell<UnsafeTitleHandler> = OnceCell::new();
 pub static WITH_ASSET_LOADER: OnceCell<bool> = OnceCell::new();
 pub static ASSET_LOADER_DOMAIN: OnceCell<String> = OnceCell::new();
 pub static URL_LOADING_OVERRIDE: OnceCell<UnsafeUrlLoadingOverride> = OnceCell::new();
-pub static ON_NAVIGATING_HANDLER: OnceCell<UnsafeOnPageNavigatingHandler> = OnceCell::new();
 pub static ON_LOADING_HANDLER: OnceCell<UnsafeOnPageLoadingHandler> = OnceCell::new();
 pub static ON_LOADED_HANDLER: OnceCell<UnsafeOnPageLoadedHandler> = OnceCell::new();
 
@@ -169,15 +161,6 @@ impl UnsafeUrlLoadingOverride {
 }
 unsafe impl Send for UnsafeUrlLoadingOverride {}
 unsafe impl Sync for UnsafeUrlLoadingOverride {}
-
-pub struct UnsafeOnPageNavigatingHandler(Box<dyn Fn(String)>);
-impl UnsafeOnPageNavigatingHandler {
-  pub fn new(f: Box<dyn Fn(String)>) -> Self {
-    Self(f)
-  }
-}
-unsafe impl Send for UnsafeOnPageNavigatingHandler {}
-unsafe impl Sync for UnsafeOnPageNavigatingHandler {}
 
 pub struct UnsafeOnPageLoadingHandler(Box<dyn Fn(String)>);
 impl UnsafeOnPageLoadingHandler {
@@ -385,10 +368,6 @@ impl InnerWebView {
 
     if let Some(i) = attributes.navigation_handler {
       URL_LOADING_OVERRIDE.get_or_init(move || UnsafeUrlLoadingOverride::new(i));
-    }
-
-    if let Some(h) = attributes.on_navigation_started_handler {
-      ON_NAVIGATING_HANDLER.get_or_init(move || UnsafeOnPageNavigatingHandler::new(h));
     }
 
     if let Some(h) = attributes.on_page_loading_handler {
