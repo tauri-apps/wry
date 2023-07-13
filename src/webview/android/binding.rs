@@ -16,8 +16,7 @@ use tao::platform::android::ndk_glue::jni::{
 
 use super::{
   create_headers_map, ASSET_LOADER_DOMAIN, IPC, ON_LOADED_HANDLER, ON_LOADING_HANDLER,
-  ON_NAVIGATING_HANDLER, REQUEST_HANDLER, TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE,
-  WITH_ASSET_LOADER,
+  REQUEST_HANDLER, TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
 };
 
 fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
@@ -204,19 +203,6 @@ pub unsafe fn assetLoaderDomain(env: JNIEnv, _: JClass) -> jstring {
     env.new_string(domain).unwrap().into_raw()
   } else {
     env.new_string("wry.assets").unwrap().into_raw()
-  }
-}
-
-#[allow(non_snake_case)]
-pub unsafe fn onNavigationStarted(env: JNIEnv, _: JClass, url: JString) {
-  match env.get_string(url) {
-    Ok(url) => {
-      let url = url.to_string_lossy().to_string();
-      if let Some(h) = ON_NAVIGATING_HANDLER.get() {
-        (h.0)(url)
-      }
-    }
-    Err(e) => log::warn!("Failed to parse JString: {}", e),
   }
 }
 
