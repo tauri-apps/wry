@@ -5,6 +5,7 @@
 mod download;
 #[cfg(target_os = "macos")]
 mod file_drop;
+mod navigation;
 #[cfg(target_os = "macos")]
 mod synthetic_mouse_events;
 
@@ -48,9 +49,12 @@ use crate::{
     window::Window,
   },
   webview::{
-    wkwebview::download::{
-      add_download_methods, download_did_fail, download_did_finish, download_policy,
-      set_download_delegate,
+    wkwebview::{
+      download::{
+        add_download_methods, download_did_fail, download_did_finish, download_policy,
+        set_download_delegate,
+      },
+      navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
     },
     FileDropEvent, WebContext, WebViewAttributes, RGBA,
   },
@@ -80,6 +84,8 @@ pub(crate) struct InnerWebView {
   ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
   document_title_changed_handler: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
+  loading_handler: *mut Box<dyn Fn()>,
+  loaded_handler: *mut Box<dyn Fn()>,
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
   download_delegate: id,
@@ -528,48 +534,12 @@ impl InnerWebView {
         }
       }
 
-      extern "C" fn did_commit_navigation(this: &Object, _: Sel, webview: id, _navigation: id) {
-        unsafe {
-          // Call on_load_handler
-          let on_loading = this.get_ivar::<*mut c_void>("on_page_loading_function");
-          if !on_loading.is_null() {
-            let on_loading = &mut *(*on_loading as *mut Box<dyn Fn()>);
-            on_loading();
-          }
-
-          // Inject scripts
-          let pending_scripts_ptr: *mut c_void = *this.get_ivar("pending_scripts");
-          let pending_scripts = &(*(pending_scripts_ptr as *mut Arc<Mutex<Option<Vec<String>>>>));
-          let mut pending_scripts_ = pending_scripts.lock().unwrap();
-          if let Some(pending_scripts) = &*pending_scripts_ {
-            for script in pending_scripts {
-              let _: id = msg_send![webview, evaluateJavaScript:NSString::new(script) completionHandler:null::<*const c_void>()];
-            }
-            *pending_scripts_ = None;
-          }
-        }
-      }
-
       let pending_scripts = Arc::new(Mutex::new(Some(Vec::new())));
-
-      extern "C" fn did_finish_navigation(this: &Object, _: Sel, _webview: id, _navigation: id) {
-        unsafe {
-          // Call on_load_handler
-          let on_loaded = this.get_ivar::<*mut c_void>("on_page_loaded_function");
-          if !on_loaded.is_null() {
-            let on_loaded = &mut *(*on_loaded as *mut Box<dyn Fn()>);
-            on_loaded();
-          }
-        }
-      }
 
       let navigation_delegate_cls = match ClassDecl::new("WryNavigationDelegate", class!(NSObject))
       {
         Some(mut cls) => {
           cls.add_ivar::<*mut c_void>("pending_scripts");
-          cls.add_ivar::<*mut c_void>("navigation_policy_function");
-          cls.add_ivar::<*mut c_void>("on_page_loading_function");
-          cls.add_ivar::<*mut c_void>("on_page_loaded_function");
           cls.add_ivar::<*mut c_void>("HasDownloadHandler");
           cls.add_method(
             sel!(webView:decidePolicyForNavigationAction:decisionHandler:),
@@ -579,15 +549,8 @@ impl InnerWebView {
             sel!(webView:decidePolicyForNavigationResponse:decisionHandler:),
             navigation_policy_response as extern "C" fn(&Object, Sel, id, id, id),
           );
-          cls.add_method(
-            sel!(webView:didCommitNavigation:),
-            did_commit_navigation as extern "C" fn(&Object, Sel, id, id),
-          );
-          cls.add_method(
-            sel!(webView:didFinishNavigation:),
-            did_finish_navigation as extern "C" fn(&Object, Sel, id, id),
-          );
           add_download_methods(&mut cls);
+          add_navigation_mathods(&mut cls);
           cls.register()
         }
         None => class!(WryNavigationDelegate),
@@ -605,8 +568,6 @@ impl InnerWebView {
         .is_some()
         || attributes.new_window_req_handler.is_some()
         || attributes.download_started_handler.is_some()
-        || attributes.on_page_loading_handler.is_some()
-        || attributes.on_page_loaded_handler.is_some()
       {
         let function_ptr = {
           let navigation_handler = attributes.navigation_handler;
@@ -629,26 +590,6 @@ impl InnerWebView {
           "navigation_policy_function",
           function_ptr as *mut _ as *mut c_void,
         );
-
-        if let Some(on_page_loading_handler) = attributes.on_page_loading_handler {
-          let on_page_loading_handler = Box::into_raw(Box::new(Box::new(move || {
-            on_page_loading_handler(url_from_webview(webview));
-          }) as Box<dyn Fn()>));
-          (*navigation_policy_handler).set_ivar(
-            "on_page_loading_function",
-            on_page_loading_handler as *mut _ as *mut c_void,
-          );
-        }
-
-        if let Some(on_page_loaded_handler) = attributes.on_page_loaded_handler {
-          let on_page_loaded_handler = Box::into_raw(Box::new(Box::new(move || {
-            on_page_loaded_handler(url_from_webview(webview));
-          }) as Box<dyn Fn()>));
-          (*navigation_policy_handler).set_ivar(
-            "on_page_loaded_function",
-            on_page_loaded_handler as *mut _ as *mut c_void,
-          );
-        }
 
         let has_download_handler = Box::into_raw(Box::new(Box::new(
           attributes.download_started_handler.is_some(),
@@ -705,6 +646,13 @@ impl InnerWebView {
       } else {
         (null_mut(), null_mut())
       };
+
+      let (loading_handler, loaded_handler) = set_navigation_methods(
+        navigation_policy_handler,
+        webview,
+        attributes.on_page_loading_handler,
+        attributes.on_page_loaded_handler,
+      );
 
       let _: () = msg_send![webview, setNavigationDelegate: navigation_policy_handler];
 
@@ -811,6 +759,8 @@ impl InnerWebView {
         navigation_decide_policy_ptr,
         #[cfg(target_os = "macos")]
         file_drop_ptr,
+        loading_handler,
+        loaded_handler,
         download_delegate,
         protocol_ptrs,
       };
@@ -1119,6 +1069,8 @@ impl Drop for InnerWebView {
       if !self.navigation_decide_policy_ptr.is_null() {
         drop(Box::from_raw(self.navigation_decide_policy_ptr));
       }
+
+      drop_navigation_methods(self);
 
       #[cfg(target_os = "macos")]
       if !self.file_drop_ptr.is_null() {
