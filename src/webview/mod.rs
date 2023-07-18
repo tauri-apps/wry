@@ -324,6 +324,14 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
 /// Each value can be 0..255 inclusive.
 pub type RGBA = (u8, u8, u8, u8);
 
+/// Type of of page loading event
+pub enum PageLoadEvent {
+  /// Indicates that the content of the page has started loading
+  Started,
+  /// Indicates that the page content has finished loading
+  Finished,
+}
+
 /// Builder type of [`WebView`].
 ///
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
@@ -341,6 +349,7 @@ impl<'a> WebViewBuilder<'a> {
   pub fn new(window: Window) -> Result<Self> {
     let webview = WebViewAttributes::default();
     let web_context = None;
+    #[allow(clippy::default_constructed_unit_structs)]
     let platform_specific = PlatformSpecificWebViewAttributes::default();
 
     Ok(Self {
@@ -637,19 +646,18 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set a handler to process when a new page start loading.
+  /// Set a handler to process page loading events.
   ///
-  /// The handler will be called when the webview begins loading the content for the new page.
-  pub fn with_on_page_loading_handler(mut self, handler: impl Fn(String) + 'static) -> Self {
-    self.webview.on_page_loading_handler = Some(Box::new(handler));
-    self
-  }
-
-  /// Set a handler to process when a new page has been loaded.
-  ///
-  /// The handler will be called when the webview the content for the new page has been fully loaded.
-  pub fn with_on_page_loaded_handler(mut self, handler: impl Fn(String) + 'static) -> Self {
-    self.webview.on_page_loaded_handler = Some(Box::new(handler));
+  /// The handler will be called when the webview begins the indicated loading event.
+  pub fn with_on_page_load_handler(
+    mut self,
+    event: PageLoadEvent,
+    handler: impl Fn(String) + 'static,
+  ) -> Self {
+    match event {
+      PageLoadEvent::Started => self.webview.on_page_loading_handler = Some(Box::new(handler)),
+      PageLoadEvent::Finished => self.webview.on_page_loaded_handler = Some(Box::new(handler)),
+    }
     self
   }
 

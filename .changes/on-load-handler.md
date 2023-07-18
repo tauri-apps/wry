@@ -2,5 +2,4 @@
 "wry": "minor"
 ---
 
-Add `WebViewBuilder::with_on_page_loading_handler` for providing a callback when a new page starts to load.
-Add `WebViewBuilder::with_on_page_loaded_handler` for providing a callback when a page load is complete.
+Add `WebViewBuilder::with_on_page_load_handler` for providing a callback for handling various page loading events.
