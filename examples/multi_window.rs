@@ -7,21 +7,21 @@ fn main() -> wry::Result<()> {
   use wry::{
     application::{
       event::{Event, StartCause, WindowEvent},
-      event_loop::{ControlFlow, EventLoop, EventLoopProxy, EventLoopWindowTarget},
+      event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWindowTarget},
       window::{Window, WindowBuilder, WindowId},
     },
     webview::{WebView, WebViewBuilder},
   };
 
-  enum UserEvents {
+  enum UserEvent {
     CloseWindow(WindowId),
     NewWindow,
   }
 
   fn create_new_window(
     title: String,
-    event_loop: &EventLoopWindowTarget<UserEvents>,
-    proxy: EventLoopProxy<UserEvents>,
+    event_loop: &EventLoopWindowTarget<UserEvent>,
+    proxy: EventLoopProxy<UserEvent>,
   ) -> (WindowId, WebView) {
     let window = WindowBuilder::new()
       .with_title(title)
@@ -30,10 +30,10 @@ fn main() -> wry::Result<()> {
     let window_id = window.id();
     let handler = move |window: &Window, req: String| match req.as_str() {
       "new-window" => {
-        let _ = proxy.send_event(UserEvents::NewWindow);
+        let _ = proxy.send_event(UserEvent::NewWindow);
       }
       "close" => {
-        let _ = proxy.send_event(UserEvents::CloseWindow(window.id()));
+        let _ = proxy.send_event(UserEvent::CloseWindow(window.id()));
       }
       _ if req.starts_with("change-title") => {
         let title = req.replace("change-title:", "");
@@ -58,7 +58,7 @@ fn main() -> wry::Result<()> {
     (window_id, webview)
   }
 
-  let event_loop = EventLoop::<UserEvents>::with_user_event();
+  let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
   let mut webviews = HashMap::new();
   let proxy = event_loop.create_proxy();
 
@@ -82,7 +82,7 @@ fn main() -> wry::Result<()> {
           *control_flow = ControlFlow::Exit
         }
       }
-      Event::UserEvent(UserEvents::NewWindow) => {
+      Event::UserEvent(UserEvent::NewWindow) => {
         let new_window = create_new_window(
           format!("Window {}", webviews.len() + 1),
           event_loop,
@@ -90,7 +90,7 @@ fn main() -> wry::Result<()> {
         );
         webviews.insert(new_window.0, new_window.1);
       }
-      Event::UserEvent(UserEvents::CloseWindow(id)) => {
+      Event::UserEvent(UserEvent::CloseWindow(id)) => {
         webviews.remove(&id);
         if webviews.is_empty() {
           *control_flow = ControlFlow::Exit

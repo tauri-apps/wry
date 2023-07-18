@@ -27,7 +27,6 @@ objc-exception = [ "objc/exception" ]
 file-drop = [ ]
 protocol = [ ]
 dox = [ "tao/dox", "webkit2gtk/dox", "soup3/dox" ]
-tray = [ "tao/tray" ]
 devtools = [ ]
 transparent = [ ]
 fullscreen = [ ]
@@ -41,7 +40,7 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.4"
-tao = { version = "0.20", default-features = false, features = [ "serde" ] }
+tao = { git = "https://github.com/tauri-apps/tao", branch = "muda", version = "0.20", default-features = false, features = [ "serde" ] }
 http = "0.2.9"
 
 [dev-dependencies]
