@@ -56,7 +56,7 @@ use crate::{
       },
       navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
     },
-    FileDropEvent, WebContext, WebViewAttributes, RGBA,
+    FileDropEvent, PageLoadEvent, WebContext, WebViewAttributes, RGBA,
   },
   Result,
 };
@@ -84,8 +84,7 @@ pub(crate) struct InnerWebView {
   ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
   document_title_changed_handler: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
-  loading_handler: *mut Box<dyn Fn()>,
-  loaded_handler: *mut Box<dyn Fn()>,
+  page_load_handler: *mut Box<dyn Fn(PageLoadEvent)>,
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
   download_delegate: id,
@@ -647,11 +646,10 @@ impl InnerWebView {
         (null_mut(), null_mut())
       };
 
-      let (loading_handler, loaded_handler) = set_navigation_methods(
+      let page_load_handler = set_navigation_methods(
         navigation_policy_handler,
         webview,
-        attributes.on_page_loading_handler,
-        attributes.on_page_loaded_handler,
+        attributes.on_page_load_handler,
       );
 
       let _: () = msg_send![webview, setNavigationDelegate: navigation_policy_handler];
@@ -759,8 +757,7 @@ impl InnerWebView {
         navigation_decide_policy_ptr,
         #[cfg(target_os = "macos")]
         file_drop_ptr,
-        loading_handler,
-        loaded_handler,
+        page_load_handler,
         download_delegate,
         protocol_ptrs,
       };

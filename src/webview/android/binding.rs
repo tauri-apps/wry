@@ -15,9 +15,11 @@ use tao::platform::android::ndk_glue::jni::{
 };
 
 use super::{
-  create_headers_map, ASSET_LOADER_DOMAIN, IPC, ON_LOADED_HANDLER, ON_LOADING_HANDLER,
-  REQUEST_HANDLER, TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
+  create_headers_map, ASSET_LOADER_DOMAIN, IPC, ON_LOAD_HANDLER, REQUEST_HANDLER,
+  TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
 };
+
+use crate::webview::PageLoadEvent;
 
 fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
   let mut request_builder = Request::builder();
@@ -211,8 +213,8 @@ pub unsafe fn onPageLoading(env: JNIEnv, _: JClass, url: JString) {
   match env.get_string(url) {
     Ok(url) => {
       let url = url.to_string_lossy().to_string();
-      if let Some(h) = ON_LOADING_HANDLER.get() {
-        (h.0)(url)
+      if let Some(h) = ON_LOAD_HANDLER.get() {
+        (h.0)(PageLoadEvent::Started, url)
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),
@@ -224,8 +226,8 @@ pub unsafe fn onPageLoaded(env: JNIEnv, _: JClass, url: JString) {
   match env.get_string(url) {
     Ok(url) => {
       let url = url.to_string_lossy().to_string();
-      if let Some(h) = ON_LOADED_HANDLER.get() {
-        (h.0)(url)
+      if let Some(h) = ON_LOAD_HANDLER.get() {
+        (h.0)(PageLoadEvent::Finished, url)
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),

@@ -29,7 +29,7 @@ pub use web_context::WebContextImpl;
 
 use crate::{
   application::{platform::unix::*, window::Window},
-  webview::{web_context::WebContext, WebViewAttributes, RGBA},
+  webview::{web_context::WebContext, PageLoadEvent, WebViewAttributes, RGBA},
   Error, Result,
 };
 
@@ -136,18 +136,17 @@ impl InnerWebView {
       });
     }
 
-    let on_page_loading_handler = attributes.on_page_loading_handler.take();
-    let on_page_loaded_handler = attributes.on_page_loaded_handler.take();
-    if on_page_loading_handler.is_some() || on_page_loaded_handler.is_some() {
+    let on_page_load_handler = attributes.on_page_load_handler.take();
+    if on_page_load_handler.is_some() {
       webview.connect_load_changed(move |webview, load_event| match load_event {
         LoadEvent::Committed => {
-          if let Some(ref f) = on_page_loading_handler {
-            f(webview.uri().unwrap().to_string());
+          if let Some(ref f) = on_page_load_handler {
+            f(PageLoadEvent::Started, webview.uri().unwrap().to_string());
           }
         }
         LoadEvent::Finished => {
-          if let Some(ref f) = on_page_loaded_handler {
-            f(webview.uri().unwrap().to_string());
+          if let Some(ref f) = on_page_load_handler {
+            f(PageLoadEvent::Finished, webview.uri().unwrap().to_string());
           }
         }
         _ => (),

@@ -233,11 +233,8 @@ pub struct WebViewAttributes {
   /// Whether all media can be played without user interaction.
   pub autoplay: bool,
 
-  /// Set a handler closure to process to start of loading a new page.
-  pub on_page_loading_handler: Option<Box<dyn Fn(String)>>,
-
-  /// Set a handler closure to process when a new page has been loaded.
-  pub on_page_loaded_handler: Option<Box<dyn Fn(String)>>,
+  /// Set a handler closure to process page load events.
+  pub on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
 }
 
 impl Default for WebViewAttributes {
@@ -269,8 +266,7 @@ impl Default for WebViewAttributes {
       document_title_changed_handler: None,
       incognito: false,
       autoplay: true,
-      on_page_loading_handler: None,
-      on_page_loaded_handler: None,
+      on_page_load_handler: None,
     }
   }
 }
@@ -651,13 +647,9 @@ impl<'a> WebViewBuilder<'a> {
   /// The handler will be called when the webview begins the indicated loading event.
   pub fn with_on_page_load_handler(
     mut self,
-    event: PageLoadEvent,
-    handler: impl Fn(String) + 'static,
+    handler: impl Fn(PageLoadEvent, String) + 'static,
   ) -> Self {
-    match event {
-      PageLoadEvent::Started => self.webview.on_page_loading_handler = Some(Box::new(handler)),
-      PageLoadEvent::Finished => self.webview.on_page_loaded_handler = Some(Box::new(handler)),
-    }
+    self.webview.on_page_load_handler = Some(Box::new(handler));
     self
   }
 

@@ -5,7 +5,7 @@
 mod file_drop;
 
 use crate::{
-  webview::{WebContext, WebViewAttributes, RGBA},
+  webview::{PageLoadEvent, WebContext, WebViewAttributes, RGBA},
   Error, Result,
 };
 
@@ -14,7 +14,7 @@ use url::Url;
 
 use std::{
   collections::HashSet, fmt::Write, iter::once, mem::MaybeUninit, os::windows::prelude::OsStrExt,
-  path::PathBuf, rc::Rc, sync::mpsc,
+  path::PathBuf, rc::Rc, sync::mpsc, sync::Arc,
 };
 
 use once_cell::unsync::OnceCell;
@@ -311,13 +311,16 @@ impl InnerWebView {
       }
     }
 
-    if let Some(on_page_loading_handler) = attributes.on_page_loading_handler {
+    if let Some(on_page_load_handler) = attributes.on_page_load_handler {
+      let on_page_load_handler = Arc::new(on_page_load_handler);
+      let on_page_load_handler_ = on_page_load_handler.clone();
+
       unsafe {
         webview
           .add_ContentLoading(
             &ContentLoadingEventHandler::create(Box::new(move |webview, _| {
               if let Some(webview) = webview {
-                on_page_loading_handler(url_from_webview(&webview))
+                on_page_load_handler_(PageLoadEvent::Started, url_from_webview(&webview))
               }
               Ok(())
             })),
@@ -325,15 +328,13 @@ impl InnerWebView {
           )
           .map_err(webview2_com::Error::WindowsError)?;
       }
-    }
 
-    if let Some(on_page_loaded_handler) = attributes.on_page_loaded_handler {
       unsafe {
         webview
           .add_NavigationCompleted(
             &NavigationCompletedEventHandler::create(Box::new(move |webview, _| {
               if let Some(webview) = webview {
-                on_page_loaded_handler(url_from_webview(&webview))
+                on_page_load_handler(PageLoadEvent::Finished, url_from_webview(&webview))
               }
               Ok(())
             })),
