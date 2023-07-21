@@ -71,7 +71,7 @@ pub(crate) unsafe fn set_navigation_methods(
   webview: id,
   on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
 ) -> *mut Box<dyn Fn(PageLoadEvent)> {
-  let page_load_handler = if let Some(on_page_load_handler) = on_page_load_handler {
+  if let Some(on_page_load_handler) = on_page_load_handler {
     let on_page_load_handler = Box::into_raw(Box::new(Box::new(move |event| {
       on_page_load_handler(event, url_from_webview(webview));
     }) as Box<dyn Fn(PageLoadEvent)>));
@@ -82,7 +82,5 @@ pub(crate) unsafe fn set_navigation_methods(
     on_page_load_handler
   } else {
     null_mut()
-  };
-
-  page_load_handler
+  }
 }
