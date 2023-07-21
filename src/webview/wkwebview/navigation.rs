@@ -19,7 +19,7 @@ extern "C" fn did_commit_navigation(this: &Object, _: Sel, webview: id, _navigat
     let on_page_load = this.get_ivar::<*mut c_void>("on_page_load_function");
     if !on_page_load.is_null() {
       let on_page_load = &mut *(*on_page_load as *mut Box<dyn Fn(PageLoadEvent)>);
-      on_loading(PageLoadEvent::Started);
+      on_page_load(PageLoadEvent::Started);
     }
 
     // Inject scripts
@@ -70,10 +70,10 @@ pub(crate) unsafe fn set_navigation_methods(
   navigation_policy_handler: *mut Object,
   webview: id,
   on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
-) -> (*mut Box<dyn Fn()>, *mut Box<dyn Fn(PageLoadEvent)>) {
+) -> *mut Box<dyn Fn(PageLoadEvent)> {
   let page_load_handler = if let Some(on_page_load_handler) = on_page_load_handler {
-    let on_page_load_handler = Box::into_raw(Box::new(Box::new(move |PageLoadEvent| {
-      on_page_load_handler(url_from_webview(webview));
+    let on_page_load_handler = Box::into_raw(Box::new(Box::new(move |event| {
+      on_page_load_handler(event, url_from_webview(webview));
     }) as Box<dyn Fn()>));
     (*navigation_policy_handler).set_ivar(
       "on_page_load_function",
@@ -84,5 +84,5 @@ pub(crate) unsafe fn set_navigation_methods(
     null_mut()
   };
 
-  (page_load_handler)
+  page_load_handler
 }
