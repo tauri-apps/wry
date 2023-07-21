@@ -333,6 +333,7 @@ impl<'a> WebViewBuilder<'a> {
   pub fn new(window: Window) -> Result<Self> {
     let webview = WebViewAttributes::default();
     let web_context = None;
+    #[allow(clippy::default_constructed_unit_structs)]
     let platform_specific = PlatformSpecificWebViewAttributes::default();
 
     Ok(Self {
