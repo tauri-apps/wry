@@ -5,6 +5,7 @@
 mod download;
 #[cfg(target_os = "macos")]
 mod file_drop;
+mod navigation;
 #[cfg(target_os = "macos")]
 mod synthetic_mouse_events;
 
@@ -48,11 +49,14 @@ use crate::{
     window::Window,
   },
   webview::{
-    wkwebview::download::{
-      add_download_methods, download_did_fail, download_did_finish, download_policy,
-      set_download_delegate,
+    wkwebview::{
+      download::{
+        add_download_methods, download_did_fail, download_did_finish, download_policy,
+        set_download_delegate,
+      },
+      navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
     },
-    FileDropEvent, WebContext, WebViewAttributes, RGBA,
+    FileDropEvent, PageLoadEvent, WebContext, WebViewAttributes, RGBA,
   },
   Result,
 };
@@ -80,6 +84,7 @@ pub(crate) struct InnerWebView {
   ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
   document_title_changed_handler: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
+  page_load_handler: *mut Box<dyn Fn(PageLoadEvent)>,
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
   download_delegate: id,
@@ -528,27 +533,12 @@ impl InnerWebView {
         }
       }
 
-      extern "C" fn did_commit_navigation(this: &Object, _: Sel, webview: id, _navigation: id) {
-        unsafe {
-          let pending_scripts_ptr: *mut c_void = *this.get_ivar("pending_scripts");
-          let pending_scripts = &(*(pending_scripts_ptr as *mut Arc<Mutex<Option<Vec<String>>>>));
-          let mut pending_scripts_ = pending_scripts.lock().unwrap();
-          if let Some(pending_scripts) = &*pending_scripts_ {
-            for script in pending_scripts {
-              let _: id = msg_send![webview, evaluateJavaScript:NSString::new(script) completionHandler:null::<*const c_void>()];
-            }
-            *pending_scripts_ = None;
-          }
-        }
-      }
-
       let pending_scripts = Arc::new(Mutex::new(Some(Vec::new())));
 
       let navigation_delegate_cls = match ClassDecl::new("WryNavigationDelegate", class!(NSObject))
       {
         Some(mut cls) => {
           cls.add_ivar::<*mut c_void>("pending_scripts");
-          cls.add_ivar::<*mut c_void>("navigation_policy_function");
           cls.add_ivar::<*mut c_void>("HasDownloadHandler");
           cls.add_method(
             sel!(webView:decidePolicyForNavigationAction:decisionHandler:),
@@ -558,11 +548,8 @@ impl InnerWebView {
             sel!(webView:decidePolicyForNavigationResponse:decisionHandler:),
             navigation_policy_response as extern "C" fn(&Object, Sel, id, id, id),
           );
-          cls.add_method(
-            sel!(webView:didCommitNavigation:),
-            did_commit_navigation as extern "C" fn(&Object, Sel, id, id),
-          );
           add_download_methods(&mut cls);
+          add_navigation_mathods(&mut cls);
           cls.register()
         }
         None => class!(WryNavigationDelegate),
@@ -658,6 +645,12 @@ impl InnerWebView {
       } else {
         (null_mut(), null_mut())
       };
+
+      let page_load_handler = set_navigation_methods(
+        navigation_policy_handler,
+        webview,
+        attributes.on_page_load_handler,
+      );
 
       let _: () = msg_send![webview, setNavigationDelegate: navigation_policy_handler];
 
@@ -764,6 +757,7 @@ impl InnerWebView {
         navigation_decide_policy_ptr,
         #[cfg(target_os = "macos")]
         file_drop_ptr,
+        page_load_handler,
         download_delegate,
         protocol_ptrs,
       };
@@ -850,19 +844,7 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn url(&self) -> Url {
-    let url_obj: *mut Object = unsafe { msg_send![self.webview, URL] };
-    let absolute_url: *mut Object = unsafe { msg_send![url_obj, absoluteString] };
-
-    let bytes = {
-      let bytes: *const c_char = unsafe { msg_send![absolute_url, UTF8String] };
-      bytes as *const u8
-    };
-
-    // 4 represents utf8 encoding
-    let len = unsafe { msg_send![absolute_url, lengthOfBytesUsingEncoding: 4] };
-    let bytes = unsafe { std::slice::from_raw_parts(bytes, len) };
-
-    Url::parse(std::str::from_utf8(bytes).unwrap()).unwrap()
+    Url::parse(&url_from_webview(self.webview)).unwrap()
   }
 
   pub fn eval(&self, js: &str, callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {
@@ -1036,6 +1018,22 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 }
 
+pub fn url_from_webview(webview: id) -> String {
+  let url_obj: *mut Object = unsafe { msg_send![webview, URL] };
+  let absolute_url: *mut Object = unsafe { msg_send![url_obj, absoluteString] };
+
+  let bytes = {
+    let bytes: *const c_char = unsafe { msg_send![absolute_url, UTF8String] };
+    bytes as *const u8
+  };
+
+  // 4 represents utf8 encoding
+  let len = unsafe { msg_send![absolute_url, lengthOfBytesUsingEncoding: 4] };
+  let bytes = unsafe { std::slice::from_raw_parts(bytes, len) };
+
+  std::str::from_utf8(bytes).unwrap().into()
+}
+
 pub fn platform_webview_version() -> Result<String> {
   unsafe {
     let bundle: id =
@@ -1068,6 +1066,8 @@ impl Drop for InnerWebView {
       if !self.navigation_decide_policy_ptr.is_null() {
         drop(Box::from_raw(self.navigation_decide_policy_ptr));
       }
+
+      drop_navigation_methods(self);
 
       #[cfg(target_os = "macos")]
       if !self.file_drop_ptr.is_null() {

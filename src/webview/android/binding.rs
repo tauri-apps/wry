@@ -15,9 +15,11 @@ use tao::platform::android::ndk_glue::jni::{
 };
 
 use super::{
-  create_headers_map, ASSET_LOADER_DOMAIN, IPC, REQUEST_HANDLER, TITLE_CHANGE_HANDLER,
-  URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
+  create_headers_map, ASSET_LOADER_DOMAIN, IPC, ON_LOAD_HANDLER, REQUEST_HANDLER,
+  TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
 };
+
+use crate::webview::PageLoadEvent;
 
 fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
   let mut request_builder = Request::builder();
@@ -203,5 +205,31 @@ pub unsafe fn assetLoaderDomain(env: JNIEnv, _: JClass) -> jstring {
     env.new_string(domain).unwrap().into_raw()
   } else {
     env.new_string("wry.assets").unwrap().into_raw()
+  }
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn onPageLoading(env: JNIEnv, _: JClass, url: JString) {
+  match env.get_string(url) {
+    Ok(url) => {
+      let url = url.to_string_lossy().to_string();
+      if let Some(h) = ON_LOAD_HANDLER.get() {
+        (h.0)(PageLoadEvent::Started, url)
+      }
+    }
+    Err(e) => log::warn!("Failed to parse JString: {}", e),
+  }
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn onPageLoaded(env: JNIEnv, _: JClass, url: JString) {
+  match env.get_string(url) {
+    Ok(url) => {
+      let url = url.to_string_lossy().to_string();
+      if let Some(h) = ON_LOAD_HANDLER.get() {
+        (h.0)(PageLoadEvent::Finished, url)
+      }
+    }
+    Err(e) => log::warn!("Failed to parse JString: {}", e),
   }
 }
