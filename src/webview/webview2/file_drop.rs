@@ -132,9 +132,9 @@ impl FileDropHandler {
     paths: &mut Vec<PathBuf>,
   ) -> Option<HDROP> {
     let drop_format = FORMATETC {
-      cfFormat: CF_HDROP.0 as u16,
+      cfFormat: CF_HDROP.0,
       ptd: ptr::null_mut(),
-      dwAspect: DVASPECT_CONTENT.0 as u32,
+      dwAspect: DVASPECT_CONTENT.0,
       lindex: -1,
       tymed: TYMED_HGLOBAL.0 as u32,
     };

@@ -41,31 +41,28 @@ pub fn setup(webview: &WebView) {
   });
   webview.connect_button_press_event(move |webview, event| {
     let inhibit = false;
-    match event.button() {
-      1 => {
-        let (cx, cy) = event.root();
-        // This one should be GtkBox
-        if let Some(widget) = webview.parent() {
-          // This one should be GtkWindow
-          if let Some(window) = widget.parent() {
-            // Safe to unwrap unless this is not from tao
-            let window: gtk::Window = window.downcast().unwrap();
-            if !window.is_decorated() && window.is_resizable() {
-              if let Some(window) = window.window() {
-                // Safe to unwrap since it's a valid GtkWindow
-                let result = hit_test(&window, cx, cy);
+    if event.button() == 1 {
+      let (cx, cy) = event.root();
+      // This one should be GtkBox
+      if let Some(widget) = webview.parent() {
+        // This one should be GtkWindow
+        if let Some(window) = widget.parent() {
+          // Safe to unwrap unless this is not from tao
+          let window: gtk::Window = window.downcast().unwrap();
+          if !window.is_decorated() && window.is_resizable() {
+            if let Some(window) = window.window() {
+              // Safe to unwrap since it's a valid GtkWindow
+              let result = hit_test(&window, cx, cy);
 
-                // we ignore the `__Unknown` variant so the webview receives the click correctly if it is not on the edges.
-                match result {
-                  WindowEdge::__Unknown(_) => (),
-                  _ => window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.time()),
-                }
+              // we ignore the `__Unknown` variant so the webview receives the click correctly if it is not on the edges.
+              match result {
+                WindowEdge::__Unknown(_) => (),
+                _ => window.begin_resize_drag(result, 1, cx as i32, cy as i32, event.time()),
               }
             }
           }
         }
       }
-      _ => {}
     }
     Inhibit(inhibit)
   });
