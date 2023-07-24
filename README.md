@@ -77,7 +77,29 @@ All platforms use [TAO](https://github.com/tauri-apps/tao) to build the window, 
 
 Tao uses [gtk-rs](https://gtk-rs.org/) and its related libraries for window creation and wry also needs [WebKitGTK](https://webkitgtk.org/) for WebView. So please make sure the following packages are installed:
 
-#### Arch Linux / Manjaro:
+#### Nix via NixOS
+Latest Packages for Development:
+```nix
+let
+  # Unstable Channel | Rolling Release
+  pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
+
+  packages = with pkgs; [
+    pkg-config
+    rustc
+    cargo
+    rustfmt
+    rust-analyzer
+    webkitgtk_4_1
+  ];
+in
+pkgs.mkShell {
+  buildInputs = packages;
+}
+```
+
+**N.B.**: Nix as a package manager can be installed on both Linux and macOS in order to achieve a reproducible environment. To automatically switch to a development environment per project you can employ the use of [direnv](https://github.com/direnv/direnv). 
+#### Pacman via Arch Linux / Manjaro / Endeavour:
 
 ```bash
 sudo pacman -S webkit2gtk-4.1
