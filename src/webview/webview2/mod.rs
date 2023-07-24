@@ -5,7 +5,7 @@
 mod file_drop;
 
 use crate::{
-  webview::{WebContext, WebViewAttributes, RGBA},
+  webview::{PageLoadEvent, WebContext, WebViewAttributes, RGBA},
   Error, Result,
 };
 
@@ -14,7 +14,7 @@ use url::Url;
 
 use std::{
   collections::HashSet, fmt::Write, iter::once, mem::MaybeUninit, os::windows::prelude::OsStrExt,
-  path::PathBuf, rc::Rc, sync::mpsc,
+  path::PathBuf, rc::Rc, sync::mpsc, sync::Arc,
 };
 
 use once_cell::unsync::OnceCell;
@@ -302,6 +302,39 @@ impl InnerWebView {
                 webview.DocumentTitle(&mut title)?;
                 let title = take_pwstr(title);
                 document_title_changed_handler(&window_c, title);
+              }
+              Ok(())
+            })),
+            &mut token,
+          )
+          .map_err(webview2_com::Error::WindowsError)?;
+      }
+    }
+
+    if let Some(on_page_load_handler) = attributes.on_page_load_handler {
+      let on_page_load_handler = Arc::new(on_page_load_handler);
+      let on_page_load_handler_ = on_page_load_handler.clone();
+
+      unsafe {
+        webview
+          .add_ContentLoading(
+            &ContentLoadingEventHandler::create(Box::new(move |webview, _| {
+              if let Some(webview) = webview {
+                on_page_load_handler_(PageLoadEvent::Started, url_from_webview(&webview))
+              }
+              Ok(())
+            })),
+            &mut token,
+          )
+          .map_err(webview2_com::Error::WindowsError)?;
+      }
+
+      unsafe {
+        webview
+          .add_NavigationCompleted(
+            &NavigationCompletedEventHandler::create(Box::new(move |webview, _| {
+              if let Some(webview) = webview {
+                on_page_load_handler(PageLoadEvent::Finished, url_from_webview(&webview))
               }
               Ok(())
             })),
@@ -834,13 +867,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   }
 
   pub fn url(&self) -> Url {
-    let mut pwstr = PWSTR::null();
-
-    unsafe { self.webview.Source(&mut pwstr).unwrap() };
-
-    let uri = take_pwstr(pwstr);
-
-    Url::parse(&uri).unwrap()
+    Url::parse(&url_from_webview(&self.webview)).unwrap()
   }
 
   pub fn eval(
@@ -1048,4 +1075,10 @@ fn get_windows_ver() -> Option<(u32, u32, u32)> {
   } else {
     None
   }
+}
+
+fn url_from_webview(webview: &ICoreWebView2) -> String {
+  let mut pwstr = PWSTR::null();
+  unsafe { webview.Source(&mut pwstr).unwrap() };
+  take_pwstr(pwstr)
 }

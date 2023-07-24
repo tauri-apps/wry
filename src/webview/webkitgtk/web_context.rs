@@ -385,11 +385,11 @@ where
             response.set_content_type(content_type);
           }
 
-          let mut headers = MessageHeaders::new(MessageHeadersType::Response);
+          let headers = MessageHeaders::new(MessageHeadersType::Response);
           for (name, value) in http_response.headers().into_iter() {
             headers.append(name.as_str(), value.to_str().unwrap_or(""));
           }
-          response.set_http_headers(&mut headers);
+          response.set_http_headers(&headers);
 
           request.finish_with_response(&response);
         }
