@@ -188,7 +188,7 @@ impl InnerWebView {
 
     // tao adds a default vertical box so we check for that first
     if let Some(vbox) = window_rc.default_vbox() {
-      vbox.add(&*webview);
+      vbox.pack_start(&*webview, true, true, 0);
     } else {
       window.add(&*webview);
     }
