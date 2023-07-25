@@ -186,15 +186,9 @@ impl InnerWebView {
       )
     }
 
-    // Gtk application window can only contain one widget at a time.
-    // In muda, we add a GtkBox to pack menu bar. So we check if
-    // there's a box widget here.
-    if let Some(widget) = window.children().pop() {
-      if let Ok(vbox) = widget.downcast::<gtk::Box>() {
-        vbox.pack_start(&*webview, true, true, 0);
-      } else {
-        window.add(&*webview);
-      }
+    // tao adds a default vertical box so we check for that first
+    if let Some(vbox) = window_rc.default_vbox() {
+      vbox.add(&*webview);
     } else {
       window.add(&*webview);
     }
