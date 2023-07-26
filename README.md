@@ -86,10 +86,6 @@ let
 
   packages = with pkgs; [
     pkg-config
-    rustc
-    cargo
-    rustfmt
-    rust-analyzer
     webkitgtk_4_1
   ];
 in
