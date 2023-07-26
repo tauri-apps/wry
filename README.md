@@ -77,7 +77,7 @@ All platforms use [TAO](https://github.com/tauri-apps/tao) to build the window, 
 
 Tao uses [gtk-rs](https://gtk-rs.org/) and its related libraries for window creation and wry also needs [WebKitGTK](https://webkitgtk.org/) for WebView. So please make sure the following packages are installed:
 
-#### Nix via NixOS
+#### NixOS
 Latest Packages for Development:
 ```nix
 let
