@@ -77,25 +77,7 @@ All platforms use [TAO](https://github.com/tauri-apps/tao) to build the window, 
 
 Tao uses [gtk-rs](https://gtk-rs.org/) and its related libraries for window creation and wry also needs [WebKitGTK](https://webkitgtk.org/) for WebView. So please make sure the following packages are installed:
 
-#### NixOS
-Latest Packages for Development:
-```nix
-let
-  # Unstable Channel | Rolling Release
-  pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
-
-  packages = with pkgs; [
-    pkg-config
-    webkitgtk_4_1
-  ];
-in
-pkgs.mkShell {
-  buildInputs = packages;
-}
-```
-
-**N.B.**: Nix as a package manager can be installed on both Linux and macOS in order to achieve a reproducible environment. To automatically switch to a development environment per project you can employ the use of [direnv](https://github.com/direnv/direnv). 
-#### Pacman via Arch Linux / Manjaro / Endeavour:
+#### Arch Linux / Manjaro:
 
 ```bash
 sudo pacman -S webkit2gtk-4.1
@@ -122,6 +104,23 @@ sudo dnf install libappindicator-gtk3-devel
 ```
 
 Fedora does not have the Ayatana package yet, so you need to use the GTK one, see the [feature flags documentation](https://docs.rs/wry/latest/wry/#feature-flags).
+
+#### NixOS
+Latest Packages for Development:
+```nix
+let
+  # Unstable Channel | Rolling Release
+  pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
+
+  packages = with pkgs; [
+    pkg-config
+    webkitgtk_4_1
+  ];
+in
+pkgs.mkShell {
+  buildInputs = packages;
+}
+```
 
 ### macOS
 
