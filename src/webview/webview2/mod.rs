@@ -537,7 +537,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       }
     }
 
-    let scheme = if pl_attrs.http_scheme {
+    let scheme = if pl_attrs.https_scheme {
       "http"
     } else {
       "https"
