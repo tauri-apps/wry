@@ -286,7 +286,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       additional_browser_args: None,
       browser_accelerator_keys: true, // This is WebView2's default behavior
       theme: None,
-      http_scheme: false,
+      http_scheme: true, // To match macOS & Linux behavior in the context of mixed content.
     }
   }
 }
@@ -700,10 +700,10 @@ pub trait WebViewBuilderExtWindows {
 
   /// Determines whether the custom protocols should use `http://<scheme>.localhost` instead of the default `https://<scheme>.localhost`.
   ///
-  /// Using a `http` scheme will prevent mixed content warnings when trying to fetch `http` endpoints
+  /// Using a `http` scheme will allow mixed content warnings when trying to fetch `http` endpoints
   /// and is therefore less secure but will match the behavior of the `<scheme>://localhost` protocols on macOS and Linux.
   ///
-  /// The default value is `false`.
+  /// The default value is `true`.
   fn with_http_scheme(self, enabled: bool) -> Self;
 }
 
