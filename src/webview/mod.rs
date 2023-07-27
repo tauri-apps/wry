@@ -700,7 +700,7 @@ pub trait WebViewBuilderExtWindows {
 
   /// Determines whether the custom protocols should use `http://<scheme>.localhost` instead of the default `https://<scheme>.localhost`.
   ///
-  /// Using a `http` scheme will allow mixed content warnings when trying to fetch `http` endpoints
+  /// Using a `http` scheme will allow mixed content when trying to fetch `http` endpoints
   /// and is therefore less secure but will match the behavior of the `<scheme>://localhost` protocols on macOS and Linux.
   ///
   /// The default value is `true`.
