@@ -2,4 +2,4 @@
 "wry": "minor"
 ---
 
-Add `WebViewBuilderExtWindows::with_http_scheme` to be able to choose between `http` and `https` for custom protocols on Windows. **Wry now uses `http` by default!**
+**Breaking change** Wry now defaults to `http://<scheme>.localhost/` for custom protocols on Windows.
