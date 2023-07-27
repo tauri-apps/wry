@@ -698,7 +698,7 @@ pub trait WebViewBuilderExtWindows {
   /// Defaults to [`Theme::Auto`] which will follow the OS defaults.
   fn with_theme(self, theme: Theme) -> Self;
 
-  /// Determines whether the custom protocols should use `http://<scheme>.localhost` instead of `http://<scheme>.localhost`.
+  /// Determines whether the custom protocols should use `http://<scheme>.localhost` instead of the default `https://<scheme>.localhost`.
   ///
   /// Using a `http` scheme will prevent mixed content warnings when trying to fetch `http` endpoints
   /// and is therefore less secure but will match the behavior of the `<scheme>://localhost` protocols on macOS and Linux.
