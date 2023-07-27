@@ -115,6 +115,8 @@ let
   packages = with pkgs; [
     pkg-config
     webkitgtk_4_1
+    libayatana-indicator
+    libappindicator-gtk3
   ];
 in
 pkgs.mkShell {
