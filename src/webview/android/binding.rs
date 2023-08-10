@@ -15,29 +15,31 @@ use tao::platform::android::ndk_glue::jni::{
 };
 
 use super::{
-  create_headers_map, ASSET_LOADER_DOMAIN, IPC, REQUEST_HANDLER, TITLE_CHANGE_HANDLER,
-  URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
+  ASSET_LOADER_DOMAIN, IPC, REQUEST_HANDLER, TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE,
+  WITH_ASSET_LOADER,
 };
 
-fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
+fn handle_request(mut env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
+  let mut env = &mut env;
+
   let mut request_builder = Request::builder();
 
   let uri = env
-    .call_method(request, "getUrl", "()Landroid/net/Uri;", &[])?
+    .call_method(&request, "getUrl", "()Landroid/net/Uri;", &[])?
     .l()?;
   let url: JString = env
-    .call_method(uri, "toString", "()Ljava/lang/String;", &[])?
+    .call_method(&uri, "toString", "()Ljava/lang/String;", &[])?
     .l()?
     .into();
-  request_builder = request_builder.uri(&env.get_string(url)?.to_string_lossy().to_string());
+  request_builder = request_builder.uri(&env.get_string(&url)?.to_string_lossy().to_string());
 
   let method: JString = env
-    .call_method(request, "getMethod", "()Ljava/lang/String;", &[])?
+    .call_method(&request, "getMethod", "()Ljava/lang/String;", &[])?
     .l()?
     .into();
   request_builder = request_builder.method(
     env
-      .get_string(method)?
+      .get_string(&method)?
       .to_string_lossy()
       .to_string()
       .as_str(),
@@ -46,10 +48,12 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
   let request_headers = env
     .call_method(request, "getRequestHeaders", "()Ljava/util/Map;", &[])?
     .l()?;
-  let request_headers = JMap::from_env(&env, request_headers)?;
-  for (header, value) in request_headers.iter()? {
-    let header = env.get_string(header.into())?;
-    let value = env.get_string(value.into())?;
+  let request_headers = JMap::from_env(&mut env, &request_headers)?;
+  while let Some((header, value)) = request_headers.iter(&mut env)?.next(&mut env)? {
+    let header = JString::from(header);
+    let value = JString::from(value);
+    let header = env.get_string(&header)?;
+    let value = env.get_string(&value)?;
     if let (Ok(header), Ok(value)) = (
       HeaderName::from_bytes(header.to_bytes()),
       HeaderValue::from_bytes(value.to_bytes()),
@@ -98,18 +102,28 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
           }
         }
         (
-          env.new_string(mime_type)?.into(),
+          env.new_string(mime_type)?,
           if let Some(encoding) = encoding {
-            env.new_string(&encoding)?.into()
+            env.new_string(&encoding)?
           } else {
-            JObject::null().into()
+            JString::default()
           },
         )
       } else {
-        (JObject::null().into(), JObject::null().into())
+        (JString::default(), JString::default())
       };
 
-      let response_headers = create_headers_map(&env, response.headers())?;
+      let headers = response.headers();
+      let obj = env.new_object("java/util/HashMap", "()V", &[])?;
+      let response_headers = {
+        let headers_map = JMap::from_env(env, &obj)?;
+        for (name, value) in headers.iter() {
+          let key = env.new_string(name)?;
+          let value = env.new_string(value.to_str().unwrap_or_default())?;
+          headers_map.put(env, &key, &value)?;
+        }
+        headers_map
+      };
 
       let bytes = response.body();
 
@@ -118,14 +132,16 @@ fn handle_request(env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
       let stream = env.new_object(
         byte_array_input_stream,
         "([B)V",
-        &[JValue::Object(unsafe { JObject::from_raw(byte_array) })],
+        &[JValue::Object(unsafe {
+          &JObject::from_raw(byte_array.as_raw())
+        })],
       )?;
 
       let web_resource_response_class = env.find_class("android/webkit/WebResourceResponse")?;
       let web_resource_response = env.new_object(
         web_resource_response_class,
         "(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/util/Map;Ljava/io/InputStream;)V",
-        &[mime_type, encoding, (status_code as i32).into(), env.new_string(reason_phrase)?.into(), response_headers.into(), stream.into()],
+        &[(&mime_type).into(), (&encoding).into(), (status_code as i32).into(), (&env.new_string(reason_phrase)?).into(), (&response_headers).into(), (&stream).into()],
       )?;
 
       return Ok(*web_resource_response);
@@ -146,8 +162,8 @@ pub unsafe fn handleRequest(env: JNIEnv, _: JClass, request: JObject) -> jobject
 }
 
 #[allow(non_snake_case)]
-pub unsafe fn shouldOverride(env: JNIEnv, _: JClass, url: JString) -> jboolean {
-  match env.get_string(url) {
+pub unsafe fn shouldOverride(mut env: JNIEnv, _: JClass, url: JString) -> jboolean {
+  match env.get_string(&url) {
     Ok(url) => {
       let url = url.to_string_lossy().to_string();
       URL_LOADING_OVERRIDE
@@ -167,8 +183,8 @@ pub unsafe fn shouldOverride(env: JNIEnv, _: JClass, url: JString) -> jboolean {
   .into()
 }
 
-pub unsafe fn ipc(env: JNIEnv, _: JClass, arg: JString) {
-  match env.get_string(arg) {
+pub unsafe fn ipc(mut env: JNIEnv, _: JClass, arg: JString) {
+  match env.get_string(&arg) {
     Ok(arg) => {
       let arg = arg.to_string_lossy().to_string();
       if let Some(w) = IPC.get() {
@@ -180,8 +196,8 @@ pub unsafe fn ipc(env: JNIEnv, _: JClass, arg: JString) {
 }
 
 #[allow(non_snake_case)]
-pub unsafe fn handleReceivedTitle(env: JNIEnv, _: JClass, _webview: JObject, title: JString) {
-  match env.get_string(title) {
+pub unsafe fn handleReceivedTitle(mut env: JNIEnv, _: JClass, _webview: JObject, title: JString) {
+  match env.get_string(&title) {
     Ok(title) => {
       let title = title.to_string_lossy().to_string();
       if let Some(w) = TITLE_CHANGE_HANDLER.get() {

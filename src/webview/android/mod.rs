@@ -22,7 +22,7 @@ use tao::platform::android::ndk_glue::{
     JNIEnv,
   },
   ndk::looper::{FdEvent, ForeignLooper},
-  JMap, PACKAGE,
+  PACKAGE,
 };
 use url::Url;
 
@@ -32,8 +32,8 @@ use main_pipe::{CreateWebViewAttributes, MainPipe, WebViewMessage, MAIN_PIPE};
 
 pub struct Context<'a> {
   pub env: JNIEnv<'a>,
-  pub activity: JObject<'a>,
-  pub webview: JObject<'a>,
+  pub activity: &'a JObject<'a>,
+  pub webview: &'a JObject<'a>,
 }
 
 #[macro_export]
@@ -146,28 +146,29 @@ impl UnsafeUrlLoadingOverride {
 unsafe impl Send for UnsafeUrlLoadingOverride {}
 unsafe impl Sync for UnsafeUrlLoadingOverride {}
 
-pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
+pub unsafe fn setup(mut env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
   // we must create the WebChromeClient here because it calls `registerForActivityResult`,
   // which gives an `LifecycleOwners must call register before they are STARTED.` error when called outside the onCreate hook
   let rust_webchrome_client_class = find_class(
-    env,
+    &mut env,
     activity.as_obj(),
     format!("{}/RustWebChromeClient", PACKAGE.get().unwrap()),
   )
   .unwrap();
   let webchrome_client = env
     .new_object(
-      rust_webchrome_client_class,
+      &rust_webchrome_client_class,
       &format!("(L{}/WryActivity;)V", PACKAGE.get().unwrap()),
       &[activity.as_obj().into()],
     )
     .unwrap();
 
+  let webchrome_client = env.new_global_ref(webchrome_client).unwrap();
   let mut main_pipe = MainPipe {
     env,
     activity,
     webview: None,
-    webchrome_client: env.new_global_ref(webchrome_client).unwrap(),
+    webchrome_client,
   };
 
   looper
@@ -393,7 +394,7 @@ impl JniHandle {
   /// Provided function will be provided with the jni evironment, Android activity and WebView
   pub fn exec<F>(&self, func: F)
   where
-    F: FnOnce(JNIEnv, JObject, JObject) + Send + 'static,
+    F: FnOnce(&mut JNIEnv, &JObject, &JObject) + Send + 'static,
   {
     MainPipe::send(WebViewMessage::Jni(Box::new(func)));
   }
@@ -427,8 +428,8 @@ fn hash_script(script: &str) -> String {
 
 /// Finds a class in the project scope.
 pub fn find_class<'a>(
-  env: JNIEnv<'a>,
-  activity: JObject<'a>,
+  env: &mut JNIEnv<'a>,
+  activity: &JObject<'a>,
   name: String,
 ) -> std::result::Result<JClass<'a>, JniError> {
   let class_name = env.new_string(name.replace('/', "."))?;
@@ -437,7 +438,7 @@ pub fn find_class<'a>(
       activity,
       "getAppClass",
       "(Ljava/lang/String;)Ljava/lang/Class;",
-      &[class_name.into()],
+      &[(&class_name).into()],
     )?
     .l()?;
   Ok(my_class.into())
@@ -448,21 +449,7 @@ pub fn find_class<'a>(
 /// The closure takes the JNI env, the Android activity instance and the possibly null webview.
 pub fn dispatch<F>(func: F)
 where
-  F: FnOnce(JNIEnv, JObject, JObject) + Send + 'static,
+  F: FnOnce(&mut JNIEnv, &JObject, &JObject) + Send + 'static,
 {
   MainPipe::send(WebViewMessage::Jni(Box::new(func)));
-}
-
-fn create_headers_map<'a, 'b>(
-  env: &'a JNIEnv,
-  headers: &http::HeaderMap,
-) -> std::result::Result<JMap<'a, 'b>, JniError> {
-  let obj = env.new_object("java/util/HashMap", "()V", &[])?;
-  let headers_map = JMap::from_env(&env, obj)?;
-  for (name, value) in headers.iter() {
-    let key = env.new_string(name)?;
-    let value = env.new_string(value.to_str().unwrap_or_default())?;
-    headers_map.put(key.into(), value.into())?;
-  }
-  Ok(headers_map)
 }

@@ -12,10 +12,10 @@ use tao::platform::android::ndk_glue::{
     objects::{GlobalRef, JObject, JString},
     JNIEnv,
   },
-  PACKAGE,
+  JMap, PACKAGE,
 };
 
-use super::{create_headers_map, find_class};
+use super::find_class;
 
 static CHANNEL: Lazy<(Sender<WebViewMessage>, Receiver<WebViewMessage>)> = Lazy::new(|| bounded(8));
 pub static MAIN_PIPE: Lazy<[RawFd; 2]> = Lazy::new(|| {
@@ -40,7 +40,7 @@ impl MainPipe<'_> {
   }
 
   pub fn recv(&mut self) -> Result<(), JniError> {
-    let env = self.env;
+    let env = &mut self.env;
     let activity = self.activity.as_obj();
     if let Ok(message) = CHANNEL.1.recv() {
       match message {
@@ -65,22 +65,22 @@ impl MainPipe<'_> {
             format!("{}/RustWebView", PACKAGE.get().unwrap()),
           )?;
           let webview = env.new_object(
-            rust_webview_class,
+            &rust_webview_class,
             "(Landroid/content/Context;)V",
             &[activity.into()],
           )?;
 
           // set media autoplay
-          env.call_method(webview, "setAutoPlay", "(Z)V", &[autoplay.into()])?;
+          env.call_method(&webview, "setAutoPlay", "(Z)V", &[autoplay.into()])?;
 
           // set user-agent
           if let Some(user_agent) = user_agent {
             let user_agent = env.new_string(user_agent)?;
             env.call_method(
-              webview,
+              &webview,
               "setUserAgent",
               "(Ljava/lang/String;)V",
-              &[user_agent.into()],
+              &[(&user_agent).into()],
             )?;
           }
 
@@ -88,34 +88,34 @@ impl MainPipe<'_> {
             activity,
             "setWebView",
             format!("(L{}/RustWebView;)V", PACKAGE.get().unwrap()),
-            &[webview.into()],
+            &[(&webview).into()],
           )?;
 
           // Navigation
           if let Some(u) = url {
             if let Ok(url) = env.new_string(u) {
-              load_url(env, webview, url, headers, true)?;
+              load_url(env, &webview, url, headers, true)?;
             }
           } else if let Some(h) = html {
             if let Ok(html) = env.new_string(h) {
-              load_html(env, webview, html)?;
+              load_html(env, &webview, html)?;
             }
           }
 
           // Enable devtools
           #[cfg(any(debug_assertions, feature = "devtools"))]
           env.call_static_method(
-            rust_webview_class,
+            &rust_webview_class,
             "setWebContentsDebuggingEnabled",
             "(Z)V",
             &[devtools.into()],
           )?;
 
           if transparent {
-            set_background_color(env, webview, (0, 0, 0, 0))?;
+            set_background_color(env, &webview, (0, 0, 0, 0))?;
           } else {
             if let Some(color) = background_color {
-              set_background_color(env, webview, color)?;
+              set_background_color(env, &webview, color)?;
             }
           }
 
@@ -131,15 +131,15 @@ impl MainPipe<'_> {
             &[activity.into()],
           )?;
           env.call_method(
-            webview,
+            &webview,
             "setWebViewClient",
             "(Landroid/webkit/WebViewClient;)V",
-            &[webview_client.into()],
+            &[(&webview_client).into()],
           )?;
 
           // set webchrome client
           env.call_method(
-            webview,
+            &webview,
             "setWebChromeClient",
             "(Landroid/webkit/WebChromeClient;)V",
             &[self.webchrome_client.as_obj().into()],
@@ -150,10 +150,10 @@ impl MainPipe<'_> {
           let ipc = env.new_object(ipc_class, "()V", &[])?;
           let ipc_str = env.new_string("ipc")?;
           env.call_method(
-            webview,
+            &webview,
             "addJavascriptInterface",
             "(Ljava/lang/Object;Ljava/lang/String;)V",
-            &[ipc.into(), ipc_str.into()],
+            &[(&ipc).into(), (&ipc_str).into()],
           )?;
 
           // Set content view
@@ -161,14 +161,14 @@ impl MainPipe<'_> {
             activity,
             "setContentView",
             "(Landroid/view/View;)V",
-            &[webview.into()],
+            &[(&webview).into()],
           )?;
 
           if let Some(on_webview_created) = on_webview_created {
             if let Err(e) = on_webview_created(super::Context {
-              env,
+              env: unsafe { env.unsafe_clone() },
               activity,
-              webview,
+              webview: &webview,
             }) {
               log::warn!("failed to run webview created hook: {e}");
             }
@@ -185,7 +185,7 @@ impl MainPipe<'_> {
               webview.as_obj(),
               "evaluateJavascript",
               "(Ljava/lang/String;Landroid/webkit/ValueCallback;)V",
-              &[s.into(), JObject::null().into()],
+              &[(&s).into(), JObject::null().as_ref().into()],
             )?;
           }
         }
@@ -198,10 +198,13 @@ impl MainPipe<'_> {
           match env
             .call_method(activity, "getVersion", "()Ljava/lang/String;", &[])
             .and_then(|v| v.l())
-            .and_then(|s| env.get_string(s.into()))
-          {
+            .and_then(|s| {
+              env
+                .get_string(&unsafe { JString::from_raw(s.as_raw()) })
+                .map(|v| v.to_string_lossy().to_string())
+            }) {
             Ok(version) => {
-              tx.send(Ok(version.to_string_lossy().into())).unwrap();
+              tx.send(Ok(version)).unwrap();
             }
             Err(e) => tx.send(Err(e.into())).unwrap(),
           }
@@ -211,8 +214,11 @@ impl MainPipe<'_> {
             let url = env
               .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String;", &[])
               .and_then(|v| v.l())
-              .and_then(|s| env.get_string(s.into()))
-              .map(|u| u.to_string_lossy().into())
+              .and_then(|s| {
+                env
+                  .get_string(&unsafe { JString::from_raw(s.as_raw()) })
+                  .map(|v| v.to_string_lossy().to_string())
+              })
               .unwrap_or_default();
 
             tx.send(url).unwrap()
@@ -222,7 +228,7 @@ impl MainPipe<'_> {
           if let Some(w) = &self.webview {
             f(env, activity, w.as_obj());
           } else {
-            f(env, activity, JObject::null());
+            f(env, activity, &JObject::null());
           }
         }
         WebViewMessage::LoadUrl(url, headers) => {
@@ -243,8 +249,8 @@ impl MainPipe<'_> {
 }
 
 fn load_url<'a>(
-  env: JNIEnv<'a>,
-  webview: JObject<'a>,
+  env: &mut JNIEnv<'a>,
+  webview: &JObject<'a>,
   url: JString<'a>,
   headers: Option<http::HeaderMap>,
   main_thread: bool,
@@ -255,32 +261,45 @@ fn load_url<'a>(
     "loadUrl"
   };
   if let Some(headers) = headers {
-    let headers_map = create_headers_map(&env, &headers)?;
+    let obj = env.new_object("java/util/HashMap", "()V", &[])?;
+    let headers_map = {
+      let headers_map = JMap::from_env(env, &obj)?;
+      for (name, value) in headers.iter() {
+        let key = env.new_string(name)?;
+        let value = env.new_string(value.to_str().unwrap_or_default())?;
+        headers_map.put(env, &key, &value)?;
+      }
+      headers_map
+    };
     env.call_method(
       webview,
       function,
       "(Ljava/lang/String;Ljava/util/Map;)V",
-      &[url.into(), headers_map.into()],
+      &[(&url).into(), (&headers_map).into()],
     )?;
   } else {
-    env.call_method(webview, function, "(Ljava/lang/String;)V", &[url.into()])?;
+    env.call_method(webview, function, "(Ljava/lang/String;)V", &[(&url).into()])?;
   }
   Ok(())
 }
 
-fn load_html<'a>(env: JNIEnv<'a>, webview: JObject<'a>, html: JString<'a>) -> Result<(), JniError> {
+fn load_html<'a>(
+  env: &mut JNIEnv<'a>,
+  webview: &JObject<'a>,
+  html: JString<'a>,
+) -> Result<(), JniError> {
   env.call_method(
     webview,
     "loadHTMLMainThread",
     "(Ljava/lang/String;)V",
-    &[html.into()],
+    &[(&html).into()],
   )?;
   Ok(())
 }
 
 fn set_background_color<'a>(
-  env: JNIEnv<'a>,
-  webview: JObject<'a>,
+  env: &mut JNIEnv<'a>,
+  webview: &JObject<'a>,
   background_color: RGBA,
 ) -> Result<(), JniError> {
   let color_class = env.find_class("android/graphics/Color")?;
@@ -295,7 +314,7 @@ fn set_background_color<'a>(
       background_color.2.into(),
     ],
   )?;
-  env.call_method(webview, "setBackgroundColor", "(I)V", &[color])?;
+  env.call_method(webview, "setBackgroundColor", "(I)V", &[(&color).into()])?;
   Ok(())
 }
 
@@ -305,7 +324,7 @@ pub(crate) enum WebViewMessage {
   SetBackgroundColor(RGBA),
   GetWebViewVersion(Sender<Result<String, Error>>),
   GetUrl(Sender<String>),
-  Jni(Box<dyn FnOnce(JNIEnv, JObject, JObject) + Send>),
+  Jni(Box<dyn FnOnce(&mut JNIEnv, &JObject, &JObject) + Send>),
   LoadUrl(String, Option<http::HeaderMap>),
   ClearAllBrowsingData,
 }
