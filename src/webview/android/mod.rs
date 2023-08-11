@@ -424,7 +424,7 @@ fn hash_script(script: &str) -> String {
 /// Finds a class in the project scope.
 pub fn find_class<'a>(
   env: &mut JNIEnv<'a>,
-  activity: &JObject<'a>,
+  activity: &JObject<'_>,
   name: String,
 ) -> std::result::Result<JClass<'a>, JniError> {
   let class_name = env.new_string(name.replace('/', "."))?;
