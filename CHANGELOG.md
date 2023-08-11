@@ -1,5 +1,12 @@
 # Changelog
 
+## \[0.30.0]
+
+- [`17e04e2`](https://github.com/tauri-apps/wry/commit/17e04e2b4c0bd75f93bbc511234f0d3c93726b63)([#985](https://github.com/tauri-apps/wry/pull/985)) Make `WebViewBuilder::with_navigation_handler` apply to Android `loadUrl` calls.
+- [`17e04e2`](https://github.com/tauri-apps/wry/commit/17e04e2b4c0bd75f93bbc511234f0d3c93726b63)([#985](https://github.com/tauri-apps/wry/pull/985)) Add support for `WebViewBuilder::with_navigation_handler` on Android.
+- [`87b331a`](https://github.com/tauri-apps/wry/commit/87b331a7d4c169814d2b6a1f8a06d976ad7565bc)([#978](https://github.com/tauri-apps/wry/pull/978)) On Windows, avoid resizing the webview when the window gets minimized to avoid unnecessary `resize` event on JS side.
+- [`17e04e2`](https://github.com/tauri-apps/wry/commit/17e04e2b4c0bd75f93bbc511234f0d3c93726b63)([#985](https://github.com/tauri-apps/wry/pull/985)) Update tao to 0.21.
+
 ## \[0.29.0]
 
 - [`c09dd7b`](https://github.com/tauri-apps/wry/commit/c09dd7bebe3d00f989dff57f0414f1023653efe4)([#968](https://github.com/tauri-apps/wry/pull/968)) Remove ActionBar handling from wry. If you want to hide the action bar, hide it using the `themes.xml` file in your android project or inherit `WryActivity` class and use `getSupportActionBar()?.hide()` in the `onCreate` method.

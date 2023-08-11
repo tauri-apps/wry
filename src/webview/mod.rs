@@ -232,6 +232,9 @@ pub struct WebViewAttributes {
 
   /// Whether all media can be played without user interaction.
   pub autoplay: bool,
+
+  /// Set a handler closure to process page load events.
+  pub on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
 }
 
 impl Default for WebViewAttributes {
@@ -263,6 +266,7 @@ impl Default for WebViewAttributes {
       document_title_changed_handler: None,
       incognito: false,
       autoplay: true,
+      on_page_load_handler: None,
     }
   }
 }
@@ -316,6 +320,14 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
 /// Each value can be 0..255 inclusive.
 pub type RGBA = (u8, u8, u8, u8);
 
+/// Type of of page loading event
+pub enum PageLoadEvent {
+  /// Indicates that the content of the page has started loading
+  Started,
+  /// Indicates that the page content has finished loading
+  Finished,
+}
+
 /// Builder type of [`WebView`].
 ///
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
@@ -333,6 +345,7 @@ impl<'a> WebViewBuilder<'a> {
   pub fn new(window: Window) -> Result<Self> {
     let webview = WebViewAttributes::default();
     let web_context = None;
+    #[allow(clippy::default_constructed_unit_structs)]
     let platform_specific = PlatformSpecificWebViewAttributes::default();
 
     Ok(Self {
@@ -626,6 +639,17 @@ impl<'a> WebViewBuilder<'a> {
   /// - **Android:** Unsupported yet.
   pub fn with_incognito(mut self, incognito: bool) -> Self {
     self.webview.incognito = incognito;
+    self
+  }
+
+  /// Set a handler to process page loading events.
+  ///
+  /// The handler will be called when the webview begins the indicated loading event.
+  pub fn with_on_page_load_handler(
+    mut self,
+    handler: impl Fn(PageLoadEvent, String) + 'static,
+  ) -> Self {
+    self.webview.on_page_load_handler = Some(Box::new(handler));
     self
   }
 

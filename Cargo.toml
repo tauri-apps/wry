@@ -2,7 +2,7 @@ workspace = { }
 
 [package]
 name = "wry"
-version = "0.29.0"
+version = "0.30.0"
 authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -88,7 +88,7 @@ objc_id = "0.1"
 
 [target."cfg(target_os = \"android\")".dependencies]
 crossbeam-channel = "0.5"
-kuchiki = "0.8"
-html5ever = "0.25"
+html5ever = "0.26"
+kuchiki = { package = "kuchikiki", version = "0.8" }
 sha2 = "0.10"
 base64 = "0.21"

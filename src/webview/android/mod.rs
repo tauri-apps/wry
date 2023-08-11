@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use super::{WebContext, WebViewAttributes, RGBA};
+use super::{PageLoadEvent, WebContext, WebViewAttributes, RGBA};
 use crate::{application::window::Window, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
@@ -90,6 +90,20 @@ macro_rules! android_binding {
       [JString],
       jboolean
     );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      onPageLoading,
+      [JString]
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      onPageLoaded,
+      [JString]
+    );
     android_fn!($domain, $package, Ipc, ipc, [JString]);
     android_fn!(
       $domain,
@@ -107,6 +121,7 @@ pub static TITLE_CHANGE_HANDLER: OnceCell<UnsafeTitleHandler> = OnceCell::new();
 pub static WITH_ASSET_LOADER: OnceCell<bool> = OnceCell::new();
 pub static ASSET_LOADER_DOMAIN: OnceCell<String> = OnceCell::new();
 pub static URL_LOADING_OVERRIDE: OnceCell<UnsafeUrlLoadingOverride> = OnceCell::new();
+pub static ON_LOAD_HANDLER: OnceCell<UnsafeOnPageLoadHandler> = OnceCell::new();
 
 pub struct UnsafeIpc(Box<dyn Fn(&Window, String)>, Rc<Window>);
 impl UnsafeIpc {
@@ -145,6 +160,15 @@ impl UnsafeUrlLoadingOverride {
 }
 unsafe impl Send for UnsafeUrlLoadingOverride {}
 unsafe impl Sync for UnsafeUrlLoadingOverride {}
+
+pub struct UnsafeOnPageLoadHandler(Box<dyn Fn(PageLoadEvent, String)>);
+impl UnsafeOnPageLoadHandler {
+  pub fn new(f: Box<dyn Fn(PageLoadEvent, String)>) -> Self {
+    Self(f)
+  }
+}
+unsafe impl Send for UnsafeOnPageLoadHandler {}
+unsafe impl Sync for UnsafeOnPageLoadHandler {}
 
 pub unsafe fn setup(mut env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
   // we must create the WebChromeClient here because it calls `registerForActivityResult`,
@@ -330,6 +354,10 @@ impl InnerWebView {
 
     if let Some(i) = attributes.navigation_handler {
       URL_LOADING_OVERRIDE.get_or_init(move || UnsafeUrlLoadingOverride::new(i));
+    }
+
+    if let Some(h) = attributes.on_page_load_handler {
+      ON_LOAD_HANDLER.get_or_init(move || UnsafeOnPageLoadHandler::new(h));
     }
 
     Ok(Self { window })

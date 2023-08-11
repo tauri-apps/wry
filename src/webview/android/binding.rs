@@ -19,6 +19,8 @@ use super::{
   WITH_ASSET_LOADER,
 };
 
+use crate::webview::PageLoadEvent;
+
 fn handle_request(env: &mut JNIEnv, request: JObject) -> Result<jobject, JniError> {
   let mut request_builder = Request::builder();
 
@@ -213,5 +215,31 @@ pub unsafe fn assetLoaderDomain(env: JNIEnv, _: JClass) -> jstring {
     env.new_string(domain).unwrap().as_raw()
   } else {
     env.new_string("wry.assets").unwrap().as_raw()
+  }
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn onPageLoading(env: JNIEnv, _: JClass, url: JString) {
+  match env.get_string(&url) {
+    Ok(url) => {
+      let url = url.to_string_lossy().to_string();
+      if let Some(h) = ON_LOAD_HANDLER.get() {
+        (h.0)(PageLoadEvent::Started, url)
+      }
+    }
+    Err(e) => log::warn!("Failed to parse JString: {}", e),
+  }
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn onPageLoaded(env: JNIEnv, _: JClass, url: JString) {
+  match env.get_string(&url) {
+    Ok(url) => {
+      let url = url.to_string_lossy().to_string();
+      if let Some(h) = ON_LOAD_HANDLER.get() {
+        (h.0)(PageLoadEvent::Finished, url)
+      }
+    }
+    Err(e) => log::warn!("Failed to parse JString: {}", e),
   }
 }
