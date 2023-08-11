@@ -14,7 +14,7 @@ categories = [ "gui" ]
 
 [package.metadata.docs.rs]
 default-features = false
-features = [ "dox", "file-drop", "protocol", "tray" ]
+features = [ "dox", "file-drop", "protocol" ]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
