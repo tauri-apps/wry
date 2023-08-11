@@ -15,8 +15,8 @@ use tao::platform::android::ndk_glue::jni::{
 };
 
 use super::{
-  ASSET_LOADER_DOMAIN, IPC, REQUEST_HANDLER, TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE,
-  WITH_ASSET_LOADER,
+  ASSET_LOADER_DOMAIN, IPC, ON_LOAD_HANDLER, REQUEST_HANDLER, TITLE_CHANGE_HANDLER,
+  URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
 };
 
 use crate::webview::PageLoadEvent;
@@ -219,7 +219,7 @@ pub unsafe fn assetLoaderDomain(env: JNIEnv, _: JClass) -> jstring {
 }
 
 #[allow(non_snake_case)]
-pub unsafe fn onPageLoading(env: JNIEnv, _: JClass, url: JString) {
+pub unsafe fn onPageLoading(mut env: JNIEnv, _: JClass, url: JString) {
   match env.get_string(&url) {
     Ok(url) => {
       let url = url.to_string_lossy().to_string();
@@ -232,7 +232,7 @@ pub unsafe fn onPageLoading(env: JNIEnv, _: JClass, url: JString) {
 }
 
 #[allow(non_snake_case)]
-pub unsafe fn onPageLoaded(env: JNIEnv, _: JClass, url: JString) {
+pub unsafe fn onPageLoaded(mut env: JNIEnv, _: JClass, url: JString) {
   match env.get_string(&url) {
     Ok(url) => {
       let url = url.to_string_lossy().to_string();
