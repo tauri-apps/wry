@@ -9,7 +9,7 @@ use http::{
 pub use tao::platform::android::ndk_glue::jni::sys::{jboolean, jstring};
 use tao::platform::android::ndk_glue::jni::{
   errors::Error as JniError,
-  objects::{JClass, JMap, JObject, JString, JValue},
+  objects::{JClass, JMap, JObject, JString},
   sys::jobject,
   JNIEnv,
 };
@@ -19,9 +19,7 @@ use super::{
   WITH_ASSET_LOADER,
 };
 
-fn handle_request(mut env: JNIEnv, request: JObject) -> Result<jobject, JniError> {
-  let mut env = &mut env;
-
+fn handle_request(env: &mut JNIEnv, request: JObject) -> Result<jobject, JniError> {
   let mut request_builder = Request::builder();
 
   let uri = env
@@ -48,8 +46,8 @@ fn handle_request(mut env: JNIEnv, request: JObject) -> Result<jobject, JniError
   let request_headers = env
     .call_method(request, "getRequestHeaders", "()Ljava/util/Map;", &[])?
     .l()?;
-  let request_headers = JMap::from_env(&mut env, &request_headers)?;
-  while let Some((header, value)) = request_headers.iter(&mut env)?.next(&mut env)? {
+  let request_headers = JMap::from_env(env, &request_headers)?;
+  while let Some((header, value)) = request_headers.iter(env)?.next(env)? {
     let header = JString::from(header);
     let value = JString::from(value);
     let header = env.get_string(&header)?;
@@ -73,7 +71,7 @@ fn handle_request(mut env: JNIEnv, request: JObject) -> Result<jobject, JniError
     let response = (handler.0)(final_request);
     if let Some(response) = response {
       let status = response.status();
-      let status_code = status.as_u16();
+      let status_code = status.as_u16() as i32;
       let status_err = if status_code < 100 {
         Some("Status code can't be less than 100")
       } else if status_code > 599 {
@@ -104,7 +102,7 @@ fn handle_request(mut env: JNIEnv, request: JObject) -> Result<jobject, JniError
         (
           env.new_string(mime_type)?,
           if let Some(encoding) = encoding {
-            env.new_string(&encoding)?
+            env.new_string(encoding)?
           } else {
             JString::default()
           },
@@ -128,20 +126,16 @@ fn handle_request(mut env: JNIEnv, request: JObject) -> Result<jobject, JniError
       let bytes = response.body();
 
       let byte_array_input_stream = env.find_class("java/io/ByteArrayInputStream")?;
-      let byte_array = env.byte_array_from_slice(&bytes)?;
-      let stream = env.new_object(
-        byte_array_input_stream,
-        "([B)V",
-        &[JValue::Object(unsafe {
-          &JObject::from_raw(byte_array.as_raw())
-        })],
-      )?;
+      let byte_array = env.byte_array_from_slice(bytes)?;
+      let stream = env.new_object(byte_array_input_stream, "([B)V", &[(&byte_array).into()])?;
+
+      let reason_phrase = env.new_string(reason_phrase)?;
 
       let web_resource_response_class = env.find_class("android/webkit/WebResourceResponse")?;
       let web_resource_response = env.new_object(
         web_resource_response_class,
         "(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Ljava/util/Map;Ljava/io/InputStream;)V",
-        &[(&mime_type).into(), (&encoding).into(), (status_code as i32).into(), (&env.new_string(reason_phrase)?).into(), (&response_headers).into(), (&stream).into()],
+        &[(&mime_type).into(), (&encoding).into(), status_code.into(), (&reason_phrase).into(), (&response_headers).into(), (&stream).into()],
       )?;
 
       return Ok(*web_resource_response);
@@ -151,12 +145,12 @@ fn handle_request(mut env: JNIEnv, request: JObject) -> Result<jobject, JniError
 }
 
 #[allow(non_snake_case)]
-pub unsafe fn handleRequest(env: JNIEnv, _: JClass, request: JObject) -> jobject {
-  match handle_request(env, request) {
+pub unsafe fn handleRequest(mut env: JNIEnv, _: JClass, request: JObject) -> jobject {
+  match handle_request(&mut env, request) {
     Ok(response) => response,
     Err(e) => {
       log::warn!("Failed to handle request: {}", e);
-      *JObject::null()
+      JObject::null().as_raw()
     }
   }
 }
@@ -216,8 +210,8 @@ pub unsafe fn withAssetLoader(_: JNIEnv, _: JClass) -> jboolean {
 #[allow(non_snake_case)]
 pub unsafe fn assetLoaderDomain(env: JNIEnv, _: JClass) -> jstring {
   if let Some(domain) = ASSET_LOADER_DOMAIN.get() {
-    env.new_string(domain).unwrap().into_raw()
+    env.new_string(domain).unwrap().as_raw()
   } else {
-    env.new_string("wry.assets").unwrap().into_raw()
+    env.new_string("wry.assets").unwrap().as_raw()
   }
 }
