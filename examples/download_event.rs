@@ -7,7 +7,7 @@ fn main() -> wry::Result<()> {
   use wry::{
     application::{
       event::{Event, StartCause, WindowEvent},
-      event_loop::{ControlFlow, EventLoop},
+      event_loop::{ControlFlow, EventLoopBuilder},
       window::WindowBuilder,
     },
     webview::WebViewBuilder,
@@ -29,7 +29,7 @@ fn main() -> wry::Result<()> {
     Rejected(String),
   }
 
-  let event_loop: EventLoop<UserEvent> = EventLoop::with_user_event();
+  let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
   let proxy = event_loop.create_proxy();
   let window = WindowBuilder::new()
     .with_title("Hello World")

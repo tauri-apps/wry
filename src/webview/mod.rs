@@ -719,7 +719,7 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 pub trait WebViewBuilderExtAndroid {
   fn on_webview_created<
     F: Fn(
-        prelude::Context<'_>,
+        prelude::Context<'_, '_>,
       ) -> std::result::Result<(), tao::platform::android::ndk_glue::jni::errors::Error>
       + Send
       + 'static,
@@ -742,7 +742,7 @@ pub trait WebViewBuilderExtAndroid {
 impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
   fn on_webview_created<
     F: Fn(
-        prelude::Context<'_>,
+        prelude::Context<'_, '_>,
       ) -> std::result::Result<(), tao::platform::android::ndk_glue::jni::errors::Error>
       + Send
       + 'static,

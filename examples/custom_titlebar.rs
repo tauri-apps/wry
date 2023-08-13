@@ -6,17 +6,17 @@ fn main() -> wry::Result<()> {
   use wry::{
     application::{
       event::{Event, StartCause, WindowEvent},
-      event_loop::{ControlFlow, EventLoop},
+      event_loop::{ControlFlow, EventLoopBuilder},
       window::{Window, WindowBuilder},
     },
     webview::WebViewBuilder,
   };
 
-  enum UserEvents {
+  enum UserEvent {
     CloseWindow,
   }
 
-  let event_loop = EventLoop::<UserEvents>::with_user_event();
+  let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
   let window = WindowBuilder::new()
     .with_decorations(false)
     .build(&event_loop)
@@ -124,7 +124,7 @@ fn main() -> wry::Result<()> {
       window.set_maximized(!window.is_maximized());
     }
     if req == "close" {
-      let _ = proxy.send_event(UserEvents::CloseWindow);
+      let _ = proxy.send_event(UserEvent::CloseWindow);
     }
     if req == "drag_window" {
       let _ = window.drag_window();
@@ -149,7 +149,7 @@ fn main() -> wry::Result<()> {
         event: WindowEvent::CloseRequested,
         ..
       }
-      | Event::UserEvent(UserEvents::CloseWindow) => {
+      | Event::UserEvent(UserEvent::CloseWindow) => {
         let _ = webview.take();
         *control_flow = ControlFlow::Exit
       }
