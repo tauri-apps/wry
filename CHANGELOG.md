@@ -1,5 +1,11 @@
 # Changelog
 
+## \[0.31.0]
+
+- [`e47562f`](https://github.com/tauri-apps/wry/commit/e47562f71284457ff77e4c8b6bf02fdbe19ab880)([#993](https://github.com/tauri-apps/wry/pull/993)) Update the unmaintained `kuchiki` crate to the maintained `kuchikiki` crate.
+- [`7a353c7`](https://github.com/tauri-apps/wry/commit/7a353c7d8a474bfb14b92a272efc75ceb194ea90)([#980](https://github.com/tauri-apps/wry/pull/980)) Add `WebViewBuilder::with_on_page_load_handler` for providing a callback for handling various page loading events.
+- [`b0a08b1`](https://github.com/tauri-apps/wry/commit/b0a08b165215823ed7a48a0a377e0f09832898df)([#997](https://github.com/tauri-apps/wry/pull/997)) Update `tao` to version `0.22` which has removed the global-shortcut, menus and tray features, see [tao@v0.22 release](https://github.com/tauri-apps/tao/releases/tag/tao-v0.22.0).
+
 ## \[0.30.0]
 
 - [`17e04e2`](https://github.com/tauri-apps/wry/commit/17e04e2b4c0bd75f93bbc511234f0d3c93726b63)([#985](https://github.com/tauri-apps/wry/pull/985)) Make `WebViewBuilder::with_navigation_handler` apply to Android `loadUrl` calls.
