@@ -6,6 +6,7 @@ mod download;
 #[cfg(target_os = "macos")]
 mod file_drop;
 mod navigation;
+mod proxy;
 #[cfg(target_os = "macos")]
 mod synthetic_mouse_events;
 
@@ -49,12 +50,14 @@ use crate::{
     window::Window,
   },
   webview::{
+    proxy::ProxyConnection,
     wkwebview::{
       download::{
         add_download_methods, download_did_fail, download_did_finish, download_policy,
         set_download_delegate,
       },
       navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
+      proxy::{nw_proxy_config_create_http_connect, nw_proxy_config_create_socksv5},
     },
     FileDropEvent, PageLoadEvent, WebContext, WebViewAttributes, RGBA,
   },
@@ -313,6 +316,22 @@ impl InnerWebView {
       let () = msg_send![config, setWebsiteDataStore: data_store];
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
+
+      if let Some(proxy_config) = attributes.proxy_config {
+        let proxy_config = match proxy_config.proxy_connection {
+          ProxyConnection::Http(endpoint) => {
+            let ns_endpoint = endpoint.try_into_nw_endpoint().unwrap();
+            nw_proxy_config_create_http_connect(ns_endpoint, nil)
+          }
+          ProxyConnection::Socks5(endpoint) => {
+            let ns_endpoint = endpoint.try_into_nw_endpoint().unwrap();
+            nw_proxy_config_create_socksv5(ns_endpoint)
+          }
+        };
+
+        let proxies: id = msg_send![class!(NSArray), arrayWithObject: proxy_config];
+        let () = msg_send![data_store, setProxyConfigurations: proxies];
+      }
 
       #[cfg(target_os = "macos")]
       (*webview).set_ivar(ACCEPT_FIRST_MOUSE, attributes.accept_first_mouse);
@@ -1120,6 +1139,13 @@ impl NSString {
       let len = msg_send![self.0, lengthOfBytesUsingEncoding: UTF8_ENCODING];
       let bytes = slice::from_raw_parts(bytes as *const u8, len);
       str::from_utf8_unchecked(bytes)
+    }
+  }
+
+  fn to_cstr(&self) -> *const c_char {
+    unsafe {
+      let utf_8_string = msg_send![self.0, UTF8String];
+      utf_8_string
     }
   }
 

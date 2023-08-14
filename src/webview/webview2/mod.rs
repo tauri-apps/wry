@@ -13,8 +13,14 @@ use file_drop::FileDropController;
 use url::Url;
 
 use std::{
-  collections::HashSet, fmt::Write, iter::once, mem::MaybeUninit, os::windows::prelude::OsStrExt,
-  path::PathBuf, rc::Rc, sync::mpsc, sync::Arc,
+  collections::HashSet,
+  fmt::Write,
+  iter::once,
+  mem::MaybeUninit,
+  os::windows::prelude::OsStrExt,
+  path::PathBuf,
+  rc::Rc,
+  sync::{mpsc, Arc},
 };
 
 use once_cell::unsync::OnceCell;

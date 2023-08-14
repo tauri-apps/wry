@@ -4,6 +4,7 @@
 
 //! [`WebView`] struct and associated types.
 
+pub mod proxy;
 mod web_context;
 
 pub use web_context::WebContext;
@@ -50,6 +51,7 @@ use windows::{Win32::Foundation::HWND, Win32::UI::WindowsAndMessaging::DestroyWi
 
 use std::{borrow::Cow, path::PathBuf, rc::Rc};
 
+use proxy::ProxyConfig;
 pub use url::Url;
 
 #[cfg(target_os = "windows")]
@@ -235,6 +237,13 @@ pub struct WebViewAttributes {
 
   /// Set a handler closure to process page load events.
   pub on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
+
+  /// Set webview proxy configuration.
+  ///
+  /// - **macOS**: Support HTTP CONNECT, SOCKSv5
+  /// - **Windows / Linux**: not implemented yet.
+  /// - **Android / iOS:** Unsupported.
+  pub proxy_config: Option<ProxyConfig>,
 }
 
 impl Default for WebViewAttributes {
@@ -267,6 +276,7 @@ impl Default for WebViewAttributes {
       incognito: false,
       autoplay: true,
       on_page_load_handler: None,
+      proxy_config: None,
     }
   }
 }
@@ -650,6 +660,16 @@ impl<'a> WebViewBuilder<'a> {
     handler: impl Fn(PageLoadEvent, String) + 'static,
   ) -> Self {
     self.webview.on_page_load_handler = Some(Box::new(handler));
+    self
+  }
+
+  /// Set webview proxy configuration.
+  ///
+  /// - **macOS**: Support HTTP CONNECT, SOCKSv5
+  /// - **Windows / Linux**: not implemented yet.
+  /// - **Android / iOS:** Unsupported.
+  pub fn with_proxy_config(mut self, configuration: ProxyConfig) -> Self {
+    self.webview.proxy_config = Some(configuration);
     self
   }
 
