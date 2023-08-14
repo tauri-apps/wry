@@ -537,15 +537,20 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       }
     }
 
+    let scheme = if pl_attrs.https_scheme {
+      "https"
+    } else {
+      "http"
+    };
     let mut custom_protocol_names = HashSet::new();
     if !attributes.custom_protocols.is_empty() {
       for (name, _) in &attributes.custom_protocols {
-        // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
+        // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
         // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
         custom_protocol_names.insert(name.clone());
         unsafe {
           webview.AddWebResourceRequestedFilter(
-            PCWSTR::from_raw(encode_wide(format!("https://{}.*", name)).as_ptr()),
+            PCWSTR::from_raw(encode_wide(format!("{scheme}://{name}.*")).as_ptr()),
             COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
           )
         }
@@ -616,11 +621,11 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
                 if let Some(custom_protocol) = custom_protocols
                   .iter()
-                  .find(|(name, _)| uri.starts_with(&format!("https://{}.", name)))
+                  .find(|(name, _)| uri.starts_with(&format!("{scheme}://{name}.")))
                 {
                   // Undo the protocol workaround when giving path to resolver
                   let path = uri.replace(
-                    &format!("https://{}.", custom_protocol.0),
+                    &format!("{scheme}://{}.", custom_protocol.0),
                     &format!("{}://", custom_protocol.0),
                   );
 
@@ -741,11 +746,11 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         let mut url_string = String::from(url.as_str());
         let name = url.scheme();
         if custom_protocol_names.contains(name) {
-          // WebView2 doesn't support non-standard protocols yet, so we have to use this workaround
+          // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
           // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
           url_string = url
             .as_str()
-            .replace(&format!("{}://", name), &format!("https://{}.", name))
+            .replace(&format!("{}://", name), &format!("{scheme}://{name}."))
         }
 
         if let Some(headers) = attributes.headers {
