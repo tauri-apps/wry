@@ -538,9 +538,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     }
 
     let scheme = if pl_attrs.https_scheme {
-      "http"
-    } else {
       "https"
+    } else {
+      "http"
     };
     let mut custom_protocol_names = HashSet::new();
     if !attributes.custom_protocols.is_empty() {
