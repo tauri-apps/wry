@@ -33,7 +33,7 @@ jobs:
           CARGO_AUDIT_OPTIONS: ${{ secrets.CARGO_AUDIT_OPTIONS }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          command: 'version-or-publish'
+          command: "version-or-publish"
           createRelease: true
       - name: Create Pull Request With Versions Bumped
         id: cpr
@@ -41,8 +41,8 @@ jobs:
         if: steps.covector.outputs.commandRan == 'version'
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          title: "Publish New Versions"
+          title: "Publish New Versions (0.24.x)"
           commit-message: "publish new versions"
           labels: "version updates"
-          branch: "release"
+          branch: "release-0-24"
           body: ${{ steps.covector.outputs.change }}
