@@ -147,8 +147,8 @@ impl InnerWebView {
               },
               if let Some(proxy_setting) = proxy_config {
                 match proxy_setting.proxy_connection {
-                  ProxyConnection::Http(endpoint) => format!(" --proxy-server=http://{}:{}", &endpoint.host, &endpoint.port),
-                  ProxyConnection::Socks5(endpoint) => format!(" --proxy-server=socks5://{}:{}", &endpoint.host, &endpoint.port),
+                  ProxyConnection::Http(endpoint) => format!(" --proxy-server=http://{}:{}", endpoint.host, endpoint.port),
+                  ProxyConnection::Socks5(endpoint) => format!(" --proxy-server=socks5://{}:{}", endpoint.host, endpoint.port),
                 }
               } else {
                 "".to_string()
