@@ -81,7 +81,6 @@ Tao uses [gtk-rs](https://gtk-rs.org/) and its related libraries for window crea
 
 ```bash
 sudo pacman -S webkit2gtk-4.1
-sudo pacman -S libappindicator-gtk3 # For tray feature
 ```
 
 The `libayatana-indicator` package can be installed from the Arch User Repository (AUR).
@@ -90,17 +89,12 @@ The `libayatana-indicator` package can be installed from the Arch User Repositor
 
 ```bash
 sudo apt install libwebkit2gtk-4.1-dev
-# For tray feature, choose one of following package
-sudo apt install libayatana-appindicator3-dev
-sudo apt install libappindicator3-dev
 ```
 
 #### Fedora
 
 ```bash
 sudo dnf install gtk3-devel webkit2gtk4.1-devel
-# For tray feature
-sudo dnf install libappindicator-gtk3-devel
 ```
 
 Fedora does not have the Ayatana package yet, so you need to use the GTK one, see the [feature flags documentation](https://docs.rs/wry/latest/wry/#feature-flags).
@@ -121,7 +115,7 @@ WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7,
 
 ### Android / iOS
 
-Wry supports mobile with the help of  [`tauri-mobile`](https://github.com/tauri-apps/tauri-mobile) CLI to create template project. If you are interested in playing or hacking it, please follow [MOBILE.md](MOBILE.md).
+Wry supports mobile with the help of [`tauri-mobile`](https://github.com/tauri-apps/tauri-mobile) CLI to create template project. If you are interested in playing or hacking it, please follow [MOBILE.md](MOBILE.md).
 
 If you wish to create Android project yourself, there are a few kotlin files that are needed to run wry on Android and you have to set the following environment variables:
 

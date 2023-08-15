@@ -22,7 +22,7 @@ use tao::platform::android::ndk_glue::{
     JNIEnv,
   },
   ndk::looper::{FdEvent, ForeignLooper},
-  JMap, PACKAGE,
+  PACKAGE,
 };
 use url::Url;
 
@@ -30,10 +30,10 @@ pub(crate) mod binding;
 mod main_pipe;
 use main_pipe::{CreateWebViewAttributes, MainPipe, WebViewMessage, MAIN_PIPE};
 
-pub struct Context<'a> {
-  pub env: JNIEnv<'a>,
-  pub activity: JObject<'a>,
-  pub webview: JObject<'a>,
+pub struct Context<'a, 'b> {
+  pub env: &'a mut JNIEnv<'b>,
+  pub activity: &'a JObject<'b>,
+  pub webview: &'a JObject<'b>,
 }
 
 #[macro_export]
@@ -170,28 +170,29 @@ impl UnsafeOnPageLoadHandler {
 unsafe impl Send for UnsafeOnPageLoadHandler {}
 unsafe impl Sync for UnsafeOnPageLoadHandler {}
 
-pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
+pub unsafe fn setup(mut env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
   // we must create the WebChromeClient here because it calls `registerForActivityResult`,
   // which gives an `LifecycleOwners must call register before they are STARTED.` error when called outside the onCreate hook
   let rust_webchrome_client_class = find_class(
-    env,
+    &mut env,
     activity.as_obj(),
     format!("{}/RustWebChromeClient", PACKAGE.get().unwrap()),
   )
   .unwrap();
   let webchrome_client = env
     .new_object(
-      rust_webchrome_client_class,
+      &rust_webchrome_client_class,
       &format!("(L{}/WryActivity;)V", PACKAGE.get().unwrap()),
       &[activity.as_obj().into()],
     )
     .unwrap();
 
+  let webchrome_client = env.new_global_ref(webchrome_client).unwrap();
   let mut main_pipe = MainPipe {
     env,
     activity,
     webview: None,
-    webchrome_client: env.new_global_ref(webchrome_client).unwrap(),
+    webchrome_client,
   };
 
   looper
@@ -199,10 +200,7 @@ pub unsafe fn setup(env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
       let size = std::mem::size_of::<bool>();
       let mut wake = false;
       if libc::read(MAIN_PIPE[0], &mut wake as *mut _ as *mut _, size) == size as libc::ssize_t {
-        match main_pipe.recv() {
-          Ok(_) => true,
-          Err(_) => false,
-        }
+        main_pipe.recv().is_ok()
       } else {
         false
       }
@@ -306,37 +304,35 @@ impl InnerWebView {
               .map(|content_type_str| content_type_str.to_lowercase().starts_with("text/html"))
               .unwrap_or_default();
 
-            if should_inject_scripts {
-              if !initialization_scripts.is_empty() {
-                let mut document =
-                  kuchiki::parse_html().one(String::from_utf8_lossy(response.body()).into_owned());
-                let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
-                let mut hashes = Vec::new();
-                with_html_head(&mut document, |head| {
-                  // iterate in reverse order since we are prepending each script to the head tag
-                  for script in initialization_scripts.iter().rev() {
-                    let script_el =
-                      NodeRef::new_element(QualName::new(None, ns!(html), "script".into()), None);
-                    script_el.append(NodeRef::new_text(script));
-                    head.prepend(script_el);
-                    if csp.is_some() {
-                      hashes.push(hash_script(script));
-                    }
+            if should_inject_scripts && !initialization_scripts.is_empty() {
+              let mut document =
+                kuchiki::parse_html().one(String::from_utf8_lossy(response.body()).into_owned());
+              let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
+              let mut hashes = Vec::new();
+              with_html_head(&mut document, |head| {
+                // iterate in reverse order since we are prepending each script to the head tag
+                for script in initialization_scripts.iter().rev() {
+                  let script_el =
+                    NodeRef::new_element(QualName::new(None, ns!(html), "script".into()), None);
+                  script_el.append(NodeRef::new_text(script));
+                  head.prepend(script_el);
+                  if csp.is_some() {
+                    hashes.push(hash_script(script));
                   }
-                });
-
-                if let Some(csp) = csp {
-                  let csp_string = csp.to_str().unwrap().to_string();
-                  let csp_string = if csp_string.contains("script-src") {
-                    csp_string.replace("script-src", &format!("script-src {}", hashes.join(" ")))
-                  } else {
-                    format!("{} script-src {}", csp_string, hashes.join(" "))
-                  };
-                  *csp = HeaderValue::from_str(&csp_string).unwrap();
                 }
+              });
 
-                *response.body_mut() = document.to_string().into_bytes().into();
+              if let Some(csp) = csp {
+                let csp_string = csp.to_str().unwrap().to_string();
+                let csp_string = if csp_string.contains("script-src") {
+                  csp_string.replace("script-src", &format!("script-src {}", hashes.join(" ")))
+                } else {
+                  format!("{} script-src {}", csp_string, hashes.join(" "))
+                };
+                *csp = HeaderValue::from_str(&csp_string).unwrap();
               }
+
+              *response.body_mut() = document.to_string().into_bytes().into();
             }
             return Some(response);
           }
@@ -421,7 +417,7 @@ impl JniHandle {
   /// Provided function will be provided with the jni evironment, Android activity and WebView
   pub fn exec<F>(&self, func: F)
   where
-    F: FnOnce(JNIEnv, JObject, JObject) + Send + 'static,
+    F: FnOnce(&mut JNIEnv, &JObject, &JObject) + Send + 'static,
   {
     MainPipe::send(WebViewMessage::Jni(Box::new(func)));
   }
@@ -455,8 +451,8 @@ fn hash_script(script: &str) -> String {
 
 /// Finds a class in the project scope.
 pub fn find_class<'a>(
-  env: JNIEnv<'a>,
-  activity: JObject<'a>,
+  env: &mut JNIEnv<'a>,
+  activity: &JObject<'_>,
   name: String,
 ) -> std::result::Result<JClass<'a>, JniError> {
   let class_name = env.new_string(name.replace('/', "."))?;
@@ -465,7 +461,7 @@ pub fn find_class<'a>(
       activity,
       "getAppClass",
       "(Ljava/lang/String;)Ljava/lang/Class;",
-      &[class_name.into()],
+      &[(&class_name).into()],
     )?
     .l()?;
   Ok(my_class.into())
@@ -476,21 +472,7 @@ pub fn find_class<'a>(
 /// The closure takes the JNI env, the Android activity instance and the possibly null webview.
 pub fn dispatch<F>(func: F)
 where
-  F: FnOnce(JNIEnv, JObject, JObject) + Send + 'static,
+  F: FnOnce(&mut JNIEnv, &JObject, &JObject) + Send + 'static,
 {
   MainPipe::send(WebViewMessage::Jni(Box::new(func)));
-}
-
-fn create_headers_map<'a, 'b>(
-  env: &'a JNIEnv,
-  headers: &http::HeaderMap,
-) -> std::result::Result<JMap<'a, 'b>, JniError> {
-  let obj = env.new_object("java/util/HashMap", "()V", &[])?;
-  let headers_map = JMap::from_env(&env, obj)?;
-  for (name, value) in headers.iter() {
-    let key = env.new_string(name)?;
-    let value = env.new_string(value.to_str().unwrap_or_default())?;
-    headers_map.put(key.into(), value.into())?;
-  }
-  Ok(headers_map)
 }

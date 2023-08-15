@@ -75,17 +75,17 @@ jobs:
             ${{ matrix.platform }}-stable-cargo-core-
 
       - name: build wry
-        run: cargo build --features tray --target ${{ matrix.platform.target }}
+        run: cargo build --target ${{ matrix.platform.target }}
 
       - name: build tests and examples
         shell: bash
         if: (
           !contains(matrix.platform.target, 'android') &&
           !contains(matrix.platform.target, 'ios'))
-        run: cargo test --no-run --verbose --features tray --target ${{ matrix.platform.target }}
+        run: cargo test --no-run --verbose --target ${{ matrix.platform.target }}
 
       - name: run tests
         if: (
           !contains(matrix.platform.target, 'android') &&
           !contains(matrix.platform.target, 'ios'))
-        run: cargo test --verbose --features tray --target ${{ matrix.platform.target }}
+        run: cargo test --verbose --target ${{ matrix.platform.target }}

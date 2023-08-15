@@ -46,13 +46,12 @@
 //! ## Feature flags
 //!
 //! Wry uses a set of feature flags to toggle several advanced features. `file-drop`, `protocol`,
-//! and `tray` are enabled by default.
+//! are enabled by default.
 //!
 //! - `file-drop`: Enables [`with_file_drop_handler`] to control the behaviour when there are files
 //! interacting with the window. Enabled by default.
 //! - `protocol`: Enables [`with_custom_protocol`] to define custom URL scheme for handling tasks like
 //! loading assets. Enabled by default.
-//! - `tray`: Enables system tray and more menu item variants on **Linux**.
 //!  This feature requires either `libayatana-appindicator` or `libappindicator` package installed.
 //!  You can still create those types if you disable it. They just don't create the actual objects.
 //! - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
