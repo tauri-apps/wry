@@ -267,6 +267,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   additional_browser_args: Option<String>,
   browser_accelerator_keys: bool,
   theme: Option<Theme>,
+  https_scheme: bool,
 }
 #[cfg(windows)]
 impl Default for PlatformSpecificWebViewAttributes {
@@ -275,6 +276,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       additional_browser_args: None,
       browser_accelerator_keys: true, // This is WebView2's default behavior
       theme: None,
+      https_scheme: true,
     }
   }
 }
@@ -644,6 +646,14 @@ pub trait WebViewBuilderExtWindows {
   ///
   /// Defaults to [`Theme::Auto`] which will follow the OS defaults.
   fn with_theme(self, theme: Theme) -> Self;
+
+  /// Determines whether the custom protocols should use `http://<scheme>.localhost` instead of the default `https://<scheme>.localhost`.
+  ///
+  /// Using a `http` scheme will allow mixed content when trying to fetch `http` endpoints
+  /// and is therefore less secure but will match the behavior of the `<scheme>://localhost` protocols used on macOS and Linux.
+  ///
+  /// The default value is `true`.
+  fn with_https_scheme(self, enabled: bool) -> Self;
 }
 
 #[cfg(windows)]
@@ -660,6 +670,11 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 
   fn with_theme(mut self, theme: Theme) -> Self {
     self.platform_specific.theme = Some(theme);
+    self
+  }
+
+  fn with_https_scheme(mut self, enabled: bool) -> Self {
+    self.platform_specific.https_scheme = enabled;
     self
   }
 }
