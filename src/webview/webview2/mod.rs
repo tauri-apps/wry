@@ -5,9 +5,10 @@
 mod file_drop;
 
 use crate::{
-  webview::{PageLoadEvent, WebContext, WebViewAttributes, RGBA},
+  webview::{PageLoadEvent, WebContext, WebViewAttributes, RGBA, proxy::ProxyConnection},
   Error, Result,
 };
+use super::proxy::ProxyConfig;
 
 use file_drop::FileDropController;
 use url::Url;
@@ -80,7 +81,7 @@ impl InnerWebView {
     let file_drop_handler = attributes.file_drop_handler.take();
     let file_drop_window = window.clone();
 
-    let env = Self::create_environment(&web_context, pl_attrs.clone(), attributes.autoplay)?;
+    let env = Self::create_environment(&web_context, pl_attrs.clone(), attributes.autoplay, attributes.proxy_config.clone())?;
     let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
     let webview = Self::init_webview(window, hwnd, attributes, &env, &controller, pl_attrs)?;
 
@@ -102,6 +103,7 @@ impl InnerWebView {
     web_context: &Option<&mut WebContext>,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     autoplay: bool,
+    proxy_config: Option<ProxyConfig>,
   ) -> webview2_com::Result<ICoreWebView2Environment> {
     let (tx, rx) = mpsc::channel();
 
@@ -137,11 +139,19 @@ impl InnerWebView {
             // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
             // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
             format!(
-              "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection{}",
+              "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection{}{}",
               if autoplay {
                 " --autoplay-policy=no-user-gesture-required"
               } else {
                 ""
+              },
+              if let Some(proxy_setting) = proxy_config {
+                match proxy_setting.proxy_connection {
+                  ProxyConnection::Http(endpoint) => format!(" --proxy-server=http://{}:{}", &endpoint.host, &endpoint.port),
+                  ProxyConnection::Socks5(endpoint) => format!(" --proxy-server=socks5://{}:{}", &endpoint.host, &endpoint.port),
+                }
+              } else {
+                "".to_string()
               }
             )
           }))
