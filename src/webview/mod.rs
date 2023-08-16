@@ -701,7 +701,8 @@ pub trait WebViewBuilderExtWindows {
   /// ## Warning
   ///
   /// By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
-  /// and `--autoplay-policy=no-user-gesture-required` if autoplay is enabled
+  /// `--autoplay-policy=no-user-gesture-required` if autoplay is enabled
+  /// and `--proxy-server=<scheme>://<host>:<port>` if a proxy is set.
   /// so if you use this method, you have to add these arguments yourself if you want to keep the same behavior.
   fn with_additional_browser_args<S: Into<String>>(self, additional_args: S) -> Self;
 
