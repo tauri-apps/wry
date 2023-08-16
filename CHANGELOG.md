@@ -1,5 +1,11 @@
 # Changelog
 
+## \[0.32.0]
+
+- [`70d8ae0`](https://github.com/tauri-apps/wry/commit/70d8ae057c5e8b81db4aac28e5fa2dd3424b3307)([#1009](https://github.com/tauri-apps/wry/pull/1009)) Fixes Android freezing when handling request due to endless iteration when reading request headers.
+- [`b5e1875`](https://github.com/tauri-apps/wry/commit/b5e1875230794502a8e74c74abe79ca63488e421)([#994](https://github.com/tauri-apps/wry/pull/994)) **Breaking change** Wry now defaults to `http://<scheme>.localhost/` for custom protocols on Windows.
+- [`b5e1875`](https://github.com/tauri-apps/wry/commit/b5e1875230794502a8e74c74abe79ca63488e421)([#994](https://github.com/tauri-apps/wry/pull/994)) Add `WebViewBuilderExtWindows::with_https_scheme` to be able to choose between `http` and `https` for custom protocols on Windows.
+
 ## \[0.31.0]
 
 - [`e47562f`](https://github.com/tauri-apps/wry/commit/e47562f71284457ff77e4c8b6bf02fdbe19ab880)([#993](https://github.com/tauri-apps/wry/pull/993)) Update the unmaintained `kuchiki` crate to the maintained `kuchikiki` crate.
