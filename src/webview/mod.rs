@@ -240,8 +240,8 @@ pub struct WebViewAttributes {
 
   /// Set webview proxy configuration.
   ///
-  /// - **macOS**: Support HTTP CONNECT, SOCKSv5
-  /// - **Windows / Linux**: not implemented yet.
+  /// - **macOS**: Requires macOS 14.0+. Support HTTP CONNECT, SOCKSv5
+  /// - **Windows / Linux**: Support HTTP CONNECT, SOCKSv5
   /// - **Android / iOS:** Unsupported.
   pub proxy_config: Option<ProxyConfig>,
 }
@@ -667,8 +667,8 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Set webview proxy configuration.
   ///
-  /// - **macOS / Windows**: Support HTTP CONNECT, SOCKSv5
-  /// - **Linux**: not implemented yet.
+  /// - **macOS**: Requires macOS 14.0+. Support HTTP CONNECT, SOCKSv5
+  /// - **Windows / Linux**: Support HTTP CONNECT, SOCKSv5
   /// - **Android / iOS:** Unsupported.
   pub fn with_proxy_config(mut self, configuration: ProxyConfig) -> Self {
     self.webview.proxy_config = Some(configuration);

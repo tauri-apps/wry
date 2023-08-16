@@ -4,11 +4,11 @@
 
 mod file_drop;
 
+use super::proxy::ProxyConfig;
 use crate::{
-  webview::{PageLoadEvent, WebContext, WebViewAttributes, RGBA, proxy::ProxyConnection},
+  webview::{proxy::ProxyConnection, PageLoadEvent, WebContext, WebViewAttributes, RGBA},
   Error, Result,
 };
-use super::proxy::ProxyConfig;
 
 use file_drop::FileDropController;
 use url::Url;
@@ -81,7 +81,12 @@ impl InnerWebView {
     let file_drop_handler = attributes.file_drop_handler.take();
     let file_drop_window = window.clone();
 
-    let env = Self::create_environment(&web_context, pl_attrs.clone(), attributes.autoplay, attributes.proxy_config.clone())?;
+    let env = Self::create_environment(
+      &web_context,
+      pl_attrs.clone(),
+      attributes.autoplay,
+      attributes.proxy_config.clone(),
+    )?;
     let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
     let webview = Self::init_webview(window, hwnd, attributes, &env, &controller, pl_attrs)?;
 
@@ -147,8 +152,13 @@ impl InnerWebView {
               },
               if let Some(proxy_setting) = proxy_config {
                 match proxy_setting.proxy_connection {
-                  ProxyConnection::Http(endpoint) => format!(" --proxy-server=http://{}:{}", endpoint.host, endpoint.port),
-                  ProxyConnection::Socks5(endpoint) => format!(" --proxy-server=socks5://{}:{}", endpoint.host, endpoint.port),
+                  ProxyConnection::Http(endpoint) => {
+                    format!(" --proxy-server=http://{}:{}", endpoint.host, endpoint.port)
+                  }
+                  ProxyConnection::Socks5(endpoint) => format!(
+                    " --proxy-server=socks5://{}:{}",
+                    endpoint.host, endpoint.port
+                  ),
                 }
               } else {
                 "".to_string()
