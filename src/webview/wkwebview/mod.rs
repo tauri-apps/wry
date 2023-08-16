@@ -6,6 +6,7 @@ mod download;
 #[cfg(target_os = "macos")]
 mod file_drop;
 mod navigation;
+#[cfg(feature = "mac-proxy")]
 mod proxy;
 #[cfg(target_os = "macos")]
 mod synthetic_mouse_events;
@@ -44,20 +45,26 @@ use file_drop::{add_file_drop_methods, set_file_drop_handler};
 #[cfg(target_os = "ios")]
 use crate::application::platform::ios::WindowExtIOS;
 
+#[cfg(feature = "mac-proxy")]
+use crate::webview::{
+  proxy::ProxyConnection,
+  wkwebview::proxy::{
+    nw_endpoint_t, nw_proxy_config_create_http_connect, nw_proxy_config_create_socksv5,
+  },
+};
+
 use crate::{
   application::{
     dpi::{LogicalSize, PhysicalSize},
     window::Window,
   },
   webview::{
-    proxy::ProxyConnection,
     wkwebview::{
       download::{
         add_download_methods, download_did_fail, download_did_finish, download_policy,
         set_download_delegate,
       },
       navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
-      proxy::{nw_endpoint_t, nw_proxy_config_create_http_connect, nw_proxy_config_create_socksv5},
     },
     FileDropEvent, PageLoadEvent, WebContext, WebViewAttributes, RGBA,
   },
@@ -317,6 +324,7 @@ impl InnerWebView {
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
 
+      #[cfg(feature = "mac-proxy")]
       if let Some(proxy_config) = attributes.proxy_config {
         let proxy_config = match proxy_config.proxy_connection {
           ProxyConnection::Http(endpoint) => {

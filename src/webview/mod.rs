@@ -238,11 +238,11 @@ pub struct WebViewAttributes {
   /// Set a handler closure to process page load events.
   pub on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
 
-  /// Set webview proxy configuration.
+  /// Set a proxy configuration for the webview.
   ///
-  /// - **macOS**: Requires macOS 14.0+. Support HTTP CONNECT, SOCKSv5
-  /// - **Windows / Linux**: Support HTTP CONNECT, SOCKSv5
-  /// - **Android / iOS:** Unsupported.
+  /// - **macOS**: Requires macOS 14.0+ and the `mac-proxy` feature flag to be enabled. Supports HTTP CONNECT and SOCKSv5 proxies.
+  /// - **Windows / Linux**: Supports HTTP CONNECT and SOCKSv5 proxies.
+  /// - **Android / iOS:** Not supported.
   pub proxy_config: Option<ProxyConfig>,
 }
 
@@ -665,11 +665,11 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set webview proxy configuration.
+  /// Set a proxy configuration for the webview.
   ///
-  /// - **macOS**: Requires macOS 14.0+. Support HTTP CONNECT, SOCKSv5
-  /// - **Windows / Linux**: Support HTTP CONNECT, SOCKSv5
-  /// - **Android / iOS:** Unsupported.
+  /// - **macOS**: Requires macOS 14.0+ and the `mac-proxy` feature flag to be enabled. Supports HTTP CONNECT and SOCKSv5 proxies.
+  /// - **Windows / Linux**: Supports HTTP CONNECT and SOCKSv5 proxies.
+  /// - **Android / iOS:** Not supported.
   pub fn with_proxy_config(mut self, configuration: ProxyConfig) -> Self {
     self.webview.proxy_config = Some(configuration);
     self
