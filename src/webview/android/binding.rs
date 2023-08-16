@@ -49,7 +49,8 @@ fn handle_request(env: &mut JNIEnv, request: JObject) -> Result<jobject, JniErro
     .call_method(request, "getRequestHeaders", "()Ljava/util/Map;", &[])?
     .l()?;
   let request_headers = JMap::from_env(env, &request_headers)?;
-  while let Some((header, value)) = request_headers.iter(env)?.next(env)? {
+  let mut iter = request_headers.iter(env)?;
+  while let Some((header, value)) = iter.next(env)? {
     let header = JString::from(header);
     let value = JString::from(value);
     let header = env.get_string(&header)?;
