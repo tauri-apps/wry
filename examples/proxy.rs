@@ -20,8 +20,8 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)?;
 
   let http_proxy = ProxyConnection::Http(ProxyEndpoint {
-    host: "xx.xx.xx.xx".to_string(),
-    port: "xxxx".to_string(),
+    host: "localhost".to_string(),
+    port: "3128".to_string(),
   });
 
   let _webview = WebViewBuilder::new(window)?

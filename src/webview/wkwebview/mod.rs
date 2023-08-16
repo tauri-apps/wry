@@ -57,7 +57,7 @@ use crate::{
         set_download_delegate,
       },
       navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
-      proxy::{nw_proxy_config_create_http_connect, nw_proxy_config_create_socksv5},
+      proxy::{nw_endpoint_t, nw_proxy_config_create_http_connect, nw_proxy_config_create_socksv5},
     },
     FileDropEvent, PageLoadEvent, WebContext, WebViewAttributes, RGBA,
   },
@@ -320,12 +320,12 @@ impl InnerWebView {
       if let Some(proxy_config) = attributes.proxy_config {
         let proxy_config = match proxy_config.proxy_connection {
           ProxyConnection::Http(endpoint) => {
-            let ns_endpoint = endpoint.try_into_nw_endpoint().unwrap();
-            nw_proxy_config_create_http_connect(ns_endpoint, nil)
+            let nw_endpoint = nw_endpoint_t::try_from(endpoint).unwrap();
+            nw_proxy_config_create_http_connect(nw_endpoint, nil)
           }
           ProxyConnection::Socks5(endpoint) => {
-            let ns_endpoint = endpoint.try_into_nw_endpoint().unwrap();
-            nw_proxy_config_create_socksv5(ns_endpoint)
+            let nw_endpoint = nw_endpoint_t::try_from(endpoint).unwrap();
+            nw_proxy_config_create_socksv5(nw_endpoint)
           }
         };
 

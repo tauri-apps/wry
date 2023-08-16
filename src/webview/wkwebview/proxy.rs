@@ -49,14 +49,16 @@ extern "C" {
   ) -> nw_proxy_config_t;
 }
 
-impl ProxyEndpoint {
-  pub fn try_into_nw_endpoint(&self) -> Result<nw_endpoint_t, Error> {
+impl TryFrom<ProxyEndpoint> for nw_endpoint_t {
+  type Error = Error;
+  fn try_from(endpoint: ProxyEndpoint) -> Result<Self, Error> {
     unsafe {
-      let endpoint_host = NSString::new(&self.host).to_cstr();
-      let endpoint_port = NSString::new(&self.port).to_cstr();
+      let endpoint_host = NSString::new(&endpoint.host).to_cstr();
+      let endpoint_port = NSString::new(&endpoint.port).to_cstr();
       let endpoint = nw_endpoint_create_host(endpoint_host, endpoint_port);
 
       match endpoint {
+        #[allow(non_upper_case_globals)]
         nil => Err(Error::ProxyEndpointCreationFailed),
         _ => Ok(endpoint),
       }
