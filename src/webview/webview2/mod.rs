@@ -4,7 +4,6 @@
 
 mod file_drop;
 
-use super::proxy::ProxyConfig;
 use crate::{
   webview::{proxy::ProxyConnection, PageLoadEvent, WebContext, WebViewAttributes, RGBA},
   Error, Result,
