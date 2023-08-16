@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.31.1]
+
+- [`e30034d`](https://github.com/tauri-apps/wry/commit/e30034d1b63f185cc98b6ec2244a45e38c6b0b9e)([#1009](https://github.com/tauri-apps/wry/pull/1009)) Fixes Android freezing when handling request due to endless iteration when reading request headers.
+
 ## \[0.31.0]
 
 - [`e47562f`](https://github.com/tauri-apps/wry/commit/e47562f71284457ff77e4c8b6bf02fdbe19ab880)([#993](https://github.com/tauri-apps/wry/pull/993)) Update the unmaintained `kuchiki` crate to the maintained `kuchikiki` crate.
