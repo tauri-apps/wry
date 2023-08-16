@@ -1150,6 +1150,7 @@ impl NSString {
     }
   }
 
+  #[allow(dead_code)] // only used when `mac-proxy` feature is enabled
   fn to_cstr(&self) -> *const c_char {
     unsafe {
       let utf_8_string = msg_send![self.0, UTF8String];
