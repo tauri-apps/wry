@@ -84,8 +84,7 @@ impl InnerWebView {
     let env = Self::create_environment(
       &web_context,
       pl_attrs.clone(),
-      attributes.autoplay,
-      attributes.proxy_config.clone(),
+      &attributes,
     )?;
     let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
     let webview = Self::init_webview(window, hwnd, attributes, &env, &controller, pl_attrs)?;
@@ -107,8 +106,7 @@ impl InnerWebView {
   fn create_environment(
     web_context: &Option<&mut WebContext>,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    autoplay: bool,
-    proxy_config: Option<ProxyConfig>,
+    attributes: &WebViewAttributes,
   ) -> webview2_com::Result<ICoreWebView2Environment> {
     let (tx, rx) = mpsc::channel();
 
@@ -117,6 +115,35 @@ impl InnerWebView {
       .and_then(|context| context.data_directory())
       .and_then(|path| path.to_str())
       .map(String::from);
+
+    let argument = PCWSTR::from_raw(
+      encode_wide(pl_attrs.additional_browser_args.unwrap_or_else(|| {
+        // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
+        // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
+        format!(
+          "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection{}{}",
+          if attributes.autoplay {
+            " --autoplay-policy=no-user-gesture-required"
+          } else {
+            ""
+          },
+          if let Some(proxy_setting) = &attributes.proxy_config {
+            match &proxy_setting.proxy_connection {
+              ProxyConnection::Http(endpoint) => {
+                format!(" --proxy-server=http://{}:{}", endpoint.host, endpoint.port)
+              }
+              ProxyConnection::Socks5(endpoint) => format!(
+                " --proxy-server=socks5://{}:{}",
+                endpoint.host, endpoint.port
+              ),
+            }
+          } else {
+            "".to_string()
+          }
+        )
+      }))
+      .as_ptr(),
+    );
 
     CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
       Box::new(move |environmentcreatedhandler| unsafe {
@@ -139,34 +166,7 @@ impl InnerWebView {
           options
         };
 
-        let _ = options.SetAdditionalBrowserArguments(PCWSTR::from_raw(
-          encode_wide(pl_attrs.additional_browser_args.unwrap_or_else(|| {
-            // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
-            // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
-            format!(
-              "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection{}{}",
-              if autoplay {
-                " --autoplay-policy=no-user-gesture-required"
-              } else {
-                ""
-              },
-              if let Some(proxy_setting) = proxy_config {
-                match proxy_setting.proxy_connection {
-                  ProxyConnection::Http(endpoint) => {
-                    format!(" --proxy-server=http://{}:{}", endpoint.host, endpoint.port)
-                  }
-                  ProxyConnection::Socks5(endpoint) => format!(
-                    " --proxy-server=socks5://{}:{}",
-                    endpoint.host, endpoint.port
-                  ),
-                }
-              } else {
-                "".to_string()
-              }
-            )
-          }))
-          .as_ptr(),
-        ));
+        let _ = options.SetAdditionalBrowserArguments(argument);
 
         if let Some(data_directory) = data_directory {
           CreateCoreWebView2EnvironmentWithOptions(
