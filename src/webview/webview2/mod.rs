@@ -123,7 +123,7 @@ impl InnerWebView {
             ""
           },
           if let Some(proxy_setting) = &attributes.proxy_config {
-            match &proxy_setting {
+            match proxy_setting {
               ProxyConfig::Http(endpoint) => {
                 format!(" --proxy-server=http://{}:{}", endpoint.host, endpoint.port)
               }
