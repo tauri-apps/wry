@@ -5,7 +5,7 @@
 mod file_drop;
 
 use crate::{
-  webview::{proxy::ProxyConnection, PageLoadEvent, WebContext, WebViewAttributes, RGBA},
+  webview::{proxy::ProxyConfig, PageLoadEvent, WebContext, WebViewAttributes, RGBA},
   Error, Result,
 };
 
@@ -123,11 +123,11 @@ impl InnerWebView {
             ""
           },
           if let Some(proxy_setting) = &attributes.proxy_config {
-            match &proxy_setting.proxy_connection {
-              ProxyConnection::Http(endpoint) => {
+            match &proxy_setting {
+              ProxyConfig::Http(endpoint) => {
                 format!(" --proxy-server=http://{}:{}", endpoint.host, endpoint.port)
               }
-              ProxyConnection::Socks5(endpoint) => format!(
+              ProxyConfig::Socks5(endpoint) => format!(
                 " --proxy-server=socks5://{}:{}",
                 endpoint.host, endpoint.port
               ),

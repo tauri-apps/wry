@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use wry::webview::proxy::{ProxyConfig, ProxyConnection, ProxyEndpoint, ProxyType};
+use wry::webview::proxy::{ProxyConfig, ProxyEndpoint};
 
 fn main() -> wry::Result<()> {
   use wry::{
@@ -19,16 +19,13 @@ fn main() -> wry::Result<()> {
     .with_title("Proxy Test")
     .build(&event_loop)?;
 
-  let http_proxy = ProxyConnection::Http(ProxyEndpoint {
+  let http_proxy = ProxyConfig::Http(ProxyEndpoint {
     host: "localhost".to_string(),
     port: "3128".to_string(),
   });
 
   let _webview = WebViewBuilder::new(window)?
-    .with_proxy_config(ProxyConfig {
-      proxy_type: ProxyType::Http,
-      proxy_connection: http_proxy,
-    })
+    .with_proxy_config(http_proxy)
     .with_url("https://www.myip.com/")?
     .build()?;
 

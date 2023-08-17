@@ -29,9 +29,7 @@ pub use web_context::WebContextImpl;
 
 use crate::{
   application::{platform::unix::*, window::Window},
-  webview::{
-    proxy::ProxyConnection, web_context::WebContext, PageLoadEvent, WebViewAttributes, RGBA,
-  },
+  webview::{proxy::ProxyConfig, web_context::WebContext, PageLoadEvent, WebViewAttributes, RGBA},
   Error, Result,
 };
 
@@ -74,9 +72,9 @@ impl InnerWebView {
       }
     };
     if let Some(proxy_setting) = attributes.proxy_config {
-      let proxy_uri = match proxy_setting.proxy_connection {
-        ProxyConnection::Http(endpoint) => format!("http://{}:{}", endpoint.host, endpoint.port),
-        ProxyConnection::Socks5(endpoint) => {
+      let proxy_uri = match proxy_setting {
+        ProxyConfig::Http(endpoint) => format!("http://{}:{}", endpoint.host, endpoint.port),
+        ProxyConfig::Socks5(endpoint) => {
           format!("socks5://{}:{}", endpoint.host, endpoint.port)
         }
       };

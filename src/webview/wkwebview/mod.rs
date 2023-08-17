@@ -47,7 +47,7 @@ use crate::application::platform::ios::WindowExtIOS;
 
 #[cfg(feature = "mac-proxy")]
 use crate::webview::{
-  proxy::ProxyConnection,
+  proxy::ProxyConfig,
   wkwebview::proxy::{
     nw_endpoint_t, nw_proxy_config_create_http_connect, nw_proxy_config_create_socksv5,
   },
@@ -326,12 +326,12 @@ impl InnerWebView {
 
       #[cfg(feature = "mac-proxy")]
       if let Some(proxy_config) = attributes.proxy_config {
-        let proxy_config = match proxy_config.proxy_connection {
-          ProxyConnection::Http(endpoint) => {
+        let proxy_config = match proxy_config {
+          ProxyConfig::Http(endpoint) => {
             let nw_endpoint = nw_endpoint_t::try_from(endpoint).unwrap();
             nw_proxy_config_create_http_connect(nw_endpoint, nil)
           }
-          ProxyConnection::Socks5(endpoint) => {
+          ProxyConfig::Socks5(endpoint) => {
             let nw_endpoint = nw_endpoint_t::try_from(endpoint).unwrap();
             nw_proxy_config_create_socksv5(nw_endpoint)
           }
