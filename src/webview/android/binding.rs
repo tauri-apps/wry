@@ -21,49 +21,128 @@ use super::{
 
 use crate::webview::PageLoadEvent;
 
+#[macro_export]
+macro_rules! android_binding {
+  ($domain:ident, $package:ident, $main:ident) => {
+    android_binding!($domain, $package, $main, ::wry)
+  };
+  ($domain:ident, $package:ident, $main:ident, $wry:path) => {
+    use $wry::{
+      application::{
+        android_binding as tao_android_binding, android_fn, generate_package_name,
+        platform::android::ndk_glue::*,
+      },
+      webview::prelude::*,
+    };
+    tao_android_binding!($domain, $package, WryActivity, setup, $main);
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      handleRequest,
+      [JObject],
+      jobject
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      withAssetLoader,
+      [],
+      jboolean
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      assetLoaderDomain,
+      [],
+      jstring
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      shouldOverride,
+      [JString],
+      jboolean
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebView,
+      shouldOverride,
+      [JString],
+      jboolean
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      onPageLoading,
+      [JString]
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebViewClient,
+      onPageLoaded,
+      [JString]
+    );
+    android_fn!($domain, $package, Ipc, ipc, [JString]);
+    android_fn!(
+      $domain,
+      $package,
+      RustWebChromeClient,
+      handleReceivedTitle,
+      [JObject, JString],
+    );
+  };
+}
+
 fn handle_request(env: &mut JNIEnv, request: JObject) -> Result<jobject, JniError> {
-  let mut request_builder = Request::builder();
-
-  let uri = env
-    .call_method(&request, "getUrl", "()Landroid/net/Uri;", &[])?
-    .l()?;
-  let url: JString = env
-    .call_method(&uri, "toString", "()Ljava/lang/String;", &[])?
-    .l()?
-    .into();
-  request_builder = request_builder.uri(&env.get_string(&url)?.to_string_lossy().to_string());
-
-  let method: JString = env
-    .call_method(&request, "getMethod", "()Ljava/lang/String;", &[])?
-    .l()?
-    .into();
-  request_builder = request_builder.method(
-    env
-      .get_string(&method)?
-      .to_string_lossy()
-      .to_string()
-      .as_str(),
-  );
-
-  let request_headers = env
-    .call_method(request, "getRequestHeaders", "()Ljava/util/Map;", &[])?
-    .l()?;
-  let request_headers = JMap::from_env(env, &request_headers)?;
-  let mut iter = request_headers.iter(env)?;
-  while let Some((header, value)) = iter.next(env)? {
-    let header = JString::from(header);
-    let value = JString::from(value);
-    let header = env.get_string(&header)?;
-    let value = env.get_string(&value)?;
-    if let (Ok(header), Ok(value)) = (
-      HeaderName::from_bytes(header.to_bytes()),
-      HeaderValue::from_bytes(value.to_bytes()),
-    ) {
-      request_builder = request_builder.header(header, value);
-    }
-  }
-
   if let Some(handler) = REQUEST_HANDLER.get() {
+    let mut request_builder = Request::builder();
+
+    let uri = env
+      .call_method(&request, "getUrl", "()Landroid/net/Uri;", &[])?
+      .l()?;
+    let url: JString = env
+      .call_method(&uri, "toString", "()Ljava/lang/String;", &[])?
+      .l()?
+      .into();
+    request_builder = request_builder.uri(&env.get_string(&url)?.to_string_lossy().to_string());
+
+    let method: JString = env
+      .call_method(&request, "getMethod", "()Ljava/lang/String;", &[])?
+      .l()?
+      .into();
+    request_builder = request_builder.method(
+      env
+        .get_string(&method)?
+        .to_string_lossy()
+        .to_string()
+        .as_str(),
+    );
+
+    let request_headers = env
+      .call_method(request, "getRequestHeaders", "()Ljava/util/Map;", &[])?
+      .l()?;
+    let request_headers = JMap::from_env(env, &request_headers)?;
+    let mut iter = request_headers.iter(env)?;
+    while let Some((header, value)) = iter.next(env)? {
+      let header = JString::from(header);
+      let value = JString::from(value);
+      let header = env.get_string(&header)?;
+      let value = env.get_string(&value)?;
+      if let (Ok(header), Ok(value)) = (
+        HeaderName::from_bytes(header.to_bytes()),
+        HeaderValue::from_bytes(value.to_bytes()),
+      ) {
+        request_builder = request_builder.header(header, value);
+      }
+    }
+
     let final_request = match request_builder.body(Vec::new()) {
       Ok(req) => req,
       Err(e) => {
@@ -71,7 +150,8 @@ fn handle_request(env: &mut JNIEnv, request: JObject) -> Result<jobject, JniErro
         return Ok(*JObject::null());
       }
     };
-    let response = (handler.0)(final_request);
+
+    let response = (handler.handler)(final_request);
     if let Some(response) = response {
       let status = response.status();
       let status_code = status.as_u16() as i32;
@@ -144,6 +224,7 @@ fn handle_request(env: &mut JNIEnv, request: JObject) -> Result<jobject, JniErro
       return Ok(*web_resource_response);
     }
   }
+
   Ok(*JObject::null())
 }
 
@@ -169,7 +250,7 @@ pub unsafe fn shouldOverride(mut env: JNIEnv, _: JClass, url: JString) -> jboole
         // client is different from how the navigation_handler is defined.
         //
         // https://developer.android.com/reference/android/webkit/WebViewClient#shouldOverrideUrlLoading(android.webkit.WebView,%20android.webkit.WebResourceRequest)
-        .map(|f| !f.0(url))
+        .map(|f| !(f.handler)(url))
         .unwrap_or(false)
     }
     Err(e) => {
@@ -184,8 +265,8 @@ pub unsafe fn ipc(mut env: JNIEnv, _: JClass, arg: JString) {
   match env.get_string(&arg) {
     Ok(arg) => {
       let arg = arg.to_string_lossy().to_string();
-      if let Some(w) = IPC.get() {
-        (w.0)(&w.1, arg)
+      if let Some(ipc) = IPC.get() {
+        (ipc.handler)(&ipc.window, arg)
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),
@@ -197,8 +278,8 @@ pub unsafe fn handleReceivedTitle(mut env: JNIEnv, _: JClass, _webview: JObject,
   match env.get_string(&title) {
     Ok(title) => {
       let title = title.to_string_lossy().to_string();
-      if let Some(w) = TITLE_CHANGE_HANDLER.get() {
-        (w.0)(&w.1, title)
+      if let Some(title_handler) = TITLE_CHANGE_HANDLER.get() {
+        (title_handler.handler)(&title_handler.window, title)
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),
@@ -224,8 +305,8 @@ pub unsafe fn onPageLoading(mut env: JNIEnv, _: JClass, url: JString) {
   match env.get_string(&url) {
     Ok(url) => {
       let url = url.to_string_lossy().to_string();
-      if let Some(h) = ON_LOAD_HANDLER.get() {
-        (h.0)(PageLoadEvent::Started, url)
+      if let Some(on_load) = ON_LOAD_HANDLER.get() {
+        (on_load.handler)(PageLoadEvent::Started, url)
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),
@@ -237,8 +318,8 @@ pub unsafe fn onPageLoaded(mut env: JNIEnv, _: JClass, url: JString) {
   match env.get_string(&url) {
     Ok(url) => {
       let url = url.to_string_lossy().to_string();
-      if let Some(h) = ON_LOAD_HANDLER.get() {
-        (h.0)(PageLoadEvent::Finished, url)
+      if let Some(on_load) = ON_LOAD_HANDLER.get() {
+        (on_load.handler)(PageLoadEvent::Finished, url)
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),
