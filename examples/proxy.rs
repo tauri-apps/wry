@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use wry::webview::proxy::{ProxyConfig, ProxyEndpoint};
+use wry::webview::{ProxyConfig, ProxyEndpoint};
 
 fn main() -> wry::Result<()> {
   use wry::{

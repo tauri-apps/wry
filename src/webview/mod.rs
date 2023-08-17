@@ -4,7 +4,7 @@
 
 //! [`WebView`] struct and associated types.
 
-pub mod proxy;
+mod proxy;
 mod web_context;
 
 pub use web_context::WebContext;
@@ -51,7 +51,7 @@ use windows::{Win32::Foundation::HWND, Win32::UI::WindowsAndMessaging::DestroyWi
 
 use std::{borrow::Cow, path::PathBuf, rc::Rc};
 
-use proxy::ProxyConfig;
+pub use proxy::{ProxyConfig, ProxyEndpoint};
 pub use url::Url;
 
 #[cfg(target_os = "windows")]
