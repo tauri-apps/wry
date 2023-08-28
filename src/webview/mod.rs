@@ -4,6 +4,7 @@
 
 //! [`WebView`] struct and associated types.
 
+mod proxy;
 mod web_context;
 
 pub use web_context::WebContext;
@@ -50,6 +51,7 @@ use windows::{Win32::Foundation::HWND, Win32::UI::WindowsAndMessaging::DestroyWi
 
 use std::{borrow::Cow, path::PathBuf, rc::Rc};
 
+pub use proxy::{ProxyConfig, ProxyEndpoint};
 pub use url::Url;
 
 #[cfg(target_os = "windows")]
@@ -235,6 +237,12 @@ pub struct WebViewAttributes {
 
   /// Set a handler closure to process page load events.
   pub on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
+
+  /// Set a proxy configuration for the webview. Supports HTTP CONNECT and SOCKSv5 proxies
+  ///
+  /// - **macOS**: Requires macOS 14.0+ and the `mac-proxy` feature flag to be enabled.
+  /// - **Android / iOS:** Not supported.
+  pub proxy_config: Option<ProxyConfig>,
 }
 
 impl Default for WebViewAttributes {
@@ -267,6 +275,7 @@ impl Default for WebViewAttributes {
       incognito: false,
       autoplay: true,
       on_page_load_handler: None,
+      proxy_config: None,
     }
   }
 }
@@ -655,6 +664,16 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Set a proxy configuration for the webview.
+  ///
+  /// - **macOS**: Requires macOS 14.0+ and the `mac-proxy` feature flag to be enabled. Supports HTTP CONNECT and SOCKSv5 proxies.
+  /// - **Windows / Linux**: Supports HTTP CONNECT and SOCKSv5 proxies.
+  /// - **Android / iOS:** Not supported.
+  pub fn with_proxy_config(mut self, configuration: ProxyConfig) -> Self {
+    self.webview.proxy_config = Some(configuration);
+    self
+  }
+
   /// Consume the builder and create the [`WebView`].
   ///
   /// Platform-specific behavior:
@@ -682,7 +701,8 @@ pub trait WebViewBuilderExtWindows {
   /// ## Warning
   ///
   /// By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
-  /// and `--autoplay-policy=no-user-gesture-required` if autoplay is enabled
+  /// `--autoplay-policy=no-user-gesture-required` if autoplay is enabled
+  /// and `--proxy-server=<scheme>://<host>:<port>` if a proxy is set.
   /// so if you use this method, you have to add these arguments yourself if you want to keep the same behavior.
   fn with_additional_browser_args<S: Into<String>>(self, additional_args: S) -> Self;
 

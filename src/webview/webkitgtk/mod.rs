@@ -15,9 +15,9 @@ use std::{
 };
 use url::Url;
 use webkit2gtk::{
-  traits::*, AutoplayPolicy, LoadEvent, NavigationPolicyDecision, PolicyDecisionType, SettingsExt,
-  URIRequest, UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView,
-  WebViewBuilder, WebsitePoliciesBuilder,
+  traits::*, AutoplayPolicy, LoadEvent, NavigationPolicyDecision, NetworkProxyMode,
+  NetworkProxySettings, PolicyDecisionType, SettingsExt, URIRequest, UserContentInjectedFrames,
+  UserScript, UserScriptInjectionTime, WebView, WebViewBuilder, WebsitePoliciesBuilder,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -29,7 +29,7 @@ pub use web_context::WebContextImpl;
 
 use crate::{
   application::{platform::unix::*, window::Window},
-  webview::{web_context::WebContext, PageLoadEvent, WebViewAttributes, RGBA},
+  webview::{proxy::ProxyConfig, web_context::WebContext, PageLoadEvent, WebViewAttributes, RGBA},
   Error, Result,
 };
 
@@ -71,7 +71,20 @@ impl InnerWebView {
         }
       }
     };
-
+    if let Some(proxy_setting) = attributes.proxy_config {
+      let proxy_uri = match proxy_setting {
+        ProxyConfig::Http(endpoint) => format!("http://{}:{}", endpoint.host, endpoint.port),
+        ProxyConfig::Socks5(endpoint) => {
+          format!("socks5://{}:{}", endpoint.host, endpoint.port)
+        }
+      };
+      use webkit2gtk::WebContextExt;
+      if let Some(website_data_manager) = web_context.context().website_data_manager() {
+        let mut settings = NetworkProxySettings::new(Some(&proxy_uri.as_str()), &[]);
+        website_data_manager
+          .set_network_proxy_settings(NetworkProxyMode::Custom, Some(&mut settings));
+      }
+    }
     let webview = {
       let mut webview = WebViewBuilder::new();
       webview = webview.user_content_manager(web_context.manager());

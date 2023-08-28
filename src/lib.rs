@@ -165,4 +165,6 @@ pub enum Error {
   #[cfg(target_os = "android")]
   #[error(transparent)]
   JniError(#[from] tao::platform::android::ndk_glue::jni::errors::Error),
+  #[error("Failed to create proxy endpoint")]
+  ProxyEndpointCreationFailed,
 }

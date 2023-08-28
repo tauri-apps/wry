@@ -6,6 +6,8 @@ mod download;
 #[cfg(target_os = "macos")]
 mod file_drop;
 mod navigation;
+#[cfg(feature = "mac-proxy")]
+mod proxy;
 #[cfg(target_os = "macos")]
 mod synthetic_mouse_events;
 
@@ -42,6 +44,14 @@ use file_drop::{add_file_drop_methods, set_file_drop_handler};
 
 #[cfg(target_os = "ios")]
 use crate::application::platform::ios::WindowExtIOS;
+
+#[cfg(feature = "mac-proxy")]
+use crate::webview::{
+  proxy::ProxyConfig,
+  wkwebview::proxy::{
+    nw_endpoint_t, nw_proxy_config_create_http_connect, nw_proxy_config_create_socksv5,
+  },
+};
 
 use crate::{
   application::{
@@ -313,6 +323,23 @@ impl InnerWebView {
       let () = msg_send![config, setWebsiteDataStore: data_store];
       let _preference: id = msg_send![config, preferences];
       let _yes: id = msg_send![class!(NSNumber), numberWithBool:1];
+
+      #[cfg(feature = "mac-proxy")]
+      if let Some(proxy_config) = attributes.proxy_config {
+        let proxy_config = match proxy_config {
+          ProxyConfig::Http(endpoint) => {
+            let nw_endpoint = nw_endpoint_t::try_from(endpoint).unwrap();
+            nw_proxy_config_create_http_connect(nw_endpoint, nil)
+          }
+          ProxyConfig::Socks5(endpoint) => {
+            let nw_endpoint = nw_endpoint_t::try_from(endpoint).unwrap();
+            nw_proxy_config_create_socksv5(nw_endpoint)
+          }
+        };
+
+        let proxies: id = msg_send![class!(NSArray), arrayWithObject: proxy_config];
+        let () = msg_send![data_store, setProxyConfigurations: proxies];
+      }
 
       #[cfg(target_os = "macos")]
       (*webview).set_ivar(ACCEPT_FIRST_MOUSE, attributes.accept_first_mouse);
@@ -1120,6 +1147,14 @@ impl NSString {
       let len = msg_send![self.0, lengthOfBytesUsingEncoding: UTF8_ENCODING];
       let bytes = slice::from_raw_parts(bytes as *const u8, len);
       str::from_utf8_unchecked(bytes)
+    }
+  }
+
+  #[allow(dead_code)] // only used when `mac-proxy` feature is enabled
+  fn to_cstr(&self) -> *const c_char {
+    unsafe {
+      let utf_8_string = msg_send![self.0, UTF8String];
+      utf_8_string
     }
   }
 
