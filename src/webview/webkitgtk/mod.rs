@@ -222,7 +222,10 @@ impl InnerWebView {
     } else {
       window.add(&*webview);
     }
-    webview.grab_focus();
+
+    if attributes.focused {
+      webview.grab_focus();
+    }
 
     if let Some(context) = WebViewExt::context(&*webview) {
       use webkit2gtk::WebContextExt;
