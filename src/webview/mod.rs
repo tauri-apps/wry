@@ -243,6 +243,13 @@ pub struct WebViewAttributes {
   /// - **macOS**: Requires macOS 14.0+ and the `mac-proxy` feature flag to be enabled.
   /// - **Android / iOS:** Not supported.
   pub proxy_config: Option<ProxyConfig>,
+
+  /// Whether the webview should be focused when created.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **macOS / Android / iOS:** Unsupported.
+  pub focused: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -276,6 +283,7 @@ impl Default for WebViewAttributes {
       autoplay: true,
       on_page_load_handler: None,
       proxy_config: None,
+      focused: true,
     }
   }
 }
@@ -671,6 +679,16 @@ impl<'a> WebViewBuilder<'a> {
   /// - **Android / iOS:** Not supported.
   pub fn with_proxy_config(mut self, configuration: ProxyConfig) -> Self {
     self.webview.proxy_config = Some(configuration);
+    self
+  }
+
+  /// Set whether the webview should be focused when created.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **macOS / Android / iOS:** Unsupported.
+  pub fn with_focused(mut self, focused: bool) -> Self {
+    self.webview.focused = focused;
     self
   }
 
