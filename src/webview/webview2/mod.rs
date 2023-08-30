@@ -774,9 +774,11 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       controller
         .SetIsVisible(true)
         .map_err(webview2_com::Error::WindowsError)?;
-      controller
-        .MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC)
-        .map_err(webview2_com::Error::WindowsError)?;
+      if pl_attrs.focused {
+        controller
+          .MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC)
+          .map_err(webview2_com::Error::WindowsError)?;
+      }
     }
 
     Ok(webview)

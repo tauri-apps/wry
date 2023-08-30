@@ -268,6 +268,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   browser_accelerator_keys: bool,
   theme: Option<Theme>,
   https_scheme: bool,
+  focused: bool,
 }
 #[cfg(windows)]
 impl Default for PlatformSpecificWebViewAttributes {
@@ -277,6 +278,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       browser_accelerator_keys: true, // This is WebView2's default behavior
       theme: None,
       https_scheme: true,
+      focused: true,
     }
   }
 }
@@ -286,10 +288,24 @@ impl Default for PlatformSpecificWebViewAttributes {
   target_os = "freebsd",
   target_os = "netbsd",
   target_os = "openbsd",
-  target_os = "macos",
-  target_os = "android",
-  target_os = "ios",
 ))]
+#[derive(Clone)]
+pub(crate) struct PlatformSpecificWebViewAttributes {
+  focused: bool,
+}
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd",
+))]
+impl Default for PlatformSpecificWebViewAttributes {
+  fn default() -> Self {
+    Self { focused: true }
+  }
+}
+#[cfg(any(target_os = "macos", target_os = "android", target_os = "ios",))]
 #[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes;
 
@@ -602,6 +618,26 @@ impl<'a> WebViewBuilder<'a> {
     callback: impl Fn(&Window, String) + 'static,
   ) -> Self {
     self.webview.document_title_changed_handler = Some(Box::new(callback));
+    self
+  }
+
+  /// Set whether the webview should be focused when created.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **macOS / Android / iOS:** Unsupported.
+  pub fn with_focused(mut self, _focused: bool) -> Self {
+    #[cfg(any(
+      windows,
+      target_os = "linux",
+      target_os = "dragonfly",
+      target_os = "freebsd",
+      target_os = "netbsd",
+      target_os = "openbsd",
+    ))]
+    {
+      self.platform_specific.focused = _focused;
+    }
     self
   }
 

@@ -47,7 +47,7 @@ impl InnerWebView {
   pub fn new(
     window: Rc<Window>,
     mut attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let window_rc = Rc::clone(&window);
@@ -264,7 +264,10 @@ impl InnerWebView {
       let vbox = widget.downcast::<gtk::Box>().unwrap();
       vbox.pack_start(&*webview, true, true, 0);
     }
-    webview.grab_focus();
+
+    if pl_attrs.focused {
+      webview.grab_focus();
+    }
 
     // Enable webgl, webaudio, canvas features as default.
     if let Some(settings) = WebViewExt::settings(&*webview) {
