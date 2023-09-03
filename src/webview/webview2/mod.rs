@@ -28,9 +28,7 @@ use once_cell::unsync::OnceCell;
 use windows::{
   core::{ComInterface, PCSTR, PCWSTR, PWSTR},
   Win32::{
-    Foundation::{
-      BOOL, E_FAIL, E_POINTER, FARPROC, HGLOBAL, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM,
-    },
+    Foundation::*,
     Globalization::{self, MAX_LOCALE_NAME},
     System::{
       Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
@@ -392,6 +390,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             let mut js = PWSTR::null();
             args.TryGetWebMessageAsString(&mut js)?;
             let js = take_pwstr(js);
+            // Winit doesn't have hit_test features yet.
+            #[cfg(not(feature = "winit"))]
             if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_MOUSE_MOVE__" {
               if !window.is_decorated() && window.is_resizable() && !window.is_maximized() {
                 use crate::application::{platform::windows::hit_test, window::CursorIcon};
