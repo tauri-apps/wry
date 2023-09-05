@@ -66,7 +66,7 @@ use crate::{
       },
       navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
     },
-    FileDropEvent, PageLoadEvent, WebContext, WebViewAttributes, RGBA,
+    FileDropEvent, PageLoadEvent, RequestApi, WebContext, WebViewAttributes, RGBA,
   },
   Result,
 };
@@ -77,8 +77,6 @@ use http::{
   version::Version,
   Request, Response,
 };
-
-use super::RequestApi;
 
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
 const ACCEPT_FIRST_MOUSE: &str = "accept_first_mouse";
