@@ -828,7 +828,10 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     // in WebViewAssetLoader.
     self.webview.custom_protocols.push((
       protocol.clone(),
-      Box::new(|_| Ok(Response::builder().body(Vec::new().into())?)),
+      Box::new(|_, api| {
+        api.respond(Response::builder().body(Vec::new().into())?);
+        Ok(())
+      }),
     ));
     self.platform_specific.with_asset_loader = true;
     self.platform_specific.asset_loader_domain = Some(format!("{}.assets", protocol));
