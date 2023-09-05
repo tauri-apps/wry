@@ -5,7 +5,7 @@
 mod file_drop;
 
 use crate::{
-  webview::{proxy::ProxyConfig, PageLoadEvent, WebContext, WebViewAttributes, RGBA},
+  webview::{proxy::ProxyConfig, PageLoadEvent, RequestApi, WebContext, WebViewAttributes, RGBA},
   Error, Result,
 };
 
@@ -13,6 +13,7 @@ use file_drop::FileDropController;
 use url::Url;
 
 use std::{
+  borrow::Cow,
   collections::HashSet,
   fmt::Write,
   iter::once,
@@ -48,7 +49,7 @@ use windows::{
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 
 use crate::application::{platform::windows::WindowExtWindows, window::Window};
-use http::Request;
+use http::{Request, Response, StatusCode};
 
 use super::Theme;
 
@@ -659,53 +660,30 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                     Err(_) => return Err(E_FAIL.into()),
                   };
 
-                  return match (custom_protocol.1)(&final_request) {
-                    Ok(sent_response) => {
-                      let content = sent_response.body();
-                      let status_code = sent_response.status();
-
-                      let mut headers_map = String::new();
-
-                      // build headers
-                      for (name, value) in sent_response.headers().iter() {
-                        let header_key = name.to_string();
-                        if let Ok(value) = value.to_str() {
-                          let _ = writeln!(headers_map, "{}: {}", header_key, value);
+                  let env = env.clone();
+                  let responder: Box<dyn FnOnce(Response<Cow<'static, [u8]>>)> =
+                    Box::new(move |sent_response| {
+                      match prepare_web_request_response(&env, sent_response) {
+                        Ok(response) => {
+                          let _ = args.SetResponse(&response);
+                        }
+                        Err(_) => {
+                          let status = StatusCode::BAD_REQUEST;
+                          if let Ok(res) = env.CreateWebResourceResponse(
+                            None,
+                            status.as_u16() as i32,
+                            PCWSTR::from_raw(
+                              encode_wide(status.canonical_reason().unwrap_or("")).as_ptr(),
+                            ),
+                            PCWSTR::from_raw(encode_wide(String::new()).as_ptr()),
+                          ) {
+                            let _ = args.SetResponse(&res);
+                          }
                         }
                       }
-
-                      let mut body_sent = None;
-                      if !content.is_empty() {
-                        let stream = CreateStreamOnHGlobal(HGLOBAL(0), true)?;
-                        stream.SetSize(content.len() as u64)?;
-                        let mut cb_write = MaybeUninit::uninit();
-                        if stream
-                          .Write(
-                            content.as_ptr() as *const _,
-                            content.len() as u32,
-                            Some(cb_write.as_mut_ptr()),
-                          )
-                          .is_ok()
-                          && cb_write.assume_init() as usize == content.len()
-                        {
-                          body_sent = Some(stream);
-                        }
-                      }
-
-                      // FIXME: Set http response version
-
-                      let response = env.CreateWebResourceResponse(
-                        body_sent.as_ref(),
-                        status_code.as_u16() as i32,
-                        PCWSTR::from_raw(
-                          encode_wide(status_code.canonical_reason().unwrap_or("OK")).as_ptr(),
-                        ),
-                        PCWSTR::from_raw(encode_wide(headers_map).as_ptr()),
-                      )?;
-
-                      args.SetResponse(&response)?;
-                      Ok(())
-                    }
+                    });
+                  return match (custom_protocol.1)(final_request, RequestApi { responder }) {
+                    Ok(_) => Ok(()),
                     Err(_) => Err(E_FAIL.into()),
                   };
                 }
@@ -960,6 +938,51 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   pub fn set_theme(&self, theme: Theme) {
     set_theme(&self.webview, theme);
   }
+}
+
+unsafe fn prepare_web_request_response(
+  env: &ICoreWebView2Environment,
+  sent_response: Response<Cow<'static, [u8]>>,
+) -> windows::core::Result<ICoreWebView2WebResourceResponse> {
+  let content = sent_response.body();
+  let status_code = sent_response.status();
+
+  let mut headers_map = String::new();
+
+  // build headers
+  for (name, value) in sent_response.headers().iter() {
+    let header_key = name.to_string();
+    if let Ok(value) = value.to_str() {
+      let _ = writeln!(headers_map, "{}: {}", header_key, value);
+    }
+  }
+
+  let mut body_sent = None;
+  if !content.is_empty() {
+    let stream = CreateStreamOnHGlobal(HGLOBAL(0), true)?;
+    stream.SetSize(content.len() as u64)?;
+    let mut cb_write = MaybeUninit::uninit();
+    if stream
+      .Write(
+        content.as_ptr() as *const _,
+        content.len() as u32,
+        Some(cb_write.as_mut_ptr()),
+      )
+      .is_ok()
+      && cb_write.assume_init() as usize == content.len()
+    {
+      body_sent = Some(stream);
+    }
+  }
+
+  // FIXME: Set http response version
+
+  env.CreateWebResourceResponse(
+    body_sent.as_ref(),
+    status_code.as_u16() as i32,
+    PCWSTR::from_raw(encode_wide(status_code.canonical_reason().unwrap_or("OK")).as_ptr()),
+    PCWSTR::from_raw(encode_wide(headers_map).as_ptr()),
+  )
 }
 
 fn encode_wide(string: impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
