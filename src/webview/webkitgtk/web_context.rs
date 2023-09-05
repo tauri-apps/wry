@@ -119,7 +119,7 @@ pub trait WebContextExt {
   /// relying on the platform's implementation to properly handle duplicated scheme handlers.
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static;
+    F: Fn(Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static;
 
   /// Register a custom protocol to the web context, only if it is not a duplicate scheme.
   ///
@@ -127,7 +127,7 @@ pub trait WebContextExt {
   /// function will return `Err(Error::DuplicateCustomProtocol)`.
   fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static;
+    F: Fn(Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static;
 
   /// Add a [`WebView`] to the queue waiting to be opened.
   ///
@@ -164,7 +164,7 @@ impl WebContextExt for super::WebContext {
 
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
+    F: Fn(Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
   {
     actually_register_uri_scheme(self, name, handler)?;
     if self.os.registered_protocols.insert(name.to_string()) {
@@ -176,7 +176,7 @@ impl WebContextExt for super::WebContext {
 
   fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
+    F: Fn(Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
   {
     if self.os.registered_protocols.insert(name.to_string()) {
       actually_register_uri_scheme(self, name, handler)
@@ -284,7 +284,7 @@ fn actually_register_uri_scheme<F>(
   handler: F,
 ) -> crate::Result<()>
 where
-  F: Fn(&Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
+  F: Fn(Request<Vec<u8>>) -> crate::Result<Response<Cow<'static, [u8]>>> + 'static,
 {
   use webkit2gtk::traits::*;
   let context = &context.os.context;

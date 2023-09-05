@@ -28,7 +28,7 @@ fn main() -> wry::Result<()> {
 
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_custom_protocol("wry".into(), move |request| {
+    .with_custom_protocol("wry".into(), move |request, api| {
       let path = request.uri().path();
       // Read the file content from file path
       let content = if path == "/" {
@@ -53,10 +53,13 @@ fn main() -> wry::Result<()> {
         unimplemented!();
       };
 
-      Response::builder()
+      let response = Response::builder()
         .header(CONTENT_TYPE, mimetype)
-        .body(content)
-        .map_err(Into::into)
+        .body(content)?;
+
+      api.respond(response);
+
+      Ok(())
     })
     // tell the webview to load the custom protocol
     .with_url("wry://localhost")?
