@@ -122,7 +122,7 @@ pub trait WebContextExt {
   /// relying on the platform's implementation to properly handle duplicated scheme handlers.
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(Request<Vec<u8>>, RequestAsyncResponder) -> crate::Result<()> + 'static;
+    F: Fn(Request<Vec<u8>>, RequestAsyncResponder) + 'static;
 
   /// Register a custom protocol to the web context, only if it is not a duplicate scheme.
   ///
@@ -130,7 +130,7 @@ pub trait WebContextExt {
   /// function will return `Err(Error::DuplicateCustomProtocol)`.
   fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(Request<Vec<u8>>, RequestAsyncResponder) -> crate::Result<()> + 'static;
+    F: Fn(Request<Vec<u8>>, RequestAsyncResponder) + 'static;
 
   /// Add a [`WebView`] to the queue waiting to be opened.
   ///
@@ -167,7 +167,7 @@ impl WebContextExt for super::WebContext {
 
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(Request<Vec<u8>>, RequestAsyncResponder) -> crate::Result<()> + 'static,
+    F: Fn(Request<Vec<u8>>, RequestAsyncResponder) + 'static,
   {
     actually_register_uri_scheme(self, name, handler)?;
     if self.os.registered_protocols.insert(name.to_string()) {
@@ -179,7 +179,7 @@ impl WebContextExt for super::WebContext {
 
   fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(Request<Vec<u8>>, RequestAsyncResponder) -> crate::Result<()> + 'static,
+    F: Fn(Request<Vec<u8>>, RequestAsyncResponder) + 'static,
   {
     if self.os.registered_protocols.insert(name.to_string()) {
       actually_register_uri_scheme(self, name, handler)
@@ -287,7 +287,7 @@ fn actually_register_uri_scheme<F>(
   handler: F,
 ) -> crate::Result<()>
 where
-  F: Fn(Request<Vec<u8>>, RequestAsyncResponder) -> crate::Result<()> + 'static,
+  F: Fn(Request<Vec<u8>>, RequestAsyncResponder) + 'static,
 {
   use webkit2gtk::traits::*;
   let context = &context.os.context;
@@ -397,12 +397,7 @@ where
           request_.finish_with_response(&response);
         });
 
-      if handler(http_request, RequestAsyncResponder { responder }).is_err() {
-        request.finish_error(&mut glib::Error::new(
-          FileError::Exist,
-          "Could not get requested file.",
-        ));
-      }
+      handler(http_request, RequestAsyncResponder { responder });
     } else {
       request.finish_error(&mut glib::Error::new(
         FileError::Exist,

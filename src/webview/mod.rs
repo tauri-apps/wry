@@ -153,10 +153,7 @@ pub struct WebViewAttributes {
   /// - iOS: Same as macOS. To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
-  pub custom_protocols: Vec<(
-    String,
-    Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder) -> Result<()>>,
-  )>,
+  pub custom_protocols: Vec<(String, Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>)>,
   /// Set the IPC handler to receive the message from Javascript on webview to host Rust code.
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
   ///
@@ -481,14 +478,13 @@ impl<'a> WebViewBuilder<'a> {
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(Request<Vec<u8>>) -> Result<HttpResponse<Cow<'static, [u8]>>> + 'static,
+    F: Fn(Request<Vec<u8>>) -> HttpResponse<Cow<'static, [u8]>> + 'static,
   {
     self.webview.custom_protocols.push((
       name,
       Box::new(move |request, responder| {
-        let http_response = handler(request)?;
+        let http_response = handler(request);
         responder.respond(http_response);
-        Ok(())
       }),
     ));
     self
@@ -526,13 +522,10 @@ impl<'a> WebViewBuilder<'a> {
   where
     F: Fn(Request<Vec<u8>>, RequestAsyncResponder) + 'static,
   {
-    self.webview.custom_protocols.push((
-      name,
-      Box::new(move |request, response| {
-        handler(request, response);
-        Ok(())
-      }),
-    ));
+    self
+      .webview
+      .custom_protocols
+      .push((name, Box::new(handler)));
     self
   }
 
@@ -881,8 +874,7 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     self.webview.custom_protocols.push((
       protocol.clone(),
       Box::new(|_, api| {
-        api.respond(HttpResponse::builder().body(Vec::new())?);
-        Ok(())
+        api.respond(HttpResponse::builder().body(Vec::new()).unwrap());
       }),
     ));
     self.platform_specific.with_asset_loader = true;

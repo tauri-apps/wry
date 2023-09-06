@@ -2,19 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use std::{
+  borrow::Cow,
+  fs::{canonicalize, read},
+};
+
+use wry::{
+  application::{
+    event::{Event, StartCause, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::WindowBuilder,
+  },
+  http::{header::CONTENT_TYPE, method::Method, Response},
+  webview::WebViewBuilder,
+};
+
 fn main() -> wry::Result<()> {
-  use std::fs::{canonicalize, read};
-
-  use wry::{
-    application::{
-      event::{Event, StartCause, WindowEvent},
-      event_loop::{ControlFlow, EventLoop},
-      window::WindowBuilder,
-    },
-    http::{header::CONTENT_TYPE, method::Method, Response},
-    webview::WebViewBuilder,
-  };
-
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new()
     .with_title("Hello World")
@@ -34,10 +37,13 @@ fn main() -> wry::Result<()> {
       // remove leading slash
       let path = &request.uri().path()[1..];
 
-      Response::builder()
-        .header(CONTENT_TYPE, "text/html")
-        .body(read(canonicalize(path)?)?.into())
-        .map_err(Into::into)
+      get_response(path).unwrap_or_else(|error| {
+        http::Response::builder()
+          .status(http::StatusCode::BAD_REQUEST)
+          .header(CONTENT_TYPE, "text/plain")
+          .body(error.to_string().as_bytes().to_vec().into())
+          .unwrap()
+      })
     })
     // tell the webview to load the custom protocol
     .with_url("wry://localhost/examples/form.html")?
@@ -55,4 +61,11 @@ fn main() -> wry::Result<()> {
       _ => (),
     }
   });
+}
+
+fn get_response(path: &str) -> Result<Response<Cow<'static, [u8]>>, Box<dyn std::error::Error>> {
+  Response::builder()
+    .header(CONTENT_TYPE, "text/html")
+    .body(read(canonicalize(path)?)?.into())
+    .map_err(Into::into)
 }

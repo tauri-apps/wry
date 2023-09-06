@@ -236,10 +236,8 @@ impl InnerWebView {
               tx.send(response).unwrap();
             });
 
-          match (custom_protocol.1)(request, RequestAsyncResponder { responder }) {
-            Ok(_) => return Some(rx.recv().unwrap()),
-            Err(_) => return None,
-          }
+          (custom_protocol.1)(request, RequestAsyncResponder { responder });
+          return Some(rx.recv().unwrap());
         }
         None
       }))
