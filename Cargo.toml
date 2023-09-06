@@ -22,7 +22,7 @@ targets = [
 ]
 
 [features]
-default = [ "file-drop", "objc-exception", "protocol" ]
+default = [ "file-drop", "objc-exception", "protocol", "tao" ]
 objc-exception = [ "objc/exception" ]
 file-drop = [ ]
 protocol = [ ]
@@ -41,7 +41,8 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.4"
-tao = { version = "0.22", default-features = false, features = [ "serde" ] }
+tao = { version = "0.22", default-features = false, features = [ "serde" ], optional = true}
+winit = { version = "0.28", features = [ "serde" ], optional = true }
 http = "0.2.9"
 
 [dev-dependencies]
@@ -77,7 +78,10 @@ dunce = "1"
   "Win32_System_SystemServices",
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
-  "Win32_Globalization"
+  "Win32_Globalization",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Input",
+  "Win32_UI_Input_KeyboardAndMouse"
 ]
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]

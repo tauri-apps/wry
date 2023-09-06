@@ -48,6 +48,8 @@
 //! Wry uses a set of feature flags to toggle several advanced features. `file-drop`, `protocol`,
 //! are enabled by default.
 //!
+//! - `tao`: Default windowing crate used by wry. It is re-exported as `application` module.
+//! - `winit`: Replace [tao] with [winit] crate. It only supports Windows and macOS.
 //! - `file-drop`: Enables [`with_file_drop_handler`] to control the behaviour when there are files
 //! interacting with the window. Enabled by default.
 //! - `protocol`: Enables [`with_custom_protocol`] to define custom URL scheme for handling tasks like

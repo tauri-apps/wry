@@ -89,3 +89,10 @@ jobs:
           !contains(matrix.platform.target, 'android') &&
           !contains(matrix.platform.target, 'ios'))
         run: cargo test --verbose --target ${{ matrix.platform.target }}
+
+      - name: build wry with winit
+        if: (
+          contains(matrix.platform.target, 'windows') ||
+          contains(matrix.platform.target, 'apple'))
+        run: cargo build --no-default-features --features winit --target ${{ matrix.platform.target }}
+

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 mod file_drop;
+mod resize;
 
 use crate::{
   webview::{
@@ -31,9 +32,7 @@ use once_cell::unsync::OnceCell;
 use windows::{
   core::{ComInterface, PCSTR, PCWSTR, PWSTR},
   Win32::{
-    Foundation::{
-      BOOL, E_FAIL, E_POINTER, FARPROC, HGLOBAL, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM,
-    },
+    Foundation::*,
     Globalization::{self, MAX_LOCALE_NAME},
     System::{
       Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
@@ -43,7 +42,7 @@ use windows::{
     },
     UI::{
       Shell::{DefSubclassProc, SetWindowSubclass},
-      WindowsAndMessaging as win32wm,
+      WindowsAndMessaging::{self as win32wm},
     },
   },
 };
@@ -397,11 +396,11 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             let js = take_pwstr(js);
             if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_MOUSE_MOVE__" {
               if !window.is_decorated() && window.is_resizable() && !window.is_maximized() {
-                use crate::application::{platform::windows::hit_test, window::CursorIcon};
+                use crate::application::window::CursorIcon;
 
                 let mut point = POINT::default();
                 win32wm::GetCursorPos(&mut point);
-                let result = hit_test(window.hwnd(), point.x, point.y);
+                let result = resize::hit_test(window.hwnd(), point.x, point.y);
                 let cursor = match result.0 as u32 {
                   win32wm::HTLEFT => CursorIcon::WResize,
                   win32wm::HTTOP => CursorIcon::NResize,
@@ -422,7 +421,13 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                   // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
                   // and prevent conflict with `tao::window::drag_window`.
                   if result.0 as u32 != win32wm::HTCLIENT {
-                    window.begin_resize_drag(result.0, win32wm::WM_NCLBUTTONDOWN, point.x, point.y);
+                    resize::begin_resize_drag(
+                      window.hwnd(),
+                      result.0,
+                      win32wm::WM_NCLBUTTONDOWN,
+                      point.x,
+                      point.y,
+                    );
                   }
                 }
               }
@@ -1096,10 +1101,15 @@ fn get_function_impl(library: &str, function: &str) -> Option<FARPROC> {
 
 macro_rules! get_function {
   ($lib:expr, $func:ident) => {
-    get_function_impl(concat!($lib, '\0'), concat!(stringify!($func), '\0'))
-      .map(|f| unsafe { std::mem::transmute::<windows::Win32::Foundation::FARPROC, $func>(f) })
+    crate::webview::webview2::get_function_impl(
+      concat!($lib, '\0'),
+      concat!(stringify!($func), '\0'),
+    )
+    .map(|f| unsafe { std::mem::transmute::<windows::Win32::Foundation::FARPROC, $func>(f) })
   };
 }
+
+pub(crate) use get_function;
 
 /// Returns a tuple of (major, minor, buildnumber)
 fn get_windows_ver() -> Option<(u32, u32, u32)> {
