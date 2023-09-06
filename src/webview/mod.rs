@@ -503,7 +503,6 @@ impl<'a> WebViewBuilder<'a> {
   ///   webview::WebViewBuilder,
   /// };
   ///
-  /// fn main() {
   /// let event_loop = EventLoop::new();
   /// let window = WindowBuilder::new()
   ///   .build(&event_loop)
@@ -520,7 +519,6 @@ impl<'a> WebViewBuilder<'a> {
   ///       });
   ///       Ok(())
   ///     });
-  /// }
   /// ```
   #[cfg(feature = "protocol")]
   pub fn with_asynchronous_custom_protocol<F>(mut self, name: String, handler: F) -> Self
