@@ -67,8 +67,10 @@ pub struct RequestAsyncResponder {
   pub(crate) responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)>,
 }
 
+// SAFETY: even though the webview bindings do not indicate the responder is Send,
+// it actually is and we need it in order to let the user do the protocol computation
+// on a separate thread or async task.
 unsafe impl Send for RequestAsyncResponder {}
-unsafe impl Sync for RequestAsyncResponder {}
 
 impl RequestAsyncResponder {
   /// Resolves the request with the given response.
