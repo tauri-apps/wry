@@ -877,7 +877,7 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     self.webview.custom_protocols.push((
       protocol.clone(),
       Box::new(|_, api| {
-        api.respond(HttpResponse::builder().body(Vec::new().into())?);
+        api.respond(HttpResponse::builder().body(Vec::new())?);
         Ok(())
       }),
     ));
