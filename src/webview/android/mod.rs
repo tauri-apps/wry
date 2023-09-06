@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use super::{PageLoadEvent, WebContext, WebViewAttributes, RGBA};
-use crate::{application::window::Window, webview::Response, Result};
+use crate::{application::window::Window, webview::RequestAsyncResponder, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
 use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
@@ -341,7 +341,7 @@ impl InnerWebView {
               tx.send(response).unwrap();
             });
 
-          match (custom_protocol.1)(request, Response { responder }) {
+          match (custom_protocol.1)(request, RequestAsyncResponder { responder }) {
             Ok(_) => return Some(rx.recv().unwrap()),
             Err(_) => return None,
           }

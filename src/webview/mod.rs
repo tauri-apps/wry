@@ -63,14 +63,14 @@ use http::{Request, Response as HttpResponse};
 /// Resolves a custom protocol [`Request`] asynchronously.
 ///
 /// See [`WebViewBuilder::with_asynchronous_custom_protocol`] for more information.
-pub struct Response {
+pub struct RequestAsyncResponder {
   pub(crate) responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)>,
 }
 
-unsafe impl Send for Response {}
-unsafe impl Sync for Response {}
+unsafe impl Send for RequestAsyncResponder {}
+unsafe impl Sync for RequestAsyncResponder {}
 
-impl Response {
+impl RequestAsyncResponder {
   /// Resolves the request with the given response.
   pub fn respond<T: Into<Cow<'static, [u8]>>>(self, response: HttpResponse<T>) {
     let (parts, body) = response.into_parts();
@@ -153,7 +153,7 @@ pub struct WebViewAttributes {
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
   pub custom_protocols: Vec<(
     String,
-    Box<dyn Fn(Request<Vec<u8>>, Response) -> Result<()>>,
+    Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder) -> Result<()>>,
   )>,
   /// Set the IPC handler to receive the message from Javascript on webview to host Rust code.
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
@@ -483,9 +483,9 @@ impl<'a> WebViewBuilder<'a> {
   {
     self.webview.custom_protocols.push((
       name,
-      Box::new(move |request, response| {
+      Box::new(move |request, responder| {
         let http_response = handler(request)?;
-        response.respond(http_response);
+        responder.respond(http_response);
         Ok(())
       }),
     ));
@@ -509,20 +509,20 @@ impl<'a> WebViewBuilder<'a> {
   ///   .unwrap();
   ///   WebViewBuilder::new(window)
   ///     .unwrap()
-  ///     .with_asynchronous_custom_protocol("wry".into(), |request, response| {
+  ///     .with_asynchronous_custom_protocol("wry".into(), |request, responder| {
   ///       // here you can use a tokio task, thread pool or anything
   ///       // to do heavy computation to resolve your request
   ///       // e.g. downloading files, opening the camera...
   ///       std::thread::spawn(move || {
   ///         std::thread::sleep(std::time::Duration::from_secs(2));
-  ///         response.respond(http::Response::builder().body(Vec::new()).unwrap());
+  ///         responder.respond(http::Response::builder().body(Vec::new()).unwrap());
   ///       });
   ///     });
   /// ```
   #[cfg(feature = "protocol")]
   pub fn with_asynchronous_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(Request<Vec<u8>>, Response) + 'static,
+    F: Fn(Request<Vec<u8>>, RequestAsyncResponder) + 'static,
   {
     self.webview.custom_protocols.push((
       name,

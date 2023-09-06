@@ -5,7 +5,9 @@
 mod file_drop;
 
 use crate::{
-  webview::{proxy::ProxyConfig, PageLoadEvent, Response, WebContext, WebViewAttributes, RGBA},
+  webview::{
+    proxy::ProxyConfig, PageLoadEvent, RequestAsyncResponder, WebContext, WebViewAttributes, RGBA,
+  },
   Error, Result,
 };
 
@@ -682,7 +684,10 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                         }
                       }
                     });
-                  return match (custom_protocol.1)(final_request, Response { responder }) {
+                  return match (custom_protocol.1)(
+                    final_request,
+                    RequestAsyncResponder { responder },
+                  ) {
                     Ok(_) => Ok(()),
                     Err(_) => Err(E_FAIL.into()),
                   };

@@ -29,18 +29,17 @@ fn main() -> wry::Result<()> {
 
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_asynchronous_custom_protocol(
-      "wry".into(),
-      move |request, response| match get_wry_response(request) {
-        Ok(http_response) => response.respond(http_response),
-        Err(e) => response.respond(
+    .with_asynchronous_custom_protocol("wry".into(), move |request, responder| {
+      match get_wry_response(request) {
+        Ok(http_response) => responder.respond(http_response),
+        Err(e) => responder.respond(
           http::Response::builder()
             .header(CONTENT_TYPE, "text/plain")
             .body(e.to_string().as_bytes().to_vec())
             .unwrap(),
         ),
-      },
-    )
+      }
+    })
     // tell the webview to load the custom protocol
     .with_url("wry://localhost")?
     .build()?;

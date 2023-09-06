@@ -66,7 +66,7 @@ use crate::{
       },
       navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
     },
-    FileDropEvent, PageLoadEvent, Response, WebContext, WebViewAttributes, RGBA,
+    FileDropEvent, PageLoadEvent, RequestAsyncResponder, WebContext, WebViewAttributes, RGBA,
   },
   Result,
 };
@@ -98,7 +98,7 @@ pub(crate) struct InnerWebView {
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
   download_delegate: id,
-  protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, Response) -> Result<()>>>,
+  protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder) -> Result<()>>>,
 }
 
 impl InnerWebView {
@@ -132,8 +132,8 @@ impl InnerWebView {
       unsafe {
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
-          let function =
-            &mut *(*function as *mut Box<dyn Fn(Request<Vec<u8>>, Response) -> Result<()>>);
+          let function = &mut *(*function
+            as *mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder) -> Result<()>>);
 
           // Get url request
           let request: id = msg_send![task, request];
@@ -238,7 +238,7 @@ impl InnerWebView {
                   let () = msg_send![task, didFinish];
                 },
               );
-              if function(final_request, Response { responder }).is_err() {
+              if function(final_request, RequestAsyncResponder { responder }).is_err() {
                 respond_with_404();
               }
             }
