@@ -78,7 +78,10 @@ dunce = "1"
   "Win32_System_SystemServices",
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
-  "Win32_Globalization"
+  "Win32_Globalization",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Input",
+  "Win32_UI_Input_KeyboardAndMouse"
 ]
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
