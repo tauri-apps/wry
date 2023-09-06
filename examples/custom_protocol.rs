@@ -35,6 +35,7 @@ fn main() -> wry::Result<()> {
         Err(e) => responder.respond(
           http::Response::builder()
             .header(CONTENT_TYPE, "text/plain")
+			.status(500)
             .body(e.to_string().as_bytes().to_vec())
             .unwrap(),
         ),
