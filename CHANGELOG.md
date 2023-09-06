@@ -1,5 +1,15 @@
 # Changelog
 
+## \[0.32.0]
+
+- [`4bdf1c3`](https://github.com/tauri-apps/wry/commit/4bdf1c366de5708b7626ca63eb39e134869c5bd4)([#1017](https://github.com/tauri-apps/wry/pull/1017)) Added `WebViewBuilder::with_asynchronous_custom_protocol` to allow implementing a protocol handler that resolves asynchronously.
+- [`70d8ae0`](https://github.com/tauri-apps/wry/commit/70d8ae057c5e8b81db4aac28e5fa2dd3424b3307)([#1009](https://github.com/tauri-apps/wry/pull/1009)) Fixes Android freezing when handling request due to endless iteration when reading request headers.
+- [`b5e1875`](https://github.com/tauri-apps/wry/commit/b5e1875230794502a8e74c74abe79ca63488e421)([#994](https://github.com/tauri-apps/wry/pull/994)) **Breaking change** Wry now defaults to `http://<scheme>.localhost/` for custom protocols on Windows.
+- [`b5e1875`](https://github.com/tauri-apps/wry/commit/b5e1875230794502a8e74c74abe79ca63488e421)([#994](https://github.com/tauri-apps/wry/pull/994)) Add `WebViewBuilderExtWindows::with_https_scheme` to be able to choose between `http` and `https` for custom protocols on Windows.
+- [`fa15076`](https://github.com/tauri-apps/wry/commit/fa15076207d9e678db4149210aba929044d0ff45)([#163](https://github.com/tauri-apps/wry/pull/163)) Add `winit` and `tao` feature flag with `tao` as default.
+- [`4bdf1c3`](https://github.com/tauri-apps/wry/commit/4bdf1c366de5708b7626ca63eb39e134869c5bd4)([#1017](https://github.com/tauri-apps/wry/pull/1017)) **Breaking change:** `WebViewBuidler::with_custom_protocol` closure now returns `http::Response` instead of `Result<http::Response>`.
+- [`ebc4a20`](https://github.com/tauri-apps/wry/commit/ebc4a20d218036b29b186aca1853d28d870fa2ef)([#1015](https://github.com/tauri-apps/wry/pull/1015)) Add `WebViewAtrributes.focused` and `WebViewBuilder::with_focused` to control whether to focus the webview upon creation or not. Supported on Windows and Linux only.
+
 ## \[0.31.0]
 
 - [`e47562f`](https://github.com/tauri-apps/wry/commit/e47562f71284457ff77e4c8b6bf02fdbe19ab880)([#993](https://github.com/tauri-apps/wry/pull/993)) Update the unmaintained `kuchiki` crate to the maintained `kuchikiki` crate.
