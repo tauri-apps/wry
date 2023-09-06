@@ -34,11 +34,10 @@ fn main() -> wry::Result<()> {
       // remove leading slash
       let path = &request.uri().path()[1..];
 
-      let response = Response::builder()
+      Response::builder()
         .header(CONTENT_TYPE, "text/html")
-        .body(read(canonicalize(path)?)?.into())?;
-
-      Ok(response)
+        .body(read(canonicalize(path)?)?.into())
+        .map_err(Into::into)
     })
     // tell the webview to load the custom protocol
     .with_url("wry://localhost/examples/form.html")?
