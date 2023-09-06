@@ -122,12 +122,11 @@ fn main() -> wry::Result<()> {
         content.read_to_end(&mut buf)?;
       }
 
-      let response = response
+      response
         .header(CONTENT_TYPE, mimetype)
         .status(status_code)
-        .body(buf.into())?;
-
-      Ok(response)
+        .body(buf.into())
+        .map_err(Into::into)
     })
     // tell the webview to load the custom protocol
     .with_url("wry://localhost/examples/stream.html")?
