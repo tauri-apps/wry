@@ -511,7 +511,13 @@ impl<'a> WebViewBuilder<'a> {
   ///   WebViewBuilder::new(window)
   ///     .unwrap()
   ///     .with_asynchronous_custom_protocol("wry".into(), |request, response| {
-  ///       response.respond(http::Response::builder().body(Vec::new())?);
+  ///       // here you can use a tokio task, thread pool or anything
+  ///       // to do heavy computation to resolve your request
+  ///       // e.g. downloading files, opening the camera...
+  ///       std::thread::spawn(move || {
+  ///         std::thread::sleep(std::time::Duration::from_secs(2));
+  ///         response.respond(http::Response::builder().body(Vec::new()).unwrap());
+  ///       });
   ///       Ok(())
   ///     });
   /// }
