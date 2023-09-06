@@ -52,7 +52,7 @@ fn main() -> wry::Result<()> {
 
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_custom_protocol("wry".into(), move |request, api| {
+    .with_custom_protocol("wry".into(), move |request| {
       // remove leading slash
       let path = &request.uri().path()[1..];
 
@@ -127,9 +127,7 @@ fn main() -> wry::Result<()> {
         .status(status_code)
         .body(buf.into())?;
 
-      api.respond(response);
-
-      Ok(())
+      Ok(response)
     })
     // tell the webview to load the custom protocol
     .with_url("wry://localhost/examples/stream.html")?
