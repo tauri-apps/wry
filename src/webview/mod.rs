@@ -58,7 +58,27 @@ pub use url::Url;
 use crate::application::platform::windows::WindowExtWindows;
 use crate::application::{dpi::PhysicalSize, window::Window};
 
-use http::{Request, Response};
+use http::{Request, Response as HttpResponse};
+
+/// Resolves a custom protocol [`Request`] asynchronously.
+///
+/// See [`WebViewBuilder::with_asynchronous_custom_protocol`] for more information.
+pub struct RequestAsyncResponder {
+  pub(crate) responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)>,
+}
+
+// SAFETY: even though the webview bindings do not indicate the responder is Send,
+// it actually is and we need it in order to let the user do the protocol computation
+// on a separate thread or async task.
+unsafe impl Send for RequestAsyncResponder {}
+
+impl RequestAsyncResponder {
+  /// Resolves the request with the given response.
+  pub fn respond<T: Into<Cow<'static, [u8]>>>(self, response: HttpResponse<T>) {
+    let (parts, body) = response.into_parts();
+    (self.responder)(HttpResponse::from_parts(parts, body.into()))
+  }
+}
 
 pub struct WebViewAttributes {
   /// Whether the WebView should have a custom user-agent.
@@ -133,10 +153,7 @@ pub struct WebViewAttributes {
   /// - iOS: Same as macOS. To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
-  pub custom_protocols: Vec<(
-    String,
-    Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>,
-  )>,
+  pub custom_protocols: Vec<(String, Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>)>,
   /// Set the IPC handler to receive the message from Javascript on webview to host Rust code.
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
   ///
@@ -461,7 +478,49 @@ impl<'a> WebViewBuilder<'a> {
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>> + 'static,
+    F: Fn(Request<Vec<u8>>) -> HttpResponse<Cow<'static, [u8]>> + 'static,
+  {
+    self.webview.custom_protocols.push((
+      name,
+      Box::new(move |request, responder| {
+        let http_response = handler(request);
+        responder.respond(http_response);
+      }),
+    ));
+    self
+  }
+
+  /// Same as [`Self::with_custom_protocol`] but with an asynchronous responder.
+  ///
+  /// ```no_run
+  /// use wry::{
+  ///   application::{
+  ///     event_loop::EventLoop,
+  ///     window::WindowBuilder
+  ///   },
+  ///   webview::WebViewBuilder,
+  /// };
+  ///
+  /// let event_loop = EventLoop::new();
+  /// let window = WindowBuilder::new()
+  ///   .build(&event_loop)
+  ///   .unwrap();
+  ///   WebViewBuilder::new(window)
+  ///     .unwrap()
+  ///     .with_asynchronous_custom_protocol("wry".into(), |request, responder| {
+  ///       // here you can use a tokio task, thread pool or anything
+  ///       // to do heavy computation to resolve your request
+  ///       // e.g. downloading files, opening the camera...
+  ///       std::thread::spawn(move || {
+  ///         std::thread::sleep(std::time::Duration::from_secs(2));
+  ///         responder.respond(http::Response::builder().body(Vec::new()).unwrap());
+  ///       });
+  ///     });
+  /// ```
+  #[cfg(feature = "protocol")]
+  pub fn with_asynchronous_custom_protocol<F>(mut self, name: String, handler: F) -> Self
+  where
+    F: Fn(Request<Vec<u8>>, RequestAsyncResponder) + 'static,
   {
     self
       .webview
@@ -814,7 +873,9 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     // in WebViewAssetLoader.
     self.webview.custom_protocols.push((
       protocol.clone(),
-      Box::new(|_| Ok(Response::builder().body(Vec::new().into())?)),
+      Box::new(|_, api| {
+        api.respond(HttpResponse::builder().body(Vec::new()).unwrap());
+      }),
     ));
     self.platform_specific.with_asset_loader = true;
     self.platform_specific.asset_loader_domain = Some(format!("{}.assets", protocol));

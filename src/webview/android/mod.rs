@@ -3,18 +3,18 @@
 // SPDX-License-Identifier: MIT
 
 use super::{PageLoadEvent, WebContext, WebViewAttributes, RGBA};
-use crate::{application::window::Window, Result};
+use crate::{application::window::Window, webview::RequestAsyncResponder, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
 use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
 use http::{
   header::{HeaderValue, CONTENT_SECURITY_POLICY, CONTENT_TYPE},
-  Request, Response,
+  Request, Response as HttpResponse,
 };
 use kuchiki::NodeRef;
 use once_cell::sync::OnceCell;
 use sha2::{Digest, Sha256};
-use std::{borrow::Cow, rc::Rc};
+use std::{borrow::Cow, rc::Rc, sync::mpsc::channel};
 use tao::platform::android::ndk_glue::{
   jni::{
     errors::Error as JniError,
@@ -56,7 +56,7 @@ macro_rules! define_static_handlers {
 
 define_static_handlers! {
   IPC =  UnsafeIpc { handler: Box<dyn Fn(&Window, String)>,  window: Rc<Window> };
-  REQUEST_HANDLER = UnsafeRequestHandler { handler:  Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Cow<'static, [u8]>>>> };
+  REQUEST_HANDLER = UnsafeRequestHandler { handler:  Box<dyn Fn(Request<Vec<u8>>) -> Option<HttpResponse<Cow<'static, [u8]>>>> };
   TITLE_CHANGE_HANDLER = UnsafeTitleHandler { handler: Box<dyn Fn(&Window, String)>,  window: Rc<Window> };
   URL_LOADING_OVERRIDE = UnsafeUrlLoadingOverride { handler: Box<dyn Fn(String) -> bool> };
   ON_LOAD_HANDLER = UnsafeOnPageLoadHandler { handler: Box<dyn Fn(PageLoadEvent, String)> };
@@ -187,52 +187,58 @@ impl InnerWebView {
             .parse()
             .unwrap();
 
-          if let Ok(mut response) = (custom_protocol.1)(&request) {
-            let should_inject_scripts = response
-              .headers()
-              .get(CONTENT_TYPE)
-              // Content-Type must begin with the media type, but is case-insensitive.
-              // It may also be followed by any number of semicolon-delimited key value pairs.
-              // We don't care about these here.
-              // source: https://httpwg.org/specs/rfc9110.html#rfc.section.8.3.1
-              .and_then(|content_type| content_type.to_str().ok())
-              .map(|content_type_str| content_type_str.to_lowercase().starts_with("text/html"))
-              .unwrap_or_default();
+          let (tx, rx) = channel();
+          let initialization_scripts = initialization_scripts.clone();
+          let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
+            Box::new(move |mut response| {
+              let should_inject_scripts = response
+                .headers()
+                .get(CONTENT_TYPE)
+                // Content-Type must begin with the media type, but is case-insensitive.
+                // It may also be followed by any number of semicolon-delimited key value pairs.
+                // We don't care about these here.
+                // source: https://httpwg.org/specs/rfc9110.html#rfc.section.8.3.1
+                .and_then(|content_type| content_type.to_str().ok())
+                .map(|content_type_str| content_type_str.to_lowercase().starts_with("text/html"))
+                .unwrap_or_default();
 
-            if should_inject_scripts && !initialization_scripts.is_empty() {
-              let mut document =
-                kuchiki::parse_html().one(String::from_utf8_lossy(response.body()).into_owned());
-              let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
-              let mut hashes = Vec::new();
-              with_html_head(&mut document, |head| {
-                // iterate in reverse order since we are prepending each script to the head tag
-                for script in initialization_scripts.iter().rev() {
-                  let script_el =
-                    NodeRef::new_element(QualName::new(None, ns!(html), "script".into()), None);
-                  script_el.append(NodeRef::new_text(script));
-                  head.prepend(script_el);
-                  if csp.is_some() {
-                    hashes.push(hash_script(script));
+              if should_inject_scripts && !initialization_scripts.is_empty() {
+                let mut document =
+                  kuchiki::parse_html().one(String::from_utf8_lossy(response.body()).into_owned());
+                let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
+                let mut hashes = Vec::new();
+                with_html_head(&mut document, |head| {
+                  // iterate in reverse order since we are prepending each script to the head tag
+                  for script in initialization_scripts.iter().rev() {
+                    let script_el =
+                      NodeRef::new_element(QualName::new(None, ns!(html), "script".into()), None);
+                    script_el.append(NodeRef::new_text(script));
+                    head.prepend(script_el);
+                    if csp.is_some() {
+                      hashes.push(hash_script(script));
+                    }
                   }
-                }
-              });
+                });
 
-              if let Some(csp) = csp {
-                let csp_string = csp.to_str().unwrap().to_string();
-                let csp_string = if csp_string.contains("script-src") {
-                  csp_string.replace("script-src", &format!("script-src {}", hashes.join(" ")))
-                } else {
-                  format!("{} script-src {}", csp_string, hashes.join(" "))
-                };
-                *csp = HeaderValue::from_str(&csp_string).unwrap();
+                if let Some(csp) = csp {
+                  let csp_string = csp.to_str().unwrap().to_string();
+                  let csp_string = if csp_string.contains("script-src") {
+                    csp_string.replace("script-src", &format!("script-src {}", hashes.join(" ")))
+                  } else {
+                    format!("{} script-src {}", csp_string, hashes.join(" "))
+                  };
+                  *csp = HeaderValue::from_str(&csp_string).unwrap();
+                }
+
+                *response.body_mut() = document.to_string().into_bytes().into();
               }
 
-              *response.body_mut() = document.to_string().into_bytes().into();
-            }
-            return Some(response);
-          }
-        }
+              tx.send(response).unwrap();
+            });
 
+          (custom_protocol.1)(request, RequestAsyncResponder { responder });
+          return Some(rx.recv().unwrap());
+        }
         None
       }))
     });

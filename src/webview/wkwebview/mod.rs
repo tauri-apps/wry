@@ -66,7 +66,7 @@ use crate::{
       },
       navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
     },
-    FileDropEvent, PageLoadEvent, WebContext, WebViewAttributes, RGBA,
+    FileDropEvent, PageLoadEvent, RequestAsyncResponder, WebContext, WebViewAttributes, RGBA,
   },
   Result,
 };
@@ -75,7 +75,7 @@ use http::{
   header::{CONTENT_LENGTH, CONTENT_TYPE},
   status::StatusCode,
   version::Version,
-  Request, Response,
+  Request, Response as HttpResponse,
 };
 
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
@@ -98,7 +98,7 @@ pub(crate) struct InnerWebView {
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
   download_delegate: id,
-  protocol_ptrs: Vec<*mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>>,
+  protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>>,
 }
 
 impl InnerWebView {
@@ -132,8 +132,8 @@ impl InnerWebView {
       unsafe {
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
-          let function = &mut *(*function
-            as *mut Box<dyn Fn(&Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>>>);
+          let function =
+            &mut *(*function as *mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>);
 
           // Get url request
           let request: id = msg_send![task, request];
@@ -193,53 +193,56 @@ impl InnerWebView {
             let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
             let response: id = msg_send![urlresponse, initWithURL:url statusCode:StatusCode::NOT_FOUND HTTPVersion:NSString::new(format!("{:#?}", Version::HTTP_11).as_str()) headerFields:null::<c_void>()];
             let () = msg_send![task, didReceiveResponse: response];
+            // Finish
+            let () = msg_send![task, didFinish];
           };
 
           // send response
           match http_request.body(sent_form_body) {
             Ok(final_request) => {
-              if let Ok(sent_response) = function(&final_request) {
-                let content = sent_response.body();
-                // default: application/octet-stream, but should be provided by the client
-                let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
-                // default to 200
-                let wanted_status_code = sent_response.status().as_u16() as i32;
-                // default to HTTP/1.1
-                let wanted_version = format!("{:#?}", sent_response.version());
+              let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> = Box::new(
+                move |sent_response| {
+                  let content = sent_response.body();
+                  // default: application/octet-stream, but should be provided by the client
+                  let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
+                  // default to 200
+                  let wanted_status_code = sent_response.status().as_u16() as i32;
+                  // default to HTTP/1.1
+                  let wanted_version = format!("{:#?}", sent_response.version());
 
-                let dictionary: id = msg_send![class!(NSMutableDictionary), alloc];
-                let headers: id = msg_send![dictionary, initWithCapacity:1];
-                if let Some(mime) = wanted_mime {
-                  let () = msg_send![headers, setObject:NSString::new(mime.to_str().unwrap()) forKey: NSString::new(CONTENT_TYPE.as_str())];
-                }
-                let () = msg_send![headers, setObject:NSString::new(&content.len().to_string()) forKey: NSString::new(CONTENT_LENGTH.as_str())];
-
-                // add headers
-                for (name, value) in sent_response.headers().iter() {
-                  let header_key = name.as_str();
-                  if let Ok(value) = value.to_str() {
-                    let () = msg_send![headers, setObject:NSString::new(value) forKey: NSString::new(header_key)];
+                  let dictionary: id = msg_send![class!(NSMutableDictionary), alloc];
+                  let headers: id = msg_send![dictionary, initWithCapacity:1];
+                  if let Some(mime) = wanted_mime {
+                    let () = msg_send![headers, setObject:NSString::new(mime.to_str().unwrap()) forKey: NSString::new(CONTENT_TYPE.as_str())];
                   }
-                }
+                  let () = msg_send![headers, setObject:NSString::new(&content.len().to_string()) forKey: NSString::new(CONTENT_LENGTH.as_str())];
 
-                let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
-                let response: id = msg_send![urlresponse, initWithURL:url statusCode: wanted_status_code HTTPVersion:NSString::new(&wanted_version) headerFields:headers];
-                let () = msg_send![task, didReceiveResponse: response];
+                  // add headers
+                  for (name, value) in sent_response.headers().iter() {
+                    let header_key = name.as_str();
+                    if let Ok(value) = value.to_str() {
+                      let () = msg_send![headers, setObject:NSString::new(value) forKey: NSString::new(header_key)];
+                    }
+                  }
 
-                // Send data
-                let bytes = content.as_ptr() as *mut c_void;
-                let data: id = msg_send![class!(NSData), alloc];
-                let data: id = msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: if content.len() == 0 { NO } else { YES }];
-                let () = msg_send![task, didReceiveData: data];
-              } else {
-                respond_with_404()
-              }
+                  let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
+                  let response: id = msg_send![urlresponse, initWithURL:url statusCode: wanted_status_code HTTPVersion:NSString::new(&wanted_version) headerFields:headers];
+                  let () = msg_send![task, didReceiveResponse: response];
+
+                  // Send data
+                  let bytes = content.as_ptr() as *mut c_void;
+                  let data: id = msg_send![class!(NSData), alloc];
+                  let data: id = msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: if content.len() == 0 { NO } else { YES }];
+                  let () = msg_send![task, didReceiveData: data];
+                  // Finish
+                  let () = msg_send![task, didFinish];
+                },
+              );
+
+              function(final_request, RequestAsyncResponder { responder });
             }
             Err(_) => respond_with_404(),
           };
-
-          // Finish
-          let () = msg_send![task, didFinish];
         } else {
           log::warn!(
             "Either WebView or WebContext instance is dropped! This handler shouldn't be called."
