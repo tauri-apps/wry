@@ -36,139 +36,34 @@ pub struct Context<'a, 'b> {
   pub webview: &'a JObject<'b>,
 }
 
-#[macro_export]
-macro_rules! android_binding {
-  ($domain:ident, $package:ident, $main:ident) => {
-    android_binding!($domain, $package, $main, ::wry)
-  };
-  ($domain:ident, $package:ident, $main:ident, $wry:path) => {
-    use $wry::{
-      application::{
-        android_binding as tao_android_binding, android_fn, generate_package_name,
-        platform::android::ndk_glue::*,
-      },
-      webview::prelude::*,
-    };
-    tao_android_binding!($domain, $package, WryActivity, setup, $main);
-    android_fn!(
-      $domain,
-      $package,
-      RustWebViewClient,
-      handleRequest,
-      [JObject],
-      jobject
-    );
-    android_fn!(
-      $domain,
-      $package,
-      RustWebViewClient,
-      withAssetLoader,
-      [],
-      jboolean
-    );
-    android_fn!(
-      $domain,
-      $package,
-      RustWebViewClient,
-      assetLoaderDomain,
-      [],
-      jstring
-    );
-    android_fn!(
-      $domain,
-      $package,
-      RustWebViewClient,
-      shouldOverride,
-      [JString],
-      jboolean
-    );
-    android_fn!(
-      $domain,
-      $package,
-      RustWebView,
-      shouldOverride,
-      [JString],
-      jboolean
-    );
-    android_fn!(
-      $domain,
-      $package,
-      RustWebViewClient,
-      onPageLoading,
-      [JString]
-    );
-    android_fn!(
-      $domain,
-      $package,
-      RustWebViewClient,
-      onPageLoaded,
-      [JString]
-    );
-    android_fn!($domain, $package, Ipc, ipc, [JString]);
-    android_fn!(
-      $domain,
-      $package,
-      RustWebChromeClient,
-      handleReceivedTitle,
-      [JObject, JString],
-    );
+macro_rules! define_static_handlers {
+  ($($var:ident = $type_name:ident { $($fields:ident:$types:ty),+ $(,)? });+ $(;)?) => {
+    $(pub static $var: once_cell::sync::OnceCell<$type_name> = once_cell::sync::OnceCell::new();
+    pub struct $type_name {
+      $($fields: $types,)*
+    }
+    impl $type_name {
+      pub fn new($($fields: $types,)*) -> Self {
+        Self {
+          $($fields,)*
+        }
+      }
+    }
+    unsafe impl Send for $type_name {}
+    unsafe impl Sync for $type_name {})*
   };
 }
 
-pub static IPC: OnceCell<UnsafeIpc> = OnceCell::new();
-pub static REQUEST_HANDLER: OnceCell<UnsafeRequestHandler> = OnceCell::new();
-pub static TITLE_CHANGE_HANDLER: OnceCell<UnsafeTitleHandler> = OnceCell::new();
+define_static_handlers! {
+  IPC =  UnsafeIpc { handler: Box<dyn Fn(&Window, String)>,  window: Rc<Window> };
+  REQUEST_HANDLER = UnsafeRequestHandler { handler:  Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Cow<'static, [u8]>>>> };
+  TITLE_CHANGE_HANDLER = UnsafeTitleHandler { handler: Box<dyn Fn(&Window, String)>,  window: Rc<Window> };
+  URL_LOADING_OVERRIDE = UnsafeUrlLoadingOverride { handler: Box<dyn Fn(String) -> bool> };
+  ON_LOAD_HANDLER = UnsafeOnPageLoadHandler { handler: Box<dyn Fn(PageLoadEvent, String)> };
+}
+
 pub static WITH_ASSET_LOADER: OnceCell<bool> = OnceCell::new();
 pub static ASSET_LOADER_DOMAIN: OnceCell<String> = OnceCell::new();
-pub static URL_LOADING_OVERRIDE: OnceCell<UnsafeUrlLoadingOverride> = OnceCell::new();
-pub static ON_LOAD_HANDLER: OnceCell<UnsafeOnPageLoadHandler> = OnceCell::new();
-
-pub struct UnsafeIpc(Box<dyn Fn(&Window, String)>, Rc<Window>);
-impl UnsafeIpc {
-  pub fn new(f: Box<dyn Fn(&Window, String)>, w: Rc<Window>) -> Self {
-    Self(f, w)
-  }
-}
-unsafe impl Send for UnsafeIpc {}
-unsafe impl Sync for UnsafeIpc {}
-
-pub struct UnsafeRequestHandler(
-  Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Cow<'static, [u8]>>>>,
-);
-impl UnsafeRequestHandler {
-  pub fn new(f: Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Cow<'static, [u8]>>>>) -> Self {
-    Self(f)
-  }
-}
-unsafe impl Send for UnsafeRequestHandler {}
-unsafe impl Sync for UnsafeRequestHandler {}
-
-pub struct UnsafeTitleHandler(Box<dyn Fn(&Window, String)>, Rc<Window>);
-impl UnsafeTitleHandler {
-  pub fn new(f: Box<dyn Fn(&Window, String)>, w: Rc<Window>) -> Self {
-    Self(f, w)
-  }
-}
-unsafe impl Send for UnsafeTitleHandler {}
-unsafe impl Sync for UnsafeTitleHandler {}
-
-pub struct UnsafeUrlLoadingOverride(Box<dyn Fn(String) -> bool>);
-impl UnsafeUrlLoadingOverride {
-  pub fn new(f: Box<dyn Fn(String) -> bool>) -> Self {
-    Self(f)
-  }
-}
-unsafe impl Send for UnsafeUrlLoadingOverride {}
-unsafe impl Sync for UnsafeUrlLoadingOverride {}
-
-pub struct UnsafeOnPageLoadHandler(Box<dyn Fn(PageLoadEvent, String)>);
-impl UnsafeOnPageLoadHandler {
-  pub fn new(f: Box<dyn Fn(PageLoadEvent, String)>) -> Self {
-    Self(f)
-  }
-}
-unsafe impl Send for UnsafeOnPageLoadHandler {}
-unsafe impl Sync for UnsafeOnPageLoadHandler {}
 
 pub unsafe fn setup(mut env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
   // we must create the WebChromeClient here because it calls `registerForActivityResult`,
