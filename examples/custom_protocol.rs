@@ -28,14 +28,14 @@ fn main() -> wry::Result<()> {
 
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_asynchronous_custom_protocol("wry".into(), move |request, api| {
+    .with_asynchronous_custom_protocol("wry".into(), move |request, response| {
       let path = request.uri().path();
       // Read the file content from file path
       let content = if path == "/" {
         PAGE1_HTML.into()
       } else {
         // `1..` for removing leading slash
-        read(canonicalize(PathBuf::from("examples").join(&path[1..]))?)?.into()
+        read(canonicalize(PathBuf::from("examples").join(&path[1..]))?)?
       };
 
       // Return asset contents and mime types based on file extentions
@@ -53,11 +53,11 @@ fn main() -> wry::Result<()> {
         unimplemented!();
       };
 
-      let response = Response::builder()
+      let http_response = Response::builder()
         .header(CONTENT_TYPE, mimetype)
         .body(content)?;
 
-      api.respond(response);
+      response.respond(http_response);
 
       Ok(())
     })

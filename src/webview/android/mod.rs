@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: MIT
 
 use super::{PageLoadEvent, WebContext, WebViewAttributes, RGBA};
-use crate::{application::window::Window, webview::RequestApi, Result};
+use crate::{application::window::Window, webview::Response, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
 use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
 use http::{
   header::{HeaderValue, CONTENT_SECURITY_POLICY, CONTENT_TYPE},
-  Request, Response,
+  Request, Response as HttpResponse,
 };
 use kuchiki::NodeRef;
 use once_cell::sync::OnceCell;
@@ -133,10 +133,10 @@ unsafe impl Send for UnsafeIpc {}
 unsafe impl Sync for UnsafeIpc {}
 
 pub struct UnsafeRequestHandler(
-  Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Cow<'static, [u8]>>>>,
+  Box<dyn Fn(Request<Vec<u8>>) -> Option<HttpResponse<Cow<'static, [u8]>>>>,
 );
 impl UnsafeRequestHandler {
-  pub fn new(f: Box<dyn Fn(Request<Vec<u8>>) -> Option<Response<Cow<'static, [u8]>>>>) -> Self {
+  pub fn new(f: Box<dyn Fn(Request<Vec<u8>>) -> Option<HttpResponse<Cow<'static, [u8]>>>>) -> Self {
     Self(f)
   }
 }
@@ -294,7 +294,7 @@ impl InnerWebView {
 
           let (tx, rx) = channel();
           let initialization_scripts = initialization_scripts.clone();
-          let responder: Box<dyn FnOnce(Response<Cow<'static, [u8]>>)> =
+          let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
             Box::new(move |mut response| {
               let should_inject_scripts = response
                 .headers()
@@ -341,7 +341,7 @@ impl InnerWebView {
               tx.send(response).unwrap();
             });
 
-          match (custom_protocol.1)(request, RequestApi { responder }) {
+          match (custom_protocol.1)(request, Response { responder }) {
             Ok(_) => return Some(rx.recv().unwrap()),
             Err(_) => return None,
           }

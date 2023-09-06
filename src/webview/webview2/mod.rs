@@ -5,7 +5,7 @@
 mod file_drop;
 
 use crate::{
-  webview::{proxy::ProxyConfig, PageLoadEvent, RequestApi, WebContext, WebViewAttributes, RGBA},
+  webview::{proxy::ProxyConfig, PageLoadEvent, Response, WebContext, WebViewAttributes, RGBA},
   Error, Result,
 };
 
@@ -49,7 +49,7 @@ use windows::{
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 
 use crate::application::{platform::windows::WindowExtWindows, window::Window};
-use http::{Request, Response, StatusCode};
+use http::{Request, Response as HttpResponse, StatusCode};
 
 use super::Theme;
 
@@ -661,7 +661,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                   };
 
                   let env = env.clone();
-                  let responder: Box<dyn FnOnce(Response<Cow<'static, [u8]>>)> =
+                  let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
                     Box::new(move |sent_response| {
                       match prepare_web_request_response(&env, sent_response) {
                         Ok(response) => {
@@ -682,7 +682,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                         }
                       }
                     });
-                  return match (custom_protocol.1)(final_request, RequestApi { responder }) {
+                  return match (custom_protocol.1)(final_request, Response { responder }) {
                     Ok(_) => Ok(()),
                     Err(_) => Err(E_FAIL.into()),
                   };
@@ -942,7 +942,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
 unsafe fn prepare_web_request_response(
   env: &ICoreWebView2Environment,
-  sent_response: Response<Cow<'static, [u8]>>,
+  sent_response: HttpResponse<Cow<'static, [u8]>>,
 ) -> windows::core::Result<ICoreWebView2WebResourceResponse> {
   let content = sent_response.body();
   let status_code = sent_response.status();

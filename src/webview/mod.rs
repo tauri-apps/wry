@@ -58,19 +58,23 @@ pub use url::Url;
 use crate::application::platform::windows::WindowExtWindows;
 use crate::application::{dpi::PhysicalSize, window::Window};
 
-use http::{Request, Response};
+use http::{Request, Response as HttpResponse};
 
-pub struct RequestApi {
-  pub(crate) responder: Box<dyn FnOnce(Response<Cow<'static, [u8]>>)>,
+/// Resolves a custom protocol [`Request`] asynchronously.
+///
+/// See [`WebViewBuilder::with_asynchronous_custom_protocol`] for more information.
+pub struct Response {
+  pub(crate) responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)>,
 }
 
-unsafe impl Send for RequestApi {}
-unsafe impl Sync for RequestApi {}
+unsafe impl Send for Response {}
+unsafe impl Sync for Response {}
 
-impl RequestApi {
+impl Response {
   /// Resolves the request with the given response.
-  pub fn respond(self, response: Response<Cow<'static, [u8]>>) {
-    (self.responder)(response)
+  pub fn respond<T: Into<Cow<'static, [u8]>>>(self, response: HttpResponse<T>) {
+    let (parts, body) = response.into_parts();
+    (self.responder)(HttpResponse::from_parts(parts, body.into()))
   }
 }
 
@@ -149,7 +153,7 @@ pub struct WebViewAttributes {
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
   pub custom_protocols: Vec<(
     String,
-    Box<dyn Fn(Request<Vec<u8>>, RequestApi) -> Result<()>>,
+    Box<dyn Fn(Request<Vec<u8>>, Response) -> Result<()>>,
   )>,
   /// Set the IPC handler to receive the message from Javascript on webview to host Rust code.
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
@@ -475,13 +479,13 @@ impl<'a> WebViewBuilder<'a> {
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>> + 'static,
+    F: Fn(Request<Vec<u8>>) -> Result<HttpResponse<Cow<'static, [u8]>>> + 'static,
   {
     self.webview.custom_protocols.push((
       name,
-      Box::new(move |request, api| {
-        let response = handler(request)?;
-        api.respond(response);
+      Box::new(move |request, response| {
+        let http_response = handler(request)?;
+        response.respond(http_response);
         Ok(())
       }),
     ));
@@ -489,10 +493,33 @@ impl<'a> WebViewBuilder<'a> {
   }
 
   /// Same as [`Self::with_custom_protocol`] but with an asynchronous responder.
+  ///
+  /// ```
+  /// use wry::{
+  ///   application::{
+  ///     event_loop::EventLoop,
+  ///     window::WindowBuilder
+  ///   },
+  ///   webview::WebViewBuilder,
+  /// };
+  ///
+  /// fn main() {
+  /// let event_loop = EventLoop::new();
+  /// let window = WindowBuilder::new()
+  ///   .build(&event_loop)
+  ///   .unwrap();
+  ///   WebViewBuilder::new(window)
+  ///     .unwrap()
+  ///     .with_asynchronous_custom_protocol("wry".into(), |request, response| {
+  ///       response.respond(http::Response::builder().body(Vec::new())?);
+  ///       Ok(())
+  ///     });
+  /// }
+  /// ```
   #[cfg(feature = "protocol")]
   pub fn with_asynchronous_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(Request<Vec<u8>>, RequestApi) -> Result<()> + 'static,
+    F: Fn(Request<Vec<u8>>, Response) -> Result<()> + 'static,
   {
     self
       .webview
@@ -846,7 +873,7 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     self.webview.custom_protocols.push((
       protocol.clone(),
       Box::new(|_, api| {
-        api.respond(Response::builder().body(Vec::new().into())?);
+        api.respond(HttpResponse::builder().body(Vec::new().into())?);
         Ok(())
       }),
     ));

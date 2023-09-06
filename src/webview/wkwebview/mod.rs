@@ -66,7 +66,7 @@ use crate::{
       },
       navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
     },
-    FileDropEvent, PageLoadEvent, RequestApi, WebContext, WebViewAttributes, RGBA,
+    FileDropEvent, PageLoadEvent, Response, WebContext, WebViewAttributes, RGBA,
   },
   Result,
 };
@@ -75,7 +75,7 @@ use http::{
   header::{CONTENT_LENGTH, CONTENT_TYPE},
   status::StatusCode,
   version::Version,
-  Request, Response,
+  Request, Response as HttpResponse,
 };
 
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
@@ -98,7 +98,7 @@ pub(crate) struct InnerWebView {
   #[cfg(target_os = "macos")]
   file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
   download_delegate: id,
-  protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, RequestApi) -> Result<()>>>,
+  protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, Response) -> Result<()>>>,
 }
 
 impl InnerWebView {
@@ -133,7 +133,7 @@ impl InnerWebView {
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
           let function =
-            &mut *(*function as *mut Box<dyn Fn(Request<Vec<u8>>, RequestApi) -> Result<()>>);
+            &mut *(*function as *mut Box<dyn Fn(Request<Vec<u8>>, Response) -> Result<()>>);
 
           // Get url request
           let request: id = msg_send![task, request];
@@ -200,7 +200,7 @@ impl InnerWebView {
           // send response
           match http_request.body(sent_form_body) {
             Ok(final_request) => {
-              let responder: Box<dyn FnOnce(Response<Cow<'static, [u8]>>)> = Box::new(
+              let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> = Box::new(
                 move |sent_response| {
                   let content = sent_response.body();
                   // default: application/octet-stream, but should be provided by the client
@@ -238,7 +238,7 @@ impl InnerWebView {
                   let () = msg_send![task, didFinish];
                 },
               );
-              if function(final_request, RequestApi { responder }).is_err() {
+              if function(final_request, Response { responder }).is_err() {
                 respond_with_404();
               }
             }

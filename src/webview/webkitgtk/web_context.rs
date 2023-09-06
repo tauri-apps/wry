@@ -5,11 +5,11 @@
 //! Unix platform extensions for [`WebContext`](super::WebContext).
 
 use crate::{
-  webview::{web_context::WebContextData, RequestApi},
+  webview::{web_context::WebContextData, Response},
   Error,
 };
 use glib::FileError;
-use http::{header::CONTENT_TYPE, Request, Response};
+use http::{header::CONTENT_TYPE, Request, Response as HttpResponse};
 use std::{
   borrow::Cow,
   cell::RefCell,
@@ -122,7 +122,7 @@ pub trait WebContextExt {
   /// relying on the platform's implementation to properly handle duplicated scheme handlers.
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(Request<Vec<u8>>, RequestApi) -> crate::Result<()> + 'static;
+    F: Fn(Request<Vec<u8>>, Response) -> crate::Result<()> + 'static;
 
   /// Register a custom protocol to the web context, only if it is not a duplicate scheme.
   ///
@@ -130,7 +130,7 @@ pub trait WebContextExt {
   /// function will return `Err(Error::DuplicateCustomProtocol)`.
   fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(Request<Vec<u8>>, RequestApi) -> crate::Result<()> + 'static;
+    F: Fn(Request<Vec<u8>>, Response) -> crate::Result<()> + 'static;
 
   /// Add a [`WebView`] to the queue waiting to be opened.
   ///
@@ -167,7 +167,7 @@ impl WebContextExt for super::WebContext {
 
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(Request<Vec<u8>>, RequestApi) -> crate::Result<()> + 'static,
+    F: Fn(Request<Vec<u8>>, Response) -> crate::Result<()> + 'static,
   {
     actually_register_uri_scheme(self, name, handler)?;
     if self.os.registered_protocols.insert(name.to_string()) {
@@ -179,7 +179,7 @@ impl WebContextExt for super::WebContext {
 
   fn try_register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(Request<Vec<u8>>, RequestApi) -> crate::Result<()> + 'static,
+    F: Fn(Request<Vec<u8>>, Response) -> crate::Result<()> + 'static,
   {
     if self.os.registered_protocols.insert(name.to_string()) {
       actually_register_uri_scheme(self, name, handler)
@@ -287,7 +287,7 @@ fn actually_register_uri_scheme<F>(
   handler: F,
 ) -> crate::Result<()>
 where
-  F: Fn(Request<Vec<u8>>, RequestApi) -> crate::Result<()> + 'static,
+  F: Fn(Request<Vec<u8>>, Response) -> crate::Result<()> + 'static,
 {
   use webkit2gtk::traits::*;
   let context = &context.os.context;
@@ -371,7 +371,7 @@ where
       };
 
       let request_ = request.clone();
-      let responder: Box<dyn FnOnce(Response<Cow<'static, [u8]>>)> =
+      let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
         Box::new(move |http_response| {
           let buffer = http_response.body();
           let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(buffer));
@@ -397,7 +397,7 @@ where
           request_.finish_with_response(&response);
         });
 
-      if handler(http_request, RequestApi { responder }).is_err() {
+      if handler(http_request, Response { responder }).is_err() {
         request.finish_error(&mut glib::Error::new(
           FileError::Exist,
           "Could not get requested file.",
