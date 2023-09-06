@@ -475,6 +475,23 @@ impl<'a> WebViewBuilder<'a> {
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
+    F: Fn(Request<Vec<u8>>) -> Result<Response<Cow<'static, [u8]>>> + 'static,
+  {
+    self.webview.custom_protocols.push((
+      name,
+      Box::new(move |request, api| {
+        let response = handler(request)?;
+        api.respond(response);
+        Ok(())
+      }),
+    ));
+    self
+  }
+
+  /// Same as [`Self::with_custom_protocol`] but with an asynchronous responder.
+  #[cfg(feature = "protocol")]
+  pub fn with_asynchronous_custom_protocol<F>(mut self, name: String, handler: F) -> Self
+  where
     F: Fn(Request<Vec<u8>>, RequestApi) -> Result<()> + 'static,
   {
     self

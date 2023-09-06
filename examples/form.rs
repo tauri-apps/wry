@@ -23,7 +23,7 @@ fn main() -> wry::Result<()> {
 
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_custom_protocol("wry".into(), move |request, api| {
+    .with_custom_protocol("wry".into(), move |request| {
       if request.method() == Method::POST {
         let body_string = String::from_utf8_lossy(request.body());
         for body in body_string.split('&') {
@@ -38,9 +38,7 @@ fn main() -> wry::Result<()> {
         .header(CONTENT_TYPE, "text/html")
         .body(read(canonicalize(path)?)?.into())?;
 
-      api.respond(response);
-
-      Ok(())
+      Ok(response)
     })
     // tell the webview to load the custom protocol
     .with_url("wry://localhost/examples/form.html")?

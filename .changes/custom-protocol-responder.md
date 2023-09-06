@@ -2,4 +2,4 @@
 "wry": minor
 ---
 
-Change the custom protocol closure signature to take a second parameter with an API to resolve the request instead of returning the response inline.
+Added `WebViewBuilder::with_asynchronous_custom_protocol` to allow implementing a protocol handler that resolves asynchronously.

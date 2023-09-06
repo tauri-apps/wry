@@ -28,7 +28,7 @@ fn main() -> wry::Result<()> {
 
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_custom_protocol("wry".into(), move |request, api| {
+    .with_asynchronous_custom_protocol("wry".into(), move |request, api| {
       let path = request.uri().path();
       // Read the file content from file path
       let content = if path == "/" {
