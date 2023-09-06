@@ -390,7 +390,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             let mut js = PWSTR::null();
             args.TryGetWebMessageAsString(&mut js)?;
             let js = take_pwstr(js);
-            // Winit doesn't have hit_test features yet.
+            // Winit 0.28 doesn't have manual hittest yet.
             #[cfg(not(feature = "winit"))]
             if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_MOUSE_MOVE__" {
               if !window.is_decorated() && window.is_resizable() && !window.is_maximized() {

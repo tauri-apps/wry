@@ -22,7 +22,7 @@ targets = [
 ]
 
 [features]
-default = [ "file-drop", "objc-exception", "protocol", "winit" ]
+default = [ "file-drop", "objc-exception", "protocol", "tao" ]
 objc-exception = [ "objc/exception" ]
 file-drop = [ ]
 protocol = [ ]
