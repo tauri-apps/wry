@@ -517,18 +517,20 @@ impl<'a> WebViewBuilder<'a> {
   ///         std::thread::sleep(std::time::Duration::from_secs(2));
   ///         response.respond(http::Response::builder().body(Vec::new()).unwrap());
   ///       });
-  ///       Ok(())
   ///     });
   /// ```
   #[cfg(feature = "protocol")]
   pub fn with_asynchronous_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(Request<Vec<u8>>, Response) -> Result<()> + 'static,
+    F: Fn(Request<Vec<u8>>, Response) + 'static,
   {
-    self
-      .webview
-      .custom_protocols
-      .push((name, Box::new(handler)));
+    self.webview.custom_protocols.push((
+      name,
+      Box::new(move |request, response| {
+        handler(request, response);
+        Ok(())
+      }),
+    ));
     self
   }
 
