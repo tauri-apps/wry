@@ -138,19 +138,20 @@ pub struct WebViewAttributes {
   /// The closure takes a [Request] and returns a [Response].
   ///
   /// # Warning
+  ///
   /// Pages loaded from custom protocol will have different Origin on different platforms. And
   /// servers which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
   /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
   /// different Origin headers across platforms:
   ///
-  /// - macOS and Linux: `<scheme_name>://<path>` (so it will be `wry://examples` in `custom_protocol` example). On Linux, You need to enable `linux-headers` feature flag.
-  /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.examples` in `custom_protocol` example)
-  /// - Android: Custom protocol on Android is fixed to `https://tauri.wry/` due to its design and
-  /// our approach to use it. On Android, We only handle the scheme name and ignore the closure. So
-  /// when you load the url like `wry://assets/index.html`, it will become
-  /// `https://tauri.wry/assets/index.html`. Android has `assets` and `resource` path finder to
+  /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://examples` in `custom_protocol` example). On Linux, You need to enable `linux-headers` feature flag.
+  /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.examples` in `custom_protocol` example). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`].
+  ///
+  /// # Reading assets on mobile
+  ///
+  /// - Android: Android has `assets` and `resource` path finder to
   /// locate your files in those directories. For more information, see [Loading in-app content](https://developer.android.com/guide/webapps/load-local-content) page.
-  /// - iOS: Same as macOS. To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
+  /// - iOS: To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
   pub custom_protocols: Vec<(String, Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>)>,
@@ -349,6 +350,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   >,
   with_asset_loader: bool,
   asset_loader_domain: Option<String>,
+  https_scheme: bool,
 }
 
 /// Type alias for a color in the RGBA format.
@@ -460,19 +462,23 @@ impl<'a> WebViewBuilder<'a> {
   /// The closure takes a [Request] and returns a [Response]
   ///
   /// # Warning
+  ///
   /// Pages loaded from custom protocol will have different Origin on different platforms. And
   /// servers which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
   /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
   /// different Origin headers across platforms:
   ///
-  /// - macOS and Linux: `<scheme_name>://<path>` (so it will be `wry://examples` in `custom_protocol` example). On Linux, You need to enable `linux-headers` feature flag.
-  /// - Windows: `https://<scheme_name>.<path>` (so it will be `https://wry.examples` in `custom_protocol` example)
+  /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://examples` in `custom_protocol` example). On Linux, You need to enable `linux-headers` feature flag.
+  /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.examples` in `custom_protocol` example). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`].
+  ///
+  /// # Reading assets on mobile
+  ///
   /// - Android: For loading content from the `assets` folder (which is copied to the Andorid apk) please
   /// use the function [`with_asset_loader`] from [`WebViewBuilderExtAndroid`] instead.
   /// This function on Android can only be used to serve assets you can embed in the binary or are
   /// elsewhere in Android (provided the app has appropriate access), but not from the `assets`
   /// folder which lives within the apk. For the cases where this can be used, it works the same as in macOS and Linux.
-  /// - iOS: Same as macOS. To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
+  /// - iOS: To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   ///
   /// [bug]: https://bugs.webkit.org/show_bug.cgi?id=229034
   #[cfg(feature = "protocol")]
@@ -848,6 +854,14 @@ pub trait WebViewBuilderExtAndroid {
   /// to `with_custom_protocol` for Android, as it changes the way in which requests are handled.
   #[cfg(feature = "protocol")]
   fn with_asset_loader(self, protocol: String) -> Self;
+
+  /// Determines whether the custom protocols should use `https://<scheme>.localhost` instead of the default `http://<scheme>.localhost`.
+  ///
+  /// Using a `http` scheme will allow mixed content when trying to fetch `http` endpoints
+  /// and is therefore less secure but will match the behavior of the `<scheme>://localhost` protocols used on macOS and Linux.
+  ///
+  /// The default value is `false`.
+  fn with_https_scheme(self, enabled: bool) -> Self;
 }
 
 #[cfg(target_os = "android")]
@@ -879,6 +893,11 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     ));
     self.platform_specific.with_asset_loader = true;
     self.platform_specific.asset_loader_domain = Some(format!("{}.assets", protocol));
+    self
+  }
+
+  fn with_https_scheme(mut self, enabled: bool) -> Self {
+    self.platform_specific.https_scheme = enabled;
     self
   }
 }
