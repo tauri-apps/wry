@@ -135,16 +135,20 @@ impl InnerWebView {
       on_webview_created,
       with_asset_loader,
       asset_loader_domain,
+      https_scheme,
     } = pl_attrs;
+
+    let custom_protocol_scheme = if https_scheme { "https" } else { "http" };
 
     let url = if let Some(u) = url {
       let mut url_string = String::from(u.as_str());
       let name = u.scheme();
       let is_custom_protocol = custom_protocols.iter().any(|(n, _)| n == name);
       if is_custom_protocol {
-        url_string = u
-          .as_str()
-          .replace(&format!("{}://", name), &format!("https://{}.", name))
+        url_string = u.as_str().replace(
+          &format!("{name}://"),
+          &format!("{custom_protocol_scheme}://{name}."),
+        )
       }
       Some(url_string)
     } else {
@@ -175,13 +179,13 @@ impl InnerWebView {
           request
             .uri()
             .to_string()
-            .starts_with(&format!("https://{}.", name))
+            .starts_with(&format!("{custom_protocol_scheme}://{}.", name))
         }) {
           *request.uri_mut() = request
             .uri()
             .to_string()
             .replace(
-              &format!("https://{}.", custom_protocol.0),
+              &format!("{custom_protocol_scheme}://{}.", custom_protocol.0),
               &format!("{}://", custom_protocol.0),
             )
             .parse()

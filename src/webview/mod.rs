@@ -349,6 +349,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   >,
   with_asset_loader: bool,
   asset_loader_domain: Option<String>,
+  https_scheme: bool,
 }
 
 /// Type alias for a color in the RGBA format.
@@ -848,6 +849,14 @@ pub trait WebViewBuilderExtAndroid {
   /// to `with_custom_protocol` for Android, as it changes the way in which requests are handled.
   #[cfg(feature = "protocol")]
   fn with_asset_loader(self, protocol: String) -> Self;
+
+  /// Determines whether the custom protocols should use `https://<scheme>.localhost` instead of the default `http://<scheme>.localhost`.
+  ///
+  /// Using a `http` scheme will allow mixed content when trying to fetch `http` endpoints
+  /// and is therefore less secure but will match the behavior of the `<scheme>://localhost` protocols used on macOS and Linux.
+  ///
+  /// The default value is `false`.
+  fn with_https_scheme(self, enabled: bool) -> Self;
 }
 
 #[cfg(target_os = "android")]
@@ -879,6 +888,11 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     ));
     self.platform_specific.with_asset_loader = true;
     self.platform_specific.asset_loader_domain = Some(format!("{}.assets", protocol));
+    self
+  }
+
+  fn with_https_scheme(mut self, enabled: bool) -> Self {
+    self.platform_specific.https_scheme = enabled;
     self
   }
 }
