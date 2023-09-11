@@ -32,7 +32,6 @@ transparent = [ ]
 fullscreen = [ ]
 linux-body = [ "webkit2gtk/v2_40" ]
 mac-proxy = [ ]
-winit = ["dep:winit", "winit-gtk"]
 
 [dependencies]
 libc = "0.2"
@@ -58,7 +57,7 @@ glib = "0.16"
 gtk = "0.16"
 gdk = "0.16"
 soup3 = "0.3"
-winit-gtk = { path = "../winit-gtk", features = [ "serde" ], optional = true }
+winit = { package = "winit-gtk", version = "0.28.1", features = [ "serde" ], optional = true }
 
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.25"
