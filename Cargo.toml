@@ -42,7 +42,6 @@ serde_json = "1.0"
 thiserror = "1.0"
 url = "2.4"
 tao = { version = "0.22", default-features = false, features = [ "serde" ], optional = true }
-winit = { version = "0.28", features = [ "serde" ], optional = true }
 http = "0.2.9"
 
 [dev-dependencies]
@@ -58,11 +57,13 @@ glib = "0.16"
 gtk = "0.16"
 gdk = "0.16"
 soup3 = "0.3"
+winit = { package = "winit-gtk", version = "0.28.1", features = [ "serde" ], optional = true }
 
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.25"
 windows-implement = "0.48"
 dunce = "1"
+winit = { version = "0.28", features = [ "serde" ], optional = true }
 lazy_static = "1"
 
   [target."cfg(target_os = \"windows\")".dependencies.windows]
@@ -91,6 +92,7 @@ cocoa = "0.24"
 core-graphics = "0.22"
 objc = "0.2"
 objc_id = "0.1"
+winit = { version = "0.28", features = [ "serde" ], optional = true }
 
 [target."cfg(target_os = \"android\")".dependencies]
 crossbeam-channel = "0.5"
