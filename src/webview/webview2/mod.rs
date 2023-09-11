@@ -27,13 +27,15 @@ use std::{
   sync::{mpsc, Arc},
 };
 
-use once_cell::unsync::OnceCell;
+use once_cell::{sync::Lazy, unsync::OnceCell};
 
 use windows::{
   core::{ComInterface, PCSTR, PCWSTR, PWSTR},
+  s,
   Win32::{
     Foundation::*,
     Globalization::{self, MAX_LOCALE_NAME},
+    Graphics::Gdi::{RedrawWindow, HRGN, RDW_INTERNALPAINT},
     System::{
       Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
       LibraryLoader::{GetProcAddress, LoadLibraryW},
@@ -42,7 +44,7 @@ use windows::{
     },
     UI::{
       Shell::{DefSubclassProc, SetWindowSubclass},
-      WindowsAndMessaging::{self as win32wm},
+      WindowsAndMessaging::{self as win32wm, PostMessageW, RegisterWindowMessageA},
     },
   },
 };
@@ -315,7 +317,7 @@ impl InnerWebView {
 
     // document title changed handler
     if let Some(document_title_changed_handler) = attributes.document_title_changed_handler {
-      let window_c = window.clone();
+      let window_ = window.clone();
       unsafe {
         webview
           .add_DocumentTitleChanged(
@@ -324,7 +326,7 @@ impl InnerWebView {
               if let Some(webview) = webview {
                 webview.DocumentTitle(&mut title)?;
                 let title = take_pwstr(title);
-                document_title_changed_handler(&window_c, title);
+                document_title_changed_handler(&window_, title);
               }
               Ok(())
             })),
@@ -385,6 +387,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       Self::add_script_to_execute_on_document_created(&webview, js)?;
     }
 
+    let window_ = window.clone();
+
     // Message handler
     let ipc_handler = attributes.ipc_handler.take();
     unsafe {
@@ -395,12 +399,12 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             args.TryGetWebMessageAsString(&mut js)?;
             let js = take_pwstr(js);
             if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_MOUSE_MOVE__" {
-              if !window.is_decorated() && window.is_resizable() && !window.is_maximized() {
+              if !window_.is_decorated() && window_.is_resizable() && !window_.is_maximized() {
                 use crate::application::window::CursorIcon;
 
                 let mut point = POINT::default();
                 win32wm::GetCursorPos(&mut point);
-                let result = resize::hit_test(window.hwnd(), point.x, point.y);
+                let result = resize::hit_test(window_.hwnd(), point.x, point.y);
                 let cursor = match result.0 as u32 {
                   win32wm::HTLEFT => CursorIcon::WResize,
                   win32wm::HTTOP => CursorIcon::NResize,
@@ -414,7 +418,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 };
                 // don't use `CursorIcon::Arrow` variant or cursor manipulation using css will cause cursor flickering
                 if cursor != CursorIcon::Arrow {
-                  window.set_cursor_icon(cursor);
+                  window_.set_cursor_icon(cursor);
                 }
 
                 if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" {
@@ -422,7 +426,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                   // and prevent conflict with `tao::window::drag_window`.
                   if result.0 as u32 != win32wm::HTCLIENT {
                     resize::begin_resize_drag(
-                      window.hwnd(),
+                      window_.hwnd(),
                       result.0,
                       win32wm::WM_NCLBUTTONDOWN,
                       point.x,
@@ -436,7 +440,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             }
 
             if let Some(ipc_handler) = &ipc_handler {
-              ipc_handler(&window, js);
+              ipc_handler(&window_, js);
             }
           }
 
@@ -588,6 +592,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
       let custom_protocols = attributes.custom_protocols;
       let env = env.clone();
+      let main_thread_id = std::thread::current().id();
+
+      let hwnd = window.hwnd();
       unsafe {
         webview
           .add_WebResourceRequested(
@@ -668,25 +675,39 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                   };
 
                   let env = env.clone();
+                  let deferral = args.GetDeferral();
+
                   let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
                     Box::new(move |sent_response| {
-                      match prepare_web_request_response(&env, sent_response) {
-                        Ok(response) => {
-                          let _ = args.SetResponse(&response);
-                        }
-                        Err(_) => {
-                          let status = StatusCode::BAD_REQUEST;
-                          if let Ok(res) = env.CreateWebResourceResponse(
-                            None,
-                            status.as_u16() as i32,
-                            PCWSTR::from_raw(
-                              encode_wide(status.canonical_reason().unwrap_or("")).as_ptr(),
-                            ),
-                            PCWSTR::from_raw(encode_wide(String::new()).as_ptr()),
-                          ) {
-                            let _ = args.SetResponse(&res);
+                      let handler = move || {
+                        match prepare_web_request_response(&env, &sent_response) {
+                          Ok(response) => {
+                            let _ = args.SetResponse(&response);
+                          }
+                          Err(_) => {
+                            let status = StatusCode::BAD_REQUEST;
+                            if let Ok(res) = env.CreateWebResourceResponse(
+                              None,
+                              status.as_u16() as i32,
+                              PCWSTR::from_raw(
+                                encode_wide(status.canonical_reason().unwrap_or("")).as_ptr(),
+                              ),
+                              PCWSTR::from_raw(encode_wide(String::new()).as_ptr()),
+                            ) {
+                              let _ = args.SetResponse(&res);
+                            }
                           }
                         }
+
+                        if let Ok(deferral) = &deferral {
+                          let _ = deferral.Complete();
+                        }
+                      };
+
+                      if std::thread::current().id() == main_thread_id {
+                        handler();
+                      } else {
+                        dispatch_handler(hwnd, handler);
                       }
                     });
 
@@ -812,6 +833,14 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         win32wm::WM_DESTROY => {
           drop(Box::from_raw(dwrefdata as *mut ICoreWebView2Controller));
         }
+
+        _ if msg == *EXEC_MSG_ID => {
+          let mut function: Box<Box<dyn FnMut()>> = Box::from_raw(wparam.0 as *mut _);
+          function();
+          RedrawWindow(hwnd, None, HRGN::default(), RDW_INTERNALPAINT);
+          return LRESULT(0);
+        }
+
         _ => (),
       }
 
@@ -948,7 +977,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
 unsafe fn prepare_web_request_response(
   env: &ICoreWebView2Environment,
-  sent_response: HttpResponse<Cow<'static, [u8]>>,
+  sent_response: &HttpResponse<Cow<'static, [u8]>>,
 ) -> windows::core::Result<ICoreWebView2WebResourceResponse> {
   let content = sent_response.body();
   let status_code = sent_response.status();
@@ -1143,4 +1172,23 @@ fn url_from_webview(webview: &ICoreWebView2) -> String {
   let mut pwstr = PWSTR::null();
   unsafe { webview.Source(&mut pwstr).unwrap() };
   take_pwstr(pwstr)
+}
+
+static EXEC_MSG_ID: Lazy<u32> = Lazy::new(|| unsafe { RegisterWindowMessageA(s!("Wry::ExecMsg")) });
+
+unsafe fn dispatch_handler<F>(hwnd: isize, function: F)
+where
+  F: FnMut() + 'static,
+{
+  // We double-box because the first box is a fat pointer.
+  let boxed = Box::new(function) as Box<dyn FnMut()>;
+  let boxed2: Box<Box<dyn FnMut()>> = Box::new(boxed);
+
+  let raw = Box::into_raw(boxed2);
+
+  let res = PostMessageW(HWND(hwnd), *EXEC_MSG_ID, WPARAM(raw as _), LPARAM(0));
+  assert!(
+    res.as_bool(),
+    "PostMessage failed ; is the messages queue full?"
+  );
 }

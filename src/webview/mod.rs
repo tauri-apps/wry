@@ -498,6 +498,8 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Same as [`Self::with_custom_protocol`] but with an asynchronous responder.
   ///
+  /// # Examples
+  ///
   /// ```no_run
   /// use wry::{
   ///   application::{
