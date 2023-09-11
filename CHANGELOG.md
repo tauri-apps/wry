@@ -1,5 +1,12 @@
 # Changelog
 
+## \[0.33.0]
+
+- [`5adf9da`](https://github.com/tauri-apps/wry/commit/5adf9da2151800ec2431a1547cc0d970fc95b764)([#994](https://github.com/tauri-apps/wry/pull/994)) **Breaking change** Wry now defaults to `http://<scheme>.localhost/` for custom protocols on Android.
+- [`844d95a`](https://github.com/tauri-apps/wry/commit/844d95a4035f68371d64f6b04151982481cdee70)([#1023](https://github.com/tauri-apps/wry/pull/1023)) Fixes async custom protocol resolver on Windows.
+- [`5adf9da`](https://github.com/tauri-apps/wry/commit/5adf9da2151800ec2431a1547cc0d970fc95b764)([#994](https://github.com/tauri-apps/wry/pull/994)) Add `WebViewBuilderExtAndroid::with_https_scheme` to be able to choose between `http` and `https` for custom protocols on Android.
+- [`c5c3731`](https://github.com/tauri-apps/wry/commit/c5c3731f2027802735f7b80c7ae5f4b64d0fb746)([#1024](https://github.com/tauri-apps/wry/pull/1024)) Add winit-gtk to support winit feature flag on Linux.
+
 ## \[0.32.0]
 
 - [`4bdf1c3`](https://github.com/tauri-apps/wry/commit/4bdf1c366de5708b7626ca63eb39e134869c5bd4)([#1017](https://github.com/tauri-apps/wry/pull/1017)) Added `WebViewBuilder::with_asynchronous_custom_protocol` to allow implementing a protocol handler that resolves asynchronously.
