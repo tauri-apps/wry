@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.24.4]
+
+- [`634b021`](https://github.com/tauri-apps/wry/commit/634b0214fe0345882f5772dda6a0dcffdde52c40)([#994](https://github.com/tauri-apps/wry/pull/994)) Backport `WebViewBuilderExtWindows::with_https_scheme` from `wry@0.32.x` to `wry@0.24.x` to be able to choose between `http` and `https` for custom protocols on Windows. Note that the default behavior for this release is to use `https` unlike `wry@0.32.x` which uses `http` by default.
+- [`1f83261`](https://github.com/tauri-apps/wry/commit/1f832614d68f4e929cc4297d622eed867cb84eb5)([#1015](https://github.com/tauri-apps/wry/pull/1015)) Add `WebViewBuilder::with_focused` to control whether to focus the webview upon creation or not. Supported on Windows and Linux only.
+
 ## \[0.24.3]
 
 - On macOS/iOS, remove web_context module declaration.
