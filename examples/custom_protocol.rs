@@ -15,7 +15,7 @@ use wry::{
     window::WindowBuilder,
   },
   http::{header::CONTENT_TYPE, Response},
-  webview::{WebViewBuilder, WebViewBuilderExtWindows},
+  webview::WebViewBuilder,
 };
 
 const PAGE1_HTML: &[u8] = include_bytes!("custom_protocol_page1.html");
@@ -29,21 +29,17 @@ fn main() -> wry::Result<()> {
 
   let _webview = WebViewBuilder::new(window)
     .unwrap()
-    .with_https_scheme(true)
     .with_asynchronous_custom_protocol("wry".into(), move |request, responder| {
-      std::thread::spawn(move || {
-        std::thread::sleep_ms(1000);
-        match get_wry_response(request) {
-          Ok(http_response) => responder.respond(http_response),
-          Err(e) => responder.respond(
-            http::Response::builder()
-              .header(CONTENT_TYPE, "text/plain")
-              .status(500)
-              .body(e.to_string().as_bytes().to_vec())
-              .unwrap(),
-          ),
-        }
-      });
+      match get_wry_response(request) {
+        Ok(http_response) => responder.respond(http_response),
+        Err(e) => responder.respond(
+          http::Response::builder()
+            .header(CONTENT_TYPE, "text/plain")
+            .status(500)
+            .body(e.to_string().as_bytes().to_vec())
+            .unwrap(),
+        ),
+      }
     })
     // tell the webview to load the custom protocol
     .with_url("wry://localhost")?
