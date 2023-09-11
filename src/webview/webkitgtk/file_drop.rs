@@ -5,10 +5,12 @@
 use std::{cell::Cell, path::PathBuf, rc::Rc};
 
 use gtk::prelude::*;
-use tao::dpi::LogicalPosition;
 use webkit2gtk::WebView;
 
-use crate::{application::window::Window, webview::FileDropEvent};
+use crate::{
+  application::{dpi::LogicalPosition, window::Window},
+  webview::FileDropEvent,
+};
 
 pub(crate) fn connect_drag_event(
   webview: Rc<WebView>,
