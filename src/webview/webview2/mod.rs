@@ -27,14 +27,15 @@ use std::{
   sync::{mpsc, Arc},
 };
 
-use once_cell::unsync::OnceCell;
+use once_cell::{sync::Lazy, unsync::OnceCell};
 
 use windows::{
   core::{ComInterface, PCSTR, PCWSTR, PWSTR},
+  s,
   Win32::{
     Foundation::*,
     Globalization::{self, MAX_LOCALE_NAME},
-    Graphics::Gdi::RedrawWindow,
+    Graphics::Gdi::{RedrawWindow, HRGN, RDW_INTERNALPAINT},
     System::{
       Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
       LibraryLoader::{GetProcAddress, LoadLibraryW},
@@ -43,7 +44,7 @@ use windows::{
     },
     UI::{
       Shell::{DefSubclassProc, SetWindowSubclass},
-      WindowsAndMessaging::{self as win32wm},
+      WindowsAndMessaging::{self as win32wm, PostMessageW, RegisterWindowMessageA},
     },
   },
 };
@@ -593,9 +594,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       let env = env.clone();
       let main_thread_id = std::thread::current().id();
 
-      let thread_msg_target = create_event_target_window();
-      subclass_event_target_window(thread_msg_target);
-
+      let hwnd = window.hwnd();
       unsafe {
         webview
           .add_WebResourceRequested(
@@ -708,7 +707,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                       if std::thread::current().id() == main_thread_id {
                         handler();
                       } else {
-                        run_on_main_thread(thread_msg_target, handler);
+                        dispatch_handler(hwnd, handler);
                       }
                     });
 
@@ -834,6 +833,14 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         win32wm::WM_DESTROY => {
           drop(Box::from_raw(dwrefdata as *mut ICoreWebView2Controller));
         }
+
+        _ if msg == *EXEC_MSG_ID => {
+          let mut function: Box<Box<dyn FnMut()>> = Box::from_raw(wparam.0 as *mut _);
+          function();
+          RedrawWindow(hwnd, None, HRGN::default(), RDW_INTERNALPAINT);
+          return LRESULT(0);
+        }
+
         _ => (),
       }
 
@@ -1167,93 +1174,9 @@ fn url_from_webview(webview: &ICoreWebView2) -> String {
   take_pwstr(pwstr)
 }
 
-use windows::{
-  core::s,
-  Win32::{Graphics::Gdi::*, System::LibraryLoader::GetModuleHandleW, UI::WindowsAndMessaging::*},
-};
+static EXEC_MSG_ID: Lazy<u32> = Lazy::new(|| unsafe { RegisterWindowMessageA(s!("Wry::ExecMsg")) });
 
-fn create_event_target_window() -> HWND {
-  let window = unsafe {
-    CreateWindowExW(
-      WS_EX_NOACTIVATE | WS_EX_TRANSPARENT | WS_EX_LAYERED |
-      // WS_EX_TOOLWINDOW prevents this window from ever showing up in the taskbar, which
-      // we want to avoid. If you remove this style, this window won't show up in the
-      // taskbar *initially*, but it can show up at some later point. This can sometimes
-      // happen on its own after several hours have passed, although this has proven
-      // difficult to reproduce. Alternatively, it can be manually triggered by killing
-      // `explorer.exe` and then starting the process back up.
-      // It is unclear why the bug is triggered by waiting for several hours.
-      WS_EX_TOOLWINDOW,
-      PCWSTR::from_raw(THREAD_EVENT_TARGET_WINDOW_CLASS.clone().as_ptr()),
-      PCWSTR::null(),
-      WS_OVERLAPPED,
-      0,
-      0,
-      0,
-      0,
-      HWND::default(),
-      HMENU::default(),
-      GetModuleHandleW(PCWSTR::null()).unwrap_or_default(),
-      None,
-    )
-  };
-
-  SetWindowLongPtrW(
-    window,
-    GWL_STYLE,
-    // The window technically has to be visible to receive WM_PAINT messages (which are used
-    // for delivering events during resizes), but it isn't displayed to the user because of
-    // the LAYERED style.
-    (WS_VISIBLE | WS_POPUP).0 as isize,
-  );
-  window
-}
-
-#[allow(non_snake_case)]
-#[cfg(target_pointer_width = "32")]
-pub fn SetWindowLongPtrW(window: HWND, index: WINDOW_LONG_PTR_INDEX, value: isize) -> isize {
-  unsafe { win32wm::SetWindowLongW(window, index, value as _) as _ }
-}
-
-#[allow(non_snake_case)]
-#[cfg(target_pointer_width = "64")]
-pub fn SetWindowLongPtrW(window: HWND, index: WINDOW_LONG_PTR_INDEX, value: isize) -> isize {
-  unsafe { win32wm::SetWindowLongPtrW(window, index, value) }
-}
-
-const THREAD_EVENT_TARGET_SUBCLASS_ID: usize = 1;
-
-fn subclass_event_target_window(window: HWND) {
-  unsafe {
-    let subclass_result = SetWindowSubclass(
-      window,
-      Some(thread_event_target_callback),
-      THREAD_EVENT_TARGET_SUBCLASS_ID,
-      0,
-    );
-    assert!(subclass_result.as_bool());
-  }
-}
-
-unsafe extern "system" fn thread_event_target_callback(
-  window: HWND,
-  msg: u32,
-  wparam: WPARAM,
-  lparam: LPARAM,
-  _: usize,
-  _subclass_input_ptr: usize,
-) -> LRESULT {
-  if msg == *EXEC_MSG_ID {
-    let mut function: Box<Box<dyn FnMut()>> = Box::from_raw(wparam.0 as *mut _);
-    function();
-    RedrawWindow(window, None, HRGN::default(), RDW_INTERNALPAINT);
-    LRESULT(0)
-  } else {
-    DefSubclassProc(window, msg, wparam, lparam)
-  }
-}
-
-unsafe fn run_on_main_thread<F>(hwnd: HWND, function: F)
+unsafe fn dispatch_handler<F>(hwnd: isize, function: F)
 where
   F: FnMut() + 'static,
 {
@@ -1263,53 +1186,9 @@ where
 
   let raw = Box::into_raw(boxed2);
 
-  let res = PostMessageW(hwnd, *EXEC_MSG_ID, WPARAM(raw as _), LPARAM(0));
+  let res = PostMessageW(HWND(hwnd), *EXEC_MSG_ID, WPARAM(raw as _), LPARAM(0));
   assert!(
     res.as_bool(),
     "PostMessage failed ; is the messages queue full?"
   );
-}
-
-lazy_static::lazy_static! {
-  // Message sent when we want to execute a closure in the thread.
-// WPARAM contains a Box<Box<dyn FnMut()>> that must be retrieved with `Box::from_raw`,
-// and LPARAM is unused.
-
-  static ref EXEC_MSG_ID: u32 = {
-      unsafe {
-          RegisterWindowMessageA(s!("Wry::ExecMsg"))
-      }
-  };
-
-  static ref THREAD_EVENT_TARGET_WINDOW_CLASS: Vec<u16> = unsafe {
-        let class_name= encode_wide("Wry Thread Event Target");
-
-        let class = WNDCLASSEXW {
-            cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
-            style: Default::default(),
-            lpfnWndProc: Some(call_default_window_proc),
-            cbClsExtra: 0,
-            cbWndExtra: 0,
-            hInstance: GetModuleHandleW(PCWSTR::null()).unwrap_or_default(),
-            hIcon: HICON::default(),
-            hCursor: HCURSOR::default(), // must be null in order for cursor state to work properly
-            hbrBackground: HBRUSH::default(),
-            lpszMenuName: PCWSTR::null(),
-            lpszClassName: PCWSTR::from_raw(class_name.as_ptr()),
-            hIconSm: HICON::default(),
-        };
-
-        RegisterClassExW(&class);
-
-        class_name
-    };
-}
-
-unsafe extern "system" fn call_default_window_proc(
-  hwnd: HWND,
-  msg: u32,
-  wparam: WPARAM,
-  lparam: LPARAM,
-) -> LRESULT {
-  DefWindowProcW(hwnd, msg, wparam, lparam)
 }

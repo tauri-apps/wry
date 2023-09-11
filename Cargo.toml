@@ -64,7 +64,6 @@ webview2-com = "0.25"
 windows-implement = "0.48"
 dunce = "1"
 winit = { version = "0.28", features = [ "serde" ], optional = true }
-lazy_static = "1"
 
   [target."cfg(target_os = \"windows\")".dependencies.windows]
   version = "0.48"
