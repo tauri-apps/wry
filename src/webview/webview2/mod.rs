@@ -315,7 +315,7 @@ impl InnerWebView {
 
     // document title changed handler
     if let Some(document_title_changed_handler) = attributes.document_title_changed_handler {
-      let window_c = window.clone();
+      let window_ = window.clone();
       unsafe {
         webview
           .add_DocumentTitleChanged(
@@ -324,7 +324,7 @@ impl InnerWebView {
               if let Some(webview) = webview {
                 webview.DocumentTitle(&mut title)?;
                 let title = take_pwstr(title);
-                document_title_changed_handler(&window_c, title);
+                document_title_changed_handler(&window_, title);
               }
               Ok(())
             })),
@@ -385,6 +385,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       Self::add_script_to_execute_on_document_created(&webview, js)?;
     }
 
+    let window_ = window.clone();
+
     // Message handler
     let ipc_handler = attributes.ipc_handler.take();
     unsafe {
@@ -395,12 +397,12 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             args.TryGetWebMessageAsString(&mut js)?;
             let js = take_pwstr(js);
             if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_MOUSE_MOVE__" {
-              if !window.is_decorated() && window.is_resizable() && !window.is_maximized() {
+              if !window_.is_decorated() && window_.is_resizable() && !window_.is_maximized() {
                 use crate::application::window::CursorIcon;
 
                 let mut point = POINT::default();
                 win32wm::GetCursorPos(&mut point);
-                let result = resize::hit_test(window.hwnd(), point.x, point.y);
+                let result = resize::hit_test(window_.hwnd(), point.x, point.y);
                 let cursor = match result.0 as u32 {
                   win32wm::HTLEFT => CursorIcon::WResize,
                   win32wm::HTTOP => CursorIcon::NResize,
@@ -414,7 +416,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 };
                 // don't use `CursorIcon::Arrow` variant or cursor manipulation using css will cause cursor flickering
                 if cursor != CursorIcon::Arrow {
-                  window.set_cursor_icon(cursor);
+                  window_.set_cursor_icon(cursor);
                 }
 
                 if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" {
@@ -422,7 +424,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                   // and prevent conflict with `tao::window::drag_window`.
                   if result.0 as u32 != win32wm::HTCLIENT {
                     resize::begin_resize_drag(
-                      window.hwnd(),
+                      window_.hwnd(),
                       result.0,
                       win32wm::WM_NCLBUTTONDOWN,
                       point.x,
@@ -436,7 +438,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             }
 
             if let Some(ipc_handler) = &ipc_handler {
-              ipc_handler(&window, js);
+              ipc_handler(&window_, js);
             }
           }
 
@@ -588,7 +590,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
       let custom_protocols = attributes.custom_protocols;
       let env = env.clone();
+
       unsafe {
+        let window_ = window.clone();
         webview
           .add_WebResourceRequested(
             &WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
@@ -668,26 +672,40 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                   };
 
                   let env = env.clone();
+                  let deferral = args.GetDeferral();
+                  let window_ = window_.clone();
+
                   let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
                     Box::new(move |sent_response| {
-                      match prepare_web_request_response(&env, sent_response) {
-                        Ok(response) => {
-                          let _ = args.SetResponse(&response);
-                        }
-                        Err(_) => {
-                          let status = StatusCode::BAD_REQUEST;
-                          if let Ok(res) = env.CreateWebResourceResponse(
-                            None,
-                            status.as_u16() as i32,
-                            PCWSTR::from_raw(
-                              encode_wide(status.canonical_reason().unwrap_or("")).as_ptr(),
-                            ),
-                            PCWSTR::from_raw(encode_wide(String::new()).as_ptr()),
-                          ) {
-                            let _ = args.SetResponse(&res);
+                      let handler = move || {
+                        match prepare_web_request_response(&env, &sent_response) {
+                          Ok(response) => {
+                            let _ = args.SetResponse(&response);
+                          }
+                          Err(_) => {
+                            let status = StatusCode::BAD_REQUEST;
+                            if let Ok(res) = env.CreateWebResourceResponse(
+                              None,
+                              status.as_u16() as i32,
+                              PCWSTR::from_raw(
+                                encode_wide(status.canonical_reason().unwrap_or("")).as_ptr(),
+                              ),
+                              PCWSTR::from_raw(encode_wide(String::new()).as_ptr()),
+                            ) {
+                              let _ = args.SetResponse(&res);
+                            }
                           }
                         }
-                      }
+
+                        if let Ok(deferral) = &deferral {
+                          let _ = deferral.Complete();
+                        }
+                      };
+
+                      #[cfg(feature = "tao")]
+                      window_.dispatch(handler);
+                      #[cfg(feature = "winit")]
+                      handler();
                     });
 
                   (custom_protocol.1)(final_request, RequestAsyncResponder { responder });
@@ -948,7 +966,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
 unsafe fn prepare_web_request_response(
   env: &ICoreWebView2Environment,
-  sent_response: HttpResponse<Cow<'static, [u8]>>,
+  sent_response: &HttpResponse<Cow<'static, [u8]>>,
 ) -> windows::core::Result<ICoreWebView2WebResourceResponse> {
   let content = sent_response.body();
   let status_code = sent_response.status();

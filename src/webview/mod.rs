@@ -498,6 +498,12 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Same as [`Self::with_custom_protocol`] but with an asynchronous responder.
   ///
+  /// # Notes
+  ///
+  /// Does not work for `winit` yet.
+  ///
+  /// # Examples
+  ///
   /// ```no_run
   /// use wry::{
   ///   application::{
