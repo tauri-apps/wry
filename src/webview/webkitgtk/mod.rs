@@ -401,7 +401,7 @@ impl InnerWebView {
       pending_scripts.push(js.into());
     } else {
       let cancellable: Option<&Cancellable> = None;
-      let span = SendEnteredSpan(tracing::debug_span!("wry.eval").entered());
+      let span = SendEnteredSpan(tracing::debug_span!("wry::eval").entered());
       self.webview.run_javascript(js, cancellable, move |_| {
         drop(span);
       });

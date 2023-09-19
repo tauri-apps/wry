@@ -111,7 +111,7 @@ impl InnerWebView {
     // Task handler for custom protocol
     extern "C" fn start_task(this: &Object, _: Sel, _webview: id, task: id) {
       unsafe {
-        let span = tracing::info_span!("wry.custom_protocol.handle", uri = tracing::field::Empty);
+        let span = tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty);
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
           let function = &mut *(*function
@@ -184,7 +184,7 @@ impl InnerWebView {
           match http_request.body(sent_form_body) {
             Ok(final_request) => {
               let res = {
-                let _span = tracing::info_span!("wry.custom_protocol.call_handler");
+                let _span = tracing::info_span!("wry::custom_protocol::call_handler");
                 function(&final_request)
               };
               if let Ok(sent_response) = res {
@@ -860,7 +860,7 @@ r#"Object.defineProperty(window, 'ipc', {
     } else {
       // Safety: objc runtime calls are unsafe
       unsafe {
-        let span = Mutex::new(Some(tracing::debug_span!("wry.eval").entered()));
+        let span = Mutex::new(Some(tracing::debug_span!("wry::eval").entered()));
         let handler = block::ConcreteBlock::new(move |_object, _error| {
           span.lock().unwrap().take();
         });
