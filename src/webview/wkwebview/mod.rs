@@ -852,7 +852,15 @@ r#"Object.defineProperty(window, 'ipc', {
     } else {
       // Safety: objc runtime calls are unsafe
       unsafe {
-        let _: id = msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()];
+        let span = Mutex::new(Some(tracing::debug_span!("wry.eval").entered()));
+        let handler = block::ConcreteBlock::new(move |_object, _error| {
+          span.lock().unwrap().take();
+        });
+        // Put the block on the heap
+        let handler = handler.copy();
+        let completion_handler: &block::Block<(id, id), ()> = &handler;
+
+        let _: id = msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:completion_handler];
       }
     }
     Ok(())
