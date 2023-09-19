@@ -111,6 +111,7 @@ impl InnerWebView {
     // Task handler for custom protocol
     extern "C" fn start_task(this: &Object, _: Sel, _webview: id, task: id) {
       unsafe {
+        let span = tracing::info_span!("wry.custom_protocol.handle", uri = tracing::field::Empty);
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
           let function = &mut *(*function
@@ -120,10 +121,13 @@ impl InnerWebView {
           let request: id = msg_send![task, request];
           let url: id = msg_send![request, URL];
 
-          let nsstring = {
+          let uri_nsstring = {
             let s: id = msg_send![url, absoluteString];
             NSString(s)
           };
+          let uri = uri_nsstring.to_str();
+
+          span.record("uri", uri);
 
           // Get request method (GET, POST, PUT etc...)
           let method = {
@@ -132,9 +136,7 @@ impl InnerWebView {
           };
 
           // Prepare our HttpRequest
-          let mut http_request = Request::builder()
-            .uri(nsstring.to_str())
-            .method(method.to_str());
+          let mut http_request = Request::builder().uri(uri).method(method.to_str());
 
           // Get body
           let mut sent_form_body = Vec::new();
@@ -158,6 +160,8 @@ impl InnerWebView {
             let _: () = msg_send![body_stream, close];
           }
 
+          tracing::debug!("done reading body");
+
           // Extract all headers fields
           let all_headers: id = msg_send![request, allHTTPHeaderFields];
 
@@ -179,7 +183,11 @@ impl InnerWebView {
           // send response
           match http_request.body(sent_form_body) {
             Ok(final_request) => {
-              if let Ok(sent_response) = function(&final_request) {
+              let res = {
+                let _span = tracing::info_span!("wry.custom_protocol.call_handler");
+                function(&final_request)
+              };
+              if let Ok(sent_response) = res {
                 let content = sent_response.body();
                 // default: application/octet-stream, but should be provided by the client
                 let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
