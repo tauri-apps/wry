@@ -318,6 +318,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     unsafe {
       webview.add_WebMessageReceived(
         &WebMessageReceivedEventHandler::create(Box::new(move |_, args| {
+          let _span = tracing::info_span!("wry::ipc::handle").entered();
+
           if let Some(args) = args {
             let mut js = PWSTR::null();
             args.TryGetWebMessageAsString(&mut js)?;

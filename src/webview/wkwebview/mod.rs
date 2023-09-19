@@ -93,6 +93,8 @@ impl InnerWebView {
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
       // Safety: objc runtime calls are unsafe
       unsafe {
+        let _span = tracing::info_span!("wry::ipc::handle").entered();
+
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
           let function =
