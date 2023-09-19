@@ -515,7 +515,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
           .add_WebResourceRequested(
             &WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
               let span =
-                tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty);
+                tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty)
+                  .entered();
               if let Some(args) = args {
                 let webview_request = args.Request()?;
                 let mut request = Request::builder();
@@ -594,7 +595,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                   };
 
                   let res = {
-                    let _span = tracing::info_span!("wry::custom_protocol::call_handler");
+                    let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
                     (custom_protocol.1)(&final_request)
                   };
                   return match res {

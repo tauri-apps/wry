@@ -287,7 +287,8 @@ where
     .register_uri_scheme_as_secure(name);
 
   context.register_uri_scheme(name, move |request| {
-    let span = tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty);
+    let span =
+      tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty).entered();
 
     if let Some(uri) = request.uri() {
       let uri = uri.as_str();
@@ -330,7 +331,7 @@ where
       };
 
       let res = {
-        let _span = tracing::info_span!("wry::custom_protocol::call_handler");
+        let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
         handler(&http_request)
       };
       match res {
