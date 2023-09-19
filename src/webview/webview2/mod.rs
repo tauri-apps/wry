@@ -816,10 +816,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       webview.ExecuteScript(
         PCWSTR::from_raw(encode_wide(js).as_ptr()),
         &ExecuteScriptCompletedHandler::create(Box::new(|_, _| {
-          Box::new(move |_, _| {
-            drop(span);
-            Ok(())
-          })
+          drop(span);
+          Ok(())
         })),
       )
     }
