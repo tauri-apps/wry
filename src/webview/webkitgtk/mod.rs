@@ -401,7 +401,10 @@ impl InnerWebView {
       pending_scripts.push(js.into());
     } else {
       let cancellable: Option<&Cancellable> = None;
-      self.webview.run_javascript(js, cancellable, |_| ());
+      let span = SendEnteredSpan(tracing::debug_span!("wry.eval").entered());
+      self.webview.run_javascript(js, cancellable, move |_| {
+        drop(span);
+      });
     }
     Ok(())
   }
@@ -490,3 +493,8 @@ pub fn platform_webview_version() -> Result<String> {
   };
   Ok(format!("{}.{}.{}", major, minor, patch))
 }
+
+// SAFETY: only use this when you are sure the span will be dropped on the same thread it was entered
+struct SendEnteredSpan(tracing::span::EnteredSpan);
+
+unsafe impl Send for SendEnteredSpan {}

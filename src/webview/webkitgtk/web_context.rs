@@ -287,8 +287,12 @@ where
     .register_uri_scheme_as_secure(name);
 
   context.register_uri_scheme(name, move |request| {
+    let span = tracing::info_span!("wry.custom_protocol.handle", uri = tracing::field::Empty);
+
     if let Some(uri) = request.uri() {
       let uri = uri.as_str();
+
+      span.record("uri", uri);
 
       // FIXME: Read the body (forms post)
       #[allow(unused_mut)]
@@ -325,7 +329,11 @@ where
         }
       };
 
-      match handler(&http_request) {
+      let res = {
+        let _span = tracing::info_span!("wry.custom_protocol.call_handler");
+        handler(&http_request)
+      };
+      match res {
         Ok(http_response) => {
           let buffer = http_response.body();
           let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(buffer));
