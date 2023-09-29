@@ -1034,7 +1034,7 @@ impl WebView {
     self.webview.is_devtools_open()
   }
 
-  /// Gets the physical size of the webview’s client area. This is 
+  /// Gets the physical size of the webview’s client area. This is
   /// a drop-in replacement for [`Window::inner_size`] because on some platforms
   /// (currently, only macOS), it will return an incorrect size.
   ///
