@@ -1048,7 +1048,10 @@ impl WebView {
   /// };
   /// let event_loop = EventLoop::new();
   /// let window = WindowBuilder::new().build(&event_loop).unwrap();
-  /// let webview = WebViewBuilder::new(window).unwrap();
+  /// let webview = WebViewBuilder::new(window)
+  ///   .unwrap()
+  ///   .build()
+  ///   .unwrap();
   ///
   /// // This returns incorrect window size on macOS.
   /// println!("{:?}", webview.window().inner_size());
