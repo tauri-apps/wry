@@ -1034,9 +1034,9 @@ impl WebView {
     self.webview.is_devtools_open()
   }
 
-  /// Gets the physical size of the webview’s client area.
-  ///
-  /// [`Window::inner_size`] does not work on some platforms. This method can be a replacement of the method.
+  /// Gets the physical size of the webview’s client area. This is 
+  /// a drop-in replacement for [`Window::inner_size`] because on some platforms
+  /// (currently, only macOS), it will return an incorrect size.
   ///
   /// ```no_run
   /// use wry::{
@@ -1050,7 +1050,7 @@ impl WebView {
   /// let window = WindowBuilder::new().build(&event_loop).unwrap();
   /// let webview = WebViewBuilder::new(window).unwrap()
   ///
-  /// // This may return the incorrect window size.
+  /// // This returns incorrect window size on macOS.
   /// println!("{:?}", webview.window().inner_size());
   /// // Instead, this always returns the correct window size.
   /// println!("{:?}", webview.inner_size());
