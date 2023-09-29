@@ -513,17 +513,17 @@ impl<'a> WebViewBuilder<'a> {
   /// let window = WindowBuilder::new()
   ///   .build(&event_loop)
   ///   .unwrap();
-  ///   WebViewBuilder::new(window)
-  ///     .unwrap()
-  ///     .with_asynchronous_custom_protocol("wry".into(), |request, responder| {
-  ///       // here you can use a tokio task, thread pool or anything
-  ///       // to do heavy computation to resolve your request
-  ///       // e.g. downloading files, opening the camera...
-  ///       std::thread::spawn(move || {
-  ///         std::thread::sleep(std::time::Duration::from_secs(2));
-  ///         responder.respond(http::Response::builder().body(Vec::new()).unwrap());
-  ///       });
+  /// WebViewBuilder::new(window)
+  ///   .unwrap()
+  ///   .with_asynchronous_custom_protocol("wry".into(), |request, responder| {
+  ///     // here you can use a tokio task, thread pool or anything
+  ///     // to do heavy computation to resolve your request
+  ///     // e.g. downloading files, opening the camera...
+  ///     std::thread::spawn(move || {
+  ///       std::thread::sleep(std::time::Duration::from_secs(2));
+  ///       responder.respond(http::Response::builder().body(Vec::new()).unwrap());
   ///     });
+  ///   });
   /// ```
   #[cfg(feature = "protocol")]
   pub fn with_asynchronous_custom_protocol<F>(mut self, name: String, handler: F) -> Self
@@ -1034,6 +1034,30 @@ impl WebView {
     self.webview.is_devtools_open()
   }
 
+  /// Gets the physical size of the webview’s client area. This is
+  /// a drop-in replacement for [`Window::inner_size`] because on some platforms
+  /// (currently, only macOS), it will return an incorrect size.
+  ///
+  /// ```no_run
+  /// use wry::{
+  ///   application::{
+  ///     event_loop::EventLoop,
+  ///     window::WindowBuilder
+  ///   },
+  ///   webview::WebViewBuilder,
+  /// };
+  /// let event_loop = EventLoop::new();
+  /// let window = WindowBuilder::new().build(&event_loop).unwrap();
+  /// let webview = WebViewBuilder::new(window)
+  ///   .unwrap()
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// // This returns incorrect window size on macOS.
+  /// println!("{:?}", webview.window().inner_size());
+  /// // Instead, this always returns the correct window size.
+  /// println!("{:?}", webview.inner_size());
+  /// ```
   pub fn inner_size(&self) -> PhysicalSize<u32> {
     #[cfg(target_os = "macos")]
     {
