@@ -50,7 +50,7 @@ fn main() -> wry::Result<()> {
       Response::builder()
         .header(CONTENT_TYPE, mimetype)
         .body(data)
-        .map_err(Into::into)
+        .unwrap()
     })
     .with_url("wrybench://localhost")?
     .with_ipc_handler(handler)
