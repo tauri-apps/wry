@@ -54,7 +54,7 @@ fn main() -> wry::Result<()> {
       Response::builder()
         .header(CONTENT_TYPE, "text/html")
         .body(INDEX_HTML.into())
-        .map_err(Into::into)
+        .unwrap()
     })
     .with_url("wrybench://localhost")?
     .build()?;
