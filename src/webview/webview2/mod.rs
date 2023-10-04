@@ -29,7 +29,7 @@ use std::{
 use once_cell::{sync::Lazy, unsync::OnceCell};
 
 use windows::{
-  core::{ComInterface, IUnknown, PCSTR, PCWSTR, PWSTR},
+  core::{ComInterface, PCSTR, PCWSTR, PWSTR},
   s,
   Win32::{
     Foundation::*,
