@@ -115,7 +115,7 @@ WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7,
 
 ### Android / iOS
 
-Wry supports mobile with the help of [`tauri-mobile`](https://github.com/tauri-apps/tauri-mobile) CLI to create template project. If you are interested in playing or hacking it, please follow [MOBILE.md](MOBILE.md).
+Wry supports mobile with the help of [`cargo-mobile2`](https://github.com/tauri-apps/cargo-mobile2) CLI to create template project. If you are interested in playing or hacking it, please follow [MOBILE.md](MOBILE.md).
 
 If you wish to create Android project yourself, there are a few kotlin files that are needed to run wry on Android and you have to set the following environment variables:
 
