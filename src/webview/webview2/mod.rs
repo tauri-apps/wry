@@ -20,7 +20,6 @@ use std::{
   collections::HashSet,
   fmt::Write,
   iter::once,
-  mem::MaybeUninit,
   os::windows::prelude::OsStrExt,
   path::PathBuf,
   rc::Rc,
@@ -37,13 +36,13 @@ use windows::{
     Globalization::{self, MAX_LOCALE_NAME},
     Graphics::Gdi::{RedrawWindow, HRGN, RDW_INTERNALPAINT},
     System::{
-      Com::{IStream, StructuredStorage::CreateStreamOnHGlobal},
+      Com::IStream,
       LibraryLoader::{GetProcAddress, LoadLibraryW},
       SystemInformation::OSVERSIONINFOW,
       WinRT::EventRegistrationToken,
     },
     UI::{
-      Shell::{DefSubclassProc, SetWindowSubclass},
+      Shell::{DefSubclassProc, SHCreateMemStream, SetWindowSubclass},
       WindowsAndMessaging::{self as win32wm, PostMessageW, RegisterWindowMessageA},
     },
   },
@@ -992,28 +991,15 @@ unsafe fn prepare_web_request_response(
     }
   }
 
-  let mut body_sent = None;
+  let mut stream = None;
   if !content.is_empty() {
-    let stream = CreateStreamOnHGlobal(HGLOBAL(0), true)?;
-    stream.SetSize(content.len() as u64)?;
-    let mut cb_write = MaybeUninit::uninit();
-    if stream
-      .Write(
-        content.as_ptr() as *const _,
-        content.len() as u32,
-        Some(cb_write.as_mut_ptr()),
-      )
-      .is_ok()
-      && cb_write.assume_init() as usize == content.len()
-    {
-      body_sent = Some(stream);
-    }
+    stream = SHCreateMemStream(Some(content));
   }
 
   // FIXME: Set http response version
 
   env.CreateWebResourceResponse(
-    body_sent.as_ref(),
+    stream.as_ref(),
     status_code.as_u16() as i32,
     PCWSTR::from_raw(encode_wide(status_code.canonical_reason().unwrap_or("OK")).as_ptr()),
     PCWSTR::from_raw(encode_wide(headers_map).as_ptr()),
