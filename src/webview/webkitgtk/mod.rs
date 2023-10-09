@@ -80,7 +80,7 @@ impl InnerWebView {
       };
       use webkit2gtk::WebContextExt;
       if let Some(website_data_manager) = web_context.context().website_data_manager() {
-        let mut settings = NetworkProxySettings::new(Some(&proxy_uri.as_str()), &[]);
+        let mut settings = NetworkProxySettings::new(Some(proxy_uri.as_str()), &[]);
         website_data_manager
           .set_network_proxy_settings(NetworkProxyMode::Custom, Some(&mut settings));
       }
