@@ -75,7 +75,9 @@ fn main() -> wry::Result<()> {
     match event {
       Event::NewEvents(StartCause::Init) => println!("Wry application started!"),
       Event::WindowEvent {
-        event: WindowEvent::CloseRequested, window_id, ..
+        event: WindowEvent::CloseRequested,
+        window_id,
+        ..
       } => {
         webviews.remove(&window_id);
         if webviews.is_empty() {
