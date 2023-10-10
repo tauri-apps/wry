@@ -61,7 +61,7 @@ winit = { package = "winit-gtk", version = "0.28.1", features = [ "serde" ], opt
 
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.25"
-windows-implement = "0.48"
+windows-implement = "0.51"
 dunce = "1"
 winit = { version = "0.28", features = [ "serde" ], optional = true }
 
