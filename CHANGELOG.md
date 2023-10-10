@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.33.1]
+
+- [`0582cdf`](https://github.com/tauri-apps/wry/commit/0582cdf4a195db5df9c4e21d24039c64b7474683)([#1033](https://github.com/tauri-apps/wry/pull/1033)) Fix documentation for macOS target not being generated on docs.rs.
+
 ## \[0.33.0]
 
 - [`5adf9da`](https://github.com/tauri-apps/wry/commit/5adf9da2151800ec2431a1547cc0d970fc95b764)([#994](https://github.com/tauri-apps/wry/pull/994)) **Breaking change** Wry now defaults to `http://<scheme>.localhost/` for custom protocols on Android.
