@@ -2,4 +2,4 @@
 "wry": "minor"
 ---
 
-Update `windows` and `windows-implement` crate to `0.51.1`
+Update `windows` and `windows-implement` crate to `0.51`
