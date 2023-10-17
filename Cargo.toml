@@ -60,13 +60,13 @@ soup3 = "0.3"
 winit = { package = "winit-gtk", version = "0.28.1", features = [ "serde" ], optional = true }
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.25"
-windows-implement = "0.48"
+webview2-com = "0.27"
+windows-implement = "0.51"
 dunce = "1"
 winit = { version = "0.28", features = [ "serde" ], optional = true }
 
   [target."cfg(target_os = \"windows\")".dependencies.windows]
-  version = "0.48"
+  version = "0.51"
   features = [
   "implement",
   "Win32_Foundation",

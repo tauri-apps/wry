@@ -27,13 +27,19 @@ pub fn MAKELPARAM(x: i16, y: i16) -> LPARAM {
 }
 
 #[inline]
-pub fn begin_resize_drag(hwnd: isize, edge: isize, button: u32, x: i32, y: i32) {
+pub fn begin_resize_drag(
+  hwnd: isize,
+  edge: isize,
+  button: u32,
+  x: i32,
+  y: i32,
+) -> windows::core::Result<()> {
   unsafe {
     let w_param = WPARAM(edge as _);
     let l_param = MAKELPARAM(x as i16, y as i16);
 
-    ReleaseCapture();
-    PostMessageW(HWND(hwnd), button, w_param, l_param);
+    ReleaseCapture()?;
+    PostMessageW(HWND(hwnd), button, w_param, l_param)
   }
 }
 
@@ -101,7 +107,7 @@ pub fn hit_test(hwnd: isize, cx: i32, cy: i32) -> LRESULT {
   let hwnd = HWND(hwnd);
   let mut window_rect = RECT::default();
   unsafe {
-    if GetWindowRect(hwnd, <*mut _>::cast(&mut window_rect)).as_bool() {
+    if GetWindowRect(hwnd, &mut window_rect).is_ok() {
       const CLIENT: isize = 0b0000;
       const LEFT: isize = 0b0001;
       const RIGHT: isize = 0b0010;
