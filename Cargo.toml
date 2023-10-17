@@ -56,7 +56,7 @@ gio = "0.16"
 glib = "0.16"
 gtk = "0.16"
 gdk = "0.16"
-soup3 = "0.3"
+soup3 = "0.5"
 winit = { package = "winit-gtk", version = "0.28.1", features = [ "serde" ], optional = true }
 
 [target."cfg(target_os = \"windows\")".dependencies]
