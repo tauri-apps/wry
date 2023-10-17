@@ -55,7 +55,7 @@ webkit2gtk-sys = "1.1"
 gio = "0.16"
 glib = "0.16"
 gtk = "0.16"
-gdk = "0.16"
+gdk = "0.18"
 soup3 = "0.3"
 winit = { package = "winit-gtk", version = "0.28.1", features = [ "serde" ], optional = true }
 
