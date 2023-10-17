@@ -52,7 +52,7 @@ base64 = "0.21"
 javascriptcore-rs = { version = "1.0", features = [ "v2_28" ] }
 webkit2gtk = { version = "1.1", features = [ "v2_38" ] }
 webkit2gtk-sys = "1.1"
-gio = "0.16"
+gio = "0.18"
 glib = "0.16"
 gtk = "0.16"
 gdk = "0.16"
