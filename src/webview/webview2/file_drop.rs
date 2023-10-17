@@ -145,7 +145,7 @@ impl FileDropHandler {
       .GetData(&drop_format)
     {
       Ok(medium) => {
-        let hdrop = HDROP(medium.Anonymous.hGlobal.0);
+        let hdrop = HDROP(medium.u.hGlobal.0 as _);
 
         // The second parameter (0xFFFFFFFF) instructs the function to return the item count
         let item_count = DragQueryFileW(hdrop, 0xFFFFFFFF, None);

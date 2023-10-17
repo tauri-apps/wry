@@ -29,8 +29,7 @@ use std::{
 use once_cell::{sync::Lazy, unsync::OnceCell};
 
 use windows::{
-  core::{ComInterface, PCSTR, PCWSTR, PWSTR},
-  s,
+  core::{s, ComInterface, PCSTR, PCWSTR, PWSTR},
   Win32::{
     Foundation::*,
     Globalization::{self, MAX_LOCALE_NAME},
@@ -264,11 +263,7 @@ impl InnerWebView {
     unsafe {
       let handler: ICoreWebView2WindowCloseRequestedEventHandler =
         WindowCloseRequestedEventHandler::create(Box::new(move |_, _| {
-          if win32wm::DestroyWindow(hwnd).as_bool() {
-            Ok(())
-          } else {
-            Err(E_FAIL.into())
-          }
+          win32wm::DestroyWindow(hwnd)
         }));
       webview
         .add_WindowCloseRequested(&handler, &mut token)
@@ -308,7 +303,7 @@ impl InnerWebView {
         .map_err(webview2_com::Error::WindowsError)?;
 
       let mut rect = RECT::default();
-      win32wm::GetClientRect(hwnd, &mut rect);
+      win32wm::GetClientRect(hwnd, &mut rect)?;
       controller
         .SetBounds(rect)
         .map_err(webview2_com::Error::WindowsError)?;
@@ -402,7 +397,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 use crate::application::window::CursorIcon;
 
                 let mut point = POINT::default();
-                win32wm::GetCursorPos(&mut point);
+                win32wm::GetCursorPos(&mut point)?;
                 let result = resize::hit_test(window_.hwnd(), point.x, point.y);
                 let cursor = match result.0 as u32 {
                   win32wm::HTLEFT => CursorIcon::WResize,
@@ -430,7 +425,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                       win32wm::WM_NCLBUTTONDOWN,
                       point.x,
                       point.y,
-                    );
+                    )?;
                   }
                 }
               }
@@ -809,7 +804,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
           if wparam.0 != win32wm::SIZE_MINIMIZED as usize {
             let controller = dwrefdata as *mut ICoreWebView2Controller;
             let mut client_rect = RECT::default();
-            win32wm::GetClientRect(hwnd, &mut client_rect);
+            let _ = win32wm::GetClientRect(hwnd, &mut client_rect);
             let _ = (*controller).SetBounds(RECT {
               left: 0,
               top: 0,
@@ -1174,7 +1169,7 @@ where
 
   let res = PostMessageW(HWND(hwnd), *EXEC_MSG_ID, WPARAM(raw as _), LPARAM(0));
   assert!(
-    res.as_bool(),
+    res.is_ok(),
     "PostMessage failed ; is the messages queue full?"
   );
 }

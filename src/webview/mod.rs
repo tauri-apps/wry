@@ -938,7 +938,7 @@ impl Drop for WebView {
 impl Drop for WebView {
   fn drop(&mut self) {
     unsafe {
-      DestroyWindow(HWND(self.window.hwnd() as _));
+      let _ = DestroyWindow(HWND(self.window.hwnd() as _));
     }
   }
 }
