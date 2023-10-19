@@ -26,7 +26,6 @@ default = [ "file-drop", "objc-exception", "protocol", "tao" ]
 objc-exception = [ "objc/exception" ]
 file-drop = [ ]
 protocol = [ ]
-dox = [ "tao/dox", "webkit2gtk/dox", "soup3/dox" ]
 devtools = [ ]
 transparent = [ ]
 fullscreen = [ ]
@@ -41,7 +40,7 @@ serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.4"
-tao = { version = "0.22", default-features = false, features = [ "serde" ], optional = true }
+tao = { version = "0.23", default-features = false, features = [ "serde" ], optional = true }
 http = "0.2.9"
 
 [dev-dependencies]
@@ -49,15 +48,15 @@ http-range = "0.1.5"
 base64 = "0.21"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
-javascriptcore-rs = { version = "1.0", features = [ "v2_28" ] }
-webkit2gtk = { version = "1.1", features = [ "v2_38" ] }
-webkit2gtk-sys = "1.1"
-gio = "0.16"
-glib = "0.16"
-gtk = "0.16"
-gdk = "0.16"
-soup3 = "0.3"
-winit = { package = "winit-gtk", version = "0.28.1", features = [ "serde" ], optional = true }
+javascriptcore-rs = { version = "=1.1", features = [ "v2_28" ] }
+webkit2gtk = { version = "=2.0", features = [ "v2_38" ] }
+webkit2gtk-sys = "=2.0"
+gio = "0.18"
+glib = "0.18"
+gtk = "0.18"
+gdk = "0.18"
+soup3 = "0.5"
+winit = { version = "0.29", package = "winit-gtk", features = [ "serde" ], optional = true }
 
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.27"

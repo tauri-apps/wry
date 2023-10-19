@@ -37,10 +37,9 @@ pub fn setup(webview: &WebView) {
         }
       }
     }
-    Inhibit(false)
+    glib::Propagation::Proceed
   });
   webview.connect_button_press_event(move |webview, event| {
-    let inhibit = false;
     if event.button() == 1 {
       let (cx, cy) = event.root();
       // This one should be GtkBox
@@ -64,7 +63,7 @@ pub fn setup(webview: &WebView) {
         }
       }
     }
-    Inhibit(inhibit)
+    glib::Propagation::Proceed
   });
   webview.connect_touch_event(|webview, event| {
     // This one should be GtkBox
@@ -97,6 +96,6 @@ pub fn setup(webview: &WebView) {
         }
       }
     }
-    Inhibit(false)
+    glib::Propagation::Proceed
   });
 }

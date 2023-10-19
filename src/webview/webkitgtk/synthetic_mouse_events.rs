@@ -34,7 +34,11 @@ pub fn setup(webview: &WebView) {
       _ => {}
     }
 
-    Inhibit(inhibit)
+    if inhibit {
+      glib::Propagation::Stop
+    } else {
+      glib::Propagation::Proceed
+    }
   });
 
   let bf_state_c = bf_state.clone();
@@ -63,7 +67,11 @@ pub fn setup(webview: &WebView) {
       }
       _ => {}
     }
-    Inhibit(inhibit)
+    if inhibit {
+      glib::Propagation::Stop
+    } else {
+      glib::Propagation::Proceed
+    }
   });
 }
 
