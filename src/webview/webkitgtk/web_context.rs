@@ -24,8 +24,8 @@ use std::{
 };
 use url::Url;
 use webkit2gtk::{
-  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, URIRequest, UserContentManager,
-  WebContext, WebContextBuilder, WebView, WebsiteDataManagerBuilder,
+  ApplicationInfo, CookiePersistentStorage, LoadEvent, URIRequest, URIRequestExt,
+  URISchemeResponseExt, UserContentManager, WebContext, WebView, WebViewExt,
 };
 
 #[derive(Debug)]
@@ -40,12 +40,13 @@ pub struct WebContextImpl {
 
 impl WebContextImpl {
   pub fn new(data: &WebContextData) -> Self {
-    let mut context_builder = WebContextBuilder::new();
+    use webkit2gtk::{CookieManagerExt, WebsiteDataManager, WebsiteDataManagerExt};
+    let mut context_builder = WebContext::builder();
     if let Some(data_directory) = data.data_directory() {
-      let data_manager = WebsiteDataManagerBuilder::new()
-        .local_storage_directory(&data_directory.join("localstorage").to_string_lossy())
+      let data_manager = WebsiteDataManager::builder()
+        .local_storage_directory(data_directory.join("localstorage").to_string_lossy())
         .indexeddb_directory(
-          &data_directory
+          data_directory
             .join("databases")
             .join("indexeddb")
             .to_string_lossy(),
@@ -71,7 +72,7 @@ impl WebContextImpl {
   }
 
   pub fn create_context(context: WebContext) -> Self {
-    use webkit2gtk::traits::*;
+    use webkit2gtk::WebContextExt;
     let automation = false;
     context.set_automation_allowed(automation);
 
@@ -101,7 +102,7 @@ impl WebContextImpl {
   }
 
   pub fn set_allows_automation(&mut self, flag: bool) {
-    use webkit2gtk::traits::*;
+    use webkit2gtk::WebContextExt;
     self.automation = flag;
     self.context.set_automation_allowed(flag);
   }
@@ -201,7 +202,7 @@ impl WebContextExt for super::WebContext {
   }
 
   fn register_automation(&mut self, webview: WebView) {
-    use webkit2gtk::traits::*;
+    use webkit2gtk::{AutomationSessionExt, WebContextExt};
 
     if let (true, Some(app_info)) = (self.os.automation, self.os.app_info.take()) {
       self.os.context.connect_automation_started(move |_, auto| {
@@ -225,7 +226,7 @@ impl WebContextExt for super::WebContext {
     download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
     download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
   ) {
-    use webkit2gtk::traits::*;
+    use webkit2gtk::{DownloadExt, WebContextExt};
     let context = &self.os.context;
 
     let download_started_handler = RefCell::new(download_started_handler);
@@ -289,7 +290,7 @@ fn actually_register_uri_scheme<F>(
 where
   F: Fn(Request<Vec<u8>>, RequestAsyncResponder) + 'static,
 {
-  use webkit2gtk::traits::*;
+  use webkit2gtk::{SecurityManagerExt, URISchemeRequestExt, WebContextExt};
   let context = &context.os.context;
   // Enable secure context
   context
@@ -393,7 +394,7 @@ where
           for (name, value) in http_response.headers().into_iter() {
             headers.append(name.as_str(), value.to_str().unwrap_or(""));
           }
-          response.set_http_headers(&headers);
+          response.set_http_headers(headers);
           request_.finish_with_response(&response);
         });
 

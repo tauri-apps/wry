@@ -15,9 +15,11 @@ use std::{
 };
 use url::Url;
 use webkit2gtk::{
-  traits::*, AutoplayPolicy, LoadEvent, NavigationPolicyDecision, NetworkProxyMode,
-  NetworkProxySettings, PolicyDecisionType, SettingsExt, URIRequest, UserContentInjectedFrames,
-  UserScript, UserScriptInjectionTime, WebView, WebViewBuilder, WebsitePoliciesBuilder,
+  AutoplayPolicy, InputMethodContextExt, LoadEvent, NavigationPolicyDecision,
+  NavigationPolicyDecisionExt, NetworkProxyMode, NetworkProxySettings, PolicyDecisionType,
+  SettingsExt, URIRequest, URIRequestExt, UserContentInjectedFrames, UserContentManagerExt,
+  UserScript, UserScriptInjectionTime, WebInspectorExt, WebView, WebViewExt, WebsiteDataManagerExt,
+  WebsitePolicies,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -86,13 +88,13 @@ impl InnerWebView {
       }
     }
     let webview = {
-      let mut webview = WebViewBuilder::new();
+      let mut webview = WebView::builder();
       webview = webview.user_content_manager(web_context.manager());
       webview = webview.web_context(web_context.context());
       webview = webview.is_controlled_by_automation(web_context.allows_automation());
       if attributes.autoplay {
         webview = webview.website_policies(
-          &WebsitePoliciesBuilder::new()
+          &WebsitePolicies::builder()
             .autoplay(AutoplayPolicy::Allow)
             .build(),
         );
