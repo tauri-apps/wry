@@ -860,7 +860,7 @@ r#"Object.defineProperty(window, 'ipc', {
 
       #[cfg(target_os = "ios")]
       {
-        let ui_view = window.ui_view() as id;
+        let ui_view = window.ui_view as id;
         let _: () = msg_send![ui_view, addSubview: webview];
       }
 

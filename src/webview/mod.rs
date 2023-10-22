@@ -8,7 +8,6 @@ mod proxy;
 mod web_context;
 
 use raw_window_handle::RawWindowHandle;
-use tao::dpi::Position;
 pub use web_context::WebContext;
 
 #[cfg(target_os = "android")]
@@ -45,7 +44,7 @@ use wkwebview::*;
 pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
-use crate::Result;
+use crate::{application::dpi::Position, Result};
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
