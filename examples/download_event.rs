@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use raw_window_handle::HasRawWindowHandle;
+
 fn main() -> wry::Result<()> {
   use std::{env::temp_dir, path::PathBuf};
   use wry::{
@@ -34,7 +36,7 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)?;
-  let _webview = WebViewBuilder::new(window)?
+  let _webview = WebViewBuilder::new(window.raw_window_handle())?
     .with_html(HTML)?
     .with_download_started_handler({
       let proxy = proxy.clone();

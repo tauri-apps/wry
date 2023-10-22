@@ -7,6 +7,7 @@ use std::{
   fs::{canonicalize, read},
 };
 
+use raw_window_handle::HasRawWindowHandle;
 use wry::{
   application::{
     event::{Event, StartCause, WindowEvent},
@@ -24,7 +25,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  let _webview = WebViewBuilder::new(window)
+  let _webview = WebViewBuilder::new(window.raw_window_handle())
     .unwrap()
     .with_custom_protocol("wry".into(), move |request| {
       if request.method() == Method::POST {

@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use raw_window_handle::HasRawWindowHandle;
+
 fn main() -> wry::Result<()> {
   use std::collections::HashMap;
   use wry::{
     application::{
       event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWindowTarget},
-      window::{Window, WindowBuilder, WindowId},
+      window::{WindowBuilder, WindowId},
     },
     webview::{WebView, WebViewBuilder},
   };
@@ -27,8 +29,9 @@ fn main() -> wry::Result<()> {
       .with_title(title)
       .build(event_loop)
       .unwrap();
+    let window_handle = window.raw_window_handle();
     let window_id = window.id();
-    let handler = move |window: &Window, req: String| match req.as_str() {
+    let handler = move |req: String| match req.as_str() {
       "new-window" => {
         let _ = proxy.send_event(UserEvent::NewWindow);
       }
@@ -42,7 +45,7 @@ fn main() -> wry::Result<()> {
       _ => {}
     };
 
-    let webview = WebViewBuilder::new(window)
+    let webview = WebViewBuilder::new(window_handle)
       .unwrap()
       .with_html(
         r#"

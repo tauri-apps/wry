@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use raw_window_handle::HasRawWindowHandle;
+
 fn main() -> wry::Result<()> {
   use wry::{
     application::{
@@ -31,7 +33,7 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)?;
-  let _webview = WebViewBuilder::new(window)?
+  let _webview = WebViewBuilder::new(window.raw_window_handle())?
     .with_html(html)?
     .with_new_window_req_handler(move |uri: String| {
       let submitted = proxy.send_event(UserEvent::NewWindow(uri.clone())).is_ok();

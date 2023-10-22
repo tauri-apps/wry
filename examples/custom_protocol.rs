@@ -8,6 +8,7 @@ use std::{
 };
 
 use http::Request;
+use raw_window_handle::HasRawWindowHandle;
 use wry::{
   application::{
     event::{Event, StartCause, WindowEvent},
@@ -27,7 +28,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  let _webview = WebViewBuilder::new(window)
+  let _webview = WebViewBuilder::new(window.raw_window_handle())
     .unwrap()
     .with_asynchronous_custom_protocol("wry".into(), move |request, responder| {
       match get_wry_response(request) {

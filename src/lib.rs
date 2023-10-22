@@ -169,4 +169,6 @@ pub enum Error {
   JniError(#[from] tao::platform::android::ndk_glue::jni::errors::Error),
   #[error("Failed to create proxy endpoint")]
   ProxyEndpointCreationFailed,
+  #[error("Failed to get correct raw window handle")]
+  WindowHandleError,
 }

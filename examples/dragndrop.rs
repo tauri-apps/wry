@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use raw_window_handle::HasRawWindowHandle;
+
 fn main() -> wry::Result<()> {
   use wry::{
     application::{
@@ -20,10 +22,10 @@ Dropping files onto the following form is also possible:<br><br>
 
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
-  let _webview = WebViewBuilder::new(window)
+  let _webview = WebViewBuilder::new(window.raw_window_handle())
     .unwrap()
     .with_url(HTML)?
-    .with_file_drop_handler(|_, data| {
+    .with_file_drop_handler(|data| {
       println!("Window 1: {:?}", data);
       false // Returning true will block the OS default behaviour.
     })

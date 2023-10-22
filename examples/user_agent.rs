@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use raw_window_handle::HasRawWindowHandle;
+
 fn main() -> wry::Result<()> {
   use wry::{
     application::{
@@ -25,7 +27,7 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)?;
-  let _webview = WebViewBuilder::new(window)?
+  let _webview = WebViewBuilder::new(window.raw_window_handle())?
     .with_user_agent(&user_agent_string)
     .with_url("https://www.whatismybrowser.com/detect/what-is-my-user-agent")?
     .build()?;

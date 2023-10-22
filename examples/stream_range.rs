@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use http_range::HttpRange;
+use raw_window_handle::HasRawWindowHandle;
 use std::{
   borrow::Cow,
   fs::{canonicalize, File},
@@ -49,7 +50,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  let _webview = WebViewBuilder::new(window)
+  let _webview = WebViewBuilder::new(window.raw_window_handle())
     .unwrap()
     .with_custom_protocol("wry".into(), move |request| {
       get_stream_response(request).unwrap_or_else(|error| {

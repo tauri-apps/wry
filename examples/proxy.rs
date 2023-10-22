@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use raw_window_handle::HasRawWindowHandle;
 use wry::webview::{ProxyConfig, ProxyEndpoint};
 
 fn main() -> wry::Result<()> {
@@ -24,7 +25,7 @@ fn main() -> wry::Result<()> {
     port: "3128".to_string(),
   });
 
-  let _webview = WebViewBuilder::new(window)?
+  let _webview = WebViewBuilder::new(window.raw_window_handle())?
     .with_proxy_config(http_proxy)
     .with_url("https://www.myip.com/")?
     .build()?;

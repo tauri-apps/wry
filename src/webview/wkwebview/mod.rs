@@ -11,6 +11,7 @@ mod proxy;
 #[cfg(target_os = "macos")]
 mod synthetic_mouse_events;
 
+use raw_window_handle::RawWindowHandle;
 use url::Url;
 
 #[cfg(target_os = "macos")]
@@ -25,7 +26,6 @@ use std::{
   ffi::{c_void, CStr},
   os::raw::c_char,
   ptr::{null, null_mut},
-  rc::Rc,
   slice, str,
   sync::{Arc, Mutex},
 };
@@ -38,12 +38,7 @@ use objc::{
 use objc_id::Id;
 
 #[cfg(target_os = "macos")]
-use crate::application::platform::macos::WindowExtMacOS;
-#[cfg(target_os = "macos")]
 use file_drop::{add_file_drop_methods, set_file_drop_handler};
-
-#[cfg(target_os = "ios")]
-use crate::application::platform::ios::WindowExtIOS;
 
 #[cfg(feature = "mac-proxy")]
 use crate::webview::{
@@ -54,10 +49,6 @@ use crate::webview::{
 };
 
 use crate::{
-  application::{
-    dpi::{LogicalSize, PhysicalSize},
-    window::Window,
-  },
   webview::{
     wkwebview::{
       download::{
@@ -68,7 +59,7 @@ use crate::{
     },
     FileDropEvent, PageLoadEvent, RequestAsyncResponder, WebContext, WebViewAttributes, RGBA,
   },
-  Result,
+  Error, Result,
 };
 
 use http::{
@@ -91,36 +82,43 @@ pub(crate) struct InnerWebView {
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
   // Note that if following functions signatures are changed in the future,
   // all functions pointer declarations in objc callbacks below all need to get updated.
-  ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
-  document_title_changed_handler: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
+  ipc_handler_ptr: *mut Box<dyn Fn(String)>,
+  document_title_changed_handler: *mut Box<dyn Fn(String)>,
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
   page_load_handler: *mut Box<dyn Fn(PageLoadEvent)>,
   #[cfg(target_os = "macos")]
-  file_drop_ptr: *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>),
+  file_drop_ptr: *mut Box<dyn Fn(FileDropEvent) -> bool>,
   download_delegate: id,
   protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>>,
 }
 
 impl InnerWebView {
   pub fn new(
-    window: Rc<Window>,
+    window: RawWindowHandle,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
+    let window = match window {
+      #[cfg(target_os = "macos")]
+      RawWindowHandle::AppKit(w) => w,
+      #[cfg(target_os = "ios")]
+      RawWindowHandle::UiKit(w) => w,
+      _ => return Err(Error::WindowHandleError),
+    };
+
     // Function for ipc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
       // Safety: objc runtime calls are unsafe
       unsafe {
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
-          let function =
-            &mut *(*function as *mut (Box<dyn for<'r> Fn(&'r Window, String)>, Rc<Window>));
+          let function = &mut *(*function as *mut Box<dyn Fn(String)>);
           let body: id = msg_send![msg, body];
           let utf8: *const c_char = msg_send![body, UTF8String];
           let js = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
 
-          (function.0)(&function.1, js.to_string());
+          (function)(js.to_string());
         } else {
           log::warn!("WebView instance is dropped! This handler shouldn't be called.");
         }
@@ -380,7 +378,7 @@ impl InnerWebView {
 
       #[cfg(target_os = "ios")]
       {
-        let ui_view = window.ui_view() as id;
+        let ui_view = window.ui_view as id;
         let frame: CGRect = msg_send![ui_view, frame];
         // set all autoresizingmasks
         let () = msg_send![webview, setAutoresizingMask: 31];
@@ -425,7 +423,7 @@ impl InnerWebView {
           None => class!(WebViewDelegate),
         };
         let handler: id = msg_send![cls, new];
-        let ipc_handler_ptr = Box::into_raw(Box::new((ipc_handler, window.clone())));
+        let ipc_handler_ptr = Box::into_raw(Box::new(ipc_handler));
 
         (*handler).set_ivar("function", ipc_handler_ptr as *mut _ as *mut c_void);
         let ipc = NSString::new(IPC_MESSAGE_HANDLER_NAME);
@@ -460,10 +458,9 @@ impl InnerWebView {
                 unsafe {
                   let function = this.get_ivar::<*mut c_void>("function");
                   if !function.is_null() {
-                    let function = &mut *(*function
-                      as *mut (Box<dyn for<'r> Fn(&'r Window, String)>, Rc<Window>));
+                    let function = &mut *(*function as *mut Box<dyn Fn(String)>);
                     let title: id = msg_send![of_object, title];
-                    (function.0)(&function.1, NSString(title).to_str().to_string());
+                    (function)(NSString(title).to_str().to_string());
                   }
                 }
               }
@@ -475,7 +472,7 @@ impl InnerWebView {
 
         let handler: id = msg_send![cls, new];
         let document_title_changed_handler =
-          Box::into_raw(Box::new((document_title_changed_handler, window.clone())));
+          Box::into_raw(Box::new(document_title_changed_handler));
 
         (*handler).set_ivar(
           "function",
@@ -752,17 +749,15 @@ impl InnerWebView {
       #[cfg(target_os = "macos")]
       let file_drop_ptr = match attributes.file_drop_handler {
         // if we have a file_drop_handler defined, use the defined handler
-        Some(file_drop_handler) => {
-          set_file_drop_handler(webview, window.clone(), file_drop_handler)
-        }
+        Some(file_drop_handler) => set_file_drop_handler(webview, file_drop_handler),
         // prevent panic by using a blank handler
-        None => set_file_drop_handler(webview, window.clone(), Box::new(|_, _| false)),
+        None => set_file_drop_handler(webview, Box::new(|_| false)),
       };
 
       // ns window is required for the print operation
       #[cfg(target_os = "macos")]
       let ns_window = {
-        let ns_window = window.ns_window() as id;
+        let ns_window = window.ns_window as id;
 
         let can_set_titlebar_style: BOOL = msg_send![
           ns_window,
@@ -851,7 +846,7 @@ r#"Object.defineProperty(window, 'ipc', {
         let _: () = msg_send![parent_view, addSubview: webview];
 
         // inject the webview into the window
-        let ns_window = window.ns_window() as id;
+        let ns_window = window.ns_window as id;
         // Tell the webview receive keyboard events in the window.
         // See https://github.com/tauri-apps/wry/issues/739
         let _: () = msg_send![ns_window, setContentView: parent_view];
@@ -1028,13 +1023,6 @@ r#"Object.defineProperty(window, 'ipc', {
     }
     #[cfg(not(target_os = "macos"))]
     false
-  }
-
-  #[cfg(target_os = "macos")]
-  pub fn inner_size(&self, scale_factor: f64) -> PhysicalSize<u32> {
-    let view_frame = unsafe { NSView::frame(self.webview) };
-    let logical: LogicalSize<f64> = (view_frame.size.width, view_frame.size.height).into();
-    logical.to_physical(scale_factor)
   }
 
   pub fn zoom(&self, scale_factor: f64) {

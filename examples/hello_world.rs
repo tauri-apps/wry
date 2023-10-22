@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use raw_window_handle::HasRawWindowHandle;
+
 fn main() -> wry::Result<()> {
   use wry::{
     application::{
@@ -16,8 +18,8 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)?;
-  let _webview = WebViewBuilder::new(window)?
-    .with_url("https://www.netflix.com/browse")?
+  let _webview = WebViewBuilder::new(window.raw_window_handle())?
+    .with_url("https://tauri.app")?
     // .with_incognito(true)
     .build()?;
 

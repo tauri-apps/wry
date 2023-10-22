@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use raw_window_handle::HasRawWindowHandle;
+
 fn main() -> wry::Result<()> {
   use wry::{
     application::{
       event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoopBuilder},
-      window::{Window, WindowBuilder},
+      window::WindowBuilder,
     },
     webview::WebViewBuilder,
   };
@@ -23,13 +25,13 @@ fn main() -> wry::Result<()> {
     .with_title("Hello World")
     .build(&event_loop)?;
 
-  let ipc_handler = move |_: &Window, req: String| {
+  let ipc_handler = move |req: String| {
     if req == "exec-eval" {
       let _ = proxy.send_event(UserEvent::ExecEval);
     }
   };
 
-  let _webview = WebViewBuilder::new(window)?
+  let _webview = WebViewBuilder::new(window.raw_window_handle())?
     .with_html(
       r#"
       <button onclick="window.ipc.postMessage('exec-eval')">Exec eval</button>

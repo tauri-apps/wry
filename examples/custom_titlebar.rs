@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use raw_window_handle::HasRawWindowHandle;
+
 fn main() -> wry::Result<()> {
   use wry::{
     application::{
       event::{Event, StartCause, WindowEvent},
       event_loop::{ControlFlow, EventLoopBuilder},
-      window::{Window, WindowBuilder},
+      window::WindowBuilder,
     },
     webview::WebViewBuilder,
   };
@@ -21,6 +23,7 @@ fn main() -> wry::Result<()> {
     .with_decorations(false)
     .build(&event_loop)
     .unwrap();
+  let window_handle = window.raw_window_handle();
 
   const HTML: &str = r#"
   <html>
@@ -116,7 +119,7 @@ fn main() -> wry::Result<()> {
 
   let proxy = event_loop.create_proxy();
 
-  let handler = move |window: &Window, req: String| {
+  let handler = move |req: String| {
     if req == "minimize" {
       window.set_minimized(true);
     }
@@ -132,7 +135,7 @@ fn main() -> wry::Result<()> {
   };
 
   let mut webview = Some(
-    WebViewBuilder::new(window)
+    WebViewBuilder::new(window_handle)
       .unwrap()
       .with_html(HTML)?
       .with_ipc_handler(handler)

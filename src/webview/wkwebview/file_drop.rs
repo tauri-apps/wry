@@ -5,7 +5,6 @@
 use std::{
   ffi::{c_void, CStr},
   path::PathBuf,
-  rc::Rc,
 };
 
 use cocoa::{
@@ -18,10 +17,7 @@ use objc::{
 };
 use once_cell::sync::Lazy;
 
-use crate::{
-  application::{dpi::LogicalPosition, platform::macos::WindowExtMacOS, window::Window},
-  webview::FileDropEvent,
-};
+use crate::{application::dpi::LogicalPosition, webview::FileDropEvent};
 
 pub(crate) type NSDragOperation = cocoa::foundation::NSUInteger;
 #[allow(non_upper_case_globals)]
@@ -61,20 +57,17 @@ static OBJC_DRAGGING_UPDATED: Lazy<extern "C" fn(*const Object, Sel, id) -> NSDr
 // Safety: objc runtime calls are unsafe
 pub(crate) unsafe fn set_file_drop_handler(
   webview: *mut Object,
-  window: Rc<Window>,
-  handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>,
-) -> *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>) {
-  let listener = Box::into_raw(Box::new((handler, window)));
+  handler: Box<dyn Fn(FileDropEvent) -> bool>,
+) -> *mut Box<dyn Fn(FileDropEvent) -> bool> {
+  let listener = Box::into_raw(Box::new(handler));
   (*webview).set_ivar("FileDropHandler", listener as *mut _ as *mut c_void);
   listener
 }
 
 #[allow(clippy::mut_from_ref)]
-unsafe fn get_handler(
-  this: &Object,
-) -> &mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>) {
+unsafe fn get_handler(this: &Object) -> &mut Box<dyn Fn(FileDropEvent) -> bool> {
   let delegate: *mut c_void = *this.get_ivar("FileDropHandler");
-  &mut *(delegate as *mut (Box<dyn Fn(&Window, FileDropEvent) -> bool>, Rc<Window>))
+  &mut *(delegate as *mut Box<dyn Fn(FileDropEvent) -> bool>)
 }
 
 unsafe fn collect_paths(drag_info: id) -> Vec<PathBuf> {
@@ -116,13 +109,10 @@ extern "C" fn dragging_entered(this: &mut Object, sel: Sel, drag_info: id) -> NS
   let paths = unsafe { collect_paths(drag_info) };
 
   let dl: NSPoint = unsafe { msg_send![drag_info, draggingLocation] };
-  let scale_factor = listener.1.scale_factor();
-  let ns_window = listener.1.ns_window() as id;
-  let frame: NSRect = unsafe { msg_send![ns_window, frame] };
-  let position =
-    LogicalPosition::<f64>::from((dl.x, frame.size.height - dl.y)).to_physical(scale_factor);
+  let frame: NSRect = unsafe { msg_send![this, frame] };
+  let position = LogicalPosition::<f64>::from((dl.x, frame.size.height - dl.y)).into();
 
-  if !listener.0(&listener.1, FileDropEvent::Hovered { paths, position }) {
+  if !listener(FileDropEvent::Hovered { paths, position }) {
     // Reject the Wry file drop (invoke the OS default behaviour)
     OBJC_DRAGGING_ENTERED(this, sel, drag_info)
   } else {
@@ -135,13 +125,10 @@ extern "C" fn perform_drag_operation(this: &mut Object, sel: Sel, drag_info: id)
   let paths = unsafe { collect_paths(drag_info) };
 
   let dl: NSPoint = unsafe { msg_send![drag_info, draggingLocation] };
-  let scale_factor = listener.1.scale_factor();
-  let ns_window = listener.1.ns_window() as id;
-  let frame: NSRect = unsafe { msg_send![ns_window, frame] };
-  let position =
-    LogicalPosition::<f64>::from((dl.x, frame.size.height - dl.y)).to_physical(scale_factor);
+  let frame: NSRect = unsafe { msg_send![this, frame] };
+  let position = LogicalPosition::<f64>::from((dl.x, frame.size.height - dl.y)).into();
 
-  if !listener.0(&listener.1, FileDropEvent::Dropped { paths, position }) {
+  if !listener(FileDropEvent::Dropped { paths, position }) {
     // Reject the Wry file drop (invoke the OS default behaviour)
     OBJC_PERFORM_DRAG_OPERATION(this, sel, drag_info)
   } else {
@@ -151,7 +138,7 @@ extern "C" fn perform_drag_operation(this: &mut Object, sel: Sel, drag_info: id)
 
 extern "C" fn dragging_exited(this: &mut Object, sel: Sel, drag_info: id) {
   let listener = unsafe { get_handler(this) };
-  if !listener.0(&listener.1, FileDropEvent::Cancelled) {
+  if !listener(FileDropEvent::Cancelled) {
     // Reject the Wry file drop (invoke the OS default behaviour)
     OBJC_DRAGGING_EXITED(this, sel, drag_info);
   }

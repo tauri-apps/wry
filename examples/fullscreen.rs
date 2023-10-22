@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use raw_window_handle::HasRawWindowHandle;
+
 fn main() -> wry::Result<()> {
   use wry::{
     application::{
@@ -18,7 +20,7 @@ fn main() -> wry::Result<()> {
     .with_fullscreen(Some(Fullscreen::Borderless(None)))
     .build(&event_loop)
     .unwrap();
-  let _webview = WebViewBuilder::new(window)
+  let _webview = WebViewBuilder::new(window.raw_window_handle())
     .unwrap()
     .with_url("https://browserbench.org/MotionMark1.2/")?
     .build()?;

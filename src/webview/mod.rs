@@ -7,6 +7,8 @@
 mod proxy;
 mod web_context;
 
+use raw_window_handle::RawWindowHandle;
+use tao::dpi::Position;
 pub use web_context::WebContext;
 
 #[cfg(target_os = "android")]
@@ -43,7 +45,7 @@ use wkwebview::*;
 pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
-use crate::{application::dpi::PhysicalPosition, Result};
+use crate::Result;
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 #[cfg(target_os = "windows")]
@@ -56,7 +58,6 @@ pub use url::Url;
 
 #[cfg(target_os = "windows")]
 use crate::application::platform::windows::WindowExtWindows;
-use crate::application::{dpi::PhysicalSize, window::Window};
 
 use http::{Request, Response as HttpResponse};
 
@@ -159,7 +160,7 @@ pub struct WebViewAttributes {
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
   ///
   /// Both functions return promises but `notify()` resolves immediately.
-  pub ipc_handler: Option<Box<dyn Fn(&Window, String)>>,
+  pub ipc_handler: Option<Box<dyn Fn(String)>>,
   /// Set a handler closure to process incoming [`FileDropEvent`] of the webview.
   ///
   /// # Blocking OS Default Behavior
@@ -168,9 +169,9 @@ pub struct WebViewAttributes {
   /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
   #[cfg(feature = "file-drop")]
-  pub file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+  pub file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
   #[cfg(not(feature = "file-drop"))]
-  file_drop_handler: Option<Box<dyn Fn(&Window, FileDropEvent) -> bool>>,
+  file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
 
   /// Set a navigation handler to decide if incoming url is allowed to navigate.
   ///
@@ -240,7 +241,7 @@ pub struct WebViewAttributes {
   pub back_forward_navigation_gestures: bool,
 
   /// Set a handler closure to process the change of the webview's document title.
-  pub document_title_changed_handler: Option<Box<dyn Fn(&Window, String)>>,
+  pub document_title_changed_handler: Option<Box<dyn Fn(String)>>,
 
   /// Run the WebView with incognito mode. Note that WebContext will be ingored if incognito is
   /// enabled.
@@ -375,12 +376,12 @@ pub struct WebViewBuilder<'a> {
   pub webview: WebViewAttributes,
   platform_specific: PlatformSpecificWebViewAttributes,
   web_context: Option<&'a mut WebContext>,
-  window: Window,
+  window: RawWindowHandle,
 }
 
 impl<'a> WebViewBuilder<'a> {
   /// Create [`WebViewBuilder`] from provided [`Window`].
-  pub fn new(window: Window) -> Result<Self> {
+  pub fn new(window: RawWindowHandle) -> Result<Self> {
     let webview = WebViewAttributes::default();
     let web_context = None;
     #[allow(clippy::default_constructed_unit_structs)]
@@ -389,7 +390,7 @@ impl<'a> WebViewBuilder<'a> {
     Ok(Self {
       webview,
       web_context,
-      window,
+      window: window,
       platform_specific,
     })
   }
@@ -541,7 +542,7 @@ impl<'a> WebViewBuilder<'a> {
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
   pub fn with_ipc_handler<F>(mut self, handler: F) -> Self
   where
-    F: Fn(&Window, String) + 'static,
+    F: Fn(String) + 'static,
   {
     self.webview.ipc_handler = Some(Box::new(handler));
     self
@@ -557,7 +558,7 @@ impl<'a> WebViewBuilder<'a> {
   #[cfg(feature = "file-drop")]
   pub fn with_file_drop_handler<F>(mut self, handler: F) -> Self
   where
-    F: Fn(&Window, FileDropEvent) -> bool + 'static,
+    F: Fn(FileDropEvent) -> bool + 'static,
   {
     self.webview.file_drop_handler = Some(Box::new(handler));
     self
@@ -711,7 +712,7 @@ impl<'a> WebViewBuilder<'a> {
   /// Set a handler closure to process the change of the webview's document title.
   pub fn with_document_title_changed_handler(
     mut self,
-    callback: impl Fn(&Window, String) + 'static,
+    callback: impl Fn(String) + 'static,
   ) -> Self {
     self.webview.document_title_changed_handler = Some(Box::new(callback));
     self
@@ -768,14 +769,13 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
   pub fn build(self) -> Result<WebView> {
-    let window = Rc::new(self.window);
     let webview = InnerWebView::new(
-      window.clone(),
+      self.window,
       self.webview,
       self.platform_specific,
       self.web_context,
     )?;
-    Ok(WebView { window, webview })
+    Ok(WebView { webview })
   }
 }
 
@@ -909,9 +909,8 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
 /// [`WebView`] presents the actual WebView window and let you still able to perform actions
-/// during event handling to it. [`WebView`] also contains the associate [`Window`] with it.
+/// during event handling to it.
 pub struct WebView {
-  window: Rc<Window>,
   webview: InnerWebView,
 }
 
@@ -954,14 +953,8 @@ impl WebView {
   /// called in the same thread with the [`EventLoop`] you create.
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
-  pub fn new(window: Window) -> Result<Self> {
+  pub fn new(window: RawWindowHandle) -> Result<Self> {
     WebViewBuilder::new(window)?.build()
-  }
-
-  /// Get the [`Window`] associate with the [`WebView`]. This can let you perform window related
-  /// actions.
-  pub fn window(&self) -> &Window {
-    &self.window
   }
 
   /// Get the current url of the webview
@@ -1034,40 +1027,6 @@ impl WebView {
     self.webview.is_devtools_open()
   }
 
-  /// Gets the physical size of the webview’s client area. This is
-  /// a drop-in replacement for [`Window::inner_size`] because on some platforms
-  /// (currently, only macOS), it will return an incorrect size.
-  ///
-  /// ```no_run
-  /// use wry::{
-  ///   application::{
-  ///     event_loop::EventLoop,
-  ///     window::WindowBuilder
-  ///   },
-  ///   webview::WebViewBuilder,
-  /// };
-  /// let event_loop = EventLoop::new();
-  /// let window = WindowBuilder::new().build(&event_loop).unwrap();
-  /// let webview = WebViewBuilder::new(window)
-  ///   .unwrap()
-  ///   .build()
-  ///   .unwrap();
-  ///
-  /// // This returns incorrect window size on macOS.
-  /// println!("{:?}", webview.window().inner_size());
-  /// // Instead, this always returns the correct window size.
-  /// println!("{:?}", webview.inner_size());
-  /// ```
-  pub fn inner_size(&self) -> PhysicalSize<u32> {
-    #[cfg(target_os = "macos")]
-    {
-      let scale_factor = self.window.scale_factor();
-      self.webview.inner_size(scale_factor)
-    }
-    #[cfg(not(target_os = "macos"))]
-    self.window.inner_size()
-  }
-
   /// Set the webview zoom level
   ///
   /// ## Platform-specific:
@@ -1117,13 +1076,13 @@ pub enum FileDropEvent {
   Hovered {
     paths: Vec<PathBuf>,
     /// The position of the mouse cursor.
-    position: PhysicalPosition<f64>,
+    position: Position,
   },
   /// The file(s) have been dropped onto the window.
   Dropped {
     paths: Vec<PathBuf>,
     /// The position of the mouse cursor.
-    position: PhysicalPosition<f64>,
+    position: Position,
   },
   /// The file drop was aborted.
   Cancelled,
