@@ -268,6 +268,10 @@ pub struct WebViewAttributes {
   ///
   /// - **macOS / Android / iOS:** Unsupported.
   pub focused: bool,
+
+  /// TODO doc
+  pub position: Option<(isize, isize)>,
+  pub size: Option<(isize, isize)>,
 }
 
 impl Default for WebViewAttributes {
@@ -302,6 +306,8 @@ impl Default for WebViewAttributes {
       on_page_load_handler: None,
       proxy_config: None,
       focused: true,
+      position: None,
+      size: None,
     }
   }
 }
@@ -385,6 +391,23 @@ impl<'a> WebViewBuilder<'a> {
     let web_context = None;
     #[allow(clippy::default_constructed_unit_structs)]
     let platform_specific = PlatformSpecificWebViewAttributes::default();
+
+    Ok(Self {
+      webview,
+      web_context,
+      window,
+      platform_specific,
+    })
+  }
+
+  /// Create [`WebViewBuilder`] from provided [`RawWindowHandle`]. TODO doc
+  pub fn new_as_child(window: RawWindowHandle, position: (isize, isize), size: (isize, isize)) -> Result<Self> {
+    let mut webview = WebViewAttributes::default();
+    let web_context = None;
+    #[allow(clippy::default_constructed_unit_structs)]
+    let platform_specific = PlatformSpecificWebViewAttributes::default();
+    webview.position = Some(position);
+    webview.size = Some(size);
 
     Ok(Self {
       webview,

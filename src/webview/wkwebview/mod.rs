@@ -370,7 +370,12 @@ impl InnerWebView {
       #[cfg(target_os = "macos")]
       {
         use core_graphics::geometry::{CGPoint, CGSize};
-        let frame: CGRect = CGRect::new(&CGPoint::new(0., 0.), &CGSize::new(0., 0.));
+        let (x, y) = attributes.position.unwrap_or((0, 0));
+        let (w, h) = attributes.size.unwrap_or((0, 0));
+        let frame: CGRect = CGRect::new(
+          &CGPoint::new(x as f64, y as f64),
+          &CGSize::new(w as f64, h as f64),
+        );
         let _: () = msg_send![webview, initWithFrame:frame configuration:config];
         // Auto-resize on macOS
         webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
@@ -820,37 +825,42 @@ r#"Object.defineProperty(window, 'ipc', {
       // Inject the web view into the window as main content
       #[cfg(target_os = "macos")]
       {
-        let parent_view_cls = match ClassDecl::new("WryWebViewParent", class!(NSView)) {
-          Some(mut decl) => {
-            decl.add_method(
-              sel!(keyDown:),
-              key_down as extern "C" fn(&mut Object, Sel, id),
-            );
+        if attributes.position.is_some() || attributes.size.is_some() {
+          let ns_view = window.ns_view as id;
+          let _: () = msg_send![ns_view, addSubview: webview];
+        } else {
+          let parent_view_cls = match ClassDecl::new("WryWebViewParent", class!(NSView)) {
+            Some(mut decl) => {
+              decl.add_method(
+                sel!(keyDown:),
+                key_down as extern "C" fn(&mut Object, Sel, id),
+              );
 
-            extern "C" fn key_down(_this: &mut Object, _sel: Sel, event: id) {
-              unsafe {
-                let app = cocoa::appkit::NSApp();
-                let menu: id = msg_send![app, mainMenu];
-                let () = msg_send![menu, performKeyEquivalent: event];
+              extern "C" fn key_down(_this: &mut Object, _sel: Sel, event: id) {
+                unsafe {
+                  let app = cocoa::appkit::NSApp();
+                  let menu: id = msg_send![app, mainMenu];
+                  let () = msg_send![menu, performKeyEquivalent: event];
+                }
               }
+
+              decl.register()
             }
+            None => class!(NSView),
+          };
 
-            decl.register()
-          }
-          None => class!(NSView),
-        };
+          let parent_view: id = msg_send![parent_view_cls, alloc];
+          let _: () = msg_send![parent_view, init];
+          parent_view.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
+          let _: () = msg_send![parent_view, addSubview: webview];
 
-        let parent_view: id = msg_send![parent_view_cls, alloc];
-        let _: () = msg_send![parent_view, init];
-        parent_view.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
-        let _: () = msg_send![parent_view, addSubview: webview];
-
-        // inject the webview into the window
-        let ns_window = window.ns_window as id;
-        // Tell the webview receive keyboard events in the window.
-        // See https://github.com/tauri-apps/wry/issues/739
-        let _: () = msg_send![ns_window, setContentView: parent_view];
-        let _: () = msg_send![ns_window, makeFirstResponder: webview];
+          // inject the webview into the window
+          let ns_window = window.ns_window as id;
+          // Tell the webview receive keyboard events in the window.
+          // See https://github.com/tauri-apps/wry/issues/739
+          let _: () = msg_send![ns_window, setContentView: parent_view];
+          let _: () = msg_send![ns_window, makeFirstResponder: webview];
+        }
 
         // make sure the window is always on top when we create a new webview
         let app_class = class!(NSApplication);

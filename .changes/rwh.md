@@ -1,5 +1,5 @@
 ---
-"wry": minor,
+"wry": minor
 ---
 
 Refactor new method to take raw window handle instead. Following are APIs got affected:
