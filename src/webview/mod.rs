@@ -380,7 +380,7 @@ pub struct WebViewBuilder<'a> {
 }
 
 impl<'a> WebViewBuilder<'a> {
-  /// Create [`WebViewBuilder`] from provided [`Window`].
+  /// Create [`WebViewBuilder`] from provided [`RawWindowHandle`].
   pub fn new(window: RawWindowHandle) -> Result<Self> {
     let webview = WebViewAttributes::default();
     let web_context = None;
@@ -390,7 +390,7 @@ impl<'a> WebViewBuilder<'a> {
     Ok(Self {
       webview,
       web_context,
-      window: window,
+      window,
       platform_specific,
     })
   }
@@ -509,12 +509,13 @@ impl<'a> WebViewBuilder<'a> {
   ///   },
   ///   webview::WebViewBuilder,
   /// };
+  /// use raw_window_handle::HasRawWindowHandle;
   ///
   /// let event_loop = EventLoop::new();
   /// let window = WindowBuilder::new()
   ///   .build(&event_loop)
   ///   .unwrap();
-  /// WebViewBuilder::new(window)
+  /// WebViewBuilder::new(window.raw_window_handle())
   ///   .unwrap()
   ///   .with_asynchronous_custom_protocol("wry".into(), |request, responder| {
   ///     // here you can use a tokio task, thread pool or anything
@@ -943,7 +944,7 @@ impl Drop for WebView {
 }
 
 impl WebView {
-  /// Create a [`WebView`] from provided [`Window`]. Note that calling this directly loses
+  /// Create a [`WebView`] from provided [`RawWindowHandle`]. Note that calling this directly loses
   /// abilities to initialize scripts, add ipc handler, and many more before starting WebView. To
   /// benefit from above features, create a [`WebViewBuilder`] instead.
   ///

@@ -19,12 +19,13 @@
 //!     },
 //!     webview::WebViewBuilder,
 //!   };
+//!   use raw_window_handle::HasRawWindowHandle;
 //!
 //!   let event_loop = EventLoop::new();
 //!   let window = WindowBuilder::new()
 //!     .with_title("Hello World")
 //!     .build(&event_loop)?;
-//!   let _webview = WebViewBuilder::new(window)?
+//!   let _webview = WebViewBuilder::new(window.raw_window_handle())?
 //!     .with_url("https://tauri.studio")?
 //!     .build()?;
 //!
