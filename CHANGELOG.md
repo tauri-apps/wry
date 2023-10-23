@@ -1,5 +1,11 @@
 # Changelog
 
+## \[0.34.0]
+
+- [`ce95730`](https://github.com/tauri-apps/wry/commit/ce957301566dfe33f576810982a3eb38813d22ea)([#1036](https://github.com/tauri-apps/wry/pull/1036)) Upgrade gtk to 0.18 and bump MSRV to 1.70.0.
+- [`591fda8`](https://github.com/tauri-apps/wry/commit/591fda8045b88ea0edbc5676e2814fb9acb2d6f6)([#1042](https://github.com/tauri-apps/wry/pull/1042)) Use `gtk`'s re-exported modules instead.
+- [`b22a19e`](https://github.com/tauri-apps/wry/commit/b22a19e1c19ce90aec6521a66587dac9b0351579)([#1037](https://github.com/tauri-apps/wry/pull/1037)) Update `windows` and `windows-implement` crate to `0.51`
+
 ## \[0.33.1]
 
 - [`0582cdf`](https://github.com/tauri-apps/wry/commit/0582cdf4a195db5df9c4e21d24039c64b7474683)([#1033](https://github.com/tauri-apps/wry/pull/1033)) Fix documentation for macOS target not being generated on docs.rs.
