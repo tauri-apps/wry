@@ -8,7 +8,7 @@ use std::{
 };
 
 use http::Request;
-use raw_window_handle::HasRawWindowHandle;
+use rwh_05::HasRawWindowHandle;
 use wry::{
   application::{
     event::{Event, StartCause, WindowEvent},

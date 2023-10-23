@@ -9,3 +9,4 @@ Refactor new method to take raw window handle instead. Following are APIs got af
   - Position field in `FileDrop` event is now `Position` instead of `PhysicalPosition`. Users need to handle scale factor
   depend on the situation they have.
   - `Webview::inner_size` is removed.
+  - Added `rwh_04`, `rwh_05`, `rwh_06` feature flags.

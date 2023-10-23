@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use http_range::HttpRange;
-use raw_window_handle::HasRawWindowHandle;
+use rwh_05::HasRawWindowHandle;
 use std::{
   borrow::Cow,
   fs::{canonicalize, File},

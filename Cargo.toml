@@ -22,7 +22,7 @@ targets = [
 ]
 
 [features]
-default = [ "file-drop", "objc-exception", "protocol", "tao" ]
+default = [ "file-drop", "objc-exception", "protocol", "tao", "rwh_05" ]
 objc-exception = [ "objc/exception" ]
 file-drop = [ ]
 protocol = [ ]
@@ -42,7 +42,9 @@ thiserror = "1.0"
 url = "2.4"
 tao = { version = "0.23", default-features = false, features = [ "serde" ], optional = true }
 http = "0.2.9"
-raw-window-handle = "0.5"
+rwh_04 = { package = "raw-window-handle", version = "0.4", optional = true }
+rwh_05 = { package = "raw-window-handle", version = "0.5", features = ["std"], optional = true }
+rwh_06 = { package = "raw-window-handle", version = "0.6", features = ["std"], optional = true }
 
 [dev-dependencies]
 http-range = "0.1.5"

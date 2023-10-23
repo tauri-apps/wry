@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use raw_window_handle::HasRawWindowHandle;
+use rwh_05::HasRawWindowHandle;
 
 fn main() -> wry::Result<()> {
   use wry::{

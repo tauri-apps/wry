@@ -19,7 +19,7 @@
 //!     },
 //!     webview::WebViewBuilder,
 //!   };
-//!   use raw_window_handle::HasRawWindowHandle;
+//!   use rwh_05::HasRawWindowHandle;
 //!
 //!   let event_loop = EventLoop::new();
 //!   let window = WindowBuilder::new()

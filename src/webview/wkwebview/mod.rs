@@ -11,7 +11,12 @@ mod proxy;
 #[cfg(target_os = "macos")]
 mod synthetic_mouse_events;
 
-use raw_window_handle::RawWindowHandle;
+#[cfg(feature = "rwh_04")]
+use rwh_04::RawWindowHandle;
+#[cfg(feature = "rwh_05")]
+use rwh_05::RawWindowHandle;
+#[cfg(feature = "rwh_06")]
+use rwh_06::RawWindowHandle;
 use url::Url;
 
 #[cfg(target_os = "macos")]

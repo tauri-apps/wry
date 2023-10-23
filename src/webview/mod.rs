@@ -7,7 +7,12 @@
 mod proxy;
 mod web_context;
 
-use raw_window_handle::RawWindowHandle;
+#[cfg(feature = "rwh_04")]
+use rwh_04::RawWindowHandle;
+#[cfg(feature = "rwh_05")]
+use rwh_05::RawWindowHandle;
+#[cfg(feature = "rwh_06")]
+use rwh_06::RawWindowHandle;
 pub use web_context::WebContext;
 
 #[cfg(target_os = "android")]
@@ -531,7 +536,7 @@ impl<'a> WebViewBuilder<'a> {
   ///   },
   ///   webview::WebViewBuilder,
   /// };
-  /// use raw_window_handle::HasRawWindowHandle;
+  /// use rwh_05::HasRawWindowHandle;
   ///
   /// let event_loop = EventLoop::new();
   /// let window = WindowBuilder::new()
