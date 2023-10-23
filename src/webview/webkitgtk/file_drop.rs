@@ -84,9 +84,9 @@ pub(crate) fn connect_drag_event(
   let w = window;
   webview.connect_drag_failed(move |_, _, _| {
     if listener_ref.0(&w, FileDropEvent::Cancelled) {
-      glib::Propagation::Stop
+      gtk::glib::Propagation::Stop
     } else {
-      glib::Propagation::Proceed
+      gtk::glib::Propagation::Proceed
     }
   });
 }

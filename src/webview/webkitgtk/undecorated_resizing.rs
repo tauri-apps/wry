@@ -1,6 +1,8 @@
 use crate::application::platform::unix::*;
-use gdk::{Cursor, WindowEdge};
-use gtk::prelude::*;
+use gtk::{
+  gdk::{Cursor, WindowEdge},
+  prelude::*,
+};
 use webkit2gtk::WebView;
 
 pub fn setup(webview: &WebView) {
@@ -37,7 +39,7 @@ pub fn setup(webview: &WebView) {
         }
       }
     }
-    glib::Propagation::Proceed
+    gtk::glib::Propagation::Proceed
   });
   webview.connect_button_press_event(move |webview, event| {
     if event.button() == 1 {
@@ -63,7 +65,7 @@ pub fn setup(webview: &WebView) {
         }
       }
     }
-    glib::Propagation::Proceed
+    gtk::glib::Propagation::Proceed
   });
   webview.connect_touch_event(|webview, event| {
     // This one should be GtkBox
@@ -96,6 +98,6 @@ pub fn setup(webview: &WebView) {
         }
       }
     }
-    glib::Propagation::Proceed
+    gtk::glib::Propagation::Proceed
   });
 }

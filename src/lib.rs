@@ -114,7 +114,7 @@ pub enum Error {
     target_os = "openbsd"
   ))]
   #[error(transparent)]
-  GlibError(#[from] glib::Error),
+  GlibError(#[from] gtk::glib::Error),
   #[cfg(any(
     target_os = "linux",
     target_os = "dragonfly",
@@ -123,7 +123,7 @@ pub enum Error {
     target_os = "openbsd"
   ))]
   #[error(transparent)]
-  GlibBoolError(#[from] glib::BoolError),
+  GlibBoolError(#[from] gtk::glib::BoolError),
   #[cfg(any(
     target_os = "linux",
     target_os = "dragonfly",
