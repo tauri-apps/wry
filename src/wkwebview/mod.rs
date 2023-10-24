@@ -77,6 +77,7 @@ pub(crate) struct InnerWebView {
   #[cfg(target_os = "macos")]
   pub ns_window: id,
   pub manager: id,
+  is_child: bool,
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
   // Note that if following functions signatures are changed in the future,
   // all functions pointer declarations in objc callbacks below all need to get updated.
@@ -106,7 +107,7 @@ impl InnerWebView {
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    Self::create(window, attributes, _pl_attrs, _web_context, false)
+    Self::create(window, attributes, _pl_attrs, _web_context, true)
   }
 
   fn create(
@@ -807,6 +808,7 @@ impl InnerWebView {
         page_load_handler,
         download_delegate,
         protocol_ptrs,
+        is_child,
       };
 
       // Initialize scripts
@@ -1064,18 +1066,22 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn set_position(&self, position: (i32, i32)) {
-    unsafe {
-      let mut frame: CGRect = msg_send![self.webview, frame];
-      frame.origin = CGPoint::new(position.0 as f64, position.1 as f64);
-      let () = msg_send![self.webview, setFrame: frame];
+    if self.is_child {
+      unsafe {
+        let mut frame: CGRect = msg_send![self.webview, frame];
+        frame.origin = CGPoint::new(position.0 as f64, position.1 as f64);
+        let () = msg_send![self.webview, setFrame: frame];
+      }
     }
   }
 
   pub fn set_size(&self, size: (u32, u32)) {
-    unsafe {
-      let mut frame: CGRect = msg_send![self.webview, frame];
-      frame.size = CGSize::new(size.0 as f64, size.1 as f64);
-      let () = msg_send![self.webview, setFrame: frame];
+    if self.is_child {
+      unsafe {
+        let mut frame: CGRect = msg_send![self.webview, frame];
+        frame.size = CGSize::new(size.0 as f64, size.1 as f64);
+        let () = msg_send![self.webview, setFrame: frame];
+      }
     }
   }
 }
