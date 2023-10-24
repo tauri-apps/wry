@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.34.1]
+
+- [`3de68e7`](https://github.com/tauri-apps/wry/commit/3de68e781d52f3c817473c1ee8cc73b392d60c98)([#1043](https://github.com/tauri-apps/wry/pull/1043)) Fix compilation with the `linux-body` feature.
+
 ## \[0.34.0]
 
 - [`ce95730`](https://github.com/tauri-apps/wry/commit/ce957301566dfe33f576810982a3eb38813d22ea)([#1036](https://github.com/tauri-apps/wry/pull/1036)) Upgrade gtk to 0.18 and bump MSRV to 1.70.0.
