@@ -63,7 +63,6 @@
 //! Avoid this in release build if your app needs to publish to App Store.
 //! - `fullscreen`: Fullscreen video and other media on **macOS** requires calling private functions.
 //! Avoid this in release build if your app needs to publish to App Store.
-//! - `dox`: Enables this in `package.metadata.docs.rs` section to skip linking some **Linux**
 //! libraries and prevent from building documentation on doc.rs fails.
 //! - `linux-headers`: Enables headers support of custom protocol request on Linux. Requires
 //! webkit2gtk v2.36 or above.
