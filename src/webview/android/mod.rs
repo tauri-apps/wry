@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use super::{PageLoadEvent, WebContext, WebViewAttributes, RGBA};
-use crate::{application::window::Window, webview::RequestAsyncResponder, Result};
+use crate::{webview::RequestAsyncResponder, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
 use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
@@ -13,6 +13,12 @@ use http::{
 };
 use kuchiki::NodeRef;
 use once_cell::sync::OnceCell;
+#[cfg(feature = "rwh_04")]
+use rwh_04::RawWindowHandle;
+#[cfg(feature = "rwh_05")]
+use rwh_05::RawWindowHandle;
+#[cfg(feature = "rwh_06")]
+use rwh_06::RawWindowHandle;
 use sha2::{Digest, Sha256};
 use std::{borrow::Cow, rc::Rc, sync::mpsc::channel};
 use tao::platform::android::ndk_glue::{
@@ -55,9 +61,9 @@ macro_rules! define_static_handlers {
 }
 
 define_static_handlers! {
-  IPC =  UnsafeIpc { handler: Box<dyn Fn(&Window, String)>,  window: Rc<Window> };
+  IPC =  UnsafeIpc { handler: Box<dyn Fn(String)> };
   REQUEST_HANDLER = UnsafeRequestHandler { handler:  Box<dyn Fn(Request<Vec<u8>>) -> Option<HttpResponse<Cow<'static, [u8]>>>> };
-  TITLE_CHANGE_HANDLER = UnsafeTitleHandler { handler: Box<dyn Fn(&Window, String)>,  window: Rc<Window> };
+  TITLE_CHANGE_HANDLER = UnsafeTitleHandler { handler: Box<dyn Fn(String)> };
   URL_LOADING_OVERRIDE = UnsafeUrlLoadingOverride { handler: Box<dyn Fn(String) -> bool> };
   ON_LOAD_HANDLER = UnsafeOnPageLoadHandler { handler: Box<dyn Fn(PageLoadEvent, String)> };
 }
@@ -105,12 +111,12 @@ pub unsafe fn setup(mut env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef
 
 pub(crate) struct InnerWebView {
   #[allow(unused)]
-  pub window: Rc<Window>,
+  pub window: RawWindowHandle,
 }
 
 impl InnerWebView {
   pub fn new(
-    window: Rc<Window>,
+    window: RawWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
@@ -247,14 +253,12 @@ impl InnerWebView {
       }))
     });
 
-    let w = window.clone();
     if let Some(i) = ipc_handler {
-      IPC.get_or_init(move || UnsafeIpc::new(Box::new(i), w));
+      IPC.get_or_init(move || UnsafeIpc::new(Box::new(i)));
     }
 
-    let w = window.clone();
     if let Some(i) = attributes.document_title_changed_handler {
-      TITLE_CHANGE_HANDLER.get_or_init(move || UnsafeTitleHandler::new(i, w));
+      TITLE_CHANGE_HANDLER.get_or_init(move || UnsafeTitleHandler::new(i));
     }
 
     if let Some(i) = attributes.navigation_handler {

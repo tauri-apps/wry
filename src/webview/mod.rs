@@ -406,7 +406,11 @@ impl<'a> WebViewBuilder<'a> {
   }
 
   /// Create [`WebViewBuilder`] from provided [`RawWindowHandle`]. TODO doc
-  pub fn new_as_child(window: RawWindowHandle, position: (isize, isize), size: (isize, isize)) -> Result<Self> {
+  pub fn new_as_child(
+    window: RawWindowHandle,
+    position: (isize, isize),
+    size: (isize, isize),
+  ) -> Result<Self> {
     let mut webview = WebViewAttributes::default();
     let web_context = None;
     #[allow(clippy::default_constructed_unit_structs)]
