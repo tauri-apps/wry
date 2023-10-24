@@ -328,9 +328,11 @@ where
 
       #[cfg(feature = "linux-body")]
       {
-        use gio::Cancellable;
-        use glib::Bytes;
-        use gtk::gdk::prelude::{InputStreamExt, InputStreamExtManual};
+        use gtk::{
+          gdk::prelude::{InputStreamExt, InputStreamExtManual},
+          gio::Cancellable,
+          glib::Bytes,
+        };
 
         // Set request http body
         let cancellable: Option<&Cancellable> = None;
