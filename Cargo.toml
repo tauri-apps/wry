@@ -14,12 +14,14 @@ categories = [ "gui" ]
 
 [package.metadata.docs.rs]
 no-default-features = true
-features = [ "file-drop", "protocol" ]
+features = [ "tao", "file-drop", "protocol", "webkit2gtk/dox" ]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
   "x86_64-apple-darwin"
 ]
+rustc-args = [ "--cfg", "docsrs" ]
+rustdoc-args = [ "--cfg", "docsrs" ]
 
 [features]
 default = [ "file-drop", "objc-exception", "protocol", "tao" ]
