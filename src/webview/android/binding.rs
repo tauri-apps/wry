@@ -266,7 +266,7 @@ pub unsafe fn ipc(mut env: JNIEnv, _: JClass, arg: JString) {
     Ok(arg) => {
       let arg = arg.to_string_lossy().to_string();
       if let Some(ipc) = IPC.get() {
-        (ipc.handler)(&ipc.window, arg)
+        (ipc.handler)(arg)
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),
@@ -279,7 +279,7 @@ pub unsafe fn handleReceivedTitle(mut env: JNIEnv, _: JClass, _webview: JObject,
     Ok(title) => {
       let title = title.to_string_lossy().to_string();
       if let Some(title_handler) = TITLE_CHANGE_HANDLER.get() {
-        (title_handler.handler)(&title_handler.window, title)
+        (title_handler.handler)(&title_handler, title)
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),
