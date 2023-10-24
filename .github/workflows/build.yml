@@ -53,7 +53,7 @@ jobs:
         if: (
           !contains(matrix.platform.target, 'android') &&
           !contains(matrix.platform.target, 'ios'))
-        run: cargo test --verbose --target ${{ matrix.platform.target }}
+        run: cargo test --verbose --target ${{ matrix.platform.target }} --features linux-body
 
       - name: build wry with winit
         if: (
