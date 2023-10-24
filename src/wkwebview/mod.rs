@@ -11,12 +11,7 @@ mod proxy;
 #[cfg(target_os = "macos")]
 mod synthetic_mouse_events;
 
-#[cfg(feature = "rwh_04")]
-use rwh_04::RawWindowHandle;
-#[cfg(feature = "rwh_05")]
-use rwh_05::RawWindowHandle;
-#[cfg(feature = "rwh_06")]
-use rwh_06::RawWindowHandle;
+use raw_window_handle::{HandleError, HasWindowHandle, RawWindowHandle};
 use url::Url;
 
 #[cfg(target_os = "macos")]
@@ -35,7 +30,7 @@ use std::{
   sync::{Arc, Mutex},
 };
 
-use core_graphics::geometry::CGRect;
+use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use objc::{
   declare::ClassDecl,
   runtime::{Class, Object, Sel, BOOL},
@@ -54,17 +49,15 @@ use crate::webview::{
 };
 
 use crate::{
-  webview::{
-    wkwebview::{
-      download::{
-        add_download_methods, download_did_fail, download_did_finish, download_policy,
-        set_download_delegate,
-      },
-      navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
+  wkwebview::{
+    download::{
+      add_download_methods, download_did_fail, download_did_finish, download_policy,
+      set_download_delegate,
     },
-    FileDropEvent, PageLoadEvent, RequestAsyncResponder, WebContext, WebViewAttributes, RGBA,
+    navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
   },
-  Error, Result,
+  Error, FileDropEvent, PageLoadEvent, RequestAsyncResponder, Result, WebContext,
+  WebViewAttributes, RGBA,
 };
 
 use http::{
@@ -99,17 +92,36 @@ pub(crate) struct InnerWebView {
 
 impl InnerWebView {
   pub fn new(
-    window: RawWindowHandle,
+    window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    let window = match window {
+    Self::create(window, attributes, _pl_attrs, _web_context, false)
+  }
+
+  pub fn new_as_child(
+    window: &impl HasWindowHandle,
+    attributes: WebViewAttributes,
+    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    _web_context: Option<&mut WebContext>,
+  ) -> Result<Self> {
+    Self::create(window, attributes, _pl_attrs, _web_context, false)
+  }
+
+  fn create(
+    window: &impl HasWindowHandle,
+    attributes: WebViewAttributes,
+    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    _web_context: Option<&mut WebContext>,
+    is_child: bool,
+  ) -> Result<Self> {
+    let window = match window.window_handle()?.as_raw() {
       #[cfg(target_os = "macos")]
       RawWindowHandle::AppKit(w) => w,
       #[cfg(target_os = "ios")]
       RawWindowHandle::UiKit(w) => w,
-      _ => return Err(Error::WindowHandleError),
+      _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
     };
 
     // Function for ipc handler
@@ -374,7 +386,6 @@ impl InnerWebView {
 
       #[cfg(target_os = "macos")]
       {
-        use core_graphics::geometry::{CGPoint, CGSize};
         let (x, y) = attributes.position.unwrap_or((0, 0));
         let (w, h) = attributes.size.unwrap_or((0, 0));
         let frame: CGRect = CGRect::new(
@@ -388,7 +399,7 @@ impl InnerWebView {
 
       #[cfg(target_os = "ios")]
       {
-        let ui_view = window.ui_view as id;
+        let ui_view = window.ui_view.as_ptr() as id;
         let frame: CGRect = msg_send![ui_view, frame];
         // set all autoresizingmasks
         let () = msg_send![webview, setAutoresizingMask: 31];
@@ -767,7 +778,8 @@ impl InnerWebView {
       // ns window is required for the print operation
       #[cfg(target_os = "macos")]
       let ns_window = {
-        let ns_window = window.ns_window as id;
+        let ns_view = window.ns_view.as_ptr() as id;
+        let ns_window: id = msg_send![ns_view, window];
 
         let can_set_titlebar_style: BOOL = msg_send![
           ns_window,
@@ -830,8 +842,8 @@ r#"Object.defineProperty(window, 'ipc', {
       // Inject the web view into the window as main content
       #[cfg(target_os = "macos")]
       {
-        if attributes.position.is_some() || attributes.size.is_some() {
-          let ns_view = window.ns_view as id;
+        if is_child {
+          let ns_view = window.ns_view.as_ptr() as id;
           let _: () = msg_send![ns_view, addSubview: webview];
         } else {
           let parent_view_cls = match ClassDecl::new("WryWebViewParent", class!(NSView)) {
@@ -860,7 +872,8 @@ r#"Object.defineProperty(window, 'ipc', {
           let _: () = msg_send![parent_view, addSubview: webview];
 
           // inject the webview into the window
-          let ns_window = window.ns_window as id;
+          let ns_view = window.ns_view.as_ptr() as id;
+          let ns_window: id = msg_send![ns_view, window];
           // Tell the webview receive keyboard events in the window.
           // See https://github.com/tauri-apps/wry/issues/739
           let _: () = msg_send![ns_window, setContentView: parent_view];
@@ -875,7 +888,7 @@ r#"Object.defineProperty(window, 'ipc', {
 
       #[cfg(target_os = "ios")]
       {
-        let ui_view = window.ui_view as id;
+        let ui_view = window.ui_view.as_ptr() as id;
         let _: () = msg_send![ui_view, addSubview: webview];
       }
 
@@ -1048,6 +1061,22 @@ r#"Object.defineProperty(window, 'ipc', {
 
   pub fn set_background_color(&self, _background_color: RGBA) -> Result<()> {
     Ok(())
+  }
+
+  pub fn set_position(&self, position: (i32, i32)) {
+    unsafe {
+      let mut frame: CGRect = msg_send![self.webview, frame];
+      frame.origin = CGPoint::new(position.0 as f64, position.1 as f64);
+      let () = msg_send![self.webview, setFrame: frame];
+    }
+  }
+
+  pub fn set_size(&self, size: (u32, u32)) {
+    unsafe {
+      let mut frame: CGRect = msg_send![self.webview, frame];
+      frame.size = CGSize::new(size.0 as f64, size.1 as f64);
+      let () = msg_send![self.webview, setFrame: frame];
+    }
   }
 }
 

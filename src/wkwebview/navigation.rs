@@ -11,7 +11,7 @@ use objc::{
 };
 
 use super::{url_from_webview, InnerWebView, NSString};
-use crate::webview::PageLoadEvent;
+use crate::PageLoadEvent;
 
 extern "C" fn did_commit_navigation(this: &Object, _: Sel, webview: id, _navigation: id) {
   unsafe {

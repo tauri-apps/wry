@@ -11,20 +11,18 @@
 //!
 //! ```no_run
 //! fn main() -> wry::Result<()> {
-//!   use wry::{
-//!     application::{
+//!   use tao::{
 //!       event::{Event, StartCause, WindowEvent},
 //!       event_loop::{ControlFlow, EventLoop},
 //!       window::WindowBuilder,
-//!     },
-//!     webview::WebViewBuilder,
 //!   };
+//!   use wry::WebViewBuilder;
 //!
 //!   let event_loop = EventLoop::new();
 //!   let window = WindowBuilder::new()
 //!     .with_title("Hello World")
-//!     .build(&event_loop)?;
-//!   let _webview = WebViewBuilder::new(&window)?
+//!     .build(&event_loop).unwrap();
+//!   let _webview = WebViewBuilder::new(&window)
 //!     .with_url("https://tauri.studio")?
 //!     .build()?;
 //!
@@ -565,21 +563,18 @@ impl<'a> WebViewBuilder<'a> {
   /// # Examples
   ///
   /// ```no_run
-  /// use wry::{
-  ///   application::{
+  /// use tao::{
   ///     event_loop::EventLoop,
   ///     window::WindowBuilder
-  ///   },
-  ///   webview::WebViewBuilder,
   /// };
-  /// use rwh_05::HasRawWindowHandle;
+  /// use raw_window_handle::HasRawWindowHandle;
+  /// use wry::WebViewBuilder;
   ///
   /// let event_loop = EventLoop::new();
   /// let window = WindowBuilder::new()
   ///   .build(&event_loop)
   ///   .unwrap();
-  /// WebViewBuilder::new(window.raw_window_handle())
-  ///   .unwrap()
+  /// WebViewBuilder::new(&window)
   ///   .with_asynchronous_custom_protocol("wry".into(), |request, responder| {
   ///     // here you can use a tokio task, thread pool or anything
   ///     // to do heavy computation to resolve your request

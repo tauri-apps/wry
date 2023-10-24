@@ -17,7 +17,7 @@ use objc::{
 };
 use once_cell::sync::Lazy;
 
-use crate::{application::dpi::LogicalPosition, webview::FileDropEvent};
+use crate::FileDropEvent;
 
 pub(crate) type NSDragOperation = cocoa::foundation::NSUInteger;
 #[allow(non_upper_case_globals)]
@@ -110,7 +110,7 @@ extern "C" fn dragging_entered(this: &mut Object, sel: Sel, drag_info: id) -> NS
 
   let dl: NSPoint = unsafe { msg_send![drag_info, draggingLocation] };
   let frame: NSRect = unsafe { msg_send![this, frame] };
-  let position = LogicalPosition::<f64>::from((dl.x, frame.size.height - dl.y)).into();
+  let position = (dl.x as i32, (frame.size.height - dl.y) as i32);
 
   if !listener(FileDropEvent::Hovered { paths, position }) {
     // Reject the Wry file drop (invoke the OS default behaviour)
@@ -126,7 +126,7 @@ extern "C" fn perform_drag_operation(this: &mut Object, sel: Sel, drag_info: id)
 
   let dl: NSPoint = unsafe { msg_send![drag_info, draggingLocation] };
   let frame: NSRect = unsafe { msg_send![this, frame] };
-  let position = LogicalPosition::<f64>::from((dl.x, frame.size.height - dl.y)).into();
+  let position = (dl.x as i32, (frame.size.height - dl.y) as i32);
 
   if !listener(FileDropEvent::Dropped { paths, position }) {
     // Reject the Wry file drop (invoke the OS default behaviour)
