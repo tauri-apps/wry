@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MIT
 
 use http_range::HttpRange;
-use rwh_05::HasRawWindowHandle;
 use std::{
   borrow::Cow,
   fs::{canonicalize, File},
@@ -11,14 +10,14 @@ use std::{
   path::PathBuf,
   process::{Command, Stdio},
 };
+use tao::{
+  event::{Event, WindowEvent},
+  event_loop::{ControlFlow, EventLoop},
+  window::WindowBuilder,
+};
 use wry::{
-  application::{
-    event::{Event, StartCause, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
-  },
   http::{header::CONTENT_TYPE, status::StatusCode, Response},
-  webview::WebViewBuilder,
+  WebViewBuilder,
 };
 
 fn main() -> wry::Result<()> {
@@ -50,8 +49,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  let _webview = WebViewBuilder::new(window.raw_window_handle())
-    .unwrap()
+  let _webview = WebViewBuilder::new(&window)
     .with_custom_protocol("wry".into(), move |request| {
       get_stream_response(request).unwrap_or_else(|error| {
         http::Response::builder()
@@ -68,13 +66,12 @@ fn main() -> wry::Result<()> {
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
-    match event {
-      Event::NewEvents(StartCause::Init) => println!("Wry application started!"),
-      Event::WindowEvent {
-        event: WindowEvent::CloseRequested,
-        ..
-      } => *control_flow = ControlFlow::Exit,
-      _ => {}
+    if let Event::WindowEvent {
+      event: WindowEvent::CloseRequested,
+      ..
+    } = event
+    {
+      *control_flow = ControlFlow::Exit
     }
   });
 }

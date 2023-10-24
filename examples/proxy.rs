@@ -2,30 +2,26 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use rwh_05::HasRawWindowHandle;
-use wry::webview::{ProxyConfig, ProxyEndpoint};
+use tao::{
+  event::{Event, WindowEvent},
+  event_loop::{ControlFlow, EventLoop},
+  window::WindowBuilder,
+};
+use wry::{ProxyConfig, ProxyEndpoint, WebViewBuilder};
 
 fn main() -> wry::Result<()> {
-  use wry::{
-    application::{
-      event::{Event, StartCause, WindowEvent},
-      event_loop::{ControlFlow, EventLoop},
-      window::WindowBuilder,
-    },
-    webview::WebViewBuilder,
-  };
-
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new()
     .with_title("Proxy Test")
-    .build(&event_loop)?;
+    .build(&event_loop)
+    .unwrap();
 
   let http_proxy = ProxyConfig::Http(ProxyEndpoint {
     host: "localhost".to_string(),
     port: "3128".to_string(),
   });
 
-  let _webview = WebViewBuilder::new(window.raw_window_handle())?
+  let _webview = WebViewBuilder::new(&window)
     .with_proxy_config(http_proxy)
     .with_url("https://www.myip.com/")?
     .build()?;
@@ -33,13 +29,12 @@ fn main() -> wry::Result<()> {
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
-    match event {
-      Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
-      Event::WindowEvent {
-        event: WindowEvent::CloseRequested,
-        ..
-      } => *control_flow = ControlFlow::Exit,
-      _ => (),
+    if let Event::WindowEvent {
+      event: WindowEvent::CloseRequested,
+      ..
+    } = event
+    {
+      *control_flow = ControlFlow::Exit
     }
   });
 }

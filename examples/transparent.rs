@@ -2,28 +2,35 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use rwh_05::HasRawWindowHandle;
+use tao::{
+  event::{Event, WindowEvent},
+  event_loop::{ControlFlow, EventLoop},
+  window::WindowBuilder,
+};
+use wry::WebViewBuilder;
 
 fn main() -> wry::Result<()> {
-  use wry::{
-    application::{
-      event::{Event, StartCause, WindowEvent},
-      event_loop::{ControlFlow, EventLoop},
-      window::WindowBuilder,
-    },
-    webview::WebViewBuilder,
-  };
-
   let event_loop = EventLoop::new();
-  let window = WindowBuilder::new()
+  #[allow(unused_mut)]
+  let mut builder = WindowBuilder::new()
     .with_decorations(false)
     // There are actually three layer of background color when creating webview window.
     // The first is window background...
-    .with_transparent(true)
-    .build(&event_loop)
-    .unwrap();
+    .with_transparent(true);
+  #[cfg(target_os = "windows")]
+  {
+    use tao::platform::windows::WindowBuilderExtWindows;
+    builder = builder.with_undecorated_shadow(false);
+  }
+  let window = builder.build(&event_loop).unwrap();
 
-  let _webview = WebViewBuilder::new(window.raw_window_handle())?
+  #[cfg(target_os = "windows")]
+  {
+    use tao::platform::windows::WindowExtWindows;
+    window.set_undecorated_shadow(true);
+  }
+
+  let _webview = WebViewBuilder::new(&window)
     // The second is on webview...
     .with_transparent(true)
     // And the last is in html.
@@ -44,13 +51,12 @@ fn main() -> wry::Result<()> {
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
-    match event {
-      Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
-      Event::WindowEvent {
-        event: WindowEvent::CloseRequested,
-        ..
-      } => *control_flow = ControlFlow::Exit,
-      _ => {}
+    if let Event::WindowEvent {
+      event: WindowEvent::CloseRequested,
+      ..
+    } = event
+    {
+      *control_flow = ControlFlow::Exit
     }
   });
 }

@@ -2,18 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use rwh_05::HasRawWindowHandle;
+use tao::{
+  event::{Event, WindowEvent},
+  event_loop::{ControlFlow, EventLoopBuilder},
+  window::WindowBuilder,
+};
+use wry::WebViewBuilder;
 
 fn main() -> wry::Result<()> {
-  use wry::{
-    application::{
-      event::{Event, StartCause, WindowEvent},
-      event_loop::{ControlFlow, EventLoopBuilder},
-      window::WindowBuilder,
-    },
-    webview::WebViewBuilder,
-  };
-
   enum UserEvent {
     ExecEval,
   }
@@ -23,7 +19,8 @@ fn main() -> wry::Result<()> {
 
   let window = WindowBuilder::new()
     .with_title("Hello World")
-    .build(&event_loop)?;
+    .build(&event_loop)
+    .unwrap();
 
   let ipc_handler = move |req: String| {
     if req == "exec-eval" {
@@ -31,7 +28,7 @@ fn main() -> wry::Result<()> {
     }
   };
 
-  let _webview = WebViewBuilder::new(window.raw_window_handle())?
+  let _webview = WebViewBuilder::new(&window)
     .with_html(
       r#"
       <button onclick="window.ipc.postMessage('exec-eval')">Exec eval</button>
@@ -80,7 +77,6 @@ fn main() -> wry::Result<()> {
           })
           .unwrap();
       }
-      Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         ..

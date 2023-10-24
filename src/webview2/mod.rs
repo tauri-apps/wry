@@ -3,17 +3,6 @@
 // SPDX-License-Identifier: MIT
 
 mod file_drop;
-mod resize;
-
-use crate::{
-  webview::{
-    proxy::ProxyConfig, PageLoadEvent, RequestAsyncResponder, WebContext, WebViewAttributes, RGBA,
-  },
-  Error, Result,
-};
-
-use file_drop::FileDropController;
-use url::Url;
 
 use std::{
   borrow::Cow,
@@ -22,37 +11,44 @@ use std::{
   iter::once,
   os::windows::prelude::OsStrExt,
   path::PathBuf,
-  rc::Rc,
   sync::{mpsc, Arc},
 };
 
-use once_cell::{sync::Lazy, unsync::OnceCell};
-
+use http::{Request, Response as HttpResponse, StatusCode};
+use once_cell::sync::Lazy;
+use raw_window_handle::HasWindowHandle;
+use url::Url;
+use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 use windows::{
   core::{s, ComInterface, PCSTR, PCWSTR, PWSTR},
   Win32::{
     Foundation::*,
     Globalization::{self, MAX_LOCALE_NAME},
-    Graphics::Gdi::{RedrawWindow, HRGN, RDW_INTERNALPAINT},
+    Graphics::Gdi::{RedrawWindow, HBRUSH, HRGN, RDW_INTERNALPAINT},
     System::{
-      Com::IStream,
-      LibraryLoader::{GetProcAddress, LoadLibraryW},
+      Com::{CoInitializeEx, IStream, COINIT_APARTMENTTHREADED},
+      LibraryLoader::{GetModuleHandleW, GetProcAddress, LoadLibraryW},
       SystemInformation::OSVERSIONINFOW,
       WinRT::EventRegistrationToken,
     },
     UI::{
       Shell::{DefSubclassProc, SHCreateMemStream, SetWindowSubclass},
-      WindowsAndMessaging::{self as win32wm, PostMessageW, RegisterWindowMessageA},
+      WindowsAndMessaging::{
+        self as win32wm, CreateWindowExW, DefWindowProcW, PostMessageW, RegisterClassExW,
+        RegisterWindowMessageA, SetWindowPos, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, HCURSOR,
+        HICON, HMENU, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
+        WINDOW_EX_STYLE, WNDCLASSEXW, WS_CHILD, WS_VISIBLE,
+      },
     },
   },
 };
 
-use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
-
-use crate::application::{platform::windows::WindowExtWindows, window::Window};
-use http::{Request, Response as HttpResponse, StatusCode};
-
+use self::file_drop::FileDropController;
 use super::Theme;
+use crate::{
+  proxy::ProxyConfig, Error, PageLoadEvent, RequestAsyncResponder, Result, WebContext,
+  WebViewAttributes, RGBA,
+};
 
 impl From<webview2_com::Error> for Error {
   fn from(err: webview2_com::Error) -> Self {
@@ -61,39 +57,123 @@ impl From<webview2_com::Error> for Error {
 }
 
 pub(crate) struct InnerWebView {
+  hwnd: HWND,
+  is_child: bool,
   pub controller: ICoreWebView2Controller,
   webview: ICoreWebView2,
   env: ICoreWebView2Environment,
   // Store FileDropController in here to make sure it gets dropped when
   // the webview gets dropped, otherwise we'll have a memory leak
   #[allow(dead_code)]
-  file_drop_controller: Rc<OnceCell<FileDropController>>,
+  file_drop_controller: Option<FileDropController>,
 }
 
 impl InnerWebView {
   pub fn new(
-    window: Rc<Window>,
+    window: &impl HasWindowHandle,
+    attributes: WebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
+    web_context: Option<&mut WebContext>,
+  ) -> Result<Self> {
+    match window.window_handle()?.as_raw() {
+      raw_window_handle::RawWindowHandle::Win32(handle) => {
+        Self::new_hwnd(HWND(handle.hwnd.get()), attributes, pl_attrs, web_context)
+      }
+      _ => unreachable!(),
+    }
+  }
+
+  pub fn new_as_child(
+    window: &impl HasWindowHandle,
+    attributes: WebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
+    web_context: Option<&mut WebContext>,
+  ) -> Result<Self> {
+    match window.window_handle()?.as_raw() {
+      raw_window_handle::RawWindowHandle::Win32(parent) => {
+        let class_name = encode_wide("WRY_WEBVIEW");
+
+        unsafe extern "system" fn default_window_proc(
+          hwnd: HWND,
+          msg: u32,
+          wparam: WPARAM,
+          lparam: LPARAM,
+        ) -> LRESULT {
+          DefWindowProcW(hwnd, msg, wparam, lparam)
+        }
+
+        let class = WNDCLASSEXW {
+          cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+          style: CS_HREDRAW | CS_VREDRAW,
+          lpfnWndProc: Some(default_window_proc),
+          cbClsExtra: 0,
+          cbWndExtra: 0,
+          hInstance: unsafe { HINSTANCE(GetModuleHandleW(PCWSTR::null()).unwrap_or_default().0) },
+          hIcon: HICON::default(),
+          hCursor: HCURSOR::default(), // must be null in order for cursor state to work properly
+          hbrBackground: HBRUSH::default(),
+          lpszMenuName: PCWSTR::null(),
+          lpszClassName: PCWSTR::from_raw(class_name.as_ptr()),
+          hIconSm: HICON::default(),
+        };
+
+        unsafe { RegisterClassExW(&class) };
+
+        let child = unsafe {
+          CreateWindowExW(
+            WINDOW_EX_STYLE::default(),
+            PCWSTR::from_raw(class_name.as_ptr()),
+            PCWSTR::null(),
+            WS_CHILD | WS_VISIBLE,
+            attributes.position.map(|a| a.0).unwrap_or(CW_USEDEFAULT),
+            attributes.position.map(|a| a.1).unwrap_or(CW_USEDEFAULT),
+            attributes.size.map(|a| a.0 as i32).unwrap_or(CW_USEDEFAULT),
+            attributes.size.map(|a| a.1 as i32).unwrap_or(CW_USEDEFAULT),
+            HWND(parent.hwnd.get()),
+            HMENU::default(),
+            GetModuleHandleW(PCWSTR::null()).unwrap_or_default(),
+            None,
+          )
+        };
+
+        Self::new_as_child_hwnd(child, attributes, pl_attrs, web_context)
+      }
+      _ => unreachable!(),
+    }
+  }
+
+  pub fn new_as_child_hwnd(
+    hwnd: HWND,
+    attributes: WebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
+    web_context: Option<&mut WebContext>,
+  ) -> Result<Self> {
+    let mut webview = Self::new_hwnd(hwnd, attributes, pl_attrs, web_context)?;
+    webview.is_child = true;
+    Ok(webview)
+  }
+
+  pub fn new_hwnd(
+    hwnd: HWND,
     mut attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    let hwnd = HWND(window.hwnd() as _);
-    let file_drop_controller: Rc<OnceCell<FileDropController>> = Rc::new(OnceCell::new());
-    let file_drop_handler = attributes.file_drop_handler.take();
-    let file_drop_window = window.clone();
+    let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
+
+    let file_drop_controller = attributes
+      .file_drop_handler
+      .take()
+      .map(|handler| FileDropController::new(hwnd, handler));
 
     let env = Self::create_environment(&web_context, pl_attrs.clone(), &attributes)?;
     let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
-    let webview = Self::init_webview(window, hwnd, attributes, &env, &controller, pl_attrs)?;
-
-    if let Some(file_drop_handler) = file_drop_handler {
-      let mut controller = FileDropController::new();
-      controller.listen(hwnd, file_drop_window, file_drop_handler);
-      let _ = file_drop_controller.set(controller);
-    }
+    let webview = Self::init_webview(hwnd, attributes, &env, &controller, pl_attrs)?;
 
     Ok(Self {
+      hwnd,
       controller,
+      is_child: false,
       webview,
       env,
       file_drop_controller,
@@ -226,7 +306,6 @@ impl InnerWebView {
   }
 
   fn init_webview(
-    window: Rc<Window>,
     hwnd: HWND,
     mut attributes: WebViewAttributes,
     env: &ICoreWebView2Environment,
@@ -311,7 +390,6 @@ impl InnerWebView {
 
     // document title changed handler
     if let Some(document_title_changed_handler) = attributes.document_title_changed_handler {
-      let window_ = window.clone();
       unsafe {
         webview
           .add_DocumentTitleChanged(
@@ -320,7 +398,7 @@ impl InnerWebView {
               if let Some(webview) = webview {
                 webview.DocumentTitle(&mut title)?;
                 let title = take_pwstr(title);
-                document_title_changed_handler(&window_, title);
+                document_title_changed_handler(title);
               }
               Ok(())
             })),
@@ -367,21 +445,12 @@ impl InnerWebView {
     Self::add_script_to_execute_on_document_created(
       &webview,
       String::from(
-        r#"Object.defineProperty(window, 'ipc', {
-  value: Object.freeze({postMessage:s=>window.chrome.webview.postMessage(s)})
-});
-
-window.addEventListener('mousedown', (e) => {
-  if (e.buttons === 1) window.chrome.webview.postMessage('__WEBVIEW_LEFT_MOUSE_DOWN__')
-});
-window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('__WEBVIEW_MOUSE_MOVE__'));"#,
+        r#"Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: s=> window.chrome.webview.postMessage(s) }) });"#,
       ),
     )?;
     for js in attributes.initialization_scripts {
       Self::add_script_to_execute_on_document_created(&webview, js)?;
     }
-
-    let window_ = window.clone();
 
     // Message handler
     let ipc_handler = attributes.ipc_handler.take();
@@ -392,49 +461,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             let mut js = PWSTR::null();
             args.TryGetWebMessageAsString(&mut js)?;
             let js = take_pwstr(js);
-            if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" || js == "__WEBVIEW_MOUSE_MOVE__" {
-              if !window_.is_decorated() && window_.is_resizable() && !window_.is_maximized() {
-                use crate::application::window::CursorIcon;
-
-                let mut point = POINT::default();
-                win32wm::GetCursorPos(&mut point)?;
-                let result = resize::hit_test(window_.hwnd(), point.x, point.y);
-                let cursor = match result.0 as u32 {
-                  win32wm::HTLEFT => CursorIcon::WResize,
-                  win32wm::HTTOP => CursorIcon::NResize,
-                  win32wm::HTRIGHT => CursorIcon::EResize,
-                  win32wm::HTBOTTOM => CursorIcon::SResize,
-                  win32wm::HTTOPLEFT => CursorIcon::NwResize,
-                  win32wm::HTTOPRIGHT => CursorIcon::NeResize,
-                  win32wm::HTBOTTOMLEFT => CursorIcon::SwResize,
-                  win32wm::HTBOTTOMRIGHT => CursorIcon::SeResize,
-                  _ => CursorIcon::Arrow,
-                };
-                // don't use `CursorIcon::Arrow` variant or cursor manipulation using css will cause cursor flickering
-                if cursor != CursorIcon::Arrow {
-                  window_.set_cursor_icon(cursor);
-                }
-
-                if js == "__WEBVIEW_LEFT_MOUSE_DOWN__" {
-                  // we ignore `HTCLIENT` variant so the webview receives the click correctly if it is not on the edges
-                  // and prevent conflict with `tao::window::drag_window`.
-                  if result.0 as u32 != win32wm::HTCLIENT {
-                    resize::begin_resize_drag(
-                      window_.hwnd(),
-                      result.0,
-                      win32wm::WM_NCLBUTTONDOWN,
-                      point.x,
-                      point.y,
-                    )?;
-                  }
-                }
-              }
-              // these are internal messages, ipc_handlers don't need it so exit early
-              return Ok(());
-            }
-
             if let Some(ipc_handler) = &ipc_handler {
-              ipc_handler(&window_, js);
+              ipc_handler(js);
             }
           }
 
@@ -588,7 +616,6 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
       let env = env.clone();
       let main_thread_id = std::thread::current().id();
 
-      let hwnd = window.hwnd();
       unsafe {
         webview
           .add_WebResourceRequested(
@@ -967,6 +994,38 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   pub fn set_theme(&self, theme: Theme) {
     set_theme(&self.webview, theme);
   }
+
+  pub fn set_position(&self, position: (i32, i32)) {
+    if self.is_child {
+      unsafe {
+        let _ = SetWindowPos(
+          self.hwnd,
+          HWND::default(),
+          position.0,
+          position.1,
+          0,
+          0,
+          SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER,
+        );
+      }
+    }
+  }
+
+  pub fn set_size(&self, size: (u32, u32)) {
+    if self.is_child {
+      unsafe {
+        let _ = SetWindowPos(
+          self.hwnd,
+          HWND::default(),
+          0,
+          0,
+          size.0 as _,
+          size.1 as _,
+          SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER,
+        );
+      }
+    }
+  }
 }
 
 unsafe fn prepare_web_request_response(
@@ -1111,11 +1170,8 @@ fn get_function_impl(library: &str, function: &str) -> Option<FARPROC> {
 
 macro_rules! get_function {
   ($lib:expr, $func:ident) => {
-    crate::webview::webview2::get_function_impl(
-      concat!($lib, '\0'),
-      concat!(stringify!($func), '\0'),
-    )
-    .map(|f| unsafe { std::mem::transmute::<windows::Win32::Foundation::FARPROC, $func>(f) })
+    crate::webview2::get_function_impl(concat!($lib, '\0'), concat!(stringify!($func), '\0'))
+      .map(|f| unsafe { std::mem::transmute::<windows::Win32::Foundation::FARPROC, $func>(f) })
   };
 }
 
@@ -1157,7 +1213,7 @@ fn url_from_webview(webview: &ICoreWebView2) -> String {
 
 static EXEC_MSG_ID: Lazy<u32> = Lazy::new(|| unsafe { RegisterWindowMessageA(s!("Wry::ExecMsg")) });
 
-unsafe fn dispatch_handler<F>(hwnd: isize, function: F)
+unsafe fn dispatch_handler<F>(hwnd: HWND, function: F)
 where
   F: FnMut() + 'static,
 {
@@ -1167,7 +1223,7 @@ where
 
   let raw = Box::into_raw(boxed2);
 
-  let res = PostMessageW(HWND(hwnd), *EXEC_MSG_ID, WPARAM(raw as _), LPARAM(0));
+  let res = PostMessageW(hwnd, *EXEC_MSG_ID, WPARAM(raw as _), LPARAM(0));
   assert!(
     res.is_ok(),
     "PostMessage failed ; is the messages queue full?"

@@ -2,28 +2,26 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use rwh_05::HasRawWindowHandle;
+use tao::{
+  event::{Event, StartCause, WindowEvent},
+  event_loop::{ControlFlow, EventLoopBuilder},
+  window::WindowBuilder,
+};
+use wry::WebViewBuilder;
+
+enum UserEvent {
+  Minimize,
+  Maximize,
+  DragWindow,
+  CloseWindow,
+}
 
 fn main() -> wry::Result<()> {
-  use wry::{
-    application::{
-      event::{Event, StartCause, WindowEvent},
-      event_loop::{ControlFlow, EventLoopBuilder},
-      window::WindowBuilder,
-    },
-    webview::WebViewBuilder,
-  };
-
-  enum UserEvent {
-    CloseWindow,
-  }
-
   let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
   let window = WindowBuilder::new()
     .with_decorations(false)
     .build(&event_loop)
     .unwrap();
-  let window_handle = window.raw_window_handle();
 
   const HTML: &str = r#"
   <html>
@@ -104,7 +102,6 @@ fn main() -> wry::Result<()> {
                   e.detail === 2
                       ? window.ipc.postMessage('maximize')
                       : window.ipc.postMessage('drag_window');
-              }
           })
           document.addEventListener('touchstart', (e) => {
               if (e.target.classList.contains('drag-region')) {
@@ -118,25 +115,24 @@ fn main() -> wry::Result<()> {
 "#;
 
   let proxy = event_loop.create_proxy();
-
-  let handler = move |req: String| {
-    if req == "minimize" {
-      window.set_minimized(true);
+  let handler = move |req: String| match req.as_str() {
+    "minimize" => {
+      let _ = proxy.send_event(UserEvent::Minimize);
     }
-    if req == "maximize" {
-      window.set_maximized(!window.is_maximized());
+    "maximize" => {
+      let _ = proxy.send_event(UserEvent::Maximize);
     }
-    if req == "close" {
+    "drag_window" => {
+      let _ = proxy.send_event(UserEvent::DragWindow);
+    }
+    "close" => {
       let _ = proxy.send_event(UserEvent::CloseWindow);
     }
-    if req == "drag_window" {
-      let _ = window.drag_window();
-    }
+    _ => {}
   };
 
   let mut webview = Some(
-    WebViewBuilder::new(window_handle)
-      .unwrap()
+    WebViewBuilder::new(&window)
       .with_html(HTML)?
       .with_ipc_handler(handler)
       .with_accept_first_mouse(true)
@@ -156,6 +152,13 @@ fn main() -> wry::Result<()> {
         let _ = webview.take();
         *control_flow = ControlFlow::Exit
       }
+
+      Event::UserEvent(e) => match e {
+        UserEvent::Minimize => window.set_minimized(true),
+        UserEvent::Maximize => window.set_maximized(!window.is_maximized()),
+        UserEvent::DragWindow => window.drag_window().unwrap(),
+        UserEvent::CloseWindow => { /* handled above */ }
+      },
       _ => (),
     }
   });

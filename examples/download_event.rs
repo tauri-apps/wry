@@ -2,19 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use rwh_05::HasRawWindowHandle;
+use std::{env::temp_dir, path::PathBuf};
+use tao::{
+  event::{Event, WindowEvent},
+  event_loop::{ControlFlow, EventLoopBuilder},
+  window::WindowBuilder,
+};
+use wry::WebViewBuilder;
 
 fn main() -> wry::Result<()> {
-  use std::{env::temp_dir, path::PathBuf};
-  use wry::{
-    application::{
-      event::{Event, StartCause, WindowEvent},
-      event_loop::{ControlFlow, EventLoopBuilder},
-      window::WindowBuilder,
-    },
-    webview::WebViewBuilder,
-  };
-
   const HTML: &str = r#"
     <body>
       <div>
@@ -35,8 +31,9 @@ fn main() -> wry::Result<()> {
   let proxy = event_loop.create_proxy();
   let window = WindowBuilder::new()
     .with_title("Hello World")
-    .build(&event_loop)?;
-  let _webview = WebViewBuilder::new(window.raw_window_handle())?
+    .build(&event_loop)
+    .unwrap();
+  let _webview = WebViewBuilder::new(&window)
     .with_html(HTML)?
     .with_download_started_handler({
       let proxy = proxy.clone();
@@ -70,7 +67,6 @@ fn main() -> wry::Result<()> {
     *control_flow = ControlFlow::Wait;
 
     match event {
-      Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
         ..

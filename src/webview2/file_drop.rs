@@ -2,12 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use crate::webview::FileDropEvent;
-
 // A silly implementation of file drop handling for Windows!
-// This can be pretty much entirely replaced when WebView2 SDK 1.0.721-prerelease becomes stable.
-// https://docs.microsoft.com/en-us/microsoft-edge/webview2/releasenotes#10721-prerelease
-// https://docs.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2experimentalcompositioncontroller3?view=webview2-1.0.721-prerelease&preserve-view=true
+
+use crate::FileDropEvent;
 
 use std::{
   cell::UnsafeCell,
@@ -37,90 +34,57 @@ use windows::Win32::{
 
 use windows_implement::implement;
 
-use crate::application::{
-  dpi::PhysicalPosition, platform::windows::WindowExtWindows, window::Window,
-};
-
+#[derive(Default)]
 pub(crate) struct FileDropController {
   drop_targets: Vec<IDropTarget>,
 }
 
 impl FileDropController {
-  pub(crate) fn new() -> Self {
-    FileDropController {
-      drop_targets: Vec::new(),
-    }
-  }
+  pub(crate) fn new(hwnd: HWND, handler: Box<dyn Fn(FileDropEvent) -> bool>) -> Self {
+    let mut controller = FileDropController::default();
 
-  pub(crate) fn listen(
-    &mut self,
-    hwnd: HWND,
-    window: Rc<Window>,
-    handler: Box<dyn Fn(&Window, FileDropEvent) -> bool>,
-  ) {
-    let listener = Rc::new(handler);
+    let handler = Rc::new(handler);
+    let mut callback = |hwnd| controller.inject_in_hwnd(hwnd, handler.clone());
 
     // Enumerate child windows to find the WebView2 "window" and override!
-    enumerate_child_windows(hwnd, |hwnd| {
-      self.inject(hwnd, window.clone(), listener.clone())
-    });
+    {
+      let mut trait_obj: &mut dyn FnMut(HWND) -> bool = &mut callback;
+      let closure_pointer_pointer: *mut c_void = unsafe { std::mem::transmute(&mut trait_obj) };
+      let lparam = LPARAM(closure_pointer_pointer as _);
+      unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let closure = &mut *(lparam.0 as *mut c_void as *mut &mut dyn FnMut(HWND) -> bool);
+        closure(hwnd).into()
+      }
+      unsafe { EnumChildWindows(hwnd, Some(enumerate_callback), lparam) };
+    }
+
+    controller
   }
 
-  fn inject(
-    &mut self,
-    hwnd: HWND,
-    window: Rc<Window>,
-    listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
-  ) -> bool {
-    // Safety: WinAPI calls are unsafe
-    unsafe {
-      let file_drop_handler: IDropTarget = FileDropHandler::new(window, listener).into();
-
-      if RevokeDragDrop(hwnd) != Err(DRAGDROP_E_INVALIDHWND.into())
-        && RegisterDragDrop(hwnd, &file_drop_handler).is_ok()
-      {
-        // Not a great solution. But there is no reliable way to get the window handle of the webview, for whatever reason...
-        self.drop_targets.push(file_drop_handler);
-      }
+  fn inject_in_hwnd(&mut self, hwnd: HWND, handler: Rc<dyn Fn(FileDropEvent) -> bool>) -> bool {
+    let file_drop_handler: IDropTarget = FileDropHandler::new(hwnd, handler).into();
+    if unsafe { RevokeDragDrop(hwnd) } != Err(DRAGDROP_E_INVALIDHWND.into())
+      && unsafe { RegisterDragDrop(hwnd, &file_drop_handler) }.is_ok()
+    {
+      self.drop_targets.push(file_drop_handler);
     }
 
     true
   }
 }
 
-// https://gist.github.com/application-developer-DA/5a460d9ca02948f1d2bfa53100c941da
-// Safety: WinAPI calls are unsafe
-
-fn enumerate_child_windows<F>(hwnd: HWND, mut callback: F)
-where
-  F: FnMut(HWND) -> bool,
-{
-  let mut trait_obj: &mut dyn FnMut(HWND) -> bool = &mut callback;
-  let closure_pointer_pointer: *mut c_void = unsafe { std::mem::transmute(&mut trait_obj) };
-  let lparam = LPARAM(closure_pointer_pointer as _);
-  unsafe { EnumChildWindows(hwnd, Some(enumerate_callback), lparam) };
-}
-
-unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
-  let closure = &mut *(lparam.0 as *mut c_void as *mut &mut dyn FnMut(HWND) -> bool);
-  closure(hwnd).into()
-}
-
 #[implement(IDropTarget)]
 pub struct FileDropHandler {
-  window: Rc<Window>,
-  listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
+  hwnd: HWND,
+  listener: Rc<dyn Fn(FileDropEvent) -> bool>,
   cursor_effect: UnsafeCell<DROPEFFECT>,
   hovered_is_valid: UnsafeCell<bool>, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
 }
 
 impl FileDropHandler {
-  pub fn new(
-    window: Rc<Window>,
-    listener: Rc<dyn Fn(&Window, FileDropEvent) -> bool>,
-  ) -> FileDropHandler {
+  pub fn new(hwnd: HWND, listener: Rc<dyn Fn(FileDropEvent) -> bool>) -> FileDropHandler {
     Self {
-      window,
+      hwnd,
       listener,
       cursor_effect: DROPEFFECT_NONE.into(),
       hovered_is_valid: false.into(),
@@ -208,16 +172,13 @@ impl IDropTarget_Impl for FileDropHandler {
       *self.cursor_effect.get() = cursor_effect;
 
       let mut pt = POINT { x: pt.x, y: pt.y };
-      ScreenToClient(HWND(self.window.hwnd() as _), &mut pt);
+      ScreenToClient(self.hwnd, &mut pt);
     }
 
-    (self.listener)(
-      &self.window,
-      FileDropEvent::Hovered {
-        paths,
-        position: PhysicalPosition::new(pt.x as _, pt.y as _),
-      },
-    );
+    (self.listener)(FileDropEvent::Hovered {
+      paths,
+      position: (pt.x as _, pt.y as _),
+    });
 
     Ok(())
   }
@@ -234,7 +195,7 @@ impl IDropTarget_Impl for FileDropHandler {
 
   fn DragLeave(&self) -> windows::core::Result<()> {
     if unsafe { *self.hovered_is_valid.get() } {
-      (self.listener)(&self.window, FileDropEvent::Cancelled);
+      (self.listener)(FileDropEvent::Cancelled);
     }
     Ok(())
   }
@@ -254,16 +215,13 @@ impl IDropTarget_Impl for FileDropHandler {
       }
 
       let mut pt = POINT { x: pt.x, y: pt.y };
-      ScreenToClient(HWND(self.window.hwnd() as _), &mut pt);
+      ScreenToClient(self.hwnd, &mut pt);
     }
 
-    (self.listener)(
-      &self.window,
-      FileDropEvent::Dropped {
-        paths,
-        position: PhysicalPosition::new(pt.x as _, pt.y as _),
-      },
-    );
+    (self.listener)(FileDropEvent::Dropped {
+      paths,
+      position: (pt.x as _, pt.y as _),
+    });
 
     Ok(())
   }
