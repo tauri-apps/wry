@@ -79,6 +79,7 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::unit_cmp)]
 #![allow(clippy::upper_case_acronyms)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[macro_use]
 extern crate serde;
