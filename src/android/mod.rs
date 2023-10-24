@@ -13,12 +13,7 @@ use http::{
 };
 use kuchiki::NodeRef;
 use once_cell::sync::OnceCell;
-#[cfg(feature = "rwh_04")]
-use rwh_04::RawWindowHandle;
-#[cfg(feature = "rwh_05")]
-use rwh_05::RawWindowHandle;
-#[cfg(feature = "rwh_06")]
-use rwh_06::RawWindowHandle;
+use raw_window_handle::HasWindowHandle;
 use sha2::{Digest, Sha256};
 use std::{borrow::Cow, rc::Rc, sync::mpsc::channel};
 use tao::platform::android::ndk_glue::{
@@ -109,14 +104,11 @@ pub unsafe fn setup(mut env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef
     .unwrap();
 }
 
-pub(crate) struct InnerWebView {
-  #[allow(unused)]
-  pub window: RawWindowHandle,
-}
+pub(crate) struct InnerWebView;
 
 impl InnerWebView {
   pub fn new(
-    window: RawWindowHandle,
+    _window: & impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
@@ -269,7 +261,7 @@ impl InnerWebView {
       ON_LOAD_HANDLER.get_or_init(move || UnsafeOnPageLoadHandler::new(h));
     }
 
-    Ok(Self { window })
+    Ok(Self)
   }
 
   pub fn print(&self) {}
