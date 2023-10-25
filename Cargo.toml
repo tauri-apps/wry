@@ -94,4 +94,4 @@ base64 = "0.21"
 [dev-dependencies]
 http-range = "0.1.5"
 tao = { git = "https://github.com/tauri-apps/tao" }
-winit = { path = "../winit" }
+winit = "0.29"
