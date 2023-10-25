@@ -1,4 +1,3 @@
-use gtk::prelude::DisplayExtManual;
 use std::borrow::Cow;
 use winit::{
   event::{Event, WindowEvent},
@@ -185,6 +184,8 @@ fn main() {
     target_os = "openbsd",
   ))]
   {
+    use gtk::prelude::DisplayExtManual;
+
     gtk::init().unwrap();
     if gtk::gdk::Display::default().unwrap().backend().is_wayland() {
       panic!("This example doesn't support wayland!");

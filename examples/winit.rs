@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use gtk::prelude::DisplayExtManual;
 use winit::{
   dpi::LogicalSize,
   event::{Event, WindowEvent},
@@ -20,6 +19,8 @@ fn main() -> wry::Result<()> {
     target_os = "openbsd",
   ))]
   {
+    use gtk::prelude::DisplayExtManual;
+
     gtk::init()?;
     if gtk::gdk::Display::default().unwrap().backend().is_wayland() {
       panic!("This example doesn't support wayland!");
