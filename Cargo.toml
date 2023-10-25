@@ -96,7 +96,7 @@ tao = { git = "https://github.com/tauri-apps/tao" }
 
 [dev-dependencies]
 http-range = "0.1.5"
-pollster = "0.3"
+pollster = "0.3.0"
 tao = { git = "https://github.com/tauri-apps/tao" }
-wgpu = "0.18"
-winit = "0.29"
+wgpu = "0.18.0"
+winit = { version = "0.29", features = ["rwh_05"]}
