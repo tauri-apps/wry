@@ -337,11 +337,11 @@ impl InnerWebView {
 
     // Transparent
     if attributes.transparent {
-      webview.set_background_color(&gdk::RGBA::new(0., 0., 0., 0.));
+      webview.set_background_color(&gtk::gdk::RGBA::new(0., 0., 0., 0.));
     } else {
       // background color
       if let Some(background_color) = attributes.background_color {
-        webview.set_background_color(&gdk::RGBA::new(
+        webview.set_background_color(&gtk::gdk::RGBA::new(
           background_color.0 as _,
           background_color.1 as _,
           background_color.2 as _,
@@ -523,7 +523,7 @@ impl InnerWebView {
   }
 
   pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
-    self.webview.set_background_color(&gdk::RGBA::new(
+    self.webview.set_background_color(&gtk::gdk::RGBA::new(
       background_color.0 as _,
       background_color.1 as _,
       background_color.2 as _,
@@ -558,7 +558,7 @@ impl InnerWebView {
         webkit2gtk::WebsiteDataManagerExtManual::clear(
           &data_manger,
           webkit2gtk::WebsiteDataTypes::ALL,
-          glib::TimeSpan::from_seconds(0),
+          gtk::glib::TimeSpan::from_seconds(0),
           None::<&Cancellable>,
           |_| {},
         );

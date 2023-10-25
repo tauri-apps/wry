@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 //! Wry is a Cross-platform WebView rendering library.
 //!
 //! To build a Window with WebView embedded, we could use [`application`] module to create
@@ -59,7 +61,6 @@
 //! Avoid this in release build if your app needs to publish to App Store.
 //! - `fullscreen`: Fullscreen video and other media on **macOS** requires calling private functions.
 //! Avoid this in release build if your app needs to publish to App Store.
-//! - `dox`: Enables this in `package.metadata.docs.rs` section to skip linking some **Linux**
 //! libraries and prevent from building documentation on doc.rs fails.
 //! - `linux-body`: Enables body support of custom protocol request on Linux. Requires
 //! webkit2gtk v2.40 or above.

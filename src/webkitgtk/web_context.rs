@@ -325,9 +325,11 @@ where
 
       #[cfg(feature = "linux-body")]
       {
-        use gdk::prelude::{InputStreamExt, InputStreamExtManual};
-        use gio::Cancellable;
-        use glib::Bytes;
+        use gtk::{
+          gdk::prelude::{InputStreamExt, InputStreamExtManual},
+          gio::Cancellable,
+          glib::Bytes,
+        };
 
         // Set request http body
         let cancellable: Option<&Cancellable> = None;
@@ -359,7 +361,7 @@ where
       let http_request = match http_request.body(body) {
         Ok(req) => req,
         Err(_) => {
-          request.finish_error(&mut glib::Error::new(
+          request.finish_error(&mut gtk::glib::Error::new(
             // TODO: use UriError when we can use 2_66 webkit2gtk feature flag
             glib::FileError::Exist,
             "Could not get uri.",
@@ -372,7 +374,7 @@ where
       let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
         Box::new(move |http_response| {
           let buffer = http_response.body();
-          let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(buffer));
+          let input = gtk::gio::MemoryInputStream::from_bytes(&gtk::glib::Bytes::from(buffer));
           let content_type = http_response
             .headers()
             .get(CONTENT_TYPE)

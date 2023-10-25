@@ -63,7 +63,7 @@ pub(crate) fn connect_drag_event(webview: WebView, handler: Box<dyn Fn(FileDropE
     if listener_ref.0(FileDropEvent::Cancelled) {
       glib::Propagation::Stop
     } else {
-      glib::Propagation::Proceed
+      gtk::glib::Propagation::Proceed
     }
   });
 }

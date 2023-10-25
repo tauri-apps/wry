@@ -2,8 +2,8 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.33.1"
-authors = ["Tauri Programme within The Commons Conservancy"]
+version = "0.34.1"
+authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 description = "Cross-platform WebView rendering library"
@@ -14,12 +14,14 @@ categories = ["gui"]
 
 [package.metadata.docs.rs]
 no-default-features = true
-features = ["dox", "file-drop", "protocol"]
+features = [ "file-drop", "protocol", "webkit2gtk/dox" ]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
   "x86_64-apple-darwin",
 ]
+rustc-args = [ "--cfg", "docsrs" ]
+rustdoc-args = [ "--cfg", "docsrs" ]
 
 [features]
 default = ["file-drop", "objc-exception", "protocol"]

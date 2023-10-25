@@ -17,7 +17,7 @@ pub fn setup(webview: &WebView) {
         bf_state_c.set(BACK);
         webview.run_javascript(
           &create_js_mouse_event(event, true, &bf_state_c),
-          None::<&gio::Cancellable>,
+          None::<&gtk::gio::Cancellable>,
           |_| {},
         );
       }
@@ -27,7 +27,7 @@ pub fn setup(webview: &WebView) {
         bf_state_c.set(FORWARD);
         webview.run_javascript(
           &create_js_mouse_event(event, true, &bf_state_c),
-          None::<&gio::Cancellable>,
+          None::<&gtk::gio::Cancellable>,
           |_| {},
         );
       }
@@ -35,9 +35,9 @@ pub fn setup(webview: &WebView) {
     }
 
     if inhibit {
-      glib::Propagation::Stop
+      gtk::glib::Propagation::Stop
     } else {
-      glib::Propagation::Proceed
+      gtk::glib::Propagation::Proceed
     }
   });
 
@@ -51,7 +51,7 @@ pub fn setup(webview: &WebView) {
         bf_state_c.remove(BACK);
         webview.run_javascript(
           &create_js_mouse_event(event, false, &bf_state_c),
-          None::<&gio::Cancellable>,
+          None::<&gtk::gio::Cancellable>,
           |_| {},
         );
       }
@@ -61,16 +61,16 @@ pub fn setup(webview: &WebView) {
         bf_state_c.remove(FORWARD);
         webview.run_javascript(
           &create_js_mouse_event(event, false, &bf_state_c),
-          None::<&gio::Cancellable>,
+          None::<&gtk::gio::Cancellable>,
           |_| {},
         );
       }
       _ => {}
     }
     if inhibit {
-      glib::Propagation::Stop
+      gtk::glib::Propagation::Stop
     } else {
-      glib::Propagation::Proceed
+      gtk::glib::Propagation::Proceed
     }
   });
 }
