@@ -904,6 +904,15 @@ impl<'a> WebViewBuilder<'a> {
       } else {
         unreachable!()
       }
+
+      #[cfg(not(any(
+        target_os = "linux",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+      )))]
+      unreachable!()
     };
 
     Ok(WebView { webview })
