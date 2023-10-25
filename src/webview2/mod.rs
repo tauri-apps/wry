@@ -1026,6 +1026,10 @@ impl InnerWebView {
       }
     }
   }
+
+  pub fn set_visible(&self, _visible: bool) {
+    // Unimplemented
+  }
 }
 
 unsafe fn prepare_web_request_response(

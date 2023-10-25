@@ -326,7 +326,7 @@ impl InnerWebView {
     // Unsupported.
   }
 
-  pub fn set_visible(&self, visible: bool) {
+  pub fn set_visible(&self, _visible: bool) {
     // Unsupported
   }
 }

@@ -1088,7 +1088,7 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub fn set_visible(&self, visible: bool) {
+  pub fn set_visible(&self, _visible: bool) {
     // Unimplemented
   }
 }

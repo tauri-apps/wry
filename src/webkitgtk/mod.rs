@@ -116,9 +116,9 @@ impl InnerWebView {
           0,
         )
       };
-      // if attributes.visible {
-      unsafe { (xlib.XMapRaised)(display as _, child) };
-      // }
+      if attributes.visible {
+        unsafe { (xlib.XMapWindow)(display as _, child) };
+      }
       child
     } else {
       window
@@ -136,8 +136,12 @@ impl InnerWebView {
     let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
     gtk_window.add(&vbox);
 
+    let should_show = attributes.visible;
+
     Self::new_gtk(&vbox, attributes, pl_attrs, web_context).map(|mut w| {
-      gtk_window.show_all();
+      if should_show {
+        gtk_window.show_all();
+      }
 
       w.is_child = is_child;
       w.xlib = Some(xlib);
@@ -617,27 +621,21 @@ impl InnerWebView {
   }
 
   pub fn set_visible(&self, visible: bool) {
-    if visible {
-      if self.is_child {
-        let xlib = self.xlib.as_ref().unwrap();
-        unsafe {
-          (xlib.XMapWindow)(self.x11_display.unwrap() as _, self.x11_window.unwrap());
-        }
+    if self.is_child {
+      let xlib = self.xlib.as_ref().unwrap();
+      if visible {
+        unsafe { (xlib.XMapWindow)(self.x11_display.unwrap() as _, self.x11_window.unwrap()) };
         self.gtk_window.as_ref().unwrap().show_all()
+      } else {
+        self.gtk_window.as_ref().unwrap().hide();
+        unsafe { (xlib.XUnmapWindow)(self.x11_display.unwrap() as _, self.x11_window.unwrap()) };
       }
+    }
 
-      self.webview.show_all()
+    if visible {
+      self.webview.show_all();
     } else {
-      if self.is_child {
-        let xlib = self.xlib.as_ref().unwrap();
-        unsafe {
-          (xlib.XUnmapWindow)(self.x11_display.unwrap() as _, self.x11_window.unwrap());
-        }
-
-        self.gtk_window.as_ref().unwrap().hide()
-      }
-
-      self.webview.hide()
+      self.webview.hide();
     }
   }
 }
