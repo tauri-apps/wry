@@ -317,6 +317,10 @@ impl InnerWebView {
       container.add(&webview);
     }
 
+    if attributes.visible {
+      webview.show_all();
+    }
+
     if attributes.focused {
       webview.grab_focus();
     }
