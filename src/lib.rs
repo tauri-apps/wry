@@ -69,6 +69,13 @@
 //! [`with_file_drop_handler`]: crate::webview::WebView::with_file_drop_handler
 //! [`with_custom_protocol`]: crate::webview::WebView::with_custom_protocol
 
+#![allow(clippy::new_without_default)]
+#![allow(clippy::wrong_self_convention)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::unit_cmp)]
+#![allow(clippy::upper_case_acronyms)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 pub use http;
 pub use raw_window_handle;
 
@@ -351,8 +358,12 @@ pub struct WebViewAttributes {
   /// - **macOS / Android / iOS:** Unsupported.
   pub focused: bool,
 
+  /// Set the postion if the webview is created by `new_as_child`. If it's `None`, the position
+  /// will be (0, 0).
   pub position: Option<(i32, i32)>,
 
+  /// Set the size if the webview is created by `new_as_child`. If it's `None`, the position
+  /// will be (0, 0).
   pub size: Option<(u32, u32)>,
 }
 
@@ -442,13 +453,18 @@ pub struct WebViewBuilder<'a> {
 
 impl<'a> WebViewBuilder<'a> {
   /// Create [`WebViewBuilder`] from provided [`RawWindowHandle`].
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux**: This window handle must be created from a GTK window. Only x11
+  /// is supported. This method won't work on wayland.
   pub fn new<W: HasWindowHandle>(window: &'a W) -> Self {
     Self {
       attrs: WebViewAttributes::default(),
       window: Some(window),
       as_child: false,
       #[allow(clippy::default_constructed_unit_structs)]
-      platform_specific: PlatformSpecificWebViewAttributes::default(),
+      platform_specific: PlatformSpecificWebViewAttributes,
       web_context: None,
       #[cfg(any(
         target_os = "linux",
@@ -461,14 +477,25 @@ impl<'a> WebViewBuilder<'a> {
     }
   }
 
-  /// Create [`WebViewBuilder`] from provided [`RawWindowHandle`]. TODO doc
+  /// Create [`WebViewBuilder`] as a child window inside the provided [`RawWindowHandle`].
+  /// Please read platform specific notes to know how it actually works on different platform.
+  ///
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: This will create the webview as a child window of the `parent` window.
+  /// - **macOS**: This will create the webview as a `NSView` subview of the `parent` window's
+  /// content view.
+  /// - **Linux**: This will create the webview as a child window of the `parent` window. Only x11
+  /// is supported. This method won't work on wayland.
+  /// - **Android/iOS:** Unsupported.
   pub fn new_as_child<W: HasWindowHandle>(parent: &'a W) -> Self {
     Self {
       attrs: WebViewAttributes::default(),
       window: Some(parent),
       as_child: true,
       #[allow(clippy::default_constructed_unit_structs)]
-      platform_specific: PlatformSpecificWebViewAttributes::default(),
+      platform_specific: PlatformSpecificWebViewAttributes,
       web_context: None,
       #[cfg(any(
         target_os = "linux",
@@ -488,9 +515,9 @@ impl<'a> WebViewBuilder<'a> {
     target_os = "netbsd",
     target_os = "openbsd",
   ))]
+  /// Create the webview from a GTK container widget, such as GTK window.
   pub fn new_gtk<W>(widget: &'a W) -> Self
   where
-    W: gtk::prelude::IsA<gtk::Widget>,
     W: gtk::prelude::IsA<gtk::Container>,
   {
     use gdkx11::glib::Cast;
@@ -500,7 +527,7 @@ impl<'a> WebViewBuilder<'a> {
       window: None,
       as_child: false,
       #[allow(clippy::default_constructed_unit_structs)]
-      platform_specific: PlatformSpecificWebViewAttributes::default(),
+      platform_specific: PlatformSpecificWebViewAttributes,
       web_context: None,
       gtk_widget: Some(widget.dynamic_cast_ref().unwrap()),
     }
@@ -1235,10 +1262,12 @@ impl WebView {
     self.webview.clear_all_browsing_data()
   }
 
+  /// Set the webview position if it's a child window.
   pub fn set_position(&self, position: (i32, i32)) {
     self.webview.set_position(position)
   }
 
+  /// Set the webview size if it's a child window.
   pub fn set_size(&self, size: (u32, u32)) {
     self.webview.set_size(size)
   }

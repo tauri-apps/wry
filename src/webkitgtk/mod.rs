@@ -150,7 +150,6 @@ impl InnerWebView {
     web_context: Option<&mut WebContext>,
   ) -> Result<Self>
   where
-    W: IsA<gtk::Widget>,
     W: IsA<gtk::Container>,
   {
     let window_id = container.as_ptr() as isize;
