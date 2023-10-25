@@ -89,7 +89,27 @@ fn create_new_window(
     _ => {}
   };
 
-  let webview = WebViewBuilder::new(&window)
+  #[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  ))]
+  let builder = WebViewBuilder::new(&window);
+
+  #[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  )))]
+  let builder = {
+    use tao::platform::unix::WindowExtUnix;
+    let vbox = window.default_vbox().unwrap();
+    WebViewBuilder::new_gtk(vbox)
+  };
+
+  let webview = builder
     .with_html(
       r#"
         <button onclick="window.ipc.postMessage('new-window')">Open a new window</button>

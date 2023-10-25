@@ -131,8 +131,28 @@ fn main() -> wry::Result<()> {
     _ => {}
   };
 
+  #[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  ))]
+  let builder = WebViewBuilder::new(&window);
+
+  #[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  )))]
+  let builder = {
+    use tao::platform::unix::WindowExtUnix;
+    let vbox = window.default_vbox().unwrap();
+    WebViewBuilder::new_gtk(vbox)
+  };
+
   let mut webview = Some(
-    WebViewBuilder::new(&window)
+    builder
       .with_html(HTML)?
       .with_ipc_handler(handler)
       .with_accept_first_mouse(true)

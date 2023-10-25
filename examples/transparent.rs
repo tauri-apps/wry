@@ -30,7 +30,27 @@ fn main() -> wry::Result<()> {
     window.set_undecorated_shadow(true);
   }
 
-  let _webview = WebViewBuilder::new(&window)
+  #[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  ))]
+  let builder = WebViewBuilder::new(&window);
+
+  #[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  )))]
+  let builder = {
+    use tao::platform::unix::WindowExtUnix;
+    let vbox = window.default_vbox().unwrap();
+    WebViewBuilder::new_gtk(vbox)
+  };
+
+  let _webview = builder
     // The second is on webview...
     .with_transparent(true)
     // And the last is in html.

@@ -11,10 +11,7 @@ use wry::WebViewBuilder;
 
 fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
-  let window = WindowBuilder::new()
-    .with_title("Hello World")
-    .build(&event_loop)
-    .unwrap();
+  let window = WindowBuilder::new().build(&event_loop).unwrap();
 
   #[cfg(any(
     target_os = "windows",
@@ -36,10 +33,7 @@ fn main() -> wry::Result<()> {
     WebViewBuilder::new_gtk(vbox)
   };
 
-  let _webview = builder
-    .with_url("https://tauri.app")?
-    // .with_incognito(true)
-    .build()?;
+  let _webview = builder.with_url("https://tauri.app")?.build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
