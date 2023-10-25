@@ -20,10 +20,10 @@
 //! # use raw_window_handle as rwh_06;
 //! # struct T;
 //! # impl rwh_06::HasWindowHandle for T {
-//! #   fn window_handle(&self) rwh_06::Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
-//! #      Ok(rwh_06::WindowHandle::borrow_raw(rwh_06::RawWindowHandle::Win32(
-//! #        rwh_06::Win32WindowHandle::new(1),
-//! #      )))
+//! #   fn window_handle(&self) -> Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
+//! #      Ok(unsafe { rwh_06::WindowHandle::borrow_raw(rwh_06::RawWindowHandle::Win32(
+//! #        rwh_06::Win32WindowHandle::new(std::num::NonZeroIsize::new_unchecked(1)),
+//! #      )) })
 //! #   }
 //! # }
 //! # let window = T;
@@ -36,19 +36,9 @@
 //!
 //! If you also want to support Wayland too, then we recommend you use [`WebViewBuilder::new_gtk`] on Linux.
 //!
-//! ```no_run
+//! ```no_run,ignore
 //! use wry::WebViewBuilder;
 //!
-//! # use raw_window_handle as rwh_06;
-//! # struct T;
-//! # impl rwh_06::HasWindowHandle for T {
-//! #   fn window_handle(&self) rwh_06::Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
-//! #      Ok(rwh_06::WindowHandle::borrow_raw(rwh_06::RawWindowHandle::Win32(
-//! #        rwh_06::Win32WindowHandle::new(1),
-//! #      )))
-//! #   }
-//! # }
-//! # let window = T;
 //! #[cfg(any(
 //!   target_os = "windows",
 //!   target_os = "macos",
@@ -64,7 +54,7 @@
 //! )))]
 //! let builder = {
 //!   use tao::platform::unix::WindowExtUnix;
-//!   WebViewBuilder::new_gtk(&gtk_window)
+//!   WebViewBuilder::new_gtk(&window.gtk_window())
 //! };
 //!
 //! let webview = builder
@@ -85,10 +75,10 @@
 //! # use raw_window_handle as rwh_06;
 //! # struct T;
 //! # impl rwh_06::HasWindowHandle for T {
-//! #   fn window_handle(&self) rwh_06::Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
-//! #      Ok(rwh_06::WindowHandle::borrow_raw(rwh_06::RawWindowHandle::Win32(
-//! #        rwh_06::Win32WindowHandle::new(1),
-//! #      )))
+//! #   fn window_handle(&self) -> Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
+//! #      Ok(unsafe { rwh_06::WindowHandle::borrow_raw(rwh_06::RawWindowHandle::Win32(
+//! #        rwh_06::Win32WindowHandle::new(std::num::NonZeroIsize::new_unchecked(1)),
+//! #      )) })
 //! #   }
 //! # }
 //! # let window = T;
@@ -710,10 +700,10 @@ impl<'a> WebViewBuilder<'a> {
   /// # use raw_window_handle as rwh_06;
   /// # struct T;
   /// # impl rwh_06::HasWindowHandle for T {
-  /// #   fn window_handle(&self) rwh_06::Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
-  /// #      Ok(rwh_06::WindowHandle::borrow_raw(rwh_06::RawWindowHandle::Win32(
-  /// #        rwh_06::Win32WindowHandle::new(1),
-  /// #      )))
+  /// #   fn window_handle(&self) -> Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
+  /// #      Ok(unsafe { rwh_06::WindowHandle::borrow_raw(rwh_06::RawWindowHandle::Win32(
+  /// #        rwh_06::Win32WindowHandle::new(std::num::NonZeroIsize::new_unchecked(1)),
+  /// #      )) })
   /// #   }
   /// # }
   /// # let window = T;
