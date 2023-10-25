@@ -16,7 +16,7 @@ use std::{
 
 use http::{Request, Response as HttpResponse, StatusCode};
 use once_cell::sync::Lazy;
-use raw_window_handle::HasWindowHandle;
+use raw_window_handle::{HandleError, HasWindowHandle, RawWindowHandle};
 use url::Url;
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 use windows::{
@@ -69,77 +69,76 @@ pub(crate) struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new(
-    window: &impl HasWindowHandle,
+  pub fn new<W: HasWindowHandle>(
+    window: &impl W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    match window.window_handle()?.as_raw() {
-      raw_window_handle::RawWindowHandle::Win32(handle) => {
-        Self::new_hwnd(HWND(handle.hwnd.get()), attributes, pl_attrs, web_context)
-      }
-      _ => unreachable!(),
-    }
+    let window = match window.window_handle()?.as_raw() {
+      raw_window_handle::RawWindowHandle::Win32(window) => window.hwnd,
+      _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
+    };
+    Self::new_hwnd(HWND(handle.hwnd.get()), attributes, pl_attrs, web_context)
   }
 
-  pub fn new_as_child(
-    window: &impl HasWindowHandle,
+  pub fn new_as_child<W: HasWindowHandle>(
+    parent: &W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    match window.window_handle()?.as_raw() {
-      raw_window_handle::RawWindowHandle::Win32(parent) => {
-        let class_name = encode_wide("WRY_WEBVIEW");
+    let parent = match parent.window_handle()?.as_raw() {
+      raw_window_handle::RawWindowHandle::Win32(parent) => parent.hwnd,
+      _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
+    };
 
-        unsafe extern "system" fn default_window_proc(
-          hwnd: HWND,
-          msg: u32,
-          wparam: WPARAM,
-          lparam: LPARAM,
-        ) -> LRESULT {
-          DefWindowProcW(hwnd, msg, wparam, lparam)
-        }
+    let class_name = encode_wide("WRY_WEBVIEW");
 
-        let class = WNDCLASSEXW {
-          cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
-          style: CS_HREDRAW | CS_VREDRAW,
-          lpfnWndProc: Some(default_window_proc),
-          cbClsExtra: 0,
-          cbWndExtra: 0,
-          hInstance: unsafe { HINSTANCE(GetModuleHandleW(PCWSTR::null()).unwrap_or_default().0) },
-          hIcon: HICON::default(),
-          hCursor: HCURSOR::default(), // must be null in order for cursor state to work properly
-          hbrBackground: HBRUSH::default(),
-          lpszMenuName: PCWSTR::null(),
-          lpszClassName: PCWSTR::from_raw(class_name.as_ptr()),
-          hIconSm: HICON::default(),
-        };
-
-        unsafe { RegisterClassExW(&class) };
-
-        let child = unsafe {
-          CreateWindowExW(
-            WINDOW_EX_STYLE::default(),
-            PCWSTR::from_raw(class_name.as_ptr()),
-            PCWSTR::null(),
-            WS_CHILD | WS_VISIBLE,
-            attributes.position.map(|a| a.0).unwrap_or(CW_USEDEFAULT),
-            attributes.position.map(|a| a.1).unwrap_or(CW_USEDEFAULT),
-            attributes.size.map(|a| a.0 as i32).unwrap_or(CW_USEDEFAULT),
-            attributes.size.map(|a| a.1 as i32).unwrap_or(CW_USEDEFAULT),
-            HWND(parent.hwnd.get()),
-            HMENU::default(),
-            GetModuleHandleW(PCWSTR::null()).unwrap_or_default(),
-            None,
-          )
-        };
-
-        Self::new_as_child_hwnd(child, attributes, pl_attrs, web_context)
-      }
-      _ => unreachable!(),
+    unsafe extern "system" fn default_window_proc(
+      hwnd: HWND,
+      msg: u32,
+      wparam: WPARAM,
+      lparam: LPARAM,
+    ) -> LRESULT {
+      DefWindowProcW(hwnd, msg, wparam, lparam)
     }
+
+    let class = WNDCLASSEXW {
+      cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+      style: CS_HREDRAW | CS_VREDRAW,
+      lpfnWndProc: Some(default_window_proc),
+      cbClsExtra: 0,
+      cbWndExtra: 0,
+      hInstance: unsafe { HINSTANCE(GetModuleHandleW(PCWSTR::null()).unwrap_or_default().0) },
+      hIcon: HICON::default(),
+      hCursor: HCURSOR::default(), // must be null in order for cursor state to work properly
+      hbrBackground: HBRUSH::default(),
+      lpszMenuName: PCWSTR::null(),
+      lpszClassName: PCWSTR::from_raw(class_name.as_ptr()),
+      hIconSm: HICON::default(),
+    };
+
+    unsafe { RegisterClassExW(&class) };
+
+    let child = unsafe {
+      CreateWindowExW(
+        WINDOW_EX_STYLE::default(),
+        PCWSTR::from_raw(class_name.as_ptr()),
+        PCWSTR::null(),
+        WS_CHILD | WS_VISIBLE,
+        attributes.position.map(|a| a.0).unwrap_or(CW_USEDEFAULT),
+        attributes.position.map(|a| a.1).unwrap_or(CW_USEDEFAULT),
+        attributes.size.map(|a| a.0 as i32).unwrap_or(CW_USEDEFAULT),
+        attributes.size.map(|a| a.1 as i32).unwrap_or(CW_USEDEFAULT),
+        HWND(parent.hwnd.get()),
+        HMENU::default(),
+        GetModuleHandleW(PCWSTR::null()).unwrap_or_default(),
+        None,
+      )
+    };
+
+    Self::new_as_child_hwnd(child, attributes, pl_attrs, web_context)
   }
 
   pub fn new_as_child_hwnd(
@@ -148,9 +147,10 @@ impl InnerWebView {
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    let mut webview = Self::new_hwnd(hwnd, attributes, pl_attrs, web_context)?;
-    webview.is_child = true;
-    Ok(webview)
+    Self::new_hwnd(hwnd, attributes, pl_attrs, web_context).map(|mut w| {
+      w.is_child = true;
+      w
+    })
   }
 
   pub fn new_hwnd(

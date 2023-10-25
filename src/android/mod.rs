@@ -107,8 +107,8 @@ pub unsafe fn setup(mut env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef
 pub(crate) struct InnerWebView;
 
 impl InnerWebView {
-  pub fn new(
-    _window: & impl HasWindowHandle,
+  pub fn new<W: HasWindowHandle>(
+    _window: &W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,

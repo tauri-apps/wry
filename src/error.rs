@@ -13,7 +13,7 @@ pub enum Error {
     target_os = "openbsd"
   ))]
   #[error(transparent)]
-  GlibError(#[from] glib::Error),
+  GlibError(#[from] gtk::glib::Error),
   #[cfg(any(
     target_os = "linux",
     target_os = "dragonfly",
@@ -22,7 +22,7 @@ pub enum Error {
     target_os = "openbsd"
   ))]
   #[error(transparent)]
-  GlibBoolError(#[from] glib::BoolError),
+  GlibBoolError(#[from] gtk::glib::BoolError),
   #[cfg(any(
     target_os = "linux",
     target_os = "dragonfly",
@@ -32,6 +32,24 @@ pub enum Error {
   ))]
   #[error("Fail to fetch security manager")]
   MissingManager,
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+  ))]
+  #[error("Couldn't find X11 Display")]
+  X11DisplayNotFound,
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+  ))]
+  #[error(transparent)]
+  XlibError(#[from] x11_dl::error::OpenError),
   #[error("Failed to initialize the script")]
   InitScriptError,
   #[error("Bad RPC request: {0} ((1))")]
@@ -66,4 +84,6 @@ pub enum Error {
   ProxyEndpointCreationFailed,
   #[error(transparent)]
   WindowHandleError(#[from] raw_window_handle::HandleError),
+  #[error(transparent)]
+  Utf8Error(#[from] std::str::Utf8Error),
 }

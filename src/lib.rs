@@ -433,7 +433,7 @@ pub struct WebViewBuilder<'a> {
 
 impl<'a> WebViewBuilder<'a> {
   /// Create [`WebViewBuilder`] from provided [`RawWindowHandle`].
-  pub fn new(window: &'a impl HasWindowHandle) -> Self {
+  pub fn new<W: HasWindowHandle>(window: &'a W) -> Self {
     Self {
       attrs: WebViewAttributes::default(),
       window,
@@ -445,7 +445,7 @@ impl<'a> WebViewBuilder<'a> {
   }
 
   /// Create [`WebViewBuilder`] from provided [`RawWindowHandle`]. TODO doc
-  pub fn new_as_child(parent: &'a impl HasWindowHandle) -> Self {
+  pub fn new_as_child<W: HasWindowHandle>(parent: &'a W) -> Self {
     Self {
       attrs: WebViewAttributes::default(),
       window: parent,
@@ -1026,25 +1026,6 @@ pub struct WebView {
   webview: InnerWebView,
 }
 
-// Signal the Window to drop on Linux and Windows. On mac, we need to handle several unsafe code
-// blocks and raw pointer properly.
-#[cfg(any(
-  target_os = "linux",
-  target_os = "dragonfly",
-  target_os = "freebsd",
-  target_os = "netbsd",
-  target_os = "openbsd"
-))]
-impl Drop for WebView {
-  fn drop(&mut self) {
-    unsafe {
-      use crate::application::platform::unix::WindowExtUnix;
-      use gtk::prelude::WidgetExtManual;
-      self.window().gtk_window().destroy();
-    }
-  }
-}
-
 impl WebView {
   /// Create a [`WebView`] from provided [`RawWindowHandle`]. Note that calling this directly loses
   /// abilities to initialize scripts, add ipc handler, and many more before starting WebView. To
@@ -1056,11 +1037,11 @@ impl WebView {
   /// called in the same thread with the [`EventLoop`] you create.
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
-  pub fn new(window: &impl HasWindowHandle) -> Result<Self> {
+  pub fn new<W: HasWindowHandle>(window: &W) -> Result<Self> {
     WebViewBuilder::new(window).build()
   }
 
-  pub fn new_as_child(window: &impl HasWindowHandle) -> Result<Self> {
+  pub fn new_as_child<W: HasWindowHandle>(window: &W) -> Result<Self> {
     WebViewBuilder::new_as_child(window).build()
   }
 
@@ -1233,12 +1214,12 @@ impl WebviewExtWindows for WebView {
 #[cfg(target_os = "linux")]
 pub trait WebviewExtUnix {
   /// Returns Webkit2gtk Webview handle
-  fn webview(&self) -> Rc<webkit2gtk::WebView>;
+  fn webview(&self) -> webkit2gtk::WebView;
 }
 
 #[cfg(target_os = "linux")]
 impl WebviewExtUnix for WebView {
-  fn webview(&self) -> Rc<webkit2gtk::WebView> {
+  fn webview(&self) -> webkit2gtk::WebView {
     self.webview.webview.clone()
   }
 }

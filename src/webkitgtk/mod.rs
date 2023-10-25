@@ -2,17 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use gdk::EventMask;
-use gio::Cancellable;
-use gtk::prelude::*;
+use gdkx11::X11Window;
+use gtk::gdk::{self, EventMask};
+use gtk::gio::Cancellable;
+use gtk::{glib, prelude::*};
+use javascriptcore::ValueExt;
+use raw_window_handle::{HandleError, HasWindowHandle, RawWindowHandle};
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::{
-  collections::hash_map::DefaultHasher,
-  hash::{Hash, Hasher},
-  rc::Rc,
-  sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 use url::Url;
 use webkit2gtk::{
   AutoplayPolicy, InputMethodContextExt, LoadEvent, NavigationPolicyDecision,
@@ -25,14 +23,14 @@ use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
   webkit_policy_decision_ignore, webkit_policy_decision_use,
 };
+use x11_dl::xlib::*;
 
 use web_context::WebContextExt;
 pub use web_context::WebContextImpl;
 
 use crate::{
-  application::{platform::unix::*, window::Window},
-  webview::{proxy::ProxyConfig, web_context::WebContext, PageLoadEvent, WebViewAttributes, RGBA},
-  Error, Result,
+  proxy::ProxyConfig, web_context::WebContext, Error, PageLoadEvent, Result, WebViewAttributes,
+  RGBA,
 };
 
 mod file_drop;
@@ -40,24 +38,120 @@ mod synthetic_mouse_events;
 mod undecorated_resizing;
 mod web_context;
 
-use javascriptcore::ValueExt;
-
 pub(crate) struct InnerWebView {
-  pub webview: Rc<WebView>,
+  pub webview: WebView,
   #[cfg(any(debug_assertions, feature = "devtools"))]
   is_inspector_open: Arc<AtomicBool>,
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
+
+  is_child: bool,
+  display: Option<gdk::Display>,
+  xlib: Option<Xlib>,
+  x11_window: Option<u64>,
+}
+
+impl Drop for InnerWebView {
+  fn drop(&mut self) {
+    if let Some(xlib) = &self.xlib {
+      use gdkx11::X11Display;
+
+      let gx11_display: &X11Display = self.display.as_ref().unwrap().downcast_ref().unwrap();
+      let raw = glib::translate::ToGlibPtr::to_glib_none(&gx11_display).0;
+      let display = unsafe { gdkx11::ffi::gdk_x11_display_get_xdisplay(raw) };
+
+      if self.is_child {
+        unsafe { (xlib.XDestroyWindow)(display as _, self.x11_window.unwrap()) };
+      }
+
+      unsafe { (xlib.XCloseDisplay)(display as _) };
+    }
+  }
 }
 
 impl InnerWebView {
-  pub fn new(
-    window: Rc<Window>,
+  pub fn new<W: HasWindowHandle>(
+    window: &W,
+    attributes: WebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
+    web_context: Option<&mut WebContext>,
+  ) -> Result<Self> {
+    Self::new_x11(window, attributes, pl_attrs, web_context, false)
+  }
+
+  pub fn new_as_child<W: HasWindowHandle>(
+    parent: &W,
+    attributes: WebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
+    web_context: Option<&mut WebContext>,
+  ) -> Result<Self> {
+    Self::new_x11(parent, attributes, pl_attrs, web_context, true)
+  }
+
+  fn new_x11<W: HasWindowHandle>(
+    window: &W,
+    attributes: WebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
+    web_context: Option<&mut WebContext>,
+    is_child: bool,
+  ) -> Result<Self> {
+    let xlib = Xlib::open()?;
+
+    let window = match window.window_handle()?.as_raw() {
+      RawWindowHandle::Xlib(w) => w.window,
+      _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
+    };
+
+    let gdk_display = gdk::Display::default().ok_or(Error::X11DisplayNotFound)?;
+    let gx11_display = gdk_display.downcast_ref().unwrap();
+    let raw = glib::translate::ToGlibPtr::to_glib_none(&gx11_display).0;
+    let display = unsafe { gdkx11::ffi::gdk_x11_display_get_xdisplay(raw) };
+
+    let window = if is_child {
+      let child = unsafe {
+        (xlib.XCreateSimpleWindow)(
+          display as _,
+          window,
+          attributes.position.map(|p| p.0).unwrap_or(0),
+          attributes.position.map(|p| p.1).unwrap_or(0),
+          attributes.size.map(|s| s.0).unwrap_or(0),
+          attributes.size.map(|s| s.1).unwrap_or(0),
+          0,
+          0,
+          0,
+        )
+      };
+      unsafe { (xlib.XMapRaised)(display as _, child) };
+      child
+    } else {
+      window
+    };
+
+    let gdk_window: gdk::Window = X11Window::foreign_new_for_display(gx11_display, window).upcast();
+    let gtk_window = gtk::Window::new(gtk::WindowType::Toplevel);
+    gtk_window.connect_realize(move |widget| widget.set_window(gdk_window.clone()));
+    gtk_window.set_has_window(true);
+    gtk_window.realize();
+
+    Self::new_gtk(&gtk_window, attributes, pl_attrs, web_context).map(|mut w| {
+      w.is_child = is_child;
+      w.xlib = Some(xlib);
+      w.display = Some(gdk_display);
+      w.x11_window = Some(window);
+      w
+    })
+  }
+
+  pub fn new_gtk<W>(
+    container: &W,
     mut attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
-  ) -> Result<Self> {
-    let window_rc = Rc::clone(&window);
-    let window = &window.gtk_window();
+  ) -> Result<Self>
+  where
+    W: IsA<gtk::Widget>,
+    W: IsA<gtk::Container>,
+  {
+    let window_id = container.as_ptr() as isize;
 
     // default_context allows us to create a scoped context on-demand
     let mut default_context;
@@ -110,44 +204,25 @@ impl InnerWebView {
     web_context.register_automation(webview.clone());
 
     // Message handler
-    let webview = Rc::new(webview);
-    let w = window_rc.clone();
     let ipc_handler = attributes.ipc_handler.take();
     let manager = web_context.manager();
-    // Use the window hash as the script handler name to prevent from conflict when sharing same
-    // web context.
-    let window_hash = {
-      let mut hasher = DefaultHasher::new();
-      w.id().hash(&mut hasher);
-      hasher.finish().to_string()
-    };
 
     // Connect before registering as recommended by the docs
     manager.connect_script_message_received(None, move |_m, msg| {
       if let Some(js) = msg.js_value() {
         if let Some(ipc_handler) = &ipc_handler {
-          ipc_handler(&w, js.to_string());
+          ipc_handler(js.to_string());
         }
       }
     });
 
     // Register the handler we just connected
-    manager.register_script_message_handler(&window_hash);
-
-    // Allow the webview to close it's own window
-    let close_window = window_rc.clone();
-    webview.connect_close(move |_| {
-      close_window.gtk_window().close();
-    });
+    manager.register_script_message_handler(&window_id.to_string());
 
     // document title changed handler
     if let Some(document_title_changed_handler) = attributes.document_title_changed_handler {
-      let w = window_rc.clone();
       webview.connect_title_notify(move |webview| {
-        document_title_changed_handler(
-          &w,
-          webview.title().map(|t| t.to_string()).unwrap_or_default(),
-        )
+        document_title_changed_handler(webview.title().map(|t| t.to_string()).unwrap_or_default())
       });
     }
 
@@ -218,24 +293,19 @@ impl InnerWebView {
       )
     }
 
-    // tao adds a default vertical box so we check for that first
-    if let Some(vbox) = window_rc.default_vbox() {
-      vbox.pack_start(&*webview, true, true, 0);
-    } else {
-      window.add(&*webview);
-    }
+    container.add(&webview);
 
     if attributes.focused {
       webview.grab_focus();
     }
 
-    if let Some(context) = WebViewExt::context(&*webview) {
+    if let Some(context) = WebViewExt::context(&webview) {
       use webkit2gtk::WebContextExt;
       context.set_use_system_appearance_for_scrollbars(false);
     }
 
     // Enable webgl, webaudio, canvas features as default.
-    if let Some(settings) = WebViewExt::settings(&*webview) {
+    if let Some(settings) = WebViewExt::settings(&webview) {
       settings.set_enable_webgl(true);
       settings.set_enable_webaudio(true);
       settings
@@ -275,17 +345,16 @@ impl InnerWebView {
 
     // File drop handling
     if let Some(file_drop_handler) = attributes.file_drop_handler {
-      file_drop::connect_drag_event(webview.clone(), window_rc, file_drop_handler);
+      file_drop::connect_drag_event(webview.clone(), file_drop_handler);
     }
 
-    if window.get_visible() {
-      window.show_all();
-    }
+    webview.show_all();
+    container.show_all();
 
     #[cfg(any(debug_assertions, feature = "devtools"))]
     let is_inspector_open = {
       let is_inspector_open = Arc::new(AtomicBool::default());
-      if let Some(inspector) = WebViewExt::inspector(&*webview) {
+      if let Some(inspector) = WebViewExt::inspector(&webview) {
         let is_inspector_open_ = is_inspector_open.clone();
         inspector.connect_bring_to_front(move |_| {
           is_inspector_open_.store(true, Ordering::Relaxed);
@@ -304,12 +373,16 @@ impl InnerWebView {
       #[cfg(any(debug_assertions, feature = "devtools"))]
       is_inspector_open,
       pending_scripts: Arc::new(Mutex::new(Some(Vec::new()))),
+      is_child: false,
+      xlib: None,
+      display: None,
+      x11_window: None,
     };
 
     // Initialize message handler
     let mut init = String::with_capacity(115 + 20 + 22);
     init.push_str("Object.defineProperty(window, 'ipc', {value: Object.freeze({postMessage:function(x){window.webkit.messageHandlers[\"");
-    init.push_str(&window_hash);
+    init.push_str(&window_id.to_string());
     init.push_str("\"].postMessage(x)}})})");
     w.init(&init)?;
 
@@ -330,7 +403,7 @@ impl InnerWebView {
 
     // Navigation
     if let Some(url) = attributes.url {
-      web_context.queue_load_uri(Rc::clone(&w.webview), url, attributes.headers);
+      web_context.queue_load_uri(w.webview.clone(), url, attributes.headers);
       web_context.flush_queue_loader();
     } else if let Some(html) = attributes.html {
       w.webview.load_html(&html, None);
@@ -420,7 +493,7 @@ impl InnerWebView {
 
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn open_devtools(&self) {
-    if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
+    if let Some(inspector) = WebViewExt::inspector(&self.webview) {
       inspector.show();
       // `bring-to-front` is not received in this case
       self.is_inspector_open.store(true, Ordering::Relaxed);
@@ -429,7 +502,7 @@ impl InnerWebView {
 
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn close_devtools(&self) {
-    if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
+    if let Some(inspector) = WebViewExt::inspector(&self.webview) {
       inspector.close();
     }
   }
@@ -440,7 +513,7 @@ impl InnerWebView {
   }
 
   pub fn zoom(&self, scale_factor: f64) {
-    WebViewExt::set_zoom_level(&*self.webview, scale_factor);
+    WebViewExt::set_zoom_level(&self.webview, scale_factor);
   }
 
   pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
@@ -473,8 +546,8 @@ impl InnerWebView {
   }
 
   pub fn clear_all_browsing_data(&self) -> Result<()> {
-    if let Some(context) = WebViewExt::context(&*self.webview) {
-      use webkit2gtk::WebContextExt;
+    use webkit2gtk::WebContextExt;
+    if let Some(context) = WebViewExt::context(&self.webview) {
       if let Some(data_manger) = context.website_data_manager() {
         webkit2gtk::WebsiteDataManagerExtManual::clear(
           &data_manger,
@@ -487,6 +560,14 @@ impl InnerWebView {
     }
 
     Ok(())
+  }
+
+  pub fn set_position(&self, _position: (i32, i32)) {
+    if self.is_child {}
+  }
+
+  pub fn set_size(&self, _size: (u32, u32)) {
+    if self.is_child {}
   }
 }
 

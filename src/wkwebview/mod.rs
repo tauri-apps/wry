@@ -92,39 +92,49 @@ pub(crate) struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new(
-    window: &impl HasWindowHandle,
+  pub fn new<W: HasWindowHandle>(
+    window: &W,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    Self::create(window, attributes, _pl_attrs, _web_context, false)
+    let ns_view = match window.window_handle()?.as_raw() {
+      #[cfg(target_os = "macos")]
+      RawWindowHandle::AppKit(w) => w.ns_view.as_ptr(),
+      #[cfg(target_os = "ios")]
+      RawWindowHandle::UiKit(w) => w.ui_view.as_ptr(),
+      _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
+    };
+
+    Self::new_ns_view(ns_view, attributes, _pl_attrs, _web_context)
   }
 
-  pub fn new_as_child(
-    window: &impl HasWindowHandle,
+  pub fn new_as_child<W: HasWindowHandle>(
+    window: &W,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    Self::create(window, attributes, _pl_attrs, _web_context, true)
+    let ns_view = match window.window_handle()?.as_raw() {
+      #[cfg(target_os = "macos")]
+      RawWindowHandle::AppKit(w) => w.ns_view.as_ptr(),
+      #[cfg(target_os = "ios")]
+      RawWindowHandle::UiKit(w) => w.ui_view.as_ptr(),
+      _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
+    };
+
+    let mut webview = Self::new_ns_view(ns_view, attributes, _pl_attrs, _web_context)?;
+    webview.is_child = true;
+    Ok(webview)
   }
 
-  fn create(
-    window: &impl HasWindowHandle,
+  pub fn new_ns_view(
+    ns_view: id,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
     is_child: bool,
   ) -> Result<Self> {
-    let window = match window.window_handle()?.as_raw() {
-      #[cfg(target_os = "macos")]
-      RawWindowHandle::AppKit(w) => w,
-      #[cfg(target_os = "ios")]
-      RawWindowHandle::UiKit(w) => w,
-      _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
-    };
-
     // Function for ipc handler
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
       // Safety: objc runtime calls are unsafe
@@ -400,8 +410,7 @@ impl InnerWebView {
 
       #[cfg(target_os = "ios")]
       {
-        let ui_view = window.ui_view.as_ptr() as id;
-        let frame: CGRect = msg_send![ui_view, frame];
+        let frame: CGRect = msg_send![ns_view, frame];
         // set all autoresizingmasks
         let () = msg_send![webview, setAutoresizingMask: 31];
         let _: () = msg_send![webview, initWithFrame:frame configuration:config];
@@ -779,7 +788,6 @@ impl InnerWebView {
       // ns window is required for the print operation
       #[cfg(target_os = "macos")]
       let ns_window = {
-        let ns_view = window.ns_view.as_ptr() as id;
         let ns_window: id = msg_send![ns_view, window];
 
         let can_set_titlebar_style: BOOL = msg_send![
@@ -808,7 +816,7 @@ impl InnerWebView {
         page_load_handler,
         download_delegate,
         protocol_ptrs,
-        is_child,
+        is_child: false,
       };
 
       // Initialize scripts
@@ -845,7 +853,6 @@ r#"Object.defineProperty(window, 'ipc', {
       #[cfg(target_os = "macos")]
       {
         if is_child {
-          let ns_view = window.ns_view.as_ptr() as id;
           let _: () = msg_send![ns_view, addSubview: webview];
         } else {
           let parent_view_cls = match ClassDecl::new("WryWebViewParent", class!(NSView)) {
@@ -874,7 +881,6 @@ r#"Object.defineProperty(window, 'ipc', {
           let _: () = msg_send![parent_view, addSubview: webview];
 
           // inject the webview into the window
-          let ns_view = window.ns_view.as_ptr() as id;
           let ns_window: id = msg_send![ns_view, window];
           // Tell the webview receive keyboard events in the window.
           // See https://github.com/tauri-apps/wry/issues/739
@@ -890,8 +896,7 @@ r#"Object.defineProperty(window, 'ipc', {
 
       #[cfg(target_os = "ios")]
       {
-        let ui_view = window.ui_view.as_ptr() as id;
-        let _: () = msg_send![ui_view, addSubview: webview];
+        let _: () = msg_send![ns_view, addSubview: webview];
       }
 
       Ok(w)

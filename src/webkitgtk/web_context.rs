@@ -4,11 +4,8 @@
 
 //! Unix platform extensions for [`WebContext`](super::WebContext).
 
-use crate::{
-  webview::{web_context::WebContextData, RequestAsyncResponder},
-  Error,
-};
-use glib::FileError;
+use crate::{web_context::WebContextData, Error, RequestAsyncResponder};
+use gtk::{gio, glib};
 use http::{header::CONTENT_TYPE, Request, Response as HttpResponse};
 use std::{
   borrow::Cow,
@@ -136,7 +133,7 @@ pub trait WebContextExt {
   /// Add a [`WebView`] to the queue waiting to be opened.
   ///
   /// See the `WebviewUriLoader` for more information.
-  fn queue_load_uri(&self, webview: Rc<WebView>, url: Url, headers: Option<http::HeaderMap>);
+  fn queue_load_uri(&self, webview: WebView, url: Url, headers: Option<http::HeaderMap>);
 
   /// Flush all queued [`WebView`]s waiting to load a uri.
   ///
@@ -189,7 +186,7 @@ impl WebContextExt for super::WebContext {
     }
   }
 
-  fn queue_load_uri(&self, webview: Rc<WebView>, url: Url, headers: Option<http::HeaderMap>) {
+  fn queue_load_uri(&self, webview: WebView, url: Url, headers: Option<http::HeaderMap>) {
     self.os.webview_uri_loader.push(webview, url, headers)
   }
 
@@ -364,7 +361,7 @@ where
         Err(_) => {
           request.finish_error(&mut glib::Error::new(
             // TODO: use UriError when we can use 2_66 webkit2gtk feature flag
-            FileError::Exist,
+            glib::FileError::Exist,
             "Could not get uri.",
           ));
           return;
@@ -401,7 +398,7 @@ where
       handler(http_request, RequestAsyncResponder { responder });
     } else {
       request.finish_error(&mut glib::Error::new(
-        FileError::Exist,
+        glib::FileError::Exist,
         "Could not get uri.",
       ));
     }
@@ -441,7 +438,7 @@ where
 #[derive(Debug, Default)]
 struct WebviewUriLoader {
   lock: AtomicBool,
-  queue: Mutex<VecDeque<(Rc<WebView>, Url, Option<http::HeaderMap>)>>,
+  queue: Mutex<VecDeque<(WebView, Url, Option<http::HeaderMap>)>>,
 }
 
 impl WebviewUriLoader {
@@ -456,13 +453,13 @@ impl WebviewUriLoader {
   }
 
   /// Add a [`WebView`] to the queue.
-  fn push(&self, webview: Rc<WebView>, url: Url, headers: Option<http::HeaderMap>) {
+  fn push(&self, webview: WebView, url: Url, headers: Option<http::HeaderMap>) {
     let mut queue = self.queue.lock().expect("poisoned load queue");
     queue.push_back((webview, url, headers))
   }
 
   /// Remove a [`WebView`] from the queue and return it.
-  fn pop(&self) -> Option<(Rc<WebView>, Url, Option<http::HeaderMap>)> {
+  fn pop(&self) -> Option<(WebView, Url, Option<http::HeaderMap>)> {
     let mut queue = self.queue.lock().expect("poisoned load queue");
     queue.pop_front()
   }
