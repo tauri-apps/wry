@@ -69,8 +69,8 @@ pub(crate) struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new<W: HasWindowHandle>(
-    window: &impl W,
+  pub fn new(
+    window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
@@ -82,8 +82,8 @@ impl InnerWebView {
     Self::new_hwnd(HWND(handle.hwnd.get()), attributes, pl_attrs, web_context)
   }
 
-  pub fn new_as_child<W: HasWindowHandle>(
-    parent: &W,
+  pub fn new_as_child(
+    parent: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
