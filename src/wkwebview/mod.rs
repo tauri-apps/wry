@@ -106,7 +106,7 @@ impl InnerWebView {
       _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
     };
 
-    Self::new_ns_view(ns_view, attributes, _pl_attrs, _web_context, false)
+    Self::new_ns_view(ns_view as _, attributes, _pl_attrs, _web_context, false)
   }
 
   pub fn new_as_child(
@@ -123,7 +123,7 @@ impl InnerWebView {
       _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
     };
 
-    Self::new_ns_view(ns_view, attributes, _pl_attrs, _web_context, true)
+    Self::new_ns_view(ns_view as _, attributes, _pl_attrs, _web_context, true)
   }
 
   fn new_ns_view(

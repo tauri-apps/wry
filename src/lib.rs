@@ -891,11 +891,21 @@ impl<'a> WebViewBuilder<'a> {
       } else {
         InnerWebView::new(window, self.attrs, self.platform_specific, self.web_context)?
       }
-    } else if let Some(widget) = self.gtk_widget {
-      InnerWebView::new_gtk(widget, self.attrs, self.platform_specific, self.web_context)?
     } else {
-      unreachable!()
+      #[cfg(any(
+        target_os = "linux",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+      ))]
+      if let Some(widget) = self.gtk_widget {
+        InnerWebView::new_gtk(widget, self.attrs, self.platform_specific, self.web_context)?
+      } else {
+        unreachable!()
+      }
     };
+
     Ok(WebView { webview })
   }
 }
