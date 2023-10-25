@@ -27,14 +27,9 @@ jobs:
     runs-on: ${{ matrix.platform.os }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install ${{ matrix.rust }}
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          override: true
-          components: rust-src
-          target: ${{ matrix.platform.target }}
+        uses: dtolnay/rust-toolchain@nightly
 
       - name: Setup python
         uses: actions/setup-python@v2
@@ -46,7 +41,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           sudo apt-get update
-          sudo apt-get install -y webkit2gtk-4.1-dev libayatana-appindicator3-dev xvfb
+          sudo apt-get install -y libwebkit2gtk-4.1-dev xvfb
           wget https://github.com/sharkdp/hyperfine/releases/download/v1.11.0/hyperfine_1.11.0_amd64.deb
           sudo dpkg -i hyperfine_1.11.0_amd64.deb
           pip install memory_profiler
@@ -64,7 +59,7 @@ jobs:
 
       - name: clone benchmarks_results
         if: github.repository == 'tauri-apps/wry' && github.ref == 'refs/heads/dev'
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.BENCH_PAT }}
           path: gh-pages
