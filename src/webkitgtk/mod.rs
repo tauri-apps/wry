@@ -35,7 +35,6 @@ use crate::{
 
 mod file_drop;
 mod synthetic_mouse_events;
-mod undecorated_resizing;
 mod web_context;
 
 pub(crate) struct InnerWebView {
@@ -251,7 +250,6 @@ impl InnerWebView {
     );
 
     synthetic_mouse_events::setup(&webview);
-    undecorated_resizing::setup(&webview);
 
     if attributes.navigation_handler.is_some() || attributes.new_window_req_handler.is_some() {
       webview.connect_decide_policy(move |_webview, policy_decision, policy_type| {
