@@ -5,13 +5,8 @@
 mod file_drop;
 
 use std::{
-  borrow::Cow,
-  collections::HashSet,
-  fmt::Write,
-  iter::once,
-  os::windows::prelude::OsStrExt,
-  path::PathBuf,
-  sync::{mpsc, Arc},
+  borrow::Cow, collections::HashSet, fmt::Write, iter::once, os::windows::prelude::OsStrExt,
+  path::PathBuf, rc::Rc, sync::mpsc,
 };
 
 use http::{Request, Response as HttpResponse, StatusCode};
@@ -409,7 +404,7 @@ impl InnerWebView {
     }
 
     if let Some(on_page_load_handler) = attributes.on_page_load_handler {
-      let on_page_load_handler = Arc::new(on_page_load_handler);
+      let on_page_load_handler = Rc::new(on_page_load_handler);
       let on_page_load_handler_ = on_page_load_handler.clone();
 
       unsafe {
