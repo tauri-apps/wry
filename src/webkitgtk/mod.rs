@@ -139,16 +139,21 @@ impl InnerWebView {
     let should_show = attributes.visible;
 
     Self::new_gtk(&vbox, attributes, pl_attrs, web_context).map(|mut w| {
-      if should_show {
-        gtk_window.show_all();
-      }
-
       w.is_child = is_child;
       w.xlib = Some(xlib);
       w.display = Some(gdk_display);
       w.x11_display = Some(display as _);
       w.x11_window = Some(window);
       w.gtk_window = Some(gtk_window);
+
+      // this an ugly workaround, for some reasons, when the webview
+      // is starting as hidden, we need to call set_visible multiple times
+      // before it can work correctly
+      w.set_visible(true);
+      if !should_show {
+        w.set_visible(false);
+      }
+
       w
     })
   }
@@ -363,10 +368,6 @@ impl InnerWebView {
     // File drop handling
     if let Some(file_drop_handler) = attributes.file_drop_handler {
       file_drop::connect_drag_event(webview.clone(), file_drop_handler);
-    }
-
-    if attributes.visible {
-      webview.show_all();
     }
 
     #[cfg(any(debug_assertions, feature = "devtools"))]
@@ -625,10 +626,16 @@ impl InnerWebView {
       let xlib = self.xlib.as_ref().unwrap();
       if visible {
         unsafe { (xlib.XMapWindow)(self.x11_display.unwrap() as _, self.x11_window.unwrap()) };
-        self.gtk_window.as_ref().unwrap().show_all()
       } else {
-        self.gtk_window.as_ref().unwrap().hide();
         unsafe { (xlib.XUnmapWindow)(self.x11_display.unwrap() as _, self.x11_window.unwrap()) };
+      }
+    }
+
+    if let Some(window) = &self.gtk_window {
+      if visible {
+        window.show_all();
+      } else {
+        window.hide();
       }
     }
 
