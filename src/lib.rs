@@ -362,7 +362,7 @@ pub struct WebViewAttributes {
   /// will be (0, 0).
   pub position: Option<(i32, i32)>,
 
-  /// Set the size if the webview is created by `new_as_child`. If it's `None`, the position
+  /// Set the size if the webview is created by `new_as_child`. If it's `None`, the size
   /// will be (0, 0).
   pub size: Option<(u32, u32)>,
 }
@@ -893,11 +893,15 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Set the postion if the webview is created by `new_as_child`. If it's `None`, the position
+  /// will be (0, 0).
   pub fn with_position(mut self, position: (i32, i32)) -> Self {
     self.attrs.position = Some(position);
     self
   }
 
+  /// Set the size if the webview is created by `new_as_child`. If it's `None`, the size
+  /// will be (0, 0).
   pub fn with_size(mut self, size: (u32, u32)) -> Self {
     self.attrs.size = Some(size);
     self
@@ -1091,7 +1095,7 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     // register custom protocol with empty Response return,
     // this is necessary due to the need of fixing a domain
     // in WebViewAssetLoader.
-    self.webview.custom_protocols.push((
+    self.attrs.custom_protocols.push((
       protocol.clone(),
       Box::new(|_, api| {
         api.respond(HttpResponse::builder().body(Vec::new()).unwrap());
@@ -1133,6 +1137,22 @@ impl WebView {
     WebViewBuilder::new(window).build()
   }
 
+  #[cfg(not(any(
+    target_os = "android",
+    target_os = "ios",
+  )))]
+  /// Create [`WebViewBuilder`] as a child window inside the provided [`RawWindowHandle`].
+  /// Please read platform specific notes to know how it actually works on different platform.
+  ///
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: This will create the webview as a child window of the `parent` window.
+  /// - **macOS**: This will create the webview as a `NSView` subview of the `parent` window's
+  /// content view.
+  /// - **Linux**: This will create the webview as a child window of the `parent` window. Only x11
+  /// is supported. This method won't work on wayland.
+  /// - **Android/iOS:** Unsupported.
   pub fn new_as_child<W: HasWindowHandle>(window: &W) -> Result<Self> {
     WebViewBuilder::new_as_child(window).build()
   }
@@ -1144,6 +1164,7 @@ impl WebView {
     target_os = "netbsd",
     target_os = "openbsd",
   ))]
+  /// Create the webview from a GTK container widget, such as GTK window.
   pub fn new_gtk<W>(widget: &W) -> Result<Self>
   where
     W: gtk::prelude::IsA<gtk::Widget>,

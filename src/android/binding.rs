@@ -19,7 +19,7 @@ use super::{
   URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
 };
 
-use crate::webview::PageLoadEvent;
+use crate::PageLoadEvent;
 
 #[macro_export]
 macro_rules! android_binding {
@@ -32,7 +32,7 @@ macro_rules! android_binding {
         android_binding as tao_android_binding, android_fn, generate_package_name,
         platform::android::ndk_glue::*,
       },
-      webview::prelude::*,
+      prelude::*,
     };
     tao_android_binding!($domain, $package, WryActivity, setup, $main);
     android_fn!(

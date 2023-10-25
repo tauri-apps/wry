@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use super::{PageLoadEvent, WebContext, WebViewAttributes, RGBA};
-use crate::{webview::RequestAsyncResponder, Result};
+use crate::{RequestAsyncResponder, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
 use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
@@ -15,7 +15,7 @@ use kuchiki::NodeRef;
 use once_cell::sync::OnceCell;
 use raw_window_handle::HasWindowHandle;
 use sha2::{Digest, Sha256};
-use std::{borrow::Cow, rc::Rc, sync::mpsc::channel};
+use std::{borrow::Cow, sync::mpsc::channel};
 use tao::platform::android::ndk_glue::{
   jni::{
     errors::Error as JniError,
