@@ -5,7 +5,7 @@
 use cocoa::base::nil;
 use libc::c_char;
 
-use crate::{webview::proxy::ProxyEndpoint, Error};
+use crate::{proxy::ProxyEndpoint, Error};
 
 use super::NSString;
 

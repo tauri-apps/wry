@@ -41,7 +41,7 @@ use objc_id::Id;
 use file_drop::{add_file_drop_methods, set_file_drop_handler};
 
 #[cfg(feature = "mac-proxy")]
-use crate::webview::{
+use crate::{
   proxy::ProxyConfig,
   wkwebview::proxy::{
     nw_endpoint_t, nw_proxy_config_create_http_connect, nw_proxy_config_create_socksv5,

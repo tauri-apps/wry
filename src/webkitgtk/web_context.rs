@@ -351,7 +351,7 @@ where
             }
             result
           })
-          .unwrap_or(Vec::new());
+          .unwrap_or_default();
       }
       #[cfg(not(feature = "linux-body"))]
       {

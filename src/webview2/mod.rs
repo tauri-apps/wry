@@ -76,7 +76,7 @@ impl InnerWebView {
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let window = match window.window_handle()?.as_raw() {
-      raw_window_handle::RawWindowHandle::Win32(window) => window.hwnd.get(),
+      RawWindowHandle::Win32(window) => window.hwnd.get(),
       _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
     };
     Self::new_hwnd(HWND(window), attributes, pl_attrs, web_context)
@@ -89,7 +89,7 @@ impl InnerWebView {
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let parent = match parent.window_handle()?.as_raw() {
-      raw_window_handle::RawWindowHandle::Win32(parent) => parent.hwnd.get(),
+      RawWindowHandle::Win32(parent) => parent.hwnd.get(),
       _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
     };
 
