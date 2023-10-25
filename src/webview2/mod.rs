@@ -30,9 +30,9 @@ use windows::{
       Shell::{DefSubclassProc, SHCreateMemStream, SetWindowSubclass},
       WindowsAndMessaging::{
         self as win32wm, CreateWindowExW, DefWindowProcW, PostMessageW, RegisterClassExW,
-        RegisterWindowMessageA, SetWindowPos, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, HCURSOR,
-        HICON, HMENU, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
-        WINDOW_EX_STYLE, WNDCLASSEXW, WS_CHILD, WS_VISIBLE,
+        RegisterWindowMessageA, SetWindowPos, ShowWindow, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT,
+        HCURSOR, HICON, HMENU, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+        SWP_NOZORDER, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WNDCLASSEXW, WS_CHILD, WS_VISIBLE,
       },
     },
   },
@@ -1027,7 +1027,7 @@ impl InnerWebView {
     }
   }
 
-  pub fn set_visible(&self, _visible: bool) {
+  pub fn set_visible(&self, visible: bool) {
     if self.is_child {
       ShowWindow(
         self.hwnd,
