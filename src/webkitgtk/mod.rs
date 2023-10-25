@@ -293,7 +293,14 @@ impl InnerWebView {
       )
     }
 
-    container.add(&webview);
+    if container.type_().name() == "GtkBox" {
+      container
+        .dynamic_cast_ref::<gtk::Box>()
+        .unwrap()
+        .pack_start(&webview, true, true, 0);
+    } else {
+      container.add(&webview);
+    }
 
     if attributes.focused {
       webview.grab_focus();
@@ -349,7 +356,6 @@ impl InnerWebView {
     }
 
     webview.show_all();
-    container.show_all();
 
     #[cfg(any(debug_assertions, feature = "devtools"))]
     let is_inspector_open = {

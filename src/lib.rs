@@ -426,9 +426,17 @@ pub enum PageLoadEvent {
 pub struct WebViewBuilder<'a> {
   pub attrs: WebViewAttributes,
   as_child: bool,
-  window: &'a dyn HasWindowHandle,
+  window: Option<&'a dyn HasWindowHandle>,
   platform_specific: PlatformSpecificWebViewAttributes,
   web_context: Option<&'a mut WebContext>,
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+  ))]
+  gtk_widget: Option<&'a gtk::Container>,
 }
 
 impl<'a> WebViewBuilder<'a> {
@@ -436,11 +444,19 @@ impl<'a> WebViewBuilder<'a> {
   pub fn new<W: HasWindowHandle>(window: &'a W) -> Self {
     Self {
       attrs: WebViewAttributes::default(),
-      window,
+      window: Some(window),
       as_child: false,
       #[allow(clippy::default_constructed_unit_structs)]
       platform_specific: PlatformSpecificWebViewAttributes::default(),
       web_context: None,
+      #[cfg(any(
+        target_os = "linux",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+      ))]
+      gtk_widget: None,
     }
   }
 
@@ -448,11 +464,44 @@ impl<'a> WebViewBuilder<'a> {
   pub fn new_as_child<W: HasWindowHandle>(parent: &'a W) -> Self {
     Self {
       attrs: WebViewAttributes::default(),
-      window: parent,
+      window: Some(parent),
       as_child: true,
       #[allow(clippy::default_constructed_unit_structs)]
       platform_specific: PlatformSpecificWebViewAttributes::default(),
       web_context: None,
+      #[cfg(any(
+        target_os = "linux",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+      ))]
+      gtk_widget: None,
+    }
+  }
+
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+  ))]
+  pub fn new_gtk<W>(widget: &'a W) -> Self
+  where
+    W: gtk::prelude::IsA<gtk::Widget>,
+    W: gtk::prelude::IsA<gtk::Container>,
+  {
+    use gdkx11::glib::Cast;
+
+    Self {
+      attrs: WebViewAttributes::default(),
+      window: None,
+      as_child: false,
+      #[allow(clippy::default_constructed_unit_structs)]
+      platform_specific: PlatformSpecificWebViewAttributes::default(),
+      web_context: None,
+      gtk_widget: Some(widget.dynamic_cast_ref().unwrap()),
     }
   }
 
@@ -835,20 +884,16 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// [`EventLoop`]: crate::application::event_loop::EventLoop
   pub fn build(self) -> Result<WebView> {
-    let webview = if self.as_child {
-      InnerWebView::new_as_child(
-        &self.window,
-        self.attrs,
-        self.platform_specific,
-        self.web_context,
-      )?
+    let webview = if let Some(window) = &self.window {
+      if self.as_child {
+        InnerWebView::new_as_child(window, self.attrs, self.platform_specific, self.web_context)?
+      } else {
+        InnerWebView::new(window, self.attrs, self.platform_specific, self.web_context)?
+      }
+    } else if let Some(widget) = self.gtk_widget {
+      InnerWebView::new_gtk(widget, self.attrs, self.platform_specific, self.web_context)?
     } else {
-      InnerWebView::new(
-        &self.window,
-        self.attrs,
-        self.platform_specific,
-        self.web_context,
-      )?
+      unreachable!()
     };
     Ok(WebView { webview })
   }
@@ -1043,6 +1088,21 @@ impl WebView {
 
   pub fn new_as_child<W: HasWindowHandle>(window: &W) -> Result<Self> {
     WebViewBuilder::new_as_child(window).build()
+  }
+
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+  ))]
+  pub fn new_gtk<W>(widget: &W) -> Result<Self>
+  where
+    W: gtk::prelude::IsA<gtk::Widget>,
+    W: gtk::prelude::IsA<gtk::Container>,
+  {
+    WebViewBuilder::new_gtk(widget).build()
   }
 
   /// Get the current url of the webview
