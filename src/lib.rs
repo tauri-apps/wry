@@ -415,7 +415,7 @@ impl Default for WebViewAttributes {
   target_os = "ios",
 ))]
 #[derive(Default)]
-pub(crate) struct PlatformSpecificWebViewAttributes;
+pub(crate) struct PlatformSpecificWebViewAttributes();
 
 /// Type alias for a color in the RGBA format.
 ///
@@ -464,7 +464,7 @@ impl<'a> WebViewBuilder<'a> {
       window: Some(window),
       as_child: false,
       #[allow(clippy::default_constructed_unit_structs)]
-      platform_specific: PlatformSpecificWebViewAttributes,
+      platform_specific: PlatformSpecificWebViewAttributes::default(),
       web_context: None,
       #[cfg(any(
         target_os = "linux",
@@ -495,7 +495,7 @@ impl<'a> WebViewBuilder<'a> {
       window: Some(parent),
       as_child: true,
       #[allow(clippy::default_constructed_unit_structs)]
-      platform_specific: PlatformSpecificWebViewAttributes,
+      platform_specific: PlatformSpecificWebViewAttributes::default(),
       web_context: None,
       #[cfg(any(
         target_os = "linux",
@@ -527,7 +527,7 @@ impl<'a> WebViewBuilder<'a> {
       window: None,
       as_child: false,
       #[allow(clippy::default_constructed_unit_structs)]
-      platform_specific: PlatformSpecificWebViewAttributes,
+      platform_specific: PlatformSpecificWebViewAttributes::default(),
       web_context: None,
       gtk_widget: Some(widget.dynamic_cast_ref().unwrap()),
     }
