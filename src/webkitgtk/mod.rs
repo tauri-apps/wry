@@ -44,25 +44,21 @@ pub(crate) struct InnerWebView {
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
 
   is_child: bool,
-  display: Option<gdk::Display>,
   xlib: Option<Xlib>,
+  x11_display: Option<*mut std::ffi::c_void>,
   x11_window: Option<u64>,
+  display: Option<gdk::Display>,
+  gtk_window: Option<gtk::Window>,
 }
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
     if let Some(xlib) = &self.xlib {
-      use gdkx11::X11Display;
-
-      let gx11_display: &X11Display = self.display.as_ref().unwrap().downcast_ref().unwrap();
-      let raw = glib::translate::ToGlibPtr::to_glib_none(&gx11_display).0;
-      let display = unsafe { gdkx11::ffi::gdk_x11_display_get_xdisplay(raw) };
-
       if self.is_child {
-        unsafe { (xlib.XDestroyWindow)(display as _, self.x11_window.unwrap()) };
+        unsafe { (xlib.XDestroyWindow)(self.x11_display.unwrap() as _, self.x11_window.unwrap()) };
       }
 
-      unsafe { (xlib.XCloseDisplay)(display as _) };
+      unsafe { (xlib.XCloseDisplay)(self.x11_display.unwrap() as _) };
     }
   }
 }
@@ -131,11 +127,18 @@ impl InnerWebView {
     gtk_window.set_has_window(true);
     gtk_window.realize();
 
-    Self::new_gtk(&gtk_window, attributes, pl_attrs, web_context).map(|mut w| {
+    let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    gtk_window.add(&vbox);
+
+    Self::new_gtk(&vbox, attributes, pl_attrs, web_context).map(|mut w| {
+      gtk_window.show_all();
+
       w.is_child = is_child;
       w.xlib = Some(xlib);
       w.display = Some(gdk_display);
+      w.x11_display = Some(display as _);
       w.x11_window = Some(window);
+      w.gtk_window = Some(gtk_window);
       w
     })
   }
@@ -380,7 +383,9 @@ impl InnerWebView {
       is_child: false,
       xlib: None,
       display: None,
+      x11_display: None,
       x11_window: None,
+      gtk_window: None,
     };
 
     // Initialize message handler
@@ -566,12 +571,42 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn set_position(&self, _position: (i32, i32)) {
-    if self.is_child {}
+  pub fn set_position(&self, position: (i32, i32)) {
+    if self.is_child {
+      let xlib = self.xlib.as_ref().unwrap();
+      let mut changes = XWindowChanges {
+        x: position.0,
+        y: position.1,
+        ..unsafe { std::mem::zeroed() }
+      };
+      unsafe {
+        (xlib.XConfigureWindow)(
+          self.x11_display.unwrap() as _,
+          self.x11_window.unwrap(),
+          (CWY | CWX) as _,
+          &mut changes as *mut _,
+        );
+      }
+    }
   }
 
-  pub fn set_size(&self, _size: (u32, u32)) {
-    if self.is_child {}
+  pub fn set_size(&self, size: (u32, u32)) {
+    if self.is_child {
+      let xlib = self.xlib.as_ref().unwrap();
+      let mut changes = XWindowChanges {
+        width: size.0 as _,
+        height: size.1 as _,
+        ..unsafe { std::mem::zeroed() }
+      };
+      unsafe {
+        (xlib.XConfigureWindow)(
+          self.x11_display.unwrap() as _,
+          self.x11_window.unwrap(),
+          (CWWidth | CWHeight) as _,
+          &mut changes as *mut _,
+        );
+      }
+    }
   }
 }
 
