@@ -308,6 +308,14 @@ impl InnerWebView {
     MainPipe::send(WebViewMessage::ClearAllBrowsingData);
     Ok(())
   }
+
+  pub fn set_position(&self, _position: (i32, i32)) {
+    // Unsupported.
+  }
+
+  pub fn set_size(&self, _size: (u32, u32)) {
+    // Unsupported.
+  }
 }
 
 #[derive(Clone, Copy)]

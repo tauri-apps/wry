@@ -92,6 +92,7 @@ html5ever = "0.26"
 kuchiki = { package = "kuchikiki", version = "0.8" }
 sha2 = "0.10"
 base64 = "0.21"
+tao = { git = "https://github.com/tauri-apps/tao" }
 
 [dev-dependencies]
 http-range = "0.1.5"

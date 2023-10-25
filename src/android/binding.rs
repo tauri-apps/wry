@@ -279,7 +279,7 @@ pub unsafe fn handleReceivedTitle(mut env: JNIEnv, _: JClass, _webview: JObject,
     Ok(title) => {
       let title = title.to_string_lossy().to_string();
       if let Some(title_handler) = TITLE_CHANGE_HANDLER.get() {
-        (title_handler.handler)(&title_handler, title)
+        (title_handler.handler)(title)
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),
