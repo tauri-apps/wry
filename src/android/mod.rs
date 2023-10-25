@@ -325,6 +325,10 @@ impl InnerWebView {
   pub fn set_size(&self, _size: (u32, u32)) {
     // Unsupported.
   }
+
+  pub fn set_visible(&self, visible: bool) {
+    // Unsupported
+  }
 }
 
 #[derive(Clone, Copy)]

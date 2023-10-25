@@ -116,12 +116,17 @@ impl InnerWebView {
 
     unsafe { RegisterClassExW(&class) };
 
+    let mut flags = WS_CHILD;
+    if attributes.visible {
+      flags |= WS_VISIBLE;
+    }
+
     let child = unsafe {
       CreateWindowExW(
         WINDOW_EX_STYLE::default(),
         PCWSTR::from_raw(class_name.as_ptr()),
         PCWSTR::null(),
-        WS_CHILD | WS_VISIBLE,
+        flags,
         attributes.position.map(|a| a.0).unwrap_or(CW_USEDEFAULT),
         attributes.position.map(|a| a.1).unwrap_or(CW_USEDEFAULT),
         attributes.size.map(|a| a.0 as i32).unwrap_or(CW_USEDEFAULT),
@@ -873,7 +878,7 @@ impl InnerWebView {
 
     unsafe {
       controller
-        .SetIsVisible(true)
+        .SetIsVisible(attributes.visible)
         .map_err(webview2_com::Error::WindowsError)?;
       if attributes.focused {
         controller

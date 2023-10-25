@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 /// some actions like custom protocol on Mac. Please keep both instances when you still wish to
 /// interact with them.
 ///
-/// [`WebView`]: crate::webview::WebView
+/// [`WebView`]: crate::WebView
 #[derive(Debug)]
 pub struct WebContext {
   data: WebContextData,

@@ -1087,6 +1087,10 @@ r#"Object.defineProperty(window, 'ipc', {
       }
     }
   }
+
+  pub fn set_visible(&self, visible: bool) {
+    // Unimplemented
+  }
 }
 
 pub fn url_from_webview(webview: id) -> String {

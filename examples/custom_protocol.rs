@@ -27,7 +27,26 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  let _webview = WebViewBuilder::new(&window)
+  #[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  ))]
+  let builder = WebViewBuilder::new(&window);
+
+  #[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  )))]
+  let builder = {
+    use tao::platform::unix::WindowExtUnix;
+    let vbox = window.default_vbox().unwrap();
+    WebViewBuilder::new_gtk(vbox)
+  };
+  let _webview = builder
     .with_asynchronous_custom_protocol("wry".into(), move |request, responder| {
       match get_wry_response(request) {
         Ok(http_response) => responder.respond(http_response),

@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use gdkx11::X11Window;
+use gdkx11::glib::translate::{FromGlibPtrFull, ToGlibPtr};
+use gdkx11::X11Display;
 use gtk::gdk::{self, EventMask};
 use gtk::gio::Cancellable;
-use gtk::{glib, prelude::*};
+use gtk::prelude::*;
 use javascriptcore::ValueExt;
 use raw_window_handle::{HandleError, HasWindowHandle, RawWindowHandle};
 #[cfg(any(debug_assertions, feature = "devtools"))]
@@ -97,8 +98,8 @@ impl InnerWebView {
     };
 
     let gdk_display = gdk::Display::default().ok_or(Error::X11DisplayNotFound)?;
-    let gx11_display = gdk_display.downcast_ref().unwrap();
-    let raw = glib::translate::ToGlibPtr::to_glib_none(&gx11_display).0;
+    let gx11_display: &X11Display = gdk_display.downcast_ref().unwrap();
+    let raw = gx11_display.to_glib_none().0;
     let display = unsafe { gdkx11::ffi::gdk_x11_display_get_xdisplay(raw) };
 
     let window = if is_child {
@@ -115,13 +116,18 @@ impl InnerWebView {
           0,
         )
       };
+      // if attributes.visible {
       unsafe { (xlib.XMapRaised)(display as _, child) };
+      // }
       child
     } else {
       window
     };
 
-    let gdk_window: gdk::Window = X11Window::foreign_new_for_display(gx11_display, window).upcast();
+    let gdk_window = unsafe {
+      let raw = gdkx11::ffi::gdk_x11_window_foreign_new_for_display(raw, window);
+      gdk::Window::from_glib_full(raw)
+    };
     let gtk_window = gtk::Window::new(gtk::WindowType::Toplevel);
     gtk_window.connect_realize(move |widget| widget.set_window(gdk_window.clone()));
     gtk_window.set_has_window(true);
@@ -355,7 +361,9 @@ impl InnerWebView {
       file_drop::connect_drag_event(webview.clone(), file_drop_handler);
     }
 
-    webview.show_all();
+    if attributes.visible {
+      webview.show_all();
+    }
 
     #[cfg(any(debug_assertions, feature = "devtools"))]
     let is_inspector_open = {
@@ -605,6 +613,31 @@ impl InnerWebView {
           &mut changes as *mut _,
         );
       }
+    }
+  }
+
+  pub fn set_visible(&self, visible: bool) {
+    if visible {
+      if self.is_child {
+        let xlib = self.xlib.as_ref().unwrap();
+        unsafe {
+          (xlib.XMapWindow)(self.x11_display.unwrap() as _, self.x11_window.unwrap());
+        }
+        self.gtk_window.as_ref().unwrap().show_all()
+      }
+
+      self.webview.show_all()
+    } else {
+      if self.is_child {
+        let xlib = self.xlib.as_ref().unwrap();
+        unsafe {
+          (xlib.XUnmapWindow)(self.x11_display.unwrap() as _, self.x11_window.unwrap());
+        }
+
+        self.gtk_window.as_ref().unwrap().hide()
+      }
+
+      self.webview.hide()
     }
   }
 }

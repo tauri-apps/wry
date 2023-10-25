@@ -35,7 +35,7 @@ jobs:
         with:
           components: clippy
 
-      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo clippy --all-targets --all-features -- -D warnings
 
   fmt:
     runs-on: ubuntu-latest
