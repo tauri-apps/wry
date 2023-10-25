@@ -76,10 +76,10 @@ impl InnerWebView {
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let window = match window.window_handle()?.as_raw() {
-      raw_window_handle::RawWindowHandle::Win32(window) => window.hwnd,
+      raw_window_handle::RawWindowHandle::Win32(window) => window.hwnd.get(),
       _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
     };
-    Self::new_hwnd(HWND(handle.hwnd.get()), attributes, pl_attrs, web_context)
+    Self::new_hwnd(HWND(window), attributes, pl_attrs, web_context)
   }
 
   pub fn new_as_child(
@@ -89,7 +89,7 @@ impl InnerWebView {
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let parent = match parent.window_handle()?.as_raw() {
-      raw_window_handle::RawWindowHandle::Win32(parent) => parent.hwnd,
+      raw_window_handle::RawWindowHandle::Win32(parent) => parent.hwnd.get(),
       _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
     };
 
@@ -131,7 +131,7 @@ impl InnerWebView {
         attributes.position.map(|a| a.1).unwrap_or(CW_USEDEFAULT),
         attributes.size.map(|a| a.0 as i32).unwrap_or(CW_USEDEFAULT),
         attributes.size.map(|a| a.1 as i32).unwrap_or(CW_USEDEFAULT),
-        HWND(parent.hwnd.get()),
+        HWND(parent),
         HMENU::default(),
         GetModuleHandleW(PCWSTR::null()).unwrap_or_default(),
         None,
