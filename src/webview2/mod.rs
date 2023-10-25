@@ -1028,8 +1028,8 @@ impl InnerWebView {
   }
 
   pub fn set_visible(&self, visible: bool) {
-    if self.is_child {
-      unsafe {
+    unsafe {
+      if self.is_child {
         ShowWindow(
           self.hwnd,
           match visible {
@@ -1038,9 +1038,9 @@ impl InnerWebView {
           },
         );
       }
-    }
 
-    let _ = self.controller.SetIsVisible(visible);
+      let _ = self.controller.SetIsVisible(visible);
+    }
   }
 }
 

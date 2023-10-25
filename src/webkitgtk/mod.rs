@@ -585,39 +585,28 @@ impl InnerWebView {
 
   pub fn set_position(&self, position: (i32, i32)) {
     if self.is_child {
-      let xlib = self.xlib.as_ref().unwrap();
-      let mut changes = XWindowChanges {
-        x: position.0,
-        y: position.1,
-        ..unsafe { std::mem::zeroed() }
-      };
-      unsafe {
-        (xlib.XConfigureWindow)(
-          self.x11_display.unwrap() as _,
-          self.x11_window.unwrap(),
-          (CWY | CWX) as _,
-          &mut changes as *mut _,
-        );
-      }
+      self
+        .gtk_window
+        .as_ref()
+        .unwrap()
+        .move_(position.0, position.1);
     }
   }
 
   pub fn set_size(&self, size: (u32, u32)) {
     if self.is_child {
-      let xlib = self.xlib.as_ref().unwrap();
-      let mut changes = XWindowChanges {
-        width: size.0 as _,
-        height: size.1 as _,
-        ..unsafe { std::mem::zeroed() }
-      };
-      unsafe {
-        (xlib.XConfigureWindow)(
-          self.x11_display.unwrap() as _,
-          self.x11_window.unwrap(),
-          (CWWidth | CWHeight) as _,
-          &mut changes as *mut _,
-        );
-      }
+      self
+        .gtk_window
+        .as_ref()
+        .unwrap()
+        .window()
+        .unwrap()
+        .resize(size.0 as _, size.1 as _);
+      self
+        .gtk_window
+        .as_ref()
+        .unwrap()
+        .size_allocate(&gtk::Allocation::new(200, 200, size.0 as _, size.1 as _));
     }
   }
 
