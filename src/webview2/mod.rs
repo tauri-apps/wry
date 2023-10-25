@@ -141,7 +141,7 @@ impl InnerWebView {
     Self::new_as_child_hwnd(child, attributes, pl_attrs, web_context)
   }
 
-  pub fn new_as_child_hwnd(
+  fn new_as_child_hwnd(
     hwnd: HWND,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
@@ -153,7 +153,7 @@ impl InnerWebView {
     })
   }
 
-  pub fn new_hwnd(
+  fn new_hwnd(
     hwnd: HWND,
     mut attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,

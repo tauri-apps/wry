@@ -106,7 +106,7 @@ impl InnerWebView {
       _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
     };
 
-    Self::new_ns_view(ns_view, attributes, _pl_attrs, _web_context)
+    Self::new_ns_view(ns_view, attributes, _pl_attrs, _web_context, false)
   }
 
   pub fn new_as_child<W: HasWindowHandle>(
@@ -123,12 +123,10 @@ impl InnerWebView {
       _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
     };
 
-    let mut webview = Self::new_ns_view(ns_view, attributes, _pl_attrs, _web_context)?;
-    webview.is_child = true;
-    Ok(webview)
+    Self::new_ns_view(ns_view, attributes, _pl_attrs, _web_context, true)
   }
 
-  pub fn new_ns_view(
+  fn new_ns_view(
     ns_view: id,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
@@ -816,7 +814,7 @@ impl InnerWebView {
         page_load_handler,
         download_delegate,
         protocol_ptrs,
-        is_child: false,
+        is_child,
       };
 
       // Initialize scripts
