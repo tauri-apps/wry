@@ -1137,10 +1137,6 @@ impl WebView {
     WebViewBuilder::new(window).build()
   }
 
-  #[cfg(not(any(
-    target_os = "android",
-    target_os = "ios",
-  )))]
   /// Create [`WebViewBuilder`] as a child window inside the provided [`RawWindowHandle`].
   /// Please read platform specific notes to know how it actually works on different platform.
   ///

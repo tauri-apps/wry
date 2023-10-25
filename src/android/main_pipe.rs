@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use crate::{RGBA, Error};
+use crate::{Error, RGBA};
 use crossbeam_channel::*;
 use once_cell::sync::Lazy;
 use std::os::unix::prelude::*;
