@@ -33,11 +33,11 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  let size = window.inner_size();
+  let size = window.inner_size().to_logical::<u32>(window.scale_factor());
 
   let webview = WebViewBuilder::new_as_child(&window)
     .with_position((0, 0))
-    .with_size((size.width / 2, size.height / 2))
+    .with_size((size.width / 4, size.height / 4))
     .with_url("https://tauri.app")?
     .build()?;
   let webview2 = WebViewBuilder::new_as_child(&window)
@@ -76,6 +76,7 @@ fn main() -> wry::Result<()> {
           event: WindowEvent::Resized(size),
           ..
         } => {
+          let size = size.to_logical::<u32>(window.scale_factor());
           webview.set_size((size.width / 2, size.height / 2));
           webview2.set_position(((size.width / 2) as i32, 0));
           webview2.set_size((size.width / 2, size.height / 2));
