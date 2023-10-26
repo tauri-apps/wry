@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.34.2]
+
+- [`c2e6980`](https://github.com/tauri-apps/wry/commit/c2e6980b6cacf02b3f8c0b0285d391d010f4536b)([#1047](https://github.com/tauri-apps/wry/pull/1047)) Fix doc building by removing dox feature requirement from `webkit2gtk`.
+- [`82908d4`](https://github.com/tauri-apps/wry/commit/82908d4e001d1be6fd5d692fcb2e08908c4b5e16)([#1045](https://github.com/tauri-apps/wry/pull/1045)) Fix docs.rs build.
+
 ## \[0.34.1]
 
 - [`3de68e7`](https://github.com/tauri-apps/wry/commit/3de68e781d52f3c817473c1ee8cc73b392d60c98)([#1043](https://github.com/tauri-apps/wry/pull/1043)) Fix compilation with the `linux-body` feature.

@@ -2,7 +2,7 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.34.1"
+version = "0.34.2"
 authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -14,7 +14,7 @@ categories = ["gui"]
 
 [package.metadata.docs.rs]
 no-default-features = true
-features = [ "file-drop", "protocol", "webkit2gtk/dox" ]
+features = [ "file-drop", "protocol" ]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
@@ -46,8 +46,8 @@ http = "0.2"
 raw-window-handle = { version = "0.6", features = ["std"] }
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
-javascriptcore-rs = { version = "=1.1.1", features = ["v2_28"] }
-webkit2gtk = { version = "=2.0", features = ["v2_38"] }
+javascriptcore-rs = { version = "=1.1", features = [ "v2_28" ] }
+webkit2gtk = { version = "=2.0", features = [ "v2_38" ] }
 webkit2gtk-sys = "=2.0"
 gtk = "0.18"
 soup3 = "0.5"
