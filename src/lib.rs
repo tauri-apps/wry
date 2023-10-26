@@ -499,6 +499,8 @@ impl<'a> WebViewBuilder<'a> {
   ///   Although this methods only needs an X11 window handle, you use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
   ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
+  /// - **macOS / Windows**: The webview will auto-resize when the passed handle is resized.
+  /// - **Linux (X11)**: Unlike macOS and Windows, the webview will not auto-resize and you'll need to call [`WebView::set_size`] manually.
   ///
   /// # Panics:
   ///
@@ -1183,6 +1185,8 @@ impl WebView {
   ///   Although this methods only needs an X11 window handle, you use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
   ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
+  /// - **macOS / Windows**: The webview will auto-resize when the passed handle is resized.
+  /// - **Linux (X11)**: Unlike macOS and Windows, the webview will not auto-resize and you'll need to call [`WebView::set_size`] manually.
   ///
   /// # Panics:
   ///
@@ -1341,7 +1345,8 @@ impl WebView {
     self.webview.set_position(position)
   }
 
-  /// Set the webview size if it was created as a child.
+  /// Set the webview size if it was created as a child
+  /// or if ot was created directly in an X11 Window.
   pub fn set_size(&self, size: (u32, u32)) {
     self.webview.set_size(size)
   }

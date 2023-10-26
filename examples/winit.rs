@@ -21,7 +21,7 @@ fn main() -> wry::Result<()> {
   {
     use gtk::prelude::DisplayExtManual;
 
-    gtk::init()?;
+    gtk::init().unwrap();
     if gtk::gdk::Display::default().unwrap().backend().is_wayland() {
       panic!("This example doesn't support wayland!");
     }
@@ -33,8 +33,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  let webview = WebViewBuilder::new_as_child(&window)
-    .with_size((800, 800))
+  let webview = WebViewBuilder::new(&window)
     .with_url("https://tauri.app")?
     .build()?;
 
@@ -42,7 +41,25 @@ fn main() -> wry::Result<()> {
     .run(move |event, evl| {
       evl.set_control_flow(ControlFlow::Poll);
 
+      #[cfg(any(
+        target_os = "linux",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+      ))]
+      while gtk::events_pending() {
+        gtk::main_iteration_do(false);
+      }
+
       match event {
+        #[cfg(any(
+          target_os = "linux",
+          target_os = "dragonfly",
+          target_os = "freebsd",
+          target_os = "netbsd",
+          target_os = "openbsd",
+        ))]
         Event::WindowEvent {
           event: WindowEvent::Resized(size),
           ..
@@ -54,17 +71,6 @@ fn main() -> wry::Result<()> {
           ..
         } => evl.exit(),
         _ => {}
-      }
-
-      #[cfg(any(
-        target_os = "linux",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-      ))]
-      while gtk::events_pending() {
-        gtk::main_iteration_do(false);
       }
     })
     .unwrap();

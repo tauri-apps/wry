@@ -598,11 +598,11 @@ impl InnerWebView {
   }
 
   pub fn set_size(&self, size: (u32, u32)) {
-    if self.is_child {
-      if let Some(window) = &self.gtk_window {
+    if let Some(window) = &self.gtk_window {
+      if self.is_child {
         window.window().unwrap().resize(size.0 as _, size.1 as _);
-        window.size_allocate(&gtk::Allocation::new(200, 200, size.0 as _, size.1 as _));
       }
+      window.size_allocate(&gtk::Allocation::new(200, 200, size.0 as _, size.1 as _));
     }
   }
 
