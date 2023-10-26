@@ -9,7 +9,7 @@ on:
 env:
   RUST_BACKTRACE: 1
   CARGO_PROFILE_DEV_DEBUG: 0 # This would add unnecessary bloat to the target folder, decreasing cache efficiency.
-  LC_ALL: en_US.UTF-8 # This prevents strace from changing it's number format to use commas.
+  LC_ALL: en_US.UTF-8 # This prevents strace from changing its number format to use commas.
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -27,28 +27,31 @@ jobs:
     runs-on: ${{ matrix.platform.os }}
 
     steps:
-      - uses: actions/checkout@v2
-      - name: install ${{ matrix.rust }}
-        uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+
+      - name: install Rust ${{ matrix.rust }}
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
-          override: true
           components: rust-src
-          target: ${{ matrix.platform.target }}
+          targets: ${{ matrix.platform.target }}
 
       - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.x"
+          python-version: '3.10'
           architecture: x64
 
-      - name: install depedencies
+      - name: install dependencies
         run: |
           python -m pip install --upgrade pip
           sudo apt-get update
-          sudo apt-get install -y webkit2gtk-4.1-dev libayatana-appindicator3-dev xvfb
-          wget https://github.com/sharkdp/hyperfine/releases/download/v1.11.0/hyperfine_1.11.0_amd64.deb
-          sudo dpkg -i hyperfine_1.11.0_amd64.deb
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            xvfb \
+            at-spi2-core
+          wget https://github.com/sharkdp/hyperfine/releases/download/v1.18.0/hyperfine_1.18.0_amd64.deb
+          sudo dpkg -i hyperfine_1.18.0_amd64.deb
           pip install memory_profiler
 
       - uses: Swatinem/rust-cache@v2
@@ -64,7 +67,7 @@ jobs:
 
       - name: clone benchmarks_results
         if: github.repository == 'tauri-apps/wry' && github.ref == 'refs/heads/dev'
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.BENCH_PAT }}
           path: gh-pages
@@ -82,7 +85,7 @@ jobs:
           git commit --message "Update WRY benchmarks"
           git push origin gh-pages
 
-      - name: worker info
+      - name: Print worker info
         run: |
           cat /proc/cpuinfo
           cat /proc/meminfo
