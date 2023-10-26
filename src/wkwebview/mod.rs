@@ -418,6 +418,10 @@ impl InnerWebView {
         let _: () = msg_send![scroll, setBounces: NO];
       }
 
+      if !attributes.visible {
+        let () = msg_send![webview, setHidden: YES];
+      }
+
       #[cfg(any(debug_assertions, feature = "devtools"))]
       if attributes.devtools {
         let has_inspectable_property: BOOL =
@@ -1088,8 +1092,10 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub fn set_visible(&self, _visible: bool) {
-    // Unimplemented
+  pub fn set_visible(&self, visible: bool) {
+    unsafe {
+      let () = msg_send![self.webview, setHidden: !visible];
+    }
   }
 }
 
