@@ -136,23 +136,25 @@ impl InnerWebView {
     let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
     gtk_window.add(&vbox);
 
-    let should_show = attributes.visible;
+    let hidden = !attributes.visible;
 
     Self::new_gtk(&vbox, attributes, pl_attrs, web_context).map(|mut w| {
+      // for some reason, if the webview starts as hidden,
+      // we will need about 3 calls to `webview.set_visible`
+      // with alternating value.
+      // calling gtk_window.show_all() then hiding it again
+      // seems to fix the issue.
+      gtk_window.show_all();
+      if hidden {
+        gtk_window.hide();
+      }
+
       w.is_child = is_child;
       w.xlib = Some(xlib);
       w.display = Some(gdk_display);
       w.x11_display = Some(display as _);
       w.x11_window = Some(window);
       w.gtk_window = Some(gtk_window);
-
-      // this an ugly workaround, for some reasons, when the webview
-      // is starting as hidden, we need to call set_visible multiple times
-      // before it can work correctly
-      w.set_visible(true);
-      if !should_show {
-        w.set_visible(false);
-      }
 
       w
     })
@@ -589,11 +591,9 @@ impl InnerWebView {
 
   pub fn set_position(&self, position: (i32, i32)) {
     if self.is_child {
-      self
-        .gtk_window
-        .as_ref()
-        .unwrap()
-        .move_(position.0, position.1);
+      if let Some(window) = &self.gtk_window {
+        window.move_(position.0, position.1);
+      }
     }
   }
 
@@ -616,18 +616,18 @@ impl InnerWebView {
       }
     }
 
+    if visible {
+      self.webview.show_all();
+    } else {
+      self.webview.hide();
+    }
+
     if let Some(window) = &self.gtk_window {
       if visible {
         window.show_all();
       } else {
         window.hide();
       }
-    }
-
-    if visible {
-      self.webview.show_all();
-    } else {
-      self.webview.hide();
     }
   }
 }
