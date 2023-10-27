@@ -117,7 +117,34 @@ WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7,
 
 Wry supports mobile with the help of [`cargo-mobile2`](https://github.com/tauri-apps/cargo-mobile2) CLI to create template project. If you are interested in playing or hacking it, please follow [MOBILE.md](MOBILE.md).
 
-If you wish to create Android project yourself, there are a few kotlin files that are needed to run wry on Android and you have to set the following environment variables:
+If you wish to create Android project yourself, there is a few requirements that your application needs to uphold:
+
+1.  You need to set a few environment variables that will be used to generate the necessary kotlin
+    files that you need to include in your Android application for wry to function properly:
+
+    - `WRY_ANDROID_PACKAGE`: which is the reversed domain name of your android project and the app name in snake_case, for example, `com.wry.example.wry_app`
+    - `WRY_ANDROID_LIBRARY`: for example, if your cargo project has a lib name `wry_app`, it will generate `libwry_app.so` so you se this env var to `wry_app`
+    - `WRY_ANDROID_KOTLIN_FILES_OUT_DIR`: for example, `path/to/app/src/main/kotlin/com/wry/example`
+
+2.  Your main Android Activity needs to inherit `AppCompatActivity`, preferably it should use the generated `WryActivity` or inherit it.
+3.  Your Rust app needs to call `wry::android_setup` function to setup the necessary logic to be able to create webviews later on.
+4.  Your Rust app needs to call `wry::android_binding!` macro to setup the JNI functions that will be called by `WryActivity` and various other places.
+
+It is recommended to use [`tao`](https://docs.rs/tao/latest/tao/) crate as it provides maximum compatibility with `wry`
+
+```rs
+#[cfg(target_os = "android")]
+{
+  tao::android_binding!(
+      com_example,
+      wry_app,
+      WryActivity,
+      wry::android_setup, // pass the wry::android_setup function to tao which will invoke when the event loop is created
+      _start_app
+  );
+  wry::android_binding!(com_example, ttt);
+}
+```
 
 - `WRY_ANDROID_PACKAGE` which is the reversed domain name of your android project and the app name in snake_case for example: `com.wry.example.wry_app`
 - `WRY_ANDROID_LIBRARY` for example: if your cargo project has a lib name `wry_app`, it will generate `libwry_app.so` so you se this env var to `wry_app`

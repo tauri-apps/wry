@@ -3,7 +3,7 @@ workspace = {}
 [package]
 name = "wry"
 version = "0.34.2"
-authors = [ "Tauri Programme within The Commons Conservancy" ]
+authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 description = "Cross-platform WebView rendering library"
@@ -14,14 +14,14 @@ categories = ["gui"]
 
 [package.metadata.docs.rs]
 no-default-features = true
-features = [ "file-drop", "protocol" ]
+features = ["file-drop", "protocol"]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
   "x86_64-apple-darwin",
 ]
-rustc-args = [ "--cfg", "docsrs" ]
-rustdoc-args = [ "--cfg", "docsrs" ]
+rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["file-drop", "objc-exception", "protocol"]
@@ -46,8 +46,8 @@ http = "0.2"
 raw-window-handle = { version = "0.6", features = ["std"] }
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
-javascriptcore-rs = { version = "=1.1", features = [ "v2_28" ] }
-webkit2gtk = { version = "=2.0", features = [ "v2_38" ] }
+javascriptcore-rs = { version = "=1.1", features = ["v2_28"] }
+webkit2gtk = { version = "=2.0", features = ["v2_38"] }
 webkit2gtk-sys = "=2.0"
 gtk = "0.18"
 soup3 = "0.5"
@@ -92,11 +92,15 @@ html5ever = "0.26"
 kuchiki = { package = "kuchikiki", version = "0.8" }
 sha2 = "0.10"
 base64 = "0.21"
-tao = { git = "https://github.com/tauri-apps/tao" }
+jni = "0.21"
+ndk = "0.7"
+ndk-sys = "0.4"
+ndk-context = "0.1"
+tao-macros = { version = "0.1.0" }
 
 [dev-dependencies]
 http-range = "0.1.5"
 pollster = "0.3.0"
 tao = { git = "https://github.com/tauri-apps/tao" }
 wgpu = "0.18.0"
-winit = { version = "0.29", features = ["rwh_05"]}
+winit = { version = "0.29", features = ["rwh_05"] }

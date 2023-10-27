@@ -33,7 +33,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  let webview = WebViewBuilder::new(&window)
+  let _webview = WebViewBuilder::new(&window)
     .with_url("https://tauri.app")?
     .build()?;
 

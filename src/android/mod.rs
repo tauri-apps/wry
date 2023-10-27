@@ -11,20 +11,17 @@ use http::{
   header::{HeaderValue, CONTENT_SECURITY_POLICY, CONTENT_TYPE},
   Request, Response as HttpResponse,
 };
+use jni::{
+  errors::Result as JniResult,
+  objects::{GlobalRef, JClass, JObject},
+  JNIEnv,
+};
 use kuchiki::NodeRef;
+use ndk::looper::{FdEvent, ForeignLooper};
 use once_cell::sync::OnceCell;
 use raw_window_handle::HasWindowHandle;
 use sha2::{Digest, Sha256};
 use std::{borrow::Cow, sync::mpsc::channel};
-use tao::platform::android::ndk_glue::{
-  jni::{
-    errors::Error as JniError,
-    objects::{GlobalRef, JClass, JObject},
-    JNIEnv,
-  },
-  ndk::looper::{FdEvent, ForeignLooper},
-  PACKAGE,
-};
 use url::Url;
 
 pub(crate) mod binding;
@@ -66,7 +63,17 @@ define_static_handlers! {
 pub static WITH_ASSET_LOADER: OnceCell<bool> = OnceCell::new();
 pub static ASSET_LOADER_DOMAIN: OnceCell<String> = OnceCell::new();
 
-pub unsafe fn setup(mut env: JNIEnv, looper: &ForeignLooper, activity: GlobalRef) {
+pub(crate) static PACKAGE: OnceCell<String> = OnceCell::new();
+
+/// Sets up the necessary logic for wry to be able to create the webviews later.
+pub unsafe fn android_setup(
+  package: &str,
+  mut env: JNIEnv,
+  looper: &ForeignLooper,
+  activity: GlobalRef,
+) {
+  PACKAGE.get_or_init(move || package.to_string());
+
   // we must create the WebChromeClient here because it calls `registerForActivityResult`,
   // which gives an `LifecycleOwners must call register before they are STARTED.` error when called outside the onCreate hook
   let rust_webchrome_client_class = find_class(
@@ -376,7 +383,7 @@ pub fn find_class<'a>(
   env: &mut JNIEnv<'a>,
   activity: &JObject<'_>,
   name: String,
-) -> std::result::Result<JClass<'a>, JniError> {
+) -> JniResult<JClass<'a>> {
   let class_name = env.new_string(name.replace('/', "."))?;
   let my_class = env
     .call_method(

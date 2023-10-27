@@ -4,18 +4,15 @@
 
 use crate::{Error, RGBA};
 use crossbeam_channel::*;
+use jni::{
+  errors::Result as JniResult,
+  objects::{GlobalRef, JMap, JObject, JString},
+  JNIEnv,
+};
 use once_cell::sync::Lazy;
 use std::os::unix::prelude::*;
-use tao::platform::android::ndk_glue::{
-  jni::{
-    errors::Error as JniError,
-    objects::{GlobalRef, JObject, JString},
-    JNIEnv,
-  },
-  JMap, PACKAGE,
-};
 
-use super::find_class;
+use super::{find_class, PACKAGE};
 
 static CHANNEL: Lazy<(Sender<WebViewMessage>, Receiver<WebViewMessage>)> = Lazy::new(|| bounded(8));
 pub static MAIN_PIPE: Lazy<[RawFd; 2]> = Lazy::new(|| {
@@ -39,7 +36,7 @@ impl<'a> MainPipe<'a> {
     }
   }
 
-  pub fn recv(&mut self) -> Result<(), JniError> {
+  pub fn recv(&mut self) -> JniResult<()> {
     let activity = self.activity.as_obj();
     if let Ok(message) = CHANNEL.1.recv() {
       match message {
@@ -265,7 +262,7 @@ fn load_url<'a>(
   url: &JString<'a>,
   headers: Option<http::HeaderMap>,
   main_thread: bool,
-) -> Result<(), JniError> {
+) -> JniResult<()> {
   let function = if main_thread {
     "loadUrlMainThread"
   } else {
@@ -294,11 +291,7 @@ fn load_url<'a>(
   Ok(())
 }
 
-fn load_html<'a>(
-  env: &mut JNIEnv<'a>,
-  webview: &JObject<'a>,
-  html: &JString<'a>,
-) -> Result<(), JniError> {
+fn load_html<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>, html: &JString<'a>) -> JniResult<()> {
   env.call_method(
     webview,
     "loadHTMLMainThread",
@@ -312,7 +305,7 @@ fn set_background_color<'a>(
   env: &mut JNIEnv<'a>,
   webview: &JObject<'a>,
   background_color: RGBA,
-) -> Result<(), JniError> {
+) -> JniResult<()> {
   let color_class = env.find_class("android/graphics/Color")?;
   let color = env.call_static_method(
     color_class,
@@ -349,6 +342,6 @@ pub(crate) struct CreateWebViewAttributes {
   pub background_color: Option<RGBA>,
   pub headers: Option<http::HeaderMap>,
   pub autoplay: bool,
-  pub on_webview_created: Option<Box<dyn Fn(super::Context) -> Result<(), JniError> + Send>>,
+  pub on_webview_created: Option<Box<dyn Fn(super::Context) -> JniResult<()> + Send>>,
   pub user_agent: Option<String>,
 }

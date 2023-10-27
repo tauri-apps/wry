@@ -6,13 +6,14 @@ use http::{
   header::{HeaderName, HeaderValue, CONTENT_TYPE},
   Request,
 };
-pub use tao::platform::android::ndk_glue::jni::sys::{jboolean, jstring};
-use tao::platform::android::ndk_glue::jni::{
-  errors::Error as JniError,
-  objects::{JClass, JMap, JObject, JString},
-  sys::jobject,
+use jni::errors::Result as JniResult;
+pub use jni::{
+  self,
+  objects::{GlobalRef, JClass, JMap, JObject, JString},
+  sys::{jboolean, jobject, jstring},
   JNIEnv,
 };
+pub use ndk;
 
 use super::{
   ASSET_LOADER_DOMAIN, IPC, ON_LOAD_HANDLER, REQUEST_HANDLER, TITLE_CHANGE_HANDLER,
@@ -23,18 +24,12 @@ use crate::PageLoadEvent;
 
 #[macro_export]
 macro_rules! android_binding {
-  ($domain:ident, $package:ident, $main:ident) => {
-    android_binding!($domain, $package, $main, ::wry)
+  ($domain:ident, $package:ident) => {
+    ::wry::android_binding!($domain, $package, ::wry)
   };
-  ($domain:ident, $package:ident, $main:ident, $wry:path) => {
-    use $wry::{
-      application::{
-        android_binding as tao_android_binding, android_fn, generate_package_name,
-        platform::android::ndk_glue::*,
-      },
-      prelude::*,
-    };
-    tao_android_binding!($domain, $package, WryActivity, setup, $main);
+  ($domain:ident, $package:ident, $wry:path) => {{
+    use $wry::{prelude::android_fn, prelude::*};
+
     android_fn!(
       $domain,
       $package,
@@ -97,10 +92,10 @@ macro_rules! android_binding {
       handleReceivedTitle,
       [JObject, JString],
     );
-  };
+  }};
 }
 
-fn handle_request(env: &mut JNIEnv, request: JObject) -> Result<jobject, JniError> {
+fn handle_request(env: &mut JNIEnv, request: JObject) -> JniResult<jobject> {
   if let Some(handler) = REQUEST_HANDLER.get() {
     let mut request_builder = Request::builder();
 
@@ -113,10 +108,10 @@ fn handle_request(env: &mut JNIEnv, request: JObject) -> Result<jobject, JniErro
       .into();
     request_builder = request_builder.uri(&env.get_string(&url)?.to_string_lossy().to_string());
 
-    let method: JString = env
+    let method = env
       .call_method(&request, "getMethod", "()Ljava/lang/String;", &[])?
-      .l()?
-      .into();
+      .l()
+      .map(JString::from)?;
     request_builder = request_builder.method(
       env
         .get_string(&method)?
