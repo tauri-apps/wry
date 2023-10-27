@@ -1140,8 +1140,24 @@ pub trait WebviewExtWindows {
   /// Returns WebView2 Controller
   fn controller(&self) -> ICoreWebView2Controller;
 
-  // Changes the webview2 theme.
+  /// Changes the webview2 theme.
   fn set_theme(&self, theme: Theme);
+
+  /// Sets [the memory usage target level][1] to 'Low'. There are two levels 'Low' and 'Normal' and
+  /// the default level is 'Normal'. When the application is going inactive, setting the level to
+  /// 'Low' can significantly save the memory used by the application.
+  ///
+  /// Passing `true` to `enabled` argument means the WebView will switch the level to 'Low' and
+  /// passing `false` will switch to 'Normal'.
+  ///
+  /// The logic when application goes to inactive/active is specific to the application.
+  /// [`tao::event::WindowEvent::Focused`] event may be useful.
+  ///
+  /// Please read [the guide for WebView2][2] for more details.
+  ///
+  /// [1]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel
+  /// [2]: https://github.com/MicrosoftEdge/WebView2Feedback/blob/main/specs/MemoryUsageTargetLevel.md
+  fn set_low_memory_usage(&self, enabled: bool);
 }
 
 #[cfg(target_os = "windows")]
@@ -1152,6 +1168,10 @@ impl WebviewExtWindows for WebView {
 
   fn set_theme(&self, theme: Theme) {
     self.webview.set_theme(theme)
+  }
+
+  fn set_low_memory_usage(&self, enabled: bool) {
+    self.webview.set_low_memory_usage(enabled);
   }
 }
 

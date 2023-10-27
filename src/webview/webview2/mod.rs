@@ -967,6 +967,16 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
   pub fn set_theme(&self, theme: Theme) {
     set_theme(&self.webview, theme);
   }
+
+  pub fn set_low_memory_usage(&self, enabled: bool) {
+    let Ok(webview) = self.webview.cast::<ICoreWebView2_19>() else {
+      return;
+    };
+    // https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel
+    let level = if enabled { 1 } else { 0 };
+    let level = COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL(level);
+    let _ = unsafe { webview.SetMemoryUsageTargetLevel(level) };
+  }
 }
 
 unsafe fn prepare_web_request_response(
