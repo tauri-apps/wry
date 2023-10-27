@@ -1155,6 +1155,9 @@ pub trait WebviewExtWindows {
   ///
   /// Please read [the guide for WebView2][2] for more details.
   ///
+  /// This method internally uses an API added at WebView2 v1.0.1020.30. When it is called with
+  /// WebView2 older than the version, it does nothing.
+  ///
   /// [1]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel
   /// [2]: https://github.com/MicrosoftEdge/WebView2Feedback/blob/main/specs/MemoryUsageTargetLevel.md
   fn set_low_memory_usage(&self, enabled: bool);
