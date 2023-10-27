@@ -64,7 +64,7 @@ fn main() -> wry::Result<()> {
           event: WindowEvent::Resized(size),
           ..
         } => {
-          webview.set_size(size.into());
+          _webview.set_size(size.into());
         }
         Event::WindowEvent {
           event: WindowEvent::CloseRequested,
