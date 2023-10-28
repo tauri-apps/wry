@@ -1143,23 +1143,20 @@ pub trait WebviewExtWindows {
   /// Changes the webview2 theme.
   fn set_theme(&self, theme: Theme);
 
-  /// Sets [the memory usage target level][1] to 'Low'. There are two levels 'Low' and 'Normal' and
+  /// Sets the [memory usage target level][1] to 'Low'. There are two levels 'Low' and 'Normal' and
   /// the default level is 'Normal'. When the application is going inactive, setting the level to
-  /// 'Low' can significantly save the memory used by the application.
+  /// 'Low' can significantly reduce the application's memory consumption.
   ///
-  /// Passing `true` to `enabled` argument means the WebView will switch the level to 'Low' and
-  /// passing `false` will switch to 'Normal'.
+  /// When to best use this mode depends on the app in question. Most commonly it's called when
+  /// the app's visiblity state changes.
   ///
-  /// The logic when application goes to inactive/active is specific to the application.
-  /// [`tao::event::WindowEvent::Focused`] event may be useful.
+  /// Please read the [guide for WebView2][2] for more details.
   ///
-  /// Please read [the guide for WebView2][2] for more details.
-  ///
-  /// This method internally uses an API added at WebView2 v1.0.1020.30. When it is called with
-  /// WebView2 older than the version, it does nothing.
+  /// This method uses a WebView2 API added in Runtime version 114.0.1823.32. When it is used in
+  /// an older Runtime version, it does nothing.
   ///
   /// [1]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel
-  /// [2]: https://github.com/MicrosoftEdge/WebView2Feedback/blob/main/specs/MemoryUsageTargetLevel.md
+  /// [2]: https://learn.microsoft.com/de-de/dotnet/api/microsoft.web.webview2.core.corewebview2.memoryusagetargetlevel?view=webview2-dotnet-1.0.2088.41&preserve-view=true#remarks
   fn set_low_memory_usage(&self, enabled: bool);
 }
 
