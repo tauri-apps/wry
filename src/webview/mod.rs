@@ -1171,7 +1171,7 @@ pub trait WebviewExtWindows {
   /// an older Runtime version, it does nothing.
   ///
   /// [1]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel
-  /// [2]: https://learn.microsoft.com/de-de/dotnet/api/microsoft.web.webview2.core.corewebview2.memoryusagetargetlevel?view=webview2-dotnet-1.0.2088.41&preserve-view=true#remarks
+  /// [2]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2.memoryusagetargetlevel?view=webview2-dotnet-1.0.2088.41#remarks
   fn set_memory_usage_level(&self, level: MemoryUsageLevel);
 }
 
