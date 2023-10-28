@@ -1134,6 +1134,23 @@ pub fn webview_version() -> Result<String> {
   platform_webview_version()
 }
 
+/// The [memory usage target level][1]. There are two levels 'Low' and 'Normal' and the default
+/// level is 'Normal'. When the application is going inactive, setting the level to 'Low' can
+/// significantly reduce the application's memory consumption.
+///
+/// [1]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel
+#[cfg(target_os = "windows")]
+#[non_exhaustive]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MemoryUsageLevel {
+  /// The 'Normal' memory usage. Applications should set this level when they are becoming active.
+  #[default]
+  Normal,
+  /// The 'Low' memory usage. Applications can reduce memory comsumption by setting this level when
+  /// they are becoming inactive.
+  Low,
+}
+
 /// Additional methods on `WebView` that are specific to Windows.
 #[cfg(target_os = "windows")]
 pub trait WebviewExtWindows {
@@ -1143,9 +1160,7 @@ pub trait WebviewExtWindows {
   /// Changes the webview2 theme.
   fn set_theme(&self, theme: Theme);
 
-  /// Sets the [memory usage target level][1] to 'Low'. There are two levels 'Low' and 'Normal' and
-  /// the default level is 'Normal'. When the application is going inactive, setting the level to
-  /// 'Low' can significantly reduce the application's memory consumption.
+  /// Sets the [memory usage target level][1].
   ///
   /// When to best use this mode depends on the app in question. Most commonly it's called when
   /// the app's visiblity state changes.
@@ -1157,7 +1172,7 @@ pub trait WebviewExtWindows {
   ///
   /// [1]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel
   /// [2]: https://learn.microsoft.com/de-de/dotnet/api/microsoft.web.webview2.core.corewebview2.memoryusagetargetlevel?view=webview2-dotnet-1.0.2088.41&preserve-view=true#remarks
-  fn set_low_memory_usage(&self, enabled: bool);
+  fn set_memory_usage_level(&self, level: MemoryUsageLevel);
 }
 
 #[cfg(target_os = "windows")]
@@ -1170,8 +1185,8 @@ impl WebviewExtWindows for WebView {
     self.webview.set_theme(theme)
   }
 
-  fn set_low_memory_usage(&self, enabled: bool) {
-    self.webview.set_low_memory_usage(enabled);
+  fn set_memory_usage_level(&self, level: MemoryUsageLevel) {
+    self.webview.set_memory_usage_level(level);
   }
 }
 
