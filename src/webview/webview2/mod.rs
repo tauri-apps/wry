@@ -7,7 +7,8 @@ mod resize;
 
 use crate::{
   webview::{
-    proxy::ProxyConfig, PageLoadEvent, RequestAsyncResponder, WebContext, WebViewAttributes, RGBA,
+    proxy::ProxyConfig, MemoryUsageLevel, PageLoadEvent, RequestAsyncResponder, WebContext,
+    WebViewAttributes, RGBA,
   },
   Error, Result,
 };
@@ -966,6 +967,19 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
   pub fn set_theme(&self, theme: Theme) {
     set_theme(&self.webview, theme);
+  }
+
+  pub fn set_memory_usage_level(&self, level: MemoryUsageLevel) {
+    let Ok(webview) = self.webview.cast::<ICoreWebView2_19>() else {
+      return;
+    };
+    // https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel
+    let level = match level {
+      MemoryUsageLevel::Normal => 0,
+      MemoryUsageLevel::Low => 1,
+    };
+    let level = COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL(level);
+    let _ = unsafe { webview.SetMemoryUsageTargetLevel(level) };
   }
 }
 
