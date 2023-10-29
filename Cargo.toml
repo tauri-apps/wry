@@ -61,7 +61,7 @@ winit = { version = "0.29", package = "winit-gtk", features = [ "serde" ], optio
 webview2-com = "0.27"
 windows-implement = "0.51"
 dunce = "1"
-winit = { version = "0.28", features = [ "serde" ], optional = true }
+winit = { version = "0.29", features = [ "serde" ], optional = true }
 
   [target."cfg(target_os = \"windows\")".dependencies.windows]
   version = "0.51"
@@ -89,7 +89,7 @@ cocoa = "0.25"
 core-graphics = "0.23"
 objc = "0.2"
 objc_id = "0.1"
-winit = { version = "0.28", features = [ "serde" ], optional = true }
+winit = { version = "0.29", features = [ "serde" ], optional = true }
 
 [target."cfg(target_os = \"android\")".dependencies]
 crossbeam-channel = "0.5"
