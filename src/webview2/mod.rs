@@ -72,7 +72,7 @@ impl InnerWebView {
   ) -> Result<Self> {
     let window = match window.window_handle()?.as_raw() {
       RawWindowHandle::Win32(window) => window.hwnd.get(),
-      _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
+      _ => return Err(Error::UnsupportedWindowHandle),
     };
     Self::new_hwnd(HWND(window), attributes, pl_attrs, web_context)
   }
@@ -85,7 +85,7 @@ impl InnerWebView {
   ) -> Result<Self> {
     let parent = match parent.window_handle()?.as_raw() {
       RawWindowHandle::Win32(parent) => parent.hwnd.get(),
-      _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
+      _ => return Err(Error::UnsupportedWindowHandle),
     };
 
     let class_name = encode_wide("WRY_WEBVIEW");

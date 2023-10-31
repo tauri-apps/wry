@@ -94,7 +94,7 @@ impl InnerWebView {
 
     let window = match window.window_handle()?.as_raw() {
       RawWindowHandle::Xlib(w) => w.window,
-      _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
+      _ => return Err(Error::UnsupportedWindowHandle),
     };
 
     let gdk_display = gdk::Display::default().ok_or(Error::X11DisplayNotFound)?;

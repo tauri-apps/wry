@@ -11,7 +11,7 @@ mod proxy;
 #[cfg(target_os = "macos")]
 mod synthetic_mouse_events;
 
-use raw_window_handle::{HandleError, HasWindowHandle, RawWindowHandle};
+use crate::raw_window_handle::RawWindowHandle;
 use url::Url;
 
 #[cfg(target_os = "macos")]
@@ -56,8 +56,7 @@ use crate::{
     },
     navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
   },
-  Error, FileDropEvent, PageLoadEvent, RequestAsyncResponder, Result, WebContext,
-  WebViewAttributes, RGBA,
+  Error, PageLoadEvent, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
 };
 
 use http::{
@@ -68,6 +67,7 @@ use http::{
 };
 
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
+#[cfg(target_os = "macos")]
 const ACCEPT_FIRST_MOUSE: &str = "accept_first_mouse";
 
 const NS_JSON_WRITING_FRAGMENTS_ALLOWED: u64 = 4;
@@ -86,31 +86,33 @@ pub(crate) struct InnerWebView {
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
   page_load_handler: *mut Box<dyn Fn(PageLoadEvent)>,
   #[cfg(target_os = "macos")]
-  file_drop_ptr: *mut Box<dyn Fn(FileDropEvent) -> bool>,
+  file_drop_ptr: *mut Box<dyn Fn(crate::FileDropEvent) -> bool>,
   download_delegate: id,
   protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>>,
 }
 
 impl InnerWebView {
+  #[cfg(feature = "rwh_05")]
   pub fn new(
-    window: &impl HasWindowHandle,
+    window: &impl crate::RawWindowHandle,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    let ns_view = match window.window_handle()?.as_raw() {
+    let ns_view = match window.raw_window_handle() {
       #[cfg(target_os = "macos")]
-      RawWindowHandle::AppKit(w) => w.ns_view.as_ptr(),
+      RawWindowHandle::AppKit(w) => w.ns_view,
       #[cfg(target_os = "ios")]
-      RawWindowHandle::UiKit(w) => w.ui_view.as_ptr(),
-      _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
+      RawWindowHandle::UiKit(w) => w.ui_view,
+      _ => return Err(Error::UnsupportedWindowHandle),
     };
 
     Self::new_ns_view(ns_view as _, attributes, _pl_attrs, _web_context, false)
   }
 
-  pub fn new_as_child(
-    window: &impl HasWindowHandle,
+  #[cfg(feature = "rwh_06")]
+  pub fn new(
+    window: &impl crate::RawWindowHandle,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
@@ -120,7 +122,43 @@ impl InnerWebView {
       RawWindowHandle::AppKit(w) => w.ns_view.as_ptr(),
       #[cfg(target_os = "ios")]
       RawWindowHandle::UiKit(w) => w.ui_view.as_ptr(),
-      _ => return Err(Error::WindowHandleError(HandleError::NotSupported)),
+      _ => return Err(Error::UnsupportedWindowHandle),
+    };
+
+    Self::new_ns_view(ns_view as _, attributes, _pl_attrs, _web_context, false)
+  }
+
+  #[cfg(feature = "rwh_05")]
+  pub fn new_as_child(
+    window: &impl crate::RawWindowHandle,
+    attributes: WebViewAttributes,
+    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    _web_context: Option<&mut WebContext>,
+  ) -> Result<Self> {
+    let ns_view = match window.raw_window_handle() {
+      #[cfg(target_os = "macos")]
+      RawWindowHandle::AppKit(w) => w.ns_view,
+      #[cfg(target_os = "ios")]
+      RawWindowHandle::UiKit(w) => w.ui_view,
+      _ => return Err(Error::UnsupportedWindowHandle),
+    };
+
+    Self::new_ns_view(ns_view as _, attributes, _pl_attrs, _web_context, true)
+  }
+
+  #[cfg(feature = "rwh_06")]
+  pub fn new_as_child(
+    window: &impl crate::RawWindowHandle,
+    attributes: WebViewAttributes,
+    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    _web_context: Option<&mut WebContext>,
+  ) -> Result<Self> {
+    let ns_view = match window.window_handle()?.as_raw() {
+      #[cfg(target_os = "macos")]
+      RawWindowHandle::AppKit(w) => w.ns_view.as_ptr(),
+      #[cfg(target_os = "ios")]
+      RawWindowHandle::UiKit(w) => w.ui_view.as_ptr(),
+      _ => return Err(Error::UnsupportedWindowHandle),
     };
 
     Self::new_ns_view(ns_view as _, attributes, _pl_attrs, _web_context, true)
