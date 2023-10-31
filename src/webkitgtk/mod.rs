@@ -8,7 +8,6 @@ use gtk::gdk::{self, EventMask};
 use gtk::gio::Cancellable;
 use gtk::prelude::*;
 use javascriptcore::ValueExt;
-use raw_window_handle::{HandleError, HasWindowHandle, RawWindowHandle};
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -33,6 +32,8 @@ use crate::{
   proxy::ProxyConfig, web_context::WebContext, Error, PageLoadEvent, Result, WebViewAttributes,
   RGBA,
 };
+
+use crate::{raw_window_handle::RawWindowHandle, RawWindowHandleTrait};
 
 mod file_drop;
 mod synthetic_mouse_events;
@@ -65,7 +66,7 @@ impl Drop for InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new<W: HasWindowHandle>(
+  pub fn new<W: RawWindowHandleTrait>(
     window: &W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
@@ -74,7 +75,7 @@ impl InnerWebView {
     Self::new_x11(window, attributes, pl_attrs, web_context, false)
   }
 
-  pub fn new_as_child<W: HasWindowHandle>(
+  pub fn new_as_child<W: RawWindowHandleTrait>(
     parent: &W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
@@ -83,7 +84,7 @@ impl InnerWebView {
     Self::new_x11(parent, attributes, pl_attrs, web_context, true)
   }
 
-  fn new_x11<W: HasWindowHandle>(
+  fn new_x11<W: RawWindowHandleTrait>(
     window: &W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
@@ -92,7 +93,14 @@ impl InnerWebView {
   ) -> Result<Self> {
     let xlib = Xlib::open()?;
 
-    let window = match window.window_handle()?.as_raw() {
+    #[cfg(feature = "rwh_05")]
+    let window_handle = match window.raw_window_handle() {
+      RawWindowHandle::Xlib(w) => w.window,
+      _ => return Err(Error::UnsupportedWindowHandle),
+    };
+
+    #[cfg(feature = "rwh_06")]
+    let window_handle = match window.window_handle()?.as_raw() {
       RawWindowHandle::Xlib(w) => w.window,
       _ => return Err(Error::UnsupportedWindowHandle),
     };
@@ -106,7 +114,7 @@ impl InnerWebView {
       let child = unsafe {
         (xlib.XCreateSimpleWindow)(
           display as _,
-          window,
+          window_handle,
           attributes.position.map(|p| p.0).unwrap_or(0),
           attributes.position.map(|p| p.1).unwrap_or(0),
           attributes.size.map(|s| s.0).unwrap_or(0),
@@ -121,7 +129,7 @@ impl InnerWebView {
       }
       child
     } else {
-      window
+      window_handle
     };
 
     let gdk_window = unsafe {
