@@ -548,11 +548,6 @@ impl<'a> WebViewBuilder<'a> {
   ///   Although this methods only needs an X11 window handle, we use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
   ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
-  /// - **macOS**: This method is as same as `new_as_child` which will create the webview as a `NSView` subview of the `parent` window's
-  ///   content view. The webview will auto-resize when the passed handle is resized. If you want
-  ///   to prevent several bugs with menu items, accelerators, IME, cursor icons not working because of
-  ///   existing content view blocks the event chain (like how `winit` does), use `new_as_content_view` instead.
-  /// content view.
   /// - **Windows**: The webview will auto-resize when the passed handle is resized.
   /// - **Linux (X11)**: Unlike macOS and Windows, the webview will not auto-resize and you'll need to call [`WebView::set_size`] manually.
   ///
@@ -564,10 +559,7 @@ impl<'a> WebViewBuilder<'a> {
     Self {
       attrs: WebViewAttributes::default(),
       window: Some(window),
-      #[cfg(not(target_os = "macos"))]
       as_child: false,
-      #[cfg(target_os = "macos")]
-      as_child: true,
       #[allow(clippy::default_constructed_unit_structs)]
       platform_specific: PlatformSpecificWebViewAttributes::default(),
       web_context: None,
@@ -587,8 +579,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// - **Windows**: This will create the webview as a child window of the `parent` window.
-  /// - **macOS**: This will create the webview as a `NSView` subview of the `parent` window's
-  /// content view.
+  /// - **macOS**: This will create the webview as the contentView of the `parent` window.
   /// - **Linux**: This will create the webview as a child window of the `parent` window. Only X11
   /// is supported. This method won't work on Wayland.
   ///
@@ -620,14 +611,16 @@ impl<'a> WebViewBuilder<'a> {
     }
   }
 
-  /// Create the webview as the content view instead of subview on macOS to avoid original content
-  /// view blocks several event delegate methods.
+  /// This method is as same as `new_as_child` which will create the webview as a `NSView` subview of the `parent` window's
+  /// content view. The webview will auto-resize when the passed handle is resized. If you want
+  /// to prevent several bugs with menu items, accelerators, IME, cursor icons not working because of
+  /// existing content view blocks the event chain (like how `winit` does), use `new` instead.
   #[cfg(target_os = "macos")]
-  pub fn new_as_content_view(window: &'a impl RawWindowHandleTrait) -> Self {
+  pub fn new_as_subview(window: &'a impl RawWindowHandleTrait) -> Self {
     Self {
       attrs: WebViewAttributes::default(),
       window: Some(window),
-      as_child: false,
+      as_child: true,
       #[allow(clippy::default_constructed_unit_structs)]
       platform_specific: PlatformSpecificWebViewAttributes::default(),
       web_context: None,
