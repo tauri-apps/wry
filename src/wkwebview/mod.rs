@@ -441,7 +441,9 @@ impl InnerWebView {
         );
         let _: () = msg_send![webview, initWithFrame:frame configuration:config];
         // Auto-resize on macOS
-        webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
+        if !is_child {
+          webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
+        }
       }
 
       #[cfg(target_os = "ios")]
