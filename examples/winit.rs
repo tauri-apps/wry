@@ -33,9 +33,13 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  let _webview = WebViewBuilder::new(&window)
-    .with_url("https://tauri.app")?
-    .build()?;
+  let mut builder = WebViewBuilder::new(&window);
+  #[cfg(target_os = "macos")]
+  {
+    use wry::WebViewBuilderExtMacOS;
+    builder = builder.with_as_subview(true);
+  }
+  let _webview = builder.with_url("https://tauri.app")?.build()?;
 
   event_loop
     .run(move |event, evl| {

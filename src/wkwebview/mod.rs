@@ -97,7 +97,7 @@ impl InnerWebView {
   pub fn new(
     window: &impl crate::RawWindowHandleTrait,
     attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let ns_view = match window.raw_window_handle() {
@@ -108,14 +108,14 @@ impl InnerWebView {
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 
-    Self::new_ns_view(ns_view as _, attributes, _pl_attrs, _web_context, false)
+    Self::new_ns_view(ns_view as _, attributes, pl_attrs, _web_context, false)
   }
 
   #[cfg(feature = "rwh_06")]
   pub fn new(
     window: &impl crate::RawWindowHandleTrait,
     attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let ns_view = match window.window_handle()?.as_raw() {
@@ -126,14 +126,14 @@ impl InnerWebView {
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 
-    Self::new_ns_view(ns_view as _, attributes, _pl_attrs, _web_context, false)
+    Self::new_ns_view(ns_view as _, attributes, pl_attrs, _web_context, false)
   }
 
   #[cfg(feature = "rwh_05")]
   pub fn new_as_child(
     window: &impl crate::RawWindowHandleTrait,
     attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let ns_view = match window.raw_window_handle() {
@@ -144,14 +144,14 @@ impl InnerWebView {
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 
-    Self::new_ns_view(ns_view as _, attributes, _pl_attrs, _web_context, true)
+    Self::new_ns_view(ns_view as _, attributes, pl_attrs, _web_context, true)
   }
 
   #[cfg(feature = "rwh_06")]
   pub fn new_as_child(
     window: &impl crate::RawWindowHandleTrait,
     attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let ns_view = match window.window_handle()?.as_raw() {
@@ -162,13 +162,13 @@ impl InnerWebView {
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 
-    Self::new_ns_view(ns_view as _, attributes, _pl_attrs, _web_context, true)
+    Self::new_ns_view(ns_view as _, attributes, pl_attrs, _web_context, true)
   }
 
   fn new_ns_view(
     ns_view: id,
     attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
     is_child: bool,
   ) -> Result<Self> {
@@ -902,7 +902,7 @@ r#"Object.defineProperty(window, 'ipc', {
       // Inject the web view into the window as main content
       #[cfg(target_os = "macos")]
       {
-        if is_child {
+        if is_child || pl_attrs.as_subview {
           let _: () = msg_send![ns_view, addSubview: webview];
         } else {
           let parent_view_cls = match ClassDecl::new("WryWebViewParent", class!(NSView)) {

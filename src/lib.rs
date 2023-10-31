@@ -611,22 +611,6 @@ impl<'a> WebViewBuilder<'a> {
     }
   }
 
-  /// This method is as same as `new_as_child` which will create the webview as a `NSView` subview of the `parent` window's
-  /// content view. The webview will auto-resize when the passed handle is resized. If you want
-  /// to prevent several bugs with menu items, accelerators, IME, cursor icons not working because of
-  /// existing content view blocks the event chain (like how `winit` does), use `new` instead.
-  #[cfg(target_os = "macos")]
-  pub fn new_as_subview(window: &'a impl RawWindowHandleTrait) -> Self {
-    Self {
-      attrs: WebViewAttributes::default(),
-      window: Some(window),
-      as_child: true,
-      #[allow(clippy::default_constructed_unit_structs)]
-      platform_specific: PlatformSpecificWebViewAttributes::default(),
-      web_context: None,
-    }
-  }
-
   #[cfg(any(
     target_os = "linux",
     target_os = "dragonfly",
@@ -1213,6 +1197,29 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
   }
 }
 
+#[cfg(target_os = "macos")]
+#[derive(Default)]
+pub(crate) struct PlatformSpecificWebViewAttributes {
+  as_subview: bool,
+}
+
+#[cfg(target_os = "macos")]
+pub trait WebViewBuilderExtMacOS {
+  /// create the webview as a `NSView` subview of the `parent` window's
+  /// content view. The webview will auto-resize when the passed handle is resized. If you want
+  /// to prevent several bugs with menu items, accelerators, IME, cursor icons not working because of
+  /// existing content view blocks the event chain (like how `winit` does), do not enable this.
+  fn with_as_subview(self, subview: bool) -> Self;
+}
+
+#[cfg(target_os = "macos")]
+impl WebViewBuilderExtMacOS for WebViewBuilder<'_> {
+  fn with_as_subview(mut self, subview: bool) -> Self {
+    self.platform_specific.as_subview = subview;
+    self
+  }
+}
+
 /// The fundamental type to present a [`WebView`].
 ///
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
@@ -1556,7 +1563,6 @@ pub enum PageLoadEvent {
   target_os = "freebsd",
   target_os = "netbsd",
   target_os = "openbsd",
-  target_os = "macos",
   target_os = "ios",
 ))]
 #[derive(Default)]
