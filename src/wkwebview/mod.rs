@@ -17,6 +17,7 @@ use url::Url;
 #[cfg(target_os = "macos")]
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
 use cocoa::{
+  appkit::NSWindow,
   base::{id, nil, NO, YES},
   foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
@@ -436,7 +437,7 @@ impl InnerWebView {
         let (x, y) = attributes.position.unwrap_or((0, 0));
         let (w, h) = attributes.size.unwrap_or((0, 0));
         let frame: CGRect = CGRect::new(
-          &CGPoint::new(x as f64, y as f64),
+          &window_position(ns_view, (x, y), (w as f64, h as f64)),
           &CGSize::new(w as f64, h as f64),
         );
         let _: () = msg_send![webview, initWithFrame:frame configuration:config];
@@ -1116,7 +1117,11 @@ r#"Object.defineProperty(window, 'ipc', {
     if self.is_child {
       unsafe {
         let mut frame: CGRect = msg_send![self.webview, frame];
-        frame.origin = CGPoint::new(position.0 as f64, position.1 as f64);
+        frame.origin = window_position(
+          msg_send![self.webview, superview],
+          (position.0, position.1),
+          (frame.size.width, frame.size.height),
+        );
         let () = msg_send![self.webview, setFrame: frame];
       }
     }
@@ -1270,3 +1275,14 @@ impl From<NSData> for NSString {
 }
 
 struct NSData(id);
+
+/// Converts from wry screen-coordinates to macOS screen-coordinates.
+/// wry: top-left is (0, 0) and y increasing downwards
+/// macOS: bottom-left is (0, 0) and y increasing upwards
+unsafe fn window_position(ns_view: id, position: (i32, i32), size: (f64, f64)) -> CGPoint {
+  let frame = NSWindow::frame(ns_view);
+  CGPoint::new(
+    position.0 as f64,
+    frame.size.height - position.1 as f64 - size.1,
+  )
+}

@@ -37,7 +37,7 @@ fn main() -> wry::Result<()> {
 
   let webview = WebViewBuilder::new_as_child(&window)
     .with_position((0, 0))
-    .with_size((size.width / 4, size.height / 4))
+    .with_size((size.width / 2, size.height / 2))
     .with_url("https://tauri.app")?
     .build()?;
   let webview2 = WebViewBuilder::new_as_child(&window)
