@@ -33,6 +33,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
+  #[allow(unused_mut)]
   let mut builder = WebViewBuilder::new(&window);
   #[cfg(target_os = "macos")]
   {

@@ -2,11 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use gdkx11::glib::translate::{FromGlibPtrFull, ToGlibPtr};
-use gdkx11::X11Display;
-use gtk::gdk::{self, EventMask};
-use gtk::gio::Cancellable;
-use gtk::prelude::*;
+use gdkx11::{
+  glib::translate::{FromGlibPtrFull, ToGlibPtr},
+  X11Display,
+};
+use gtk::{
+  gdk::{self, EventMask},
+  gio::Cancellable,
+  prelude::*,
+};
 use javascriptcore::ValueExt;
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};

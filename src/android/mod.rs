@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use super::{PageLoadEvent, WebContext, WebViewAttributes, RGBA};
-use crate::RawWindowHandleTrait;
-use crate::{RequestAsyncResponder, Result};
+use crate::{RawWindowHandleTrait, RequestAsyncResponder, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
 use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};

@@ -28,7 +28,7 @@ macro_rules! android_binding {
     ::wry::android_binding!($domain, $package, ::wry)
   };
   ($domain:ident, $package:ident, $wry:path) => {{
-    use $wry::{prelude::android_fn, prelude::*};
+    use $wry::prelude::*;
 
     android_fn!(
       $domain,

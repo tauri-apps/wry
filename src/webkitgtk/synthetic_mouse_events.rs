@@ -1,7 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
-use gtk::gdk::{EventButton, ModifierType};
-use gtk::prelude::*;
+use gtk::{
+  gdk::{EventButton, ModifierType},
+  prelude::*,
+};
 use webkit2gtk::{WebView, WebViewExt};
 
 pub fn setup(webview: &WebView) {
