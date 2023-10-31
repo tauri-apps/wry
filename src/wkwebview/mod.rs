@@ -17,7 +17,7 @@ use url::Url;
 #[cfg(target_os = "macos")]
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
 use cocoa::{
-  appkit::NSWindow,
+  appkit::{NSViewMinYMargin, NSWindow},
   base::{id, nil, NO, YES},
   foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
@@ -441,8 +441,11 @@ impl InnerWebView {
           &CGSize::new(w as f64, h as f64),
         );
         let _: () = msg_send![webview, initWithFrame:frame configuration:config];
-        // Auto-resize on macOS
-        if !is_child {
+        if is_child {
+          // fixed element
+          webview.setAutoresizingMask_(NSViewMinYMargin);
+        } else {
+          // Auto-resize
           webview.setAutoresizingMask_(NSViewHeightSizable | NSViewWidthSizable);
         }
       }
