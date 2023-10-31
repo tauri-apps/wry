@@ -94,7 +94,7 @@ pub(crate) struct InnerWebView {
 impl InnerWebView {
   #[cfg(feature = "rwh_05")]
   pub fn new(
-    window: &impl crate::RawWindowHandle,
+    window: &impl crate::RawWindowHandleTrait,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
@@ -112,7 +112,7 @@ impl InnerWebView {
 
   #[cfg(feature = "rwh_06")]
   pub fn new(
-    window: &impl crate::RawWindowHandle,
+    window: &impl crate::RawWindowHandleTrait,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
@@ -130,7 +130,7 @@ impl InnerWebView {
 
   #[cfg(feature = "rwh_05")]
   pub fn new_as_child(
-    window: &impl crate::RawWindowHandle,
+    window: &impl crate::RawWindowHandleTrait,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
@@ -148,7 +148,7 @@ impl InnerWebView {
 
   #[cfg(feature = "rwh_06")]
   pub fn new_as_child(
-    window: &impl crate::RawWindowHandle,
+    window: &impl crate::RawWindowHandleTrait,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,

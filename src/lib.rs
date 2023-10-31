@@ -241,9 +241,9 @@ use std::{borrow::Cow, path::PathBuf, rc::Rc};
 use http::{Request, Response};
 
 #[cfg(feature = "rwh_05")]
-use raw_window_handle::HasRawWindowHandle as RawWindowHandle;
+use raw_window_handle::HasRawWindowHandle as RawWindowHandleTrait;
 #[cfg(feature = "rwh_06")]
-use raw_window_handle::HasWindowHandle as RawWindowHandle;
+use raw_window_handle::HasWindowHandle as RawWindowHandleTrait;
 
 pub use error::*;
 pub use http;
@@ -525,7 +525,7 @@ impl Default for WebViewAttributes {
 pub struct WebViewBuilder<'a> {
   pub attrs: WebViewAttributes,
   as_child: bool,
-  window: Option<&'a dyn RawWindowHandle>,
+  window: Option<&'a dyn RawWindowHandleTrait>,
   platform_specific: PlatformSpecificWebViewAttributes,
   web_context: Option<&'a mut WebContext>,
   #[cfg(any(
@@ -539,7 +539,7 @@ pub struct WebViewBuilder<'a> {
 }
 
 impl<'a> WebViewBuilder<'a> {
-  /// Create a [`WebViewBuilder`] from a type that implements [`RawWindowHandle`].
+  /// Create a [`WebViewBuilder`] from a type that implements [`RawWindowHandleTrait`].
   ///
   /// # Platform-specific:
   ///
@@ -560,7 +560,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// - Panics if the provided handle was not supported or invalid.
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
-  pub fn new(window: &'a impl RawWindowHandle) -> Self {
+  pub fn new(window: &'a impl RawWindowHandleTrait) -> Self {
     Self {
       attrs: WebViewAttributes::default(),
       window: Some(window),
@@ -582,7 +582,7 @@ impl<'a> WebViewBuilder<'a> {
     }
   }
 
-  /// Create [`WebViewBuilder`] as a child window inside the provided [`RawWindowHandle`].
+  /// Create [`WebViewBuilder`] as a child window inside the provided [`RawWindowHandleTrait`].
   ///
   /// ## Platform-specific
   ///
@@ -601,7 +601,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// - Panics if the provided handle was not support or invalid.
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
-  pub fn new_as_child(parent: &'a impl RawWindowHandle) -> Self {
+  pub fn new_as_child(parent: &'a impl RawWindowHandleTrait) -> Self {
     Self {
       attrs: WebViewAttributes::default(),
       window: Some(parent),
@@ -623,7 +623,7 @@ impl<'a> WebViewBuilder<'a> {
   /// Create the webview as the content view instead of subview on macOS to avoid original content
   /// view blocks several event delegate methods.
   #[cfg(target_os = "macos")]
-  pub fn new_as_content_view(window: &'a impl RawWindowHandle) -> Self {
+  pub fn new_as_content_view(window: &'a impl RawWindowHandleTrait) -> Self {
     Self {
       attrs: WebViewAttributes::default(),
       window: Some(window),
@@ -1249,11 +1249,11 @@ impl WebView {
   ///
   /// - Panics if the provided handle was not supported or invalid.
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
-  pub fn new(window: &impl RawWindowHandle) -> Result<Self> {
+  pub fn new(window: &impl RawWindowHandleTrait) -> Result<Self> {
     WebViewBuilder::new(window).build()
   }
 
-  /// Create [`WebViewBuilder`] as a child window inside the provided [`RawWindowHandle`].
+  /// Create [`WebViewBuilder`] as a child window inside the provided [`RawWindowHandleTrait`].
   ///
   /// ## Platform-specific
   ///
@@ -1272,7 +1272,7 @@ impl WebView {
   ///
   /// - Panics if the provided handle was not support or invalid.
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
-  pub fn new_as_child(parent: &impl RawWindowHandle) -> Result<Self> {
+  pub fn new_as_child(parent: &impl RawWindowHandleTrait) -> Result<Self> {
     WebViewBuilder::new_as_child(parent).build()
   }
 
