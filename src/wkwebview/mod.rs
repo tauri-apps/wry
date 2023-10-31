@@ -435,10 +435,22 @@ impl InnerWebView {
       #[cfg(target_os = "macos")]
       {
         let (x, y) = attributes.position.unwrap_or((0, 0));
-        let (w, h) = attributes.size.unwrap_or((0, 0));
+
+        let (w, h) = attributes.size.unwrap_or_else(|| {
+          if pl_attrs.as_subview {
+            let frame = NSView::frame(ns_view);
+            (frame.size.width as u32, frame.size.height as u32)
+          } else {
+            (0, 0)
+          }
+        });
         let frame: CGRect = CGRect::new(
           &window_position(
-            if is_child { ns_view } else { webview },
+            if is_child || pl_attrs.as_subview {
+              ns_view
+            } else {
+              webview
+            },
             (x, y),
             (w as f64, h as f64),
           ),
@@ -1286,8 +1298,8 @@ struct NSData(id);
 /// Converts from wry screen-coordinates to macOS screen-coordinates.
 /// wry: top-left is (0, 0) and y increasing downwards
 /// macOS: bottom-left is (0, 0) and y increasing upwards
-unsafe fn window_position(ns_view: id, position: (i32, i32), size: (f64, f64)) -> CGPoint {
-  let frame = NSWindow::frame(ns_view);
+unsafe fn window_position(view: id, position: (i32, i32), size: (f64, f64)) -> CGPoint {
+  let frame = NSWindow::frame(view);
   CGPoint::new(
     position.0 as f64,
     frame.size.height - position.1 as f64 - size.1,
