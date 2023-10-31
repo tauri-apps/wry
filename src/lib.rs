@@ -545,12 +545,12 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewBuilder::new_gtk`].
   ///
-  ///   Although this methods only needs an X11 window handle, you use webkit2gtk, so you still need to initialize gtk
+  ///   Although this methods only needs an X11 window handle, we use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
   ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
   /// - **macOS**: This method is as same as `new_as_child` which will create the webview as a `NSView` subview of the `parent` window's
-  ///   content view. The webview will auto-resize when the passed handle is resized. If you wan
-  ///   to prevent several bugs menu items, accelerators, IME, cursor icons not working because of
+  ///   content view. The webview will auto-resize when the passed handle is resized. If you want
+  ///   to prevent several bugs with menu items, accelerators, IME, cursor icons not working because of
   ///   existing content view blocks the event chain (like how `winit` does), use `new_as_content_view` instead.
   /// content view.
   /// - **Windows**: The webview will auto-resize when the passed handle is resized.
