@@ -78,6 +78,7 @@ fn main() -> wry::Result<()> {
         } => {
           let size = size.to_logical::<u32>(window.scale_factor());
           webview.set_size((size.width / 2, size.height / 2));
+          webview.set_position((0, 0));
           webview2.set_position(((size.width / 2) as i32, 0));
           webview2.set_size((size.width / 2, size.height / 2));
           webview3.set_position((0, (size.height / 2) as i32));
