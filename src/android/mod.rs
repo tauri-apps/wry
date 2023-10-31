@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use super::{PageLoadEvent, WebContext, WebViewAttributes, RGBA};
+use crate::RawWindowHandleTrait;
 use crate::{RequestAsyncResponder, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
@@ -19,7 +20,6 @@ use jni::{
 use kuchiki::NodeRef;
 use ndk::looper::{FdEvent, ForeignLooper};
 use once_cell::sync::OnceCell;
-use raw_window_handle::HasWindowHandle;
 use sha2::{Digest, Sha256};
 use std::{borrow::Cow, sync::mpsc::channel};
 use url::Url;
@@ -115,7 +115,7 @@ pub(crate) struct InnerWebView;
 
 impl InnerWebView {
   pub fn new_as_child(
-    _window: &impl HasWindowHandle,
+    _window: &impl RawWindowHandleTrait,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
@@ -124,7 +124,7 @@ impl InnerWebView {
   }
 
   pub fn new(
-    _window: &impl HasWindowHandle,
+    _window: &impl RawWindowHandleTrait,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
