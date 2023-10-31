@@ -11,7 +11,6 @@ use std::{
 
 use http::{Request, Response as HttpResponse, StatusCode};
 use once_cell::sync::Lazy;
-use raw_window_handle::{HandleError, HasWindowHandle, RawWindowHandle};
 use url::Url;
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 use windows::{
@@ -41,8 +40,8 @@ use windows::{
 use self::file_drop::FileDropController;
 use super::Theme;
 use crate::{
-  proxy::ProxyConfig, Error, PageLoadEvent, RequestAsyncResponder, Result, WebContext,
-  WebViewAttributes, RGBA,
+  proxy::ProxyConfig, raw_window_handle::RawWindowHandle, Error, PageLoadEvent,
+  RawWindowHandleTrait, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
 };
 
 impl From<webview2_com::Error> for Error {
@@ -64,8 +63,23 @@ pub(crate) struct InnerWebView {
 }
 
 impl InnerWebView {
+  #[cfg(feature = "rwh_05")]
   pub fn new(
-    window: &impl HasWindowHandle,
+    window: &impl RawWindowHandleTrait,
+    attributes: WebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
+    web_context: Option<&mut WebContext>,
+  ) -> Result<Self> {
+    let window = match window.raw_window_handle() {
+      RawWindowHandle::Win32(window) => window.hwnd as _,
+      _ => return Err(Error::UnsupportedWindowHandle),
+    };
+    Self::new_hwnd(HWND(window), attributes, pl_attrs, web_context)
+  }
+
+  #[cfg(feature = "rwh_06")]
+  pub fn new(
+    window: &impl RawWindowHandleTrait,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
@@ -78,11 +92,17 @@ impl InnerWebView {
   }
 
   pub fn new_as_child(
-    parent: &impl HasWindowHandle,
+    parent: &impl RawWindowHandleTrait,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
+    #[cfg(feature = "rwh_05")]
+    let parent = match parent.raw_window_handle() {
+      RawWindowHandle::Win32(parent) => parent.hwnd as _,
+      _ => return Err(Error::UnsupportedWindowHandle),
+    };
+    #[cfg(feature = "rwh_06")]
     let parent = match parent.window_handle()?.as_raw() {
       RawWindowHandle::Win32(parent) => parent.hwnd.get(),
       _ => return Err(Error::UnsupportedWindowHandle),
