@@ -437,7 +437,11 @@ impl InnerWebView {
         let (x, y) = attributes.position.unwrap_or((0, 0));
         let (w, h) = attributes.size.unwrap_or((0, 0));
         let frame: CGRect = CGRect::new(
-          &window_position(ns_view, (x, y), (w as f64, h as f64)),
+          &window_position(
+            if is_child { ns_view } else { webview },
+            (x, y),
+            (w as f64, h as f64),
+          ),
           &CGSize::new(w as f64, h as f64),
         );
         let _: () = msg_send![webview, initWithFrame:frame configuration:config];
