@@ -104,4 +104,4 @@ http-range = "0.1.5"
 pollster = "0.3.0"
 tao = { git = "https://github.com/tauri-apps/tao", default-features = false, features = ["rwh_06"] }
 wgpu = "0.18.0"
-winit = { version = "0.29", features = ["rwh_06"] }
+winit = { version = "0.29", features = ["rwh_05"] }

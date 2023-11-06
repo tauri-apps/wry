@@ -167,7 +167,7 @@ impl InnerWebView {
   fn new_ns_view(
     ns_view: id,
     attributes: WebViewAttributes,
-    pl_attrs: super::PlatformSpecificWebViewAttributes,
+    _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
     is_child: bool,
   ) -> Result<Self> {
@@ -436,7 +436,7 @@ impl InnerWebView {
         let (x, y) = attributes.position.unwrap_or((0, 0));
 
         let (w, h) = attributes.size.unwrap_or_else(|| {
-          if pl_attrs.as_subview {
+          if is_child {
             let frame = NSView::frame(ns_view);
             (frame.size.width as u32, frame.size.height as u32)
           } else {
@@ -445,7 +445,7 @@ impl InnerWebView {
         });
         let frame: CGRect = CGRect::new(
           &window_position(
-            if is_child || pl_attrs.as_subview {
+            if is_child {
               ns_view
             } else {
               webview
@@ -913,7 +913,7 @@ r#"Object.defineProperty(window, 'ipc', {
       // Inject the web view into the window as main content
       #[cfg(target_os = "macos")]
       {
-        if is_child || pl_attrs.as_subview {
+        if is_child {
           let _: () = msg_send![ns_view, addSubview: webview];
         } else {
           let parent_view_cls = match ClassDecl::new("WryWebViewParent", class!(NSView)) {
