@@ -40,7 +40,7 @@ use windows::{
 use self::file_drop::FileDropController;
 use super::Theme;
 use crate::{
-  proxy::ProxyConfig, raw_window_handle::RawWindowHandle, Error, PageLoadEvent,
+  proxy::ProxyConfig, raw_window_handle::RawWindowHandle, Error, MemoryUsageLevel, PageLoadEvent,
   RawWindowHandleTrait, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
 };
 
@@ -1061,6 +1061,19 @@ impl InnerWebView {
 
       let _ = self.controller.SetIsVisible(visible);
     }
+  }
+
+  pub fn set_memory_usage_level(&self, level: MemoryUsageLevel) {
+    let Ok(webview) = self.webview.cast::<ICoreWebView2_19>() else {
+      return;
+    };
+    // https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel
+    let level = match level {
+      MemoryUsageLevel::Normal => 0,
+      MemoryUsageLevel::Low => 1,
+    };
+    let level = COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL(level);
+    let _ = unsafe { webview.SetMemoryUsageTargetLevel(level) };
   }
 }
 

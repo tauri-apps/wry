@@ -11,7 +11,6 @@ use std::{
   io::{BufRead, BufReader},
   path::PathBuf,
   process::{Command, Output, Stdio},
-  u64,
 };
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug)]
@@ -46,12 +45,11 @@ pub fn get_target() -> &'static str {
 }
 
 pub fn target_dir() -> PathBuf {
-  let target_dir = bench_root_path()
+  bench_root_path()
     .join("tests")
     .join("target")
     .join(get_target())
-    .join("release");
-  target_dir.into()
+    .join("release")
 }
 
 pub fn bench_root_path() -> PathBuf {
@@ -93,16 +91,14 @@ pub fn parse_max_mem(file_path: &str) -> Option<u64> {
   let output = BufReader::new(file);
   let mut highest: u64 = 0;
   // MEM 203.437500 1621617192.4123
-  for line in output.lines() {
-    if let Ok(line) = line {
-      // split line by space
-      let split = line.split(" ").collect::<Vec<_>>();
-      if split.len() == 3 {
-        // mprof generate result in MB
-        let current_bytes = str::parse::<f64>(split[1]).unwrap() as u64 * 1024 * 1024;
-        if current_bytes > highest {
-          highest = current_bytes;
-        }
+  for line in output.lines().flatten() {
+    // split line by space
+    let split = line.split(' ').collect::<Vec<_>>();
+    if split.len() == 3 {
+      // mprof generate result in MB
+      let current_bytes = str::parse::<f64>(split[1]).unwrap() as u64 * 1024 * 1024;
+      if current_bytes > highest {
+        highest = current_bytes;
       }
     }
   }
