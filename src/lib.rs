@@ -18,11 +18,9 @@
 //! use wry::WebViewBuilder;
 //!
 //! # struct T;
-//! # impl rwh_06::HasWindowHandle for T {
-//! #   fn window_handle(&self) -> Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
-//! #      Ok(unsafe { rwh_06::WindowHandle::borrow_raw(rwh_06::RawWindowHandle::Win32(
-//! #        rwh_06::Win32WindowHandle::new(std::num::NonZeroIsize::new_unchecked(1)),
-//! #      )) })
+//! # unsafe impl raw_window_handle::HasRawWindowHandle for T {
+//! #   fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+//! #     raw_window_handle::RawWindowHandle::Win32(raw_window_handle::Win32WindowHandle::empty())
 //! #   }
 //! # }
 //! # let window = T;
@@ -72,11 +70,9 @@
 //! use wry::WebViewBuilder;
 //!
 //! # struct T;
-//! # impl rwh_06::HasWindowHandle for T {
-//! #   fn window_handle(&self) -> Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
-//! #      Ok(unsafe { rwh_06::WindowHandle::borrow_raw(rwh_06::RawWindowHandle::Win32(
-//! #        rwh_06::Win32WindowHandle::new(std::num::NonZeroIsize::new_unchecked(1)),
-//! #      )) })
+//! # unsafe impl raw_window_handle::HasRawWindowHandle for T {
+//! #   fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+//! #     raw_window_handle::RawWindowHandle::Win32(raw_window_handle::Win32WindowHandle::empty())
 //! #   }
 //! # }
 //! # let window = T;
@@ -732,11 +728,9 @@ impl<'a> WebViewBuilder<'a> {
   /// use wry::WebViewBuilder;
   ///
   /// # struct T;
-  /// # impl rwh_06::HasWindowHandle for T {
-  /// #   fn window_handle(&self) -> Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
-  /// #      Ok(unsafe { rwh_06::WindowHandle::borrow_raw(rwh_06::RawWindowHandle::Win32(
-  /// #        rwh_06::Win32WindowHandle::new(std::num::NonZeroIsize::new_unchecked(1)),
-  /// #      )) })
+  /// # unsafe impl raw_window_handle::HasRawWindowHandle for T {
+  /// #   fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+  /// #     raw_window_handle::RawWindowHandle::Win32(raw_window_handle::Win32WindowHandle::empty())
   /// #   }
   /// # }
   /// # let window = T;
