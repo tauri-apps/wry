@@ -1117,6 +1117,10 @@ r#"Object.defineProperty(window, 'ipc', {
       let () = msg_send![self.webview, setHidden: !visible];
     }
   }
+
+  pub fn focus(&self) {
+    // Unimplemented
+  }
 }
 
 pub fn url_from_webview(webview: id) -> String {

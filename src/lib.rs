@@ -1366,6 +1366,11 @@ impl WebView {
   pub fn set_visible(&self, visible: bool) {
     self.webview.set_visible(visible)
   }
+
+  /// Try moving focus to the webview.
+  pub fn focus(&self) {
+    self.webview.focus()
+  }
 }
 
 /// An event describing the files drop on the webview.

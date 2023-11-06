@@ -1053,6 +1053,14 @@ impl InnerWebView {
     }
   }
 
+  pub fn focus(&self) {
+    unsafe {
+      let _ = self
+        .controller
+        .MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+    }
+  }
+
   pub fn set_memory_usage_level(&self, level: MemoryUsageLevel) {
     let Ok(webview) = self.webview.cast::<ICoreWebView2_19>() else {
       return;

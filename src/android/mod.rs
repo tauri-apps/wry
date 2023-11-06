@@ -335,6 +335,10 @@ impl InnerWebView {
   pub fn set_visible(&self, _visible: bool) {
     // Unsupported
   }
+
+  pub fn focus(&self) {
+    // Unsupported
+  }
 }
 
 #[derive(Clone, Copy)]

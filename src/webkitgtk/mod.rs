@@ -634,6 +634,10 @@ impl InnerWebView {
       }
     }
   }
+
+  pub fn focus(&self) {
+    // Unimplemented
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {
