@@ -15,8 +15,8 @@ use crate::raw_window_handle::RawWindowHandle;
 use url::Url;
 
 #[cfg(target_os = "macos")]
+use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewMinYMargin, NSViewWidthSizable};
 use cocoa::{
-  appkit::{NSView, NSViewHeightSizable, NSViewMinYMargin, NSViewWidthSizable, NSWindow},
   base::{id, nil, NO, YES},
   foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
@@ -1298,7 +1298,7 @@ struct NSData(id);
 /// wry: top-left is (0, 0) and y increasing downwards
 /// macOS: bottom-left is (0, 0) and y increasing upwards
 unsafe fn window_position(view: id, position: (i32, i32), size: (f64, f64)) -> CGPoint {
-  let frame = NSWindow::frame(view);
+  let frame: CGRect = msg_send![view, frame];
   CGPoint::new(
     position.0 as f64,
     frame.size.height - position.1 as f64 - size.1,
