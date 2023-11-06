@@ -1119,7 +1119,10 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn focus(&self) {
-    // Unimplemented
+    unsafe {
+      let window: id = msg_send![self.webview, window];
+      let _: () = msg_send![window, makeFirstResponder: self.webview];
+    }
   }
 }
 
