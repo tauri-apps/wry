@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use super::{PageLoadEvent, WebContext, WebViewAttributes, RGBA};
-use crate::{RawWindowHandleTrait, RequestAsyncResponder, Result};
+use crate::{RequestAsyncResponder, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
 use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
@@ -114,7 +114,7 @@ pub(crate) struct InnerWebView;
 
 impl InnerWebView {
   pub fn new_as_child(
-    _window: &impl RawWindowHandleTrait,
+    _window: &impl raw_window_handle::HasRawWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
@@ -123,7 +123,7 @@ impl InnerWebView {
   }
 
   pub fn new(
-    _window: &impl RawWindowHandleTrait,
+    _window: &impl raw_window_handle::HasRawWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,

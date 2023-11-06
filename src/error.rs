@@ -83,7 +83,7 @@ pub enum Error {
   #[error("Failed to create proxy endpoint")]
   ProxyEndpointCreationFailed,
   #[error(transparent)]
-  WindowHandleError(#[from] crate::raw_window_handle::HandleError),
+  WindowHandleError(#[from] raw_window_handle::HandleError),
   #[error("the window handle kind is not supported")]
   UnsupportedWindowHandle,
   #[error(transparent)]

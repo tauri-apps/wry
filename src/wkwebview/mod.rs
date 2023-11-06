@@ -11,15 +11,14 @@ mod proxy;
 #[cfg(target_os = "macos")]
 mod synthetic_mouse_events;
 
-use crate::raw_window_handle::RawWindowHandle;
-use url::Url;
-
 #[cfg(target_os = "macos")]
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewMinYMargin, NSViewWidthSizable};
 use cocoa::{
   base::{id, nil, NO, YES},
   foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use url::Url;
 
 use std::{
   borrow::Cow,
@@ -92,9 +91,8 @@ pub(crate) struct InnerWebView {
 }
 
 impl InnerWebView {
-  #[cfg(feature = "rwh_05")]
   pub fn new(
-    window: &impl crate::RawWindowHandleTrait,
+    window: &impl HasRawWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
@@ -110,27 +108,8 @@ impl InnerWebView {
     Self::new_ns_view(ns_view as _, attributes, pl_attrs, _web_context, false)
   }
 
-  #[cfg(feature = "rwh_06")]
-  pub fn new(
-    window: &impl crate::RawWindowHandleTrait,
-    attributes: WebViewAttributes,
-    pl_attrs: super::PlatformSpecificWebViewAttributes,
-    _web_context: Option<&mut WebContext>,
-  ) -> Result<Self> {
-    let ns_view = match window.window_handle()?.as_raw() {
-      #[cfg(target_os = "macos")]
-      RawWindowHandle::AppKit(w) => w.ns_view.as_ptr(),
-      #[cfg(target_os = "ios")]
-      RawWindowHandle::UiKit(w) => w.ui_view.as_ptr(),
-      _ => return Err(Error::UnsupportedWindowHandle),
-    };
-
-    Self::new_ns_view(ns_view as _, attributes, pl_attrs, _web_context, false)
-  }
-
-  #[cfg(feature = "rwh_05")]
   pub fn new_as_child(
-    window: &impl crate::RawWindowHandleTrait,
+    window: &impl HasRawWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
@@ -140,24 +119,6 @@ impl InnerWebView {
       RawWindowHandle::AppKit(w) => w.ns_view,
       #[cfg(target_os = "ios")]
       RawWindowHandle::UiKit(w) => w.ui_view,
-      _ => return Err(Error::UnsupportedWindowHandle),
-    };
-
-    Self::new_ns_view(ns_view as _, attributes, pl_attrs, _web_context, true)
-  }
-
-  #[cfg(feature = "rwh_06")]
-  pub fn new_as_child(
-    window: &impl crate::RawWindowHandleTrait,
-    attributes: WebViewAttributes,
-    pl_attrs: super::PlatformSpecificWebViewAttributes,
-    _web_context: Option<&mut WebContext>,
-  ) -> Result<Self> {
-    let ns_view = match window.window_handle()?.as_raw() {
-      #[cfg(target_os = "macos")]
-      RawWindowHandle::AppKit(w) => w.ns_view.as_ptr(),
-      #[cfg(target_os = "ios")]
-      RawWindowHandle::UiKit(w) => w.ui_view.as_ptr(),
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 

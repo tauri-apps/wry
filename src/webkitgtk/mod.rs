@@ -12,6 +12,7 @@ use gtk::{
   prelude::*,
 };
 use javascriptcore::ValueExt;
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -36,8 +37,6 @@ use crate::{
   proxy::ProxyConfig, web_context::WebContext, Error, PageLoadEvent, Result, WebViewAttributes,
   RGBA,
 };
-
-use crate::{raw_window_handle::RawWindowHandle, RawWindowHandleTrait};
 
 mod file_drop;
 mod synthetic_mouse_events;
@@ -70,7 +69,7 @@ impl Drop for InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new<W: RawWindowHandleTrait>(
+  pub fn new<W: HasRawWindowHandle>(
     window: &W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
@@ -79,7 +78,7 @@ impl InnerWebView {
     Self::new_x11(window, attributes, pl_attrs, web_context, false)
   }
 
-  pub fn new_as_child<W: RawWindowHandleTrait>(
+  pub fn new_as_child<W: HasRawWindowHandle>(
     parent: &W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
@@ -88,7 +87,7 @@ impl InnerWebView {
     Self::new_x11(parent, attributes, pl_attrs, web_context, true)
   }
 
-  fn new_x11<W: RawWindowHandleTrait>(
+  fn new_x11<W: HasRawWindowHandle>(
     window: &W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
@@ -97,14 +96,7 @@ impl InnerWebView {
   ) -> Result<Self> {
     let xlib = Xlib::open()?;
 
-    #[cfg(feature = "rwh_05")]
     let window_handle = match window.raw_window_handle() {
-      RawWindowHandle::Xlib(w) => w.window,
-      _ => return Err(Error::UnsupportedWindowHandle),
-    };
-
-    #[cfg(feature = "rwh_06")]
-    let window_handle = match window.window_handle()?.as_raw() {
       RawWindowHandle::Xlib(w) => w.window,
       _ => return Err(Error::UnsupportedWindowHandle),
     };
