@@ -15,9 +15,8 @@ use crate::raw_window_handle::RawWindowHandle;
 use url::Url;
 
 #[cfg(target_os = "macos")]
-use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewWidthSizable};
 use cocoa::{
-  appkit::{NSViewMinYMargin, NSWindow},
+  appkit::{NSView, NSViewHeightSizable, NSViewMinYMargin, NSViewWidthSizable, NSWindow},
   base::{id, nil, NO, YES},
   foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
