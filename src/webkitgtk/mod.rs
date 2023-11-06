@@ -640,7 +640,7 @@ impl InnerWebView {
   }
 
   pub fn focus(&self) {
-    // Unimplemented
+    self.webview.grab_focus();
   }
 }
 
