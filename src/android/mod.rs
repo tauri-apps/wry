@@ -311,6 +311,10 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn load_html(&self, html: &str) {
+    MainPipe::send(WebViewMessage::LoadHtml(html.to_string()));
+  }
+
   pub fn load_url(&self, url: &str) {
     MainPipe::send(WebViewMessage::LoadUrl(url.to_string(), None));
   }

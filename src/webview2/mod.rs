@@ -981,6 +981,15 @@ impl InnerWebView {
     let _ = unsafe { self.webview.Navigate(PCWSTR::from_raw(url.as_ptr())) };
   }
 
+  pub fn load_html(&self, html: &str) -> Result<()> {
+    unsafe {
+      self
+        .webview
+        .NavigateToString(PCWSTR::from_raw(encode_wide(html).as_ptr()))
+        .map_err(|e| Error::WebView2Error(webview2_com::Error::WindowsError(e)))
+    }
+  }
+
   pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
     load_url_with_headers(&self.webview, &self.env, url, headers);
   }

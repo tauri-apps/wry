@@ -580,6 +580,10 @@ impl InnerWebView {
     self.webview.load_request(&req);
   }
 
+  pub fn load_html(&self, html: &str) {
+    self.webview.load_html(html)
+  }
+
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     use webkit2gtk::WebContextExt;
     if let Some(context) = WebViewExt::context(&self.webview) {
