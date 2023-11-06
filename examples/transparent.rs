@@ -55,16 +55,14 @@ fn main() -> wry::Result<()> {
     .with_transparent(true)
     // And the last is in html.
     .with_html(
-      r#"
-            <!doctype html>
-            <html>
-              <body style="background-color:rgba(87,87,87,0.5);">hello</body>
-              <script>
-                window.onload = function() {
-                  document.body.innerText = `hello, ${navigator.userAgent}`;
-                };
-              </script>
-            </html>"#,
+      r#"<html>
+          <body style="background-color:rgba(87,87,87,0.5);"></body>
+          <script>
+            window.onload = function() {
+              document.body.innerText = `hello, ${navigator.userAgent}`;
+            };
+          </script>
+        </html>"#,
     )?
     .build()?;
 
