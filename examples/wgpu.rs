@@ -151,7 +151,7 @@ fn fs_main() -> @location(0) vec4<f32> {
                 view: &view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                  load: wgpu::LoadOp::Clear(wgpu::Color::GREEN),
+                  load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
                   store: wgpu::StoreOp::Store,
                 },
               })],
@@ -212,6 +212,9 @@ fn main() {
   }
 
   let event_loop = EventLoop::new().unwrap();
-  let window = winit::window::Window::new(&event_loop).unwrap();
+  let window = winit::window::WindowBuilder::new()
+    .with_transparent(true)
+    .build(&event_loop)
+    .unwrap();
   pollster::block_on(run(event_loop, window));
 }

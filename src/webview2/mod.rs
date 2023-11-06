@@ -33,7 +33,7 @@ use windows::{
         RegisterClassExW, RegisterWindowMessageA, SetWindowPos, ShowWindow, CS_HREDRAW, CS_VREDRAW,
         CW_USEDEFAULT, HCURSOR, HICON, HMENU, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE,
         SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WNDCLASSEXW, WS_CHILD,
-        WS_VISIBLE,
+        WS_CLIPCHILDREN, WS_VISIBLE,
       },
     },
   },
@@ -126,7 +126,7 @@ impl InnerWebView {
 
     unsafe { RegisterClassExW(&class) };
 
-    let mut flags = WS_CHILD;
+    let mut flags = WS_CHILD | WS_CLIPCHILDREN;
     if attributes.visible {
       flags |= WS_VISIBLE;
     }
