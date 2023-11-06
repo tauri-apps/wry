@@ -445,11 +445,7 @@ impl InnerWebView {
         });
         let frame: CGRect = CGRect::new(
           &window_position(
-            if is_child {
-              ns_view
-            } else {
-              webview
-            },
+            if is_child { ns_view } else { webview },
             (x, y),
             (w as f64, h as f64),
           ),
