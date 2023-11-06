@@ -29,10 +29,11 @@ use windows::{
     UI::{
       Shell::{DefSubclassProc, SHCreateMemStream, SetWindowSubclass},
       WindowsAndMessaging::{
-        self as win32wm, CreateWindowExW, DefWindowProcW, PostMessageW, RegisterClassExW,
-        RegisterWindowMessageA, SetWindowPos, ShowWindow, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT,
-        HCURSOR, HICON, HMENU, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-        SWP_NOZORDER, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WNDCLASSEXW, WS_CHILD, WS_VISIBLE,
+        self as win32wm, CreateWindowExW, DefWindowProcW, DestroyWindow, PostMessageW,
+        RegisterClassExW, RegisterWindowMessageA, SetWindowPos, ShowWindow, CS_HREDRAW, CS_VREDRAW,
+        CW_USEDEFAULT, HCURSOR, HICON, HMENU, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE,
+        SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WNDCLASSEXW, WS_CHILD,
+        WS_VISIBLE,
       },
     },
   },
@@ -61,6 +62,15 @@ pub(crate) struct InnerWebView {
   // the webview gets dropped, otherwise we'll have a memory leak
   #[allow(dead_code)]
   file_drop_controller: Option<FileDropController>,
+}
+
+impl Drop for InnerWebView {
+  fn drop(&mut self) {
+    let _ = unsafe { self.controller.Close() };
+    if self.is_child {
+      let _ = unsafe { DestroyWindow(self.hwnd) };
+    }
+  }
 }
 
 impl InnerWebView {
