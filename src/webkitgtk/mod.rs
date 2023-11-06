@@ -581,7 +581,7 @@ impl InnerWebView {
   }
 
   pub fn load_html(&self, html: &str) {
-    self.webview.load_html(html)
+    self.webview.load_html(html, None);
   }
 
   pub fn clear_all_browsing_data(&self) -> Result<()> {
