@@ -17,7 +17,6 @@
 //! ```no_run
 //! use wry::WebViewBuilder;
 //!
-//! # use raw_window_handle as rwh_06;
 //! # struct T;
 //! # impl rwh_06::HasWindowHandle for T {
 //! #   fn window_handle(&self) -> Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
@@ -72,7 +71,6 @@
 //! ```no_run
 //! use wry::WebViewBuilder;
 //!
-//! # use raw_window_handle as rwh_06;
 //! # struct T;
 //! # impl rwh_06::HasWindowHandle for T {
 //! #   fn window_handle(&self) -> Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
@@ -747,7 +745,6 @@ impl<'a> WebViewBuilder<'a> {
   /// ```no_run
   /// use wry::WebViewBuilder;
   ///
-  /// # use raw_window_handle as rwh_06;
   /// # struct T;
   /// # impl rwh_06::HasWindowHandle for T {
   /// #   fn window_handle(&self) -> Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {

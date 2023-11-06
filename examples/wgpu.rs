@@ -6,6 +6,7 @@ use winit::{
 };
 use wry::WebViewBuilder;
 
+#[cfg(feature = "rwh_05")]
 async fn run(event_loop: EventLoop<()>, window: Window) {
   let size = window.inner_size();
 
@@ -194,5 +195,6 @@ fn main() {
 
   let event_loop = EventLoop::new().unwrap();
   let window = winit::window::Window::new(&event_loop).unwrap();
+  #[cfg(feature = "rwh_05")]
   pollster::block_on(run(event_loop, window));
 }
