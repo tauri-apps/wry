@@ -58,12 +58,16 @@ pub(crate) struct InnerWebView {
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
+    unsafe { self.webview.destroy() }
+
     if let Some(xlib) = &self.xlib {
       if self.is_child {
         unsafe { (xlib.XDestroyWindow)(self.x11_display.unwrap() as _, self.x11_window.unwrap()) };
       }
+    }
 
-      unsafe { (xlib.XCloseDisplay)(self.x11_display.unwrap() as _) };
+    if let Some(window) = &self.gtk_window {
+      window.close();
     }
   }
 }
