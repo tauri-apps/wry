@@ -561,6 +561,10 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn load_html(&self, html: &str) {
+    self.webview.load_html(html, None);
+  }
+
   pub fn load_url(&self, url: &str) {
     self.webview.load_uri(url)
   }
@@ -578,10 +582,6 @@ impl InnerWebView {
     }
 
     self.webview.load_request(&req);
-  }
-
-  pub fn load_html(&self, html: &str) {
-    self.webview.load_html(html, None);
   }
 
   pub fn clear_all_browsing_data(&self) -> Result<()> {
