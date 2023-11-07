@@ -2,16 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-fn main() -> wry::Result<()> {
-  use wry::{
-    application::{
-      event::{Event, StartCause, WindowEvent},
-      event_loop::{ControlFlow, EventLoopBuilder},
-      window::{Window, WindowBuilder},
-    },
-    webview::WebViewBuilder,
-  };
+use tao::{
+  event::{Event, StartCause, WindowEvent},
+  event_loop::{ControlFlow, EventLoopBuilder},
+  window::WindowBuilder,
+};
+use wry::WebViewBuilder;
 
+fn main() -> wry::Result<()> {
   enum UserEvent {
     LoadHtml,
   }
@@ -21,15 +19,16 @@ fn main() -> wry::Result<()> {
 
   let window = WindowBuilder::new()
     .with_title("Load HTML")
-    .build(&event_loop)?;
+    .build(&event_loop)
+    .unwrap();
 
-  let ipc_handler = move |_: &Window, req: String| {
+  let ipc_handler = move |req: String| {
     if req == "load-html" {
       let _ = proxy.send_event(UserEvent::LoadHtml);
     }
   };
 
-  let webview = WebViewBuilder::new(window)?
+  let webview = WebViewBuilder::new(&window)
     .with_html(
       r#"
       <button onclick="window.ipc.postMessage('load-html')">Load HTML</button>
