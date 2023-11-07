@@ -38,7 +38,7 @@ fn main() {
         });
 
       let kotlin_files_path =
-        PathBuf::from(env_var("CARGO_MANIFEST_DIR")).join("src/webview/android/kotlin");
+        PathBuf::from(env_var("CARGO_MANIFEST_DIR")).join("src/android/kotlin");
       println!("cargo:rerun-if-changed={}", kotlin_files_path.display());
       let kotlin_files = fs::read_dir(kotlin_files_path).expect("failed to read kotlin directory");
 

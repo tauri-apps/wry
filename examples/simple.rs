@@ -11,24 +11,7 @@ use wry::WebViewBuilder;
 
 fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
-  #[allow(unused_mut)]
-  let mut builder = WindowBuilder::new()
-    .with_decorations(false)
-    // There are actually three layer of background color when creating webview window.
-    // The first is window background...
-    .with_transparent(true);
-  #[cfg(target_os = "windows")]
-  {
-    use tao::platform::windows::WindowBuilderExtWindows;
-    builder = builder.with_undecorated_shadow(false);
-  }
-  let window = builder.build(&event_loop).unwrap();
-
-  #[cfg(target_os = "windows")]
-  {
-    use tao::platform::windows::WindowExtWindows;
-    window.set_undecorated_shadow(true);
-  }
+  let window = WindowBuilder::new().build(&event_loop).unwrap();
 
   #[cfg(any(
     target_os = "windows",
@@ -50,21 +33,7 @@ fn main() -> wry::Result<()> {
     WebViewBuilder::new_gtk(vbox)
   };
 
-  let _webview = builder
-    // The second is on webview...
-    .with_transparent(true)
-    // And the last is in html.
-    .with_html(
-      r#"<html>
-          <body style="background-color:rgba(87,87,87,0.5);"></body>
-          <script>
-            window.onload = function() {
-              document.body.innerText = `hello, ${navigator.userAgent}`;
-            };
-          </script>
-        </html>"#,
-    )?
-    .build()?;
+  let _webview = builder.with_url("https://tauri.app")?.build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

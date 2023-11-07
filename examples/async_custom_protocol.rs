@@ -38,17 +38,17 @@ fn main() -> wry::Result<()> {
     let vbox = window.default_vbox().unwrap();
     WebViewBuilder::new_gtk(vbox)
   };
-
   let _webview = builder
-    .with_custom_protocol("wry".into(), move |request| {
+    .with_asynchronous_custom_protocol("wry".into(), move |request, responder| {
       match get_wry_response(request) {
-        Ok(r) => r.map(Into::into),
-        Err(e) => http::Response::builder()
-          .header(CONTENT_TYPE, "text/plain")
-          .status(500)
-          .body(e.to_string().as_bytes().to_vec())
-          .unwrap()
-          .map(Into::into),
+        Ok(http_response) => responder.respond(http_response),
+        Err(e) => responder.respond(
+          http::Response::builder()
+            .header(CONTENT_TYPE, "text/plain")
+            .status(500)
+            .body(e.to_string().as_bytes().to_vec())
+            .unwrap(),
+        ),
       }
     })
     // tell the webview to load the custom protocol

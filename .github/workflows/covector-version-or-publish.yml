@@ -1,4 +1,4 @@
-name: version or publish
+name: covector version or publish
 
 on:
   push:
@@ -15,15 +15,16 @@ jobs:
       successfulPublish: ${{ steps.covector.outputs.successfulPublish }}
 
     steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
+
       - name: cargo login
         run: cargo login ${{ secrets.ORG_CRATES_IO_TOKEN }}
+
       - name: git config
         run: |
           git config --global user.name "${{ github.event.pusher.name }}"
           git config --global user.email "${{ github.event.pusher.email }}"
+
       - name: covector version or publish (publish when no change files present)
         uses: jbolda/covector/packages/action@covector-v0
         id: covector
@@ -34,14 +35,15 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           command: 'version-or-publish'
           createRelease: true
+
       - name: Create Pull Request With Versions Bumped
         id: cpr
         uses: tauri-apps/create-pull-request@v3
         if: steps.covector.outputs.commandRan == 'version'
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          title: "Publish New Versions"
-          commit-message: "publish new versions"
-          labels: "version updates"
-          branch: "release"
+          title: Apply Version Updates From Current Changes
+          commit-message: 'apply version updates'
+          labels: 'version updates'
+          branch: 'release'
           body: ${{ steps.covector.outputs.change }}

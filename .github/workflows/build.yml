@@ -7,7 +7,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust_version: [stable]
         platform:
           - { target: x86_64-pc-windows-msvc, os: windows-latest }
           - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
@@ -28,7 +27,7 @@ jobs:
         if: contains(matrix.platform.target, 'gnu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y webkit2gtk-4.1 libgtksourceview-3.0-dev libayatana-appindicator3-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev
 
       - name: install webview2 (windows only)
         if: contains(matrix.platform.target, 'windows')
@@ -44,20 +43,10 @@ jobs:
 
       - name: build tests and examples
         shell: bash
-        if: (
-          !contains(matrix.platform.target, 'android') &&
-          !contains(matrix.platform.target, 'ios'))
+        if: (!contains(matrix.platform.target, 'android') && !contains(matrix.platform.target, 'ios'))
         run: cargo test --no-run --verbose --target ${{ matrix.platform.target }}
 
       - name: run tests
-        if: (
-          !contains(matrix.platform.target, 'android') &&
-          !contains(matrix.platform.target, 'ios'))
+        if: (!contains(matrix.platform.target, 'android') && !contains(matrix.platform.target, 'ios'))
         run: cargo test --verbose --target ${{ matrix.platform.target }} --features linux-body
 
-      - name: build wry with winit
-        if: (
-          contains(matrix.platform.target, 'gnu') ||
-          contains(matrix.platform.target, 'windows') ||
-          contains(matrix.platform.target, 'apple'))
-        run: cargo build --no-default-features --features winit --target ${{ matrix.platform.target }}

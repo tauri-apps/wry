@@ -1,71 +1,67 @@
-workspace = { }
+workspace = {}
 
 [package]
 name = "wry"
 version = "0.34.2"
-authors = [ "Tauri Programme within The Commons Conservancy" ]
+authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 description = "Cross-platform WebView rendering library"
 readme = "README.md"
 repository = "https://github.com/tauri-apps/wry"
 documentation = "https://docs.rs/wry"
-categories = [ "gui" ]
+categories = ["gui"]
 
 [package.metadata.docs.rs]
 no-default-features = true
-features = [ "tao", "file-drop", "protocol" ]
+features = ["file-drop", "protocol"]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
-  "x86_64-apple-darwin"
+  "x86_64-apple-darwin",
 ]
-rustc-args = [ "--cfg", "docsrs" ]
-rustdoc-args = [ "--cfg", "docsrs" ]
+rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = [ "file-drop", "objc-exception", "protocol", "tao" ]
-objc-exception = [ "objc/exception" ]
-file-drop = [ ]
-protocol = [ ]
-devtools = [ ]
-transparent = [ ]
-fullscreen = [ ]
-linux-body = [ "webkit2gtk/v2_40" ]
-mac-proxy = [ ]
+default = ["file-drop", "objc-exception", "protocol"]
+objc-exception = ["objc/exception"]
+file-drop = []
+protocol = []
+devtools = []
+transparent = []
+fullscreen = []
+linux-body = ["webkit2gtk/v2_40"]
+mac-proxy = []
 
 [dependencies]
 libc = "0.2"
 log = "0.4"
 once_cell = "1"
-serde = { version = "1.0", features = [ "derive" ] }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.4"
-tao = { version = "0.23", default-features = false, features = [ "serde" ], optional = true }
-http = "0.2.9"
-
-[dev-dependencies]
-http-range = "0.1.5"
-base64 = "0.21"
+http = "0.2"
+raw-window-handle = { version = "0.5", features = ["std"] }
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
-javascriptcore-rs = { version = "=1.1", features = [ "v2_28" ] }
-webkit2gtk = { version = "=2.0", features = [ "v2_38" ] }
+javascriptcore-rs = { version = "=1.1", features = ["v2_28"] }
+webkit2gtk = { version = "=2.0", features = ["v2_38"] }
 webkit2gtk-sys = "=2.0"
 gtk = "0.18"
 soup3 = "0.5"
-winit = { version = "0.29", package = "winit-gtk", features = [ "serde" ], optional = true }
+x11-dl = "2.9"
+gdkx11 = "0.18"
 
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.27"
 windows-implement = "0.51"
 dunce = "1"
-winit = { version = "0.28", features = [ "serde" ], optional = true }
 
-  [target."cfg(target_os = \"windows\")".dependencies.windows]
-  version = "0.51"
-  features = [
+[target."cfg(target_os = \"windows\")".dependencies.windows]
+version = "0.51"
+features = [
   "implement",
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
@@ -80,7 +76,7 @@ winit = { version = "0.28", features = [ "serde" ], optional = true }
   "Win32_Globalization",
   "Win32_UI_HiDpi",
   "Win32_UI_Input",
-  "Win32_UI_Input_KeyboardAndMouse"
+  "Win32_UI_Input_KeyboardAndMouse",
 ]
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
@@ -89,7 +85,6 @@ cocoa = "0.25"
 core-graphics = "0.23"
 objc = "0.2"
 objc_id = "0.1"
-winit = { version = "0.28", features = [ "serde" ], optional = true }
 
 [target."cfg(target_os = \"android\")".dependencies]
 crossbeam-channel = "0.5"
@@ -97,3 +92,15 @@ html5ever = "0.26"
 kuchiki = { package = "kuchikiki", version = "0.8" }
 sha2 = "0.10"
 base64 = "0.21"
+jni = "0.21"
+ndk = "0.7"
+ndk-sys = "0.4"
+ndk-context = "0.1"
+tao-macros = { version = "0.1.0" }
+
+[dev-dependencies]
+http-range = "0.1.5"
+pollster = "0.3.0"
+tao = { git = "https://github.com/tauri-apps/tao", default-features = false, features = ["rwh_05"] }
+wgpu = "0.18.0"
+winit = { version = "0.29", features = ["rwh_05"] }
