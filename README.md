@@ -17,31 +17,30 @@ Cross-platform WebView rendering library in Rust that supports all major desktop
 
 ## Overview
 
-WRY connects the web engine on each platform and provides easy to use and unified interface to render WebView. It also re-exports [TAO] as a module for event loop and window creation.
-
-[tao]: https://crates.io/crates/tao
+WRY connects the web engine on each platform and provides easy to use and unified interface to render WebView.
+The webview requires a running event loop and a window type that implements `HasWindowHandle`,
+or a gtk container widget if you need to support X11 and Wayland.
+You can use a windowing library like `tao` or `winit`.
 
 ## Usage
 
 The minimum example to create a Window and browse a website looks like following:
 
 ```rust
-fn main() -> wry::Result<()> {
-  use wry::{
-    application::{
-      event::{Event, StartCause, WindowEvent},
-      event_loop::{ControlFlow, EventLoop},
-      window::WindowBuilder,
-    },
-    webview::WebViewBuilder,
+fn main() {
+  use tao::{
+    event::{Event, StartCause, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::WindowBuilder,
   };
+  use wry::webview::WebViewBuilder;
 
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new()
     .with_title("Hello World")
     .build(&event_loop)?;
-  let _webview = WebViewBuilder::new(window)?
-    .with_url("https://tauri.studio")?
+  let _webview = WebViewBuilder::new(&window)?
+    .with_url("https://tauri.app")?
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {
@@ -62,7 +61,7 @@ fn main() -> wry::Result<()> {
 There are also more samples under `examples`, you can enter commands like the following to try them:
 
 ```
-cargo run --example multi_window
+cargo run --example multiwindow
 ```
 
 For more information, please read the documentation below.
@@ -71,11 +70,11 @@ For more information, please read the documentation below.
 
 ## Platform-specific notes
 
-All platforms use [TAO](https://github.com/tauri-apps/tao) to build the window, and wry re-exports it as an application module. Here is the underlying web engine each platform uses, and some dependencies you might need to install.
+Here is the underlying web engine each platform uses, and some dependencies you might need to install.
 
 ### Linux
 
-Tao uses [gtk-rs](https://gtk-rs.org/) and its related libraries for window creation and wry also needs [WebKitGTK](https://webkitgtk.org/) for WebView. So please make sure the following packages are installed:
+Wry also needs [WebKitGTK](https://webkitgtk.org/) for WebView. So please make sure the following packages are installed:
 
 #### Arch Linux / Manjaro:
 
