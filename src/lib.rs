@@ -6,13 +6,13 @@
 
 //! Wry is a Cross-platform WebView rendering library.
 //!
-//! The webview requires a running event loop and a window type that implements [`HasWindowHandle`],
+//! The webview requires a running event loop and a window type that implements [`HasRawWindowHandle`],
 //! or a gtk container widget if you need to support X11 and Wayland.
 //! You can use a windowing library like [`tao`] or [`winit`].
 //!
 //! ## Examples
 //!
-//! This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only)
+//! This example leverages the [`HasRawWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only)
 //!
 //! ```no_run
 //! use wry::WebViewBuilder;
@@ -198,7 +198,7 @@ use android::*;
   target_os = "openbsd"
 ))]
 pub(crate) mod webkitgtk;
-use raw_window_handle::HasRawWindowHandle;
+pub use raw_window_handle::HasRawWindowHandle;
 #[cfg(any(
   target_os = "linux",
   target_os = "dragonfly",
@@ -1184,7 +1184,7 @@ pub struct WebView {
 }
 
 impl WebView {
-  /// Create a [`WebView`] from from a type that implements [`HasWindowHandle`].
+  /// Create a [`WebView`] from from a type that implements [`HasRawWindowHandle`].
   /// Note that calling this directly loses
   /// abilities to initialize scripts, add ipc handler, and many more before starting WebView. To
   /// benefit from above features, create a [`WebViewBuilder`] instead.
