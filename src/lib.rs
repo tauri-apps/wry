@@ -31,7 +31,7 @@
 //!   .unwrap();
 //! ```
 //!
-//! If you also want to support Wayland too, then we recommend you use [`WebViewBuilder::new_gtk`] on Linux.
+//! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::new_gtk`] on Linux.
 //!
 //! ```no_run,ignore
 //! use wry::WebViewBuilder;
@@ -51,6 +51,7 @@
 //! )))]
 //! let builder = {
 //!   use tao::platform::unix::WindowExtUnix;
+//!   use wry::WebViewBuilderExtUnix;
 //!   WebViewBuilder::new_gtk(&window.gtk_window())
 //! };
 //!
@@ -522,7 +523,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// # Platform-specific:
   ///
-  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewBuilder::new_gtk`].
+  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewBuilderExtUnix::new_gtk`].
   ///
   ///   Although this methods only needs an X11 window handle, we use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
@@ -588,35 +589,6 @@ impl<'a> WebViewBuilder<'a> {
         target_os = "openbsd",
       ))]
       gtk_widget: None,
-    }
-  }
-
-  #[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-  ))]
-  /// Create the webview from a GTK container widget, such as GTK window.
-  ///
-  /// # Panics:
-  ///
-  /// - Panics if [`gtk::init`] was not called in this thread.
-  pub fn new_gtk<W>(widget: &'a W) -> Self
-  where
-    W: gtk::prelude::IsA<gtk::Container>,
-  {
-    use gdkx11::glib::Cast;
-
-    Self {
-      attrs: WebViewAttributes::default(),
-      window: None,
-      as_child: false,
-      #[allow(clippy::default_constructed_unit_structs)]
-      platform_specific: PlatformSpecificWebViewAttributes::default(),
-      web_context: None,
-      gtk_widget: Some(widget.dynamic_cast_ref().unwrap()),
     }
   }
 
@@ -1174,6 +1146,50 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
   }
 }
 
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd",
+))]
+pub trait WebViewBuilderExtUnix<'a> {
+  /// Create the webview from a GTK container widget, such as GTK window.
+  ///
+  /// # Panics:
+  ///
+  /// - Panics if [`gtk::init`] was not called in this thread.
+  fn new_gtk<W>(widget: &'a W) -> Self
+  where
+    W: gtk::prelude::IsA<gtk::Container>;
+}
+
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd",
+))]
+impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
+  fn new_gtk<W>(widget: &'a W) -> Self
+  where
+    W: gtk::prelude::IsA<gtk::Container>,
+  {
+    use gdkx11::glib::Cast;
+
+    Self {
+      attrs: WebViewAttributes::default(),
+      window: None,
+      as_child: false,
+      #[allow(clippy::default_constructed_unit_structs)]
+      platform_specific: PlatformSpecificWebViewAttributes::default(),
+      web_context: None,
+      gtk_widget: Some(widget.dynamic_cast_ref().unwrap()),
+    }
+  }
+}
+
 /// The fundamental type to present a [`WebView`].
 ///
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
@@ -1191,7 +1207,7 @@ impl WebView {
   ///
   /// # Platform-specific:
   ///
-  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebView::new_gtk`].
+  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewExtUnix::new_gtk`].
   ///
   ///   Although this methods only needs an X11 window handle, you use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
@@ -1228,25 +1244,6 @@ impl WebView {
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
   pub fn new_as_child(parent: &impl HasRawWindowHandle) -> Result<Self> {
     WebViewBuilder::new_as_child(parent).build()
-  }
-
-  #[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-  ))]
-  /// Create the webview from a GTK container widget, such as GTK window.
-  ///
-  /// # Panics:
-  ///
-  /// - Panics if [`gtk::init`] was not called in this thread.
-  pub fn new_gtk<W>(widget: &W) -> Result<Self>
-  where
-    W: gtk::prelude::IsA<gtk::Container>,
-  {
-    WebViewBuilder::new_gtk(widget).build()
   }
 
   /// Get the current url of the webview
@@ -1456,13 +1453,28 @@ impl WebviewExtWindows for WebView {
 
 /// Additional methods on `WebView` that are specific to Linux.
 #[cfg(target_os = "linux")]
-pub trait WebviewExtUnix {
+pub trait WebviewExtUnix: Sized {
+  /// Create the webview from a GTK container widget, such as GTK window.
+  ///
+  /// # Panics:
+  ///
+  /// - Panics if [`gtk::init`] was not called in this thread.
+  fn new_gtk<W>(widget: &W) -> Result<Self>
+  where
+    W: gtk::prelude::IsA<gtk::Container>;
   /// Returns Webkit2gtk Webview handle
   fn webview(&self) -> webkit2gtk::WebView;
 }
 
 #[cfg(target_os = "linux")]
 impl WebviewExtUnix for WebView {
+  fn new_gtk<W>(widget: &W) -> Result<Self>
+  where
+    W: gtk::prelude::IsA<gtk::Container>,
+  {
+    WebViewBuilder::new_gtk(widget).build()
+  }
+
   fn webview(&self) -> webkit2gtk::WebView {
     self.webview.webview.clone()
   }
