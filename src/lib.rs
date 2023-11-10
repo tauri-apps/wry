@@ -15,7 +15,7 @@
 //! This example leverages the [`HasRawWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only)
 //!
 //! ```no_run
-//! use wry::WebViewBuilder;
+//! use wry::{WebViewBuilder, raw_window_handle};
 //!
 //! # struct T;
 //! # unsafe impl raw_window_handle::HasRawWindowHandle for T {
@@ -67,7 +67,7 @@
 //! macOS, Windows and Linux (X11 Only).
 //!
 //! ```no_run
-//! use wry::WebViewBuilder;
+//! use wry::{WebViewBuilder, raw_window_handle};
 //!
 //! # struct T;
 //! # unsafe impl raw_window_handle::HasRawWindowHandle for T {
@@ -198,7 +198,9 @@ use android::*;
   target_os = "openbsd"
 ))]
 pub(crate) mod webkitgtk;
-pub use raw_window_handle::HasRawWindowHandle;
+/// Re-exported [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate.
+pub use raw_window_handle;
+use raw_window_handle::HasRawWindowHandle;
 #[cfg(any(
   target_os = "linux",
   target_os = "dragonfly",
@@ -725,7 +727,7 @@ impl<'a> WebViewBuilder<'a> {
   /// # Examples
   ///
   /// ```no_run
-  /// use wry::WebViewBuilder;
+  /// use wry::{WebViewBuilder, raw_window_handle};
   ///
   /// # struct T;
   /// # unsafe impl raw_window_handle::HasRawWindowHandle for T {
