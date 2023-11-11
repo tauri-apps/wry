@@ -6,16 +6,16 @@
 
 //! Wry is a Cross-platform WebView rendering library.
 //!
-//! The webview requires a running event loop and a window type that implements [`HasWindowHandle`],
+//! The webview requires a running event loop and a window type that implements [`HasRawWindowHandle`],
 //! or a gtk container widget if you need to support X11 and Wayland.
 //! You can use a windowing library like [`tao`] or [`winit`].
 //!
 //! ## Examples
 //!
-//! This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only)
+//! This example leverages the [`HasRawWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only)
 //!
 //! ```no_run
-//! use wry::WebViewBuilder;
+//! use wry::{WebViewBuilder, raw_window_handle};
 //!
 //! # struct T;
 //! # unsafe impl raw_window_handle::HasRawWindowHandle for T {
@@ -67,7 +67,7 @@
 //! macOS, Windows and Linux (X11 Only).
 //!
 //! ```no_run
-//! use wry::WebViewBuilder;
+//! use wry::{WebViewBuilder, raw_window_handle};
 //!
 //! # struct T;
 //! # unsafe impl raw_window_handle::HasRawWindowHandle for T {
@@ -198,6 +198,8 @@ use android::*;
   target_os = "openbsd"
 ))]
 pub(crate) mod webkitgtk;
+/// Re-exported [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate.
+pub use raw_window_handle;
 use raw_window_handle::HasRawWindowHandle;
 #[cfg(any(
   target_os = "linux",
@@ -725,7 +727,7 @@ impl<'a> WebViewBuilder<'a> {
   /// # Examples
   ///
   /// ```no_run
-  /// use wry::WebViewBuilder;
+  /// use wry::{WebViewBuilder, raw_window_handle};
   ///
   /// # struct T;
   /// # unsafe impl raw_window_handle::HasRawWindowHandle for T {
@@ -1184,7 +1186,7 @@ pub struct WebView {
 }
 
 impl WebView {
-  /// Create a [`WebView`] from from a type that implements [`HasWindowHandle`].
+  /// Create a [`WebView`] from from a type that implements [`HasRawWindowHandle`].
   /// Note that calling this directly loses
   /// abilities to initialize scripts, add ipc handler, and many more before starting WebView. To
   /// benefit from above features, create a [`WebViewBuilder`] instead.

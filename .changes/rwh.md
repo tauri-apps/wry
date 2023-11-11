@@ -10,6 +10,7 @@ Refactor new method to take raw window handle instead. Following are APIs got af
   - Position field in `FileDrop` event is now `Position` instead of `PhysicalPosition`. Users need to handle scale factor
   depend on the situation they have.
   - `Webview::inner_size` is removed.
+  - [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate is re-exported as `wry::raw_window_handle`.
 
 This also means that we removed `tao` as a dependency completely which required some changes to the Android backend:
   - We exposed the `android_setup` function that needs to be called once to setup necessary logic.

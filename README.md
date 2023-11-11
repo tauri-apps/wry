@@ -18,7 +18,7 @@ Cross-platform WebView rendering library in Rust that supports all major desktop
 ## Overview
 
 WRY connects the web engine on each platform and provides easy to use and unified interface to render WebView.
-The webview requires a running event loop and a window type that implements `HasWindowHandle`,
+The webview requires a running event loop and a window type that implements `HasRawWindowHandle`,
 or a gtk container widget if you need to support X11 and Wayland.
 You can use a windowing library like `tao` or `winit`.
 
