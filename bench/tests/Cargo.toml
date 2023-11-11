@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 wry = { path = "../../" }
 serde = { version = "1.0", features = [ "derive" ] }
+tao = { git = "https://github.com/tauri-apps/tao", default-features = false, features = ["rwh_05"] }
 
 [[bin]]
 name = "bench_hello_world"
