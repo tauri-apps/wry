@@ -12,6 +12,7 @@ Refactor new method to take raw window handle instead. Following are APIs got af
   - `Webview::inner_size` is removed.
   - Add `WebViewBuilderExtUnix` trait to extend `WebViewBuilder` on Unix platforms.
   - Add `new_gtk` functions to `WebViewBuilderExtUnix` and `WebviewExtUnix`.
+  - [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate is re-exported as `wry::raw_window_handle`.
 
 This also means that we removed `tao` as a dependency completely which required some changes to the Android backend:
   - We exposed the `android_setup` function that needs to be called once to setup necessary logic.
