@@ -314,7 +314,7 @@ impl InnerWebView {
         let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:NSString::new(&name)];
       }
 
-      // Webview and manager
+      // WebView and manager
       let manager: id = msg_send![config, userContentController];
       let cls = match ClassDecl::new("WryWebView", class!(WKWebView)) {
         #[allow(unused_mut)]
