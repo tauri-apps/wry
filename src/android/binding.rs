@@ -35,7 +35,7 @@ macro_rules! android_binding {
       $package,
       RustWebViewClient,
       handleRequest,
-      [JObject],
+      [JObject, jboolean],
       jobject
     );
     android_fn!(
@@ -95,7 +95,11 @@ macro_rules! android_binding {
   }};
 }
 
-fn handle_request(env: &mut JNIEnv, request: JObject) -> JniResult<jobject> {
+fn handle_request(
+  env: &mut JNIEnv,
+  request: JObject,
+  is_document_start_script_enabled: jboolean,
+) -> JniResult<jobject> {
   if let Some(handler) = REQUEST_HANDLER.get() {
     let mut request_builder = Request::builder();
 
@@ -146,7 +150,7 @@ fn handle_request(env: &mut JNIEnv, request: JObject) -> JniResult<jobject> {
       }
     };
 
-    let response = (handler.handler)(final_request);
+    let response = (handler.handler)(final_request, is_document_start_script_enabled != 0);
     if let Some(response) = response {
       let status = response.status();
       let status_code = status.as_u16() as i32;
@@ -224,8 +228,13 @@ fn handle_request(env: &mut JNIEnv, request: JObject) -> JniResult<jobject> {
 }
 
 #[allow(non_snake_case)]
-pub unsafe fn handleRequest(mut env: JNIEnv, _: JClass, request: JObject) -> jobject {
-  match handle_request(&mut env, request) {
+pub unsafe fn handleRequest(
+  mut env: JNIEnv,
+  _: JClass,
+  request: JObject,
+  is_document_start_script_enabled: jboolean,
+) -> jobject {
+  match handle_request(&mut env, request, is_document_start_script_enabled) {
     Ok(response) => response,
     Err(e) => {
       log::warn!("Failed to handle request: {}", e);
