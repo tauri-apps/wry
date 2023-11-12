@@ -27,8 +27,10 @@ macro_rules! android_binding {
   ($domain:ident, $package:ident) => {
     ::wry::android_binding!($domain, $package, ::wry)
   };
-  ($domain:ident, $package:ident, $wry:path) => {{
-    use $wry::prelude::*;
+  // use import `android_setup` just to force the import path to use `wry::{}`
+  // as the macro breaks without braces
+  ($domain:ident, $package:ident, $wry:path) => {
+    use $wry::{android_setup as _, prelude::*};
 
     android_fn!(
       $domain,
@@ -92,7 +94,7 @@ macro_rules! android_binding {
       handleReceivedTitle,
       [JObject, JString],
     );
-  }};
+  };
 }
 
 fn handle_request(env: &mut JNIEnv, request: JObject) -> JniResult<jobject> {
