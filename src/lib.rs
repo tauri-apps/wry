@@ -1051,7 +1051,7 @@ impl Default for PlatformSpecificWebViewAttributes {
 
 #[cfg(windows)]
 pub trait WebViewBuilderExtWindows {
-  /// Pass additional args to Webview2 upon creating the webview.
+  /// Pass additional args to WebView2 upon creating the webview.
   ///
   /// ## Warning
   ///
@@ -1124,7 +1124,7 @@ pub trait WebViewBuilderExtAndroid {
     f: F,
   ) -> Self;
 
-  /// Use [WebviewAssetLoader](https://developer.android.com/reference/kotlin/androidx/webkit/WebViewAssetLoader)
+  /// Use [WebViewAssetLoader](https://developer.android.com/reference/kotlin/androidx/webkit/WebViewAssetLoader)
   /// to load assets from Android's `asset` folder when using `with_url` as `<protocol>://assets/` (e.g.:
   /// `wry://assets/index.html`). Note that this registers a custom protocol with the provided
   /// String, similar to [`with_custom_protocol`], but also sets the WebViewAssetLoader with the
@@ -1395,7 +1395,7 @@ pub enum FileDropEvent {
   Cancelled,
 }
 
-/// Get Webview/Webkit version on current platform.
+/// Get WebView/Webkit version on current platform.
 pub fn webview_version() -> Result<String> {
   platform_webview_version()
 }
@@ -1419,7 +1419,7 @@ pub enum MemoryUsageLevel {
 
 /// Additional methods on `WebView` that are specific to Windows.
 #[cfg(target_os = "windows")]
-pub trait WebviewExtWindows {
+pub trait WebViewExtWindows {
   /// Returns WebView2 Controller
   fn controller(&self) -> ICoreWebView2Controller;
 
@@ -1442,7 +1442,7 @@ pub trait WebviewExtWindows {
 }
 
 #[cfg(target_os = "windows")]
-impl WebviewExtWindows for WebView {
+impl WebViewExtWindows for WebView {
   fn controller(&self) -> ICoreWebView2Controller {
     self.webview.controller.clone()
   }
@@ -1464,8 +1464,8 @@ impl WebviewExtWindows for WebView {
   target_os = "netbsd",
   target_os = "openbsd",
 ))]
-pub trait WebviewExtUnix {
-  /// Returns Webkit2gtk Webview handle
+pub trait WebViewExtUnix {
+  /// Returns Webkit2gtk WebView handle
   fn webview(&self) -> webkit2gtk::WebView;
 }
 
@@ -1476,7 +1476,7 @@ pub trait WebviewExtUnix {
   target_os = "netbsd",
   target_os = "openbsd",
 ))]
-impl WebviewExtUnix for WebView {
+impl WebViewExtUnix for WebView {
   fn webview(&self) -> webkit2gtk::WebView {
     self.webview.webview.clone()
   }
@@ -1484,7 +1484,7 @@ impl WebviewExtUnix for WebView {
 
 /// Additional methods on `WebView` that are specific to macOS.
 #[cfg(target_os = "macos")]
-pub trait WebviewExtMacOS {
+pub trait WebViewExtMacOS {
   /// Returns WKWebView handle
   fn webview(&self) -> cocoa::base::id;
   /// Returns WKWebView manager [(userContentController)](https://developer.apple.com/documentation/webkit/wkscriptmessagehandler/1396222-usercontentcontroller) handle
@@ -1494,7 +1494,7 @@ pub trait WebviewExtMacOS {
 }
 
 #[cfg(target_os = "macos")]
-impl WebviewExtMacOS for WebView {
+impl WebViewExtMacOS for WebView {
   fn webview(&self) -> cocoa::base::id {
     self.webview.webview
   }
@@ -1510,7 +1510,7 @@ impl WebviewExtMacOS for WebView {
 
 /// Additional methods on `WebView` that are specific to iOS.
 #[cfg(target_os = "ios")]
-pub trait WebviewExtIOS {
+pub trait WebViewExtIOS {
   /// Returns WKWebView handle
   fn webview(&self) -> cocoa::base::id;
   /// Returns WKWebView manager [(userContentController)](https://developer.apple.com/documentation/webkit/wkscriptmessagehandler/1396222-usercontentcontroller) handle
@@ -1518,7 +1518,7 @@ pub trait WebviewExtIOS {
 }
 
 #[cfg(target_os = "ios")]
-impl WebviewExtIOS for WebView {
+impl WebViewExtIOS for WebView {
   fn webview(&self) -> cocoa::base::id {
     self.webview.webview
   }
@@ -1530,18 +1530,18 @@ impl WebviewExtIOS for WebView {
 
 #[cfg(target_os = "android")]
 /// Additional methods on `WebView` that are specific to Android
-pub trait WebviewExtAndroid {
+pub trait WebViewExtAndroid {
   fn handle(&self) -> JniHandle;
 }
 
 #[cfg(target_os = "android")]
-impl WebviewExtAndroid for WebView {
+impl WebViewExtAndroid for WebView {
   fn handle(&self) -> JniHandle {
     JniHandle
   }
 }
 
-/// Webview theme.
+/// WebView theme.
 #[derive(Debug, Clone, Copy)]
 pub enum Theme {
   /// Dark

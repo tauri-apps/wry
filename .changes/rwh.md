@@ -4,12 +4,12 @@
 
 Refactor new method to take raw window handle instead. Following are APIs got affected:
   - `application` module is removed, and `webivew` module is moved to root module.
-  - `WebviewBuilder::new`, `Webview::new` now take `RawWindowHandle` instead.
+  - `WebViewBuilder::new`, `WebView::new` now take `RawWindowHandle` instead.
   - Attributes `ipc_handler`, `file_drop_handler`, `document_change_handler` don't have window parameter anymore.
   Users should use closure to capture the types they want to use.
   - Position field in `FileDrop` event is now `Position` instead of `PhysicalPosition`. Users need to handle scale factor
   depend on the situation they have.
-  - `Webview::inner_size` is removed.
+  - `WebView::inner_size` is removed.
   - [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate is re-exported as `wry::raw_window_handle`.
 
 This also means that we removed `tao` as a dependency completely which required some changes to the Android backend:

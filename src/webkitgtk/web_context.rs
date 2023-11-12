@@ -29,7 +29,7 @@ use webkit2gtk::{
 pub struct WebContextImpl {
   context: WebContext,
   manager: UserContentManager,
-  webview_uri_loader: Rc<WebviewUriLoader>,
+  webview_uri_loader: Rc<WebViewUriLoader>,
   registered_protocols: HashSet<String>,
   automation: bool,
   app_info: Option<ApplicationInfo>,
@@ -132,12 +132,12 @@ pub trait WebContextExt {
 
   /// Add a [`WebView`] to the queue waiting to be opened.
   ///
-  /// See the `WebviewUriLoader` for more information.
+  /// See the [`WebViewUriLoader`] for more information.
   fn queue_load_uri(&self, webview: WebView, url: Url, headers: Option<http::HeaderMap>);
 
   /// Flush all queued [`WebView`]s waiting to load a uri.
   ///
-  /// See the `WebviewUriLoader` for more information.
+  /// See the [`WebViewUriLoader`] for more information.
   fn flush_queue_loader(&self);
 
   /// If the context allows automation.
@@ -434,12 +434,12 @@ where
 /// fixing threading issues are not working. Ideally, the locks are not needed if we can understand
 /// the true cause of the bug.
 #[derive(Debug, Default)]
-struct WebviewUriLoader {
+struct WebViewUriLoader {
   lock: AtomicBool,
   queue: Mutex<VecDeque<(WebView, Url, Option<http::HeaderMap>)>>,
 }
 
-impl WebviewUriLoader {
+impl WebViewUriLoader {
   /// Check if the lock is in use.
   fn is_locked(&self) -> bool {
     self.lock.swap(true, SeqCst)
