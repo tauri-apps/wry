@@ -6,11 +6,17 @@
 
 package {{package}}
 
+import android.annotation.SuppressLint
 import android.webkit.*
 import android.content.Context
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import kotlin.collections.Map
 
-class RustWebView(context: Context): WebView(context) {
+@SuppressLint("RestrictedApi")
+class RustWebView(context: Context, val initScripts: Array<String>): WebView(context) {
+    val isDocumentStartScriptEnabled: Boolean
+  
     init {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
@@ -18,6 +24,16 @@ class RustWebView(context: Context): WebView(context) {
         settings.databaseEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
         settings.javaScriptCanOpenWindowsAutomatically = true
+
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            isDocumentStartScriptEnabled = true
+            for (script in initScripts) {
+                WebViewCompat.addDocumentStartJavaScript(this, script, setOf("*"));
+            }
+        } else {
+          isDocumentStartScriptEnabled = false
+        }
+
         {{class-init}}
     }
 

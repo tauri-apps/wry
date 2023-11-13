@@ -11,14 +11,12 @@ struct MessageParameters {
 }
 
 fn main() -> wry::Result<()> {
-  use wry::{
-    application::{
-      event::{Event, WindowEvent},
-      event_loop::{ControlFlow, EventLoop},
-      window::{Window, WindowBuilder},
-    },
-    webview::WebViewBuilder,
+  use tao::{
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::WindowBuilder,
   };
+  use wry::WebViewBuilder;
 
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
@@ -31,13 +29,12 @@ fn main() -> wry::Result<()> {
     </script>
   "#;
 
-  let handler = |_window: &Window, req: String| {
+  let handler = |req: String| {
     if &req == "dom-loaded" {
       exit(0);
     }
   };
-  let _webview = WebViewBuilder::new(window)
-    .unwrap()
+  let _webview = WebViewBuilder::new(&window)
     .with_url(url)?
     .with_ipc_handler(handler)
     .build()?;
@@ -52,5 +49,5 @@ fn main() -> wry::Result<()> {
       } => *control_flow = ControlFlow::Exit,
       _ => {}
     }
-  });
+  })
 }

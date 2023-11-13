@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 /// private/incognito tabs.
 ///
 /// # Warning
-/// If [`Webview`] is created by a WebContext. Dropping `WebContext` will cause [`WebView`] lose
+/// If [`WebView`] is created by a WebContext. Dropping `WebContext` will cause [`WebView`] lose
 /// some actions like custom protocol on Mac. Please keep both instances when you still wish to
 /// interact with them.
 ///
