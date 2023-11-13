@@ -9,10 +9,12 @@ Refactor new method to take raw window handle instead. Following are APIs got af
   Users should use closure to capture the types they want to use.
   - Position field in `FileDrop` event is now `Position` instead of `PhysicalPosition`. Users need to handle scale factor
   depend on the situation they have.
-  - `WebView::inner_size` is removed.
+  - `Webview::inner_size` is removed.
+  - Add `WebViewBuilderExtUnix` trait to extend `WebViewBuilder` on Unix platforms.
+  - Add `new_gtk` functions to `WebViewBuilderExtUnix` and `WebviewExtUnix`.
   - [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate is re-exported as `wry::raw_window_handle`.
 
 This also means that we removed `tao` as a dependency completely which required some changes to the Android backend:
   - We exposed the `android_setup` function that needs to be called once to setup necessary logic.
-  - Previously the `android_binding!` had internal call to `tao::android_binding` but now that `tao` has been removed,sa
+  - Previously the `android_binding!` had internal call to `tao::android_binding` but now that `tao` has been removed,
     the macro signature has changed and you now need to call `tao::android_binding` yourself, checkout the crate documentation for more information.  

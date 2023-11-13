@@ -105,6 +105,7 @@ fn create_new_window(
   )))]
   let builder = {
     use tao::platform::unix::WindowExtUnix;
+    use wry::WebViewBuilderExtUnix;
     let vbox = window.default_vbox().unwrap();
     WebViewBuilder::new_gtk(vbox)
   };
