@@ -190,24 +190,12 @@ pub use android::JniHandle;
 #[cfg(target_os = "android")]
 use android::*;
 
-#[cfg(any(
-  target_os = "linux",
-  target_os = "dragonfly",
-  target_os = "freebsd",
-  target_os = "netbsd",
-  target_os = "openbsd"
-))]
+#[cfg(gtk)]
 pub(crate) mod webkitgtk;
 /// Re-exported [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate.
 pub use raw_window_handle;
 use raw_window_handle::HasRawWindowHandle;
-#[cfg(any(
-  target_os = "linux",
-  target_os = "dragonfly",
-  target_os = "freebsd",
-  target_os = "netbsd",
-  target_os = "openbsd"
-))]
+#[cfg(gtk)]
 use webkitgtk::*;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -509,13 +497,7 @@ pub struct WebViewBuilder<'a> {
   window: Option<&'a dyn HasRawWindowHandle>,
   platform_specific: PlatformSpecificWebViewAttributes,
   web_context: Option<&'a mut WebContext>,
-  #[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-  ))]
+  #[cfg(gtk)]
   gtk_widget: Option<&'a gtk::Container>,
 }
 
@@ -544,13 +526,7 @@ impl<'a> WebViewBuilder<'a> {
       #[allow(clippy::default_constructed_unit_structs)]
       platform_specific: PlatformSpecificWebViewAttributes::default(),
       web_context: None,
-      #[cfg(any(
-        target_os = "linux",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-      ))]
+      #[cfg(gtk)]
       gtk_widget: None,
     }
   }
@@ -582,24 +558,12 @@ impl<'a> WebViewBuilder<'a> {
       #[allow(clippy::default_constructed_unit_structs)]
       platform_specific: PlatformSpecificWebViewAttributes::default(),
       web_context: None,
-      #[cfg(any(
-        target_os = "linux",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-      ))]
+      #[cfg(gtk)]
       gtk_widget: None,
     }
   }
 
-  #[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-  ))]
+  #[cfg(gtk)]
   /// Create the webview from a GTK container widget, such as GTK window.
   ///
   /// # Panics:
@@ -1001,26 +965,14 @@ impl<'a> WebViewBuilder<'a> {
         InnerWebView::new(window, self.attrs, self.platform_specific, self.web_context)?
       }
     } else {
-      #[cfg(any(
-        target_os = "linux",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-      ))]
+      #[cfg(gtk)]
       if let Some(widget) = self.gtk_widget {
         InnerWebView::new_gtk(widget, self.attrs, self.platform_specific, self.web_context)?
       } else {
         unreachable!()
       }
 
-      #[cfg(not(any(
-        target_os = "linux",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-      )))]
+      #[cfg(not(gtk))]
       unreachable!()
     };
 
@@ -1232,13 +1184,7 @@ impl WebView {
     WebViewBuilder::new_as_child(parent).build()
   }
 
-  #[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-  ))]
+  #[cfg(gtk)]
   /// Create the webview from a GTK container widget, such as GTK window.
   ///
   /// # Panics:
@@ -1457,25 +1403,13 @@ impl WebViewExtWindows for WebView {
 }
 
 /// Additional methods on `WebView` that are specific to Unix.
-#[cfg(any(
-  target_os = "linux",
-  target_os = "dragonfly",
-  target_os = "freebsd",
-  target_os = "netbsd",
-  target_os = "openbsd",
-))]
+#[cfg(gtk)]
 pub trait WebViewExtUnix {
   /// Returns Webkit2gtk WebView handle
   fn webview(&self) -> webkit2gtk::WebView;
 }
 
-#[cfg(any(
-  target_os = "linux",
-  target_os = "dragonfly",
-  target_os = "freebsd",
-  target_os = "netbsd",
-  target_os = "openbsd",
-))]
+#[cfg(gtk)]
 impl WebViewExtUnix for WebView {
   fn webview(&self) -> webkit2gtk::WebView {
     self.webview.webview.clone()
