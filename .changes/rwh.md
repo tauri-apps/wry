@@ -16,5 +16,5 @@ Refactor new method to take raw window handle instead. Following are APIs got af
 
 This also means that we removed `tao` as a dependency completely which required some changes to the Android backend:
   - We exposed the `android_setup` function that needs to be called once to setup necessary logic.
-  - Previously the `android_binding!` had internal call to `tao::android_binding` but now that `tao` has been removed,sa
+  - Previously the `android_binding!` had internal call to `tao::android_binding` but now that `tao` has been removed,
     the macro signature has changed and you now need to call `tao::android_binding` yourself, checkout the crate documentation for more information.  
