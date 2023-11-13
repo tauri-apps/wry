@@ -52,8 +52,24 @@ impl<'a> MainPipe<'a> {
             on_webview_created,
             autoplay,
             user_agent,
+            initialization_scripts,
             ..
           } = attrs;
+
+          let string_class = self.env.find_class("java/lang/String")?;
+          let initialization_scripts_array = self.env.new_object_array(
+            initialization_scripts.len() as i32,
+            string_class,
+            self.env.new_string("")?,
+          )?;
+          for (i, script) in initialization_scripts.into_iter().enumerate() {
+            self.env.set_object_array_element(
+              &initialization_scripts_array,
+              i as i32,
+              self.env.new_string(script)?,
+            )?;
+          }
+
           // Create webview
           let rust_webview_class = find_class(
             &mut self.env,
@@ -62,8 +78,8 @@ impl<'a> MainPipe<'a> {
           )?;
           let webview = self.env.new_object(
             &rust_webview_class,
-            "(Landroid/content/Context;)V",
-            &[activity.into()],
+            "(Landroid/content/Context;[Ljava/lang/String;)V",
+            &[activity.into(), (&initialization_scripts_array).into()],
           )?;
 
           // set media autoplay
@@ -344,4 +360,5 @@ pub(crate) struct CreateWebViewAttributes {
   pub autoplay: bool,
   pub on_webview_created: Option<Box<dyn Fn(super::Context) -> JniResult<()> + Send>>,
   pub user_agent: Option<String>,
+  pub initialization_scripts: Vec<String>,
 }
