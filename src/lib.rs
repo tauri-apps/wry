@@ -196,13 +196,13 @@ use android::*;
 pub(crate) mod servo;
 #[cfg(gtk)]
 pub(crate) mod webkitgtk;
+#[cfg(servo)]
+use crate::servo::*;
 /// Re-exported [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate.
 pub use raw_window_handle;
 use raw_window_handle::HasRawWindowHandle;
 #[cfg(gtk)]
 use webkitgtk::*;
-#[cfg(servo)]
-use servo::*;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) mod wkwebview;

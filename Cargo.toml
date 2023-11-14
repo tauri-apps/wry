@@ -50,6 +50,7 @@ url = "2.4"
 http = "0.2"
 raw-window-handle = { version = "0.5", features = ["std"] }
 libservo = { path = "../servo/components/servo", features = ["max_log_level", "native-bluetooth", "webdriver"] }
+crossbeam-channel = "0.5"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
 javascriptcore-rs = { version = "=1.1", features = ["v2_28"], optional = true }
