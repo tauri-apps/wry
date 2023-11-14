@@ -38,6 +38,7 @@ os-webview = [
 ]
 x11 = ["x11-dl", "gdkx11", "tao/x11"]
 tracing = ["dep:tracing"]
+servo = []
 
 [dependencies]
 tracing = { version = "0.1", optional = true }
@@ -47,6 +48,7 @@ http = "1.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
 dpi = "0.1"
 cookie = "0.18"
+libservo = { path = "../servo/components/servo", features = ["max_log_level", "native-bluetooth", "webdriver"] }
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
 javascriptcore-rs = { version = "=1.1.2", features = [
@@ -223,4 +225,4 @@ dom_query = { version = "0.28.0", default-features = false }
 
 [lints.rust.unexpected_cfgs]
 level = "warn"
-check-cfg = ["cfg(linux)", "cfg(gtk)"]
+check-cfg = ["cfg(linux)", "cfg(gtk)", "cfg(servo)"]

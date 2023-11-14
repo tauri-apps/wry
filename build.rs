@@ -124,6 +124,7 @@ fn main() {
       || target.contains("openbsd"));
   alias("linux", linux);
   alias("gtk", cfg!(feature = "os-webview") && linux);
+  alias("servo", cfg!(feature = "servo") && linux);
 }
 
 fn alias(alias: &str, condition: bool) {
