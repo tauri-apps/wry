@@ -1421,7 +1421,7 @@ impl WebViewExtWindows for WebView {
 
 /// Additional methods on `WebView` that are specific to Linux.
 #[cfg(gtk)]
-pub trait WebviewExtUnix: Sized {
+pub trait WebViewExtUnix: Sized {
   /// Create the webview from a GTK container widget, such as GTK window.
   ///
   /// # Panics:
@@ -1436,7 +1436,7 @@ pub trait WebviewExtUnix: Sized {
 }
 
 #[cfg(gtk)]
-impl WebviewExtUnix for WebView {
+impl WebViewExtUnix for WebView {
   fn new_gtk<W>(widget: &W) -> Result<Self>
   where
     W: gtk::prelude::IsA<gtk::Container>,
