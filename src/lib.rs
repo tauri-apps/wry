@@ -233,6 +233,19 @@ pub use proxy::{ProxyConfig, ProxyEndpoint};
 pub use url::Url;
 pub use web_context::WebContext;
 
+/// A rectangular region.
+#[derive(Clone, Copy, Debug)]
+pub struct Rect {
+  /// x coordinate of top left corner
+  pub x: i32,
+  /// y coordinate of top left corner
+  pub y: i32,
+  /// width
+  pub width: u32,
+  /// height
+  pub height: u32,
+}
+
 /// Resolves a custom protocol [`Request`] asynchronously.
 ///
 /// See [`WebViewBuilder::with_asynchronous_custom_protocol`] for more information.
@@ -450,15 +463,9 @@ pub struct WebViewAttributes {
   /// - **macOS / Android / iOS:** Unsupported.
   pub focused: bool,
 
-  /// The webview postion.
-  /// This is effective if the webview was created by [`WebView::new_as_child`].
-  /// If it's `None`, the position will be (0, 0).
-  pub position: Option<(i32, i32)>,
-
-  /// The webview size.
-  /// This is effective if the webview was created by [`WebView::new_as_child`].
-  /// If it's `None`, the size will be (0, 0).
-  pub size: Option<(u32, u32)>,
+  /// The webview bounds. Defaults to `x: 0, y: 0, width: 200, height: 200`.
+  /// This is only effective if the webview was created by [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`].
+  pub bounds: Option<Rect>,
 }
 
 impl Default for WebViewAttributes {
@@ -493,8 +500,12 @@ impl Default for WebViewAttributes {
       on_page_load_handler: None,
       proxy_config: None,
       focused: true,
-      position: None,
-      size: None,
+      bounds: Some(Rect {
+        x: 0,
+        y: 0,
+        width: 200,
+        height: 200,
+      }),
     }
   }
 }
@@ -951,15 +962,10 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set the webview position relative to its parent if it was created as a child.
-  pub fn with_position(mut self, position: (i32, i32)) -> Self {
-    self.attrs.position = Some(position);
-    self
-  }
-
-  /// Set the webview size if it was created as a child.
-  pub fn with_size(mut self, size: (u32, u32)) -> Self {
-    self.attrs.size = Some(size);
+  /// Specify the webview position relative to its parent if it will be created as a child.
+  /// Defaults to `x: 0, y: 0, width: 200, height: 200`.
+  pub fn with_bounds(mut self, bounds: Rect) -> Self {
+    self.attrs.bounds.replace(bounds);
     self
   }
 
@@ -1354,15 +1360,11 @@ impl WebView {
     self.webview.clear_all_browsing_data()
   }
 
-  /// Set the webview position relative to its parent if it was created as a child.
-  pub fn set_position(&self, position: (i32, i32)) {
-    self.webview.set_position(position)
-  }
-
-  /// Set the webview size if it was created as a child
-  /// or if ot was created directly in an X11 Window.
-  pub fn set_size(&self, size: (u32, u32)) {
-    self.webview.set_size(size)
+  /// Set the webview bounds.
+  ///
+  /// This is only effective if the webview was created as a child.
+  pub fn set_bounds(&self, bounds: Rect) {
+    self.webview.set_bounds(bounds)
   }
 
   /// Shows or hides the webview.

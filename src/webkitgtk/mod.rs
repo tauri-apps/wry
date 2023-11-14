@@ -34,8 +34,8 @@ use web_context::WebContextExt;
 pub use web_context::WebContextImpl;
 
 use crate::{
-  proxy::ProxyConfig, web_context::WebContext, Error, PageLoadEvent, Result, WebViewAttributes,
-  RGBA,
+  proxy::ProxyConfig, web_context::WebContext, Error, PageLoadEvent, Rect, Result,
+  WebViewAttributes, RGBA,
 };
 
 mod file_drop;
@@ -115,10 +115,13 @@ impl InnerWebView {
         (xlib.XCreateSimpleWindow)(
           display as _,
           window_handle,
-          attributes.position.map(|p| p.0).unwrap_or(0),
-          attributes.position.map(|p| p.1).unwrap_or(0),
-          attributes.size.map(|s| s.0).unwrap_or(0),
-          attributes.size.map(|s| s.1).unwrap_or(0),
+          attributes.bounds.map(|p| p.x).unwrap_or(0),
+          attributes.bounds.map(|p| p.y).unwrap_or(0),
+          // it is unlikey that bounds are not set because
+          // we have a default for it, but anyways we need to have a fallback
+          // and we need to use 1 not 0 here otherwise xlib will crash
+          attributes.bounds.map(|s| s.width).unwrap_or(1),
+          attributes.bounds.map(|s| s.height).unwrap_or(1),
           0,
           0,
           0,
@@ -597,20 +600,26 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn set_position(&self, position: (i32, i32)) {
+  pub fn set_bounds(&self, bounds: Rect) {
     if self.is_child {
       if let Some(window) = &self.gtk_window {
-        window.move_(position.0, position.1);
+        window.move_(bounds.x, bounds.y);
       }
     }
-  }
 
-  pub fn set_size(&self, size: (u32, u32)) {
     if let Some(window) = &self.gtk_window {
       if self.is_child {
-        window.window().unwrap().resize(size.0 as _, size.1 as _);
+        window
+          .window()
+          .unwrap()
+          .resize(bounds.width as i32, bounds.height as i32);
       }
-      window.size_allocate(&gtk::Allocation::new(200, 200, size.0 as _, size.1 as _));
+      window.size_allocate(&gtk::Allocation::new(
+        0,
+        0,
+        bounds.width as i32,
+        bounds.height as i32,
+      ));
     }
   }
 
