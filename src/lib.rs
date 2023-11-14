@@ -146,8 +146,8 @@
 //!
 //! Wry uses a set of feature flags to toggle several advanced features.
 //!
-//! - `native` (default): Enables native WebView framework on the platform. This must be enabled
-//! for the crate to work. This feature is in preparasion of other ports like cef and servo.
+//! - `os-webview` (default): Enables the default WebView framework on the platform. This must be enabled
+//! for the crate to work. This feature was added in preparation of other ports like cef and servo.
 //! - `protocol` (default): Enables [`WebViewBuilder::with_custom_protocol`] to define custom URL scheme for handling tasks like
 //! loading assets.
 //! - `file-drop` (default): Enables [`WebViewBuilder::with_file_drop_handler`] to control the behaviour when there are files
