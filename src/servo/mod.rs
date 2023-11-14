@@ -4,6 +4,7 @@ use url::Url;
 use crate::{Result, WebContext, WebViewAttributes, RGBA};
 
 mod embedder;
+mod prefs;
 mod resources;
 
 pub(crate) struct InnerWebView;
@@ -16,6 +17,7 @@ impl InnerWebView {
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     resources::init(web_context);
+    prefs::init();
     Ok(Self)
   }
 

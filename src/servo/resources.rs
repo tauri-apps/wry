@@ -13,7 +13,6 @@ pub fn init(context: Option<&mut WebContext>) {
     ))),
     _ => resources::set(Box::new(ResourceReader(resources_dir_path()))),
   }
-  // resources::set(Box::new(context))
 }
 
 impl ResourceReaderMethods for ResourceReader {
