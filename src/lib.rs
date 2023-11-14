@@ -1467,7 +1467,7 @@ impl WebViewExtWindows for WebView {
   target_os = "netbsd",
   target_os = "openbsd",
 ))]
-pub trait WebviewExtUnix: Sized {
+pub trait WebViewExtUnix: Sized {
   /// Create the webview from a GTK container widget, such as GTK window.
   ///
   /// # Panics:
@@ -1488,7 +1488,7 @@ pub trait WebviewExtUnix: Sized {
   target_os = "netbsd",
   target_os = "openbsd",
 ))]
-impl WebviewExtUnix for WebView {
+impl WebViewExtUnix for WebView {
   fn new_gtk<W>(widget: &W) -> Result<Self>
   where
     W: gtk::prelude::IsA<gtk::Container>,
