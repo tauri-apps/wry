@@ -5,49 +5,19 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-  #[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd"
-  ))]
+  #[cfg(gtk)]
   #[error(transparent)]
   GlibError(#[from] gtk::glib::Error),
-  #[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd"
-  ))]
+  #[cfg(gtk)]
   #[error(transparent)]
   GlibBoolError(#[from] gtk::glib::BoolError),
-  #[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd"
-  ))]
+  #[cfg(gtk)]
   #[error("Fail to fetch security manager")]
   MissingManager,
-  #[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd"
-  ))]
+  #[cfg(gtk)]
   #[error("Couldn't find X11 Display")]
   X11DisplayNotFound,
-  #[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd"
-  ))]
+  #[cfg(gtk)]
   #[error(transparent)]
   XlibError(#[from] x11_dl::error::OpenError),
   #[error("Failed to initialize the script")]

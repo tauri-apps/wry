@@ -2,13 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-#[cfg(any(
-  target_os = "linux",
-  target_os = "dragonfly",
-  target_os = "freebsd",
-  target_os = "netbsd",
-  target_os = "openbsd"
-))]
+#[cfg(gtk)]
 use crate::webkitgtk::WebContextImpl;
 
 use std::path::{Path, PathBuf};
@@ -43,13 +37,7 @@ impl WebContext {
     Self { data, os }
   }
 
-  #[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd"
-  ))]
+  #[cfg(gtk)]
   pub(crate) fn new_ephemeral() -> Self {
     let data = WebContextData::default();
     let os = WebContextImpl::new_ephemeral();
@@ -91,21 +79,11 @@ impl WebContextData {
   }
 }
 
-#[cfg(any(
-  target_os = "windows",
-  target_os = "android",
-  target_os = "macos",
-  target_os = "ios"
-))]
+#[cfg(not(gtk))]
 #[derive(Debug)]
 pub(crate) struct WebContextImpl;
 
-#[cfg(any(
-  target_os = "windows",
-  target_os = "android",
-  target_os = "macos",
-  target_os = "ios"
-))]
+#[cfg(not(gtk))]
 impl WebContextImpl {
   fn new(_data: &WebContextData) -> Self {
     Self
