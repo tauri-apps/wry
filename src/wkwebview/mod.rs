@@ -45,7 +45,6 @@ use crate::{
   wkwebview::proxy::{
     nw_endpoint_t, nw_proxy_config_create_http_connect, nw_proxy_config_create_socksv5,
   },
-  Rect,
 };
 
 use crate::{
@@ -56,7 +55,7 @@ use crate::{
     },
     navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
   },
-  Error, PageLoadEvent, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
+  Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
 };
 
 use http::{
