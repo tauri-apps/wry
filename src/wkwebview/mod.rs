@@ -1096,7 +1096,7 @@ r#"Object.defineProperty(window, 'ipc', {
             msg_send![self.webview, superview],
             bounds.x,
             bounds.y,
-            bounds.height,
+            bounds.height as f64,
           ),
           size: CGSize::new(bounds.width as f64, bounds.height as f64),
         };
