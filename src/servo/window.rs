@@ -13,12 +13,12 @@ use surfman::{Connection, GLApi, GLVersion, SurfaceType};
 use servo_media::player::context::{GlApi, GlContext, NativeDisplay};
 
 /// This is the type for servo embedder. Not for public usage.
-pub struct Window {
+pub struct WebView {
   webrender_surfman: WebrenderSurfman,
   animation_state: Cell<AnimationState>,
 }
 
-impl Window {
+impl WebView {
   pub fn new(window_handle: RawWindowHandle) -> Self {
     let connection = Connection::new().expect("Failed to create surfman connection");
     let adapter = connection
@@ -39,19 +39,19 @@ impl Window {
   }
 }
 
-unsafe impl Send for Window {}
-unsafe impl Sync for Window {}
+unsafe impl Send for WebView {}
+unsafe impl Sync for WebView {}
 
-impl WindowMethods for Window {
+impl WindowMethods for WebView {
   fn get_coordinates(&self) -> EmbedderCoordinates {
     //TODO
     EmbedderCoordinates {
       hidpi_factor: Scale::new(1.0),
       screen: Size2D::new(1980, 720),
       screen_avail: Size2D::new(1980, 720),
-      window: (Size2D::new(400, 400), Point2D::new(0, 0)),
-      framebuffer: Size2D::new(400, 400),
-      viewport: DeviceIntRect::new(Point2D::new(0, 0), Size2D::new(400, 400)),
+      window: (Size2D::new(800, 800), Point2D::new(0, 0)),
+      framebuffer: Size2D::new(800, 800),
+      viewport: DeviceIntRect::new(Point2D::new(0, 0), Size2D::new(800, 800)),
     }
   }
 

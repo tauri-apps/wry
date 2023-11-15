@@ -8,98 +8,118 @@ use once_cell::sync::Lazy;
 use raw_window_handle::RawWindowHandle;
 use servo::{
   compositing::windowing::{EmbedderEvent, EmbedderMethods},
-  embedder_traits::EventLoopWaker,
+  embedder_traits::{EmbedderMsg, EventLoopWaker},
+  msg::constellation_msg::TopLevelBrowsingContextId,
   servo_url::ServoUrl,
   Servo,
 };
 
-use super::window::Window;
+use super::window::WebView;
 
-/// Servo event loop thread. See [`Embedder`] static for more information.
+/// Servo embedder thread. See [`Embedder`] static for more information.
 pub static SERVO: Lazy<Embedder> = Lazy::new(|| {
   let (embedder_tx, embedder_rx) = unbounded();
-  let (user_tx, user_rx) = unbounded();
   let callback_tx = embedder_tx.clone();
-  let thread = thread::spawn(move || {
+  let _thread = thread::spawn(move || {
     let mut servo = ServoThread::default();
     while let Ok(event) = embedder_rx.recv() {
       if servo.servo.is_none() {
         servo.init(event, callback_tx.clone());
       } else {
-        servo.handle_event(event);
+        servo.handle_embedder_event(event);
       }
     }
   });
 
   Embedder {
-    thread,
+    _thread,
     embedder_tx,
-    user_rx,
   }
 });
 
 #[derive(Default)]
 struct ServoThread {
-  servo: Option<Servo<Window>>,
-  //TODO windows collection with browser_id
+  servo: Option<Servo<WebView>>,
+  webview: Option<(TopLevelBrowsingContextId, Rc<WebView>)>,
 }
 
 impl ServoThread {
   fn init(&mut self, event: ServoEvent, callback: Sender<ServoEvent>) {
-    if let ServoEvent::NewWebView(window) = event {
-      let window = Rc::new(Window::new(window));
+    if let ServoEvent::NewWebView(webview) = event {
+      let webview = Rc::new(WebView::new(webview));
       let mut init_servo = Servo::new(
         Box::new(EmbedderWaker(callback)),
-        window,
-        Some(String::from("test")),
+        webview.clone(),
+        Some(String::from(
+          "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0",
+        )),
       );
-      init_servo.servo.handle_events(vec![
-        EmbedderEvent::NewBrowser(
+
+      init_servo
+        .servo
+        .handle_events(vec![EmbedderEvent::NewBrowser(
           ServoUrl::parse("https://servo.org").unwrap(),
           init_servo.browser_id,
-        ),
-        EmbedderEvent::SelectBrowser(init_servo.browser_id),
-      ]);
+        )]);
       init_servo.servo.setup_logging();
       self.servo.replace(init_servo.servo);
+      self.webview.replace((init_servo.browser_id, webview));
     } else {
-      log::warn!("Received event while servo hasn't initialized yet: {event:?}");
+      log::warn!("Servo embedder received event while servo hasn't initialized yet: {event:?}");
     }
   }
 
-  fn handle_event(&mut self, event: ServoEvent) {
+  /// Handle embedder event from embedder channel. These events are came from users and servo instance.
+  fn handle_embedder_event(&mut self, event: ServoEvent) {
+    log::trace!("Servo embedder is handling event: {event:?}");
     let servo = self.servo.as_mut().unwrap();
     match event {
       ServoEvent::NewWebView(_) => {
-        log::warn!("New webview request while servo is already initialized. Servo hasn't support multiwebview yet.");
+        log::warn!("Servo embedder got new webview request while servo is already initialized. Servo hasn't support multiwebview yet.");
       }
       ServoEvent::Wake => {
-        // TODO start handling events!
-        dbg!(servo.get_events());
-        servo.handle_events(vec![EmbedderEvent::Idle]);
-        servo.recomposite();
-        servo.present();
+        self.handle_servo_message();
       }
     }
+  }
+
+  fn handle_servo_message(&mut self) {
+    let servo = self.servo.as_mut().unwrap();
+    let mut embedder_events = vec![];
+    servo.get_events().into_iter().for_each(|(w, m)| {
+      log::trace!("Servo embedder is handling servo message: {m:?} with browser id: {w:?}");
+      match m {
+        EmbedderMsg::BrowserCreated(w) => {
+          embedder_events.push(EmbedderEvent::SelectBrowser(w));
+        }
+        EmbedderMsg::ReadyToPresent => {
+          servo.recomposite();
+          servo.present();
+        }
+        e => {
+          log::warn!("Servo embedder hasn't supported handling this message yet: {e:?}")
+        }
+      }
+    });
+    embedder_events.push(EmbedderEvent::Idle);
+    let need_resize = servo.handle_events(embedder_events);
   }
 }
 
 #[derive(Debug)]
-
 pub enum ServoEvent {
-  NewWebView(RawWindowHandle),
+  NewWebView(RawWindowHandle), //TODO url, useragent
   Wake,
 }
 
 unsafe impl Send for ServoEvent {}
 unsafe impl Sync for ServoEvent {}
 
-/// Servo embedder handle to work with other webview types and threads.
+/// Servo embedder is an instance to work with other webview types and threads.
 /// This creates its own event loop in another thread and using crossbean channel to communicate.
 pub struct Embedder {
-  thread: JoinHandle<()>,
+  _thread: JoinHandle<()>,
   embedder_tx: Sender<ServoEvent>,
-  user_rx: Receiver<ServoEvent>,
 }
 
 impl Embedder {
@@ -108,10 +128,10 @@ impl Embedder {
     self.embedder_tx.clone()
   }
 
-  /// The receiver to get event from servo thread.
-  pub fn receiver(&self) -> Receiver<ServoEvent> {
-    self.user_rx.clone()
-  }
+  // /// The receiver to get event from servo thread.
+  // pub fn receiver(&self) -> Receiver<ServoEvent> {
+  //   self.user_rx.clone()
+  // }
 }
 
 #[derive(Debug, Clone)]

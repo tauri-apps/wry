@@ -6,7 +6,7 @@ use crate::{Result, WebContext, WebViewAttributes, RGBA};
 
 use self::{
   embedder::{ServoEvent, SERVO},
-  window::Window,
+  window::WebView,
 };
 
 mod embedder;
