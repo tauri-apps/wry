@@ -100,7 +100,7 @@
 //!   let webview = WebView::new(&window);
 //!   event_loop.run(|_e, _evl|{
 //!     // process winit events
-//!      
+//!
 //!     // then advance gtk event loop  <----- IMPORTANT
 //!     while gtk::events_pending() {
 //!       gtk::main_iteration_do(false);
@@ -204,9 +204,9 @@ use raw_window_handle::HasRawWindowHandle;
 #[cfg(gtk)]
 use webkitgtk::*;
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(all(not(servo), apple))]
 pub(crate) mod wkwebview;
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(all(not(servo), apple))]
 use wkwebview::*;
 
 #[cfg(target_os = "windows")]
@@ -1423,7 +1423,7 @@ impl WebViewExtUnix for WebView {
 }
 
 /// Additional methods on `WebView` that are specific to macOS.
-#[cfg(target_os = "macos")]
+#[cfg(all(not(servo), macos))]
 pub trait WebViewExtMacOS {
   /// Returns WKWebView handle
   fn webview(&self) -> cocoa::base::id;
@@ -1432,8 +1432,7 @@ pub trait WebViewExtMacOS {
   /// Returns NSWindow associated with the WKWebView webview
   fn ns_window(&self) -> cocoa::base::id;
 }
-
-#[cfg(target_os = "macos")]
+#[cfg(all(not(servo), macos))]
 impl WebViewExtMacOS for WebView {
   fn webview(&self) -> cocoa::base::id {
     self.webview.webview
