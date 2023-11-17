@@ -116,6 +116,7 @@ fn main() {
 
   let target = std::env::var("TARGET").unwrap_or_default();
   let android = target.contains("android");
+  let macos = target.contains("apple-darwin");
   let linux = !android
     && (target.contains("linux")
       || target.contains("freebsd")
@@ -124,7 +125,7 @@ fn main() {
       || target.contains("openbsd"));
   alias("linux", linux);
   alias("gtk", cfg!(feature = "os-webview") && linux);
-  alias("servo", cfg!(feature = "servo") && linux);
+  alias("servo", cfg!(feature = "servo") && (linux || macos));
 }
 
 fn alias(alias: &str, condition: bool) {

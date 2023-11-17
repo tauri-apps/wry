@@ -385,11 +385,11 @@ use objc2::rc::Retained;
 use objc2_app_kit::NSWindow;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use objc2_web_kit::WKUserContentController;
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(all(not(servo), any(target_os = "macos", target_os = "ios")))]
 pub(crate) mod wkwebview;
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(all(not(servo), any(target_os = "macos", target_os = "ios")))]
 use wkwebview::*;
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(all(not(servo), any(target_os = "macos", target_os = "ios")))]
 pub use wkwebview::{PrintMargin, PrintOptions, WryWebView};
 
 #[cfg(target_os = "windows")]
@@ -2460,7 +2460,7 @@ impl WebViewExtUnix for WebView {
 }
 
 /// Additional methods on `WebView` that are specific to macOS or iOS.
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(all(not(servo), any(target_os = "macos", target_os = "ios")))]
 pub trait WebViewExtDarwin {
   /// Prints with extra options
   fn print_with_options(&self, options: &PrintOptions) -> Result<()>;
@@ -2476,7 +2476,7 @@ pub trait WebViewExtDarwin {
   fn remove_data_store<F: FnOnce(Result<()>) + Send + 'static>(uuid: &[u8; 16], cb: F);
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(all(not(servo), any(target_os = "macos", target_os = "ios")))]
 impl WebViewExtDarwin for WebView {
   fn print_with_options(&self, options: &PrintOptions) -> Result<()> {
     self.webview.print_with_options(options)
@@ -2492,7 +2492,7 @@ impl WebViewExtDarwin for WebView {
 }
 
 /// Additional methods on `WebView` that are specific to macOS.
-#[cfg(target_os = "macos")]
+#[cfg(all(not(servo), target_os = "macos"))]
 pub trait WebViewExtMacOS {
   /// Returns WKWebView handle
   fn webview(&self) -> Retained<WryWebView>;
@@ -2512,7 +2512,7 @@ pub trait WebViewExtMacOS {
   fn set_traffic_light_inset<P: Into<dpi::Position>>(&self, position: P) -> Result<()>;
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(not(servo), target_os = "macos"))]
 impl WebViewExtMacOS for WebView {
   fn webview(&self) -> Retained<WryWebView> {
     self.webview.webview.clone()
@@ -2540,7 +2540,7 @@ impl WebViewExtMacOS for WebView {
 }
 
 /// Additional methods on `WebView` that are specific to iOS.
-#[cfg(target_os = "ios")]
+#[cfg(all(not(servo), target_os = "ios"))]
 pub trait WebViewExtIOS {
   /// Returns WKWebView handle
   fn webview(&self) -> Retained<WryWebView>;
@@ -2548,7 +2548,7 @@ pub trait WebViewExtIOS {
   fn manager(&self) -> Retained<WKUserContentController>;
 }
 
-#[cfg(target_os = "ios")]
+#[cfg(all(not(servo), target_os = "ios"))]
 impl WebViewExtIOS for WebView {
   fn webview(&self) -> Retained<WryWebView> {
     self.webview.webview.clone()
