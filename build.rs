@@ -111,6 +111,6 @@ fn main() {
       linux: { all(unix, not(apple), not(android)) },
       // Backends
       gtk: { all(feature = "native", linux) },
-      servo: { all(feature = "servo", linux) },
+      servo: { all(feature = "servo", any(linux, macos)) },
   }
 }
