@@ -24,15 +24,19 @@ rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["file-drop", "objc-exception", "protocol"]
+default = ["file-drop", "objc-exception", "protocol", "os-webview"]
 objc-exception = ["objc/exception"]
 file-drop = []
 protocol = []
 devtools = []
 transparent = []
 fullscreen = []
-linux-body = ["webkit2gtk/v2_40"]
+linux-body = ["webkit2gtk/v2_40", "os-webview"]
 mac-proxy = []
+os-webview = ["javascriptcore-rs", "webkit2gtk", "webkit2gtk-sys", "dep:gtk", "soup3", "x11-dl", "gdkx11"]
+
+[build-dependencies]
+cfg_aliases = "0.1"
 
 [dependencies]
 libc = "0.2"
@@ -46,13 +50,13 @@ http = "0.2"
 raw-window-handle = { version = "0.5", features = ["std"] }
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
-javascriptcore-rs = { version = "=1.1", features = ["v2_28"] }
-webkit2gtk = { version = "=2.0", features = ["v2_38"] }
-webkit2gtk-sys = "=2.0"
-gtk = "0.18"
-soup3 = "0.5"
-x11-dl = "2.9"
-gdkx11 = "0.18"
+javascriptcore-rs = { version = "=1.1", features = ["v2_28"], optional = true }
+webkit2gtk = { version = "=2.0", features = ["v2_38"], optional = true }
+webkit2gtk-sys = { version = "=2.0", optional = true }
+gtk = { version = "0.18", optional = true }
+soup3 = { version = "0.5", optional = true }
+x11-dl = { version = "2.9", optional = true }
+gdkx11 = { version = "0.18", optional = true }
 
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.27"
