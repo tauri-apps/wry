@@ -53,7 +53,7 @@ macro_rules! define_static_handlers {
 
 define_static_handlers! {
   IPC =  UnsafeIpc { handler: Box<dyn Fn(String)> };
-  REQUEST_HANDLER = UnsafeRequestHandler { handler:  Box<dyn Fn(Request<Vec<u8>>) -> Option<HttpResponse<Cow<'static, [u8]>>>> };
+  REQUEST_HANDLER = UnsafeRequestHandler { handler:  Box<dyn Fn(Request<Vec<u8>>, bool) -> Option<HttpResponse<Cow<'static, [u8]>>>> };
   TITLE_CHANGE_HANDLER = UnsafeTitleHandler { handler: Box<dyn Fn(String)> };
   URL_LOADING_OVERRIDE = UnsafeUrlLoadingOverride { handler: Box<dyn Fn(String) -> bool> };
   ON_LOAD_HANDLER = UnsafeOnPageLoadHandler { handler: Box<dyn Fn(PageLoadEvent, String)> };
@@ -179,6 +179,7 @@ impl InnerWebView {
       on_webview_created,
       autoplay,
       user_agent,
+      initialization_scripts: initialization_scripts.clone(),
     }));
 
     WITH_ASSET_LOADER.get_or_init(move || with_asset_loader);
@@ -187,77 +188,87 @@ impl InnerWebView {
     }
 
     REQUEST_HANDLER.get_or_init(move || {
-      UnsafeRequestHandler::new(Box::new(move |mut request| {
-        if let Some(custom_protocol) = custom_protocols.iter().find(|(name, _)| {
-          request
-            .uri()
-            .to_string()
-            .starts_with(&format!("{custom_protocol_scheme}://{}.", name))
-        }) {
-          *request.uri_mut() = request
-            .uri()
-            .to_string()
-            .replace(
-              &format!("{custom_protocol_scheme}://{}.", custom_protocol.0),
-              &format!("{}://", custom_protocol.0),
-            )
-            .parse()
-            .unwrap();
+      UnsafeRequestHandler::new(Box::new(
+        move |mut request, is_document_start_script_enabled| {
+          if let Some(custom_protocol) = custom_protocols.iter().find(|(name, _)| {
+            request
+              .uri()
+              .to_string()
+              .starts_with(&format!("{custom_protocol_scheme}://{}.", name))
+          }) {
+            *request.uri_mut() = request
+              .uri()
+              .to_string()
+              .replace(
+                &format!("{custom_protocol_scheme}://{}.", custom_protocol.0),
+                &format!("{}://", custom_protocol.0),
+              )
+              .parse()
+              .unwrap();
 
-          let (tx, rx) = channel();
-          let initialization_scripts = initialization_scripts.clone();
-          let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
-            Box::new(move |mut response| {
-              let should_inject_scripts = response
-                .headers()
-                .get(CONTENT_TYPE)
-                // Content-Type must begin with the media type, but is case-insensitive.
-                // It may also be followed by any number of semicolon-delimited key value pairs.
-                // We don't care about these here.
-                // source: https://httpwg.org/specs/rfc9110.html#rfc.section.8.3.1
-                .and_then(|content_type| content_type.to_str().ok())
-                .map(|content_type_str| content_type_str.to_lowercase().starts_with("text/html"))
-                .unwrap_or_default();
+            let (tx, rx) = channel();
+            let initialization_scripts = initialization_scripts.clone();
+            let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
+              Box::new(move |mut response| {
+                if !is_document_start_script_enabled {
+                  log::info!("`addDocumentStartJavaScript` is not supported; injecting initialization scripts via custom protocol handler");
+                  let should_inject_scripts = response
+                    .headers()
+                    .get(CONTENT_TYPE)
+                    // Content-Type must begin with the media type, but is case-insensitive.
+                    // It may also be followed by any number of semicolon-delimited key value pairs.
+                    // We don't care about these here.
+                    // source: https://httpwg.org/specs/rfc9110.html#rfc.section.8.3.1
+                    .and_then(|content_type| content_type.to_str().ok())
+                    .map(|content_type_str| {
+                      content_type_str.to_lowercase().starts_with("text/html")
+                    })
+                    .unwrap_or_default();
 
-              if should_inject_scripts && !initialization_scripts.is_empty() {
-                let mut document =
-                  kuchiki::parse_html().one(String::from_utf8_lossy(response.body()).into_owned());
-                let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
-                let mut hashes = Vec::new();
-                with_html_head(&mut document, |head| {
-                  // iterate in reverse order since we are prepending each script to the head tag
-                  for script in initialization_scripts.iter().rev() {
-                    let script_el =
-                      NodeRef::new_element(QualName::new(None, ns!(html), "script".into()), None);
-                    script_el.append(NodeRef::new_text(script));
-                    head.prepend(script_el);
-                    if csp.is_some() {
-                      hashes.push(hash_script(script));
+                  if should_inject_scripts && !initialization_scripts.is_empty() {
+                    let mut document = kuchiki::parse_html()
+                      .one(String::from_utf8_lossy(response.body()).into_owned());
+                    let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
+                    let mut hashes = Vec::new();
+                    with_html_head(&mut document, |head| {
+                      // iterate in reverse order since we are prepending each script to the head tag
+                      for script in initialization_scripts.iter().rev() {
+                        let script_el = NodeRef::new_element(
+                          QualName::new(None, ns!(html), "script".into()),
+                          None,
+                        );
+                        script_el.append(NodeRef::new_text(script));
+                        head.prepend(script_el);
+                        if csp.is_some() {
+                          hashes.push(hash_script(script));
+                        }
+                      }
+                    });
+
+                    if let Some(csp) = csp {
+                      let csp_string = csp.to_str().unwrap().to_string();
+                      let csp_string = if csp_string.contains("script-src") {
+                        csp_string
+                          .replace("script-src", &format!("script-src {}", hashes.join(" ")))
+                      } else {
+                        format!("{} script-src {}", csp_string, hashes.join(" "))
+                      };
+                      *csp = HeaderValue::from_str(&csp_string).unwrap();
                     }
-                  }
-                });
 
-                if let Some(csp) = csp {
-                  let csp_string = csp.to_str().unwrap().to_string();
-                  let csp_string = if csp_string.contains("script-src") {
-                    csp_string.replace("script-src", &format!("script-src {}", hashes.join(" ")))
-                  } else {
-                    format!("{} script-src {}", csp_string, hashes.join(" "))
-                  };
-                  *csp = HeaderValue::from_str(&csp_string).unwrap();
+                    *response.body_mut() = document.to_string().into_bytes().into();
+                  }
                 }
 
-                *response.body_mut() = document.to_string().into_bytes().into();
-              }
+                tx.send(response).unwrap();
+              });
 
-              tx.send(response).unwrap();
-            });
-
-          (custom_protocol.1)(request, RequestAsyncResponder { responder });
-          return Some(rx.recv().unwrap());
-        }
-        None
-      }))
+            (custom_protocol.1)(request, RequestAsyncResponder { responder });
+            return Some(rx.recv().unwrap());
+          }
+          None
+        },
+      ))
     });
 
     if let Some(i) = ipc_handler {
@@ -324,12 +335,8 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn set_position(&self, _position: (i32, i32)) {
-    // Unsupported.
-  }
-
-  pub fn set_size(&self, _size: (u32, u32)) {
-    // Unsupported.
+  pub fn set_bounds(&self, bounds: crate::Rect) {
+    // Unsupported
   }
 
   pub fn set_visible(&self, _visible: bool) {

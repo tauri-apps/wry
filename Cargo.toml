@@ -31,9 +31,9 @@ protocol = []
 devtools = []
 transparent = []
 fullscreen = []
-linux-body = ["webkit2gtk/v2_40", "native"]
+linux-body = ["webkit2gtk/v2_40", "os-webview"]
 mac-proxy = []
-native = ["javascriptcore-rs", "webkit2gtk", "webkit2gtk-sys", "dep:gtk", "soup3", "x11-dl", "gdkx11"]
+os-webview = ["javascriptcore-rs", "webkit2gtk", "webkit2gtk-sys", "dep:gtk", "soup3", "x11-dl", "gdkx11"]
 servo = []
 
 [build-dependencies]
@@ -49,6 +49,7 @@ thiserror = "1.0"
 url = "2.4"
 http = "0.2"
 raw-window-handle = { version = "0.5", features = ["std"] }
+# Servo TODO move to feature gate
 libservo = { path = "../servo/components/servo", features = ["max_log_level", "native-bluetooth", "webdriver"] }
 servo-media = { git = "https://github.com/servo/media" }
 crossbeam-channel = "0.5"

@@ -4,7 +4,7 @@ use winit::{
   event_loop::{ControlFlow, EventLoop},
   window::Window,
 };
-use wry::WebViewBuilder;
+use wry::{Rect, WebViewBuilder};
 
 async fn run(event_loop: EventLoop<()>, window: Window) {
   let size = window.inner_size();
@@ -97,8 +97,12 @@ fn fs_main() -> @location(0) vec4<f32> {
   surface.configure(&device, &config);
 
   let _webview = WebViewBuilder::new_as_child(&window)
-    .with_position((100, 100))
-    .with_size((400, 400))
+    .with_bounds(Rect {
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+    })
     .with_transparent(true)
     .with_html(
       r#"<html>

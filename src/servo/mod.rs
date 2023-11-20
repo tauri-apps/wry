@@ -2,7 +2,7 @@ use crossbeam_channel::Sender;
 use raw_window_handle::HasRawWindowHandle;
 use url::Url;
 
-use crate::{Result, WebContext, WebViewAttributes, RGBA};
+use crate::{Result, WebContext, WebViewAttributes, RGBA, Rect};
 
 use self::{
   embedder::{ServoEvent, SERVO},
@@ -89,9 +89,7 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn set_position(&self, position: (i32, i32)) {}
-
-  pub fn set_size(&self, size: (u32, u32)) {}
+  pub fn set_bounds(&self, bounds: Rect) {}
 
   pub fn set_visible(&self, visible: bool) {}
 

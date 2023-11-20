@@ -46,6 +46,7 @@ fn main() -> wry::Result<()> {
   )))]
   let builder = {
     use tao::platform::unix::WindowExtUnix;
+    use wry::WebViewBuilderExtUnix;
     let vbox = window.default_vbox().unwrap();
     WebViewBuilder::new_gtk(vbox)
   };

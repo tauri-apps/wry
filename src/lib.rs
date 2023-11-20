@@ -31,7 +31,7 @@
 //!   .unwrap();
 //! ```
 //!
-//! If you also want to support Wayland too, then we recommend you use [`WebViewBuilder::new_gtk`] on Linux.
+//! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::new_gtk`] on Linux.
 //!
 //! ```no_run,ignore
 //! use wry::WebViewBuilder;
@@ -51,6 +51,7 @@
 //! )))]
 //! let builder = {
 //!   use tao::platform::unix::WindowExtUnix;
+//!   use wry::WebViewBuilderExtUnix;
 //!   WebViewBuilder::new_gtk(&window.gtk_window())
 //! };
 //!
@@ -145,8 +146,8 @@
 //!
 //! Wry uses a set of feature flags to toggle several advanced features.
 //!
-//! - `native` (default): Enables native WebView framework on the platform. This must be enabled
-//! for the crate to work. This feature is in preparasion of other ports like cef and servo.
+//! - `os-webview` (default): Enables the default WebView framework on the platform. This must be enabled
+//! for the crate to work. This feature was added in preparation of other ports like cef and servo.
 //! - `protocol` (default): Enables [`WebViewBuilder::with_custom_protocol`] to define custom URL scheme for handling tasks like
 //! loading assets.
 //! - `file-drop` (default): Enables [`WebViewBuilder::with_file_drop_handler`] to control the behaviour when there are files
@@ -225,6 +226,19 @@ pub use http;
 pub use proxy::{ProxyConfig, ProxyEndpoint};
 pub use url::Url;
 pub use web_context::WebContext;
+
+/// A rectangular region.
+#[derive(Clone, Copy, Debug)]
+pub struct Rect {
+  /// x coordinate of top left corner
+  pub x: i32,
+  /// y coordinate of top left corner
+  pub y: i32,
+  /// width
+  pub width: u32,
+  /// height
+  pub height: u32,
+}
 
 /// Resolves a custom protocol [`Request`] asynchronously.
 ///
@@ -443,15 +457,9 @@ pub struct WebViewAttributes {
   /// - **macOS / Android / iOS:** Unsupported.
   pub focused: bool,
 
-  /// The webview postion.
-  /// This is effective if the webview was created by [`WebView::new_as_child`].
-  /// If it's `None`, the position will be (0, 0).
-  pub position: Option<(i32, i32)>,
-
-  /// The webview size.
-  /// This is effective if the webview was created by [`WebView::new_as_child`].
-  /// If it's `None`, the size will be (0, 0).
-  pub size: Option<(u32, u32)>,
+  /// The webview bounds. Defaults to `x: 0, y: 0, width: 200, height: 200`.
+  /// This is only effective if the webview was created by [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`].
+  pub bounds: Option<Rect>,
 }
 
 impl Default for WebViewAttributes {
@@ -486,8 +494,12 @@ impl Default for WebViewAttributes {
       on_page_load_handler: None,
       proxy_config: None,
       focused: true,
-      position: None,
-      size: None,
+      bounds: Some(Rect {
+        x: 0,
+        y: 0,
+        width: 200,
+        height: 200,
+      }),
     }
   }
 }
@@ -512,7 +524,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// # Platform-specific:
   ///
-  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewBuilder::new_gtk`].
+  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewBuilderExtUnix::new_gtk`].
   ///
   ///   Although this methods only needs an X11 window handle, we use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
@@ -569,29 +581,6 @@ impl<'a> WebViewBuilder<'a> {
     }
   }
 
-  #[cfg(gtk)]
-  /// Create the webview from a GTK container widget, such as GTK window.
-  ///
-  /// # Panics:
-  ///
-  /// - Panics if [`gtk::init`] was not called in this thread.
-  pub fn new_gtk<W>(widget: &'a W) -> Self
-  where
-    W: gtk::prelude::IsA<gtk::Container>,
-  {
-    use gdkx11::glib::Cast;
-
-    Self {
-      attrs: WebViewAttributes::default(),
-      window: None,
-      as_child: false,
-      #[allow(clippy::default_constructed_unit_structs)]
-      platform_specific: PlatformSpecificWebViewAttributes::default(),
-      web_context: None,
-      gtk_widget: Some(widget.dynamic_cast_ref().unwrap()),
-    }
-  }
-
   /// Indicates whether horizontal swipe gestures trigger backward and forward page navigation.
   ///
   /// ## Platform-specific:
@@ -645,8 +634,12 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific
   ///
-  /// - **Android:** The Android WebView does not provide an API for initialization scripts,
-  /// so we prepend them to each HTML head. They are only implemented on custom protocol URLs.
+  /// - **Android:** When [addDocumentStartJavaScript] is not supported,
+  /// we prepend them to each HTML head (implementation only supported on custom protocol URLs).
+  /// For remote URLs, we use [onPageStarted] which is not guaranteed to run before other scripts.
+  ///
+  /// [addDocumentStartJavaScript]: https://developer.android.com/reference/androidx/webkit/WebViewCompat#addDocumentStartJavaScript(android.webkit.WebView,java.lang.String,java.util.Set%3Cjava.lang.String%3E)
+  /// [onPageStarted]: https://developer.android.com/reference/android/webkit/WebViewClient#onPageStarted(android.webkit.WebView,%20java.lang.String,%20android.graphics.Bitmap)
   pub fn with_initialization_script(mut self, js: &str) -> Self {
     if !js.is_empty() {
       self.attrs.initialization_scripts.push(js.to_string());
@@ -945,15 +938,10 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set the webview position relative to its parent if it was created as a child.
-  pub fn with_position(mut self, position: (i32, i32)) -> Self {
-    self.attrs.position = Some(position);
-    self
-  }
-
-  /// Set the webview size if it was created as a child.
-  pub fn with_size(mut self, size: (u32, u32)) -> Self {
-    self.attrs.size = Some(size);
+  /// Specify the webview position relative to its parent if it will be created as a child.
+  /// Defaults to `x: 0, y: 0, width: 200, height: 200`.
+  pub fn with_bounds(mut self, bounds: Rect) -> Self {
+    self.attrs.bounds.replace(bounds);
     self
   }
 
@@ -1134,6 +1122,38 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
   }
 }
 
+#[cfg(gtk)]
+pub trait WebViewBuilderExtUnix<'a> {
+  /// Create the webview from a GTK container widget, such as GTK window.
+  ///
+  /// # Panics:
+  ///
+  /// - Panics if [`gtk::init`] was not called in this thread.
+  fn new_gtk<W>(widget: &'a W) -> Self
+  where
+    W: gtk::prelude::IsA<gtk::Container>;
+}
+
+#[cfg(gtk)]
+impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
+  fn new_gtk<W>(widget: &'a W) -> Self
+  where
+    W: gtk::prelude::IsA<gtk::Container>,
+  {
+    use gdkx11::glib::Cast;
+
+    Self {
+      attrs: WebViewAttributes::default(),
+      window: None,
+      as_child: false,
+      #[allow(clippy::default_constructed_unit_structs)]
+      platform_specific: PlatformSpecificWebViewAttributes::default(),
+      web_context: None,
+      gtk_widget: Some(widget.dynamic_cast_ref().unwrap()),
+    }
+  }
+}
+
 /// The fundamental type to present a [`WebView`].
 ///
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
@@ -1151,7 +1171,7 @@ impl WebView {
   ///
   /// # Platform-specific:
   ///
-  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebView::new_gtk`].
+  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewExtUnix::new_gtk`].
   ///
   ///   Although this methods only needs an X11 window handle, you use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
@@ -1188,19 +1208,6 @@ impl WebView {
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
   pub fn new_as_child(parent: &impl HasRawWindowHandle) -> Result<Self> {
     WebViewBuilder::new_as_child(parent).build()
-  }
-
-  #[cfg(gtk)]
-  /// Create the webview from a GTK container widget, such as GTK window.
-  ///
-  /// # Panics:
-  ///
-  /// - Panics if [`gtk::init`] was not called in this thread.
-  pub fn new_gtk<W>(widget: &W) -> Result<Self>
-  where
-    W: gtk::prelude::IsA<gtk::Container>,
-  {
-    WebViewBuilder::new_gtk(widget).build()
   }
 
   /// Get the current url of the webview
@@ -1305,15 +1312,11 @@ impl WebView {
     self.webview.clear_all_browsing_data()
   }
 
-  /// Set the webview position relative to its parent if it was created as a child.
-  pub fn set_position(&self, position: (i32, i32)) {
-    self.webview.set_position(position)
-  }
-
-  /// Set the webview size if it was created as a child
-  /// or if ot was created directly in an X11 Window.
-  pub fn set_size(&self, size: (u32, u32)) {
-    self.webview.set_size(size)
+  /// Set the webview bounds.
+  ///
+  /// This is only effective if the webview was created as a child.
+  pub fn set_bounds(&self, bounds: Rect) {
+    self.webview.set_bounds(bounds)
   }
 
   /// Shows or hides the webview.
@@ -1408,15 +1411,31 @@ impl WebViewExtWindows for WebView {
   }
 }
 
-/// Additional methods on `WebView` that are specific to Unix.
+/// Additional methods on `WebView` that are specific to Linux.
 #[cfg(gtk)]
-pub trait WebViewExtUnix {
-  /// Returns Webkit2gtk WebView handle
+pub trait WebViewExtUnix: Sized {
+  /// Create the webview from a GTK container widget, such as GTK window.
+  ///
+  /// # Panics:
+  ///
+  /// - Panics if [`gtk::init`] was not called in this thread.
+  fn new_gtk<W>(widget: &W) -> Result<Self>
+  where
+    W: gtk::prelude::IsA<gtk::Container>;
+
+  /// Returns Webkit2gtk Webview handle
   fn webview(&self) -> webkit2gtk::WebView;
 }
 
 #[cfg(gtk)]
 impl WebViewExtUnix for WebView {
+  fn new_gtk<W>(widget: &W) -> Result<Self>
+  where
+    W: gtk::prelude::IsA<gtk::Container>,
+  {
+    WebViewBuilder::new_gtk(widget).build()
+  }
+
   fn webview(&self) -> webkit2gtk::WebView {
     self.webview.webview.clone()
   }

@@ -55,7 +55,7 @@ use crate::{
     },
     navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
   },
-  Error, PageLoadEvent, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
+  Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
 };
 
 use http::{
@@ -141,9 +141,11 @@ impl InnerWebView {
           let function = &mut *(*function as *mut Box<dyn Fn(String)>);
           let body: id = msg_send![msg, body];
           let utf8: *const c_char = msg_send![body, UTF8String];
-          let js = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
-
-          (function)(js.to_string());
+          if let Ok(js) = CStr::from_ptr(utf8).to_str() {
+            (function)(js.to_string());
+          } else {
+            log::warn!("WebView received invalid UTF8 string from IPC.");
+          }
         } else {
           log::warn!("WebView instance is dropped! This handler shouldn't be called.");
         }
@@ -394,24 +396,24 @@ impl InnerWebView {
 
       #[cfg(target_os = "macos")]
       {
-        let (x, y) = attributes.position.unwrap_or((0, 0));
+        let (x, y) = attributes.bounds.map(|b| (b.x, b.y)).unwrap_or((0, 0));
+        let (w, h) = attributes
+          .bounds
+          .map(|b| (b.width, b.height))
+          .unwrap_or_else(|| {
+            if is_child {
+              let frame = NSView::frame(ns_view);
+              (frame.size.width as u32, frame.size.height as u32)
+            } else {
+              (0, 0)
+            }
+          });
 
-        let (w, h) = attributes.size.unwrap_or_else(|| {
-          if is_child {
-            let frame = NSView::frame(ns_view);
-            (frame.size.width as u32, frame.size.height as u32)
-          } else {
-            (0, 0)
-          }
-        });
-        let frame: CGRect = CGRect::new(
-          &window_position(
-            if is_child { ns_view } else { webview },
-            (x, y),
-            (w as f64, h as f64),
-          ),
-          &CGSize::new(w as f64, h as f64),
-        );
+        let frame = CGRect {
+          origin: window_position(if is_child { ns_view } else { webview }, x, y, h as f64),
+          size: CGSize::new(w as f64, h as f64),
+        };
+
         let _: () = msg_send![webview, initWithFrame:frame configuration:config];
         if is_child {
           // fixed element
@@ -1088,25 +1090,18 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
-  pub fn set_position(&self, position: (i32, i32)) {
+  pub fn set_bounds(&self, bounds: Rect) {
     if self.is_child {
       unsafe {
-        let mut frame: CGRect = msg_send![self.webview, frame];
-        frame.origin = window_position(
-          msg_send![self.webview, superview],
-          (position.0, position.1),
-          (frame.size.width, frame.size.height),
-        );
-        let () = msg_send![self.webview, setFrame: frame];
-      }
-    }
-  }
-
-  pub fn set_size(&self, size: (u32, u32)) {
-    if self.is_child {
-      unsafe {
-        let mut frame: CGRect = msg_send![self.webview, frame];
-        frame.size = CGSize::new(size.0 as f64, size.1 as f64);
+        let frame = CGRect {
+          origin: window_position(
+            msg_send![self.webview, superview],
+            bounds.x,
+            bounds.y,
+            bounds.height as f64,
+          ),
+          size: CGSize::new(bounds.width as f64, bounds.height as f64),
+        };
         let () = msg_send![self.webview, setFrame: frame];
       }
     }
@@ -1261,10 +1256,7 @@ struct NSData(id);
 /// Converts from wry screen-coordinates to macOS screen-coordinates.
 /// wry: top-left is (0, 0) and y increasing downwards
 /// macOS: bottom-left is (0, 0) and y increasing upwards
-unsafe fn window_position(view: id, position: (i32, i32), size: (f64, f64)) -> CGPoint {
+unsafe fn window_position(view: id, x: i32, y: i32, height: f64) -> CGPoint {
   let frame: CGRect = msg_send![view, frame];
-  CGPoint::new(
-    position.0 as f64,
-    frame.size.height - position.1 as f64 - size.1,
-  )
+  CGPoint::new(x as f64, frame.size.height - y as f64 - height)
 }

@@ -31,9 +31,8 @@ use windows::{
       WindowsAndMessaging::{
         self as win32wm, CreateWindowExW, DefWindowProcW, DestroyWindow, PostMessageW,
         RegisterClassExW, RegisterWindowMessageA, SetWindowPos, ShowWindow, CS_HREDRAW, CS_VREDRAW,
-        CW_USEDEFAULT, HCURSOR, HICON, HMENU, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE,
-        SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WNDCLASSEXW, WS_CHILD,
-        WS_CLIPCHILDREN, WS_VISIBLE,
+        CW_USEDEFAULT, HCURSOR, HICON, HMENU, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOZORDER,
+        SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_VISIBLE,
       },
     },
   },
@@ -42,7 +41,7 @@ use windows::{
 use self::file_drop::FileDropController;
 use super::Theme;
 use crate::{
-  proxy::ProxyConfig, Error, MemoryUsageLevel, PageLoadEvent, RequestAsyncResponder, Result,
+  proxy::ProxyConfig, Error, MemoryUsageLevel, PageLoadEvent, Rect, RequestAsyncResponder, Result,
   WebContext, WebViewAttributes, RGBA,
 };
 
@@ -137,10 +136,16 @@ impl InnerWebView {
         PCWSTR::from_raw(class_name.as_ptr()),
         PCWSTR::null(),
         flags,
-        attributes.position.map(|a| a.0).unwrap_or(CW_USEDEFAULT),
-        attributes.position.map(|a| a.1).unwrap_or(CW_USEDEFAULT),
-        attributes.size.map(|a| a.0 as i32).unwrap_or(CW_USEDEFAULT),
-        attributes.size.map(|a| a.1 as i32).unwrap_or(CW_USEDEFAULT),
+        attributes.bounds.map(|a| a.x).unwrap_or(CW_USEDEFAULT),
+        attributes.bounds.map(|a| a.y).unwrap_or(CW_USEDEFAULT),
+        attributes
+          .bounds
+          .map(|a| a.width as i32)
+          .unwrap_or(CW_USEDEFAULT),
+        attributes
+          .bounds
+          .map(|a| a.height as i32)
+          .unwrap_or(CW_USEDEFAULT),
         HWND(parent),
         HMENU::default(),
         GetModuleHandleW(PCWSTR::null()).unwrap_or_default(),
@@ -1005,33 +1010,17 @@ impl InnerWebView {
     set_theme(&self.webview, theme);
   }
 
-  pub fn set_position(&self, position: (i32, i32)) {
+  pub fn set_bounds(&self, bounds: Rect) {
     if self.is_child {
       unsafe {
         let _ = SetWindowPos(
           self.hwnd,
           HWND::default(),
-          position.0,
-          position.1,
-          0,
-          0,
-          SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER,
-        );
-      }
-    }
-  }
-
-  pub fn set_size(&self, size: (u32, u32)) {
-    if self.is_child {
-      unsafe {
-        let _ = SetWindowPos(
-          self.hwnd,
-          HWND::default(),
-          0,
-          0,
-          size.0 as _,
-          size.1 as _,
-          SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER,
+          bounds.x,
+          bounds.y,
+          bounds.width as i32,
+          bounds.height as i32,
+          SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOZORDER,
         );
       }
     }
