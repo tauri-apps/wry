@@ -1,3 +1,4 @@
+use crate::Rect;
 use std::cell::Cell;
 
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
@@ -16,6 +17,7 @@ use servo_media::player::context::{GlApi, GlContext, NativeDisplay};
 pub struct WebView {
   webrender_surfman: WebrenderSurfman,
   animation_state: Cell<AnimationState>,
+  rect: Cell<Rect>, //TODO hidpi
 }
 
 impl WebView {
@@ -35,7 +37,20 @@ impl WebView {
     Self {
       webrender_surfman,
       animation_state: Cell::new(AnimationState::Idle),
+      rect: Cell::new(Rect {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+      }),
     }
+  }
+
+  pub fn set_bounds(&self, rect: Rect) {
+    self.rect.replace(rect);
+    let _ = self
+      .webrender_surfman
+      .resize(Size2D::new(rect.width as i32, rect.height as i32));
   }
 }
 
@@ -44,14 +59,16 @@ unsafe impl Sync for WebView {}
 
 impl WindowMethods for WebView {
   fn get_coordinates(&self) -> EmbedderCoordinates {
-    //TODO
+    let rect = self.rect.get();
+    let pos = Point2D::new(rect.x, rect.y);
+    let size = Size2D::new(rect.width as i32, rect.height as i32);
     EmbedderCoordinates {
       hidpi_factor: Scale::new(1.0),
-      screen: Size2D::new(1980, 720),
-      screen_avail: Size2D::new(1980, 720),
-      window: (Size2D::new(800, 800), Point2D::new(0, 0)),
-      framebuffer: Size2D::new(800, 800),
-      viewport: DeviceIntRect::new(Point2D::new(0, 0), Size2D::new(800, 800)),
+      screen: Size2D::new(3840, 2160),
+      screen_avail: Size2D::new(3840, 2160),
+      window: (size, pos),
+      framebuffer: size,
+      viewport: DeviceIntRect::new(pos, size),
     }
   }
 

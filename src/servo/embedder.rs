@@ -14,6 +14,8 @@ use servo::{
   Servo,
 };
 
+use crate::Rect;
+
 use super::window::WebView;
 
 /// Servo embedder thread. See [`Embedder`] static for more information.
@@ -72,10 +74,15 @@ impl ServoThread {
   /// Handle embedder event from embedder channel. These events are came from users and servo instance.
   fn handle_embedder_event(&mut self, event: ServoEvent) {
     log::trace!("Servo embedder is handling event: {event:?}");
-    let servo = self.servo.as_mut().unwrap();
     match event {
       ServoEvent::NewWebView(_) => {
         log::warn!("Servo embedder got new webview request while servo is already initialized. Servo hasn't support multiwebview yet.");
+      }
+      ServoEvent::ResizeWebView(rect) => {
+        if let Some((_, webview)) = &self.webview {
+          webview.set_bounds(rect);
+          self.servo().handle_events(vec![EmbedderEvent::Resize]);
+        }
       }
       ServoEvent::Wake => {
         self.handle_servo_message();
@@ -84,7 +91,7 @@ impl ServoThread {
   }
 
   fn handle_servo_message(&mut self) {
-    let servo = self.servo.as_mut().unwrap();
+    let servo = self.servo();
     let mut embedder_events = vec![];
     servo.get_events().into_iter().for_each(|(w, m)| {
       log::trace!("Servo embedder is handling servo message: {m:?} with browser id: {w:?}");
@@ -104,11 +111,16 @@ impl ServoThread {
     embedder_events.push(EmbedderEvent::Idle);
     let need_resize = servo.handle_events(embedder_events);
   }
+
+  fn servo(&mut self) -> &mut Servo<WebView> {
+    self.servo.as_mut().unwrap()
+  }
 }
 
 #[derive(Debug)]
 pub enum ServoEvent {
   NewWebView(RawWindowHandle), //TODO url, useragent
+  ResizeWebView(Rect),
   Wake,
 }
 
