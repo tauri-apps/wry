@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.24.5]
+
+- [`c78c69b`](https://github.com/tauri-apps/wry/commit/c78c69b3cb7d208aab9475a1dc42cfa2fafc7936)([#1085](https://github.com/tauri-apps/wry/pull/1085)) Fix wkwebview crashed when received invalid UTF8 string from IPC.
+
 ## \[0.24.4]
 
 - [`634b021`](https://github.com/tauri-apps/wry/commit/634b0214fe0345882f5772dda6a0dcffdde52c40)([#994](https://github.com/tauri-apps/wry/pull/994)) Backport `WebViewBuilderExtWindows::with_https_scheme` from `wry@0.32.x` to `wry@0.24.x` to be able to choose between `http` and `https` for custom protocols on Windows. Note that the default behavior for this release is to use `https` unlike `wry@0.32.x` which uses `http` by default.
