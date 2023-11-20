@@ -2,12 +2,9 @@ use crossbeam_channel::Sender;
 use raw_window_handle::HasRawWindowHandle;
 use url::Url;
 
-use crate::{Result, WebContext, WebViewAttributes, RGBA, Rect};
+use crate::{Rect, Result, WebContext, WebViewAttributes, RGBA};
 
-use self::{
-  embedder::{ServoEvent, SERVO},
-  window::WebView,
-};
+use self::embedder::{ServoEvent, SERVO};
 
 mod embedder;
 mod prefs;
@@ -89,11 +86,19 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn set_bounds(&self, bounds: Rect) {}
+  pub fn set_bounds(&self, bounds: Rect) {
+    self.handle(ServoEvent::ResizeWebView(bounds));
+  }
 
   pub fn set_visible(&self, visible: bool) {}
 
   pub fn focus(&self) {}
+
+  pub fn handle(&self, event: ServoEvent) {
+    if let Err(e) = self.embedder_tx.send(event) {
+      log::error!("Failed to send servo event to servo thread: {}", e);
+    }
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {
