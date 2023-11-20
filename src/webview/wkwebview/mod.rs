@@ -99,9 +99,11 @@ impl InnerWebView {
             &mut *(*function as *mut (Box<dyn for<'r> Fn(&'r Window, String)>, Rc<Window>));
           let body: id = msg_send![msg, body];
           let utf8: *const c_char = msg_send![body, UTF8String];
-          let js = CStr::from_ptr(utf8).to_str().expect("Invalid UTF8 string");
-
-          (function.0)(&function.1, js.to_string());
+          if let Ok(js) = CStr::from_ptr(utf8).to_str() {
+            (function.0)(&function.1, js.to_string());
+          } else {
+            log::warn!("WebView received invalid UTF8 string from IPC.");
+          }
         } else {
           log::warn!("WebView instance is dropped! This handler shouldn't be called.");
         }
