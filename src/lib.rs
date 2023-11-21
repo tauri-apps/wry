@@ -1320,6 +1320,10 @@ impl WebView {
     self.webview.clear_all_browsing_data()
   }
 
+  pub fn bounds(&self) -> Rect {
+    self.webview.bounds()
+  }
+
   /// Set the webview bounds.
   ///
   /// This is only effective if the webview was created as a child.
