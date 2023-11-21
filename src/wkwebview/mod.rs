@@ -1094,8 +1094,8 @@ r#"Object.defineProperty(window, 'ipc', {
     if self.is_child {
       unsafe {
         let parent: id = msg_send![self.webview, superview];
-        let parent_frame = parent.frame();
-        let webview_frame: cocoa::foundation::NSRect = self.webview.frame();
+        let parent_frame: CGRect = msg_send![parent, frame];
+        let webview_frame: CGRect = msg_send![self.webview, frame];
 
         Rect {
           x: webview_frame.origin.x as i32,
