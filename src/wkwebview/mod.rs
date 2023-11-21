@@ -1090,6 +1090,30 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
+  pub fn bounds(&self) -> Rect {
+    if self.is_child {
+      unsafe {
+        let parent: id = msg_send![self.webview, superview];
+        let parent_frame = parent.frame();
+        let webview_frame: cocoa::foundation::NSRect = self.webview.frame();
+
+        Rect {
+          x: webview_frame.origin.x as i32,
+          y: (parent_frame.size.height - webview_frame.origin.y - webview_frame.size.height) as i32,
+          width: webview_frame.size.width as u32,
+          height: webview_frame.size.height as u32,
+        }
+      }
+    } else {
+      Rect {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+      }
+    }
+  }
+
   pub fn set_bounds(&self, bounds: Rect) {
     if self.is_child {
       unsafe {
