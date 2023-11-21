@@ -1,5 +1,38 @@
 # Changelog
 
+## \[0.35.0]
+
+- [`e61e7f8`](https://github.com/tauri-apps/wry/commit/e61e7f8474c18752f5c60d3f1f5ba33b27e41d52)([#1090](https://github.com/tauri-apps/wry/pull/1090)) **Breaking change** Consistently use `WebView` in API names. The following APIs were renamed:
+
+  - `WebviewExtWindows` → `WebViewExtWindows`
+  - `WebviewExtUnix` → `WebViewExtUnix`
+  - `WebviewExtMacOS` → `WebViewExtMacOS`
+  - `WebviewExtIOS` → `WebViewExtIOS`
+  - `WebviewExtAndroid` → `WebViewExtAndroid`
+  - `WebviewUriLoader` → `WebViewUriLoader`
+- [`e61e7f8`](https://github.com/tauri-apps/wry/commit/e61e7f8474c18752f5c60d3f1f5ba33b27e41d52)([#1090](https://github.com/tauri-apps/wry/pull/1090)) Add `WebViewExtWindows::set_memory_usage_level` API to set the [memory usage target level](https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel) on Windows. Setting 'Low' memory usage target level when an application is going to inactive can significantly reduce the memory consumption. Please read the [guide for WebView2](https://github.com/MicrosoftEdge/WebView2Feedback/blob/main/specs/MemoryUsageTargetLevel.md) for more details.
+- [`e61e7f8`](https://github.com/tauri-apps/wry/commit/e61e7f8474c18752f5c60d3f1f5ba33b27e41d52)([#1090](https://github.com/tauri-apps/wry/pull/1090)) -   Add cfg_aliases for easier feature configuration. And add `os-webview` as default feature.
+- [`e61e7f8`](https://github.com/tauri-apps/wry/commit/e61e7f8474c18752f5c60d3f1f5ba33b27e41d52)([#1090](https://github.com/tauri-apps/wry/pull/1090)) Enhance initalization script implementation on Android supporting any kind of URL.
+- [`e61e7f8`](https://github.com/tauri-apps/wry/commit/e61e7f8474c18752f5c60d3f1f5ba33b27e41d52)([#1090](https://github.com/tauri-apps/wry/pull/1090)) Fix wkwebview crashed when received invalid UTF8 string from IPC.
+- [`e61e7f8`](https://github.com/tauri-apps/wry/commit/e61e7f8474c18752f5c60d3f1f5ba33b27e41d52)([#1090](https://github.com/tauri-apps/wry/pull/1090)) Refactor new method to take raw window handle instead. Following are APIs got affected:
+
+  - `application` module is removed, and `webivew` module is moved to root module.
+  - `WebViewBuilder::new`, `WebView::new` now take `RawWindowHandle` instead.
+  - Add `WebViewBuilder::new_as_child`, `WebView::new_as_child` to crate a webview as a child inside a parent window.
+  - `Webview::inner_size` is removed.
+  - Add `WebViewBuilderExtUnix` trait to extend `WebViewBuilder` on Unix platforms.
+  - Add `new_gtk` functions to `WebViewBuilderExtUnix` and `WebviewExtUnix`.
+  - [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate is re-exported as `wry::raw_window_handle`.
+
+  This also means that we removed `tao` as a dependency completely which required some changes to the public APIs and to the Android backend:
+
+  - Webview attributes `ipc_handler`, `file_drop_handler`, `document_change_handler` don't take the `Window` as first parameter anymore.
+    Users should use closure to capture the types they want to use.
+  - Position field in `FileDrop` event is now a tuple of `(x, y)` physical position instead of `PhysicalPosition`. Users need to handle scale factor
+  - We exposed the `android_setup` function that needs to be called once to setup necessary logic.
+  - Previously the `android_binding!` had internal call to `tao::android_binding` but now that `tao` has been removed,
+    the macro signature has changed and you now need to call `tao::android_binding` yourself, checkout the crate documentation for more information.
+
 ## \[0.34.2]
 
 - [`c2e6980`](https://github.com/tauri-apps/wry/commit/c2e6980b6cacf02b3f8c0b0285d391d010f4536b)([#1047](https://github.com/tauri-apps/wry/pull/1047)) Fix doc building by removing dox feature requirement from `webkit2gtk`.
