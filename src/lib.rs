@@ -224,7 +224,7 @@ pub use url::Url;
 pub use web_context::WebContext;
 
 /// A rectangular region.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Rect {
   /// x coordinate of top left corner
   pub x: i32,

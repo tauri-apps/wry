@@ -1011,6 +1011,8 @@ impl InnerWebView {
   }
 
   pub fn bounds(&self) -> Rect {
+    let mut bounds = Rect::default();
+
     if self.is_child {
       let mut rect = RECT::default();
       if unsafe { GetClientRect(self.hwnd, &mut rect) }.is_err() {
@@ -1023,33 +1025,19 @@ impl InnerWebView {
       }];
       unsafe { MapWindowPoints(self.hwnd, GetParent(self.hwnd), position_point) };
 
-      Rect {
-        x: position_point[0].x,
-        y: position_point[0].y,
-        width: (rect.right - rect.left) as u32,
-        height: (rect.bottom - rect.top) as u32,
-      }
+      bounds.x = position_point[0].x;
+      bounds.y = position_point[0].y;
+      bounds.width = (rect.right - rect.left) as u32;
+      bounds.height = (rect.bottom - rect.top) as u32;
     } else {
-      unsafe {
-        let rect = Box::into_raw(Box::new(RECT::default()));
-        if self.controller.Bounds(rect).is_ok() {
-          let rect = Box::from_raw(rect);
-          Rect {
-            x: 0,
-            y: 0,
-            width: (rect.right - rect.left) as u32,
-            height: (rect.bottom - rect.top) as u32,
-          }
-        } else {
-          Rect {
-            x: 0,
-            y: 0,
-            width: 0,
-            height: 0,
-          }
-        }
+      let mut rect = RECT::default();
+      if unsafe { self.controller.Bounds(&mut rect) }.is_ok() {
+        bounds.width = (rect.right - rect.left) as u32;
+        bounds.height = (rect.bottom - rect.top) as u32;
       }
     }
+
+    bounds
   }
 
   pub fn set_bounds(&self, bounds: Rect) {
