@@ -648,15 +648,17 @@ impl InnerWebView {
         }
       }
     } else if let Some(window) = &self.gtk_window {
-      if self.is_child {
-        let position = window.position();
-        bounds.x = position.0;
-        bounds.y = position.1;
-      }
-
+      let position = window.position();
       let size = window.size();
+
+      bounds.x = position.0;
+      bounds.y = position.1;
       bounds.width = size.0 as u32;
       bounds.height = size.1 as u32;
+    } else {
+      let (size, _) = self.webview.allocated_size();
+      bounds.width = size.width() as u32;
+      bounds.height = size.height() as u32;
     }
 
     bounds
