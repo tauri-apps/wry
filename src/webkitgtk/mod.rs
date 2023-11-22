@@ -601,41 +601,14 @@ impl InnerWebView {
   }
 
   pub fn bounds(&self) -> Rect {
-    let mut bounds = Rect {
-      x: 0,
-      y: 0,
-      width: 0,
-      height: 0,
-    };
+    let mut bounds = Rect::default();
 
     if let (Some(xlib), Some(display), Some(window_handle)) =
       (&self.xlib, self.x11_display, self.x11_window)
     {
       unsafe {
         let mut attributes = std::mem::MaybeUninit::new(x11_dl::xlib::XWindowAttributes {
-          x: 0,
-          y: 0,
-          height: 0,
-          width: 0,
-          border_width: 0,
-          depth: 0,
-          visual: std::ptr::null_mut(),
-          root: 0,
-          class: 0,
-          bit_gravity: 0,
-          win_gravity: 0,
-          backing_pixel: 0,
-          backing_store: 0,
-          backing_planes: 0,
-          save_under: 0,
-          colormap: 0,
-          map_installed: 0,
-          map_state: 0,
-          all_event_masks: 0,
-          your_event_mask: 0,
-          do_not_propagate_mask: 0,
-          override_redirect: 0,
-          screen: std::ptr::null_mut(),
+          ..std::mem::zeroed()
         })
         .assume_init();
         let ok = (xlib.XGetWindowAttributes)(display as _, window_handle, &mut attributes);
