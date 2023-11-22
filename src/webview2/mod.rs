@@ -1030,11 +1030,24 @@ impl InnerWebView {
         height: (rect.bottom - rect.top) as u32,
       }
     } else {
-      Rect {
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0,
+      unsafe {
+        let rect = Box::into_raw(Box::new(RECT::default()));
+        if self.controller.Bounds(rect).is_ok() {
+          let rect = Box::from_raw(rect);
+          Rect {
+            x: 0,
+            y: 0,
+            width: (rect.right - rect.left) as u32,
+            height: (rect.bottom - rect.top) as u32,
+          }
+        } else {
+          Rect {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+          }
+        }
       }
     }
   }
