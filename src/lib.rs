@@ -224,7 +224,7 @@ pub use url::Url;
 pub use web_context::WebContext;
 
 /// A rectangular region.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Rect {
   /// x coordinate of top left corner
   pub x: i32,
@@ -1318,6 +1318,10 @@ impl WebView {
   /// Clear all browsing data
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     self.webview.clear_all_browsing_data()
+  }
+
+  pub fn bounds(&self) -> Rect {
+    self.webview.bounds()
   }
 
   /// Set the webview bounds.

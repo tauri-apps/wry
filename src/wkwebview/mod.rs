@@ -397,17 +397,19 @@ impl InnerWebView {
       #[cfg(target_os = "macos")]
       {
         let (x, y) = attributes.bounds.map(|b| (b.x, b.y)).unwrap_or((0, 0));
-        let (w, h) = attributes
-          .bounds
-          .map(|b| (b.width, b.height))
-          .unwrap_or_else(|| {
-            if is_child {
-              let frame = NSView::frame(ns_view);
-              (frame.size.width as u32, frame.size.height as u32)
-            } else {
-              (0, 0)
-            }
-          });
+        let (w, h) = if is_child {
+          attributes.bounds.map(|b| (b.width, b.height))
+        } else {
+          None
+        }
+        .unwrap_or_else(|| {
+          if is_child {
+            let frame = NSView::frame(ns_view);
+            (frame.size.width as u32, frame.size.height as u32)
+          } else {
+            (0, 0)
+          }
+        });
 
         let frame = CGRect {
           origin: window_position(if is_child { ns_view } else { webview }, x, y, h as f64),
@@ -1088,6 +1090,21 @@ r#"Object.defineProperty(window, 'ipc', {
 
   pub fn set_background_color(&self, _background_color: RGBA) -> Result<()> {
     Ok(())
+  }
+
+  pub fn bounds(&self) -> Rect {
+    unsafe {
+      let parent: id = msg_send![self.webview, superview];
+      let parent_frame: CGRect = msg_send![parent, frame];
+      let webview_frame: CGRect = msg_send![self.webview, frame];
+
+      Rect {
+        x: webview_frame.origin.x as i32,
+        y: (parent_frame.size.height - webview_frame.origin.y - webview_frame.size.height) as i32,
+        width: webview_frame.size.width as u32,
+        height: webview_frame.size.height as u32,
+      }
+    }
   }
 
   pub fn set_bounds(&self, bounds: Rect) {

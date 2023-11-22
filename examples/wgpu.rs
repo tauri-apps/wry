@@ -98,10 +98,10 @@ fn fs_main() -> @location(0) vec4<f32> {
 
   let _webview = WebViewBuilder::new_as_child(&window)
     .with_bounds(Rect {
-      x: 0,
-      y: 0,
-      width: 1,
-      height: 1,
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 200,
     })
     .with_transparent(true)
     .with_html(

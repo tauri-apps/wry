@@ -600,6 +600,43 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn bounds(&self) -> Rect {
+    let mut bounds = Rect::default();
+
+    if let (Some(xlib), Some(display), Some(window_handle)) =
+      (&self.xlib, self.x11_display, self.x11_window)
+    {
+      unsafe {
+        let mut attributes = std::mem::MaybeUninit::new(x11_dl::xlib::XWindowAttributes {
+          ..std::mem::zeroed()
+        })
+        .assume_init();
+        let ok = (xlib.XGetWindowAttributes)(display as _, window_handle, &mut attributes);
+
+        if ok != 0 {
+          bounds.x = attributes.x;
+          bounds.y = attributes.y;
+          bounds.width = attributes.width as u32;
+          bounds.height = attributes.height as u32;
+        }
+      }
+    } else if let Some(window) = &self.gtk_window {
+      let position = window.position();
+      let size = window.size();
+
+      bounds.x = position.0;
+      bounds.y = position.1;
+      bounds.width = size.0 as u32;
+      bounds.height = size.1 as u32;
+    } else {
+      let (size, _) = self.webview.allocated_size();
+      bounds.width = size.width() as u32;
+      bounds.height = size.height() as u32;
+    }
+
+    bounds
+  }
+
   pub fn set_bounds(&self, bounds: Rect) {
     if self.is_child {
       if let Some(window) = &self.gtk_window {

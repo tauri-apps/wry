@@ -19,7 +19,7 @@ use windows::{
   Win32::{
     Foundation::*,
     Globalization::{self, MAX_LOCALE_NAME},
-    Graphics::Gdi::{RedrawWindow, HBRUSH, HRGN, RDW_INTERNALPAINT},
+    Graphics::Gdi::{MapWindowPoints, RedrawWindow, HBRUSH, HRGN, RDW_INTERNALPAINT},
     System::{
       Com::{CoInitializeEx, IStream, COINIT_APARTMENTTHREADED},
       LibraryLoader::GetModuleHandleW,
@@ -28,10 +28,11 @@ use windows::{
     UI::{
       Shell::{DefSubclassProc, SHCreateMemStream, SetWindowSubclass},
       WindowsAndMessaging::{
-        self as win32wm, CreateWindowExW, DefWindowProcW, DestroyWindow, PostMessageW,
-        RegisterClassExW, RegisterWindowMessageA, SetWindowPos, ShowWindow, CS_HREDRAW, CS_VREDRAW,
-        CW_USEDEFAULT, HCURSOR, HICON, HMENU, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOZORDER,
-        SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_VISIBLE,
+        self as win32wm, CreateWindowExW, DefWindowProcW, DestroyWindow, GetClientRect, GetParent,
+        PostMessageW, RegisterClassExW, RegisterWindowMessageA, SetWindowPos, ShowWindow,
+        CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, HCURSOR, HICON, HMENU, SWP_ASYNCWINDOWPOS,
+        SWP_NOACTIVATE, SWP_NOZORDER, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WNDCLASSEXW, WS_CHILD,
+        WS_CLIPCHILDREN, WS_VISIBLE,
       },
     },
   },
@@ -1007,6 +1008,36 @@ impl InnerWebView {
 
   pub fn set_theme(&self, theme: Theme) {
     set_theme(&self.webview, theme);
+  }
+
+  pub fn bounds(&self) -> Rect {
+    let mut bounds = Rect::default();
+
+    if self.is_child {
+      let mut rect = RECT::default();
+      if unsafe { GetClientRect(self.hwnd, &mut rect) }.is_err() {
+        panic!("Unexpected GetClientRect failure")
+      }
+
+      let position_point = &mut [POINT {
+        x: rect.left,
+        y: rect.top,
+      }];
+      unsafe { MapWindowPoints(self.hwnd, GetParent(self.hwnd), position_point) };
+
+      bounds.x = position_point[0].x;
+      bounds.y = position_point[0].y;
+      bounds.width = (rect.right - rect.left) as u32;
+      bounds.height = (rect.bottom - rect.top) as u32;
+    } else {
+      let mut rect = RECT::default();
+      if unsafe { self.controller.Bounds(&mut rect) }.is_ok() {
+        bounds.width = (rect.right - rect.left) as u32;
+        bounds.height = (rect.bottom - rect.top) as u32;
+      }
+    }
+
+    bounds
   }
 
   pub fn set_bounds(&self, bounds: Rect) {

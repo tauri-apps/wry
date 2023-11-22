@@ -335,6 +335,15 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn bounds(&self) -> crate::Rect {
+    crate::Rect {
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+    }
+  }
+
   pub fn set_bounds(&self, bounds: crate::Rect) {
     // Unsupported
   }
