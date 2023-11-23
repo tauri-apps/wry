@@ -163,8 +163,6 @@ impl InnerWebView {
             let _: () = msg_send![body_stream, close];
           }
 
-          tracing::debug!("done reading body");
-
           // Extract all headers fields
           let all_headers: id = msg_send![request, allHTTPHeaderFields];
 
