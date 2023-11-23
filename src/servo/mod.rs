@@ -1,10 +1,11 @@
-use crossbeam_channel::Sender;
+use std::sync::Arc;
+
 use raw_window_handle::HasRawWindowHandle;
 use url::Url;
 
 use crate::{Rect, Result, WebContext, WebViewAttributes, RGBA};
 
-use self::embedder::{ServoEvent, SERVO};
+use self::embedder::Embedder;
 
 mod embedder;
 mod prefs;
@@ -12,7 +13,7 @@ mod resources;
 mod window;
 
 pub(crate) struct InnerWebView {
-  embedder_tx: Sender<ServoEvent>,
+  embedder: Embedder,
 }
 
 impl InnerWebView {
@@ -25,12 +26,10 @@ impl InnerWebView {
     resources::init(web_context);
     prefs::init();
 
-    let embedder_tx = SERVO.sender();
-    embedder_tx
-      .send(ServoEvent::NewWebView(window.raw_window_handle()))
-      .expect("Fail to send event to Servo thread.");
+    // TODO callback attributes
+    let embedder = Embedder::new(window.raw_window_handle(), Arc::new(||{}));
 
-    Ok(Self { embedder_tx })
+    Ok(Self { embedder })
   }
 
   pub fn new_as_child<W: HasRawWindowHandle>(
@@ -87,18 +86,12 @@ impl InnerWebView {
   }
 
   pub fn set_bounds(&self, bounds: Rect) {
-    self.handle(ServoEvent::ResizeWebView(bounds));
+    // self.handle(ServoEvent::ResizeWebView(bounds));
   }
 
   pub fn set_visible(&self, visible: bool) {}
 
   pub fn focus(&self) {}
-
-  pub fn handle(&self, event: ServoEvent) {
-    if let Err(e) = self.embedder_tx.send(event) {
-      log::error!("Failed to send servo event to servo thread: {}", e);
-    }
-  }
 }
 
 pub fn platform_webview_version() -> Result<String> {

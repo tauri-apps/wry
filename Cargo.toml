@@ -52,7 +52,6 @@ raw-window-handle = { version = "0.5", features = ["std"] }
 # Servo TODO move to feature gate
 libservo = { path = "../servo/components/servo", features = ["max_log_level", "native-bluetooth", "webdriver"] }
 servo-media = { git = "https://github.com/servo/media" }
-crossbeam-channel = "0.5"
 getopts = "0.2.17"
 surfman = { version = "0.8", features = ["chains", "sm-angle", "sm-angle-default", "sm-x11", "sm-raw-window-handle"] }
 
