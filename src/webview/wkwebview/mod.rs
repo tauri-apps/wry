@@ -93,6 +93,9 @@ impl InnerWebView {
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
       // Safety: objc runtime calls are unsafe
       unsafe {
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!("wry::ipc::handle").entered();
+
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
           let function =
@@ -113,6 +116,9 @@ impl InnerWebView {
     // Task handler for custom protocol
     extern "C" fn start_task(this: &Object, _: Sel, _webview: id, task: id) {
       unsafe {
+        #[cfg(feature = "tracing")]
+        let span = tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty)
+          .entered();
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
           let function = &mut *(*function
@@ -122,10 +128,14 @@ impl InnerWebView {
           let request: id = msg_send![task, request];
           let url: id = msg_send![request, URL];
 
-          let nsstring = {
+          let uri_nsstring = {
             let s: id = msg_send![url, absoluteString];
             NSString(s)
           };
+          let uri = uri_nsstring.to_str();
+
+          #[cfg(feature = "tracing")]
+          span.record("uri", uri);
 
           // Get request method (GET, POST, PUT etc...)
           let method = {
@@ -134,9 +144,7 @@ impl InnerWebView {
           };
 
           // Prepare our HttpRequest
-          let mut http_request = Request::builder()
-            .uri(nsstring.to_str())
-            .method(method.to_str());
+          let mut http_request = Request::builder().uri(uri).method(method.to_str());
 
           // Get body
           let mut sent_form_body = Vec::new();
@@ -181,7 +189,12 @@ impl InnerWebView {
           // send response
           match http_request.body(sent_form_body) {
             Ok(final_request) => {
-              if let Ok(sent_response) = function(&final_request) {
+              let res = {
+                #[cfg(feature = "tracing")]
+                let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
+                function(&final_request)
+              };
+              if let Ok(sent_response) = res {
                 let content = sent_response.body();
                 // default: application/octet-stream, but should be provided by the client
                 let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
@@ -854,7 +867,21 @@ r#"Object.defineProperty(window, 'ipc', {
     } else {
       // Safety: objc runtime calls are unsafe
       unsafe {
-        let _: id = msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()];
+        #[cfg(feature = "tracing")]
+        {
+          let span = Mutex::new(Some(tracing::debug_span!("wry::eval").entered()));
+          let handler = block::ConcreteBlock::new(move |_object, _error| {
+            span.lock().unwrap().take();
+          });
+          // Put the block on the heap
+          let handler = handler.copy();
+          let completion_handler: &block::Block<(id, id), ()> = &handler;
+
+          let _: id = msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:completion_handler];
+        }
+        #[cfg(not(feature = "tracing"))]
+        let _: id =
+          msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:nil];
       }
     }
     Ok(())

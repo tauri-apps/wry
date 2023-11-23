@@ -358,6 +358,8 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             }
 
             if let Some(ipc_handler) = &ipc_handler {
+              #[cfg(feature = "tracing")]
+              let _span = tracing::info_span!("wry::ipc::handle").entered();
               ipc_handler(&window, js);
             }
           }
@@ -514,6 +516,10 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
         webview
           .add_WebResourceRequested(
             &WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
+              #[cfg(feature = "tracing")]
+              let span =
+                tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty)
+                  .entered();
               if let Some(args) = args {
                 let webview_request = args.Request()?;
                 let mut request = Request::builder();
@@ -570,6 +576,9 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                 webview_request.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
 
+                #[cfg(feature = "tracing")]
+                span.record("uri", &uri);
+
                 if let Some(custom_protocol) = custom_protocols
                   .iter()
                   .find(|(name, _)| uri.starts_with(&format!("{scheme}://{name}.")))
@@ -589,7 +598,12 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
                     Err(_) => return Err(E_FAIL.into()),
                   };
 
-                  return match (custom_protocol.1)(&final_request) {
+                  let res = {
+                    #[cfg(feature = "tracing")]
+                    let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
+                    (custom_protocol.1)(&final_request)
+                  };
+                  return match res {
                     Ok(sent_response) => {
                       let content = sent_response.body();
                       let status_code = sent_response.status();
@@ -801,9 +815,15 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
   fn execute_script(webview: &ICoreWebView2, js: String) -> windows::core::Result<()> {
     unsafe {
+      #[cfg(feature = "tracing")]
+      let span = tracing::debug_span!("wry::eval").entered();
       webview.ExecuteScript(
         PCWSTR::from_raw(encode_wide(js).as_ptr()),
-        &ExecuteScriptCompletedHandler::create(Box::new(|_, _| (Ok(())))),
+        &ExecuteScriptCompletedHandler::create(Box::new(|_, _| {
+          #[cfg(feature = "tracing")]
+          drop(span);
+          Ok(())
+        })),
       )
     }
   }
