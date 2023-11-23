@@ -66,6 +66,7 @@
 //! libraries and prevent from building documentation on doc.rs fails.
 //! - `linux-headers`: Enables headers support of custom protocol request on Linux. Requires
 //! webkit2gtk v2.36 or above.
+//! - `tracing`: enables [tracing] for `evaluate_script`, `ipc_handler` and `custom_protocols.
 //!
 //! [tao]: https://crates.io/crates/tao
 //! [`EventLoop`]: crate::application::event_loop::EventLoop
@@ -73,6 +74,7 @@
 //! [`WebView`]: crate::webview::WebView
 //! [`with_file_drop_handler`]: crate::webview::WebView::with_file_drop_handler
 //! [`with_custom_protocol`]: crate::webview::WebView::with_custom_protocol
+//! [tracing]: https://docs.rs/tracing/latest/tracing/
 
 #![allow(clippy::new_without_default)]
 #![allow(clippy::wrong_self_convention)]

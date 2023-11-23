@@ -93,6 +93,7 @@ impl InnerWebView {
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
       // Safety: objc runtime calls are unsafe
       unsafe {
+        #[cfg(feature = "tracing")]
         let _span = tracing::info_span!("wry::ipc::handle").entered();
 
         let function = this.get_ivar::<*mut c_void>("function");
@@ -113,6 +114,7 @@ impl InnerWebView {
     // Task handler for custom protocol
     extern "C" fn start_task(this: &Object, _: Sel, _webview: id, task: id) {
       unsafe {
+        #[cfg(feature = "tracing")]
         let span = tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty)
           .entered();
         let function = this.get_ivar::<*mut c_void>("function");
@@ -130,6 +132,7 @@ impl InnerWebView {
           };
           let uri = uri_nsstring.to_str();
 
+          #[cfg(feature = "tracing")]
           span.record("uri", uri);
 
           // Get request method (GET, POST, PUT etc...)
@@ -185,6 +188,7 @@ impl InnerWebView {
           match http_request.body(sent_form_body) {
             Ok(final_request) => {
               let res = {
+                #[cfg(feature = "tracing")]
                 let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
                 function(&final_request)
               };
@@ -861,15 +865,21 @@ r#"Object.defineProperty(window, 'ipc', {
     } else {
       // Safety: objc runtime calls are unsafe
       unsafe {
-        let span = Mutex::new(Some(tracing::debug_span!("wry::eval").entered()));
-        let handler = block::ConcreteBlock::new(move |_object, _error| {
-          span.lock().unwrap().take();
-        });
-        // Put the block on the heap
-        let handler = handler.copy();
-        let completion_handler: &block::Block<(id, id), ()> = &handler;
+        #[cfg(feature = "tracing")]
+        {
+          let span = Mutex::new(Some(tracing::debug_span!("wry::eval").entered()));
+          let handler = block::ConcreteBlock::new(move |_object, _error| {
+            span.lock().unwrap().take();
+          });
+          // Put the block on the heap
+          let handler = handler.copy();
+          let completion_handler: &block::Block<(id, id), ()> = &handler;
 
-        let _: id = msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:completion_handler];
+          let _: id = msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:completion_handler];
+        }
+        #[cfg(not(feature = "tracing"))]
+        let _: id =
+          msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:nil];
       }
     }
     Ok(())
