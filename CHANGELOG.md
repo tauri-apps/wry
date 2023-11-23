@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.24.6]
+
+- [`7dd542f`](https://github.com/tauri-apps/wry/commit/7dd542fcd62219e7df620c808bb731d1112ece26)([#1093](https://github.com/tauri-apps/wry/pull/1093)) Added tracing spans for `evaluate_script`, `ipc_handler` and `custom_protocols` behind the `tracing` feature flag.
+
 ## \[0.24.5]
 
 - [`c78c69b`](https://github.com/tauri-apps/wry/commit/c78c69b3cb7d208aab9475a1dc42cfa2fafc7936)([#1085](https://github.com/tauri-apps/wry/pull/1085)) Fix wkwebview crashed when received invalid UTF8 string from IPC.
