@@ -8,7 +8,7 @@ use winit::{
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
-use wry::WebViewBuilder;
+use wry::{WebViewBuilder, WebViewBuilderExtServo};
 
 fn main() -> wry::Result<()> {
   // #[cfg(any(
@@ -41,7 +41,7 @@ fn main() -> wry::Result<()> {
     .unwrap();
 
   #[allow(unused_mut)]
-  let mut builder = WebViewBuilder::new(&window);
+  let mut builder = WebViewBuilder::new_servo(window, event_loop.create_proxy());
   let _webview = builder.with_url("https://tauri.app")?.build()?;
 
   event_loop

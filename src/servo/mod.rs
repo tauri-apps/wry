@@ -1,10 +1,13 @@
-use crossbeam_channel::Sender;
 use raw_window_handle::HasRawWindowHandle;
 use url::Url;
+use winit::{event_loop::EventLoopProxy, window::Window};
 
-use crate::{Rect, Result, WebContext, WebViewAttributes, RGBA};
+use crate::{Rect, Result, WebContext, WebViewAttributes, WebViewBuilder, RGBA};
 
-use self::embedder::{ServoEvent, SERVO};
+use self::{
+  embedder::{Embedder, EmbedderWaker},
+  window::WebView,
+};
 
 mod embedder;
 mod prefs;
@@ -12,12 +15,13 @@ mod resources;
 mod window;
 
 pub(crate) struct InnerWebView {
-  embedder_tx: Sender<ServoEvent>,
+  servo: Embedder,
 }
 
 impl InnerWebView {
-  pub fn new<W: HasRawWindowHandle>(
-    window: &W,
+  pub fn new_servo(
+    window: Window,
+    proxy: EventLoopProxy<()>,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
@@ -25,21 +29,28 @@ impl InnerWebView {
     resources::init(web_context);
     prefs::init();
 
-    let embedder_tx = SERVO.sender();
-    embedder_tx
-      .send(ServoEvent::NewWebView(window.raw_window_handle()))
-      .expect("Fail to send event to Servo thread.");
+    let webview = WebView::new(window);
+    let callback = EmbedderWaker(proxy);
+    let servo = Embedder::new(webview, callback);
 
-    Ok(Self { embedder_tx })
+    Ok(Self { servo })
+  }
+
+  pub fn new<W: HasRawWindowHandle>(
+    _window: &W,
+    _attributes: WebViewAttributes,
+    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    _web_context: Option<&mut WebContext>,
+  ) -> Result<Self> {
+    todo!()
   }
 
   pub fn new_as_child<W: HasRawWindowHandle>(
-    parent: &W,
-    attributes: WebViewAttributes,
-    pl_attrs: super::PlatformSpecificWebViewAttributes,
-    web_context: Option<&mut WebContext>,
+    _parent: &W,
+    _attributes: WebViewAttributes,
+    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    // Ok(Self)
     todo!()
   }
 
@@ -54,10 +65,6 @@ impl InnerWebView {
     js: &str,
     callback: Option<impl FnOnce(String) + Send + 'static>,
   ) -> Result<()> {
-    Ok(())
-  }
-
-  fn init(&self, js: &str) -> Result<()> {
     Ok(())
   }
 
@@ -86,21 +93,31 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn set_bounds(&self, bounds: Rect) {
-    self.handle(ServoEvent::ResizeWebView(bounds));
-  }
+  pub fn set_bounds(&self, bounds: Rect) {}
 
   pub fn set_visible(&self, visible: bool) {}
 
   pub fn focus(&self) {}
-
-  pub fn handle(&self, event: ServoEvent) {
-    if let Err(e) = self.embedder_tx.send(event) {
-      log::error!("Failed to send servo event to servo thread: {}", e);
-    }
-  }
 }
 
 pub fn platform_webview_version() -> Result<String> {
   Ok(String::from(""))
+}
+
+pub trait WebViewBuilderExtServo {
+  fn new_servo(window: Window, proxy: EventLoopProxy<()>) -> Self;
+}
+
+impl WebViewBuilderExtServo for WebViewBuilder<'_> {
+  fn new_servo(window: Window, proxy: EventLoopProxy<()>) -> Self {
+    Self {
+      attrs: WebViewAttributes::default(),
+      window: None,
+      as_child: false,
+      #[allow(clippy::default_constructed_unit_structs)]
+      platform_specific: super::PlatformSpecificWebViewAttributes::default(),
+      web_context: None,
+      winit: Some((window, proxy)),
+    }
+  }
 }

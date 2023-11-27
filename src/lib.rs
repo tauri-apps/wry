@@ -192,13 +192,18 @@ pub mod prelude {
 pub use android::JniHandle;
 #[cfg(target_os = "android")]
 use android::*;
+use winit::event_loop::EventLoopProxy;
 
 #[cfg(servo)]
 pub(crate) mod servo;
-#[cfg(gtk)]
-pub(crate) mod webkitgtk;
+#[cfg(servo)]
+pub use crate::servo::WebViewBuilderExtServo;
 #[cfg(servo)]
 use crate::servo::*;
+#[cfg(servo)]
+use winit::window::Window;
+#[cfg(gtk)]
+pub(crate) mod webkitgtk;
 /// Re-exported [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate.
 pub use raw_window_handle;
 use raw_window_handle::HasRawWindowHandle;
@@ -517,6 +522,8 @@ pub struct WebViewBuilder<'a> {
   web_context: Option<&'a mut WebContext>,
   #[cfg(gtk)]
   gtk_widget: Option<&'a gtk::Container>,
+  #[cfg(servo)]
+  winit: Option<(Window, EventLoopProxy<()>)>,
 }
 
 impl<'a> WebViewBuilder<'a> {
@@ -546,6 +553,8 @@ impl<'a> WebViewBuilder<'a> {
       web_context: None,
       #[cfg(gtk)]
       gtk_widget: None,
+      #[cfg(servo)]
+      winit: None,
     }
   }
 
@@ -578,6 +587,8 @@ impl<'a> WebViewBuilder<'a> {
       web_context: None,
       #[cfg(gtk)]
       gtk_widget: None,
+      #[cfg(servo)]
+      winit: None,
     }
   }
 
@@ -966,7 +977,20 @@ impl<'a> WebViewBuilder<'a> {
         unreachable!()
       }
 
-      #[cfg(not(gtk))]
+      #[cfg(servo)]
+      if let Some(window) = self.winit {
+        InnerWebView::new_servo(
+          window.0,
+          window.1,
+          self.attrs,
+          self.platform_specific,
+          self.web_context,
+        )?
+      } else {
+        unreachable!()
+      }
+
+      #[cfg(not(any(gtk, servo)))]
       unreachable!()
     };
 

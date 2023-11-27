@@ -55,6 +55,7 @@ servo-media = { git = "https://github.com/servo/media" }
 crossbeam-channel = "0.5"
 getopts = "0.2.17"
 surfman = { version = "0.8", features = ["chains", "sm-angle", "sm-angle-default", "sm-x11", "sm-raw-window-handle"] }
+winit = { version = "0.29", features = ["rwh_05"] }
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
 javascriptcore-rs = { version = "=1.1", features = ["v2_28"], optional = true }
@@ -114,7 +115,6 @@ http-range = "0.1.5"
 pollster = "0.3.0"
 # tao = { git = "https://github.com/tauri-apps/tao", default-features = false, features = ["rwh_05"] }
 wgpu = "0.18.0"
-winit = { version = "0.29", features = ["rwh_05"] }
 
 [patch.crates-io]
 bindgen = { git = "https://github.com/sagudev/rust-bindgen", branch = "f16" }
