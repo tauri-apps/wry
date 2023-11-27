@@ -1,6 +1,10 @@
 name: test
 
-on: [pull_request]
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
 
 jobs:
   test:
@@ -17,7 +21,7 @@ jobs:
     runs-on: ${{ matrix.platform.os }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -59,3 +63,23 @@ jobs:
       - name: Run tests with miri
         if: (!contains(matrix.platform.target, 'android') && !contains(matrix.platform.target, 'ios'))
         run: cargo +nightly miri test --verbose --target ${{ matrix.platform.target }} --features linux-body
+
+  doc:
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: '--cfg docsrs'
+      RUSTDOCFLAGS: '--cfg docsrs'
+    steps:
+      - uses: actions/checkout@v4
+      - name: install nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: x86_64-unknown-linux-gnu,x86_64-pc-windows-msvc,x86_64-apple-darwin
+      - name: install webkit2gtk
+        run: |
+          sudo apt-get update -y -q
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev
+      # When updating arguments to `cargo doc`, consider to update `[package.metadata.docs.rs]` section in Cargo.toml
+      - run: cargo doc -p wry --no-default-features --features=file-drop,protocol,os-webview --target=x86_64-unknown-linux-gnu
+      - run: cargo doc -p wry --no-default-features --features=file-drop,protocol,os-webview --target=x86_64-pc-windows-msvc
+      - run: cargo doc -p wry --no-default-features --features=file-drop,protocol,os-webview --target=x86_64-apple-darwin
