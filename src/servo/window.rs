@@ -1,7 +1,6 @@
-use crate::Rect;
 use std::cell::Cell;
 
-use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use raw_window_handle::{HasRawWindowHandle, RawDisplayHandle, RawWindowHandle};
 use servo::{
   compositing::windowing::{AnimationState, EmbedderCoordinates, WindowMethods},
   config::pref,
@@ -12,45 +11,34 @@ use servo::{
 use surfman::{Connection, GLApi, GLVersion, SurfaceType};
 // FIXME servo should re-export this.
 use servo_media::player::context::{GlApi, GlContext, NativeDisplay};
+use winit::window::Window;
 
 /// This is the type for servo embedder. Not for public usage.
 pub struct WebView {
   webrender_surfman: WebrenderSurfman,
   animation_state: Cell<AnimationState>,
-  rect: Cell<Rect>, //TODO hidpi
+  window: Window,
 }
 
 impl WebView {
-  pub fn new(window_handle: RawWindowHandle) -> Self {
+  pub fn new(window: Window) -> Self {
     let connection = Connection::new().expect("Failed to create surfman connection");
     let adapter = connection
       .create_adapter()
       .expect("Failed to create surfman adapter");
     let native_widget = connection
-      .create_native_widget_from_rwh(window_handle)
+      .create_native_widget_from_rwh(window.raw_window_handle())
       .expect("Failed to create surfman native widget");
     let surface_type = SurfaceType::Widget { native_widget };
     let webrender_surfman = WebrenderSurfman::create(&connection, &adapter, surface_type)
       .expect("Failed to create webrender surfman");
-    log::trace!("Created webrender surfman for window {:?}", window_handle);
+    log::trace!("Created webrender surfman for window {:?}", window);
 
     Self {
       webrender_surfman,
       animation_state: Cell::new(AnimationState::Idle),
-      rect: Cell::new(Rect {
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0,
-      }),
+      window,
     }
-  }
-
-  pub fn set_bounds(&self, rect: Rect) {
-    self.rect.replace(rect);
-    let _ = self
-      .webrender_surfman
-      .resize(Size2D::new(rect.width as i32, rect.height as i32));
   }
 }
 
@@ -59,16 +47,19 @@ unsafe impl Sync for WebView {}
 
 impl WindowMethods for WebView {
   fn get_coordinates(&self) -> EmbedderCoordinates {
-    let rect = self.rect.get();
-    let pos = Point2D::new(rect.x, rect.y);
-    let size = Size2D::new(rect.width as i32, rect.height as i32);
+    let size = self.window.inner_size();
+    let pos = Point2D::new(0, 0);
+    let viewport = Size2D::new(size.width as i32, size.height as i32);
+
+    let size = self.window.current_monitor().unwrap().size();
+    let screen = Size2D::new(size.width as i32, size.height as i32);
     EmbedderCoordinates {
-      hidpi_factor: Scale::new(1.0),
-      screen: Size2D::new(3840, 2160),
-      screen_avail: Size2D::new(3840, 2160),
-      window: (size, pos),
-      framebuffer: size,
-      viewport: DeviceIntRect::new(pos, size),
+      hidpi_factor: Scale::new(self.window.scale_factor() as f32),
+      screen,
+      screen_avail: screen,
+      window: (viewport, pos),
+      framebuffer: viewport,
+      viewport: DeviceIntRect::new(pos, viewport),
     }
   }
 

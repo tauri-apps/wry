@@ -369,6 +369,8 @@ use android::*;
 
 #[cfg(servo)]
 pub(crate) mod servo;
+#[cfg(servo)]
+pub use crate::servo::WebViewBuilderExtServo;
 #[cfg(gtk)]
 pub(crate) mod webkitgtk;
 #[cfg(servo)]
