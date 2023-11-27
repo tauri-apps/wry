@@ -1,10 +1,10 @@
 use std::cell::Cell;
 
-use raw_window_handle::{HasRawWindowHandle, RawDisplayHandle, RawWindowHandle};
+use raw_window_handle::HasRawWindowHandle;
 use servo::{
   compositing::windowing::{AnimationState, EmbedderCoordinates, WindowMethods},
   config::pref,
-  euclid::{Point2D, Scale, Size2D},
+  euclid::{Point2D, Scale, Size2D, UnknownUnit},
   webrender_api::units::DeviceIntRect,
   webrender_surfman::WebrenderSurfman,
 };
@@ -15,9 +15,9 @@ use winit::window::Window;
 
 /// This is the type for servo embedder. Not for public usage.
 pub struct WebView {
-  webrender_surfman: WebrenderSurfman,
+  pub webrender_surfman: WebrenderSurfman,
   animation_state: Cell<AnimationState>,
-  window: Window,
+  pub window: Window,
 }
 
 impl WebView {
@@ -39,6 +39,18 @@ impl WebView {
       animation_state: Cell::new(AnimationState::Idle),
       window,
     }
+  }
+
+  pub fn is_animating(&self) -> bool {
+    self.animation_state.get() == AnimationState::Animating
+  }
+
+  pub fn resize(&self, size: Size2D<i32, UnknownUnit>) {
+    let _ = self.webrender_surfman.resize(size);
+  }
+
+  pub fn request_redraw(&self) {
+    self.window.request_redraw();
   }
 }
 

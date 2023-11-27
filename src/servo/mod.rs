@@ -15,7 +15,7 @@ mod resources;
 mod window;
 
 pub(crate) struct InnerWebView {
-  servo: Embedder,
+  embedder: Embedder,
 }
 
 impl InnerWebView {
@@ -31,9 +31,9 @@ impl InnerWebView {
 
     let webview = WebView::new(window);
     let callback = EmbedderWaker(proxy);
-    let servo = Embedder::new(webview, callback);
+    let embedder = Embedder::new(webview, callback);
 
-    Ok(Self { servo })
+    Ok(Self { embedder })
   }
 
   pub fn new<W: HasRawWindowHandle>(
@@ -119,5 +119,15 @@ impl WebViewBuilderExtServo for WebViewBuilder<'_> {
       web_context: None,
       winit: Some((window, proxy)),
     }
+  }
+}
+
+pub trait WebViewExtServo {
+  fn servo(&mut self) -> &mut Embedder; // TODO expose method instead.
+}
+
+impl WebViewExtServo for super::WebView {
+  fn servo(&mut self) -> &mut Embedder {
+    &mut self.webview.embedder
   }
 }

@@ -197,9 +197,9 @@ use winit::event_loop::EventLoopProxy;
 #[cfg(servo)]
 pub(crate) mod servo;
 #[cfg(servo)]
-pub use crate::servo::WebViewBuilderExtServo;
-#[cfg(servo)]
 use crate::servo::*;
+#[cfg(servo)]
+pub use crate::servo::{WebViewBuilderExtServo, WebViewExtServo};
 #[cfg(servo)]
 use winit::window::Window;
 #[cfg(gtk)]

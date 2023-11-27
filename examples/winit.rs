@@ -8,7 +8,7 @@ use winit::{
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
-use wry::{WebViewBuilder, WebViewBuilderExtServo};
+use wry::{WebViewBuilder, WebViewBuilderExtServo, WebViewExtServo};
 
 fn main() -> wry::Result<()> {
   // #[cfg(any(
@@ -42,48 +42,34 @@ fn main() -> wry::Result<()> {
 
   #[allow(unused_mut)]
   let mut builder = WebViewBuilder::new_servo(window, event_loop.create_proxy());
-  let _webview = builder.with_url("https://tauri.app")?.build()?;
+  let mut webview = builder.with_url("https://tauri.app")?.build()?;
 
   event_loop
     .run(move |event, evl| {
-      evl.set_control_flow(ControlFlow::Poll);
+      webview.servo().set_control_flow(&event, evl);
+      webview.servo().handle_winit_event(event);
+      webview.servo().handle_servo_messages();
 
-      // #[cfg(any(
-      //   target_os = "linux",
-      //   target_os = "dragonfly",
-      //   target_os = "freebsd",
-      //   target_os = "netbsd",
-      //   target_os = "openbsd",
-      // ))]
-      // while gtk::events_pending() {
-      //   gtk::main_iteration_do(false);
+      // evl.set_control_flow(ControlFlow::Poll);
+
+      // match event {
+      //   Event::WindowEvent {
+      //     event: WindowEvent::Resized(size),
+      //     ..
+      //   } => {
+      //     _webview.set_bounds(wry::Rect {
+      //       x: 0,
+      //       y: 0,
+      //       width: size.width,
+      //       height: size.height,
+      //     });
+      //   }
+      //   Event::WindowEvent {
+      //     event: WindowEvent::CloseRequested,
+      //     ..
+      //   } => evl.exit(),
+      //   _ => {}
       // }
-
-      match event {
-        #[cfg(any(
-          target_os = "linux",
-          target_os = "dragonfly",
-          target_os = "freebsd",
-          target_os = "netbsd",
-          target_os = "openbsd",
-        ))]
-        Event::WindowEvent {
-          event: WindowEvent::Resized(size),
-          ..
-        } => {
-          _webview.set_bounds(wry::Rect {
-            x: 0,
-            y: 0,
-            width: size.width,
-            height: size.height,
-          });
-        }
-        Event::WindowEvent {
-          event: WindowEvent::CloseRequested,
-          ..
-        } => evl.exit(),
-        _ => {}
-      }
     })
     .unwrap();
 
