@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-#![cfg_attr(docsrs, feature(doc_cfg))]
-
 //! Wry is a Cross-platform WebView rendering library.
 //!
 //! The webview requires a running event loop and a window type that implements [`HasRawWindowHandle`],

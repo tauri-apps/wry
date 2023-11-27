@@ -14,7 +14,7 @@ categories = [ "gui" ]
 
 [package.metadata.docs.rs]
 no-default-features = true
-features = [ "file-drop", "protocol" ]
+features = [ "file-drop", "protocol", "os-webview" ]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
