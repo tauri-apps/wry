@@ -140,15 +140,17 @@ impl InnerWebView {
         if !function.is_null() {
           let function = &mut *(*function as *mut Box<dyn Fn(String)>);
           let body: id = msg_send![msg, body];
-          let utf8: *const c_char = msg_send![body, UTF8String];
-          if let Ok(js) = CStr::from_ptr(utf8).to_str() {
-            (function)(js.to_string());
-          } else {
-            log::warn!("WebView received invalid UTF8 string from IPC.");
+          let is_string: bool = msg_send![body, isKindOfClass: class!(NSString)];
+          if is_string {
+            let utf8: *const c_char = msg_send![body, UTF8String];
+            if let Ok(js) = CStr::from_ptr(utf8).to_str() {
+              (function)(js.to_string());
+              return;
+            }
           }
-        } else {
-          log::warn!("WebView instance is dropped! This handler shouldn't be called.");
         }
+
+        log::warn!("WebView received invalid IPC call.");
       }
     }
 
