@@ -66,20 +66,29 @@ jobs:
 
   doc:
     runs-on: ubuntu-latest
-    env:
-      RUSTFLAGS: '--cfg docsrs'
-      RUSTDOCFLAGS: '--cfg docsrs'
     steps:
       - uses: actions/checkout@v4
       - name: install nightly
         uses: dtolnay/rust-toolchain@nightly
-        with:
-          targets: x86_64-unknown-linux-gnu,x86_64-pc-windows-msvc,x86_64-apple-darwin
       - name: install webkit2gtk
         run: |
           sudo apt-get update -y -q
           sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev
-      # When updating arguments to `cargo doc`, consider to update `[package.metadata.docs.rs]` section in Cargo.toml
-      - run: cargo doc -p wry --no-default-features --features=file-drop,protocol,os-webview --target=x86_64-unknown-linux-gnu
-      - run: cargo doc -p wry --no-default-features --features=file-drop,protocol,os-webview --target=x86_64-pc-windows-msvc
-      - run: cargo doc -p wry --no-default-features --features=file-drop,protocol,os-webview --target=x86_64-apple-darwin
+      - name: Install dasel
+        run: |
+          curl -LO 'https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_amd64.gz'
+          gunzip dasel_linux_amd64.gz
+          chmod +x dasel_linux_amd64
+          mv dasel_linux_amd64 dasel
+          ./dasel --version
+      - name: Run cargo doc with each targets
+        run: |
+          set -ex
+          export RUSTFLAGS="$(./dasel -r toml -w - 'package.metadata.docs.rs.rustc-args.all().join( )' < Cargo.toml)"
+          export RUSTDOCFLAGS="$(./dasel -r toml -w - 'package.metadata.docs.rs.rustdoc-args.all().join( )' < Cargo.toml)"
+          features="$(./dasel -r toml -w - 'package.metadata.docs.rs.features.all().join(\,)' < Cargo.toml)"
+
+          for target in $(./dasel -r toml -w - 'package.metadata.docs.rs.targets.all().join( )' < Cargo.toml); do
+            rustup target add "$target"
+            cargo doc -p wry --no-default-features "--features=$features" "--target=$target"
+          done
