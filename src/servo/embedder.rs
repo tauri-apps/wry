@@ -118,6 +118,11 @@ impl Embedder {
               .push(EmbedderEvent::MouseWindowEventClass(event));
           }
         }
+        WindowEvent::TouchpadMagnify { delta, .. } => {
+          self.events.push(EmbedderEvent::Zoom(
+            self.servo.pinch_zoom_level() + delta as f32,
+          ));
+        }
         e => log::warn!("Servo embedder hasn't supported this window event yet: {e:?}"),
       },
       e => log::warn!("Servo embedder hasn't supported this event yet: {e:?}"),
