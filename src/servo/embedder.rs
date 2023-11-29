@@ -1,14 +1,17 @@
 use std::rc::Rc;
 
 use servo::{
-  compositing::windowing::{EmbedderEvent, EmbedderMethods},
+  compositing::windowing::{EmbedderEvent, EmbedderMethods, MouseWindowEvent},
   embedder_traits::{EmbedderMsg, EventLoopWaker},
-  euclid::Size2D,
+  euclid::{Point2D, Size2D},
+  script_traits::TouchEventType,
   servo_url::ServoUrl,
+  webrender_api::units::{DeviceIntPoint, DevicePoint, LayoutVector2D},
   Servo,
 };
 use winit::{
-  event::{Event, WindowEvent},
+  dpi::PhysicalPosition,
+  event::{ElementState, Event, WindowEvent},
   event_loop::{ControlFlow, EventLoopProxy, EventLoopWindowTarget},
 };
 
@@ -20,6 +23,7 @@ pub struct Embedder {
   // TODO TopLevelBrowsingContextId
   webview: Rc<WebView>,
   events: Vec<EmbedderEvent>,
+  mouse_position: PhysicalPosition<f64>,
 }
 
 impl Embedder {
@@ -44,6 +48,7 @@ impl Embedder {
       servo: init_servo.servo,
       webview,
       events: vec![],
+      mouse_position: PhysicalPosition::default(),
     }
   }
 
@@ -77,6 +82,41 @@ impl Embedder {
           let size = Size2D::new(size.width, size.height);
           let _ = self.webview.resize(size.to_i32());
           self.events.push(EmbedderEvent::Resize);
+        }
+        WindowEvent::CursorMoved { position, .. } => {
+          let event: DevicePoint = DevicePoint::new(position.x as f32, position.y as f32);
+          self.mouse_position = position;
+          self
+            .events
+            .push(EmbedderEvent::MouseWindowMoveEventClass(event));
+        }
+        WindowEvent::MouseInput { state, button, .. } => {
+          let button: servo::script_traits::MouseButton = match button {
+            winit::event::MouseButton::Left => servo::script_traits::MouseButton::Left,
+            winit::event::MouseButton::Right => servo::script_traits::MouseButton::Right,
+            winit::event::MouseButton::Middle => servo::script_traits::MouseButton::Middle,
+            _ => {
+              log::warn!("Servo embedder hasn't supported this mouse button yet: {button:?}");
+              return;
+            }
+          };
+          let position = Point2D::new(self.mouse_position.x as f32, self.mouse_position.y as f32);
+
+          let event: MouseWindowEvent = match state {
+            ElementState::Pressed => MouseWindowEvent::MouseDown(button, position),
+            ElementState::Released => MouseWindowEvent::MouseUp(button, position),
+          };
+          self
+            .events
+            .push(EmbedderEvent::MouseWindowEventClass(event));
+
+          // winit didn't send click event, so we send it after mouse up
+          if state == ElementState::Released {
+            let event: MouseWindowEvent = MouseWindowEvent::Click(button, position);
+            self
+              .events
+              .push(EmbedderEvent::MouseWindowEventClass(event));
+          }
         }
         e => log::warn!("Servo embedder hasn't supported this window event yet: {e:?}"),
       },
