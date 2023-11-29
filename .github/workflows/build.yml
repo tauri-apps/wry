@@ -84,9 +84,13 @@ jobs:
           export RUSTFLAGS="$(echo "$md" | jq -r '.["rustc-args"] | join(" ")')"
 
           features="$(echo "$md" | jq -r '.features | join(",")')"
+          no_default_features=
+          if [ "$(echo "$md" | jq '.["no-default-features"]')" = true ]; then
+            no_default_features="--no-default-features"
+          fi
 
           for target in $(echo "$md" | jq -r '.targets | join(" ")')
           do
             rustup target add "$target"
-            cargo doc -p wry --no-default-features "--features=$features" "--target=$target"
+            cargo doc -p wry "$no_default_features" "--features=$features" "--target=$target"
           done
