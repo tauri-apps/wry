@@ -1,6 +1,10 @@
 name: test
 
-on: [pull_request]
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
 
 jobs:
   test:
@@ -17,7 +21,7 @@ jobs:
     runs-on: ${{ matrix.platform.os }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -59,3 +63,34 @@ jobs:
       - name: Run tests with miri
         if: (!contains(matrix.platform.target, 'android') && !contains(matrix.platform.target, 'ios'))
         run: cargo +nightly miri test --verbose --target ${{ matrix.platform.target }} --features linux-body
+
+  doc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install nightly
+        uses: dtolnay/rust-toolchain@nightly
+      - name: install webkit2gtk
+        run: |
+          sudo apt-get update -y -q
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev
+      - name: Run cargo doc with each targets
+        run: |
+          set -ex
+
+          md="$(cargo metadata --format-version=1 | jq '.packages[] | select(.name=="wry") | .metadata.docs.rs')"
+
+          export RUSTDOCFLAGS="$(echo "$md" | jq -r '.["rustdoc-args"] | join(" ")')"
+          export RUSTFLAGS="$(echo "$md" | jq -r '.["rustc-args"] | join(" ")')"
+
+          features="$(echo "$md" | jq -r '.features | join(",")')"
+          no_default_features=
+          if [ "$(echo "$md" | jq '.["no-default-features"]')" = true ]; then
+            no_default_features="--no-default-features"
+          fi
+
+          for target in $(echo "$md" | jq -r '.targets | join(" ")')
+          do
+            rustup target add "$target"
+            cargo doc -p wry "$no_default_features" "--features=$features" "--target=$target"
+          done
