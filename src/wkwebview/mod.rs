@@ -789,7 +789,8 @@ impl InnerWebView {
 
           // Only disable media dialogs on macOS < 14.0
           // https://tauri.app/v1/references/webview-versions/
-          if !platform_webview_system_version()?.parse::<i32>().is_ok_and(|version| version > 18) {
+          let webview_system_version = platform_webview_system_version()?.parse::<i32>();
+          if webview_system_version.is_err() || webview_system_version.unwrap() < 19 {
             // Disable media dialogs
             ctl.add_method(
               sel!(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:),
