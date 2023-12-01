@@ -1176,19 +1176,14 @@ pub fn platform_webview_version() -> Result<String> {
 }
 
 pub fn platform_webview_system_version() -> Result<String> {
-  match platform_webview_version() {
-    Ok(webview_version) => {
-      let webview_system_and_major_version = webview_version.split(".").next().unwrap();
-      if webview_system_and_major_version.chars().count() < 5 {
-        Ok(webview_system_and_major_version[..1].to_string())
-      } else {
-        Ok(webview_system_and_major_version[..2].to_string())
-      }
+  platform_webview_version().map(|webview_version| {
+    let webview_system_and_major_version = webview_version.split('.').next().unwrap();
+    if webview_system_and_major_version.chars().count() < 5 {
+      webview_system_and_major_version[..1].to_string()
+    } else {
+      webview_system_and_major_version[..2].to_string()
     }
-    Err(e) => {
-      return Err(e);
-    }
-  }
+  })
 }
 
 impl Drop for InnerWebView {
