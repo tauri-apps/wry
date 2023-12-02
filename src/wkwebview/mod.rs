@@ -787,11 +787,16 @@ impl InnerWebView {
             run_file_upload_panel as extern "C" fn(&Object, Sel, id, id, id, id),
           );
 
-          // Disable media dialogs
-          ctl.add_method(
-            sel!(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:),
-            request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, id, id),
-          );
+          // Only disable media dialogs on macOS < 14.0
+          // https://tauri.app/v1/references/webview-versions/
+          let webview_system_version = platform_webview_system_version()?.parse::<i32>();
+          if webview_system_version.is_err() || webview_system_version.unwrap() < 19 {
+            // Disable media dialogs
+            ctl.add_method(
+              sel!(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:),
+              request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, id, id),
+            );
+          }
 
           ctl.register()
         }
@@ -1168,6 +1173,17 @@ pub fn platform_webview_version() -> Result<String> {
     let () = msg_send![bundle, unload];
     Ok(nsstring.to_str().to_string())
   }
+}
+
+pub fn platform_webview_system_version() -> Result<String> {
+  platform_webview_version().map(|webview_version| {
+    let webview_system_and_major_version = webview_version.split('.').next().unwrap();
+    if webview_system_and_major_version.chars().count() < 5 {
+      webview_system_and_major_version[..1].to_string()
+    } else {
+      webview_system_and_major_version[..2].to_string()
+    }
+  })
 }
 
 impl Drop for InnerWebView {
