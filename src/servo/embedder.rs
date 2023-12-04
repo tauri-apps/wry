@@ -4,14 +4,17 @@ use servo::{
   compositing::windowing::{EmbedderEvent, EmbedderMethods, MouseWindowEvent},
   embedder_traits::{EmbedderMsg, EventLoopWaker},
   euclid::{Point2D, Size2D},
-  script_traits::TouchEventType,
+  script_traits::{TouchEventType, WheelDelta, WheelMode},
   servo_url::ServoUrl,
-  webrender_api::units::{DeviceIntPoint, DevicePoint, LayoutVector2D},
+  webrender_api::{
+    units::{DeviceIntPoint, DevicePoint, LayoutVector2D},
+    ScrollLocation,
+  },
   Servo,
 };
 use winit::{
   dpi::PhysicalPosition,
-  event::{ElementState, Event, WindowEvent},
+  event::{ElementState, Event, TouchPhase, WindowEvent},
   event_loop::{ControlFlow, EventLoopProxy, EventLoopWindowTarget},
 };
 
@@ -120,6 +123,47 @@ impl Embedder {
         }
         WindowEvent::TouchpadMagnify { delta, .. } => {
           self.events.push(EmbedderEvent::Zoom(1.0 + delta as f32));
+        }
+        WindowEvent::MouseWheel { delta, phase, .. } => {
+          // FIXME: Pixels per line, should be configurable (from browser setting?) and vary by zoom level.
+          const LINE_HEIGHT: f32 = 38.0;
+
+          let (mut x, mut y, mode) = match delta {
+            winit::event::MouseScrollDelta::LineDelta(x, y) => {
+              (x as f64, (y * LINE_HEIGHT) as f64, WheelMode::DeltaLine)
+            }
+            winit::event::MouseScrollDelta::PixelDelta(position) => {
+              let position = position.to_logical::<f64>(self.webview.window.scale_factor());
+              (position.x, position.y, WheelMode::DeltaPixel)
+            }
+          };
+
+          // Wheel Event
+          self.events.push(EmbedderEvent::Wheel(
+            WheelDelta { x, y, z: 0.0, mode },
+            DevicePoint::new(self.mouse_position.x as f32, self.mouse_position.y as f32),
+          ));
+
+          // Scroll Event
+          // Do one axis at a time.
+          if y.abs() >= x.abs() {
+            x = 0.0;
+          } else {
+            y = 0.0;
+          }
+
+          let phase: TouchEventType = match phase {
+            TouchPhase::Started => TouchEventType::Down,
+            TouchPhase::Moved => TouchEventType::Move,
+            TouchPhase::Ended => TouchEventType::Up,
+            TouchPhase::Cancelled => TouchEventType::Cancel,
+          };
+
+          self.events.push(EmbedderEvent::Scroll(
+            ScrollLocation::Delta(LayoutVector2D::new(x as f32, y as f32)),
+            DeviceIntPoint::new(self.mouse_position.x as i32, self.mouse_position.y as i32),
+            phase,
+          ));
         }
         e => log::warn!("Servo embedder hasn't supported this window event yet: {e:?}"),
       },
