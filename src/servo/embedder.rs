@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use servo::{
   compositing::windowing::{EmbedderEvent, EmbedderMethods, MouseWindowEvent},
-  embedder_traits::{EmbedderMsg, EventLoopWaker},
+  embedder_traits::{Cursor, EmbedderMsg, EventLoopWaker},
   euclid::{Point2D, Size2D},
   script_traits::{TouchEventType, WheelDelta, WheelMode},
   servo_url::ServoUrl,
@@ -16,6 +16,7 @@ use winit::{
   dpi::PhysicalPosition,
   event::{ElementState, Event, TouchPhase, WindowEvent},
   event_loop::{ControlFlow, EventLoopProxy, EventLoopWindowTarget},
+  window::CursorIcon,
 };
 
 use super::window::WebView;
@@ -181,6 +182,46 @@ impl Embedder {
         }
         EmbedderMsg::ReadyToPresent => {
           need_present = true;
+        }
+        EmbedderMsg::SetCursor(cursor) => {
+          let winit_cursor = match cursor {
+            Cursor::Default => CursorIcon::Default,
+            Cursor::Pointer => CursorIcon::Pointer,
+            Cursor::ContextMenu => CursorIcon::ContextMenu,
+            Cursor::Help => CursorIcon::Help,
+            Cursor::Progress => CursorIcon::Progress,
+            Cursor::Wait => CursorIcon::Wait,
+            Cursor::Cell => CursorIcon::Cell,
+            Cursor::Crosshair => CursorIcon::Crosshair,
+            Cursor::Text => CursorIcon::Text,
+            Cursor::VerticalText => CursorIcon::VerticalText,
+            Cursor::Alias => CursorIcon::Alias,
+            Cursor::Copy => CursorIcon::Copy,
+            Cursor::Move => CursorIcon::Move,
+            Cursor::NoDrop => CursorIcon::NoDrop,
+            Cursor::NotAllowed => CursorIcon::NotAllowed,
+            Cursor::Grab => CursorIcon::Grab,
+            Cursor::Grabbing => CursorIcon::Grabbing,
+            Cursor::EResize => CursorIcon::EResize,
+            Cursor::NResize => CursorIcon::NResize,
+            Cursor::NeResize => CursorIcon::NeResize,
+            Cursor::NwResize => CursorIcon::NwResize,
+            Cursor::SResize => CursorIcon::SResize,
+            Cursor::SeResize => CursorIcon::SeResize,
+            Cursor::SwResize => CursorIcon::SwResize,
+            Cursor::WResize => CursorIcon::WResize,
+            Cursor::EwResize => CursorIcon::EwResize,
+            Cursor::NsResize => CursorIcon::NsResize,
+            Cursor::NeswResize => CursorIcon::NeswResize,
+            Cursor::NwseResize => CursorIcon::NwseResize,
+            Cursor::ColResize => CursorIcon::ColResize,
+            Cursor::RowResize => CursorIcon::RowResize,
+            Cursor::AllScroll => CursorIcon::AllScroll,
+            Cursor::ZoomIn => CursorIcon::ZoomIn,
+            Cursor::ZoomOut => CursorIcon::ZoomOut,
+            _ => CursorIcon::Default,
+          };
+          self.webview.window.set_cursor_icon(winit_cursor);
         }
         e => {
           log::warn!("Servo embedder hasn't supported handling this message yet: {e:?}")
