@@ -223,6 +223,13 @@ impl Embedder {
           };
           self.webview.window.set_cursor_icon(winit_cursor);
         }
+        EmbedderMsg::AllowNavigationRequest(pipeline_id, _url) => {
+          if w.is_some() {
+            self
+              .events
+              .push(EmbedderEvent::AllowNavigationResponse(pipeline_id, true));
+          }
+        }
         e => {
           log::warn!("Servo embedder hasn't supported handling this message yet: {e:?}")
         }
