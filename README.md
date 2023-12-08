@@ -27,19 +27,20 @@ You can use a windowing library like `tao` or `winit`.
 The minimum example to create a Window and browse a website looks like following:
 
 ```rust
-fn main() {
+fn main() -> wry::Result<()> {
   use tao::{
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
   };
-  use wry::webview::WebViewBuilder;
+  use wry::WebViewBuilder;
 
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new()
     .with_title("Hello World")
-    .build(&event_loop)?;
-  let _webview = WebViewBuilder::new(&window)?
+    .build(&event_loop)
+    .unwrap();
+  let _webview = WebViewBuilder::new(&window)
     .with_url("https://tauri.app")?
     .build()?;
 
