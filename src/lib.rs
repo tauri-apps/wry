@@ -1404,6 +1404,25 @@ pub trait WebViewExtWindows {
   /// [1]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel
   /// [2]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2.memoryusagetargetlevel?view=webview2-dotnet-1.0.2088.41#remarks
   fn set_memory_usage_level(&self, level: MemoryUsageLevel);
+
+  unsafe fn create_shared_buffer(
+    &self,
+    size: u64,
+  ) -> ::windows::core::Result<
+    webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2SharedBuffer,
+  >;
+
+  unsafe fn post_shared_buffer_to_script<P0, P1>(
+    &self,
+    sharedbuffer: P0,
+    access: webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_SHARED_BUFFER_ACCESS,
+    additionaldataasjson: P1,
+  ) -> ::windows::core::Result<()>
+  where
+    P0: ::windows::core::IntoParam<
+      webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2SharedBuffer,
+    >,
+    P1: ::windows::core::IntoParam<::windows::core::PCWSTR>;
 }
 
 #[cfg(target_os = "windows")]
@@ -1418,6 +1437,32 @@ impl WebViewExtWindows for WebView {
 
   fn set_memory_usage_level(&self, level: MemoryUsageLevel) {
     self.webview.set_memory_usage_level(level);
+  }
+
+  unsafe fn create_shared_buffer(
+    &self,
+    size: u64,
+  ) -> ::windows::core::Result<
+    webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2SharedBuffer,
+  > {
+    self.webview.create_shared_buffer(size)
+  }
+
+  unsafe fn post_shared_buffer_to_script<P0, P1>(
+    &self,
+    sharedbuffer: P0,
+    access: webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_SHARED_BUFFER_ACCESS,
+    additionaldataasjson: P1,
+  ) -> ::windows::core::Result<()>
+  where
+    P0: ::windows::core::IntoParam<
+      webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2SharedBuffer,
+    >,
+    P1: ::windows::core::IntoParam<::windows::core::PCWSTR>,
+  {
+    self
+      .webview
+      .post_shared_buffer_to_script(sharedbuffer, access, additionaldataasjson)
   }
 }
 
