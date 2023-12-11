@@ -1404,6 +1404,14 @@ pub trait WebViewExtWindows {
   /// [1]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel
   /// [2]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2.memoryusagetargetlevel?view=webview2-dotnet-1.0.2088.41#remarks
   fn set_memory_usage_level(&self, level: MemoryUsageLevel);
+
+  unsafe fn add_host_object_to_script<P0>(
+    &self,
+    name: P0,
+    object: *mut ::windows::Win32::System::Variant::VARIANT,
+  ) -> ::windows::core::Result<()>
+  where
+    P0: ::windows::core::IntoParam<::windows::core::PCWSTR>;
 }
 
 #[cfg(target_os = "windows")]
@@ -1418,6 +1426,17 @@ impl WebViewExtWindows for WebView {
 
   fn set_memory_usage_level(&self, level: MemoryUsageLevel) {
     self.webview.set_memory_usage_level(level);
+  }
+
+  unsafe fn add_host_object_to_script<P0>(
+    &self,
+    name: P0,
+    object: *mut ::windows::Win32::System::Variant::VARIANT,
+  ) -> ::windows::core::Result<()>
+  where
+    P0: ::windows::core::IntoParam<::windows::core::PCWSTR>,
+  {
+    self.webview.add_host_object_to_script(name, object)
   }
 }
 

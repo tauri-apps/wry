@@ -1092,6 +1092,20 @@ impl InnerWebView {
     let level = COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL(level);
     let _ = unsafe { webview.SetMemoryUsageTargetLevel(level) };
   }
+
+  pub unsafe fn add_host_object_to_script<P0>(
+    &self,
+    name: P0,
+    object: *mut ::windows::Win32::System::Variant::VARIANT,
+  ) -> ::windows::core::Result<()>
+  where
+    P0: ::windows::core::IntoParam<::windows::core::PCWSTR>,
+  {
+    match self.webview.cast::<ICoreWebView2_19>() {
+      Ok(webview) => webview.AddHostObjectToScript(name, object),
+      Err(error) => Err(error),
+    }
+  }
 }
 
 unsafe fn prepare_web_request_response(
