@@ -1,6 +1,6 @@
 use raw_window_handle::HasRawWindowHandle;
 use url::Url;
-use winit::{event_loop::EventLoopProxy, window::Window};
+use tao::{event_loop::EventLoopProxy, window::Window};
 
 use crate::{Rect, Result, WebContext, WebViewAttributes, WebViewBuilder, RGBA};
 

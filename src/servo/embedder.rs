@@ -10,9 +10,9 @@ use servo::{
     units::{DeviceIntPoint, DevicePoint, LayoutVector2D},
     ScrollLocation,
   },
-  Servo,
+  BrowserId, Servo,
 };
-use winit::{
+use tao::{
   dpi::PhysicalPosition,
   event::{ElementState, Event, TouchPhase, WindowEvent},
   event_loop::{ControlFlow, EventLoopProxy, EventLoopWindowTarget},
@@ -23,11 +23,13 @@ use super::window::WebView;
 
 /// The Servo embedder to communicate with servo instance.
 pub struct Embedder {
-  servo: Servo<WebView>,
+  servo: Option<Servo<WebView>>,
   // TODO TopLevelBrowsingContextId
+  browser_id: Option<BrowserId>,
   webview: Rc<WebView>,
   events: Vec<EmbedderEvent>,
   mouse_position: PhysicalPosition<f64>,
+  is_shutdown: bool,
 }
 
 impl Embedder {
@@ -49,24 +51,33 @@ impl Embedder {
       )]);
     init_servo.servo.setup_logging();
     Embedder {
-      servo: init_servo.servo,
+      servo: Some(init_servo.servo),
       webview,
       events: vec![],
       mouse_position: PhysicalPosition::default(),
+      is_shutdown: false,
+      browser_id: None,
     }
   }
 
-  pub fn set_control_flow(&self, event: &Event<()>, evl: &EventLoopWindowTarget<()>) {
-    let control_flow = if !self.webview.is_animating() || *event == Event::Suspended {
+  pub fn get_control_flow(&self, event: &Event<()>) -> ControlFlow {
+    if !self.webview.is_animating() || *event == Event::Suspended {
       ControlFlow::Wait
     } else {
       ControlFlow::Poll
-    };
-    evl.set_control_flow(control_flow);
-    log::trace!("Servo embedder sets control flow to: {control_flow:?}");
+    }
   }
 
-  pub fn handle_winit_event(&mut self, event: Event<()>) {
+  fn redraw(&mut self) {
+    let Some(servo) = self.servo.as_mut() else {
+      return;
+    };
+    servo.recomposite();
+    servo.present();
+    self.events.push(EmbedderEvent::Idle);
+  }
+
+  pub fn handle_tao_event(&mut self, event: Event<()>) {
     log::trace!("Servo embedder is creating ebedder event from: {event:?}");
     match event {
       Event::Suspended => {}
@@ -76,16 +87,19 @@ impl Embedder {
       Event::WindowEvent {
         window_id: _,
         event,
+        ..
       } => match event {
-        WindowEvent::RedrawRequested => {
-          self.servo.recomposite();
-          self.servo.present();
-          self.events.push(EmbedderEvent::Idle);
-        }
+        // TODO: Need to find a timing to call redraw
+        // WindowEvent::RedrawRequested => {
+        //   self.redraw();
+        // }
         WindowEvent::Resized(size) => {
           let size = Size2D::new(size.width, size.height);
-          let _ = self.webview.resize(size.to_i32());
+          self.webview.resize(size.to_i32());
           self.events.push(EmbedderEvent::Resize);
+
+          // TODO: remove this and use `WindowEvent::RedrawRequested` instead
+          self.redraw();
         }
         WindowEvent::CursorMoved { position, .. } => {
           let event: DevicePoint = DevicePoint::new(position.x as f32, position.y as f32);
@@ -96,9 +110,9 @@ impl Embedder {
         }
         WindowEvent::MouseInput { state, button, .. } => {
           let button: servo::script_traits::MouseButton = match button {
-            winit::event::MouseButton::Left => servo::script_traits::MouseButton::Left,
-            winit::event::MouseButton::Right => servo::script_traits::MouseButton::Right,
-            winit::event::MouseButton::Middle => servo::script_traits::MouseButton::Middle,
+            tao::event::MouseButton::Left => servo::script_traits::MouseButton::Left,
+            tao::event::MouseButton::Right => servo::script_traits::MouseButton::Right,
+            tao::event::MouseButton::Middle => servo::script_traits::MouseButton::Middle,
             _ => {
               log::warn!("Servo embedder hasn't supported this mouse button yet: {button:?}");
               return;
@@ -109,12 +123,16 @@ impl Embedder {
           let event: MouseWindowEvent = match state {
             ElementState::Pressed => MouseWindowEvent::MouseDown(button, position),
             ElementState::Released => MouseWindowEvent::MouseUp(button, position),
+            _ => {
+              log::warn!("Not supported mouse state: {state:?}");
+              return;
+            }
           };
           self
             .events
             .push(EmbedderEvent::MouseWindowEventClass(event));
 
-          // winit didn't send click event, so we send it after mouse up
+          // tao didn't send click event, so we send it after mouse up
           if state == ElementState::Released {
             let event: MouseWindowEvent = MouseWindowEvent::Click(button, position);
             self
@@ -122,20 +140,24 @@ impl Embedder {
               .push(EmbedderEvent::MouseWindowEventClass(event));
           }
         }
-        WindowEvent::TouchpadMagnify { delta, .. } => {
-          self.events.push(EmbedderEvent::Zoom(1.0 + delta as f32));
-        }
+        // WindowEvent::TouchpadMagnify { delta, .. } => {
+        //   self.events.push(EmbedderEvent::Zoom(1.0 + delta as f32));
+        // }
         WindowEvent::MouseWheel { delta, phase, .. } => {
           // FIXME: Pixels per line, should be configurable (from browser setting?) and vary by zoom level.
           const LINE_HEIGHT: f32 = 38.0;
 
           let (mut x, mut y, mode) = match delta {
-            winit::event::MouseScrollDelta::LineDelta(x, y) => {
+            tao::event::MouseScrollDelta::LineDelta(x, y) => {
               (x as f64, (y * LINE_HEIGHT) as f64, WheelMode::DeltaLine)
             }
-            winit::event::MouseScrollDelta::PixelDelta(position) => {
+            tao::event::MouseScrollDelta::PixelDelta(position) => {
               let position = position.to_logical::<f64>(self.webview.window.scale_factor());
               (position.x, position.y, WheelMode::DeltaPixel)
+            }
+            _ => {
+              log::warn!("Not supported mouse scroll delta: {delta:?}");
+              return;
             }
           };
 
@@ -158,6 +180,10 @@ impl Embedder {
             TouchPhase::Moved => TouchEventType::Move,
             TouchPhase::Ended => TouchEventType::Up,
             TouchPhase::Cancelled => TouchEventType::Cancel,
+            _ => {
+              log::warn!("Not supported touch phase: {phase:?}");
+              return;
+            }
           };
 
           self.events.push(EmbedderEvent::Scroll(
@@ -166,6 +192,9 @@ impl Embedder {
             phase,
           ));
         }
+        WindowEvent::CloseRequested => {
+          self.events.push(EmbedderEvent::Quit);
+        }
         e => log::warn!("Servo embedder hasn't supported this window event yet: {e:?}"),
       },
       e => log::warn!("Servo embedder hasn't supported this event yet: {e:?}"),
@@ -173,8 +202,13 @@ impl Embedder {
   }
 
   pub fn handle_servo_messages(&mut self) {
+    let Some(servo) = self.servo.as_mut() else {
+      return;
+    };
+
     let mut need_present = false;
-    self.servo.get_events().into_iter().for_each(|(w, m)| {
+
+    servo.get_events().into_iter().for_each(|(w, m)| {
       log::trace!("Servo embedder is handling servo message: {m:?} with browser id: {w:?}");
       match m {
         EmbedderMsg::BrowserCreated(w) => {
@@ -184,9 +218,9 @@ impl Embedder {
           need_present = true;
         }
         EmbedderMsg::SetCursor(cursor) => {
-          let winit_cursor = match cursor {
+          let tao_cursor = match cursor {
             Cursor::Default => CursorIcon::Default,
-            Cursor::Pointer => CursorIcon::Pointer,
+            Cursor::Pointer => CursorIcon::Arrow,
             Cursor::ContextMenu => CursorIcon::ContextMenu,
             Cursor::Help => CursorIcon::Help,
             Cursor::Progress => CursorIcon::Progress,
@@ -221,7 +255,7 @@ impl Embedder {
             Cursor::ZoomOut => CursorIcon::ZoomOut,
             _ => CursorIcon::Default,
           };
-          self.webview.window.set_cursor_icon(winit_cursor);
+          self.webview.window.set_cursor_icon(tao_cursor);
         }
         EmbedderMsg::AllowNavigationRequest(pipeline_id, _url) => {
           if w.is_some() {
@@ -229,6 +263,17 @@ impl Embedder {
               .events
               .push(EmbedderEvent::AllowNavigationResponse(pipeline_id, true));
           }
+        }
+        EmbedderMsg::BrowserCreated(new_browser_id) => {
+          if self.browser_id.is_none() {
+            self.browser_id = Some(new_browser_id);
+          }
+        }
+        EmbedderMsg::CloseBrowser => {
+          self.events.push(EmbedderEvent::Quit);
+        }
+        EmbedderMsg::Shutdown => {
+          self.is_shutdown = true;
         }
         e => {
           log::warn!("Servo embedder hasn't supported handling this message yet: {e:?}")
@@ -240,12 +285,20 @@ impl Embedder {
       "Servo embedder is handling embedder events: {:?}",
       self.events
     );
-    if self.servo.handle_events(self.events.drain(..)) {
-      self.servo.repaint_synchronously();
-      self.servo.present();
+    if servo.handle_events(self.events.drain(..)) {
+      servo.repaint_synchronously();
+      servo.present();
     } else if need_present {
       self.webview.request_redraw();
     }
+  }
+
+  pub fn is_shutdown(&self) -> bool {
+    self.is_shutdown
+  }
+
+  pub fn servo_client(&mut self) -> &mut Option<Servo<WebView>> {
+    &mut self.servo
   }
 }
 

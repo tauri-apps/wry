@@ -523,7 +523,7 @@ pub struct WebViewBuilder<'a> {
   #[cfg(gtk)]
   gtk_widget: Option<&'a gtk::Container>,
   #[cfg(servo)]
-  winit: Option<(Window, EventLoopProxy<()>)>,
+  winit: Option<(tao::window::Window, tao::event_loop::EventLoopProxy<()>)>,
 }
 
 impl<'a> WebViewBuilder<'a> {

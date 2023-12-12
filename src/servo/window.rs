@@ -11,17 +11,16 @@ use servo::{
 use surfman::{Connection, GLApi, GLVersion, SurfaceType};
 // FIXME servo should re-export this.
 use servo_media::player::context::{GlApi, GlContext, NativeDisplay};
-use winit::window::Window;
 
 /// This is the type for servo embedder. Not for public usage.
 pub struct WebView {
   pub webrender_surfman: WebrenderSurfman,
   animation_state: Cell<AnimationState>,
-  pub window: Window,
+  pub window: tao::window::Window,
 }
 
 impl WebView {
-  pub fn new(window: Window) -> Self {
+  pub fn new(window: tao::window::Window) -> Self {
     let connection = Connection::new().expect("Failed to create surfman connection");
     let adapter = connection
       .create_adapter()
