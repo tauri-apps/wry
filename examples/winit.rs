@@ -46,30 +46,16 @@ fn main() -> wry::Result<()> {
 
   event_loop
     .run(move |event, evl| {
-      webview.servo().set_control_flow(&event, evl);
-      webview.servo().handle_winit_event(event);
-      webview.servo().handle_servo_messages();
-
-      // evl.set_control_flow(ControlFlow::Poll);
-
-      // match event {
-      //   Event::WindowEvent {
-      //     event: WindowEvent::Resized(size),
-      //     ..
-      //   } => {
-      //     _webview.set_bounds(wry::Rect {
-      //       x: 0,
-      //       y: 0,
-      //       width: size.width,
-      //       height: size.height,
-      //     });
-      //   }
-      //   Event::WindowEvent {
-      //     event: WindowEvent::CloseRequested,
-      //     ..
-      //   } => evl.exit(),
-      //   _ => {}
-      // }
+      if !evl.exiting() && webview.servo().is_shutdown() {
+        if let Some(servo) = webview.servo().servo_client().take() {
+          servo.deinit();
+        }
+        evl.exit();
+      } else {
+        webview.servo().set_control_flow(&event, evl);
+        webview.servo().handle_winit_event(event);
+        webview.servo().handle_servo_messages();
+      }
     })
     .unwrap();
 
