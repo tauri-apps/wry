@@ -192,7 +192,6 @@ pub mod prelude {
 pub use android::JniHandle;
 #[cfg(target_os = "android")]
 use android::*;
-use winit::event_loop::EventLoopProxy;
 
 #[cfg(servo)]
 pub(crate) mod servo;
@@ -200,8 +199,6 @@ pub(crate) mod servo;
 use crate::servo::*;
 #[cfg(servo)]
 pub use crate::servo::{WebViewBuilderExtServo, WebViewExtServo};
-#[cfg(servo)]
-use winit::window::Window;
 #[cfg(gtk)]
 pub(crate) mod webkitgtk;
 /// Re-exported [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate.

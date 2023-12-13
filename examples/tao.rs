@@ -4,7 +4,6 @@
 
 use tao::{
   dpi::PhysicalSize,
-  event::{Event, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
@@ -21,7 +20,7 @@ fn main() -> wry::Result<()> {
   let mut builder = WebViewBuilder::new_servo(window, event_loop.create_proxy());
   let mut webview = builder.with_url("https://tauri.app")?.build()?;
 
-  event_loop.run(move |event, evl, control_flow| {
+  event_loop.run(move |event, _evl, control_flow| {
     if webview.servo().is_shutdown() {
       if let Some(servo) = webview.servo().servo_client().take() {
         servo.deinit();
@@ -33,6 +32,4 @@ fn main() -> wry::Result<()> {
       webview.servo().handle_servo_messages();
     }
   });
-
-  Ok(())
 }

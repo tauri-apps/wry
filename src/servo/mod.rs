@@ -22,8 +22,8 @@ impl InnerWebView {
   pub fn new_servo(
     window: Window,
     proxy: EventLoopProxy<()>,
-    attributes: WebViewAttributes,
-    pl_attrs: super::PlatformSpecificWebViewAttributes,
+    _attributes: WebViewAttributes,
+    _pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     resources::init(web_context);
@@ -62,8 +62,8 @@ impl InnerWebView {
 
   pub fn eval(
     &self,
-    js: &str,
-    callback: Option<impl FnOnce(String) + Send + 'static>,
+    _js: &str,
+    _callback: Option<impl FnOnce(String) + Send + 'static>,
   ) -> Result<()> {
     Ok(())
   }
@@ -79,23 +79,23 @@ impl InnerWebView {
     true
   }
 
-  pub fn zoom(&self, scale_factor: f64) {}
+  pub fn zoom(&self, _scale_factor: f64) {}
 
-  pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
+  pub fn set_background_color(&self, _background_color: RGBA) -> Result<()> {
     Ok(())
   }
 
-  pub fn load_url(&self, url: &str) {}
+  pub fn load_url(&self, _url: &str) {}
 
-  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {}
+  pub fn load_url_with_headers(&self, _url: &str, _headers: http::HeaderMap) {}
 
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     Ok(())
   }
 
-  pub fn set_bounds(&self, bounds: Rect) {}
+  pub fn set_bounds(&self, _bounds: Rect) {}
 
-  pub fn set_visible(&self, visible: bool) {}
+  pub fn set_visible(&self, _visible: bool) {}
 
   pub fn focus(&self) {}
 }
