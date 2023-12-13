@@ -24,7 +24,6 @@ use super::window::WebView;
 /// The Servo embedder to communicate with servo instance.
 pub struct Embedder {
   servo: Option<Servo<WebView>>,
-  // TODO TopLevelBrowsingContextId
   browser_id: Option<BrowserId>,
   webview: Rc<WebView>,
   events: Vec<EmbedderEvent>,
@@ -68,15 +67,6 @@ impl Embedder {
     }
   }
 
-  fn redraw(&mut self) {
-    let Some(servo) = self.servo.as_mut() else {
-      return;
-    };
-    servo.recomposite();
-    servo.present();
-    self.events.push(EmbedderEvent::Idle);
-  }
-
   pub fn handle_tao_event(&mut self, event: Event<()>) {
     log::trace!("Servo embedder is creating ebedder event from: {event:?}");
     match event {
@@ -89,17 +79,10 @@ impl Embedder {
         event,
         ..
       } => match event {
-        // TODO: Need to find a timing to call redraw
-        // WindowEvent::RedrawRequested => {
-        //   self.redraw();
-        // }
         WindowEvent::Resized(size) => {
           let size = Size2D::new(size.width, size.height);
           self.webview.resize(size.to_i32());
           self.events.push(EmbedderEvent::Resize);
-
-          // TODO: remove this and use `WindowEvent::RedrawRequested` instead
-          self.redraw();
         }
         WindowEvent::CursorMoved { position, .. } => {
           let event: DevicePoint = DevicePoint::new(position.x as f32, position.y as f32);
@@ -197,6 +180,14 @@ impl Embedder {
         }
         e => log::warn!("Servo embedder hasn't supported this window event yet: {e:?}"),
       },
+      Event::RedrawRequested(_window_id) => {
+        let Some(servo) = self.servo.as_mut() else {
+          return;
+        };
+        servo.recomposite();
+        servo.present();
+        self.events.push(EmbedderEvent::Idle);
+      }
       e => log::warn!("Servo embedder hasn't supported this event yet: {e:?}"),
     }
   }
@@ -220,7 +211,7 @@ impl Embedder {
         EmbedderMsg::SetCursor(cursor) => {
           let tao_cursor = match cursor {
             Cursor::Default => CursorIcon::Default,
-            Cursor::Pointer => CursorIcon::Arrow,
+            Cursor::Pointer => CursorIcon::Hand,
             Cursor::ContextMenu => CursorIcon::ContextMenu,
             Cursor::Help => CursorIcon::Help,
             Cursor::Progress => CursorIcon::Progress,
