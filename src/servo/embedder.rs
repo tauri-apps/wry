@@ -194,6 +194,9 @@ impl Embedder {
       log::trace!("Servo embedder is handling servo message: {m:?} with browser id: {w:?}");
       match m {
         EmbedderMsg::BrowserCreated(w) => {
+          if self.browser_id.is_none() {
+            self.browser_id = Some(w);
+          }
           self.events.push(EmbedderEvent::SelectBrowser(w));
         }
         EmbedderMsg::ReadyToPresent => {
@@ -244,11 +247,6 @@ impl Embedder {
             self
               .events
               .push(EmbedderEvent::AllowNavigationResponse(pipeline_id, true));
-          }
-        }
-        EmbedderMsg::BrowserCreated(new_browser_id) => {
-          if self.browser_id.is_none() {
-            self.browser_id = Some(new_browser_id);
           }
         }
         EmbedderMsg::CloseBrowser => {
