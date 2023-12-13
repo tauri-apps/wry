@@ -10,7 +10,7 @@ use servo::{
     units::{DeviceIntPoint, DevicePoint, LayoutVector2D},
     ScrollLocation,
   },
-  Servo,
+  BrowserId, Servo,
 };
 use winit::{
   dpi::PhysicalPosition,
@@ -23,11 +23,13 @@ use super::window::WebView;
 
 /// The Servo embedder to communicate with servo instance.
 pub struct Embedder {
-  servo: Servo<WebView>,
+  servo: Option<Servo<WebView>>,
   // TODO TopLevelBrowsingContextId
+  browser_id: Option<BrowserId>,
   webview: Rc<WebView>,
   events: Vec<EmbedderEvent>,
   mouse_position: PhysicalPosition<f64>,
+  is_shutdown: bool,
 }
 
 impl Embedder {
@@ -49,10 +51,12 @@ impl Embedder {
       )]);
     init_servo.servo.setup_logging();
     Embedder {
-      servo: init_servo.servo,
+      servo: Some(init_servo.servo),
       webview,
       events: vec![],
       mouse_position: PhysicalPosition::default(),
+      is_shutdown: false,
+      browser_id: None,
     }
   }
 
@@ -78,8 +82,12 @@ impl Embedder {
         event,
       } => match event {
         WindowEvent::RedrawRequested => {
-          self.servo.recomposite();
-          self.servo.present();
+          let Some(servo) = self.servo.as_mut() else {
+            return;
+          };
+
+          servo.recomposite();
+          servo.present();
           self.events.push(EmbedderEvent::Idle);
         }
         WindowEvent::Resized(size) => {
@@ -166,6 +174,9 @@ impl Embedder {
             phase,
           ));
         }
+        WindowEvent::CloseRequested => {
+          self.events.push(EmbedderEvent::Quit);
+        }
         e => log::warn!("Servo embedder hasn't supported this window event yet: {e:?}"),
       },
       e => log::warn!("Servo embedder hasn't supported this event yet: {e:?}"),
@@ -173,8 +184,13 @@ impl Embedder {
   }
 
   pub fn handle_servo_messages(&mut self) {
+    let Some(servo) = self.servo.as_mut() else {
+      return;
+    };
+
     let mut need_present = false;
-    self.servo.get_events().into_iter().for_each(|(w, m)| {
+
+    servo.get_events().into_iter().for_each(|(w, m)| {
       log::trace!("Servo embedder is handling servo message: {m:?} with browser id: {w:?}");
       match m {
         EmbedderMsg::BrowserCreated(w) => {
@@ -230,6 +246,17 @@ impl Embedder {
               .push(EmbedderEvent::AllowNavigationResponse(pipeline_id, true));
           }
         }
+        EmbedderMsg::BrowserCreated(new_browser_id) => {
+          if self.browser_id.is_none() {
+            self.browser_id = Some(new_browser_id);
+          }
+        }
+        EmbedderMsg::CloseBrowser => {
+          self.events.push(EmbedderEvent::Quit);
+        }
+        EmbedderMsg::Shutdown => {
+          self.is_shutdown = true;
+        }
         e => {
           log::warn!("Servo embedder hasn't supported handling this message yet: {e:?}")
         }
@@ -240,12 +267,20 @@ impl Embedder {
       "Servo embedder is handling embedder events: {:?}",
       self.events
     );
-    if self.servo.handle_events(self.events.drain(..)) {
-      self.servo.repaint_synchronously();
-      self.servo.present();
+    if servo.handle_events(self.events.drain(..)) {
+      servo.repaint_synchronously();
+      servo.present();
     } else if need_present {
       self.webview.request_redraw();
     }
+  }
+
+  pub fn is_shutdown(&self) -> bool {
+    self.is_shutdown
+  }
+
+  pub fn servo_client(&mut self) -> &mut Option<Servo<WebView>> {
+    &mut self.servo
   }
 }
 
