@@ -176,14 +176,14 @@ impl InnerWebView {
   ) -> Result<Self> {
     let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
 
-    let file_drop_controller = attributes
-      .file_drop_handler
-      .take()
-      .map(|handler| FileDropController::new(hwnd, handler));
+    let file_drop_handler = attributes.file_drop_handler.take();
 
     let env = Self::create_environment(&web_context, pl_attrs.clone(), &attributes)?;
     let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
     let webview = Self::init_webview(hwnd, attributes, &env, &controller, pl_attrs)?;
+
+    let file_drop_controller =
+      file_drop_handler.map(|handler| FileDropController::new(hwnd, handler));
 
     Ok(Self {
       hwnd,
