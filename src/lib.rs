@@ -192,6 +192,7 @@ pub mod prelude {
 pub use android::JniHandle;
 #[cfg(target_os = "android")]
 use android::*;
+use tao::event_loop::EventLoopProxy;
 
 #[cfg(servo)]
 pub(crate) mod servo;
@@ -219,7 +220,7 @@ use self::webview2::*;
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 
-use std::{borrow::Cow, path::PathBuf, rc::Rc};
+use std::{borrow::Cow, path::PathBuf, rc::Rc, sync::Arc};
 
 use http::{Request, Response};
 
@@ -511,7 +512,7 @@ impl Default for WebViewAttributes {
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
 /// [`WebViewBuilder`] provides ability to setup initialization before web engine starts.
-pub struct WebViewBuilder<'a> {
+pub struct WebViewBuilder<'a, T: 'static + Clone + Send> {
   pub attrs: WebViewAttributes,
   as_child: bool,
   window: Option<&'a dyn HasRawWindowHandle>,
@@ -520,10 +521,10 @@ pub struct WebViewBuilder<'a> {
   #[cfg(gtk)]
   gtk_widget: Option<&'a gtk::Container>,
   #[cfg(servo)]
-  winit: Option<(tao::window::Window, tao::event_loop::EventLoopProxy<()>)>,
+  winit: Option<(Arc<tao::window::Window>, tao::event_loop::EventLoopProxy<T>)>,
 }
 
-impl<'a> WebViewBuilder<'a> {
+impl<'a, T: 'static + Clone + Send> WebViewBuilder<'a, T> {
   /// Create a [`WebViewBuilder`] from a type that implements [`HasRawWindowHandle`].
   ///
   /// # Platform-specific:
@@ -1204,6 +1205,7 @@ impl WebView {
   ///
   /// - Panics if the provided handle was not supported or invalid.
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
+  #[cfg(not(servo))]
   pub fn new(window: &impl HasRawWindowHandle) -> Result<Self> {
     WebViewBuilder::new(window).build()
   }
@@ -1227,6 +1229,7 @@ impl WebView {
   ///
   /// - Panics if the provided handle was not support or invalid.
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
+  #[cfg(not(servo))]
   pub fn new_as_child(parent: &impl HasRawWindowHandle) -> Result<Self> {
     WebViewBuilder::new_as_child(parent).build()
   }

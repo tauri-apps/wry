@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use raw_window_handle::HasRawWindowHandle;
-use url::Url;
 use tao::{event_loop::EventLoopProxy, window::Window};
+use url::Url;
 
 use crate::{Rect, Result, WebContext, WebViewAttributes, WebViewBuilder, RGBA};
 
@@ -19,9 +21,9 @@ pub(crate) struct InnerWebView {
 }
 
 impl InnerWebView {
-  pub fn new_servo(
-    window: Window,
-    proxy: EventLoopProxy<()>,
+  pub fn new_servo<T: 'static + Clone + Send>(
+    window: Arc<Window>,
+    proxy: EventLoopProxy<T>,
     _attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
@@ -104,12 +106,12 @@ pub fn platform_webview_version() -> Result<String> {
   Ok(String::from(""))
 }
 
-pub trait WebViewBuilderExtServo {
-  fn new_servo(window: Window, proxy: EventLoopProxy<()>) -> Self;
+pub trait WebViewBuilderExtServo<T: 'static + Clone + Send> {
+  fn new_servo(window: Arc<Window>, proxy: EventLoopProxy<T>) -> Self;
 }
 
-impl WebViewBuilderExtServo for WebViewBuilder<'_> {
-  fn new_servo(window: Window, proxy: EventLoopProxy<()>) -> Self {
+impl<T: 'static + Clone + Send> WebViewBuilderExtServo<T> for WebViewBuilder<'_, T> {
+  fn new_servo(window: Arc<Window>, proxy: EventLoopProxy<T>) -> Self {
     Self {
       attrs: WebViewAttributes::default(),
       window: None,

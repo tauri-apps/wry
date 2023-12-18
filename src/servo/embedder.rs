@@ -32,7 +32,7 @@ pub struct Embedder {
 }
 
 impl Embedder {
-  pub fn new(webview: WebView, callback: EmbedderWaker) -> Self {
+  pub fn new<T: 'static + Clone + Send>(webview: WebView, callback: EmbedderWaker<T>) -> Self {
     let webview = Rc::new(webview);
     let mut init_servo = Servo::new(
       Box::new(callback),
@@ -293,15 +293,15 @@ impl Embedder {
 }
 
 #[derive(Debug, Clone)]
-pub struct EmbedderWaker(pub EventLoopProxy<()>);
+pub struct EmbedderWaker<T: 'static + Clone + Send>(pub EventLoopProxy<T>);
 
-impl EmbedderMethods for EmbedderWaker {
+impl<T: 'static + Clone + Send> EmbedderMethods for EmbedderWaker<T> {
   fn create_event_loop_waker(&mut self) -> Box<dyn EventLoopWaker> {
     Box::new(self.clone())
   }
 }
 
-impl EventLoopWaker for EmbedderWaker {
+impl<T: 'static + Clone + Send> EventLoopWaker for EmbedderWaker<T> {
   fn clone_box(&self) -> Box<dyn EventLoopWaker> {
     Box::new(self.clone())
   }

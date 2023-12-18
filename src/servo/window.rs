@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::{cell::Cell, sync::Arc};
 
 use raw_window_handle::HasRawWindowHandle;
 use servo::{
@@ -16,11 +16,11 @@ use servo_media::player::context::{GlApi, GlContext, NativeDisplay};
 pub struct WebView {
   pub webrender_surfman: WebrenderSurfman,
   animation_state: Cell<AnimationState>,
-  pub window: tao::window::Window,
+  pub window: Arc<tao::window::Window>,
 }
 
 impl WebView {
-  pub fn new(window: tao::window::Window) -> Self {
+  pub fn new(window: Arc<tao::window::Window>) -> Self {
     let connection = Connection::new().expect("Failed to create surfman connection");
     let adapter = connection
       .create_adapter()
