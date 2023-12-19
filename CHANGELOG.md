@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.24.7]
+
+- [`dba375f`](https://github.com/tauri-apps/wry/commit/dba375f2b1ba1cfc73582f58a9ff1ccc82d50f8c)([#1106](https://github.com/tauri-apps/wry/pull/1106)) Update the unmaintained `kuchiki` crate to the maintained `kuchikiki` crate.
+
 ## \[0.24.6]
 
 - [`7dd542f`](https://github.com/tauri-apps/wry/commit/7dd542fcd62219e7df620c808bb731d1112ece26)([#1093](https://github.com/tauri-apps/wry/pull/1093)) Added tracing spans for `evaluate_script`, `ipc_handler` and `custom_protocols` behind the `tracing` feature flag.
