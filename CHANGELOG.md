@@ -1,5 +1,13 @@
 # Changelog
 
+## \[0.35.1]
+
+- [`eef33c9`](https://github.com/tauri-apps/wry/commit/eef33c9372795504eec3fe117d9d45a5893f53c5)([#1124](https://github.com/tauri-apps/wry/pull/1124)) Fix the API documentation cannot be built on docs.rs.
+- [`eef33c9`](https://github.com/tauri-apps/wry/commit/eef33c9372795504eec3fe117d9d45a5893f53c5)([#1124](https://github.com/tauri-apps/wry/pull/1124)) Fix screen share permissions dialog not showing up on macOS 14.0+
+- [`eef33c9`](https://github.com/tauri-apps/wry/commit/eef33c9372795504eec3fe117d9d45a5893f53c5)([#1124](https://github.com/tauri-apps/wry/pull/1124)) Fix IPC crash on wkwebview if receiving invalid types.
+- [`eef33c9`](https://github.com/tauri-apps/wry/commit/eef33c9372795504eec3fe117d9d45a5893f53c5)([#1124](https://github.com/tauri-apps/wry/pull/1124)) Add `WebView::bounds` getter.
+- [`eef33c9`](https://github.com/tauri-apps/wry/commit/eef33c9372795504eec3fe117d9d45a5893f53c5)([#1124](https://github.com/tauri-apps/wry/pull/1124)) On Windows, fix file drop handler.
+
 ## \[0.35.0]
 
 - [`e61e7f8`](https://github.com/tauri-apps/wry/commit/e61e7f8474c18752f5c60d3f1f5ba33b27e41d52)([#1090](https://github.com/tauri-apps/wry/pull/1090)) **Breaking change** Consistently use `WebView` in API names. The following APIs were renamed:
