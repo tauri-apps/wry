@@ -57,6 +57,7 @@ thiserror = "1.0"
 url = "2.4"
 http = "0.2"
 raw-window-handle = { version = "0.5", features = [ "std" ] }
+bevy = "0.12.1"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
 javascriptcore-rs = { version = "=1.1", features = [ "v2_28" ], optional = true }

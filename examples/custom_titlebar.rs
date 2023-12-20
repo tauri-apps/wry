@@ -102,6 +102,7 @@ fn main() -> wry::Result<()> {
                   e.detail === 2
                       ? window.ipc.postMessage('maximize')
                       : window.ipc.postMessage('drag_window');
+              }
           })
           document.addEventListener('touchstart', (e) => {
               if (e.target.classList.contains('drag-region')) {
