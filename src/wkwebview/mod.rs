@@ -955,11 +955,12 @@ r#"Object.defineProperty(window, 'ipc', {
         #[cfg(feature = "tracing")]
         let span = Mutex::new(Some(tracing::debug_span!("wry::eval").entered()));
 
-        let handler = block::ConcreteBlock::new(|val: id, _err: id| {
-          #[cfg(feature = "tracing")]
-          span.lock().unwrap().take();
+        // we need to check if the callback exists outside the handler otherwise it's a segfault
+        if let Some(callback) = &callback {
+          let handler = block::ConcreteBlock::new(|val: id, _err: id| {
+            #[cfg(feature = "tracing")]
+            span.lock().unwrap().take();
 
-          if let Some(callback) = &callback {
             let mut result = String::new();
 
             if val != nil {
@@ -971,11 +972,19 @@ r#"Object.defineProperty(window, 'ipc', {
             }
 
             callback(result);
-          }
-        });
+          });
 
-        let _: () =
-          msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:handler];
+          let _: () =
+            msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:handler];
+        } else {
+          let handler = block::ConcreteBlock::new(|_val: id, _err: id| {
+            #[cfg(feature = "tracing")]
+            span.lock().unwrap().take();
+          });
+
+          let _: () =
+            msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:handler];
+        }
       }
     }
 
