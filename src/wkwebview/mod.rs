@@ -958,6 +958,7 @@ r#"Object.defineProperty(window, 'ipc', {
         // we need to check if the callback exists outside the handler otherwise it's a segfault
         if let Some(callback) = &callback {
           let handler = block::ConcreteBlock::new(|val: id, _err: id| {
+          let handler = block::ConcreteBlock::new(move |val: id, _err: id| {
             #[cfg(feature = "tracing")]
             span.lock().unwrap().take();
 
@@ -978,6 +979,7 @@ r#"Object.defineProperty(window, 'ipc', {
             msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:handler];
         } else {
           let handler = block::ConcreteBlock::new(|_val: id, _err: id| {
+          let handler = block::ConcreteBlock::new(move |_val: id, _err: id| {
             #[cfg(feature = "tracing")]
             span.lock().unwrap().take();
           });
