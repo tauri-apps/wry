@@ -959,7 +959,7 @@ r#"Object.defineProperty(window, 'ipc', {
           #[cfg(feature = "tracing")]
           span.lock().unwrap().take();
 
-          if let Some(callback) = callback {
+          if let Some(callback) = &callback {
             let mut result = String::new();
 
             if val != nil {
