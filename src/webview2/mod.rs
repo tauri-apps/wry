@@ -477,6 +477,8 @@ impl InnerWebView {
             args.TryGetWebMessageAsString(&mut js)?;
             let js = take_pwstr(js);
             if let Some(ipc_handler) = &ipc_handler {
+              #[cfg(feature = "tracing")]
+              let _span = tracing::info_span!("wry::ipc::handle").entered();
               ipc_handler(js);
             }
           }
@@ -635,6 +637,10 @@ impl InnerWebView {
         webview
           .add_WebResourceRequested(
             &WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
+              #[cfg(feature = "tracing")]
+              let span =
+                tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty)
+                  .entered();
               if let Some(args) = args {
                 let webview_request = args.Request()?;
                 let mut request = Request::builder();
@@ -690,6 +696,9 @@ impl InnerWebView {
                 let mut uri = PWSTR::null();
                 webview_request.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
+
+                #[cfg(feature = "tracing")]
+                span.record("uri", &uri);
 
                 if let Some(custom_protocol) = custom_protocols
                   .iter()
@@ -747,6 +756,8 @@ impl InnerWebView {
                       }
                     });
 
+                  #[cfg(feature = "tracing")]
+                  let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
                   (custom_protocol.1)(final_request, RequestAsyncResponder { responder });
                   return Ok(());
                 }
@@ -926,9 +937,13 @@ impl InnerWebView {
     callback: impl FnOnce(String) + Send + 'static,
   ) -> windows::core::Result<()> {
     unsafe {
+      #[cfg(feature = "tracing")]
+      let span = tracing::debug_span!("wry::eval").entered();
       webview.ExecuteScript(
         PCWSTR::from_raw(encode_wide(js).as_ptr()),
         &ExecuteScriptCompletedHandler::create(Box::new(|_, return_str| {
+          #[cfg(feature = "tracing")]
+          drop(span);
           callback(return_str);
           Ok(())
         })),
