@@ -34,6 +34,7 @@
 //! # use tao::{window::WindowBuilder, event_loop::EventLoop};
 //! # #[cfg(target_os = "linux")]
 //! # use tao::platform::unix::WindowExtUnix;
+//! # #[cfg(target_os = "linux")]
 //! # use wry::WebViewBuilderExtUnix;
 //! let event_loop = EventLoop::new();
 //! let window = WindowBuilder::new().build(&event_loop).unwrap();
