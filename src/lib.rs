@@ -32,6 +32,7 @@
 //! ```no_run
 //! # use wry::WebViewBuilder;
 //! # use tao::{window::WindowBuilder, event_loop::EventLoop};
+//! # #[cfg(target_os = "linux")]
 //! # use tao::platform::unix::WindowExtUnix;
 //! # use wry::WebViewBuilderExtUnix;
 //! let event_loop = EventLoop::new();
@@ -123,6 +124,7 @@
 //! ```no_run
 //! # use winit::{event_loop::EventLoop, window::Window};
 //! # use wry::WebView;
+//! #[cfg(target_os = "linux")]
 //! gtk::init().unwrap(); // <----- IMPORTANT
 //! let event_loop = EventLoop::new().unwrap();
 //!
@@ -133,6 +135,7 @@
 //!   // process winit events
 //!    
 //!   // then advance gtk event loop  <----- IMPORTANT
+//!   #[cfg(target_os = "linux")]
 //!   while gtk::events_pending() {
 //!     gtk::main_iteration_do(false);
 //!   }
