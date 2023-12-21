@@ -20,7 +20,11 @@ use kuchiki::NodeRef;
 use ndk::looper::{FdEvent, ForeignLooper};
 use once_cell::sync::OnceCell;
 use sha2::{Digest, Sha256};
-use std::{borrow::Cow, sync::mpsc::channel};
+use std::{
+  borrow::Cow,
+  collections::HashMap,
+  sync::{atomic::AtomicI32, mpsc::channel, Mutex},
+};
 use url::Url;
 
 pub(crate) mod binding;
@@ -63,6 +67,12 @@ pub static WITH_ASSET_LOADER: OnceCell<bool> = OnceCell::new();
 pub static ASSET_LOADER_DOMAIN: OnceCell<String> = OnceCell::new();
 
 pub(crate) static PACKAGE: OnceCell<String> = OnceCell::new();
+
+type EvalCallback = Box<dyn Fn(String) + Send + 'static>;
+
+pub static EVAL_ID_GENERATOR: OnceCell<AtomicI32> = OnceCell::new();
+pub static EVAL_CALLBACKS: once_cell::sync::OnceCell<Mutex<HashMap<i32, EvalCallback>>> =
+  once_cell::sync::OnceCell::new();
 
 /// Sets up the necessary logic for wry to be able to create the webviews later.
 pub unsafe fn android_setup(
@@ -299,8 +309,11 @@ impl InnerWebView {
     Url::parse(uri.as_str()).unwrap()
   }
 
-  pub fn eval(&self, js: &str, _callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {
-    MainPipe::send(WebViewMessage::Eval(js.into()));
+  pub fn eval(&self, js: &str, callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {
+    MainPipe::send(WebViewMessage::Eval(
+      js.into(),
+      callback.map(|c| Box::new(c) as Box<dyn Fn(String) + Send + 'static>),
+    ));
     Ok(())
   }
 
@@ -344,7 +357,7 @@ impl InnerWebView {
     }
   }
 
-  pub fn set_bounds(&self, bounds: crate::Rect) {
+  pub fn set_bounds(&self, _bounds: crate::Rect) {
     // Unsupported
   }
 
