@@ -144,6 +144,14 @@ impl InnerWebView {
     gtk_window.set_has_window(true);
     gtk_window.realize();
 
+    if attributes.transparent {
+      if let Some(screen) = gtk::prelude::GtkWindowExt::screen(&gtk_window) {
+        if let Some(ref visual) = screen.rgba_visual() {
+          gtk_window.set_visual(Some(visual));
+        }
+      }
+    }
+
     let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
     gtk_window.add(&vbox);
 
