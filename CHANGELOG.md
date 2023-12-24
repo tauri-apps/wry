@@ -2,11 +2,11 @@
 
 ## \[0.35.1]
 
-- [`eef33c9`](https://github.com/tauri-apps/wry/commit/eef33c9372795504eec3fe117d9d45a5893f53c5)([#1124](https://github.com/tauri-apps/wry/pull/1124)) Fix the API documentation cannot be built on docs.rs.
-- [`eef33c9`](https://github.com/tauri-apps/wry/commit/eef33c9372795504eec3fe117d9d45a5893f53c5)([#1124](https://github.com/tauri-apps/wry/pull/1124)) Fix screen share permissions dialog not showing up on macOS 14.0+
-- [`eef33c9`](https://github.com/tauri-apps/wry/commit/eef33c9372795504eec3fe117d9d45a5893f53c5)([#1124](https://github.com/tauri-apps/wry/pull/1124)) Fix IPC crash on wkwebview if receiving invalid types.
-- [`eef33c9`](https://github.com/tauri-apps/wry/commit/eef33c9372795504eec3fe117d9d45a5893f53c5)([#1124](https://github.com/tauri-apps/wry/pull/1124)) Add `WebView::bounds` getter.
-- [`eef33c9`](https://github.com/tauri-apps/wry/commit/eef33c9372795504eec3fe117d9d45a5893f53c5)([#1124](https://github.com/tauri-apps/wry/pull/1124)) On Windows, fix file drop handler.
+- [`a4a39b9`](https://github.com/tauri-apps/wry/commit/a4a39b9b23da3c562f27730dd0eab09b9459755b)([#1098](https://github.com/tauri-apps/wry/pull/1098)) Fix the API documentation cannot be built on docs.rs.
+- [`e116d42`](https://github.com/tauri-apps/wry/commit/e116d427319d1adbc14d418e78c43ddb49b70d76)([#1111](https://github.com/tauri-apps/wry/pull/1111)) Fix screen share permissions dialog not showing up on macOS 14.0+
+- [`a8c0d38`](https://github.com/tauri-apps/wry/commit/a8c0d384fc51b12d2436c11d10fd8c2dfdcd9d4a)([#1097](https://github.com/tauri-apps/wry/pull/1097)) Fix IPC crash on wkwebview if receiving invalid types.
+- [`8fddbb6`](https://github.com/tauri-apps/wry/commit/8fddbb6d514de8fa0561bd6631ff8a3699911ddd)([#1091](https://github.com/tauri-apps/wry/pull/1091)) Add `WebView::bounds` getter.
+- [`30a85f3`](https://github.com/tauri-apps/wry/commit/30a85f31141839a5284b1bfdd52b1cb690fcd10d)([#1122](https://github.com/tauri-apps/wry/pull/1122)) On Windows, fix file drop handler.
 
 ## \[0.35.0]
 
