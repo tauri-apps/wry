@@ -10,18 +10,15 @@
 //!
 //! ## Examples
 //!
-//! This example leverages the [`HasRawWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only)
+//! This example leverages the [`HasRawWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only).
+//! See the following example using [`winit`].
 //!
 //! ```no_run
-//! use wry::{WebViewBuilder, raw_window_handle};
+//! # use wry::{WebViewBuilder, raw_window_handle};
+//! # use winit::{window::WindowBuilder, event_loop::EventLoop};
+//! let event_loop = EventLoop::new().unwrap();
+//! let window = WindowBuilder::new().build(&event_loop).unwrap();
 //!
-//! # struct T;
-//! # unsafe impl raw_window_handle::HasRawWindowHandle for T {
-//! #   fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-//! #     raw_window_handle::RawWindowHandle::Win32(raw_window_handle::Win32WindowHandle::empty())
-//! #   }
-//! # }
-//! # let window = T;
 //! let webview = WebViewBuilder::new(&window)
 //!   .with_url("https://tauri.app")
 //!   .unwrap()
@@ -30,28 +27,22 @@
 //! ```
 //!
 //! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::new_gtk`] on Linux.
+//! See the following example using [`tao`]
 //!
-//! ```no_run,ignore
-//! use wry::WebViewBuilder;
+//! ```no_run
+//! # use wry::WebViewBuilder;
+//! # use tao::{window::WindowBuilder, event_loop::EventLoop};
+//! # #[cfg(target_os = "linux")]
+//! # use tao::platform::unix::WindowExtUnix;
+//! # #[cfg(target_os = "linux")]
+//! # use wry::WebViewBuilderExtUnix;
+//! let event_loop = EventLoop::new();
+//! let window = WindowBuilder::new().build(&event_loop).unwrap();
 //!
-//! #[cfg(any(
-//!   target_os = "windows",
-//!   target_os = "macos",
-//!   target_os = "ios",
-//!   target_os = "android"
-//! ))]
+//! #[cfg(not(target_os = "linux"))]
 //! let builder = WebViewBuilder::new(&window);
-//! #[cfg(not(any(
-//!   target_os = "windows",
-//!   target_os = "macos",
-//!   target_os = "ios",
-//!   target_os = "android"
-//! )))]
-//! let builder = {
-//!   use tao::platform::unix::WindowExtUnix;
-//!   use wry::WebViewBuilderExtUnix;
-//!   WebViewBuilder::new_gtk(&window.gtk_window())
-//! };
+//! #[cfg(target_os = "linux")]
+//! let builder = WebViewBuilder::new_gtk(window.gtk_window());
 //!
 //! let webview = builder
 //!   .with_url("https://tauri.app")
@@ -62,22 +53,65 @@
 //!
 //! ## Child webviews
 //!
-//! You can use [`WebView::new_as_child`] to create the webview as a child inside another window. This is supported on
+//! You can use [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`] to create the webview as a child inside another window. This is supported on
 //! macOS, Windows and Linux (X11 Only).
 //!
 //! ```no_run
-//! use wry::{WebViewBuilder, raw_window_handle};
+//! # use wry::{WebViewBuilder, raw_window_handle, Rect};
+//! # use winit::{window::WindowBuilder, event_loop::EventLoop};
+//! let event_loop = EventLoop::new().unwrap();
+//! let window = WindowBuilder::new().build(&event_loop).unwrap();
 //!
-//! # struct T;
-//! # unsafe impl raw_window_handle::HasRawWindowHandle for T {
-//! #   fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-//! #     raw_window_handle::RawWindowHandle::Win32(raw_window_handle::Win32WindowHandle::empty())
-//! #   }
-//! # }
-//! # let window = T;
 //! let webview = WebViewBuilder::new_as_child(&window)
 //!   .with_url("https://tauri.app")
 //!   .unwrap()
+//!   .with_bounds(Rect {
+//!     x: 100,
+//!     y: 100,
+//!     width: 200,
+//!     height: 200,
+//!   })
+//!   .build()
+//!   .unwrap();
+//! ```
+//!
+//! If you want to support X11 and Wayland at the same time, we recommend using
+//! [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+//!
+//! ```no_run
+//! # use wry::{WebViewBuilder, raw_window_handle, Rect};
+//! # use tao::{window::WindowBuilder, event_loop::EventLoop};
+//! # #[cfg(target_os = "linux")]
+//! # use wry::WebViewBuilderExtUnix;
+//! # #[cfg(target_os = "linux")]
+//! # use tao::platform::unix::WindowExtUnix;
+//! let event_loop = EventLoop::new();
+//! let window = WindowBuilder::new().build(&event_loop).unwrap();
+//!
+//! #[cfg(not(target_os = "linux"))]
+//! let builder = WebViewBuilder::new_as_child(&window);
+//!
+//! #[cfg(target_os = "linux")]
+//! let gtk_fixed = {
+//!   # use gtk::prelude::BoxExt;
+//!   let vbox = window.default_vbox().unwrap(); // tao adds a gtk::Box by default
+//!   let fixed = gtk::Fixed::new();
+//!   vbox.pack_start(&fixed, true, true, 0);
+//!   fixed
+//! };
+//!
+//! #[cfg(target_os = "linux")]
+//! let builder = WebViewBuilder::new_gtk(&gtk_fixed);
+//!
+//! let webview = builder
+//!   .with_url("https://tauri.app")
+//!   .unwrap()
+//!   .with_bounds(Rect {
+//!     x: 100,
+//!     y: 100,
+//!     width: 200,
+//!     height: 200,
+//!   })
 //!   .build()
 //!   .unwrap();
 //! ```
@@ -88,24 +122,25 @@
 //! you'll need to call [`gtk::init`] before creating the webview and then call [`gtk::main_iteration_do`] alongside
 //! your windowing library event loop.
 //!
-//! ```no_run,ignore
-//! use winit::{event_loop::EventLoop, window::Window};
-//! use wry::WebView;
+//! ```no_run
+//! # use winit::{event_loop::EventLoop, window::Window};
+//! # use wry::WebView;
+//! #[cfg(target_os = "linux")]
+//! gtk::init().unwrap(); // <----- IMPORTANT
+//! let event_loop = EventLoop::new().unwrap();
 //!
-//! fn main() {
-//!   let event_loop = EventLoop::new().unwrap();
-//!   gtk::init().unwrap(); // <----- IMPORTANT
-//!   let window = Window::new(&event_loop).unwrap();
-//!   let webview = WebView::new(&window);
-//!   event_loop.run(|_e, _evl|{
-//!     // process winit events
-//!      
-//!     // then advance gtk event loop  <----- IMPORTANT
-//!     while gtk::events_pending() {
-//!       gtk::main_iteration_do(false);
-//!     }
-//!   }).unwrap();
-//! }
+//! let window = Window::new(&event_loop).unwrap();
+//! let webview = WebView::new(&window);
+//!
+//! event_loop.run(|_e, _evl|{
+//!   // process winit events
+//!    
+//!   // then advance gtk event loop  <----- IMPORTANT
+//!   #[cfg(target_os = "linux")]
+//!   while gtk::events_pending() {
+//!     gtk::main_iteration_do(false);
+//!   }
+//! }).unwrap();
 //! ```
 //!
 //! ## Android
@@ -452,7 +487,8 @@ pub struct WebViewAttributes {
   pub focused: bool,
 
   /// The webview bounds. Defaults to `x: 0, y: 0, width: 200, height: 200`.
-  /// This is only effective if the webview was created by [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`].
+  /// This is only effective if the webview was created by [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`]
+  /// or on Linux, if was created by [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
   pub bounds: Option<Rect>,
 }
 
@@ -556,6 +592,9 @@ impl<'a> WebViewBuilder<'a> {
   ///   Although this methods only needs an X11 window handle, you use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
   ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
+  ///
+  ///   If you want to support child webviews on X11 and Wayland at the same time,
+  ///   we recommend using [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
   /// - **Android/iOS:** Unsupported.
   ///
   /// # Panics:
@@ -932,7 +971,9 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Specify the webview position relative to its parent if it will be created as a child.
+  /// Specify the webview position relative to its parent if it will be created as a child
+  /// or if created using [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+  ///
   /// Defaults to `x: 0, y: 0, width: 200, height: 200`.
   pub fn with_bounds(mut self, bounds: Rect) -> Self {
     self.attrs.bounds.replace(bounds);
@@ -1124,7 +1165,12 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
   target_os = "openbsd",
 ))]
 pub trait WebViewBuilderExtUnix<'a> {
-  /// Create the webview from a GTK container widget, such as GTK window.
+  /// Create the webview inside a GTK container widget, such as GTK window.
+  ///
+  /// - If the container is [`gtk::Box`], it is added using [`Box::pack_start(webview, true, true, 0)`](gtk::prelude::BoxExt::pack_start).
+  /// - If the container is [`gtk::Fixed`], its [size request](gtk::prelude::WidgetExt::set_size_request) will be set using the (width, height) bounds passed in
+  ///   and will be added to the container using [`Fixed::put`](gtk::prelude::FixedExt::put) using the (x, y) bounds passed in.
+  /// - For all other containers, it will be added using [`gtk::prelude::ContainerExt::add`]
   ///
   /// # Panics:
   ///
@@ -1206,6 +1252,9 @@ impl WebView {
   ///   Although this methods only needs an X11 window handle, you use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
   ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
+  ///
+  ///   If you want to support child webviews on X11 and Wayland at the same time,
+  ///   we recommend using [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
   /// - **Android/iOS:** Unsupported.
   ///
   /// # Panics:
@@ -1324,7 +1373,8 @@ impl WebView {
 
   /// Set the webview bounds.
   ///
-  /// This is only effective if the webview was created as a child.
+  /// This is only effective if the webview was created as a child
+  /// or created using [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
   pub fn set_bounds(&self, bounds: Rect) {
     self.webview.set_bounds(bounds)
   }
@@ -1424,7 +1474,12 @@ impl WebViewExtWindows for WebView {
 /// Additional methods on `WebView` that are specific to Linux.
 #[cfg(gtk)]
 pub trait WebViewExtUnix: Sized {
-  /// Create the webview from a GTK container widget, such as GTK window.
+  /// Create the webview inside a GTK container widget, such as GTK window.
+  ///
+  /// - If the container is [`gtk::Box`], it is added using [`Box::pack_start(webview, true, true, 0)`](gtk::prelude::BoxExt::pack_start).
+  /// - If the container is [`gtk::Fixed`], its [size request](gtk::prelude::WidgetExt::set_size_request) will be set using the (width, height) bounds passed in
+  ///   and will be added to the container using [`Fixed::put`](gtk::prelude::FixedExt::put) using the (x, y) bounds passed in.
+  /// - For all other containers, it will be added using [`gtk::prelude::ContainerExt::add`]
   ///
   /// # Panics:
   ///

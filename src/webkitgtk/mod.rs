@@ -54,6 +54,8 @@ pub(crate) struct InnerWebView {
   x11_window: Option<u64>,
   display: Option<gdk::Display>,
   gtk_window: Option<gtk::Window>,
+
+  is_in_fixed_parent: bool,
 }
 
 impl Drop for InnerWebView {
@@ -321,11 +323,26 @@ impl InnerWebView {
       )
     }
 
+    let mut is_in_fixed_parent = false;
+
     if container.type_().name() == "GtkBox" {
       container
         .dynamic_cast_ref::<gtk::Box>()
         .unwrap()
         .pack_start(&webview, true, true, 0);
+    } else if container.type_().name() == "GtkFixed" {
+      webview.set_size_request(
+        attributes.bounds.map(|s| s.width).unwrap_or(1) as i32,
+        attributes.bounds.map(|s| s.height).unwrap_or(1) as i32,
+      );
+
+      container.dynamic_cast_ref::<gtk::Fixed>().unwrap().put(
+        &webview,
+        attributes.bounds.map(|p| p.x).unwrap_or(0),
+        attributes.bounds.map(|p| p.y).unwrap_or(0),
+      );
+
+      is_in_fixed_parent = true;
     } else {
       container.add(&webview);
     }
@@ -415,6 +432,7 @@ impl InnerWebView {
       x11_display: None,
       x11_window: None,
       gtk_window: None,
+      is_in_fixed_parent,
     };
 
     // Initialize message handler
@@ -654,6 +672,15 @@ impl InnerWebView {
       window.size_allocate(&gtk::Allocation::new(
         0,
         0,
+        bounds.width as i32,
+        bounds.height as i32,
+      ));
+    }
+
+    if self.is_in_fixed_parent {
+      self.webview.size_allocate(&gtk::Allocation::new(
+        bounds.x,
+        bounds.y,
         bounds.width as i32,
         bounds.height as i32,
       ));
