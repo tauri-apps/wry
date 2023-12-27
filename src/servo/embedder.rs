@@ -60,156 +60,136 @@ impl Embedder {
     }
   }
 
-  pub fn get_control_flow<T: 'static + Clone + Send>(&self, event: &Event<T>) -> ControlFlow {
-    let r = match event {
-      Event::Suspended => Some(ControlFlow::Wait),
-      _ => None,
-    };
-    if r.is_some() {
-      return r.unwrap();
-    }
-    if !self.webview.is_animating() {
+  pub fn get_control_flow(&self, event: &Event<()>) -> ControlFlow {
+    if !self.webview.is_animating() || *event == Event::Suspended {
       ControlFlow::Wait
     } else {
       ControlFlow::Poll
     }
   }
 
-  pub fn handle_tao_event<T: 'static + Clone + Send>(&mut self, event: Event<T>) {
-    // log::trace!("Servo embedder is creating ebedder event from: {event:?}");
+  pub fn handle_tao_event(&mut self, event: Event<()>) {
+    log::trace!("Servo embedder is creating ebedder event from: {event:?}");
     match event {
       Event::Suspended => {}
-      Event::Resumed | Event::UserEvent(_) => {
-        self.emit_idle_event();
+      Event::Resumed | Event::UserEvent(()) => {
+        self.events.push(EmbedderEvent::Idle);
       }
       Event::WindowEvent {
         window_id: _,
         event,
         ..
-      } => {
-        self.handle_tao_window_event(&event);
-      }
-      Event::RedrawRequested(_window_id) => self.handle_tao_redraw_event(),
-      _ => {} // e => log::warn!("Servo embedder hasn't supported this event yet: {e:?}"),
-    }
-  }
+      } => match event {
+        WindowEvent::Resized(size) => {
+          let size = Size2D::new(size.width, size.height);
+          self.webview.resize(size.to_i32());
+          self.events.push(EmbedderEvent::Resize);
+        }
+        WindowEvent::CursorMoved { position, .. } => {
+          let event: DevicePoint = DevicePoint::new(position.x as f32, position.y as f32);
+          self.mouse_position = position;
+          self
+            .events
+            .push(EmbedderEvent::MouseWindowMoveEventClass(event));
+        }
+        WindowEvent::MouseInput { state, button, .. } => {
+          let button: servo::script_traits::MouseButton = match button {
+            tao::event::MouseButton::Left => servo::script_traits::MouseButton::Left,
+            tao::event::MouseButton::Right => servo::script_traits::MouseButton::Right,
+            tao::event::MouseButton::Middle => servo::script_traits::MouseButton::Middle,
+            _ => {
+              log::warn!("Servo embedder hasn't supported this mouse button yet: {button:?}");
+              return;
+            }
+          };
+          let position = Point2D::new(self.mouse_position.x as f32, self.mouse_position.y as f32);
 
-  pub fn emit_idle_event(&mut self) {
-    self.events.push(EmbedderEvent::Idle);
-  }
-
-  pub fn handle_tao_redraw_event(&mut self) {
-    let Some(servo) = self.servo.as_mut() else {
-      return;
-    };
-    servo.recomposite();
-    servo.present();
-    self.events.push(EmbedderEvent::Idle);
-  }
-
-  pub fn handle_tao_window_event(&mut self, event: &WindowEvent) {
-    // log::trace!("Servo embedder is creating ebedder event from: {event:?}");
-    match event {
-      WindowEvent::Resized(size) => {
-        let size = Size2D::new(size.width, size.height);
-        self.webview.resize(size.to_i32());
-        self.events.push(EmbedderEvent::Resize);
-      }
-      WindowEvent::CursorMoved { position, .. } => {
-        let event: DevicePoint = DevicePoint::new(position.x as f32, position.y as f32);
-        self.mouse_position = *position;
-        self
-          .events
-          .push(EmbedderEvent::MouseWindowMoveEventClass(event));
-      }
-      WindowEvent::MouseInput { state, button, .. } => {
-        let button: servo::script_traits::MouseButton = match button {
-          tao::event::MouseButton::Left => servo::script_traits::MouseButton::Left,
-          tao::event::MouseButton::Right => servo::script_traits::MouseButton::Right,
-          tao::event::MouseButton::Middle => servo::script_traits::MouseButton::Middle,
-          _ => {
-            log::warn!("Servo embedder hasn't supported this mouse button yet: {button:?}");
-            return;
-          }
-        };
-        let position = Point2D::new(self.mouse_position.x as f32, self.mouse_position.y as f32);
-
-        let event: MouseWindowEvent = match state {
-          ElementState::Pressed => MouseWindowEvent::MouseDown(button, position),
-          ElementState::Released => MouseWindowEvent::MouseUp(button, position),
-          _ => {
-            log::warn!("Not supported mouse state: {state:?}");
-            return;
-          }
-        };
-        self
-          .events
-          .push(EmbedderEvent::MouseWindowEventClass(event));
-
-        // tao didn't send click event, so we send it after mouse up
-        if *state == ElementState::Released {
-          let event: MouseWindowEvent = MouseWindowEvent::Click(button, position);
+          let event: MouseWindowEvent = match state {
+            ElementState::Pressed => MouseWindowEvent::MouseDown(button, position),
+            ElementState::Released => MouseWindowEvent::MouseUp(button, position),
+            _ => {
+              log::warn!("Not supported mouse state: {state:?}");
+              return;
+            }
+          };
           self
             .events
             .push(EmbedderEvent::MouseWindowEventClass(event));
+
+          // tao didn't send click event, so we send it after mouse up
+          if state == ElementState::Released {
+            let event: MouseWindowEvent = MouseWindowEvent::Click(button, position);
+            self
+              .events
+              .push(EmbedderEvent::MouseWindowEventClass(event));
+          }
         }
-      }
-      // WindowEvent::TouchpadMagnify { delta, .. } => {
-      //   self.events.push(EmbedderEvent::Zoom(1.0 + delta as f32));
-      // }
-      WindowEvent::MouseWheel { delta, phase, .. } => {
-        // FIXME: Pixels per line, should be configurable (from browser setting?) and vary by zoom level.
-        const LINE_HEIGHT: f32 = 38.0;
+        // WindowEvent::TouchpadMagnify { delta, .. } => {
+        //   self.events.push(EmbedderEvent::Zoom(1.0 + delta as f32));
+        // }
+        WindowEvent::MouseWheel { delta, phase, .. } => {
+          // FIXME: Pixels per line, should be configurable (from browser setting?) and vary by zoom level.
+          const LINE_HEIGHT: f32 = 38.0;
 
-        let (mut x, mut y, mode) = match delta {
-          tao::event::MouseScrollDelta::LineDelta(x, y) => {
-            (*x as f64, (*y * LINE_HEIGHT) as f64, WheelMode::DeltaLine)
-          }
-          tao::event::MouseScrollDelta::PixelDelta(position) => {
-            let position = position.to_logical::<f64>(self.webview.window.scale_factor());
-            (position.x, position.y, WheelMode::DeltaPixel)
-          }
-          _ => {
-            log::warn!("Not supported mouse scroll delta: {delta:?}");
-            return;
-          }
-        };
+          let (mut x, mut y, mode) = match delta {
+            tao::event::MouseScrollDelta::LineDelta(x, y) => {
+              (x as f64, (y * LINE_HEIGHT) as f64, WheelMode::DeltaLine)
+            }
+            tao::event::MouseScrollDelta::PixelDelta(position) => {
+              let position = position.to_logical::<f64>(self.webview.window.scale_factor());
+              (position.x, position.y, WheelMode::DeltaPixel)
+            }
+            _ => {
+              log::warn!("Not supported mouse scroll delta: {delta:?}");
+              return;
+            }
+          };
 
-        // Wheel Event
-        self.events.push(EmbedderEvent::Wheel(
-          WheelDelta { x, y, z: 0.0, mode },
-          DevicePoint::new(self.mouse_position.x as f32, self.mouse_position.y as f32),
-        ));
+          // Wheel Event
+          self.events.push(EmbedderEvent::Wheel(
+            WheelDelta { x, y, z: 0.0, mode },
+            DevicePoint::new(self.mouse_position.x as f32, self.mouse_position.y as f32),
+          ));
 
-        // Scroll Event
-        // Do one axis at a time.
-        if y.abs() >= x.abs() {
-          x = 0.0;
-        } else {
-          y = 0.0;
+          // Scroll Event
+          // Do one axis at a time.
+          if y.abs() >= x.abs() {
+            x = 0.0;
+          } else {
+            y = 0.0;
+          }
+
+          let phase: TouchEventType = match phase {
+            TouchPhase::Started => TouchEventType::Down,
+            TouchPhase::Moved => TouchEventType::Move,
+            TouchPhase::Ended => TouchEventType::Up,
+            TouchPhase::Cancelled => TouchEventType::Cancel,
+            _ => {
+              log::warn!("Not supported touch phase: {phase:?}");
+              return;
+            }
+          };
+
+          self.events.push(EmbedderEvent::Scroll(
+            ScrollLocation::Delta(LayoutVector2D::new(x as f32, y as f32)),
+            DeviceIntPoint::new(self.mouse_position.x as i32, self.mouse_position.y as i32),
+            phase,
+          ));
         }
-
-        let phase: TouchEventType = match phase {
-          TouchPhase::Started => TouchEventType::Down,
-          TouchPhase::Moved => TouchEventType::Move,
-          TouchPhase::Ended => TouchEventType::Up,
-          TouchPhase::Cancelled => TouchEventType::Cancel,
-          _ => {
-            log::warn!("Not supported touch phase: {phase:?}");
-            return;
-          }
+        WindowEvent::CloseRequested => {
+          self.events.push(EmbedderEvent::Quit);
+        }
+        e => log::warn!("Servo embedder hasn't supported this window event yet: {e:?}"),
+      },
+      Event::RedrawRequested(_window_id) => {
+        let Some(servo) = self.servo.as_mut() else {
+          return;
         };
-
-        self.events.push(EmbedderEvent::Scroll(
-          ScrollLocation::Delta(LayoutVector2D::new(x as f32, y as f32)),
-          DeviceIntPoint::new(self.mouse_position.x as i32, self.mouse_position.y as i32),
-          phase,
-        ));
+        servo.recomposite();
+        servo.present();
+        self.events.push(EmbedderEvent::Idle);
       }
-      WindowEvent::CloseRequested => {
-        self.events.push(EmbedderEvent::Quit);
-      }
-      e => log::warn!("Servo embedder hasn't supported this window event yet: {e:?}"),
+      e => log::warn!("Servo embedder hasn't supported this event yet: {e:?}"),
     }
   }
 
@@ -313,34 +293,25 @@ impl Embedder {
 }
 
 #[derive(Debug, Clone)]
-pub struct EmbedderWaker<T>(pub EventLoopProxy<T>)
-where
-  T: 'static + Clone + Send;
+pub struct EmbedderWaker<T: 'static + Clone + Send>(pub EventLoopProxy<T>);
 
-impl<T> EmbedderMethods for EmbedderWaker<T>
-where
-  T: 'static + Clone + Send,
-{
+impl<T: 'static + Clone + Send> EmbedderMethods for EmbedderWaker<T> {
   fn create_event_loop_waker(&mut self) -> Box<dyn EventLoopWaker> {
     Box::new(self.clone())
   }
 }
 
-impl<T> EventLoopWaker for EmbedderWaker<T>
-where
-  T: 'static + Clone + Send,
-{
+impl<T: 'static + Clone + Send> EventLoopWaker for EmbedderWaker<T> {
   fn clone_box(&self) -> Box<dyn EventLoopWaker> {
     Box::new(self.clone())
   }
 
   fn wake(&self) {
-    // FIXME: [jason] () type
-    // if let Err(e) = self.0.send_event(()) {
-    //   log::error!(
-    //     "Servo waker failed to send wake up event to servo embedder: {}",
-    //     e
-    //   );
-    // }
+    if let Err(e) = self.0.send_event(()) {
+      log::error!(
+        "Servo waker failed to send wake up event to servo embedder: {}",
+        e
+      );
+    }
   }
 }
