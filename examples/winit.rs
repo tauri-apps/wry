@@ -36,7 +36,7 @@ fn main() -> wry::Result<()> {
 
   let event_loop = EventLoop::new().unwrap();
   let window = WindowBuilder::new()
-    .with_inner_size(PhysicalSize::new(800, 800))
+    .with_inner_size(PhysicalSize::new(1000, 800))
     .build(&event_loop)
     .unwrap();
 

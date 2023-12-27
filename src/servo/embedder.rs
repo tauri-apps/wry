@@ -47,12 +47,11 @@ impl Embedder {
       CompositeTarget::Window,
     );
 
+    let demo_path = std::env::current_dir().unwrap().join("examples/demo.html");
+    let url = ServoUrl::from_file_path(demo_path.to_str().unwrap()).unwrap();
     init_servo
       .servo
-      .handle_events(vec![EmbedderEvent::NewBrowser(
-        ServoUrl::parse("https://servo.org").unwrap(),
-        init_servo.browser_id,
-      )]);
+      .handle_events(vec![EmbedderEvent::NewBrowser(url, init_servo.browser_id)]);
     init_servo.servo.setup_logging();
     Embedder {
       servo: Some(init_servo.servo),
