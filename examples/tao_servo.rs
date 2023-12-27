@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use std::sync::Arc;
+
 use tao::{
   dpi::PhysicalSize,
   event_loop::{ControlFlow, EventLoop},
@@ -17,7 +19,7 @@ fn main() -> wry::Result<()> {
     .unwrap();
 
   #[allow(unused_mut)]
-  let mut builder = WebViewBuilder::new_servo(window, event_loop.create_proxy());
+  let mut builder = WebViewBuilder::new_servo(Arc::new(window), event_loop.create_proxy());
   let mut webview = builder.with_url("https://tauri.app")?.build()?;
 
   event_loop.run(move |event, _evl, control_flow| {
