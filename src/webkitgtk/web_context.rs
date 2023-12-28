@@ -401,7 +401,7 @@ where
         });
 
       #[cfg(feature = "tracing")]
-      let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();  
+      let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
       handler(http_request, RequestAsyncResponder { responder });
     } else {
       request.finish_error(&mut glib::Error::new(
