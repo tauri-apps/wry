@@ -11,11 +11,17 @@ use winit::{
 use wry::{WebViewBuilder, WebViewBuilderExtServo, WebViewExtServo};
 
 /* window decoration */
+#[cfg(target_os = "macos")]
 use cocoa::appkit::{NSView, NSWindow};
+#[cfg(target_os = "macos")]
 use cocoa::appkit::{NSWindowStyleMask, NSWindowTitleVisibility};
+#[cfg(target_os = "macos")]
 use objc::{msg_send, runtime::Object, sel, sel_impl};
+#[cfg(target_os = "macos")]
 use raw_window_handle::{AppKitWindowHandle, HasRawWindowHandle, RawWindowHandle};
+#[cfg(target_os = "macos")]
 use winit::dpi::LogicalPosition;
+#[cfg(target_os = "macos")]
 use winit::platform::macos::WindowBuilderExtMacOS;
 
 fn main() -> wry::Result<()> {
@@ -25,6 +31,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
+  #[cfg(target_os = "macos")]
   unsafe {
     let rwh = window.raw_window_handle();
     if let RawWindowHandle::AppKit(AppKitWindowHandle { ns_window, .. }) = rwh {
@@ -54,6 +61,7 @@ fn main() -> wry::Result<()> {
   Ok(())
 }
 
+#[cfg(target_os = "macos")]
 pub unsafe fn decorate_window(window: *mut Object, position: LogicalPosition<f64>) {
   NSWindow::setTitlebarAppearsTransparent_(window, true);
   NSWindow::setTitleVisibility_(window, NSWindowTitleVisibility::NSWindowTitleHidden);
