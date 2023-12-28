@@ -8,3 +8,4 @@ gh-pages
 .DS_Store
 examples/test_video.mp4
 .vscode/
+resources
