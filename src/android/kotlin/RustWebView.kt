@@ -67,6 +67,14 @@ class RustWebView(context: Context, val initScripts: Array<String>): WebView(con
         }
     }
 
+    fun evalScript(id: Int, script: String) {
+        post {
+            super.evaluateJavascript(script) { result ->
+                onEval(id, result)
+            }
+        }
+    }
+
     fun clearAllBrowsingData() {
         try {
             super.getContext().deleteDatabase("webviewCache.db")
@@ -90,6 +98,7 @@ class RustWebView(context: Context, val initScripts: Array<String>): WebView(con
     }
 
     private external fun shouldOverride(url: String): Boolean
+    private external fun onEval(id: Int, result: String)
 
     {{class-extension}}
 }

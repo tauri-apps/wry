@@ -240,6 +240,9 @@ impl InnerWebView {
 
     // Connect before registering as recommended by the docs
     manager.connect_script_message_received(None, move |_m, msg| {
+      #[cfg(feature = "tracing")]
+      let _span = tracing::info_span!("wry::ipc::handle").entered();
+
       if let Some(js) = msg.js_value() {
         if let Some(ipc_handler) = &ipc_handler {
           ipc_handler(js.to_string());
@@ -505,24 +508,27 @@ impl InnerWebView {
     } else {
       let cancellable: Option<&Cancellable> = None;
 
-      match callback {
-        Some(callback) => {
-          self.webview.run_javascript(js, cancellable, |result| {
-            let mut result_str = String::new();
+      #[cfg(feature = "tracing")]
+      let span = SendEnteredSpan(tracing::debug_span!("wry::eval").entered());
 
-            if let Ok(js_result) = result {
-              if let Some(js_value) = js_result.js_value() {
-                if let Some(json_str) = js_value.to_json(0) {
-                  result_str = json_str.to_string();
-                }
+      self.webview.run_javascript(js, cancellable, |result| {
+        #[cfg(feature = "tracing")]
+        drop(span);
+
+        if let Some(callback) = callback {
+          let mut result_str = String::new();
+
+          if let Ok(js_result) = result {
+            if let Some(js_value) = js_result.js_value() {
+              if let Some(json_str) = js_value.to_json(0) {
+                result_str = json_str.to_string();
               }
             }
+          }
 
-            callback(result_str);
-          });
+          callback(result_str);
         }
-        None => self.webview.run_javascript(js, cancellable, |_| ()),
-      };
+      });
     }
 
     Ok(())
@@ -727,3 +733,10 @@ pub fn platform_webview_version() -> Result<String> {
   };
   Ok(format!("{}.{}.{}", major, minor, patch))
 }
+
+// SAFETY: only use this when you are sure the span will be dropped on the same thread it was entered
+#[cfg(feature = "tracing")]
+struct SendEnteredSpan(tracing::span::EnteredSpan);
+
+#[cfg(feature = "tracing")]
+unsafe impl Send for SendEnteredSpan {}

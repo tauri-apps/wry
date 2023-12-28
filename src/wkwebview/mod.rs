@@ -136,6 +136,9 @@ impl InnerWebView {
     extern "C" fn did_receive(this: &Object, _: Sel, _: id, msg: id) {
       // Safety: objc runtime calls are unsafe
       unsafe {
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!("wry::ipc::handle").entered();
+
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
           let function = &mut *(*function as *mut Box<dyn Fn(String)>);
@@ -157,6 +160,9 @@ impl InnerWebView {
     // Task handler for custom protocol
     extern "C" fn start_task(this: &Object, _: Sel, _webview: id, task: id) {
       unsafe {
+        #[cfg(feature = "tracing")]
+        let span = tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty)
+          .entered();
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
           let function =
@@ -166,10 +172,14 @@ impl InnerWebView {
           let request: id = msg_send![task, request];
           let url: id = msg_send![request, URL];
 
-          let nsstring = {
+          let uri_nsstring = {
             let s: id = msg_send![url, absoluteString];
             NSString(s)
           };
+          let uri = uri_nsstring.to_str();
+
+          #[cfg(feature = "tracing")]
+          span.record("uri", uri);
 
           // Get request method (GET, POST, PUT etc...)
           let method = {
@@ -178,9 +188,7 @@ impl InnerWebView {
           };
 
           // Prepare our HttpRequest
-          let mut http_request = Request::builder()
-            .uri(nsstring.to_str())
-            .method(method.to_str());
+          let mut http_request = Request::builder().uri(uri).method(method.to_str());
 
           // Get body
           let mut sent_form_body = Vec::new();
@@ -266,6 +274,8 @@ impl InnerWebView {
                 },
               );
 
+              #[cfg(feature = "tracing")]
+              let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
               function(final_request, RequestAsyncResponder { responder });
             }
             Err(_) => respond_with_404(),
@@ -942,28 +952,39 @@ r#"Object.defineProperty(window, 'ipc', {
     } else {
       // Safety: objc runtime calls are unsafe
       unsafe {
-        let _: id = match callback {
-          Some(callback) => {
-            let handler = block::ConcreteBlock::new(|val: id, _err: id| {
-              let mut result = String::new();
+        #[cfg(feature = "tracing")]
+        let span = Mutex::new(Some(tracing::debug_span!("wry::eval").entered()));
 
-              if val != nil {
-                let serializer = class!(NSJSONSerialization);
-                let json_ns_data: NSData = msg_send![serializer, dataWithJSONObject:val options:NS_JSON_WRITING_FRAGMENTS_ALLOWED error:nil];
-                let json_string = NSString::from(json_ns_data);
+        // we need to check if the callback exists outside the handler otherwise it's a segfault
+        if let Some(callback) = &callback {
+          let handler = block::ConcreteBlock::new(move |val: id, _err: id| {
+            #[cfg(feature = "tracing")]
+            span.lock().unwrap().take();
 
-                result = json_string.to_str().to_string();
-              }
+            let mut result = String::new();
 
-              callback(result)
-            });
+            if val != nil {
+              let serializer = class!(NSJSONSerialization);
+              let json_ns_data: NSData = msg_send![serializer, dataWithJSONObject:val options:NS_JSON_WRITING_FRAGMENTS_ALLOWED error:nil];
+              let json_string = NSString::from(json_ns_data);
 
-            msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:handler]
-          }
-          None => {
-            msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:null::<*const c_void>()]
-          }
-        };
+              result = json_string.to_str().to_string();
+            }
+
+            callback(result);
+          });
+
+          let _: () =
+            msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:handler];
+        } else {
+          let handler = block::ConcreteBlock::new(move |_val: id, _err: id| {
+            #[cfg(feature = "tracing")]
+            span.lock().unwrap().take();
+          });
+
+          let _: () =
+            msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:handler];
+        }
       }
     }
 

@@ -10,9 +10,9 @@ use jni::{
   JNIEnv,
 };
 use once_cell::sync::Lazy;
-use std::os::unix::prelude::*;
+use std::{os::unix::prelude::*, sync::atomic::Ordering};
 
-use super::{find_class, PACKAGE};
+use super::{find_class, EvalCallback, EVAL_CALLBACKS, EVAL_ID_GENERATOR, PACKAGE};
 
 static CHANNEL: Lazy<(Sender<WebViewMessage>, Receiver<WebViewMessage>)> = Lazy::new(|| bounded(8));
 pub static MAIN_PIPE: Lazy<[RawFd; 2]> = Lazy::new(|| {
@@ -194,14 +194,39 @@ impl<'a> MainPipe<'a> {
 
           self.webview = Some(webview);
         }
-        WebViewMessage::Eval(script) => {
+        WebViewMessage::Eval(script, callback) => {
           if let Some(webview) = &self.webview {
+            let id = EVAL_ID_GENERATOR
+              .get_or_init(Default::default)
+              .fetch_add(1, Ordering::Relaxed);
+
+            #[cfg(feature = "tracing")]
+            let span = std::sync::Mutex::new(Some(SendEnteredSpan(
+              tracing::debug_span!("wry::eval").entered(),
+            )));
+
+            EVAL_CALLBACKS
+              .get_or_init(Default::default)
+              .lock()
+              .unwrap()
+              .insert(
+                id,
+                Box::new(move |result| {
+                  #[cfg(feature = "tracing")]
+                  span.lock().unwrap().take();
+
+                  if let Some(callback) = &callback {
+                    callback(result);
+                  }
+                }),
+              );
+
             let s = self.env.new_string(script)?;
             self.env.call_method(
               webview.as_obj(),
-              "evaluateJavascript",
-              "(Ljava/lang/String;Landroid/webkit/ValueCallback;)V",
-              &[(&s).into(), JObject::null().as_ref().into()],
+              "evalScript",
+              "(ILjava/lang/String;)V",
+              &[id.into(), (&s).into()],
             )?;
           }
         }
@@ -340,7 +365,7 @@ fn set_background_color<'a>(
 
 pub(crate) enum WebViewMessage {
   CreateWebView(CreateWebViewAttributes),
-  Eval(String),
+  Eval(String, Option<EvalCallback>),
   SetBackgroundColor(RGBA),
   GetWebViewVersion(Sender<Result<String, Error>>),
   GetUrl(Sender<String>),
@@ -362,3 +387,10 @@ pub(crate) struct CreateWebViewAttributes {
   pub user_agent: Option<String>,
   pub initialization_scripts: Vec<String>,
 }
+
+// SAFETY: only use this when you are sure the span will be dropped on the same thread it was entered
+#[cfg(feature = "tracing")]
+struct SendEnteredSpan(tracing::span::EnteredSpan);
+
+#[cfg(feature = "tracing")]
+unsafe impl Send for SendEnteredSpan {}

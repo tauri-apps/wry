@@ -296,8 +296,15 @@ where
     .register_uri_scheme_as_secure(name);
 
   context.register_uri_scheme(name, move |request| {
+    #[cfg(feature = "tracing")]
+    let span =
+      tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty).entered();
+
     if let Some(uri) = request.uri() {
       let uri = uri.as_str();
+
+      #[cfg(feature = "tracing")]
+      span.record("uri", uri);
 
       // FIXME: Read the body (forms post)
       #[allow(unused_mut)]
@@ -393,6 +400,8 @@ where
           request_.finish_with_response(&response);
         });
 
+      #[cfg(feature = "tracing")]
+      let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
       handler(http_request, RequestAsyncResponder { responder });
     } else {
       request.finish_error(&mut glib::Error::new(

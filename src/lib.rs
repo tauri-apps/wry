@@ -195,6 +195,7 @@
 //! libraries and prevent from building documentation on doc.rs fails.
 //! - `linux-body`: Enables body support of custom protocol request on Linux. Requires
 //! webkit2gtk v2.40 or above.
+//! - `tracing`: enables [tracing] for `evaluate_script`, `ipc_handler` and `custom_protocols.
 //!
 //! [`tao`]: https://docs.rs/tao
 //! [`winit`]: https://docs.rs/winit

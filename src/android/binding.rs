@@ -10,13 +10,13 @@ use jni::errors::Result as JniResult;
 pub use jni::{
   self,
   objects::{GlobalRef, JClass, JMap, JObject, JString},
-  sys::{jboolean, jobject, jstring},
+  sys::{jboolean, jint, jobject, jstring},
   JNIEnv,
 };
 pub use ndk;
 
 use super::{
-  ASSET_LOADER_DOMAIN, IPC, ON_LOAD_HANDLER, REQUEST_HANDLER, TITLE_CHANGE_HANDLER,
+  ASSET_LOADER_DOMAIN, EVAL_CALLBACKS, IPC, ON_LOAD_HANDLER, REQUEST_HANDLER, TITLE_CHANGE_HANDLER,
   URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
 };
 
@@ -72,6 +72,7 @@ macro_rules! android_binding {
       [JString],
       jboolean
     );
+    android_fn!($domain, $package, RustWebView, onEval, [jint, JString]);
     android_fn!(
       $domain,
       $package,
@@ -103,6 +104,10 @@ fn handle_request(
   is_document_start_script_enabled: jboolean,
 ) -> JniResult<jobject> {
   if let Some(handler) = REQUEST_HANDLER.get() {
+    #[cfg(feature = "tracing")]
+    let span =
+      tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty).entered();
+
     let mut request_builder = Request::builder();
 
     let uri = env
@@ -112,7 +117,12 @@ fn handle_request(
       .call_method(&uri, "toString", "()Ljava/lang/String;", &[])?
       .l()?
       .into();
-    request_builder = request_builder.uri(&env.get_string(&url)?.to_string_lossy().to_string());
+    let url = env.get_string(&url)?.to_string_lossy().to_string();
+
+    #[cfg(feature = "tracing")]
+    span.record("uri", &url);
+
+    request_builder = request_builder.uri(&url);
 
     let method = env
       .call_method(&request, "getMethod", "()Ljava/lang/String;", &[])?
@@ -152,7 +162,11 @@ fn handle_request(
       }
     };
 
-    let response = (handler.handler)(final_request, is_document_start_script_enabled != 0);
+    let response = {
+      #[cfg(feature = "tracing")]
+      let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
+      (handler.handler)(final_request, is_document_start_script_enabled != 0)
+    };
     if let Some(response) = response {
       let status = response.status();
       let status_code = status.as_u16() as i32;
@@ -267,9 +281,31 @@ pub unsafe fn shouldOverride(mut env: JNIEnv, _: JClass, url: JString) -> jboole
   .into()
 }
 
+#[allow(non_snake_case)]
+pub unsafe fn onEval(mut env: JNIEnv, _: JClass, id: jint, result: JString) {
+  match env.get_string(&result) {
+    Ok(result) => {
+      if let Some(cb) = EVAL_CALLBACKS
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap()
+        .get(&id)
+      {
+        cb(result.into());
+      }
+    }
+    Err(e) => {
+      log::warn!("Failed to parse JString: {}", e);
+    }
+  }
+}
+
 pub unsafe fn ipc(mut env: JNIEnv, _: JClass, arg: JString) {
   match env.get_string(&arg) {
     Ok(arg) => {
+      #[cfg(feature = "tracing")]
+      let _span = tracing::info_span!("wry::ipc::handle").entered();
+
       let arg = arg.to_string_lossy().to_string();
       if let Some(ipc) = IPC.get() {
         (ipc.handler)(arg)
