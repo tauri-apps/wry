@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.35.2]
+
+- [`0ef041f`](https://github.com/tauri-apps/wry/commit/0ef041ffece143dcb5059ad43596c63b18a62928)([#1133](https://github.com/tauri-apps/wry/pull/1133)) On Linux, apply passed webview bounds when using `WebView::new_gtk` or `WebViewBuilder::new_gtk` with `gtk::Fixed` widget. This allows to create multiple webviews inside `gtk::Fixed` in the same window.
+- [`0ef041f`](https://github.com/tauri-apps/wry/commit/0ef041ffece143dcb5059ad43596c63b18a62928)([#1133](https://github.com/tauri-apps/wry/pull/1133)) Added tracing spans for `evaluate_script`, `ipc_handler` and `custom_protocols` behind the `tracing` feature flag.
+
 ## \[0.35.1]
 
 - [`a4a39b9`](https://github.com/tauri-apps/wry/commit/a4a39b9b23da3c562f27730dd0eab09b9459755b)([#1098](https://github.com/tauri-apps/wry/pull/1098)) Fix the API documentation cannot be built on docs.rs.
