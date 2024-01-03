@@ -3,17 +3,105 @@
 // SPDX-License-Identifier: MIT
 
 use tao::{
+  dpi::PhysicalSize,
   event::{Event, StartCause, WindowEvent},
   event_loop::{ControlFlow, EventLoopBuilder},
-  window::WindowBuilder,
+  window::{CursorIcon, ResizeDirection, Window, WindowBuilder},
 };
 use wry::WebViewBuilder;
+
+#[derive(Debug)]
+enum HitTestResult {
+  CLIENT,
+  LEFT,
+  RIGHT,
+  TOP,
+  BOTTOM,
+  TOPLEFT,
+  TOPRIGHT,
+  BOTTOMLEFT,
+  BOTTOMRIGHT,
+  NOWHERE,
+}
+
+impl HitTestResult {
+  fn drag_resize_window(&self, window: &Window) {
+    let _ = window.drag_resize_window(match self {
+      HitTestResult::LEFT => ResizeDirection::West,
+      HitTestResult::RIGHT => ResizeDirection::East,
+      HitTestResult::TOP => ResizeDirection::North,
+      HitTestResult::BOTTOM => ResizeDirection::South,
+      HitTestResult::TOPLEFT => ResizeDirection::NorthWest,
+      HitTestResult::TOPRIGHT => ResizeDirection::NorthEast,
+      HitTestResult::BOTTOMLEFT => ResizeDirection::SouthWest,
+      HitTestResult::BOTTOMRIGHT => ResizeDirection::SouthEast,
+      _ => unreachable!(),
+    });
+  }
+
+  fn change_cursor(&self, window: &Window) {
+    let _ = window.set_cursor_icon(match self {
+      HitTestResult::LEFT => CursorIcon::WResize,
+      HitTestResult::RIGHT => CursorIcon::EResize,
+      HitTestResult::TOP => CursorIcon::NResize,
+      HitTestResult::BOTTOM => CursorIcon::SResize,
+      HitTestResult::TOPLEFT => CursorIcon::NwResize,
+      HitTestResult::TOPRIGHT => CursorIcon::NeResize,
+      HitTestResult::BOTTOMLEFT => CursorIcon::SwResize,
+      HitTestResult::BOTTOMRIGHT => CursorIcon::SeResize,
+      _ => CursorIcon::Default,
+    });
+  }
+}
+
+fn hit_test(window_size: PhysicalSize<u32>, x: i32, y: i32, scale: f64) -> HitTestResult {
+  const BORDERLESS_RESIZE_INSET: f64 = 5.0;
+
+  const CLIENT: isize = 0b0000;
+  const LEFT: isize = 0b0001;
+  const RIGHT: isize = 0b0010;
+  const TOP: isize = 0b0100;
+  const BOTTOM: isize = 0b1000;
+  const TOPLEFT: isize = TOP | LEFT;
+  const TOPRIGHT: isize = TOP | RIGHT;
+  const BOTTOMLEFT: isize = BOTTOM | LEFT;
+  const BOTTOMRIGHT: isize = BOTTOM | RIGHT;
+
+  let top = 0;
+  let left = 0;
+  let bottom = top + window_size.height as i32;
+  let right = left + window_size.width as i32;
+
+  let inset = (BORDERLESS_RESIZE_INSET * scale) as i32;
+
+  #[rustfmt::skip]
+      let result =
+          (LEFT * (if x < (left + inset) { 1 } else { 0 }))
+        | (RIGHT * (if x >= (right - inset) { 1 } else { 0 }))
+        | (TOP * (if y < (top + inset) { 1 } else { 0 }))
+        | (BOTTOM * (if y >= (bottom - inset) { 1 } else { 0 }));
+
+  match result {
+    CLIENT => HitTestResult::CLIENT,
+    LEFT => HitTestResult::LEFT,
+    RIGHT => HitTestResult::RIGHT,
+    TOP => HitTestResult::TOP,
+    BOTTOM => HitTestResult::BOTTOM,
+    TOPLEFT => HitTestResult::TOPLEFT,
+    TOPRIGHT => HitTestResult::TOPRIGHT,
+    BOTTOMLEFT => HitTestResult::BOTTOMLEFT,
+    BOTTOMRIGHT => HitTestResult::BOTTOMRIGHT,
+    _ => HitTestResult::NOWHERE,
+  }
+}
 
 enum UserEvent {
   Minimize,
   Maximize,
   DragWindow,
   CloseWindow,
+  MouseDown(i32, i32),
+  MouseMove(i32, i32),
 }
 
 fn main() -> wry::Result<()> {
@@ -97,11 +185,15 @@ fn main() -> wry::Result<()> {
           <h4> WRYYYYYYYYYYYYYYYYYYYYYY! </h4>
       </main>
       <script>
+          document.addEventListener('mousemove', (e) => window.ipc.postMessage(`mousemove:${e.clientX},${e.clientY}`))
           document.addEventListener('mousedown', (e) => {
               if (e.target.classList.contains('drag-region') && e.buttons === 1) {
                   e.detail === 2
                       ? window.ipc.postMessage('maximize')
                       : window.ipc.postMessage('drag_window');
+              } else {
+                window.ipc.postMessage(`mousedown:${e.clientX},${e.clientY}`);
+              }
           })
           document.addEventListener('touchstart', (e) => {
               if (e.target.classList.contains('drag-region')) {
@@ -115,20 +207,33 @@ fn main() -> wry::Result<()> {
 "#;
 
   let proxy = event_loop.create_proxy();
-  let handler = move |req: String| match req.as_str() {
-    "minimize" => {
-      let _ = proxy.send_event(UserEvent::Minimize);
+  let handler = move |req: String| {
+    let mut req = req.split([':', ',']);
+    match req.next().unwrap() {
+      "minimize" => {
+        let _ = proxy.send_event(UserEvent::Minimize);
+      }
+      "maximize" => {
+        let _ = proxy.send_event(UserEvent::Maximize);
+      }
+      "drag_window" => {
+        let _ = proxy.send_event(UserEvent::DragWindow);
+      }
+      "close" => {
+        let _ = proxy.send_event(UserEvent::CloseWindow);
+      }
+      "mousedown" => {
+        let x = req.next().unwrap().parse().unwrap();
+        let y = req.next().unwrap().parse().unwrap();
+        let _ = proxy.send_event(UserEvent::MouseDown(x, y));
+      }
+      "mousemove" => {
+        let x = req.next().unwrap().parse().unwrap();
+        let y = req.next().unwrap().parse().unwrap();
+        let _ = proxy.send_event(UserEvent::MouseMove(x, y));
+      }
+      _ => {}
     }
-    "maximize" => {
-      let _ = proxy.send_event(UserEvent::Maximize);
-    }
-    "drag_window" => {
-      let _ = proxy.send_event(UserEvent::DragWindow);
-    }
-    "close" => {
-      let _ = proxy.send_event(UserEvent::CloseWindow);
-    }
-    _ => {}
   };
 
   #[cfg(any(
@@ -178,6 +283,16 @@ fn main() -> wry::Result<()> {
         UserEvent::Minimize => window.set_minimized(true),
         UserEvent::Maximize => window.set_maximized(!window.is_maximized()),
         UserEvent::DragWindow => window.drag_window().unwrap(),
+        UserEvent::MouseDown(x, y) => {
+          let res = hit_test(window.inner_size(), x, y, window.scale_factor());
+          match res {
+            HitTestResult::CLIENT | HitTestResult::NOWHERE => {}
+            _ => res.drag_resize_window(&window),
+          }
+        }
+        UserEvent::MouseMove(x, y) => {
+          hit_test(window.inner_size(), x, y, window.scale_factor()).change_cursor(&window);
+        }
         UserEvent::CloseWindow => { /* handled above */ }
       },
       _ => (),
