@@ -88,7 +88,7 @@ impl WindowMethods for WebView {
     let native_context = self.webrender_surfman.native_context();
 
     #[cfg(target_os = "windows")]
-    return PlayerGLContext::Egl(native_context.egl_context as usize);
+    return GlContext::Egl(native_context.egl_context as usize);
 
     #[cfg(target_os = "linux")]
     return {

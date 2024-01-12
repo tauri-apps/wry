@@ -112,6 +112,6 @@ fn main() {
       // Backends
       gtk: { all(feature = "native", linux) },
       gtk: { all(feature = "os-webview", linux) },
-      servo: { all(feature = "servo", any(linux, macos)) },
+      servo: { all(feature = "servo", any(linux, macos, windows)) },
   }
 }

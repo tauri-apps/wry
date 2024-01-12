@@ -215,11 +215,11 @@ pub(crate) mod wkwebview;
 #[cfg(all(not(servo), apple))]
 use wkwebview::*;
 
-#[cfg(target_os = "windows")]
+#[cfg(all(not(servo), target_os = "windows"))]
 pub(crate) mod webview2;
-#[cfg(target_os = "windows")]
+#[cfg(all(not(servo), target_os = "windows"))]
 use self::webview2::*;
-#[cfg(target_os = "windows")]
+#[cfg(all(not(servo), target_os = "windows"))]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 
 use std::{borrow::Cow, path::PathBuf, rc::Rc};
@@ -1397,7 +1397,7 @@ pub enum MemoryUsageLevel {
 }
 
 /// Additional methods on `WebView` that are specific to Windows.
-#[cfg(target_os = "windows")]
+#[cfg(all(not(servo), target_os = "windows"))]
 pub trait WebViewExtWindows {
   /// Returns WebView2 Controller
   fn controller(&self) -> ICoreWebView2Controller;
@@ -1420,7 +1420,7 @@ pub trait WebViewExtWindows {
   fn set_memory_usage_level(&self, level: MemoryUsageLevel);
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(all(not(servo), target_os = "windows"))]
 impl WebViewExtWindows for WebView {
   fn controller(&self) -> ICoreWebView2Controller {
     self.webview.controller.clone()

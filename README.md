@@ -21,16 +21,18 @@ In this branch, we showcase how to integrate and customize it to become a modern
 
 ## Usage
 
-The current demo only works on macOS at the moment since it tries to customize its traffic light buttons to be seamless in the window. 
+The current demo works best on macOS at the moment, since it tries to customize its traffic light buttons to be seamless in the window.
+
+It should also work on Windows, as well as Linux with X11. You may encounter problems running the demo on Linux with Wayland or Xwayland.
 
 ### Build Servo
 
-- Clone Servo repository (rev@ 7305c59): We are still working on making it to be a cargo git dependency. But it's more stable to make a local build for now.
+- Clone Servo repository (rev@ 90f70e3): We are still working on making it to be a cargo git dependency. But it's more stable to make a local build for now.
 
   ```sh
   git clone https://github.com/servo/servo.git
   cd servo
-  git checkout 7305c59
+  git checkout 90f70e3408e1d4b3f378e50f9f051cb00c77c446
   ```
 
   - Please follow the instructions in [Servo - Build Setup (macOS)](https://github.com/servo/servo#macos) to build a successful copy first.
@@ -46,16 +48,31 @@ The current demo only works on macOS at the moment since it tries to customize i
 
   - Copy required files from Servo repository
 
-  ```sh
-  cp -a ../servo/resources .
-  cp -f ../servo/Cargo.lock .
+    - macOS, Linux:
+
+    ```sh
+    cp -a ../servo/resources .
+    cp -f ../servo/Cargo.lock .
+    ```
+
+    - Windows:
+
+    ```
+    xcopy /i ..\servo\resources resources
+    copy ..\servo\Cargo.lock .
+    ```
+
+  - **Windows only:** set environment variables
+
+  ```
+  set PYTHON3=python
+  set LIBCLANG_PATH=C:\Program Files\LLVM\lib
+  set MOZTOOLS_PATH=%CD%\..\servo\target\dependencies\moztools\4.0
+  set CC=clang-cl.exe
+  set CXX=clang-cl.exe
   ```
 
-  - Build wry
-
-  ```sh
-  cargo build
-  ```
+  - **NixOS only:** add `wayland` and `libGL` to `LD_LIBRARY_PATH` in `../servo/etc/shell.nix`
 
   - Run servo example
 
@@ -63,8 +80,14 @@ The current demo only works on macOS at the moment since it tries to customize i
   cargo run --example servo
   ```
 
+    - Or if you are using Nix or NixOS:
+
+    ```
+    nix-shell ../servo/etc/shell.nix --run 'cargo run --example servo'
+    ```
+
 ## Future Work
 
-- Add more window and servo features to make it feel more like a general webivew library.
+- Add more window and servo features to make it feel more like a general webview library.
 - Improve Servo's development experience.
 - Multi webviews and multi browsing contexts in the same window.
