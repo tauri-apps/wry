@@ -394,13 +394,13 @@ use wkwebview::*;
 #[cfg(all(not(servo), any(target_os = "macos", target_os = "ios")))]
 pub use wkwebview::{PrintMargin, PrintOptions, WryWebView};
 
-#[cfg(target_os = "windows")]
+#[cfg(all(not(servo), target_os = "windows"))]
 pub(crate) mod webview2;
-#[cfg(target_os = "windows")]
+#[cfg(all(not(servo), target_os = "windows"))]
 pub use self::webview2::ScrollBarStyle;
-#[cfg(target_os = "windows")]
+#[cfg(all(not(servo), target_os = "windows"))]
 use self::webview2::*;
-#[cfg(target_os = "windows")]
+#[cfg(all(not(servo), target_os = "windows"))]
 use webview2_com::Microsoft::Web::WebView2::Win32::{
   ICoreWebView2, ICoreWebView2Controller, ICoreWebView2Environment,
 };
@@ -2344,7 +2344,7 @@ pub enum MemoryUsageLevel {
 }
 
 /// Additional methods on `WebView` that are specific to Windows.
-#[cfg(target_os = "windows")]
+#[cfg(all(not(servo), target_os = "windows"))]
 pub trait WebViewExtWindows {
   /// Returns the WebView2 controller.
   fn controller(&self) -> ICoreWebView2Controller;
@@ -2382,7 +2382,7 @@ pub trait WebViewExtWindows {
   fn hwnd(&self) -> windows::Win32::Foundation::HWND;
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(all(not(servo), target_os = "windows"))]
 impl WebViewExtWindows for WebView {
   fn controller(&self) -> ICoreWebView2Controller {
     self.webview.controller.clone()
