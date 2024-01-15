@@ -25,17 +25,15 @@ The current demo works best on macOS at the moment, since it tries to customize 
 
 It should also work on Windows, as well as Linux with X11. You may encounter problems running the demo on Linux with Wayland or Xwayland.
 
-### Build Servo
+### Build
 
-- Clone Servo repository (rev@ 90f70e3): We are still working on making it to be a cargo git dependency. But it's more stable to make a local build for now.
+- Please follow the instructions in [Servo - Build Setup (macOS)](https://github.com/servo/servo#macos) to build a successful copy first.
 
-  ```sh
-  git clone https://github.com/servo/servo.git
-  cd servo
-  git checkout 90f70e3408e1d4b3f378e50f9f051cb00c77c446
-  ```
+- Download [mozjs binary](https://github.com/wusyong/mozjs/releases/tag/tag-8410b587d66a36f1660cc3b828359e199eb0760a) and set the environment variable:
 
-  - Please follow the instructions in [Servo - Build Setup (macOS)](https://github.com/servo/servo#macos) to build a successful copy first.
+```sh
+MOZJS_MIRROR=path/to/libmozjs.tar.gz
+```
 
 - Build wry
 
@@ -44,32 +42,6 @@ It should also work on Windows, as well as Linux with X11. You may encounter pro
   ```sh
   git clone https://github.com/tauri-apps/wry.git
   cd wry
-  ```
-
-  - Copy required files from Servo repository
-
-    - macOS, Linux:
-
-    ```sh
-    cp -a ../servo/resources .
-    cp -f ../servo/Cargo.lock .
-    ```
-
-    - Windows:
-
-    ```
-    xcopy /i ..\servo\resources resources
-    copy ..\servo\Cargo.lock .
-    ```
-
-  - **Windows only:** set environment variables
-
-  ```
-  set PYTHON3=python
-  set LIBCLANG_PATH=C:\Program Files\LLVM\lib
-  set MOZTOOLS_PATH=%CD%\..\servo\target\dependencies\moztools\4.0
-  set CC=clang-cl.exe
-  set CXX=clang-cl.exe
   ```
 
   - **NixOS only:** add `wayland` and `libGL` to `LD_LIBRARY_PATH` in `../servo/etc/shell.nix`

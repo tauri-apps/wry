@@ -50,7 +50,7 @@ url = "2.4"
 http = "0.2"
 raw-window-handle = { version = "0.5", features = ["std"] }
 # Servo TODO move to feature gate
-libservo = { path = "../servo/components/servo", features = ["max_log_level", "native-bluetooth", "webdriver"] }
+libservo = { git = "https://github.com/servo/servo.git", rev = "e7d2d23", features = ["max_log_level", "native-bluetooth", "webdriver"] }
 servo-media = { git = "https://github.com/servo/media" }
 crossbeam-channel = "0.5"
 getopts = "0.2.17"
@@ -122,5 +122,8 @@ bindgen = { git = "https://github.com/sagudev/rust-bindgen", branch = "f16" }
 # This is required because we want all dependencies that use WebRender to
 # use our vendored version.
 [patch."https://github.com/servo/webrender"]
-webrender = { path = "../servo/third_party/webrender/webrender" }
-webrender_api = { path = "../servo/third_party/webrender/webrender_api" }
+webrender = { git = "https://github.com/servo/servo.git" }
+webrender_api = { git = "https://github.com/servo/servo.git" }
+
+[patch."https://github.com/servo/mozjs"]
+mozjs = { git = "https://github.com/wusyong/mozjs", branch = "mozjs_mirror" }
