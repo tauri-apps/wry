@@ -134,7 +134,7 @@
 //!
 //! event_loop.run(|_e, _evl|{
 //!   // process winit events
-//!    
+//!
 //!   // then advance gtk event loop  <----- IMPORTANT
 //!   #[cfg(target_os = "linux")]
 //!   while gtk::events_pending() {
@@ -1037,7 +1037,8 @@ pub trait WebViewBuilderExtWindows {
   ///
   /// ## Warning
   ///
-  /// By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
+  /// - Webview instances with different browser arguments must also have different [data directories](struct.WebContext.html#method.new).
+  /// - By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
   /// `--autoplay-policy=no-user-gesture-required` if autoplay is enabled
   /// and `--proxy-server=<scheme>://<host>:<port>` if a proxy is set.
   /// so if you use this method, you have to add these arguments yourself if you want to keep the same behavior.
