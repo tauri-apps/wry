@@ -11,7 +11,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
   let instance = wgpu::Instance::default();
 
-  let surface = unsafe { instance.create_surface(&window) }.unwrap();
+  let surface = instance.create_surface(&window).unwrap();
   let adapter = instance
     .request_adapter(&wgpu::RequestAdapterOptions {
       power_preference: wgpu::PowerPreference::default(),
@@ -27,9 +27,10 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     .request_device(
       &wgpu::DeviceDescriptor {
         label: None,
-        features: wgpu::Features::empty(),
+        required_features: wgpu::Features::empty(),
         // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-        limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
+        required_limits: wgpu::Limits::downlevel_webgl2_defaults()
+          .using_resolution(adapter.limits()),
       },
       None,
     )
@@ -90,6 +91,7 @@ fn fs_main() -> @location(0) vec4<f32> {
     width: size.width,
     height: size.height,
     present_mode: wgpu::PresentMode::Fifo,
+    desired_maximum_frame_latency: 2,
     alpha_mode: swapchain_capabilities.alpha_modes[0],
     view_formats: vec![],
   };
@@ -119,7 +121,7 @@ fn fs_main() -> @location(0) vec4<f32> {
     .unwrap();
 
   event_loop
-    .run(move |event, evl| {
+    .run(|event, evl| {
       evl.set_control_flow(ControlFlow::Poll);
 
       match event {

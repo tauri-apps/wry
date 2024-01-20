@@ -118,5 +118,5 @@ tao-macros = { version = "0.1.0" }
 http-range = "0.1.5"
 pollster = "0.3.0"
 tao = { version = "0.24", default-features = false, features = [ "rwh_06" ] }
-wgpu = "0.18.0"
+wgpu = "0.19.0"
 winit = "0.29"
