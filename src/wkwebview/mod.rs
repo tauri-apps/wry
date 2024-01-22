@@ -17,7 +17,7 @@ use cocoa::{
   base::{id, nil, NO, YES},
   foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use url::Url;
 
 use std::{
@@ -92,16 +92,16 @@ pub(crate) struct InnerWebView {
 
 impl InnerWebView {
   pub fn new(
-    window: &impl HasRawWindowHandle,
+    window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    let ns_view = match window.raw_window_handle() {
+    let ns_view = match window.window_handle()?.as_raw() {
       #[cfg(target_os = "macos")]
-      RawWindowHandle::AppKit(w) => w.ns_view,
+      RawWindowHandle::AppKit(w) => w.ns_view.as_ptr(),
       #[cfg(target_os = "ios")]
-      RawWindowHandle::UiKit(w) => w.ui_view,
+      RawWindowHandle::UiKit(w) => w.ui_view.as_ptr(),
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 
@@ -109,16 +109,16 @@ impl InnerWebView {
   }
 
   pub fn new_as_child(
-    window: &impl HasRawWindowHandle,
+    window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    let ns_view = match window.raw_window_handle() {
+    let ns_view = match window.window_handle()?.as_raw() {
       #[cfg(target_os = "macos")]
-      RawWindowHandle::AppKit(w) => w.ns_view,
+      RawWindowHandle::AppKit(w) => w.ns_view.as_ptr(),
       #[cfg(target_os = "ios")]
-      RawWindowHandle::UiKit(w) => w.ui_view,
+      RawWindowHandle::UiKit(w) => w.ui_view.as_ptr(),
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 

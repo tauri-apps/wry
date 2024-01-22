@@ -4,13 +4,13 @@
 
 //! Wry is a Cross-platform WebView rendering library.
 //!
-//! The webview requires a running event loop and a window type that implements [`HasRawWindowHandle`],
+//! The webview requires a running event loop and a window type that implements [`HasWindowHandle`],
 //! or a gtk container widget if you need to support X11 and Wayland.
 //! You can use a windowing library like [`tao`] or [`winit`].
 //!
 //! ## Examples
 //!
-//! This example leverages the [`HasRawWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only).
+//! This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only).
 //! See the following example using [`winit`].
 //!
 //! ```no_run
@@ -27,7 +27,7 @@
 //! ```
 //!
 //! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::new_gtk`] on Linux.
-//! See the following example using [`tao`]
+//! See the following example using [`tao`].
 //!
 //! ```no_run
 //! # use wry::WebViewBuilder;
@@ -231,7 +231,7 @@ use android::*;
 pub(crate) mod webkitgtk;
 /// Re-exported [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate.
 pub use raw_window_handle;
-use raw_window_handle::HasRawWindowHandle;
+use raw_window_handle::HasWindowHandle;
 #[cfg(gtk)]
 use webkitgtk::*;
 
@@ -543,7 +543,7 @@ impl Default for WebViewAttributes {
 pub struct WebViewBuilder<'a> {
   pub attrs: WebViewAttributes,
   as_child: bool,
-  window: Option<&'a dyn HasRawWindowHandle>,
+  window: Option<&'a dyn HasWindowHandle>,
   platform_specific: PlatformSpecificWebViewAttributes,
   web_context: Option<&'a mut WebContext>,
   #[cfg(gtk)]
@@ -551,7 +551,7 @@ pub struct WebViewBuilder<'a> {
 }
 
 impl<'a> WebViewBuilder<'a> {
-  /// Create a [`WebViewBuilder`] from a type that implements [`HasRawWindowHandle`].
+  /// Create a [`WebViewBuilder`] from a type that implements [`HasWindowHandle`].
   ///
   /// # Platform-specific:
   ///
@@ -567,7 +567,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// - Panics if the provided handle was not supported or invalid.
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
-  pub fn new(window: &'a impl HasRawWindowHandle) -> Self {
+  pub fn new(window: &'a impl HasWindowHandle) -> Self {
     Self {
       attrs: WebViewAttributes::default(),
       window: Some(window),
@@ -580,7 +580,7 @@ impl<'a> WebViewBuilder<'a> {
     }
   }
 
-  /// Create [`WebViewBuilder`] as a child window inside the provided [`HasRawWindowHandle`].
+  /// Create [`WebViewBuilder`] as a child window inside the provided [`HasWindowHandle`].
   ///
   /// ## Platform-specific
   ///
@@ -602,7 +602,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// - Panics if the provided handle was not support or invalid.
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
-  pub fn new_as_child(parent: &'a impl HasRawWindowHandle) -> Self {
+  pub fn new_as_child(parent: &'a impl HasWindowHandle) -> Self {
     Self {
       attrs: WebViewAttributes::default(),
       window: Some(parent),
@@ -726,10 +726,12 @@ impl<'a> WebViewBuilder<'a> {
   /// ```no_run
   /// use wry::{WebViewBuilder, raw_window_handle};
   ///
+  /// # use raw_window_handle::{HasWindowHandle, WindowHandle, RawWindowHandle, Win32WindowHandle, HandleError};
   /// # struct T;
-  /// # unsafe impl raw_window_handle::HasRawWindowHandle for T {
-  /// #   fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
-  /// #     raw_window_handle::RawWindowHandle::Win32(raw_window_handle::Win32WindowHandle::empty())
+  /// # impl HasWindowHandle for T {
+  /// #   fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
+  /// #     let handle = RawWindowHandle::Win32(Win32WindowHandle::new(std::num::NonZeroIsize::new(0).unwrap()));
+  /// #     unsafe { Ok(WindowHandle::borrow_raw(handle)) }
   /// #   }
   /// # }
   /// # let window = T;
@@ -1218,7 +1220,7 @@ pub struct WebView {
 }
 
 impl WebView {
-  /// Create a [`WebView`] from from a type that implements [`HasRawWindowHandle`].
+  /// Create a [`WebView`] from from a type that implements [`HasWindowHandle`].
   /// Note that calling this directly loses
   /// abilities to initialize scripts, add ipc handler, and many more before starting WebView. To
   /// benefit from above features, create a [`WebViewBuilder`] instead.
@@ -1237,11 +1239,11 @@ impl WebView {
   ///
   /// - Panics if the provided handle was not supported or invalid.
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
-  pub fn new(window: &impl HasRawWindowHandle) -> Result<Self> {
+  pub fn new(window: &impl HasWindowHandle) -> Result<Self> {
     WebViewBuilder::new(window).build()
   }
 
-  /// Create [`WebViewBuilder`] as a child window inside the provided [`HasRawWindowHandle`].
+  /// Create [`WebViewBuilder`] as a child window inside the provided [`HasWindowHandle`].
   ///
   /// ## Platform-specific
   ///
@@ -1263,7 +1265,7 @@ impl WebView {
   ///
   /// - Panics if the provided handle was not support or invalid.
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
-  pub fn new_as_child(parent: &impl HasRawWindowHandle) -> Result<Self> {
+  pub fn new_as_child(parent: &impl HasWindowHandle) -> Result<Self> {
     WebViewBuilder::new_as_child(parent).build()
   }
 

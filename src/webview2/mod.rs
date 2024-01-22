@@ -11,7 +11,7 @@ use std::{
 
 use http::{Request, Response as HttpResponse, StatusCode};
 use once_cell::sync::Lazy;
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use url::Url;
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 use windows::{
@@ -74,26 +74,26 @@ impl Drop for InnerWebView {
 
 impl InnerWebView {
   pub fn new(
-    window: &impl HasRawWindowHandle,
+    window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    let window = match window.raw_window_handle() {
-      RawWindowHandle::Win32(window) => window.hwnd as _,
+    let window = match window.window_handle()?.as_raw() {
+      RawWindowHandle::Win32(window) => window.hwnd.get() as _,
       _ => return Err(Error::UnsupportedWindowHandle),
     };
     Self::new_hwnd(HWND(window), attributes, pl_attrs, web_context)
   }
 
   pub fn new_as_child(
-    parent: &impl HasRawWindowHandle,
+    parent: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    let parent = match parent.raw_window_handle() {
-      RawWindowHandle::Win32(parent) => parent.hwnd as _,
+    let parent = match parent.window_handle()?.as_raw() {
+      RawWindowHandle::Win32(parent) => parent.hwnd.get() as _,
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 
