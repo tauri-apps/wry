@@ -112,7 +112,7 @@ jni = "0.21"
 ndk = "0.7"
 ndk-sys = "0.4"
 ndk-context = "0.1"
-tao-macros = "0.1.0"
+tao-macros = "0.1"
 
 [dev-dependencies]
 http-range = "0.1.5"
