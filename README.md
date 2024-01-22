@@ -18,7 +18,7 @@ Cross-platform WebView rendering library in Rust that supports all major desktop
 ## Overview
 
 WRY connects the web engine on each platform and provides easy to use and unified interface to render WebView.
-The webview requires a running event loop and a window type that implements `HasRawWindowHandle`,
+The webview requires a running event loop and a window type that implements `HasWindowHandle`,
 or a gtk container widget if you need to support X11 and Wayland.
 You can use a windowing library like `tao` or `winit`.
 
@@ -147,7 +147,7 @@ It is recommended to use [`tao`](https://docs.rs/tao/latest/tao/) crate as it pr
 ```
 
 - `WRY_ANDROID_PACKAGE` which is the reversed domain name of your android project and the app name in snake_case for example: `com.wry.example.wry_app`
-- `WRY_ANDROID_LIBRARY` for example: if your cargo project has a lib name `wry_app`, it will generate `libwry_app.so` so you se this env var to `wry_app`
+- `WRY_ANDROID_LIBRARY` for example: if your cargo project has a lib name `wry_app`, it will generate `libwry_app.so` so you set this env var to `wry_app`
 - `WRY_ANDROID_KOTLIN_FILES_OUT_DIR` for example: `path/to/app/src/main/kotlin/com/wry/example`
 
 ## Partners
