@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 wry = { path = "../../" }
 serde = { version = "1.0", features = [ "derive" ] }
-tao = { version = "0.24", default-features = false, features = ["rwh_05"] }
+tao = "0.24"
 
 [[bin]]
 name = "bench_hello_world"
