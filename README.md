@@ -9,21 +9,21 @@
 
 ## Overview
 
-This is the special branch of wry to experiment Servo, a web engine written mostly in Rust, as a crate dependency.
-The motivation of this experiment is evaluating custom web egines that can be fully under our control and be customized at will.
-And at the same time, finding the root cause and pivot point that could really improve and help web and rust community moving forward.
+This is a special branch of `wry` to experiment with Servo, a web engine written mostly in Rust and currently a Linux Foundation project, as a crate dependency.
+The motivation for this experiment is evaluating custom web engines that can be fully controlled and customized at will.
+And at the same time, finding the root cause and pivot point that could really improve and help the web and Rust communities moving forward.
 Servo fits into this position pretty well because it isn't controlled by any huge corporation. Evryone from the open source community is free to shape the project together.
-While it doesn't provide full coverage of all web features yet, it already offers super flexible interface to work with.
-In this branch, we showcase how to integrate and customize it to become a modern style landing page.
+While Servo doesn't provide full coverage of all web features yet, it already offers a super-flexible interface to work with.
+In this branch, we showcase how to integrate and customize Servo to power a modern style landing page within a Tauri window.
 
 ![](demo.png)
 [Video link](https://twitter.com/Yu_Wei_Wu/status/1740251457285431487) to see the demo showcase
 
 ## Usage
 
-The current demo works best on macOS at the moment, since it tries to customize its traffic light buttons to be seamless in the window.
+The current demo works best on macOS at the moment, since it tries to customize it's traffic light buttons to be seamless in the window.
 
-It should also work on Windows, as well as Linux with X11. You may encounter problems running the demo on Linux with Wayland or Xwayland.
+The demo should also work on Windows as well as X11 on Linux. You may encounter problems running the demo on Linux with Wayland or Xwayland.
 
 ### Build
 
@@ -60,6 +60,6 @@ MOZJS_MIRROR=path/to/libmozjs.tar.gz
 
 ## Future Work
 
-- Add more window and servo features to make it feel more like a general webview library.
-- Improve Servo's development experience.
+- Add more window and Servo features to make it feel more like a genuine WebView library
+- Improve Servo's development experience
 - Multi webviews and multi browsing contexts in the same window.
