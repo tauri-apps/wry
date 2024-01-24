@@ -956,7 +956,7 @@ r#"Object.defineProperty(window, 'ipc', {
         let span = Mutex::new(Some(tracing::debug_span!("wry::eval").entered()));
 
         // we need to check if the callback exists outside the handler otherwise it's a segfault
-        if let Some(callback) = &callback {
+        if let Some(callback) = callback {
           let handler = block::ConcreteBlock::new(move |val: id, _err: id| {
             #[cfg(feature = "tracing")]
             span.lock().unwrap().take();
@@ -972,15 +972,18 @@ r#"Object.defineProperty(window, 'ipc', {
             }
 
             callback(result);
-          });
+          }).copy();
 
           let _: () =
             msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:handler];
         } else {
+          #[cfg(feature = "tracing")]
           let handler = block::ConcreteBlock::new(move |_val: id, _err: id| {
-            #[cfg(feature = "tracing")]
             span.lock().unwrap().take();
-          });
+          })
+          .copy();
+          #[cfg(not(feature = "tracing"))]
+          let handler = null::<*const c_void>();
 
           let _: () =
             msg_send![self.webview, evaluateJavaScript:NSString::new(js) completionHandler:handler];
@@ -1020,7 +1023,7 @@ r#"Object.defineProperty(window, 'ipc', {
       let store: id = msg_send![config, websiteDataStore];
       let all_data_types: id = msg_send![class!(WKWebsiteDataStore), allWebsiteDataTypes];
       let date: id = msg_send![class!(NSDate), dateWithTimeIntervalSince1970: 0.0];
-      let handler = block::ConcreteBlock::new(|| {});
+      let handler = null::<*const c_void>();
       let _: () = msg_send![store, removeDataOfTypes:all_data_types modifiedSince:date completionHandler:handler];
     }
     Ok(())
