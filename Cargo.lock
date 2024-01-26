@@ -3640,7 +3640,7 @@ dependencies = [
 [[package]]
 name = "mozjs"
 version = "0.14.1"
-source = "git+https://github.com/wusyong/mozjs?branch=mozjs_mirror#844a441a9d399fd2f4052df7e6c633733f47efde"
+source = "git+https://github.com/wusyong/mozjs?branch=mozjs_download#e4f176747323d6f95958ce82fe46bbb42ae5db04"
 dependencies = [
  "bindgen 0.69.2",
  "cc",
@@ -3654,7 +3654,7 @@ dependencies = [
 [[package]]
 name = "mozjs_sys"
 version = "0.68.2"
-source = "git+https://github.com/wusyong/mozjs?branch=mozjs_mirror#844a441a9d399fd2f4052df7e6c633733f47efde"
+source = "git+https://github.com/wusyong/mozjs?branch=mozjs_download#e4f176747323d6f95958ce82fe46bbb42ae5db04"
 dependencies = [
  "bindgen 0.69.2",
  "cc",
