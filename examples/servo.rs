@@ -12,9 +12,12 @@ use wry::{WebViewBuilder, WebViewBuilderExtServo, WebViewExtServo};
 
 /* window decoration */
 #[cfg(target_os = "macos")]
-use cocoa::appkit::{NSView, NSWindow};
-#[cfg(target_os = "macos")]
 use cocoa::appkit::{NSWindowStyleMask, NSWindowTitleVisibility};
+#[cfg(target_os = "macos")]
+use cocoa::{
+  appkit::{NSView, NSWindow},
+  base::YES,
+};
 #[cfg(target_os = "macos")]
 use objc::{msg_send, runtime::Object, sel, sel_impl};
 #[cfg(target_os = "macos")]
@@ -63,7 +66,7 @@ fn main() -> wry::Result<()> {
 
 #[cfg(target_os = "macos")]
 pub unsafe fn decorate_window(window: *mut Object, position: LogicalPosition<f64>) {
-  NSWindow::setTitlebarAppearsTransparent_(window, true);
+  NSWindow::setTitlebarAppearsTransparent_(window, YES);
   NSWindow::setTitleVisibility_(window, NSWindowTitleVisibility::NSWindowTitleHidden);
   NSWindow::setStyleMask_(
     window,
