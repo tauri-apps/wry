@@ -27,6 +27,7 @@
   void loadHTMLMainThread(...);
   void setAutoPlay(...);
   void setUserAgent(...);
+  void evalScript(...);
 }
 
 -keep class {{package}}.RustWebChromeClient,{{package}}.RustWebViewClient {
