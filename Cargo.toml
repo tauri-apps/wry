@@ -117,6 +117,6 @@ tao-macros = "0.1"
 [dev-dependencies]
 http-range = "0.1.5"
 pollster = "0.3.0"
-tao = "0.24"
+tao = "0.25"
 wgpu = "0.19"
 winit = "0.29"
