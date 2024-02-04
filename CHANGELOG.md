@@ -1,5 +1,15 @@
 # Changelog
 
+## \[0.36.0]
+
+- [`8646120`](https://github.com/tauri-apps/wry/commit/8646120339b8ed983582caa9e668fc286dc59cb3)([#1159](https://github.com/tauri-apps/wry/pull/1159)) On android, fix `no non-static method ".evalScript(ILjava/lang/String;)"` when calling `Window::eval`.
+- [`8646120`](https://github.com/tauri-apps/wry/commit/8646120339b8ed983582caa9e668fc286dc59cb3)([#1159](https://github.com/tauri-apps/wry/pull/1159)) On macOS, fix a release build crashes with SEGV when calling `WebView::evaluate_script`. This crash bug was introduced at v0.35.2.
+- [`8646120`](https://github.com/tauri-apps/wry/commit/8646120339b8ed983582caa9e668fc286dc59cb3)([#1159](https://github.com/tauri-apps/wry/pull/1159)) **Breaking change** Update [raw-window-handle](https://crates.io/crates/raw-window-handle) crate to v0.6.
+
+  - `HasWindowHandle` trait is required for window types instead of `HasRawWindowHandle`.
+  - `wry::raw_window_handle` now re-exports v0.6.
+- [`8646120`](https://github.com/tauri-apps/wry/commit/8646120339b8ed983582caa9e668fc286dc59cb3)([#1159](https://github.com/tauri-apps/wry/pull/1159)) On `macOS`, fix menu keyboard shortcuts. This issue bug was introduced in `v2` when added `webview` as `child`.
+
 ## \[0.35.2]
 
 - [`0ef041f`](https://github.com/tauri-apps/wry/commit/0ef041ffece143dcb5059ad43596c63b18a62928)([#1133](https://github.com/tauri-apps/wry/pull/1133)) On Linux, apply passed webview bounds when using `WebView::new_gtk` or `WebViewBuilder::new_gtk` with `gtk::Fixed` widget. This allows to create multiple webviews inside `gtk::Fixed` in the same window.
