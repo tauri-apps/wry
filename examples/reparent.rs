@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use tao::{
+  dpi::LogicalPosition,
   event::{Event, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
   platform::macos::WindowExtMacOS,
@@ -36,7 +37,7 @@ fn main() -> wry::Result<()> {
     WebViewBuilder::new_gtk(vbox)
   };
 
-  let mut webview = builder.with_url("https://tauri.app")?.build()?;
+  let webview = builder.with_url("https://tauri.app")?.build()?;
 
   let mut original_window = Some(window);
   let mut detached_window_ref: Option<tao::window::Window> = None;
@@ -53,7 +54,10 @@ fn main() -> wry::Result<()> {
       if window_id == original_window_id {
         original_window.take();
 
-        let detached_window = WindowBuilder::new().build(&target).unwrap();
+        let detached_window = WindowBuilder::new()
+          .with_position(LogicalPosition::new(0, 0))
+          .build(&target)
+          .unwrap();
 
         webview.reparent(detached_window.ns_window() as cocoa::base::id);
 

@@ -1520,7 +1520,7 @@ pub trait WebViewExtMacOS {
   /// Returns NSWindow associated with the WKWebView webview
   fn ns_window(&self) -> cocoa::base::id;
   /// Attaches this webview to the given NSWindow and removes it from the current one.
-  fn reparent(&mut self, window: cocoa::base::id);
+  fn reparent(&self, window: cocoa::base::id);
 }
 
 #[cfg(target_os = "macos")]
@@ -1537,7 +1537,7 @@ impl WebViewExtMacOS for WebView {
     self.webview.ns_window
   }
 
-  fn reparent(&mut self, window: cocoa::base::id) {
+  fn reparent(&self, window: cocoa::base::id) {
     self.webview.reparent_to(window)
   }
 }

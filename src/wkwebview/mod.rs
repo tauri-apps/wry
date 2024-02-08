@@ -1089,7 +1089,8 @@ r#"Object.defineProperty(window, 'ipc', {
         // Allow the modal to detach from the current thread and be non-blocker
         let () = msg_send![print_operation, setCanSpawnSeparateThread: YES];
         // Launch the modal
-        let () = msg_send![print_operation, runOperationModalForWindow: self.ns_window delegate: null::<*const c_void>() didRunSelector: null::<*const c_void>() contextInfo: null::<*const c_void>()];
+        let window: id = msg_send![self.webview, window];
+        let () = msg_send![print_operation, runOperationModalForWindow: window delegate: null::<*const c_void>() didRunSelector: null::<*const c_void>() contextInfo: null::<*const c_void>()];
       }
     }
   }
@@ -1182,14 +1183,10 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub(crate) fn reparent_to(&mut self, window: id) {
+  pub(crate) fn reparent_to(&self, window: id) {
     unsafe {
       let content_view: id = msg_send![window, contentView];
       let _: () = msg_send![content_view, addSubview: self.webview];
-    }
-    #[cfg(target_os = "macos")]
-    {
-      self.ns_window = window;
     }
   }
 }
