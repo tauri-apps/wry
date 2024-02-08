@@ -1181,6 +1181,17 @@ r#"Object.defineProperty(window, 'ipc', {
       let _: () = msg_send![window, makeFirstResponder: self.webview];
     }
   }
+
+  pub(crate) fn reparent_to(&mut self, window: id) {
+    unsafe {
+      let content_view: id = msg_send![window, contentView];
+      let _: () = msg_send![content_view, addSubview: self.webview];
+    }
+    #[cfg(target_os = "macos")]
+    {
+      self.ns_window = window;
+    }
+  }
 }
 
 pub fn url_from_webview(webview: id) -> String {

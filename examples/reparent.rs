@@ -5,13 +5,15 @@
 use tao::{
   event::{Event, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
+  platform::macos::WindowExtMacOS,
   window::WindowBuilder,
 };
-use wry::WebViewBuilder;
+use wry::{WebViewBuilder, WebViewExtMacOS};
 
 fn main() -> wry::Result<()> {
-  let mut event_loop = EventLoop::new();
+  let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
+  let original_window_id = window.id();
 
   #[cfg(any(
     target_os = "windows",
@@ -34,24 +36,31 @@ fn main() -> wry::Result<()> {
     WebViewBuilder::new_gtk(vbox)
   };
 
-  let _webview = builder.with_url("https://tauri.app")?.build()?;
+  let mut webview = builder.with_url("https://tauri.app")?.build()?;
 
-  loop {
-    use tao::platform::run_return::EventLoopExtRunReturn;
-    event_loop.run_return(move |event, _, control_flow| {
-      *control_flow = ControlFlow::Wait;
+  let mut original_window = Some(window);
+  let mut detached_window_ref: Option<tao::window::Window> = None;
 
-      if event == Event::MainEventsCleared {
-        *control_flow = ControlFlow::Exit;
-      }
+  event_loop.run(move |event, target, control_flow| {
+    *control_flow = ControlFlow::Wait;
 
-      if let Event::WindowEvent {
-        event: WindowEvent::CloseRequested,
-        ..
-      } = event
-      {
+    if let Event::WindowEvent {
+      window_id,
+      event: WindowEvent::CloseRequested,
+      ..
+    } = event
+    {
+      if window_id == original_window_id {
+        original_window.take();
+
+        let detached_window = WindowBuilder::new().build(&target).unwrap();
+
+        webview.reparent(detached_window.ns_window() as cocoa::base::id);
+
+        detached_window_ref.replace(detached_window);
+      } else {
         *control_flow = ControlFlow::Exit
       }
-    });
-  }
+    }
+  });
 }
