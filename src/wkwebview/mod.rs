@@ -73,8 +73,6 @@ const NS_JSON_WRITING_FRAGMENTS_ALLOWED: u64 = 4;
 
 pub(crate) struct InnerWebView {
   pub webview: id,
-  #[cfg(target_os = "macos")]
-  pub ns_window: id,
   pub manager: id,
   is_child: bool,
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
@@ -840,7 +838,7 @@ impl InnerWebView {
 
       // ns window is required for the print operation
       #[cfg(target_os = "macos")]
-      let ns_window = {
+      {
         let ns_window: id = msg_send![ns_view, window];
 
         let can_set_titlebar_style: BOOL = msg_send![
@@ -851,14 +849,10 @@ impl InnerWebView {
           // `1` means `none`, see https://developer.apple.com/documentation/appkit/nstitlebarseparatorstyle/none
           let () = msg_send![ns_window, setTitlebarSeparatorStyle: 1];
         }
-
-        ns_window
-      };
+      }
 
       let w = Self {
         webview,
-        #[cfg(target_os = "macos")]
-        ns_window,
         manager,
         pending_scripts,
         ipc_handler_ptr,

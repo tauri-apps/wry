@@ -1553,7 +1553,10 @@ impl WebViewExtMacOS for WebView {
   }
 
   fn ns_window(&self) -> cocoa::base::id {
-    self.webview.ns_window
+    unsafe {
+      let ns_window: cocoa::base::id = msg_send![self.webview.webview, window];
+      ns_window
+    }
   }
 
   fn reparent(&self, window: cocoa::base::id) {
