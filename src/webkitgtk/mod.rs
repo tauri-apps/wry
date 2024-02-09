@@ -721,6 +721,32 @@ impl InnerWebView {
   pub fn focus(&self) {
     self.webview.grab_focus();
   }
+
+  pub fn reparent<W>(&self, container: &W)
+  where
+    W: gtk::prelude::IsA<gtk::Container>,
+  {
+    if let Some(parent) = self
+      .webview
+      .parent()
+      .and_then(|p| p.dynamic_cast::<gtk::Container>().ok())
+    {
+      parent.remove(&self.webview);
+      if container.type_().name() == "GtkBox" {
+        container
+          .dynamic_cast_ref::<gtk::Box>()
+          .unwrap()
+          .pack_start(&self.webview, true, true, 0);
+      } else if container.type_().name() == "GtkFixed" {
+        container
+          .dynamic_cast_ref::<gtk::Fixed>()
+          .unwrap()
+          .put(&self.webview, 0, 0);
+      } else {
+        container.add(&self.webview);
+      }
+    }
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {

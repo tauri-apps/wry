@@ -1458,6 +1458,9 @@ pub trait WebViewExtWindows {
   /// [1]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel
   /// [2]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2.memoryusagetargetlevel?view=webview2-dotnet-1.0.2088.41#remarks
   fn set_memory_usage_level(&self, level: MemoryUsageLevel);
+
+  /// Attaches this webview to the given HWND and removes it from the current one.
+  fn reparent(&self, hwnd: isize);
 }
 
 #[cfg(target_os = "windows")]
@@ -1472,6 +1475,10 @@ impl WebViewExtWindows for WebView {
 
   fn set_memory_usage_level(&self, level: MemoryUsageLevel) {
     self.webview.set_memory_usage_level(level);
+  }
+
+  fn reparent(&self, hwnd: isize) {
+    self.webview.reparent(hwnd)
   }
 }
 
@@ -1494,6 +1501,11 @@ pub trait WebViewExtUnix: Sized {
 
   /// Returns Webkit2gtk Webview handle
   fn webview(&self) -> webkit2gtk::WebView;
+
+  /// Attaches this webview to the given Widget and removes it from the current one.
+  fn reparent<W>(&self, widget: &W)
+  where
+    W: gtk::prelude::IsA<gtk::Container>;
 }
 
 #[cfg(gtk)]
@@ -1507,6 +1519,13 @@ impl WebViewExtUnix for WebView {
 
   fn webview(&self) -> webkit2gtk::WebView {
     self.webview.webview.clone()
+  }
+
+  fn reparent<W>(&self, widget: &W)
+  where
+    W: gtk::prelude::IsA<gtk::Container>,
+  {
+    self.webview.reparent(widget)
   }
 }
 

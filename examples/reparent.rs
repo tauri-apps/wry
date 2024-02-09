@@ -3,18 +3,39 @@
 // SPDX-License-Identifier: MIT
 
 use tao::{
-  dpi::LogicalPosition,
-  event::{Event, WindowEvent},
+  event::{ElementState, Event, KeyEvent, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
-  platform::macos::WindowExtMacOS,
+  keyboard::Key,
   window::WindowBuilder,
 };
-use wry::{WebViewBuilder, WebViewExtMacOS};
+use wry::WebViewBuilder;
+
+#[cfg(target_os = "macos")]
+use {tao::platform::macos::WindowExtMacOS, wry::WebViewExtMacOS};
+#[cfg(target_os = "windows")]
+use {tao::platform::windows::WindowExtWindows, wry::WebViewExtWindows};
+
+#[cfg(not(any(
+  target_os = "windows",
+  target_os = "macos",
+  target_os = "ios",
+  target_os = "android"
+)))]
+#[cfg(not(any(
+  target_os = "windows",
+  target_os = "macos",
+  target_os = "ios",
+  target_os = "android"
+)))]
+use {
+  tao::platform::unix::WindowExtUnix,
+  wry::{WebViewBuilderExtUnix, WebViewExtUnix},
+};
 
 fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
-  let original_window_id = window.id();
+  let window2 = WindowBuilder::new().build(&event_loop).unwrap();
 
   #[cfg(any(
     target_os = "windows",
@@ -31,40 +52,56 @@ fn main() -> wry::Result<()> {
     target_os = "android"
   )))]
   let builder = {
-    use tao::platform::unix::WindowExtUnix;
-    use wry::WebViewBuilderExtUnix;
     let vbox = window.default_vbox().unwrap();
     WebViewBuilder::new_gtk(vbox)
   };
 
   let webview = builder.with_url("https://tauri.app")?.build()?;
 
-  let mut original_window = Some(window);
-  let mut detached_window_ref: Option<tao::window::Window> = None;
+  let mut webview_container = window.id();
 
-  event_loop.run(move |event, target, control_flow| {
+  event_loop.run(move |event, _event_loop, control_flow| {
     *control_flow = ControlFlow::Wait;
 
-    if let Event::WindowEvent {
-      window_id,
-      event: WindowEvent::CloseRequested,
-      ..
-    } = event
-    {
-      if window_id == original_window_id {
-        original_window.take();
+    match event {
+      Event::WindowEvent {
+        event: WindowEvent::CloseRequested,
+        ..
+      } => *control_flow = ControlFlow::Exit,
 
-        let detached_window = WindowBuilder::new()
-          .with_position(LogicalPosition::new(0, 0))
-          .build(&target)
-          .unwrap();
+      Event::WindowEvent {
+        event:
+          WindowEvent::KeyboardInput {
+            event:
+              KeyEvent {
+                logical_key: Key::Character("x"),
+                state: ElementState::Pressed,
+                ..
+              },
+            ..
+          },
+        ..
+      } => {
+        let new_parent = if webview_container == window.id() {
+          &window2
+        } else {
+          &window
+        };
+        webview_container = new_parent.id();
 
-        webview.reparent(detached_window.ns_window() as cocoa::base::id);
-
-        detached_window_ref.replace(detached_window);
-      } else {
-        *control_flow = ControlFlow::Exit
+        #[cfg(target_os = "macos")]
+        webview.reparent(new_parent.ns_window() as cocoa::base::id);
+        #[cfg(not(any(
+          target_os = "windows",
+          target_os = "macos",
+          target_os = "ios",
+          target_os = "android"
+        )))]
+        webview.reparent(new_parent.default_vbox().unwrap());
+        #[cfg(target_os = "windows")]
+        webview.reparent(new_parent.hwnd());
       }
+      _ => {}
     }
   });
 }

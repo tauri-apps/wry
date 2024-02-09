@@ -1107,6 +1107,10 @@ impl InnerWebView {
     let level = COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL(level);
     let _ = unsafe { webview.SetMemoryUsageTargetLevel(level) };
   }
+
+  pub fn reparent(&self, hwnd: isize) {
+    let _ = unsafe { self.controller.SetParentWindow(HWND(hwnd as _)) };
+  }
 }
 
 unsafe fn prepare_web_request_response(
