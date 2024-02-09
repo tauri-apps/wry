@@ -10,7 +10,7 @@ use tao::{
 use wry::WebViewBuilder;
 
 fn main() -> wry::Result<()> {
-  let mut event_loop = EventLoop::new();
+  let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
   #[cfg(any(
@@ -36,22 +36,15 @@ fn main() -> wry::Result<()> {
 
   let _webview = builder.with_url("https://tauri.app")?.build()?;
 
-  loop {
-    use tao::platform::run_return::EventLoopExtRunReturn;
-    event_loop.run_return(move |event, _, control_flow| {
-      *control_flow = ControlFlow::Wait;
+  event_loop.run(move |event, _, control_flow| {
+    *control_flow = ControlFlow::Wait;
 
-      if event == Event::MainEventsCleared {
-        *control_flow = ControlFlow::Exit;
-      }
-
-      if let Event::WindowEvent {
-        event: WindowEvent::CloseRequested,
-        ..
-      } = event
-      {
-        *control_flow = ControlFlow::Exit
-      }
-    });
-  }
+    if let Event::WindowEvent {
+      event: WindowEvent::CloseRequested,
+      ..
+    } = event
+    {
+      *control_flow = ControlFlow::Exit
+    }
+  });
 }
