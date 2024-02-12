@@ -303,6 +303,8 @@ impl InnerWebView {
 
   pub fn print(&self) {}
 
+  pub fn print_to(&self, _printer_name: &str) {}
+
   pub fn url(&self) -> Url {
     let (tx, rx) = bounded(1);
     MainPipe::send(WebViewMessage::GetUrl(tx));

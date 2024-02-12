@@ -492,6 +492,8 @@ impl InnerWebView {
     );
   }
 
+  pub fn print_to(&self, _printer_name: &str) {}
+
   pub fn url(&self) -> Url {
     let uri = self.webview.uri().unwrap();
 

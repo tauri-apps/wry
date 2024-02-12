@@ -1080,6 +1080,8 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
+  pub fn print_to(&self) {}
+
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn open_devtools(&self) {
     #[cfg(target_os = "macos")]

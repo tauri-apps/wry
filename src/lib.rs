@@ -1301,6 +1301,13 @@ impl WebView {
     Ok(())
   }
 
+  /// Silently print to printer with default settings
+  /// ## Platform-specific
+  /// - **Windows**: Available on webview >= 16 only.
+  pub fn print_to(&self, printer_name: &str) -> Result<()> {
+    self.webview.print_to(printer_name)
+  }
+
   /// Open the web inspector which is usually called dev tool.
   ///
   /// ## Platform-specific

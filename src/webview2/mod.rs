@@ -958,6 +958,27 @@ impl InnerWebView {
     );
   }
 
+  pub fn print_to(&self, printer_name: &str) -> Result<()> {
+    let Ok(webview) = self.webview.cast::<ICoreWebView2_16>() else {
+      return Ok(());
+    };
+
+    let Ok(environment) = self.env.cast::<ICoreWebView2Environment6>() else {
+      return Ok(());
+    };
+
+    // https://learn.microsoft.com/en-us/microsoft-edge/webview2/how-to/print?tabs=win32cpp#the-print-method-to-customize-printing
+    unsafe {
+        let print_setting = environment.CreatePrintSettings().unwrap().cast::<ICoreWebView2PrintSettings2>()
+          .map_err(|err| Error::WebView2Error(webview2_com::Error::WindowsError(err)))?;
+
+        print_setting.SetPrinterName(PCWSTR::from_raw(encode_wide(printer_name).as_ptr()))
+          .map_err(|err| Error::WebView2Error(webview2_com::Error::WindowsError(err)))?;
+
+        webview.Print(&print_setting, &PrintCompletedHandler::create(Box::new(|res, _| res)))
+    }.map_err(|err| Error::WebView2Error(webview2_com::Error::WindowsError(err)))
+  }
+
   pub fn url(&self) -> Url {
     Url::parse(&url_from_webview(&self.webview)).unwrap()
   }
