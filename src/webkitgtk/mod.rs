@@ -492,7 +492,7 @@ impl InnerWebView {
   }
 
   pub fn url(&self) -> String {
-    self.webview.uri().unwrap()
+    self.webview.uri().unwrap().to_string()
   }
 
   pub fn eval(
