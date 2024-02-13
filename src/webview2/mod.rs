@@ -800,7 +800,7 @@ impl InnerWebView {
         if custom_protocol_names.contains(name) {
           // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
           // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-          url = url.replace(&format!("{}://", name), &format!("{scheme}://{name}."))
+          url = url.replace(&format!("{name}://"), &format!("{scheme}://{name}."))
         }
       }
 

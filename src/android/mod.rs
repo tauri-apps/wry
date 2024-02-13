@@ -161,19 +161,18 @@ impl InnerWebView {
       https_scheme,
     } = pl_attrs;
 
-    let custom_protocol_scheme = if https_scheme { "https" } else { "http" };
+    let scheme = if https_scheme { "https" } else { "http" };
 
-    let url = if let Some(u) = url {
-      let mut url_string = String::from(u.as_str());
-      let name = u.scheme();
-      let is_custom_protocol = custom_protocols.iter().any(|(n, _)| n == name);
-      if is_custom_protocol {
-        url_string = u.as_str().replace(
-          &format!("{name}://"),
-          &format!("{custom_protocol_scheme}://{name}."),
-        )
+    let url = if let Some(mut url) = url {
+      if let Some(pos) = url.find("://") {
+        let name = &url[..pos];
+        let is_custom_protocol = custom_protocols.iter().any(|(n, _)| n == name);
+        if is_custom_protocol {
+          url = url.replace(&format!("{name}://"), &format!("{scheme}://{name}."))
+        }
       }
-      Some(url_string)
+
+      Some(url)
     } else {
       None
     };
