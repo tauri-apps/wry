@@ -203,13 +203,13 @@ impl InnerWebView {
             request
               .uri()
               .to_string()
-              .starts_with(&format!("{custom_protocol_scheme}://{}.", name))
+              .starts_with(&format!("{scheme}://{}.", name))
           }) {
             *request.uri_mut() = request
               .uri()
               .to_string()
               .replace(
-                &format!("{custom_protocol_scheme}://{}.", custom_protocol.0),
+                &format!("{scheme}://{}.", custom_protocol.0),
                 &format!("{}://", custom_protocol.0),
               )
               .parse()
