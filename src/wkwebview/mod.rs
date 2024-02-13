@@ -18,7 +18,6 @@ use cocoa::{
   foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use url::Url;
 
 use std::{
   borrow::Cow,
@@ -869,15 +868,7 @@ r#"Object.defineProperty(window, 'ipc', {
 
       // Navigation
       if let Some(url) = attributes.url {
-        if url.cannot_be_a_base() {
-          let s = url.as_str();
-          if let Some(pos) = s.find(',') {
-            let (_, path) = s.split_at(pos + 1);
-            w.navigate_to_string(path);
-          }
-        } else {
-          w.navigate_to_url(url.as_str(), attributes.headers);
-        }
+        w.navigate_to_url(url.as_str(), attributes.headers);
       } else if let Some(html) = attributes.html {
         w.navigate_to_string(&html);
       }
@@ -936,8 +927,8 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub fn url(&self) -> Url {
-    Url::parse(&url_from_webview(self.webview)).unwrap()
+  pub fn url(&self) -> String {
+    url_from_webview(self.webview)
   }
 
   pub fn eval(&self, js: &str, callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {

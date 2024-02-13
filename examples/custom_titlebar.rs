@@ -259,7 +259,7 @@ fn main() -> wry::Result<()> {
 
   let mut webview = Some(
     builder
-      .with_html(HTML)?
+      .with_html(HTML)
       .with_ipc_handler(handler)
       .with_accept_first_mouse(true)
       .build()?,

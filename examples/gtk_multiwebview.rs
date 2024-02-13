@@ -60,7 +60,7 @@ fn main() -> wry::Result<()> {
       width: size.width / 2,
       height: size.height / 2,
     })
-    .with_url("https://tauri.app")?
+    .with_url("https://tauri.app")
     .build()?;
   let webview2 = create_webview_builder()
     .with_bounds(Rect {
@@ -69,7 +69,7 @@ fn main() -> wry::Result<()> {
       width: size.width / 2,
       height: size.height / 2,
     })
-    .with_url("https://github.com/tauri-apps/wry")?
+    .with_url("https://github.com/tauri-apps/wry")
     .build()?;
   let webview3 = create_webview_builder()
     .with_bounds(Rect {
@@ -78,7 +78,7 @@ fn main() -> wry::Result<()> {
       width: size.width / 2,
       height: size.height / 2,
     })
-    .with_url("https://twitter.com/TauriApps")?
+    .with_url("https://twitter.com/TauriApps")
     .build()?;
   let webview4 = create_webview_builder()
     .with_bounds(Rect {
@@ -87,7 +87,7 @@ fn main() -> wry::Result<()> {
       width: size.width / 2,
       height: size.height / 2,
     })
-    .with_url("https://google.com")?
+    .with_url("https://google.com")
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

@@ -118,7 +118,6 @@ fn create_new_window(
         <input oninput="window.ipc.postMessage(`change-title:${this.value}`)" />
     "#,
     )
-    .unwrap()
     .with_ipc_handler(handler)
     .build()
     .unwrap();

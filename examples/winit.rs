@@ -42,7 +42,7 @@ fn main() -> wry::Result<()> {
 
   #[allow(unused_mut)]
   let mut builder = WebViewBuilder::new(&window);
-  let _webview = builder.with_url("https://tauri.app")?.build()?;
+  let _webview = builder.with_url("https://tauri.app").build()?;
 
   event_loop
     .run(move |event, evl| {

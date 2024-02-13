@@ -254,7 +254,6 @@ use http::{Request, Response};
 pub use error::*;
 pub use http;
 pub use proxy::{ProxyConfig, ProxyEndpoint};
-pub use url::Url;
 pub use web_context::WebContext;
 
 /// A rectangular region.
@@ -317,9 +316,13 @@ pub struct WebViewAttributes {
   pub background_color: Option<RGBA>,
 
   /// Whether load the provided URL to [`WebView`].
-  pub url: Option<Url>,
+  ///
+  /// ## Note
+  ///
+  /// Data URLs are not supported, use [`html`](Self::html) option instead.
+  pub url: Option<String>,
 
-  /// Headers used when loading the requested `url`.
+  /// Headers used when loading the requested [`url`](Self::url).
   pub headers: Option<http::HeaderMap>,
 
   /// Whether page zooming by hotkeys is enabled
@@ -783,18 +786,32 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Load the provided URL with given headers when the builder calling [`WebViewBuilder::build`] to create the [`WebView`].
   /// The provided URL must be valid.
-  pub fn with_url_and_headers(mut self, url: &str, headers: http::HeaderMap) -> Result<Self> {
-    self.attrs.url = Some(url.parse()?);
+  ///
+  /// ## Note
+  ///
+  /// Data URLs are not supported, use [`html`](Self::html) option instead.
+  pub fn with_url_and_headers(mut self, url: impl Into<String>, headers: http::HeaderMap) -> Self {
+    self.attrs.url = Some(url.into());
     self.attrs.headers = Some(headers);
-    Ok(self)
+    self
   }
 
   /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the [`WebView`].
   /// The provided URL must be valid.
-  pub fn with_url(mut self, url: &str) -> Result<Self> {
-    self.attrs.url = Some(Url::parse(url)?);
+  ///
+  /// ## Note
+  ///
+  /// Data URLs are not supported, use [`html`](Self::html) option instead.
+  pub fn with_url(mut self, url: impl Into<String>) -> Self {
+    self.attrs.url = Some(url.into());
     self.attrs.headers = None;
-    Ok(self)
+    self
+  }
+
+  /// Set headers used when loading the requested [`url`](Self::with_url).
+  pub fn with_headers(mut self, headers: http::HeaderMap) -> Self {
+    self.attrs.headers = Some(headers);
+    self
   }
 
   /// Load the provided HTML string when the builder calling [`WebViewBuilder::build`] to create the [`WebView`].
@@ -807,9 +824,9 @@ impl<'a> WebViewBuilder<'a> {
   /// ## PLatform-specific:
   ///
   /// - **Windows:** the string can not be larger than 2 MB (2 * 1024 * 1024 bytes) in total size
-  pub fn with_html(mut self, html: impl Into<String>) -> Result<Self> {
+  pub fn with_html(mut self, html: impl Into<String>) -> Self {
     self.attrs.html = Some(html.into());
-    Ok(self)
+    self
   }
 
   /// Set the web context that can be shared with multiple [`WebView`]s.
@@ -1270,7 +1287,7 @@ impl WebView {
   }
 
   /// Get the current url of the webview
-  pub fn url(&self) -> Url {
+  pub fn url(&self) -> String {
     self.webview.url()
   }
 

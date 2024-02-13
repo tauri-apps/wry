@@ -26,7 +26,6 @@ use std::{
   collections::HashMap,
   sync::{atomic::AtomicI32, mpsc::channel, Mutex},
 };
-use url::Url;
 
 pub(crate) mod binding;
 mod main_pipe;
@@ -303,11 +302,10 @@ impl InnerWebView {
 
   pub fn print(&self) {}
 
-  pub fn url(&self) -> Url {
+  pub fn url(&self) -> String {
     let (tx, rx) = bounded(1);
     MainPipe::send(WebViewMessage::GetUrl(tx));
-    let uri = rx.recv().unwrap();
-    Url::parse(uri.as_str()).unwrap()
+    rx.recv().unwrap()
   }
 
   pub fn eval(&self, js: &str, callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {
