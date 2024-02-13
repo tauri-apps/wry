@@ -21,7 +21,6 @@
 //!
 //! let webview = WebViewBuilder::new(&window)
 //!   .with_url("https://tauri.app")
-//!   .unwrap()
 //!   .build()
 //!   .unwrap();
 //! ```
@@ -46,7 +45,6 @@
 //!
 //! let webview = builder
 //!   .with_url("https://tauri.app")
-//!   .unwrap()
 //!   .build()
 //!   .unwrap();
 //! ```
@@ -64,7 +62,6 @@
 //!
 //! let webview = WebViewBuilder::new_as_child(&window)
 //!   .with_url("https://tauri.app")
-//!   .unwrap()
 //!   .with_bounds(Rect {
 //!     x: 100,
 //!     y: 100,
@@ -105,7 +102,6 @@
 //!
 //! let webview = builder
 //!   .with_url("https://tauri.app")
-//!   .unwrap()
 //!   .with_bounds(Rect {
 //!     x: 100,
 //!     y: 100,
