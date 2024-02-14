@@ -65,7 +65,7 @@ fn main() -> wry::Result<()> {
             };
           </script>
         </html>"#,
-    )?
+    )
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

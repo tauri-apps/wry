@@ -49,7 +49,7 @@ fn main() -> wry::Result<()> {
       width: size.width / 2,
       height: size.height / 2,
     })
-    .with_url("https://tauri.app")?
+    .with_url("https://tauri.app")
     .build()?;
   let webview2 = WebViewBuilder::new_as_child(&window)
     .with_bounds(Rect {
@@ -58,7 +58,7 @@ fn main() -> wry::Result<()> {
       width: size.width / 2,
       height: size.height / 2,
     })
-    .with_url("https://github.com/tauri-apps/wry")?
+    .with_url("https://github.com/tauri-apps/wry")
     .build()?;
   let webview3 = WebViewBuilder::new_as_child(&window)
     .with_bounds(Rect {
@@ -67,7 +67,7 @@ fn main() -> wry::Result<()> {
       width: size.width / 2,
       height: size.height / 2,
     })
-    .with_url("https://twitter.com/TauriApps")?
+    .with_url("https://twitter.com/TauriApps")
     .build()?;
   let webview4 = WebViewBuilder::new_as_child(&window)
     .with_bounds(Rect {
@@ -76,7 +76,7 @@ fn main() -> wry::Result<()> {
       width: size.width / 2,
       height: size.height / 2,
     })
-    .with_url("https://google.com")?
+    .with_url("https://google.com")
     .build()?;
 
   event_loop

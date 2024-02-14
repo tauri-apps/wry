@@ -56,7 +56,7 @@ fn main() -> wry::Result<()> {
     WebViewBuilder::new_gtk(vbox)
   };
 
-  let webview = builder.with_url("https://tauri.app")?.build()?;
+  let webview = builder.with_url("https://tauri.app").build()?;
 
   let mut webview_container = window.id();
 

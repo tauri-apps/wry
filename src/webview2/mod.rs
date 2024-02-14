@@ -12,7 +12,6 @@ use std::{
 use http::{Request, Response as HttpResponse, StatusCode};
 use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use url::Url;
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 use windows::{
   core::{s, ComInterface, PCWSTR, PWSTR},
@@ -93,7 +92,7 @@ impl InnerWebView {
     web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let parent = match parent.window_handle()?.as_raw() {
-      RawWindowHandle::Win32(parent) => parent.hwnd.get() as _,
+      RawWindowHandle::Win32(parent) => HWND(parent.hwnd.get() as _),
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 
@@ -116,7 +115,7 @@ impl InnerWebView {
       cbWndExtra: 0,
       hInstance: unsafe { HINSTANCE(GetModuleHandleW(PCWSTR::null()).unwrap_or_default().0) },
       hIcon: HICON::default(),
-      hCursor: HCURSOR::default(), // must be null in order for cursor state to work properly
+      hCursor: HCURSOR::default(),
       hbrBackground: HBRUSH::default(),
       lpszMenuName: PCWSTR::null(),
       lpszClassName: PCWSTR::from_raw(class_name.as_ptr()),
@@ -146,23 +145,14 @@ impl InnerWebView {
           .bounds
           .map(|a| a.height as i32)
           .unwrap_or(CW_USEDEFAULT),
-        HWND(parent),
+        parent,
         HMENU::default(),
         GetModuleHandleW(PCWSTR::null()).unwrap_or_default(),
         None,
       )
     };
 
-    Self::new_as_child_hwnd(child, attributes, pl_attrs, web_context)
-  }
-
-  fn new_as_child_hwnd(
-    hwnd: HWND,
-    attributes: WebViewAttributes,
-    pl_attrs: super::PlatformSpecificWebViewAttributes,
-    web_context: Option<&mut WebContext>,
-  ) -> Result<Self> {
-    Self::new_hwnd(hwnd, attributes, pl_attrs, web_context).map(|mut w| {
+    Self::new_hwnd(child, attributes, pl_attrs, web_context).map(|mut w| {
       w.is_child = true;
       w
     })
@@ -804,36 +794,23 @@ impl InnerWebView {
     }
 
     // Navigation
-    if let Some(url) = attributes.url {
-      if url.cannot_be_a_base() {
-        let s = url.as_str();
-        if let Some(pos) = s.find(',') {
-          let (_, path) = s.split_at(pos + 1);
-          unsafe {
-            webview
-              .NavigateToString(PCWSTR::from_raw(encode_wide(path).as_ptr()))
-              .map_err(webview2_com::Error::WindowsError)?;
-          }
-        }
-      } else {
-        let mut url_string = String::from(url.as_str());
-        let name = url.scheme();
+    if let Some(mut url) = attributes.url {
+      if let Some(pos) = url.find("://") {
+        let name = &url[..pos];
         if custom_protocol_names.contains(name) {
           // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
           // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-          url_string = url
-            .as_str()
-            .replace(&format!("{}://", name), &format!("{scheme}://{name}."))
+          url = url.replace(&format!("{name}://"), &format!("{scheme}://{name}."))
         }
+      }
 
-        if let Some(headers) = attributes.headers {
-          load_url_with_headers(&webview, env, &url_string, headers);
-        } else {
-          unsafe {
-            webview
-              .Navigate(PCWSTR::from_raw(encode_wide(url_string).as_ptr()))
-              .map_err(webview2_com::Error::WindowsError)?;
-          }
+      if let Some(headers) = attributes.headers {
+        load_url_with_headers(&webview, env, &url, headers);
+      } else {
+        unsafe {
+          webview
+            .Navigate(PCWSTR::from_raw(encode_wide(url).as_ptr()))
+            .map_err(webview2_com::Error::WindowsError)?;
         }
       }
     } else if let Some(html) = attributes.html {
@@ -958,8 +935,8 @@ impl InnerWebView {
     );
   }
 
-  pub fn url(&self) -> Url {
-    Url::parse(&url_from_webview(&self.webview)).unwrap()
+  pub fn url(&self) -> String {
+    url_from_webview(&self.webview)
   }
 
   pub fn eval(

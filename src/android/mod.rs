@@ -26,7 +26,6 @@ use std::{
   collections::HashMap,
   sync::{atomic::AtomicI32, mpsc::channel, Mutex},
 };
-use url::Url;
 
 pub(crate) mod binding;
 mod main_pipe;
@@ -162,19 +161,18 @@ impl InnerWebView {
       https_scheme,
     } = pl_attrs;
 
-    let custom_protocol_scheme = if https_scheme { "https" } else { "http" };
+    let scheme = if https_scheme { "https" } else { "http" };
 
-    let url = if let Some(u) = url {
-      let mut url_string = String::from(u.as_str());
-      let name = u.scheme();
-      let is_custom_protocol = custom_protocols.iter().any(|(n, _)| n == name);
-      if is_custom_protocol {
-        url_string = u.as_str().replace(
-          &format!("{name}://"),
-          &format!("{custom_protocol_scheme}://{name}."),
-        )
+    let url = if let Some(mut url) = url {
+      if let Some(pos) = url.find("://") {
+        let name = &url[..pos];
+        let is_custom_protocol = custom_protocols.iter().any(|(n, _)| n == name);
+        if is_custom_protocol {
+          url = url.replace(&format!("{name}://"), &format!("{scheme}://{name}."))
+        }
       }
-      Some(url_string)
+
+      Some(url)
     } else {
       None
     };
@@ -205,13 +203,13 @@ impl InnerWebView {
             request
               .uri()
               .to_string()
-              .starts_with(&format!("{custom_protocol_scheme}://{}.", name))
+              .starts_with(&format!("{scheme}://{}.", name))
           }) {
             *request.uri_mut() = request
               .uri()
               .to_string()
               .replace(
-                &format!("{custom_protocol_scheme}://{}.", custom_protocol.0),
+                &format!("{scheme}://{}.", custom_protocol.0),
                 &format!("{}://", custom_protocol.0),
               )
               .parse()
@@ -303,11 +301,10 @@ impl InnerWebView {
 
   pub fn print(&self) {}
 
-  pub fn url(&self) -> Url {
+  pub fn url(&self) -> String {
     let (tx, rx) = bounded(1);
     MainPipe::send(WebViewMessage::GetUrl(tx));
-    let uri = rx.recv().unwrap();
-    Url::parse(uri.as_str()).unwrap()
+    rx.recv().unwrap()
   }
 
   pub fn eval(&self, js: &str, callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {

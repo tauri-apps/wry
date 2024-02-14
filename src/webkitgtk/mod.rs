@@ -16,7 +16,6 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use url::Url;
 use webkit2gtk::{
   AutoplayPolicy, InputMethodContextExt, LoadEvent, NavigationPolicyDecision,
   NavigationPolicyDecisionExt, NetworkProxyMode, NetworkProxySettings, PolicyDecisionType,
@@ -492,10 +491,8 @@ impl InnerWebView {
     );
   }
 
-  pub fn url(&self) -> Url {
-    let uri = self.webview.uri().unwrap();
-
-    Url::parse(uri.as_str()).unwrap()
+  pub fn url(&self) -> String {
+    self.webview.uri().unwrap().to_string()
   }
 
   pub fn eval(

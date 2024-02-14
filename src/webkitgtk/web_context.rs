@@ -19,7 +19,6 @@ use std::{
     Mutex,
   },
 };
-use url::Url;
 use webkit2gtk::{
   ApplicationInfo, CookiePersistentStorage, LoadEvent, URIRequest, URIRequestExt,
   URISchemeResponseExt, UserContentManager, WebContext, WebView, WebViewExt,
@@ -133,7 +132,7 @@ pub trait WebContextExt {
   /// Add a [`WebView`] to the queue waiting to be opened.
   ///
   /// See the [`WebViewUriLoader`] for more information.
-  fn queue_load_uri(&self, webview: WebView, url: Url, headers: Option<http::HeaderMap>);
+  fn queue_load_uri(&self, webview: WebView, url: String, headers: Option<http::HeaderMap>);
 
   /// Flush all queued [`WebView`]s waiting to load a uri.
   ///
@@ -186,7 +185,7 @@ impl WebContextExt for super::WebContext {
     }
   }
 
-  fn queue_load_uri(&self, webview: WebView, url: Url, headers: Option<http::HeaderMap>) {
+  fn queue_load_uri(&self, webview: WebView, url: String, headers: Option<http::HeaderMap>) {
     self.os.webview_uri_loader.push(webview, url, headers)
   }
 
@@ -445,7 +444,7 @@ where
 #[derive(Debug, Default)]
 struct WebViewUriLoader {
   lock: AtomicBool,
-  queue: Mutex<VecDeque<(WebView, Url, Option<http::HeaderMap>)>>,
+  queue: Mutex<VecDeque<(WebView, String, Option<http::HeaderMap>)>>,
 }
 
 impl WebViewUriLoader {
@@ -460,13 +459,13 @@ impl WebViewUriLoader {
   }
 
   /// Add a [`WebView`] to the queue.
-  fn push(&self, webview: WebView, url: Url, headers: Option<http::HeaderMap>) {
+  fn push(&self, webview: WebView, url: String, headers: Option<http::HeaderMap>) {
     let mut queue = self.queue.lock().expect("poisoned load queue");
     queue.push_back((webview, url, headers))
   }
 
   /// Remove a [`WebView`] from the queue and return it.
-  fn pop(&self) -> Option<(WebView, Url, Option<http::HeaderMap>)> {
+  fn pop(&self) -> Option<(WebView, String, Option<http::HeaderMap>)> {
     let mut queue = self.queue.lock().expect("poisoned load queue");
     queue.pop_front()
   }
@@ -484,7 +483,7 @@ impl WebViewUriLoader {
         });
 
         if let Some(headers) = headers {
-          let req = URIRequest::builder().uri(url.as_str()).build();
+          let req = URIRequest::builder().uri(&url).build();
 
           if let Some(ref mut req_headers) = req.http_headers() {
             for (header, value) in headers.iter() {
@@ -497,7 +496,7 @@ impl WebViewUriLoader {
 
           webview.load_request(&req);
         } else {
-          webview.load_uri(url.as_str());
+          webview.load_uri(&url);
         }
       } else {
         self.unlock();

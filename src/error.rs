@@ -34,8 +34,6 @@ pub enum Error {
   MessageSender,
   #[error(transparent)]
   Json(#[from] serde_json::Error),
-  #[error(transparent)]
-  UrlError(#[from] url::ParseError),
   #[error("IO error: {0}")]
   Io(#[from] std::io::Error),
   #[cfg(target_os = "windows")]
