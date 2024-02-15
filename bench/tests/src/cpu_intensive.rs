@@ -51,7 +51,7 @@ fn main() -> wry::Result<()> {
         .body(data)
         .unwrap()
     })
-    .with_url("wrybench://localhost")?
+    .with_url("wrybench://localhost")
     .with_ipc_handler(handler)
     .build()?;
 
