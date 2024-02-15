@@ -15,18 +15,23 @@ pub(crate) fn connect_drag_event(webview: WebView, handler: Box<dyn Fn(FileDropE
   let listener_ref = listener.clone();
   webview.connect_drag_data_received(move |_, _, x, y, data, info, _| {
     if info == 2 {
-      let uris = data
-        .uris()
+      let uris = data.uris();
+      let paths = uris
         .iter()
         .map(|gstr| {
           let path = gstr.as_str();
-          PathBuf::from(path.to_string().strip_prefix("file://").unwrap_or(path))
+          let path = path.strip_prefix("file://").unwrap_or(path);
+          let path = percent_encoding::percent_decode(path.as_bytes())
+            .decode_utf8_lossy()
+            .to_string();
+          PathBuf::from(path)
         })
-        .collect::<Vec<PathBuf>>();
-      listener_ref.1.set(Some(uris.clone()));
+        .collect::<Vec<_>>();
+
+      listener_ref.1.set(Some(paths.clone()));
 
       listener_ref.0(FileDropEvent::Hovered {
-        paths: uris,
+        paths,
         position: (x, y),
       });
     } else {
@@ -36,10 +41,10 @@ pub(crate) fn connect_drag_event(webview: WebView, handler: Box<dyn Fn(FileDropE
 
   let listener_ref = listener.clone();
   webview.connect_drag_drop(move |_, _, x, y, _| {
-    let uris = listener_ref.1.take();
-    if let Some(uris) = uris {
+    let paths = listener_ref.1.take();
+    if let Some(paths) = paths {
       listener_ref.0(FileDropEvent::Dropped {
-        paths: uris,
+        paths,
         position: (x, y),
       })
     } else {
