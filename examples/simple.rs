@@ -34,11 +34,7 @@ fn main() -> wry::Result<()> {
     WebViewBuilder::new_gtk(vbox)
   };
 
-  let _webview = builder
-    .with_html(
-      r#"<html><body>special character incoming thai characters incoming สระ</body></html>"#,
-    )
-    .build()?;
+  let _webview = builder.with_url("http://tauri.app").build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
