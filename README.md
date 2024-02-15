@@ -41,7 +41,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
   let _webview = WebViewBuilder::new(&window)
-    .with_url("https://tauri.app")?
+    .with_url("https://tauri.app")
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {

@@ -35,7 +35,7 @@ fn main() -> wry::Result<()> {
     }
   };
   let _webview = WebViewBuilder::new(&window)
-    .with_url(url)?
+    .with_url(url)
     .with_ipc_handler(handler)
     .build()?;
 
