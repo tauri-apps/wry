@@ -100,25 +100,25 @@ fn main() -> wry::Result<()> {
           ..
         } => {
           let size = size.to_logical::<u32>(window.scale_factor());
-          webview.set_bounds(Rect {
+          let _ = webview.set_bounds(Rect {
             x: 0,
             y: 0,
             width: size.width / 2,
             height: size.height / 2,
           });
-          webview2.set_bounds(Rect {
+          let _ = webview2.set_bounds(Rect {
             x: (size.width / 2) as i32,
             y: 0,
             width: size.width / 2,
             height: size.height / 2,
           });
-          webview3.set_bounds(Rect {
+          let _ = webview3.set_bounds(Rect {
             x: 0,
             y: (size.height / 2) as i32,
             width: size.width / 2,
             height: size.height / 2,
           });
-          webview4.set_bounds(Rect {
+          let _ = webview4.set_bounds(Rect {
             x: (size.width / 2) as i32,
             y: (size.height / 2) as i32,
             width: size.width / 2,

@@ -99,7 +99,7 @@ fn main() -> wry::Result<()> {
         )))]
         webview.reparent(new_parent.default_vbox().unwrap());
         #[cfg(target_os = "windows")]
-        webview.reparent(new_parent.hwnd());
+        let _ = webview.reparent(new_parent.hwnd());
       }
       _ => {}
     }

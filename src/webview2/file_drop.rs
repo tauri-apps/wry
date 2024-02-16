@@ -44,10 +44,10 @@ impl FileDropController {
     let mut controller = FileDropController::default();
 
     let handler = Rc::new(handler);
-    let mut callback = |hwnd| controller.inject_in_hwnd(hwnd, handler.clone());
 
     // Enumerate child windows to find the WebView2 "window" and override!
     {
+      let mut callback = |hwnd| controller.inject_in_hwnd(hwnd, handler.clone());
       let mut trait_obj: &mut dyn FnMut(HWND) -> bool = &mut callback;
       let closure_pointer_pointer: *mut c_void = unsafe { std::mem::transmute(&mut trait_obj) };
       let lparam = LPARAM(closure_pointer_pointer as _);
