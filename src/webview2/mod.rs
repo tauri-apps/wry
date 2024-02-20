@@ -85,6 +85,7 @@ impl Drop for InnerWebView {
 }
 
 impl InnerWebView {
+  #[inline]
   pub fn new(
     window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
@@ -98,6 +99,7 @@ impl InnerWebView {
     Self::new_in_hwnd(window, attributes, pl_attrs, web_context, false)
   }
 
+  #[inline]
   pub fn new_as_child(
     parent: &impl HasWindowHandle,
     attributes: WebViewAttributes,
@@ -112,6 +114,7 @@ impl InnerWebView {
     Self::new_in_hwnd(parent, attributes, pl_attrs, web_context, true)
   }
 
+  #[inline]
   fn new_in_hwnd(
     parent: HWND,
     mut attributes: WebViewAttributes,
@@ -151,6 +154,7 @@ impl InnerWebView {
     })
   }
 
+  #[inline]
   fn create_container_hwnd(
     parent: HWND,
     attributes: &WebViewAttributes,
@@ -237,6 +241,7 @@ impl InnerWebView {
     ))
   }
 
+  #[inline]
   fn create_environment(
     web_context: &Option<&mut WebContext>,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
@@ -322,6 +327,7 @@ impl InnerWebView {
     rx.recv()?.map_err(Into::into)
   }
 
+  #[inline]
   fn create_controller(
     hwnd: HWND,
     env: &ICoreWebView2Environment,
@@ -349,6 +355,7 @@ impl InnerWebView {
     rx.recv()?.map_err(Into::into)
   }
 
+  #[inline]
   fn init_webview(
     parent: HWND,
     hwnd: HWND,
@@ -483,6 +490,7 @@ impl InnerWebView {
     Ok(webview)
   }
 
+  #[inline]
   unsafe fn set_webview_settings(
     webview: &ICoreWebView2,
     attributes: &WebViewAttributes,
@@ -514,6 +522,7 @@ impl InnerWebView {
     Ok(())
   }
 
+  #[inline]
   unsafe fn attach_handlers(
     hwnd: HWND,
     webview: &ICoreWebView2,
@@ -707,6 +716,7 @@ impl InnerWebView {
     Ok(())
   }
 
+  #[inline]
   unsafe fn attach_ipc_handler(
     webview: &ICoreWebView2,
     attributes: &mut WebViewAttributes,
@@ -744,6 +754,7 @@ impl InnerWebView {
     Ok(())
   }
 
+  #[inline]
   unsafe fn attach_custom_protocol_handler(
     webview: &ICoreWebView2,
     env: &ICoreWebView2Environment,
@@ -775,8 +786,8 @@ impl InnerWebView {
         let span = tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty)
           .entered();
 
+        // Request uri
         let webview_request = args.Request()?;
-        let mut request = Request::builder();
 
         // Request uri
         let uri = {
@@ -787,104 +798,56 @@ impl InnerWebView {
         #[cfg(feature = "tracing")]
         span.record("uri", &uri);
 
-        // Request method (GET, POST, PUT etc..)
-        let mut method = PWSTR::null();
-        webview_request.Method(&mut method)?;
-        let method = take_pwstr(method);
-        request = request.method(method.as_str());
-
-        // Get all headers from the request
-        let headers = webview_request.Headers()?.GetIterator()?;
-        let mut has_current = BOOL::default();
-        headers.HasCurrentHeader(&mut has_current)?;
-        while has_current.as_bool() {
-          let mut key = PWSTR::null();
-          let mut value = PWSTR::null();
-          headers.GetCurrentHeader(&mut key, &mut value)?;
-
-          let (key, value) = (take_pwstr(key), take_pwstr(value));
-          request = request.header(&key, &value);
-
-          headers.MoveNext(&mut has_current)?;
-        }
-
-        // Get the body if available
-        let mut body_sent = Vec::new();
-        if let Ok(content) = webview_request.Content() {
-          let mut buffer: [u8; 1024] = [0; 1024];
-          loop {
-            let mut cb_read = 0;
-            let content: IStream = content.cast()?;
-            content
-              .Read(
-                buffer.as_mut_ptr() as *mut _,
-                buffer.len() as u32,
-                Some(&mut cb_read),
-              )
-              .ok()?;
-
-            if cb_read == 0 {
-              break;
-            }
-
-            body_sent.extend_from_slice(&buffer[..(cb_read as usize)]);
-          }
-        }
-
-        if let Some((name, handler)) = custom_protocols
+        if let Some((custom_protocol, custom_protocol_handler)) = custom_protocols
           .iter()
-          .find(|(name, _)| uri.starts_with(&format!("{scheme}://{name}.")))
+          .find(|(protocol, _)| is_custom_protocol_uri(&uri, scheme, &protocol))
         {
-          // Undo the protocol workaround when giving path to resolver
-          let path = uri.replace(&format!("{scheme}://{}.", name), &format!("{}://", name));
-
-          let request = match request.uri(&path).body(body_sent) {
+          let request = match Self::perpare_request(scheme, custom_protocol, &webview_request, &uri)
+          {
             Ok(req) => req,
-            Err(_) => return Err(E_FAIL.into()),
+            Err(e) => {
+              let err_response = Self::prepare_web_request_err(&env, e)?;
+              args.SetResponse(&err_response)?;
+              return Ok(());
+            }
           };
 
           let env = env.clone();
           let deferral = args.GetDeferral();
 
-          let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
-            Box::new(move |sent_response| {
-              let handler = move || {
-                match Self::prepare_web_request_response(&env, &sent_response) {
-                  Ok(response) => {
-                    let _ = args.SetResponse(&response);
-                  }
-                  Err(_) => {
-                    let status = StatusCode::BAD_REQUEST;
-                    let status_code = status.as_u16();
-                    let status = encode_wide(status.canonical_reason().unwrap_or("Bad Request"));
-                    if let Ok(res) = env.CreateWebResourceResponse(
-                      None,
-                      status_code as i32,
-                      PCWSTR::from_raw(status.as_ptr()),
-                      PCWSTR::from_raw(encode_wide(String::new()).as_ptr()),
-                    ) {
-                      let _ = args.SetResponse(&res);
-                    }
+          let async_responder = Box::new(move |sent_response| {
+            let handler = move || {
+              match Self::prepare_web_request_response(&env, &sent_response) {
+                Ok(response) => {
+                  let _ = args.SetResponse(&response);
+                }
+                Err(e) => {
+                  if let Ok(err_response) = Self::prepare_web_request_err(&env, e) {
+                    let _ = args.SetResponse(&err_response);
                   }
                 }
-
-                if let Ok(deferral) = &deferral {
-                  let _ = deferral.Complete();
-                }
-              };
-
-              if std::thread::current().id() == main_thread_id {
-                handler();
-              } else {
-                Self::dispatch_handler(hwnd, handler);
               }
-            });
+
+              if let Ok(deferral) = &deferral {
+                let _ = deferral.Complete();
+              }
+            };
+
+            if std::thread::current().id() == main_thread_id {
+              handler();
+            } else {
+              Self::dispatch_handler(hwnd, handler);
+            }
+          });
 
           #[cfg(feature = "tracing")]
           let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
-          handler(request, RequestAsyncResponder { responder });
-
-          return Ok(());
+          custom_protocol_handler(
+            request,
+            RequestAsyncResponder {
+              responder: async_responder,
+            },
+          );
         }
 
         Ok(())
@@ -897,6 +860,71 @@ impl InnerWebView {
     Ok(())
   }
 
+  #[inline]
+  unsafe fn perpare_request(
+    scheme: &'static str,
+    custom_protocol: &str,
+    webview_request: &ICoreWebView2WebResourceRequest,
+    webview_request_uri: &str,
+  ) -> Result<http::Request<Vec<u8>>> {
+    let mut request = Request::builder();
+
+    // Request method (GET, POST, PUT etc..)
+    let mut method = PWSTR::null();
+    webview_request.Method(&mut method)?;
+    let method = take_pwstr(method);
+    request = request.method(method.as_str());
+
+    // Get all headers from the request
+    let headers = webview_request.Headers()?.GetIterator()?;
+    let mut has_current = BOOL::default();
+    headers.HasCurrentHeader(&mut has_current)?;
+    while has_current.as_bool() {
+      let mut key = PWSTR::null();
+      let mut value = PWSTR::null();
+      headers.GetCurrentHeader(&mut key, &mut value)?;
+
+      let (key, value) = (take_pwstr(key), take_pwstr(value));
+      request = request.header(&key, &value);
+
+      headers.MoveNext(&mut has_current)?;
+    }
+
+    // Get the body if available
+    let mut body_sent = Vec::new();
+    if let Ok(content) = webview_request.Content() {
+      let mut buffer: [u8; 1024] = [0; 1024];
+      loop {
+        let mut cb_read = 0;
+        let content: IStream = content.cast()?;
+        content
+          .Read(
+            buffer.as_mut_ptr() as *mut _,
+            buffer.len() as u32,
+            Some(&mut cb_read),
+          )
+          .ok()?;
+
+        if cb_read == 0 {
+          break;
+        }
+
+        body_sent.extend_from_slice(&buffer[..(cb_read as usize)]);
+      }
+    }
+
+    // Undo the protocol workaround when giving path to resolver
+    let path = webview_request_uri.replace(
+      &format!("{scheme}://{}.", custom_protocol),
+      &format!("{}://", custom_protocol),
+    );
+
+    let request = request.uri(&path).body(body_sent)?;
+
+    Ok(request)
+  }
+
+  #[inline]
   unsafe fn prepare_web_request_response(
     env: &ICoreWebView2Environment,
     sent_response: &HttpResponse<Cow<'static, [u8]>>,
@@ -929,6 +957,24 @@ impl InnerWebView {
     )
   }
 
+  #[inline]
+  unsafe fn prepare_web_request_err<T: ToString>(
+    env: &ICoreWebView2Environment,
+    err: T,
+  ) -> windows::core::Result<ICoreWebView2WebResourceResponse> {
+    let status = StatusCode::BAD_REQUEST;
+    let status_code = status.as_u16();
+    let status = encode_wide(status.canonical_reason().unwrap_or("Bad Request"));
+    let error = encode_wide(err.to_string());
+    env.CreateWebResourceResponse(
+      None,
+      status_code as i32,
+      PCWSTR::from_raw(status.as_ptr()),
+      PCWSTR::from_raw(error.as_ptr()),
+    )
+  }
+
+  #[inline]
   unsafe fn dispatch_handler<F>(hwnd: HWND, function: F)
   where
     F: FnMut() + 'static,
@@ -1032,6 +1078,7 @@ impl InnerWebView {
     DefSubclassProc(hwnd, msg, wparam, lparam)
   }
 
+  #[inline]
   unsafe fn attach_parent_subclass(parent: HWND, controller: &ICoreWebView2Controller) {
     SetWindowSubclass(
       parent,
@@ -1041,6 +1088,7 @@ impl InnerWebView {
     );
   }
 
+  #[inline]
   unsafe fn dettach_parent_subclass(parent: HWND) {
     SendMessageW(
       parent,
@@ -1055,6 +1103,7 @@ impl InnerWebView {
     );
   }
 
+  #[inline]
   fn add_script_to_execute_on_document_created(webview: &ICoreWebView2, js: String) -> Result<()> {
     let webview = webview.clone();
     AddScriptToExecuteOnDocumentCreatedCompletedHandler::wait_for_async_operation(
@@ -1070,6 +1119,7 @@ impl InnerWebView {
     .map_err(Into::into)
   }
 
+  #[inline]
   fn execute_script(
     webview: &ICoreWebView2,
     js: String,
@@ -1090,6 +1140,7 @@ impl InnerWebView {
     }
   }
 
+  #[inline]
   fn url_from_webview(webview: &ICoreWebView2) -> windows::core::Result<String> {
     let mut pwstr = PWSTR::null();
     unsafe { webview.Source(&mut pwstr)? };
@@ -1288,6 +1339,7 @@ impl InnerWebView {
   }
 }
 
+#[inline]
 fn load_url_with_headers(
   webview: &ICoreWebView2,
   env: &ICoreWebView2Environment,
@@ -1324,6 +1376,7 @@ fn load_url_with_headers(
   Ok(())
 }
 
+#[inline]
 unsafe fn set_background_color(
   controller: &ICoreWebView2Controller,
   background_color: RGBA,
@@ -1344,6 +1397,7 @@ unsafe fn set_background_color(
     .map_err(Into::into)
 }
 
+#[inline]
 unsafe fn set_theme(webview: &ICoreWebView2, theme: Theme) -> Result<()> {
   let webview = webview.cast::<ICoreWebView2_13>()?;
   let profile = webview.Profile()?;
@@ -1356,18 +1410,49 @@ unsafe fn set_theme(webview: &ICoreWebView2, theme: Theme) -> Result<()> {
     .map_err(Into::into)
 }
 
+#[inline]
+fn is_custom_protocol_uri(uri: &str, scheme: &'static str, protocol: &str) -> bool {
+  let uri_len = uri.len();
+  let scheme_len = scheme.len();
+  let protocol_len = protocol.len();
+
+  // starts with `http` or `https``
+  &uri[..scheme_len] == scheme
+  // followed by `://`
+  && &uri[scheme_len..scheme_len + 3] == "://"
+  // followed by custom protocol name
+  && scheme_len + 3 + protocol_len < uri_len && &uri[scheme_len + 3.. scheme_len + 3 + protocol_len] == protocol
+  // and a dot
+  && scheme_len + 3 + protocol_len < uri_len && uri.as_bytes()[scheme_len + 3 + protocol_len] == b'.'
+}
+
 pub fn platform_webview_version() -> Result<String> {
   let mut versioninfo = PWSTR::null();
   unsafe { GetAvailableCoreWebView2BrowserVersionString(PCWSTR::null(), &mut versioninfo) }?;
   Ok(take_pwstr(versioninfo))
 }
 
+#[inline]
 fn is_windows_7() -> bool {
   let v = windows_version::OsVersion::current();
   // windows 7 is 6.1
   v.major == 6 && v.minor == 1
 }
 
+#[inline]
 fn encode_wide(string: impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
   string.as_ref().encode_wide().chain(once(0)).collect()
+}
+
+#[cfg(test)]
+mod tests {
+  use super::is_custom_protocol_uri;
+
+  #[test]
+  fn checks_if_custom_protocol_uri() {
+    let scheme = "http";
+    let uri = "http://wry.localhost/path/to/page";
+    assert!(is_custom_protocol_uri(uri, scheme, "wry"));
+    assert!(!is_custom_protocol_uri(uri, scheme, "asset"));
+  }
 }

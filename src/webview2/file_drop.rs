@@ -40,6 +40,7 @@ pub(crate) struct FileDropController {
 }
 
 impl FileDropController {
+  #[inline]
   pub(crate) fn new(hwnd: HWND, handler: Box<dyn Fn(FileDropEvent) -> bool>) -> Self {
     let mut controller = FileDropController::default();
 
@@ -61,6 +62,7 @@ impl FileDropController {
     controller
   }
 
+  #[inline]
   fn inject_in_hwnd(&mut self, hwnd: HWND, handler: Rc<dyn Fn(FileDropEvent) -> bool>) -> bool {
     let file_drop_handler: IDropTarget = FileDropHandler::new(hwnd, handler).into();
     if unsafe { RevokeDragDrop(hwnd) } != Err(DRAGDROP_E_INVALIDHWND.into())
