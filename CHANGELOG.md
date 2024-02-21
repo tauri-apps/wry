@@ -1,5 +1,19 @@
 # Changelog
 
+## \[0.37.0]
+
+- [`8c86fba`](https://github.com/tauri-apps/wry/commit/8c86fbaf51cd970737cc070583318d4b532349d2) **Breaking change**: Removed `data:` url support, as its native support in Windows and macOS are buggy and unreliable, use `Webview::with_html` instead.
+- [`8c86fba`](https://github.com/tauri-apps/wry/commit/8c86fbaf51cd970737cc070583318d4b532349d2) On Linux, decode `FilDropEvent` paths before emitting them to make it consistent across all platforms.
+- [`8c86fba`](https://github.com/tauri-apps/wry/commit/8c86fbaf51cd970737cc070583318d4b532349d2) Added `WebViewExtMacOS::reparent`,`WebViewExtWindows::reparent` and `WebViewExtUnix::reparent`.
+- [`8c86fba`](https://github.com/tauri-apps/wry/commit/8c86fbaf51cd970737cc070583318d4b532349d2) Revert global keys shortcuts (wry#1156)
+- [`8c86fba`](https://github.com/tauri-apps/wry/commit/8c86fbaf51cd970737cc070583318d4b532349d2) **Breaking change**: Removed internal url parsing which had a few side-effects such as encoded url content, now it is up to the user to pass a valid URL as a string. This also came with a few breaking changes:
+
+  - Removed `Url` struct re-export
+  - Removed `Error::UrlError` variant.
+  - Changed `WebviewAttributes::url` field type to `String`.
+  - Changed `WebviewBuilder::with_url` and `WebviewBuilder::with_url_and_headers` return type to `WebviewBuilder` instead of `Result<WebviewBuilder>`.
+  - Changed `Webview::url` getter to return a `String` instead of `Url`.
+
 ## \[0.36.0]
 
 - [`8646120`](https://github.com/tauri-apps/wry/commit/8646120339b8ed983582caa9e668fc286dc59cb3)([#1159](https://github.com/tauri-apps/wry/pull/1159)) On android, fix `no non-static method ".evalScript(ILjava/lang/String;)"` when calling `Window::eval`.
