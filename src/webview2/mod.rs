@@ -554,7 +554,7 @@ impl InnerWebView {
       )?;
     }
 
-    // Page load events
+    // Page load handler
     if let Some(on_page_load_handler) = attributes.on_page_load_handler.take() {
       let on_page_load_handler = Rc::new(on_page_load_handler);
       let on_page_load_handler_ = on_page_load_handler.clone();
@@ -607,6 +607,7 @@ impl InnerWebView {
       )?;
     }
 
+    // New window handler
     if let Some(new_window_req_handler) = attributes.new_window_req_handler.take() {
       webview.add_NewWindowRequested(
         &NewWindowRequestedEventHandler::create(Box::new(move |_, args| {
@@ -629,6 +630,7 @@ impl InnerWebView {
       )?;
     }
 
+    // Download handler
     if attributes.download_started_handler.is_some()
       || attributes.download_completed_handler.is_some()
     {
