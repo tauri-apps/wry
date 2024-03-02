@@ -205,7 +205,7 @@ impl InnerWebView {
   {
     // default_context allows us to create a scoped context on-demand
     let mut default_context;
-    let mut web_context = if attributes.incognito {
+    let web_context = if attributes.incognito {
       default_context = WebContext::new_ephemeral();
       &mut default_context
     } else {
@@ -252,10 +252,10 @@ impl InnerWebView {
     Self::set_webview_settings(&webview, &attributes);
 
     // Webview handlers
-    Self::attach_handlers(&webview, &mut web_context, &mut attributes);
+    Self::attach_handlers(&webview, web_context, &mut attributes);
 
     // IPC handler
-    Self::attach_ipc_handler(&web_context, &mut attributes);
+    Self::attach_ipc_handler(web_context, &mut attributes);
 
     // File drop handler
     if let Some(file_drop_handler) = attributes.file_drop_handler.take() {
@@ -386,7 +386,7 @@ impl InnerWebView {
     attributes: &mut WebViewAttributes,
   ) {
     // Synthetic mouse events
-    synthetic_mouse_events::setup(&webview);
+    synthetic_mouse_events::setup(webview);
 
     // Document title changed handler
     if let Some(document_title_changed_handler) = attributes.document_title_changed_handler.take() {
@@ -694,9 +694,9 @@ impl InnerWebView {
     if let Some(x11_data) = &self.x11 {
       let window = &x11_data.gtk_window;
       window.move_(bounds.x, bounds.y);
-      window
-        .window()
-        .map(|w| w.resize(bounds.width as i32, bounds.height as i32));
+      if let Some(window) = window.window() {
+        window.resize(bounds.width as i32, bounds.height as i32);
+      }
       window.size_allocate(&gtk::Allocation::new(
         0,
         0,

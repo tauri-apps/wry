@@ -42,8 +42,7 @@ impl WebContextImpl {
     let mut context_builder = WebContext::builder();
     if let Some(data_directory) = data.data_directory() {
       let data_manager = WebsiteDataManager::builder()
-        .local_storage_directory(data_directory.join("localstorage").to_string_lossy())
-        .indexeddb_directory(
+        .base_data_directory(
           data_directory
             .join("databases")
             .join("indexeddb")
