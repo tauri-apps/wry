@@ -123,7 +123,7 @@ impl InnerWebView {
   }
 
   fn new_ns_view(
-    ns_viewx: id,
+    ns_view: id,
     attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
