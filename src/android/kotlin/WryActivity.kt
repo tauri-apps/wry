@@ -15,8 +15,11 @@ import androidx.appcompat.app.AppCompatActivity
 abstract class WryActivity : AppCompatActivity() {
     private lateinit var mWebView: RustWebView
 
+    open fun onWebViewCreate(webView: WebView) { }
+
     private fun setWebView(webView: RustWebView) {
         mWebView = webView
+        onWebViewCreate(webView)
     }
 
     val version: String
