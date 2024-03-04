@@ -973,6 +973,14 @@ impl InnerWebView {
     set_background_color(&self.controller, background_color).map_err(Into::into)
   }
 
+  pub fn load_html(&self, html: &str) {
+    let _ = unsafe {
+      self
+        .webview
+        .NavigateToString(PCWSTR::from_raw(encode_wide(html).as_ptr()))
+    };
+  }
+
   pub fn load_url(&self, url: &str) {
     let url = encode_wide(url);
     let _ = unsafe { self.webview.Navigate(PCWSTR::from_raw(url.as_ptr())) };

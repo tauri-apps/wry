@@ -1369,6 +1369,11 @@ impl WebView {
     self.webview.set_background_color(background_color)
   }
 
+  /// Load in the given HTML
+  pub fn load_html(&self, html: &str) {
+    self.webview.load_html(html);
+  }
+
   /// Navigate to the specified url
   pub fn load_url(&self, url: &str) {
     self.webview.load_url(url)

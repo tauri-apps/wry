@@ -994,6 +994,10 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
+  pub fn load_html(&self, html: &str) {
+    self.navigate_to_string(html);
+  }
+
   pub fn load_url(&self, url: &str) {
     self.navigate_to_url(url, None)
   }
