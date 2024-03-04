@@ -10,8 +10,10 @@ import android.webkit.*
 
 class Ipc {
     @JavascriptInterface
-    fun postMessage(message: String) {
-        this.ipc(message)
+    fun postMessage(message: String?) {
+        message?.let {m ->
+            this.ipc(m)
+        }
     }
 
     companion object {
