@@ -1153,17 +1153,21 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
-  pub fn set_visible(&self, visible: bool) {
+  pub fn set_visible(&self, visible: bool) -> Result<()> {
     unsafe {
       let () = msg_send![self.webview, setHidden: !visible];
     }
+
+    OK(())
   }
 
-  pub fn focus(&self) {
+  pub fn focus(&self) -> Result<()> {
     unsafe {
       let window: id = msg_send![self.webview, window];
       let _: () = msg_send![window, makeFirstResponder: self.webview];
     }
+
+    Ok(())
   }
 
   pub(crate) fn reparent(&self, window: id) -> crate::Result<()> {
@@ -1176,7 +1180,7 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 }
 
-pub fn url_from_webview(webview: id) -> String {
+pub fn url_from_webview(webview: id) -> Result<String> {
   let url_obj: *mut Object = unsafe { msg_send![webview, URL] };
   let absolute_url: *mut Object = unsafe { msg_send![url_obj, absoluteString] };
 
@@ -1189,7 +1193,9 @@ pub fn url_from_webview(webview: id) -> String {
   let len = unsafe { msg_send![absolute_url, lengthOfBytesUsingEncoding: 4] };
   let bytes = unsafe { std::slice::from_raw_parts(bytes, len) };
 
-  std::str::from_utf8(bytes).unwrap().into()
+  std::str::from_utf8(bytes)
+    .map(Into::into)
+    .map_err(Into::into)
 }
 
 pub fn platform_webview_version() -> Result<String> {

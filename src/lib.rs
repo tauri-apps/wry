@@ -1515,7 +1515,7 @@ pub trait WebViewExtUnix: Sized {
   fn webview(&self) -> webkit2gtk::WebView;
 
   /// Attaches this webview to the given Widget and removes it from the current one.
-  fn reparent<W>(&self, widget: &W)
+  fn reparent<W>(&self, widget: &W) -> Result<()>
   where
     W: gtk::prelude::IsA<gtk::Container>;
 }
@@ -1551,7 +1551,7 @@ pub trait WebViewExtMacOS {
   /// Returns NSWindow associated with the WKWebView webview
   fn ns_window(&self) -> cocoa::base::id;
   /// Attaches this webview to the given NSWindow and removes it from the current one.
-  fn reparent(&self, window: cocoa::base::id);
+  fn reparent(&self, window: cocoa::base::id) -> Result<()>;
 }
 
 #[cfg(target_os = "macos")]
