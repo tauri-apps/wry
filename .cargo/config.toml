@@ -2,3 +2,11 @@
 # target = "aarch64-linux-android"
 [target.x86_64-apple-darwin]
 rustflags = ["-C", "link-arg=-mmacosx-version-min=10.12"]
+
+[target.x86_64-pc-windows-msvc]
+linker = "lld"
+rustflags = [
+  "-Lnative=/Users/lucas/.xwin/crt/lib/x86_64",
+  "-Lnative=/Users/lucas/.xwin/sdk/lib/um/x86_64",
+  "-Lnative=/Users/lucas/.xwin/sdk/lib/ucrt/x86_64",
+]

@@ -16,7 +16,7 @@ fn main() -> wry::Result<()> {
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
   };
-  use wry::WebViewBuilder;
+  use wry::{IpcRequest, WebViewBuilder};
 
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
@@ -29,8 +29,8 @@ fn main() -> wry::Result<()> {
     </script>
   "#;
 
-  let handler = |req: String| {
-    if &req == "dom-loaded" {
+  let handler = |req: IpcRequest| {
+    if req.body() == "dom-loaded" {
       exit(0);
     }
   };

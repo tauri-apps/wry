@@ -8,7 +8,7 @@ use tao::{
   event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWindowTarget},
   window::{Window, WindowBuilder, WindowId},
 };
-use wry::{WebView, WebViewBuilder};
+use wry::{IpcRequest, WebView, WebViewBuilder};
 
 enum UserEvent {
   CloseWindow(WindowId),
@@ -75,18 +75,21 @@ fn create_new_window(
     .build(event_loop)
     .unwrap();
   let window_id = window.id();
-  let handler = move |req: String| match req.as_str() {
-    "new-window" => {
-      let _ = proxy.send_event(UserEvent::NewWindow);
+  let handler = move |req: IpcRequest| {
+    let body = req.body();
+    match body.as_str() {
+      "new-window" => {
+        let _ = proxy.send_event(UserEvent::NewWindow);
+      }
+      "close" => {
+        let _ = proxy.send_event(UserEvent::CloseWindow(window_id));
+      }
+      _ if body.starts_with("change-title") => {
+        let title = body.replace("change-title:", "");
+        let _ = proxy.send_event(UserEvent::NewTitle(window_id, title));
+      }
+      _ => {}
     }
-    "close" => {
-      let _ = proxy.send_event(UserEvent::CloseWindow(window_id));
-    }
-    _ if req.starts_with("change-title") => {
-      let title = req.replace("change-title:", "");
-      let _ = proxy.send_event(UserEvent::NewTitle(window_id, title));
-    }
-    _ => {}
   };
 
   #[cfg(any(

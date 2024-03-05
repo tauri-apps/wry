@@ -20,7 +20,7 @@ use super::{
   URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
 };
 
-use crate::PageLoadEvent;
+use crate::{IpcRequest, PageLoadEvent};
 
 #[macro_export]
 macro_rules! android_binding {
@@ -308,7 +308,7 @@ pub unsafe fn ipc(mut env: JNIEnv, _: JClass, arg: JString) {
 
       let arg = arg.to_string_lossy().to_string();
       if let Some(ipc) = IPC.get() {
-        (ipc.handler)(arg)
+        (ipc.handler)(IpcRequest { body: arg })
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),

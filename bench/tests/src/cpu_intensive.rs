@@ -12,14 +12,14 @@ fn main() -> wry::Result<()> {
   };
   use wry::{
     http::{header::CONTENT_TYPE, Response},
-    WebViewBuilder,
+    IpcRequest, WebViewBuilder,
   };
 
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-  let handler = |req: String| {
-    if &req == "process-complete" {
+  let handler = |req: IpcRequest| {
+    if req.body() == "process-complete" {
       exit(0);
     }
   };

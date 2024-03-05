@@ -8,7 +8,7 @@ use tao::{
   event_loop::{ControlFlow, EventLoopBuilder},
   window::{CursorIcon, ResizeDirection, Window, WindowBuilder},
 };
-use wry::WebViewBuilder;
+use wry::{IpcRequest, WebViewBuilder};
 
 #[derive(Debug)]
 enum HitTestResult {
@@ -207,8 +207,9 @@ fn main() -> wry::Result<()> {
 "#;
 
   let proxy = event_loop.create_proxy();
-  let handler = move |req: String| {
-    let mut req = req.split([':', ',']);
+  let handler = move |req: IpcRequest| {
+    let body = req.body();
+    let mut req = body.split([':', ',']);
     match req.next().unwrap() {
       "minimize" => {
         let _ = proxy.send_event(UserEvent::Minimize);
