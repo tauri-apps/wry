@@ -868,7 +868,7 @@ r#"Object.defineProperty(window, 'ipc', {
 
       // Navigation
       if let Some(url) = attributes.url {
-        w.navigate_to_url(url.as_str(), attributes.headers);
+        w.navigate_to_url(url.as_str(), attributes.headers)?;
       } else if let Some(html) = attributes.html {
         w.navigate_to_string(&html);
       }
@@ -927,7 +927,7 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub fn url(&self) -> String {
+  pub fn url(&self) -> crate::Result<String> {
     url_from_webview(self.webview)
   }
 
@@ -994,11 +994,11 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub fn load_url(&self, url: &str) {
+  pub fn load_url(&self, url: &str) -> crate::Result<()> {
     self.navigate_to_url(url, None)
   }
 
-  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
+  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) -> crate::Result<()> {
     self.navigate_to_url(url, Some(headers))
   }
 
@@ -1014,7 +1014,7 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
-  fn navigate_to_url(&self, url: &str, headers: Option<http::HeaderMap>) {
+  fn navigate_to_url(&self, url: &str, headers: Option<http::HeaderMap>) -> crate::Result<()> {
     // Safety: objc runtime calls are unsafe
     unsafe {
       let url: id = msg_send![class!(NSURL), URLWithString: NSString::new(url)];
@@ -1028,6 +1028,8 @@ r#"Object.defineProperty(window, 'ipc', {
       }
       let () = msg_send![self.webview, loadRequest: request];
     }
+
+    Ok(())
   }
 
   fn navigate_to_string(&self, html: &str) {
@@ -1043,7 +1045,7 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub fn print(&self) {
+  pub fn print(&self) -> crate::Result<()> {
     // Safety: objc runtime calls are unsafe
     #[cfg(target_os = "macos")]
     unsafe {
@@ -1064,26 +1066,32 @@ r#"Object.defineProperty(window, 'ipc', {
         let () = msg_send![print_operation, runOperationModalForWindow: window delegate: null::<*const c_void>() didRunSelector: null::<*const c_void>() contextInfo: null::<*const c_void>()];
       }
     }
+
+    Ok(())
   }
 
   #[cfg(any(debug_assertions, feature = "devtools"))]
-  pub fn open_devtools(&self) {
+  pub fn open_devtools(&self) -> crate::Result<()> {
     #[cfg(target_os = "macos")]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
       let tool: id = msg_send![self.webview, _inspector];
       let _: id = msg_send![tool, show];
     }
+
+    Ok(())
   }
 
   #[cfg(any(debug_assertions, feature = "devtools"))]
-  pub fn close_devtools(&self) {
+  pub fn close_devtools(&self) -> crate::Result<()> {
     #[cfg(target_os = "macos")]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
       let tool: id = msg_send![self.webview, _inspector];
       let _: id = msg_send![tool, close];
     }
+
+    Ok(())
   }
 
   #[cfg(any(debug_assertions, feature = "devtools"))]
@@ -1099,32 +1107,34 @@ r#"Object.defineProperty(window, 'ipc', {
     false
   }
 
-  pub fn zoom(&self, scale_factor: f64) {
+  pub fn zoom(&self, scale_factor: f64) -> crate::Result<()> {
     unsafe {
       let _: () = msg_send![self.webview, setPageZoom: scale_factor];
     }
+
+    Ok(())
   }
 
   pub fn set_background_color(&self, _background_color: RGBA) -> Result<()> {
     Ok(())
   }
 
-  pub fn bounds(&self) -> Rect {
+  pub fn bounds(&self) -> crate::Result<Rect> {
     unsafe {
       let parent: id = msg_send![self.webview, superview];
       let parent_frame: CGRect = msg_send![parent, frame];
       let webview_frame: CGRect = msg_send![self.webview, frame];
 
-      Rect {
+      Ok(Rect {
         x: webview_frame.origin.x as i32,
         y: (parent_frame.size.height - webview_frame.origin.y - webview_frame.size.height) as i32,
         width: webview_frame.size.width as u32,
         height: webview_frame.size.height as u32,
-      }
+      })
     }
   }
 
-  pub fn set_bounds(&self, bounds: Rect) {
+  pub fn set_bounds(&self, bounds: Rect) -> crate::Result<()> {
     if self.is_child {
       unsafe {
         let frame = CGRect {
@@ -1139,6 +1149,8 @@ r#"Object.defineProperty(window, 'ipc', {
         let () = msg_send![self.webview, setFrame: frame];
       }
     }
+
+    Ok(())
   }
 
   pub fn set_visible(&self, visible: bool) {
@@ -1154,11 +1166,13 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub(crate) fn reparent_to(&self, window: id) {
+  pub(crate) fn reparent(&self, window: id) -> crate::Result<()> {
     unsafe {
       let content_view: id = msg_send![window, contentView];
       let _: () = msg_send![content_view, addSubview: self.webview];
     }
+
+    Ok(())
   }
 }
 

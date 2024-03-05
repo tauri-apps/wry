@@ -1533,7 +1533,7 @@ impl WebViewExtUnix for WebView {
     self.webview.webview.clone()
   }
 
-  fn reparent<W>(&self, widget: &W)
+  fn reparent<W>(&self, widget: &W) -> Result<()>
   where
     W: gtk::prelude::IsA<gtk::Container>,
   {
@@ -1571,8 +1571,8 @@ impl WebViewExtMacOS for WebView {
     }
   }
 
-  fn reparent(&self, window: cocoa::base::id) {
-    self.webview.reparent_to(window)
+  fn reparent(&self, window: cocoa::base::id) -> Result<()> {
+    self.webview.reparent(window)
   }
 }
 

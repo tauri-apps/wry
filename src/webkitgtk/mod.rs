@@ -760,7 +760,7 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn reparent<W>(&self, container: &W)
+  pub fn reparent<W>(&self, container: &W) -> Result<()>
   where
     W: gtk::prelude::IsA<gtk::Container>,
   {
@@ -786,6 +786,8 @@ impl InnerWebView {
         container.add(&self.webview);
       }
     }
+
+    Ok(())
   }
 }
 
