@@ -586,14 +586,12 @@ impl InnerWebView {
   }
 
   #[cfg(any(debug_assertions, feature = "devtools"))]
-  pub fn open_devtools(&self) -> Result<()> {
+  pub fn open_devtools(&self) {
     if let Some(inspector) = self.webview.inspector() {
       inspector.show();
       // `bring-to-front` is not received in this case
       self.is_inspector_open.store(true, Ordering::Relaxed);
     }
-
-    Ok(())
   }
 
   #[cfg(any(debug_assertions, feature = "devtools"))]

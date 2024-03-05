@@ -1319,7 +1319,7 @@ impl WebView {
   ///
   /// - **Android / iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtools"))]
-  pub fn open_devtools(&self) -> Result<()> {
+  pub fn open_devtools(&self) {
     self.webview.open_devtools()
   }
 
@@ -1330,7 +1330,7 @@ impl WebView {
   /// - **Windows / Android / iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn close_devtools(&self) {
-    self.webview.close_devtools();
+    self.webview.close_devtools()
   }
 
   /// Gets the devtool window's current visibility state.

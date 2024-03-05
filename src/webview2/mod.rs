@@ -1326,8 +1326,8 @@ impl InnerWebView {
   }
 
   #[cfg(any(debug_assertions, feature = "devtools"))]
-  pub fn open_devtools(&self) -> Result<()> {
-    unsafe { self.webview.OpenDevToolsWindow().map_err(Into::into) }
+  pub fn open_devtools(&self) {
+    let _ = unsafe { self.webview.OpenDevToolsWindow() };
   }
 
   #[cfg(any(debug_assertions, feature = "devtools"))]
