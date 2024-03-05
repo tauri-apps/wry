@@ -1081,15 +1081,13 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   #[cfg(any(debug_assertions, feature = "devtools"))]
-  pub fn close_devtools(&self) -> crate::Result<()> {
+  pub fn close_devtools(&self) {
     #[cfg(target_os = "macos")]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
       let tool: id = msg_send![self.webview, _inspector];
       let _: id = msg_send![tool, close];
     }
-
-    Ok(())
   }
 
   #[cfg(any(debug_assertions, feature = "devtools"))]
@@ -1156,7 +1154,7 @@ r#"Object.defineProperty(window, 'ipc', {
       let () = msg_send![self.webview, setHidden: !visible];
     }
 
-    OK(())
+    Ok(())
   }
 
   pub fn focus(&self) -> Result<()> {
