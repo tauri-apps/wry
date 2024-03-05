@@ -33,7 +33,7 @@ use web_context::WebContextExt;
 pub use web_context::WebContextImpl;
 
 use crate::{
-  proxy::ProxyConfig, web_context::WebContext, Error, PageLoadEvent, Rect, Result,
+  proxy::ProxyConfig, web_context::WebContext, Error, IpcRequest, PageLoadEvent, Rect, Result,
   WebViewAttributes, RGBA,
 };
 
@@ -244,7 +244,9 @@ impl InnerWebView {
 
       if let Some(js) = msg.js_value() {
         if let Some(ipc_handler) = &ipc_handler {
-          ipc_handler(js.to_string());
+          ipc_handler(IpcRequest {
+            body: js.to_string(),
+          });
         }
       }
     });
