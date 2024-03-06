@@ -736,6 +736,12 @@ impl InnerWebView {
           return Ok(());
         };
 
+        let url = {
+          let mut url = PWSTR::null();
+          args.Source(&mut url)?;
+          take_pwstr(url)
+        };
+
         let js = {
           let mut js = PWSTR::null();
           args.TryGetWebMessageAsString(&mut js)?;
@@ -744,7 +750,7 @@ impl InnerWebView {
 
         #[cfg(feature = "tracing")]
         let _span = tracing::info_span!("wry::ipc::handle").entered();
-        ipc_handler(js);
+        ipc_handler(Request::builder().uri(url).body(js).unwrap());
 
         Ok(())
       })),

@@ -11,6 +11,7 @@ import androidx.webkit.WebViewAssetLoader
 
 class RustWebViewClient(context: Context): WebViewClient() {
     private val interceptedState = mutableMapOf<String, Boolean>()
+    var currentUrl: String = "about:blank"
 
     private val assetLoader = WebViewAssetLoader.Builder()
         .setDomain(assetLoaderDomain())
@@ -48,6 +49,7 @@ class RustWebViewClient(context: Context): WebViewClient() {
     }
 
     override fun onPageFinished(view: WebView, url: String) {
+        currentUrl = url
         return onPageLoaded(url)
     }
 

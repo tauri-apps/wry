@@ -56,7 +56,7 @@ macro_rules! define_static_handlers {
 }
 
 define_static_handlers! {
-  IPC =  UnsafeIpc { handler: Box<dyn Fn(String)> };
+  IPC =  UnsafeIpc { handler: Box<dyn Fn(Request<String>)> };
   REQUEST_HANDLER = UnsafeRequestHandler { handler:  Box<dyn Fn(Request<Vec<u8>>, bool) -> Option<HttpResponse<Cow<'static, [u8]>>>> };
   TITLE_CHANGE_HANDLER = UnsafeTitleHandler { handler: Box<dyn Fn(String)> };
   URL_LOADING_OVERRIDE = UnsafeUrlLoadingOverride { handler: Box<dyn Fn(String) -> bool> };

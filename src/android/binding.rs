@@ -87,7 +87,7 @@ macro_rules! android_binding {
       onPageLoaded,
       [JString]
     );
-    android_fn!($domain, $package, Ipc, ipc, [JString]);
+    android_fn!($domain, $package, Ipc, ipc, [JString, JString]);
     android_fn!(
       $domain,
       $package,
@@ -300,18 +300,19 @@ pub unsafe fn onEval(mut env: JNIEnv, _: JClass, id: jint, result: JString) {
   }
 }
 
-pub unsafe fn ipc(mut env: JNIEnv, _: JClass, arg: JString) {
-  match env.get_string(&arg) {
-    Ok(arg) => {
+pub unsafe fn ipc(mut env: JNIEnv, _: JClass, url: JString, body: JString) {
+  match (env.get_string(&url), env.get_string(&body)) {
+    (Ok(url), Ok(body)) => {
       #[cfg(feature = "tracing")]
       let _span = tracing::info_span!("wry::ipc::handle").entered();
 
-      let arg = arg.to_string_lossy().to_string();
+      let url = url.to_string_lossy().to_string();
+      let body = body.to_string_lossy().to_string();
       if let Some(ipc) = IPC.get() {
-        (ipc.handler)(arg)
+        (ipc.handler)(Request::builder().uri(url).body(body).unwrap())
       }
     }
-    Err(e) => log::warn!("Failed to parse JString: {}", e),
+    (Err(e), _) | (_, Err(e)) => log::warn!("Failed to parse JString: {}", e),
   }
 }
 

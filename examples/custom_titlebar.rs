@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use http::Request;
 use tao::{
   dpi::PhysicalSize,
   event::{Event, StartCause, WindowEvent},
@@ -207,8 +208,9 @@ fn main() -> wry::Result<()> {
 "#;
 
   let proxy = event_loop.create_proxy();
-  let handler = move |req: String| {
-    let mut req = req.split([':', ',']);
+  let handler = move |req: Request<String>| {
+    let body = req.body();
+    let mut req = body.split([':', ',']);
     match req.next().unwrap() {
       "minimize" => {
         let _ = proxy.send_event(UserEvent::Minimize);

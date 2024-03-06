@@ -77,7 +77,7 @@ pub(crate) struct InnerWebView {
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
   // Note that if following functions signatures are changed in the future,
   // all functions pointer declarations in objc callbacks below all need to get updated.
-  ipc_handler_ptr: *mut Box<dyn Fn(String)>,
+  ipc_handler_ptr: *mut Box<dyn Fn(Request<String>)>,
   document_title_changed_handler: *mut Box<dyn Fn(String)>,
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
   page_load_handler: *mut Box<dyn Fn(PageLoadEvent)>,
@@ -138,13 +138,23 @@ impl InnerWebView {
 
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
-          let function = &mut *(*function as *mut Box<dyn Fn(String)>);
+          let function = &mut *(*function as *mut Box<dyn Fn(Request<String>)>);
           let body: id = msg_send![msg, body];
           let is_string: bool = msg_send![body, isKindOfClass: class!(NSString)];
           if is_string {
-            let utf8: *const c_char = msg_send![body, UTF8String];
-            if let Ok(js) = CStr::from_ptr(utf8).to_str() {
-              (function)(js.to_string());
+            let js_utf8: *const c_char = msg_send![body, UTF8String];
+
+            let frame_info: id = msg_send![msg, frameInfo];
+            let request: id = msg_send![frame_info, request];
+            let url: id = msg_send![request, URL];
+            let absolute_url: id = msg_send![url, absoluteString];
+            let url_utf8: *const c_char = msg_send![absolute_url, UTF8String];
+
+            if let (Ok(url), Ok(js)) = (
+              CStr::from_ptr(url_utf8).to_str(),
+              CStr::from_ptr(js_utf8).to_str(),
+            ) {
+              (function)(Request::builder().uri(url).body(js.to_string()).unwrap());
               return;
             }
           }
@@ -1166,6 +1176,7 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
+  #[cfg(target_os = "macos")]
   pub(crate) fn reparent(&self, window: id) -> crate::Result<()> {
     unsafe {
       let content_view: id = msg_send![window, contentView];

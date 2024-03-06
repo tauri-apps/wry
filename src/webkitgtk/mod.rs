@@ -12,6 +12,7 @@ use gtk::{
   glib::{self, translate::FromGlibPtrFull},
   prelude::*,
 };
+use http::Request;
 use javascriptcore::ValueExt;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 #[cfg(any(debug_assertions, feature = "devtools"))]
@@ -257,7 +258,7 @@ impl InnerWebView {
     Self::attach_handlers(&webview, web_context, &mut attributes);
 
     // IPC handler
-    Self::attach_ipc_handler(web_context, &mut attributes);
+    Self::attach_ipc_handler(webview.clone(), web_context, &mut attributes);
 
     // File drop handler
     if let Some(file_drop_handler) = attributes.file_drop_handler.take() {
@@ -492,7 +493,11 @@ impl InnerWebView {
     is_in_fixed_parent
   }
 
-  fn attach_ipc_handler(web_context: &WebContext, attributes: &mut WebViewAttributes) {
+  fn attach_ipc_handler(
+    webview: WebView,
+    web_context: &WebContext,
+    attributes: &mut WebViewAttributes,
+  ) {
     // Message handler
     let ipc_handler = attributes.ipc_handler.take();
     let manager = web_context.manager();
@@ -504,7 +509,12 @@ impl InnerWebView {
 
       if let Some(js) = msg.js_value() {
         if let Some(ipc_handler) = &ipc_handler {
-          ipc_handler(js.to_string());
+          ipc_handler(
+            Request::builder()
+              .uri(webview.uri().unwrap().to_string())
+              .body(js.to_string())
+              .unwrap(),
+          );
         }
       }
     });

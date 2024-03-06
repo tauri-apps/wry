@@ -5,6 +5,7 @@
 use std::process::exit;
 
 fn main() -> wry::Result<()> {
+  use http::Request;
   use tao::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -18,8 +19,8 @@ fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-  let handler = |req: String| {
-    if &req == "process-complete" {
+  let handler = |req: Request<String>| {
+    if req.body() == "process-complete" {
       exit(0);
     }
   };

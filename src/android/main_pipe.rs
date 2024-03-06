@@ -132,11 +132,9 @@ impl<'a> MainPipe<'a> {
           }
 
           // Create and set webview client
-          let rust_webview_client_class = find_class(
-            &mut self.env,
-            activity,
-            format!("{}/RustWebViewClient", PACKAGE.get().unwrap()),
-          )?;
+          let client_class_name = format!("{}/RustWebViewClient", PACKAGE.get().unwrap());
+          let rust_webview_client_class =
+            find_class(&mut self.env, activity, client_class_name.clone())?;
           let webview_client = self.env.new_object(
             &rust_webview_client_class,
             "(Landroid/content/Context;)V",
@@ -163,7 +161,11 @@ impl<'a> MainPipe<'a> {
             activity,
             format!("{}/Ipc", PACKAGE.get().unwrap()),
           )?;
-          let ipc = self.env.new_object(ipc_class, "()V", &[])?;
+          let ipc = self.env.new_object(
+            ipc_class,
+            format!("(L{client_class_name};)V"),
+            &[(&webview_client).into()],
+          )?;
           let ipc_str = self.env.new_string("ipc")?;
           self.env.call_method(
             &webview,
