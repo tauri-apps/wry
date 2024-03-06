@@ -100,30 +100,38 @@ fn main() -> wry::Result<()> {
           ..
         } => {
           let size = size.to_logical::<u32>(window.scale_factor());
-          let _ = webview.set_bounds(Rect {
-            x: 0,
-            y: 0,
-            width: size.width / 2,
-            height: size.height / 2,
-          });
-          let _ = webview2.set_bounds(Rect {
-            x: (size.width / 2) as i32,
-            y: 0,
-            width: size.width / 2,
-            height: size.height / 2,
-          });
-          let _ = webview3.set_bounds(Rect {
-            x: 0,
-            y: (size.height / 2) as i32,
-            width: size.width / 2,
-            height: size.height / 2,
-          });
-          let _ = webview4.set_bounds(Rect {
-            x: (size.width / 2) as i32,
-            y: (size.height / 2) as i32,
-            width: size.width / 2,
-            height: size.height / 2,
-          });
+          webview
+            .set_bounds(Rect {
+              x: 0,
+              y: 0,
+              width: size.width / 2,
+              height: size.height / 2,
+            })
+            .unwrap();
+          webview2
+            .set_bounds(Rect {
+              x: (size.width / 2) as i32,
+              y: 0,
+              width: size.width / 2,
+              height: size.height / 2,
+            })
+            .unwrap();
+          webview3
+            .set_bounds(Rect {
+              x: 0,
+              y: (size.height / 2) as i32,
+              width: size.width / 2,
+              height: size.height / 2,
+            })
+            .unwrap();
+          webview4
+            .set_bounds(Rect {
+              x: (size.width / 2) as i32,
+              y: (size.height / 2) as i32,
+              width: size.width / 2,
+              height: size.height / 2,
+            })
+            .unwrap();
         }
         Event::WindowEvent {
           event: WindowEvent::CloseRequested,
