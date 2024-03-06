@@ -17,13 +17,15 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+#[cfg(any(debug_assertions, feature = "devtools"))]
+use webkit2gtk::WebInspectorExt;
 use webkit2gtk::{
   AutoplayPolicy, InputMethodContextExt, LoadEvent, NavigationPolicyDecision,
   NavigationPolicyDecisionExt, NetworkProxyMode, NetworkProxySettings, PolicyDecisionType,
   PrintOperationExt, SettingsExt, URIRequest, URIRequestExt, UserContentInjectedFrames,
   UserContentManagerExt, UserScript, UserScriptInjectionTime,
-  WebContextExt as Webkit2gtkWeContextExt, WebInspectorExt, WebView, WebViewExt,
-  WebsiteDataManagerExt, WebsiteDataManagerExtManual, WebsitePolicies,
+  WebContextExt as Webkit2gtkWeContextExt, WebView, WebViewExt, WebsiteDataManagerExt,
+  WebsiteDataManagerExtManual, WebsitePolicies,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -511,6 +513,7 @@ impl InnerWebView {
     manager.register_script_message_handler("ipc");
   }
 
+  #[cfg(any(debug_assertions, feature = "devtools"))]
   fn attach_inspector_handlers(webview: &WebView) -> Arc<AtomicBool> {
     let is_inspector_open = Arc::new(AtomicBool::default());
     if let Some(inspector) = webview.inspector() {
