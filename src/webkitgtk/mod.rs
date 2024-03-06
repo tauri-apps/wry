@@ -239,13 +239,19 @@ impl InnerWebView {
     let manager = web_context.manager();
 
     // Connect before registering as recommended by the docs
+    let webview_ = webview.clone();
     manager.connect_script_message_received(None, move |_m, msg| {
       #[cfg(feature = "tracing")]
       let _span = tracing::info_span!("wry::ipc::handle").entered();
 
       if let Some(js) = msg.js_value() {
         if let Some(ipc_handler) = &ipc_handler {
-          ipc_handler(Request::builder().body(js.to_string()).unwrap());
+          ipc_handler(
+            Request::builder()
+              .uri(webview_.uri().unwrap().to_string())
+              .body(js.to_string())
+              .unwrap(),
+          );
         }
       }
     });

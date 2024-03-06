@@ -7,7 +7,6 @@ use crate::{RequestAsyncResponder, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
 use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
-use http::Request;
 use http::{
   header::{HeaderValue, CONTENT_SECURITY_POLICY, CONTENT_TYPE},
   Request, Response as HttpResponse,

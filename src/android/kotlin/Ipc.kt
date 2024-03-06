@@ -8,11 +8,11 @@ package {{package}}
 
 import android.webkit.*
 
-class Ipc {
+class Ipc(val webViewClient: RustWebViewClient) {
     @JavascriptInterface
     fun postMessage(message: String?) {
         message?.let {m ->
-            this.ipc(m)
+            this.ipc(webViewClient.currentUrl, m)
         }
     }
 
@@ -22,7 +22,7 @@ class Ipc {
         }
     }
 
-    private external fun ipc(message: String)
+    private external fun ipc(url: String, message: String)
 
     {{class-extension}}
 }
