@@ -756,6 +756,10 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Set the IPC handler to receive the message from Javascript on webview
   /// using `window.ipc.postMessage("insert_message_here")` to host Rust code.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux / Android**: The request URL is not supported on iframes and the main frame URL is used instead.
   pub fn with_ipc_handler<F>(mut self, handler: F) -> Self
   where
     F: Fn(Request<String>) + 'static,
