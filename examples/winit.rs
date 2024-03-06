@@ -71,12 +71,14 @@ fn main() -> wry::Result<()> {
           event: WindowEvent::Resized(size),
           ..
         } => {
-          _webview.set_bounds(wry::Rect {
-            x: 0,
-            y: 0,
-            width: size.width,
-            height: size.height,
-          });
+          _webview
+            .set_bounds(wry::Rect {
+              x: 0,
+              y: 0,
+              width: size.width,
+              height: size.height,
+            })
+            .unwrap();
         }
         Event::WindowEvent {
           event: WindowEvent::CloseRequested,

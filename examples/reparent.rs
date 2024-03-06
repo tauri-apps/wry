@@ -90,16 +90,20 @@ fn main() -> wry::Result<()> {
         webview_container = new_parent.id();
 
         #[cfg(target_os = "macos")]
-        webview.reparent(new_parent.ns_window() as cocoa::base::id);
+        webview
+          .reparent(new_parent.ns_window() as cocoa::base::id)
+          .unwrap();
         #[cfg(not(any(
           target_os = "windows",
           target_os = "macos",
           target_os = "ios",
           target_os = "android"
         )))]
-        webview.reparent(new_parent.default_vbox().unwrap());
+        webview
+          .reparent(new_parent.default_vbox().unwrap())
+          .unwrap();
         #[cfg(target_os = "windows")]
-        webview.reparent(new_parent.hwnd());
+        webview.reparent(new_parent.hwnd()).unwrap();
       }
       _ => {}
     }

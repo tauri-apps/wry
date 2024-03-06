@@ -1031,7 +1031,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   additional_browser_args: Option<String>,
   browser_accelerator_keys: bool,
   theme: Option<Theme>,
-  https_scheme: bool,
+  use_https: bool,
 }
 
 #[cfg(windows)]
@@ -1041,7 +1041,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       additional_browser_args: None,
       browser_accelerator_keys: true, // This is WebView2's default behavior
       theme: None,
-      https_scheme: false, // To match macOS & Linux behavior in the context of mixed content.
+      use_https: false, // To match macOS & Linux behavior in the context of mixed content.
     }
   }
 }
@@ -1098,7 +1098,7 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
   }
 
   fn with_https_scheme(mut self, enabled: bool) -> Self {
-    self.platform_specific.https_scheme = enabled;
+    self.platform_specific.use_https = enabled;
     self
   }
 }
@@ -1283,7 +1283,7 @@ impl WebView {
   }
 
   /// Get the current url of the webview
-  pub fn url(&self) -> String {
+  pub fn url(&self) -> Result<String> {
     self.webview.url()
   }
 
@@ -1310,8 +1310,7 @@ impl WebView {
 
   /// Launch print modal for the webview content.
   pub fn print(&self) -> Result<()> {
-    self.webview.print();
-    Ok(())
+    self.webview.print()
   }
 
   /// Open the web inspector which is usually called dev tool.
@@ -1321,7 +1320,7 @@ impl WebView {
   /// - **Android / iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn open_devtools(&self) {
-    self.webview.open_devtools();
+    self.webview.open_devtools()
   }
 
   /// Close the web inspector which is usually called dev tool.
@@ -1331,7 +1330,7 @@ impl WebView {
   /// - **Windows / Android / iOS:** Not supported.
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn close_devtools(&self) {
-    self.webview.close_devtools();
+    self.webview.close_devtools()
   }
 
   /// Gets the devtool window's current visibility state.
@@ -1351,8 +1350,8 @@ impl WebView {
   /// - **Android**: Not supported.
   /// - **macOS**: available on macOS 11+ only.
   /// - **iOS**: available on iOS 14+ only.
-  pub fn zoom(&self, scale_factor: f64) {
-    self.webview.zoom(scale_factor);
+  pub fn zoom(&self, scale_factor: f64) -> Result<()> {
+    self.webview.zoom(scale_factor)
   }
 
   /// Specify the webview background color.
@@ -1370,12 +1369,12 @@ impl WebView {
   }
 
   /// Navigate to the specified url
-  pub fn load_url(&self, url: &str) {
+  pub fn load_url(&self, url: &str) -> Result<()> {
     self.webview.load_url(url)
   }
 
   /// Navigate to the specified url using the specified headers
-  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
+  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) -> Result<()> {
     self.webview.load_url_with_headers(url, headers)
   }
 
@@ -1384,7 +1383,7 @@ impl WebView {
     self.webview.clear_all_browsing_data()
   }
 
-  pub fn bounds(&self) -> Rect {
+  pub fn bounds(&self) -> Result<Rect> {
     self.webview.bounds()
   }
 
@@ -1392,17 +1391,17 @@ impl WebView {
   ///
   /// This is only effective if the webview was created as a child
   /// or created using [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
-  pub fn set_bounds(&self, bounds: Rect) {
+  pub fn set_bounds(&self, bounds: Rect) -> Result<()> {
     self.webview.set_bounds(bounds)
   }
 
   /// Shows or hides the webview.
-  pub fn set_visible(&self, visible: bool) {
+  pub fn set_visible(&self, visible: bool) -> Result<()> {
     self.webview.set_visible(visible)
   }
 
   /// Try moving focus to the webview.
-  pub fn focus(&self) {
+  pub fn focus(&self) -> Result<()> {
     self.webview.focus()
   }
 }
@@ -1456,7 +1455,7 @@ pub trait WebViewExtWindows {
   fn controller(&self) -> ICoreWebView2Controller;
 
   /// Changes the webview2 theme.
-  fn set_theme(&self, theme: Theme);
+  fn set_theme(&self, theme: Theme) -> Result<()>;
 
   /// Sets the [memory usage target level][1].
   ///
@@ -1470,10 +1469,10 @@ pub trait WebViewExtWindows {
   ///
   /// [1]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2memoryusagetargetlevel
   /// [2]: https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2.memoryusagetargetlevel?view=webview2-dotnet-1.0.2088.41#remarks
-  fn set_memory_usage_level(&self, level: MemoryUsageLevel);
+  fn set_memory_usage_level(&self, level: MemoryUsageLevel) -> Result<()>;
 
   /// Attaches this webview to the given HWND and removes it from the current one.
-  fn reparent(&self, hwnd: isize);
+  fn reparent(&self, hwnd: isize) -> Result<()>;
 }
 
 #[cfg(target_os = "windows")]
@@ -1482,15 +1481,15 @@ impl WebViewExtWindows for WebView {
     self.webview.controller.clone()
   }
 
-  fn set_theme(&self, theme: Theme) {
+  fn set_theme(&self, theme: Theme) -> Result<()> {
     self.webview.set_theme(theme)
   }
 
-  fn set_memory_usage_level(&self, level: MemoryUsageLevel) {
-    self.webview.set_memory_usage_level(level);
+  fn set_memory_usage_level(&self, level: MemoryUsageLevel) -> Result<()> {
+    self.webview.set_memory_usage_level(level)
   }
 
-  fn reparent(&self, hwnd: isize) {
+  fn reparent(&self, hwnd: isize) -> Result<()> {
     self.webview.reparent(hwnd)
   }
 }
@@ -1516,7 +1515,7 @@ pub trait WebViewExtUnix: Sized {
   fn webview(&self) -> webkit2gtk::WebView;
 
   /// Attaches this webview to the given Widget and removes it from the current one.
-  fn reparent<W>(&self, widget: &W)
+  fn reparent<W>(&self, widget: &W) -> Result<()>
   where
     W: gtk::prelude::IsA<gtk::Container>;
 }
@@ -1534,7 +1533,7 @@ impl WebViewExtUnix for WebView {
     self.webview.webview.clone()
   }
 
-  fn reparent<W>(&self, widget: &W)
+  fn reparent<W>(&self, widget: &W) -> Result<()>
   where
     W: gtk::prelude::IsA<gtk::Container>,
   {
@@ -1552,7 +1551,7 @@ pub trait WebViewExtMacOS {
   /// Returns NSWindow associated with the WKWebView webview
   fn ns_window(&self) -> cocoa::base::id;
   /// Attaches this webview to the given NSWindow and removes it from the current one.
-  fn reparent(&self, window: cocoa::base::id);
+  fn reparent(&self, window: cocoa::base::id) -> Result<()>;
 }
 
 #[cfg(target_os = "macos")]
@@ -1572,8 +1571,8 @@ impl WebViewExtMacOS for WebView {
     }
   }
 
-  fn reparent(&self, window: cocoa::base::id) {
-    self.webview.reparent_to(window)
+  fn reparent(&self, window: cocoa::base::id) -> Result<()> {
+    self.webview.reparent(window)
   }
 }
 

@@ -1,12 +1,14 @@
 use std::{cell::RefCell, rc::Rc};
 
 use gtk::{
-  gdk::{EventButton, ModifierType},
+  gdk::{EventButton, EventMask, ModifierType},
   prelude::*,
 };
 use webkit2gtk::{WebView, WebViewExt};
 
 pub fn setup(webview: &WebView) {
+  webview.add_events(EventMask::BUTTON1_MOTION_MASK | EventMask::BUTTON_PRESS_MASK);
+
   let bf_state = BackForwardState(Rc::new(RefCell::new(0)));
 
   let bf_state_c = bf_state.clone();
