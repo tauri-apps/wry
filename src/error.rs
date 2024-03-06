@@ -56,4 +56,7 @@ pub enum Error {
   UnsupportedWindowHandle,
   #[error(transparent)]
   Utf8Error(#[from] std::str::Utf8Error),
+  #[cfg(target_os = "android")]
+  #[error(transparent)]
+  CrossBeamRecvError(#[from] crossbeam_channel::RecvError),
 }

@@ -6,22 +6,24 @@
 
 use crate::{web_context::WebContextData, Error, RequestAsyncResponder};
 use gtk::glib;
-use http::{header::CONTENT_TYPE, Request, Response as HttpResponse};
+use http::{header::CONTENT_TYPE, HeaderName, HeaderValue, Request, Response as HttpResponse};
+use soup::{MessageHeaders, MessageHeadersType};
 use std::{
   borrow::Cow,
   cell::RefCell,
   collections::{HashSet, VecDeque},
   path::PathBuf,
   rc::Rc,
-  str::FromStr,
   sync::{
     atomic::{AtomicBool, Ordering::SeqCst},
     Mutex,
   },
 };
 use webkit2gtk::{
-  ApplicationInfo, CookiePersistentStorage, LoadEvent, URIRequest, URIRequestExt,
-  URISchemeResponseExt, UserContentManager, WebContext, WebView, WebViewExt,
+  ApplicationInfo, AutomationSessionExt, CookiePersistentStorage, DownloadExt, LoadEvent,
+  SecurityManagerExt, URIRequest, URIRequestExt, URISchemeRequestExt, URISchemeResponse,
+  URISchemeResponseExt, UserContentManager, WebContext, WebContextExt as Webkit2gtkContextExt,
+  WebView, WebViewExt,
 };
 
 #[derive(Debug)]
@@ -40,8 +42,7 @@ impl WebContextImpl {
     let mut context_builder = WebContext::builder();
     if let Some(data_directory) = data.data_directory() {
       let data_manager = WebsiteDataManager::builder()
-        .local_storage_directory(data_directory.join("localstorage").to_string_lossy())
-        .indexeddb_directory(
+        .base_data_directory(
           data_directory
             .join("databases")
             .join("indexeddb")
@@ -68,7 +69,6 @@ impl WebContextImpl {
   }
 
   pub fn create_context(context: WebContext) -> Self {
-    use webkit2gtk::WebContextExt;
     let automation = false;
     context.set_automation_allowed(automation);
 
@@ -98,7 +98,6 @@ impl WebContextImpl {
   }
 
   pub fn set_allows_automation(&mut self, flag: bool) {
-    use webkit2gtk::WebContextExt;
     self.automation = flag;
     self.context.set_automation_allowed(flag);
   }
@@ -190,7 +189,7 @@ impl WebContextExt for super::WebContext {
   }
 
   fn flush_queue_loader(&self) {
-    Rc::clone(&self.os.webview_uri_loader).flush()
+    self.os.webview_uri_loader.clone().flush()
   }
 
   fn allows_automation(&self) -> bool {
@@ -198,8 +197,6 @@ impl WebContextExt for super::WebContext {
   }
 
   fn register_automation(&mut self, webview: WebView) {
-    use webkit2gtk::{AutomationSessionExt, WebContextExt};
-
     if let (true, Some(app_info)) = (self.os.automation, self.os.app_info.take()) {
       self.os.context.connect_automation_started(move |_, auto| {
         let webview = webview.clone();
@@ -222,7 +219,6 @@ impl WebContextExt for super::WebContext {
     download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
     download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
   ) {
-    use webkit2gtk::{DownloadExt, WebContextExt};
     let context = &self.os.context;
 
     let download_started_handler = RefCell::new(download_started_handler);
@@ -233,7 +229,7 @@ impl WebContextExt for super::WebContext {
         let uri = uri.to_string();
         let mut download_location = download
           .destination()
-          .and_then(|p| PathBuf::from_str(&p).ok())
+          .map(PathBuf::from)
           .unwrap_or_default();
 
         if let Some(download_started_handler) = download_started_handler.borrow_mut().as_mut() {
@@ -246,29 +242,27 @@ impl WebContextExt for super::WebContext {
           }
         }
       }
+
       download.connect_failed({
         let failed = failed.clone();
         move |_, _error| {
           *failed.borrow_mut() = true;
         }
       });
+
       if let Some(download_completed_handler) = download_completed_handler.clone() {
         download.connect_finished({
           let failed = failed.clone();
           move |download| {
             if let Some(uri) = download.request().and_then(|req| req.uri()) {
-              let failed = failed.borrow();
+              let failed = *failed.borrow();
               let uri = uri.to_string();
               download_completed_handler(
                 uri,
-                (!*failed)
-                  .then(|| {
-                    download
-                      .destination()
-                      .map_or_else(|| None, |p| Some(PathBuf::from(p.as_str())))
-                  })
+                (!failed)
+                  .then(|| download.destination().map(PathBuf::from))
                   .flatten(),
-                !*failed,
+                !failed,
               )
             }
           }
@@ -286,7 +280,6 @@ fn actually_register_uri_scheme<F>(
 where
   F: Fn(Request<Vec<u8>>, RequestAsyncResponder) + 'static,
 {
-  use webkit2gtk::{SecurityManagerExt, URISchemeRequestExt, WebContextExt};
   let context = &context.os.context;
   // Enable secure context
   context
@@ -305,11 +298,8 @@ where
       #[cfg(feature = "tracing")]
       span.record("uri", uri);
 
-      // FIXME: Read the body (forms post)
       #[allow(unused_mut)]
       let mut http_request = Request::builder().uri(uri).method("GET");
-      let body;
-      use http::{header::HeaderName, HeaderValue};
 
       // Set request http headers
       if let Some(headers) = request.http_headers() {
@@ -329,6 +319,7 @@ where
         http_request = http_request.method(method.as_str());
       }
 
+      let body;
       #[cfg(feature = "linux-body")]
       {
         use gtk::{gdk::prelude::InputStreamExtManual, gio::Cancellable};
@@ -364,9 +355,8 @@ where
         Ok(req) => req,
         Err(_) => {
           request.finish_error(&mut gtk::glib::Error::new(
-            // TODO: use UriError when we can use 2_66 webkit2gtk feature flag
-            glib::FileError::Exist,
-            "Could not get uri.",
+            glib::UriError::Failed,
+            "Internal server error: could not create request.",
           ));
           return;
         }
@@ -381,9 +371,6 @@ where
             .headers()
             .get(CONTENT_TYPE)
             .and_then(|h| h.to_str().ok());
-
-          use soup::{MessageHeaders, MessageHeadersType};
-          use webkit2gtk::URISchemeResponse;
 
           let response = URISchemeResponse::new(&input, buffer.len() as i64);
           response.set_status(http_response.status().as_u16() as u32, None);
@@ -411,6 +398,13 @@ where
   });
 
   Ok(())
+}
+
+#[derive(Debug)]
+struct WebviewUriRequest {
+  webview: WebView,
+  uri: String,
+  headers: Option<http::HeaderMap>,
 }
 
 /// Prevents an unknown concurrency bug with loading multiple URIs at the same time on webkit2gtk.
@@ -444,7 +438,7 @@ where
 #[derive(Debug, Default)]
 struct WebViewUriLoader {
   lock: AtomicBool,
-  queue: Mutex<VecDeque<(WebView, String, Option<http::HeaderMap>)>>,
+  queue: Mutex<VecDeque<WebviewUriRequest>>,
 }
 
 impl WebViewUriLoader {
@@ -459,13 +453,17 @@ impl WebViewUriLoader {
   }
 
   /// Add a [`WebView`] to the queue.
-  fn push(&self, webview: WebView, url: String, headers: Option<http::HeaderMap>) {
+  fn push(&self, webview: WebView, uri: String, headers: Option<http::HeaderMap>) {
     let mut queue = self.queue.lock().expect("poisoned load queue");
-    queue.push_back((webview, url, headers))
+    queue.push_back(WebviewUriRequest {
+      webview,
+      uri,
+      headers,
+    })
   }
 
   /// Remove a [`WebView`] from the queue and return it.
-  fn pop(&self) -> Option<(WebView, String, Option<http::HeaderMap>)> {
+  fn pop(&self) -> Option<WebviewUriRequest> {
     let mut queue = self.queue.lock().expect("poisoned load queue");
     queue.pop_front()
   }
@@ -473,17 +471,22 @@ impl WebViewUriLoader {
   /// Load the next uri to load if the lock is not engaged.
   fn flush(self: Rc<Self>) {
     if !self.is_locked() {
-      if let Some((webview, url, headers)) = self.pop() {
+      if let Some(WebviewUriRequest {
+        webview,
+        uri,
+        headers,
+      }) = self.pop()
+      {
         // we do not need to listen to failed events because those will finish the change event anyways
         webview.connect_load_changed(move |_, event| {
           if let LoadEvent::Finished = event {
             self.unlock();
-            Rc::clone(&self).flush();
+            self.clone().flush();
           };
         });
 
         if let Some(headers) = headers {
-          let req = URIRequest::builder().uri(&url).build();
+          let req = URIRequest::builder().uri(&uri).build();
 
           if let Some(ref mut req_headers) = req.http_headers() {
             for (header, value) in headers.iter() {
@@ -496,7 +499,7 @@ impl WebViewUriLoader {
 
           webview.load_request(&req);
         } else {
-          webview.load_uri(&url);
+          webview.load_uri(&uri);
         }
       } else {
         self.unlock();

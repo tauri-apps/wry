@@ -73,7 +73,7 @@ pub(crate) unsafe fn set_navigation_methods(
 ) -> *mut Box<dyn Fn(PageLoadEvent)> {
   if let Some(on_page_load_handler) = on_page_load_handler {
     let on_page_load_handler = Box::into_raw(Box::new(Box::new(move |event| {
-      on_page_load_handler(event, url_from_webview(webview));
+      on_page_load_handler(event, url_from_webview(webview).unwrap_or_default());
     }) as Box<dyn Fn(PageLoadEvent)>));
     (*navigation_policy_handler).set_ivar(
       "on_page_load_function",

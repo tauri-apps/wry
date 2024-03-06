@@ -299,12 +299,14 @@ impl InnerWebView {
     Ok(Self)
   }
 
-  pub fn print(&self) {}
+  pub fn print(&self) -> crate::Result<()> {
+    Ok(())
+  }
 
-  pub fn url(&self) -> String {
+  pub fn url(&self) -> crate::Result<String> {
     let (tx, rx) = bounded(1);
     MainPipe::send(WebViewMessage::GetUrl(tx));
-    rx.recv().unwrap()
+    rx.recv().map_err(Into::into)
   }
 
   pub fn eval(&self, js: &str, callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {
@@ -326,19 +328,23 @@ impl InnerWebView {
     false
   }
 
-  pub fn zoom(&self, _scale_factor: f64) {}
+  pub fn zoom(&self, _scale_factor: f64) -> Result<()> {
+    Ok(())
+  }
 
   pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
     MainPipe::send(WebViewMessage::SetBackgroundColor(background_color));
     Ok(())
   }
 
-  pub fn load_url(&self, url: &str) {
+  pub fn load_url(&self, url: &str) -> Result<()> {
     MainPipe::send(WebViewMessage::LoadUrl(url.to_string(), None));
+    Ok(())
   }
 
-  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) {
+  pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) -> Result<()> {
     MainPipe::send(WebViewMessage::LoadUrl(url.to_string(), Some(headers)));
+    Ok(())
   }
 
   pub fn clear_all_browsing_data(&self) -> Result<()> {
@@ -346,25 +352,28 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn bounds(&self) -> crate::Rect {
-    crate::Rect {
+  pub fn bounds(&self) -> Result<crate::Rect> {
+    Ok(crate::Rect {
       x: 0,
       y: 0,
       width: 0,
       height: 0,
-    }
+    })
   }
 
-  pub fn set_bounds(&self, _bounds: crate::Rect) {
+  pub fn set_bounds(&self, _bounds: crate::Rect) -> Result<()> {
     // Unsupported
+    Ok(())
   }
 
-  pub fn set_visible(&self, _visible: bool) {
+  pub fn set_visible(&self, _visible: bool) -> Result<()> {
     // Unsupported
+    Ok(())
   }
 
-  pub fn focus(&self) {
+  pub fn focus(&self) -> Result<()> {
     // Unsupported
+    Ok(())
   }
 }
 

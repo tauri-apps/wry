@@ -40,14 +40,15 @@ pub(crate) struct FileDropController {
 }
 
 impl FileDropController {
+  #[inline]
   pub(crate) fn new(hwnd: HWND, handler: Box<dyn Fn(FileDropEvent) -> bool>) -> Self {
     let mut controller = FileDropController::default();
 
     let handler = Rc::new(handler);
-    let mut callback = |hwnd| controller.inject_in_hwnd(hwnd, handler.clone());
 
     // Enumerate child windows to find the WebView2 "window" and override!
     {
+      let mut callback = |hwnd| controller.inject_in_hwnd(hwnd, handler.clone());
       let mut trait_obj: &mut dyn FnMut(HWND) -> bool = &mut callback;
       let closure_pointer_pointer: *mut c_void = unsafe { std::mem::transmute(&mut trait_obj) };
       let lparam = LPARAM(closure_pointer_pointer as _);
@@ -61,6 +62,7 @@ impl FileDropController {
     controller
   }
 
+  #[inline]
   fn inject_in_hwnd(&mut self, hwnd: HWND, handler: Rc<dyn Fn(FileDropEvent) -> bool>) -> bool {
     let file_drop_handler: IDropTarget = FileDropHandler::new(hwnd, handler).into();
     if unsafe { RevokeDragDrop(hwnd) } != Err(DRAGDROP_E_INVALIDHWND.into())
