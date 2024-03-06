@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use http::Request;
 use http::{
   header::{HeaderName, HeaderValue, CONTENT_TYPE},
   Request,
@@ -20,7 +21,7 @@ use super::{
   URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
 };
 
-use crate::{IpcRequest, PageLoadEvent};
+use crate::PageLoadEvent;
 
 #[macro_export]
 macro_rules! android_binding {
@@ -308,7 +309,7 @@ pub unsafe fn ipc(mut env: JNIEnv, _: JClass, arg: JString) {
 
       let arg = arg.to_string_lossy().to_string();
       if let Some(ipc) = IPC.get() {
-        (ipc.handler)(IpcRequest { body: arg })
+        (ipc.handler)(Request::builder().body(arg).unwrap())
       }
     }
     Err(e) => log::warn!("Failed to parse JString: {}", e),

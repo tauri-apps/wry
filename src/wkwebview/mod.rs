@@ -54,8 +54,7 @@ use crate::{
     },
     navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
   },
-  Error, IpcRequest, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebContext,
-  WebViewAttributes, RGBA,
+  Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
 };
 
 use http::{
@@ -78,7 +77,7 @@ pub(crate) struct InnerWebView {
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
   // Note that if following functions signatures are changed in the future,
   // all functions pointer declarations in objc callbacks below all need to get updated.
-  ipc_handler_ptr: *mut Box<dyn Fn(IpcRequest)>,
+  ipc_handler_ptr: *mut Box<dyn Fn(Request<String>)>,
   document_title_changed_handler: *mut Box<dyn Fn(String)>,
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
   page_load_handler: *mut Box<dyn Fn(PageLoadEvent)>,
@@ -139,7 +138,7 @@ impl InnerWebView {
 
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
-          let function = &mut *(*function as *mut Box<dyn Fn(IpcRequest)>);
+          let function = &mut *(*function as *mut Box<dyn Fn(Request<String>)>);
           let body: id = msg_send![msg, body];
           let is_string: bool = msg_send![body, isKindOfClass: class!(NSString)];
           if is_string {
@@ -155,10 +154,7 @@ impl InnerWebView {
               CStr::from_ptr(url_utf8).to_str(),
               CStr::from_ptr(js_utf8).to_str(),
             ) {
-              (function)(IpcRequest {
-                url: url.to_string(),
-                body: js.to_string(),
-              });
+              (function)(Request::builder().uri(url).body(js.to_string()).unwrap());
               return;
             }
           }

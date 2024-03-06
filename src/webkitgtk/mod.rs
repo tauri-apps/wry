@@ -11,6 +11,7 @@ use gtk::{
   gio::Cancellable,
   prelude::*,
 };
+use http::Request;
 use javascriptcore::ValueExt;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 #[cfg(any(debug_assertions, feature = "devtools"))]
@@ -33,7 +34,7 @@ use web_context::WebContextExt;
 pub use web_context::WebContextImpl;
 
 use crate::{
-  proxy::ProxyConfig, web_context::WebContext, Error, IpcRequest, PageLoadEvent, Rect, Result,
+  proxy::ProxyConfig, web_context::WebContext, Error, PageLoadEvent, Rect, Result,
   WebViewAttributes, RGBA,
 };
 
@@ -244,9 +245,7 @@ impl InnerWebView {
 
       if let Some(js) = msg.js_value() {
         if let Some(ipc_handler) = &ipc_handler {
-          ipc_handler(IpcRequest {
-            body: js.to_string(),
-          });
+          ipc_handler(Request::builder().body(js.to_string()).unwrap());
         }
       }
     });

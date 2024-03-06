@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use http::Request;
 use tao::{
   dpi::PhysicalSize,
   event::{Event, StartCause, WindowEvent},
   event_loop::{ControlFlow, EventLoopBuilder},
   window::{CursorIcon, ResizeDirection, Window, WindowBuilder},
 };
-use wry::{IpcRequest, WebViewBuilder};
+use wry::WebViewBuilder;
 
 #[derive(Debug)]
 enum HitTestResult {
@@ -207,7 +208,7 @@ fn main() -> wry::Result<()> {
 "#;
 
   let proxy = event_loop.create_proxy();
-  let handler = move |req: IpcRequest| {
+  let handler = move |req: Request<String>| {
     let body = req.body();
     let mut req = body.split([':', ',']);
     match req.next().unwrap() {

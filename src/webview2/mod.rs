@@ -40,8 +40,8 @@ use windows::{
 use self::file_drop::FileDropController;
 use super::Theme;
 use crate::{
-  proxy::ProxyConfig, Error, IpcRequest, MemoryUsageLevel, PageLoadEvent, Rect,
-  RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
+  proxy::ProxyConfig, Error, MemoryUsageLevel, PageLoadEvent, Rect, RequestAsyncResponder, Result,
+  WebContext, WebViewAttributes, RGBA,
 };
 
 impl From<webview2_com::Error> for Error {
@@ -472,7 +472,7 @@ impl InnerWebView {
             if let Some(ipc_handler) = &ipc_handler {
               #[cfg(feature = "tracing")]
               let _span = tracing::info_span!("wry::ipc::handle").entered();
-              ipc_handler(IpcRequest { url, body: js });
+              ipc_handler(Request::builder().uri(url).body(js).unwrap());
             }
           }
 

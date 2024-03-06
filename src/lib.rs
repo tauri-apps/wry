@@ -374,7 +374,7 @@ pub struct WebViewAttributes {
 
   /// The IPC handler to receive the message from Javascript on webview
   /// using `window.ipc.postMessage("insert_message_here")` to host Rust code.
-  pub ipc_handler: Option<Box<dyn Fn(IpcRequest)>>,
+  pub ipc_handler: Option<Box<dyn Fn(Request<String>)>>,
 
   /// A handler closure to process incoming [`FileDropEvent`] of the webview.
   ///
@@ -758,7 +758,7 @@ impl<'a> WebViewBuilder<'a> {
   /// using `window.ipc.postMessage("insert_message_here")` to host Rust code.
   pub fn with_ipc_handler<F>(mut self, handler: F) -> Self
   where
-    F: Fn(IpcRequest) + 'static,
+    F: Fn(Request<String>) + 'static,
   {
     self.attrs.ipc_handler = Some(Box::new(handler));
     self
@@ -1022,26 +1022,6 @@ impl<'a> WebViewBuilder<'a> {
     };
 
     Ok(WebView { webview })
-  }
-}
-
-/// Request from a IPC message. See [`WebViewBuilder::with_ipc_handler`] for more information.
-pub struct IpcRequest {
-  #[cfg(any(windows, target_os = "ios", target_os = "macos"))]
-  pub(crate) url: String,
-  pub(crate) body: String,
-}
-
-impl IpcRequest {
-  /// URL of the page that sent the IPC message.
-  #[cfg(any(windows, target_os = "ios", target_os = "macos"))]
-  pub fn url(&self) -> &str {
-    &self.url
-  }
-
-  /// The IPC message.
-  pub fn body(self) -> String {
-    self.body
   }
 }
 

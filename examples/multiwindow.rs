@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use http::Request;
 use std::collections::HashMap;
 use tao::{
   event::{Event, WindowEvent},
   event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWindowTarget},
   window::{Window, WindowBuilder, WindowId},
 };
-use wry::{IpcRequest, WebView, WebViewBuilder};
+use wry::{WebView, WebViewBuilder};
 
 enum UserEvent {
   CloseWindow(WindowId),
@@ -75,7 +76,7 @@ fn create_new_window(
     .build(event_loop)
     .unwrap();
   let window_id = window.id();
-  let handler = move |req: IpcRequest| {
+  let handler = move |req: Request<String>| {
     let body = req.body();
     match body.as_str() {
       "new-window" => {
