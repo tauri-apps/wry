@@ -804,16 +804,10 @@ impl InnerWebView {
             run_file_upload_panel as extern "C" fn(&Object, Sel, id, id, id, id),
           );
 
-          // Only disable media dialogs on macOS < 14.0
-          // https://tauri.app/v1/references/webview-versions/
-          let webview_system_version = platform_webview_system_version()?.parse::<i32>();
-          if webview_system_version.is_err() || webview_system_version.unwrap() < 19 {
-            // Disable media dialogs
-            ctl.add_method(
-              sel!(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:),
-              request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, id, id),
-            );
-          }
+          ctl.add_method(
+            sel!(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:),
+            request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, id, id),
+          );
 
           ctl.register()
         }
