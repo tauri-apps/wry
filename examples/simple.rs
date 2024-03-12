@@ -34,7 +34,24 @@ fn main() -> wry::Result<()> {
     WebViewBuilder::new_gtk(vbox)
   };
 
-  let _webview = builder.with_url("http://tauri.app").build()?;
+  let _webview = builder
+    .with_url("http://tauri.app")
+    .with_drag_drop_handler(|e| {
+      match e {
+        wry::DragDropEvent::Enter { paths, position } => {
+          println!("DragEnter: {position:?} {paths:?} ")
+        }
+        wry::DragDropEvent::Over { position } => println!("DragOver: {position:?} "),
+        wry::DragDropEvent::Drop { paths, position } => {
+          println!("DragDrop: {position:?} {paths:?} ")
+        }
+        wry::DragDropEvent::Leave => println!("DragLeave"),
+        _ => {}
+      }
+
+      true
+    })
+    .build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

@@ -15,7 +15,7 @@ exclude = [ "/.changes", "/.github", "/audits", "/wry-logo.svg" ]
 
 [package.metadata.docs.rs]
 no-default-features = true
-features = [ "file-drop", "protocol", "os-webview" ]
+features = [ "drag-n-drop", "protocol", "os-webview" ]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
@@ -25,9 +25,9 @@ rustc-args = [ "--cfg", "docsrs" ]
 rustdoc-args = [ "--cfg", "docsrs" ]
 
 [features]
-default = [ "file-drop", "objc-exception", "protocol", "os-webview" ]
+default = [ "drag-n-drop", "objc-exception", "protocol", "os-webview" ]
 objc-exception = [ "objc/exception" ]
-file-drop = [ ]
+drag-n-drop = [ ]
 protocol = [ ]
 devtools = [ ]
 transparent = [ ]

@@ -126,7 +126,7 @@ impl InnerWebView {
 
     let (hwnd, bounds) = Self::create_container_hwnd(parent, &attributes, is_child)?;
 
-    let drop_handler = attributes.file_drop_handler.take();
+    let drop_handler = attributes.drag_drop_handler.take();
 
     let env = Self::create_environment(&web_context, pl_attrs.clone(), &attributes)?;
     let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
@@ -309,7 +309,7 @@ impl InnerWebView {
 
         CreateCoreWebView2EnvironmentWithOptions(
           PCWSTR::null(),
-          data_directory.unwrap_or_else(|| PCWSTR::null()),
+          data_directory.unwrap_or_else(PCWSTR::null),
           &options,
           &environmentcreatedhandler,
         )
@@ -409,7 +409,7 @@ impl InnerWebView {
       unsafe {
         Self::attach_custom_protocol_handler(
           &webview,
-          &env,
+          env,
           hwnd,
           scheme,
           &mut attributes,
@@ -806,7 +806,7 @@ impl InnerWebView {
 
         if let Some((custom_protocol, custom_protocol_handler)) = custom_protocols
           .iter()
-          .find(|(protocol, _)| is_custom_protocol_uri(&uri, scheme, &protocol))
+          .find(|(protocol, _)| is_custom_protocol_uri(&uri, scheme, protocol))
         {
           let request = match Self::perpare_request(scheme, custom_protocol, &webview_request, &uri)
           {
