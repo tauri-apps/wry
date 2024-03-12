@@ -71,7 +71,7 @@ pub(crate) struct InnerWebView {
   // Store FileDropController in here to make sure it gets dropped when
   // the webview gets dropped, otherwise we'll have a memory leak
   #[allow(dead_code)]
-  file_drop_controller: Option<DragDropController>,
+  drag_drop_controller: Option<DragDropController>,
 }
 
 impl Drop for InnerWebView {
@@ -141,7 +141,7 @@ impl InnerWebView {
       is_child,
     )?;
 
-    let file_drop_controller = drop_handler.map(|handler| DragDropController::new(hwnd, handler));
+    let drag_drop_controller = drop_handler.map(|handler| DragDropController::new(hwnd, handler));
 
     Ok(Self {
       parent: RefCell::new(parent),
@@ -150,7 +150,7 @@ impl InnerWebView {
       is_child,
       webview,
       env,
-      file_drop_controller,
+      drag_drop_controller,
     })
   }
 

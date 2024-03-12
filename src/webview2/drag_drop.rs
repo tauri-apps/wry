@@ -64,11 +64,11 @@ impl DragDropController {
 
   #[inline]
   fn inject_in_hwnd(&mut self, hwnd: HWND, handler: Rc<dyn Fn(DragDropEvent) -> bool>) -> bool {
-    let file_drop_handler: IDropTarget = DragDropTarget::new(hwnd, handler).into();
+    let drag_drop_target: IDropTarget = DragDropTarget::new(hwnd, handler).into();
     if unsafe { RevokeDragDrop(hwnd) } != Err(DRAGDROP_E_INVALIDHWND.into())
-      && unsafe { RegisterDragDrop(hwnd, &file_drop_handler) }.is_ok()
+      && unsafe { RegisterDragDrop(hwnd, &drag_drop_target) }.is_ok()
     {
-      self.drop_targets.push(file_drop_handler);
+      self.drop_targets.push(drag_drop_target);
     }
 
     true
