@@ -35,14 +35,14 @@ use windows::Win32::{
 use windows_implement::implement;
 
 #[derive(Default)]
-pub(crate) struct FileDropController {
+pub(crate) struct DragDropController {
   drop_targets: Vec<IDropTarget>,
 }
 
-impl FileDropController {
+impl DragDropController {
   #[inline]
   pub(crate) fn new(hwnd: HWND, handler: Box<dyn Fn(DragDropEvent) -> bool>) -> Self {
-    let mut controller = FileDropController::default();
+    let mut controller = DragDropController::default();
 
     let handler = Rc::new(handler);
 
@@ -64,7 +64,7 @@ impl FileDropController {
 
   #[inline]
   fn inject_in_hwnd(&mut self, hwnd: HWND, handler: Rc<dyn Fn(DragDropEvent) -> bool>) -> bool {
-    let file_drop_handler: IDropTarget = FileDropHandler::new(hwnd, handler).into();
+    let file_drop_handler: IDropTarget = DragDropTarget::new(hwnd, handler).into();
     if unsafe { RevokeDragDrop(hwnd) } != Err(DRAGDROP_E_INVALIDHWND.into())
       && unsafe { RegisterDragDrop(hwnd, &file_drop_handler) }.is_ok()
     {
@@ -76,15 +76,15 @@ impl FileDropController {
 }
 
 #[implement(IDropTarget)]
-pub struct FileDropHandler {
+pub struct DragDropTarget {
   hwnd: HWND,
   listener: Rc<dyn Fn(DragDropEvent) -> bool>,
   cursor_effect: UnsafeCell<DROPEFFECT>,
   enter_is_valid: UnsafeCell<bool>, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
 }
 
-impl FileDropHandler {
-  pub fn new(hwnd: HWND, listener: Rc<dyn Fn(DragDropEvent) -> bool>) -> FileDropHandler {
+impl DragDropTarget {
+  pub fn new(hwnd: HWND, listener: Rc<dyn Fn(DragDropEvent) -> bool>) -> DragDropTarget {
     Self {
       hwnd,
       listener,
@@ -152,7 +152,7 @@ impl FileDropHandler {
 }
 
 #[allow(non_snake_case)]
-impl IDropTarget_Impl for FileDropHandler {
+impl IDropTarget_Impl for DragDropTarget {
   fn DragEnter(
     &self,
     pDataObj: Option<&IDataObject>,

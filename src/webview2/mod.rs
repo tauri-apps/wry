@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-mod file_drop;
+mod drag_drop;
 
 use std::{
   borrow::Cow, cell::RefCell, collections::HashSet, fmt::Write, iter::once,
@@ -37,7 +37,7 @@ use windows::{
   },
 };
 
-use self::file_drop::FileDropController;
+use self::drag_drop::DragDropController;
 use super::Theme;
 use crate::{
   proxy::ProxyConfig, Error, MemoryUsageLevel, PageLoadEvent, Rect, RequestAsyncResponder, Result,
@@ -71,7 +71,7 @@ pub(crate) struct InnerWebView {
   // Store FileDropController in here to make sure it gets dropped when
   // the webview gets dropped, otherwise we'll have a memory leak
   #[allow(dead_code)]
-  file_drop_controller: Option<FileDropController>,
+  file_drop_controller: Option<DragDropController>,
 }
 
 impl Drop for InnerWebView {
@@ -141,7 +141,7 @@ impl InnerWebView {
       is_child,
     )?;
 
-    let file_drop_controller = drop_handler.map(|handler| FileDropController::new(hwnd, handler));
+    let file_drop_controller = drop_handler.map(|handler| DragDropController::new(hwnd, handler));
 
     Ok(Self {
       parent: RefCell::new(parent),

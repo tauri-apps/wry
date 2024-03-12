@@ -179,7 +179,7 @@
 //! for the crate to work. This feature was added in preparation of other ports like cef and servo.
 //! - `protocol` (default): Enables [`WebViewBuilder::with_custom_protocol`] to define custom URL scheme for handling tasks like
 //! loading assets.
-//! - `drag-n-drop` (default): Enables [`WebViewBuilder::with_drag_drop_handler`] to control the behaviour when there are files
+//! - `drag-drop` (default): Enables [`WebViewBuilder::with_drag_drop_handler`] to control the behaviour when there are files
 //! interacting with the window.
 //! - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
 //! On **macOS**, enabling devtools, requires calling private apis so you should not enable this flag in release
@@ -384,10 +384,10 @@ pub struct WebViewAttributes {
   ///
   /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
-  #[cfg(feature = "drag-n-drop")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "drag-n-drop")))]
+  #[cfg(feature = "drag-drop")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "drag-drop")))]
   pub drag_drop_handler: Option<Box<dyn Fn(DragDropEvent) -> bool>>,
-  #[cfg(not(feature = "drag-n-drop"))]
+  #[cfg(not(feature = "drag-drop"))]
   drag_drop_handler: Option<Box<dyn Fn(DragDropEvent) -> bool>>,
 
   /// A navigation handler to decide if incoming url is allowed to navigate.
@@ -777,8 +777,8 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
-  #[cfg(feature = "drag-n-drop")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "drag-n-drop")))]
+  #[cfg(feature = "drag-drop")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "drag-drop")))]
   pub fn with_drag_drop_handler<F>(mut self, handler: F) -> Self
   where
     F: Fn(DragDropEvent) -> bool + 'static,
