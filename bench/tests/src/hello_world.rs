@@ -11,12 +11,12 @@ struct MessageParameters {
 }
 
 fn main() -> wry::Result<()> {
-  use http::Request;
   use tao::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
   };
+  use wry::http::Request;
   use wry::WebViewBuilder;
 
   let event_loop = EventLoop::new();

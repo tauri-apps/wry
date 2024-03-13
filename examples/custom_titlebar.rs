@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use http::Request;
 use tao::{
   dpi::PhysicalSize,
   event::{Event, StartCause, WindowEvent},
   event_loop::{ControlFlow, EventLoopBuilder},
   window::{CursorIcon, ResizeDirection, Window, WindowBuilder},
 };
+use wry::http::Request;
 use wry::WebViewBuilder;
 
 #[derive(Debug)]

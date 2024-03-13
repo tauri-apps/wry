@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use http::Request;
 use std::collections::HashMap;
 use tao::{
   event::{Event, WindowEvent},
   event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWindowTarget},
   window::{Window, WindowBuilder, WindowId},
 };
+use wry::http::Request;
 use wry::{WebView, WebViewBuilder};
 
 enum UserEvent {
