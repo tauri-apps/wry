@@ -4,12 +4,12 @@
 
 use std::path::PathBuf;
 
-use http::Request;
 use tao::{
   event::{Event, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
+use wry::http::Request;
 use wry::{
   http::{header::CONTENT_TYPE, Response},
   WebViewBuilder,
