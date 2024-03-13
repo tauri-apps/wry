@@ -43,7 +43,7 @@ use crate::{
 
 use self::web_context::WebContextExt;
 
-mod file_drop;
+mod drag_drop;
 mod synthetic_mouse_events;
 mod web_context;
 
@@ -260,9 +260,9 @@ impl InnerWebView {
     // IPC handler
     Self::attach_ipc_handler(webview.clone(), web_context, &mut attributes);
 
-    // File drop handler
-    if let Some(file_drop_handler) = attributes.file_drop_handler.take() {
-      file_drop::connect_drag_event(&webview, file_drop_handler);
+    // Drag drop handler
+    if let Some(drag_drop_handler) = attributes.drag_drop_handler.take() {
+      drag_drop::connect_drag_event(&webview, drag_drop_handler);
     }
 
     web_context.register_automation(webview.clone());

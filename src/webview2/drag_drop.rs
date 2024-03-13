@@ -4,7 +4,7 @@
 
 // A silly implementation of file drop handling for Windows!
 
-use crate::FileDropEvent;
+use crate::DragDropEvent;
 
 use std::{
   cell::UnsafeCell,
@@ -35,14 +35,14 @@ use windows::Win32::{
 use windows_implement::implement;
 
 #[derive(Default)]
-pub(crate) struct FileDropController {
+pub(crate) struct DragDropController {
   drop_targets: Vec<IDropTarget>,
 }
 
-impl FileDropController {
+impl DragDropController {
   #[inline]
-  pub(crate) fn new(hwnd: HWND, handler: Box<dyn Fn(FileDropEvent) -> bool>) -> Self {
-    let mut controller = FileDropController::default();
+  pub(crate) fn new(hwnd: HWND, handler: Box<dyn Fn(DragDropEvent) -> bool>) -> Self {
+    let mut controller = DragDropController::default();
 
     let handler = Rc::new(handler);
 
@@ -63,12 +63,12 @@ impl FileDropController {
   }
 
   #[inline]
-  fn inject_in_hwnd(&mut self, hwnd: HWND, handler: Rc<dyn Fn(FileDropEvent) -> bool>) -> bool {
-    let file_drop_handler: IDropTarget = FileDropHandler::new(hwnd, handler).into();
+  fn inject_in_hwnd(&mut self, hwnd: HWND, handler: Rc<dyn Fn(DragDropEvent) -> bool>) -> bool {
+    let drag_drop_target: IDropTarget = DragDropTarget::new(hwnd, handler).into();
     if unsafe { RevokeDragDrop(hwnd) } != Err(DRAGDROP_E_INVALIDHWND.into())
-      && unsafe { RegisterDragDrop(hwnd, &file_drop_handler) }.is_ok()
+      && unsafe { RegisterDragDrop(hwnd, &drag_drop_target) }.is_ok()
     {
-      self.drop_targets.push(file_drop_handler);
+      self.drop_targets.push(drag_drop_target);
     }
 
     true
@@ -76,27 +76,27 @@ impl FileDropController {
 }
 
 #[implement(IDropTarget)]
-pub struct FileDropHandler {
+pub struct DragDropTarget {
   hwnd: HWND,
-  listener: Rc<dyn Fn(FileDropEvent) -> bool>,
+  listener: Rc<dyn Fn(DragDropEvent) -> bool>,
   cursor_effect: UnsafeCell<DROPEFFECT>,
-  hovered_is_valid: UnsafeCell<bool>, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
+  enter_is_valid: UnsafeCell<bool>, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
 }
 
-impl FileDropHandler {
-  pub fn new(hwnd: HWND, listener: Rc<dyn Fn(FileDropEvent) -> bool>) -> FileDropHandler {
+impl DragDropTarget {
+  pub fn new(hwnd: HWND, listener: Rc<dyn Fn(DragDropEvent) -> bool>) -> DragDropTarget {
     Self {
       hwnd,
       listener,
       cursor_effect: DROPEFFECT_NONE.into(),
-      hovered_is_valid: false.into(),
+      enter_is_valid: false.into(),
     }
   }
 
-  unsafe fn collect_paths(
-    data_obj: Option<&IDataObject>,
-    paths: &mut Vec<PathBuf>,
-  ) -> Option<HDROP> {
+  unsafe fn iterate_filenames<F>(data_obj: Option<&IDataObject>, mut callback: F) -> Option<HDROP>
+  where
+    F: FnMut(PathBuf),
+  {
     let drop_format = FORMATETC {
       cfFormat: CF_HDROP.0,
       ptd: ptr::null_mut(),
@@ -128,7 +128,7 @@ impl FileDropHandler {
           DragQueryFileW(hdrop, i, std::mem::transmute(path_buf.spare_capacity_mut()));
           path_buf.set_len(str_len);
 
-          paths.push(OsString::from_wide(&path_buf[0..character_count]).into());
+          callback(OsString::from_wide(&path_buf[0..character_count]).into());
         }
 
         Some(hdrop)
@@ -152,7 +152,7 @@ impl FileDropHandler {
 }
 
 #[allow(non_snake_case)]
-impl IDropTarget_Impl for FileDropHandler {
+impl IDropTarget_Impl for DragDropTarget {
   fn DragEnter(
     &self,
     pDataObj: Option<&IDataObject>,
@@ -160,27 +160,28 @@ impl IDropTarget_Impl for FileDropHandler {
     pt: &POINTL,
     pdwEffect: *mut DROPEFFECT,
   ) -> windows::core::Result<()> {
+    let mut pt = POINT { x: pt.x, y: pt.y };
+    unsafe { ScreenToClient(self.hwnd, &mut pt) };
+
     let mut paths = Vec::new();
+    let hdrop = unsafe { Self::iterate_filenames(pDataObj, |path| paths.push(path)) };
+    (self.listener)(DragDropEvent::Enter {
+      paths,
+      position: (pt.x as _, pt.y as _),
+    });
+
     unsafe {
-      let hdrop = Self::collect_paths(pDataObj, &mut paths);
-      let hovered_is_valid = hdrop.is_some();
-      let cursor_effect = if hovered_is_valid {
+      let enter_is_valid = hdrop.is_some();
+      *self.enter_is_valid.get() = enter_is_valid;
+
+      let cursor_effect = if enter_is_valid {
         DROPEFFECT_COPY
       } else {
         DROPEFFECT_NONE
       };
       *pdwEffect = cursor_effect;
-      *self.hovered_is_valid.get() = hovered_is_valid;
       *self.cursor_effect.get() = cursor_effect;
-
-      let mut pt = POINT { x: pt.x, y: pt.y };
-      ScreenToClient(self.hwnd, &mut pt);
     }
-
-    (self.listener)(FileDropEvent::Hovered {
-      paths,
-      position: (pt.x as _, pt.y as _),
-    });
 
     Ok(())
   }
@@ -188,16 +189,24 @@ impl IDropTarget_Impl for FileDropHandler {
   fn DragOver(
     &self,
     _grfKeyState: MODIFIERKEYS_FLAGS,
-    _pt: &POINTL,
+    pt: &POINTL,
     pdwEffect: *mut DROPEFFECT,
   ) -> windows::core::Result<()> {
+    if unsafe { *self.enter_is_valid.get() } {
+      let mut pt = POINT { x: pt.x, y: pt.y };
+      unsafe { ScreenToClient(self.hwnd, &mut pt) };
+      (self.listener)(DragDropEvent::Over {
+        position: (pt.x as _, pt.y as _),
+      });
+    }
+
     unsafe { *pdwEffect = *self.cursor_effect.get() };
     Ok(())
   }
 
   fn DragLeave(&self) -> windows::core::Result<()> {
-    if unsafe { *self.hovered_is_valid.get() } {
-      (self.listener)(FileDropEvent::Cancelled);
+    if unsafe { *self.enter_is_valid.get() } {
+      (self.listener)(DragDropEvent::Leave);
     }
     Ok(())
   }
@@ -209,21 +218,21 @@ impl IDropTarget_Impl for FileDropHandler {
     pt: &POINTL,
     _pdwEffect: *mut DROPEFFECT,
   ) -> windows::core::Result<()> {
-    let mut paths = Vec::new();
-    unsafe {
-      let hdrop = Self::collect_paths(pDataObj, &mut paths);
-      if let Some(hdrop) = hdrop {
-        DragFinish(hdrop);
-      }
-
+    if unsafe { *self.enter_is_valid.get() } {
       let mut pt = POINT { x: pt.x, y: pt.y };
-      ScreenToClient(self.hwnd, &mut pt);
-    }
+      unsafe { ScreenToClient(self.hwnd, &mut pt) };
 
-    (self.listener)(FileDropEvent::Dropped {
-      paths,
-      position: (pt.x as _, pt.y as _),
-    });
+      let mut paths = Vec::new();
+      let hdrop = unsafe { Self::iterate_filenames(pDataObj, |path| paths.push(path)) };
+      (self.listener)(DragDropEvent::Drop {
+        paths,
+        position: (pt.x as _, pt.y as _),
+      });
+
+      if let Some(hdrop) = hdrop {
+        unsafe { DragFinish(hdrop) };
+      }
+    }
 
     Ok(())
   }

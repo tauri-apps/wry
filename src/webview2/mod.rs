@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-mod file_drop;
+mod drag_drop;
 
 use std::{
   borrow::Cow, cell::RefCell, collections::HashSet, fmt::Write, iter::once,
@@ -37,7 +37,7 @@ use windows::{
   },
 };
 
-use self::file_drop::FileDropController;
+use self::drag_drop::DragDropController;
 use super::Theme;
 use crate::{
   proxy::ProxyConfig, Error, MemoryUsageLevel, PageLoadEvent, Rect, RequestAsyncResponder, Result,
@@ -71,7 +71,7 @@ pub(crate) struct InnerWebView {
   // Store FileDropController in here to make sure it gets dropped when
   // the webview gets dropped, otherwise we'll have a memory leak
   #[allow(dead_code)]
-  file_drop_controller: Option<FileDropController>,
+  drag_drop_controller: Option<DragDropController>,
 }
 
 impl Drop for InnerWebView {
@@ -126,7 +126,7 @@ impl InnerWebView {
 
     let (hwnd, bounds) = Self::create_container_hwnd(parent, &attributes, is_child)?;
 
-    let drop_handler = attributes.file_drop_handler.take();
+    let drop_handler = attributes.drag_drop_handler.take();
 
     let env = Self::create_environment(&web_context, pl_attrs.clone(), &attributes)?;
     let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
@@ -141,7 +141,7 @@ impl InnerWebView {
       is_child,
     )?;
 
-    let file_drop_controller = drop_handler.map(|handler| FileDropController::new(hwnd, handler));
+    let drag_drop_controller = drop_handler.map(|handler| DragDropController::new(hwnd, handler));
 
     Ok(Self {
       parent: RefCell::new(parent),
@@ -150,7 +150,7 @@ impl InnerWebView {
       is_child,
       webview,
       env,
-      file_drop_controller,
+      drag_drop_controller,
     })
   }
 
@@ -309,7 +309,7 @@ impl InnerWebView {
 
         CreateCoreWebView2EnvironmentWithOptions(
           PCWSTR::null(),
-          data_directory.unwrap_or_else(|| PCWSTR::null()),
+          data_directory.unwrap_or_else(PCWSTR::null),
           &options,
           &environmentcreatedhandler,
         )
@@ -409,7 +409,7 @@ impl InnerWebView {
       unsafe {
         Self::attach_custom_protocol_handler(
           &webview,
-          &env,
+          env,
           hwnd,
           scheme,
           &mut attributes,
@@ -806,7 +806,7 @@ impl InnerWebView {
 
         if let Some((custom_protocol, custom_protocol_handler)) = custom_protocols
           .iter()
-          .find(|(protocol, _)| is_custom_protocol_uri(&uri, scheme, &protocol))
+          .find(|(protocol, _)| is_custom_protocol_uri(&uri, scheme, protocol))
         {
           let request = match Self::perpare_request(scheme, custom_protocol, &webview_request, &uri)
           {

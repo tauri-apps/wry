@@ -4,7 +4,7 @@
 
 mod download;
 #[cfg(target_os = "macos")]
-mod file_drop;
+mod drag_drop;
 mod navigation;
 #[cfg(feature = "mac-proxy")]
 mod proxy;
@@ -36,7 +36,7 @@ use objc::{
 use objc_id::Id;
 
 #[cfg(target_os = "macos")]
-use file_drop::{add_file_drop_methods, set_file_drop_handler};
+use drag_drop::{add_drag_drop_methods, set_drag_drop_handler};
 
 #[cfg(feature = "mac-proxy")]
 use crate::{
@@ -82,7 +82,7 @@ pub(crate) struct InnerWebView {
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
   page_load_handler: *mut Box<dyn Fn(PageLoadEvent)>,
   #[cfg(target_os = "macos")]
-  file_drop_ptr: *mut Box<dyn Fn(crate::FileDropEvent) -> bool>,
+  drag_drop_ptr: *mut Box<dyn Fn(crate::DragDropEvent) -> bool>,
   download_delegate: id,
   protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>>,
 }
@@ -342,7 +342,7 @@ impl InnerWebView {
         Some(mut decl) => {
           #[cfg(target_os = "macos")]
           {
-            add_file_drop_methods(&mut decl);
+            add_drag_drop_methods(&mut decl);
             synthetic_mouse_events::setup(&mut decl);
             decl.add_ivar::<bool>(ACCEPT_FIRST_MOUSE);
             decl.add_method(
@@ -818,11 +818,11 @@ impl InnerWebView {
 
       // File drop handling
       #[cfg(target_os = "macos")]
-      let file_drop_ptr = match attributes.file_drop_handler {
-        // if we have a file_drop_handler defined, use the defined handler
-        Some(file_drop_handler) => set_file_drop_handler(webview, file_drop_handler),
+      let drag_drop_ptr = match attributes.drag_drop_handler {
+        // if we have a drag_drop_handler defined, use the defined handler
+        Some(drag_drop_handler) => set_drag_drop_handler(webview, drag_drop_handler),
         // prevent panic by using a blank handler
-        None => set_file_drop_handler(webview, Box::new(|_| false)),
+        None => set_drag_drop_handler(webview, Box::new(|_| false)),
       };
 
       // ns window is required for the print operation
@@ -848,7 +848,7 @@ impl InnerWebView {
         document_title_changed_handler,
         navigation_decide_policy_ptr,
         #[cfg(target_os = "macos")]
-        file_drop_ptr,
+        drag_drop_ptr,
         page_load_handler,
         download_delegate,
         protocol_ptrs,
@@ -1213,17 +1213,6 @@ pub fn platform_webview_version() -> Result<String> {
   }
 }
 
-pub fn platform_webview_system_version() -> Result<String> {
-  platform_webview_version().map(|webview_version| {
-    let webview_system_and_major_version = webview_version.split('.').next().unwrap();
-    if webview_system_and_major_version.chars().count() < 5 {
-      webview_system_and_major_version[..1].to_string()
-    } else {
-      webview_system_and_major_version[..2].to_string()
-    }
-  })
-}
-
 impl Drop for InnerWebView {
   fn drop(&mut self) {
     // We need to drop handler closures here
@@ -1246,8 +1235,8 @@ impl Drop for InnerWebView {
       drop_navigation_methods(self);
 
       #[cfg(target_os = "macos")]
-      if !self.file_drop_ptr.is_null() {
-        drop(Box::from_raw(self.file_drop_ptr));
+      if !self.drag_drop_ptr.is_null() {
+        drop(Box::from_raw(self.drag_drop_ptr));
       }
 
       if !self.download_delegate.is_null() {

@@ -179,7 +179,7 @@
 //! for the crate to work. This feature was added in preparation of other ports like cef and servo.
 //! - `protocol` (default): Enables [`WebViewBuilder::with_custom_protocol`] to define custom URL scheme for handling tasks like
 //! loading assets.
-//! - `file-drop` (default): Enables [`WebViewBuilder::with_file_drop_handler`] to control the behaviour when there are files
+//! - `drag-drop` (default): Enables [`WebViewBuilder::with_drag_drop_handler`] to control the behaviour when there are files
 //! interacting with the window.
 //! - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
 //! On **macOS**, enabling devtools, requires calling private apis so you should not enable this flag in release
@@ -191,10 +191,11 @@
 //! libraries and prevent from building documentation on doc.rs fails.
 //! - `linux-body`: Enables body support of custom protocol request on Linux. Requires
 //! webkit2gtk v2.40 or above.
-//! - `tracing`: enables [tracing] for `evaluate_script`, `ipc_handler` and `custom_protocols.
+//! - `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler` and `custom_protocols.
 //!
 //! [`tao`]: https://docs.rs/tao
 //! [`winit`]: https://docs.rs/winit
+//! [`tracing`]: https://docs.rs/tracing
 
 #![allow(clippy::new_without_default)]
 #![allow(clippy::default_constructed_unit_structs)]
@@ -376,17 +377,18 @@ pub struct WebViewAttributes {
   /// using `window.ipc.postMessage("insert_message_here")` to host Rust code.
   pub ipc_handler: Option<Box<dyn Fn(Request<String>)>>,
 
-  /// A handler closure to process incoming [`FileDropEvent`] of the webview.
+  /// A handler closure to process incoming [`DragDropEvent`] of the webview.
   ///
   /// # Blocking OS Default Behavior
-  /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
+  /// Return `true` in the callback to block the OS' default behavior.
   ///
   /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
-  #[cfg(feature = "file-drop")]
-  pub file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
-  #[cfg(not(feature = "file-drop"))]
-  file_drop_handler: Option<Box<dyn Fn(FileDropEvent) -> bool>>,
+  #[cfg(feature = "drag-drop")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "drag-drop")))]
+  pub drag_drop_handler: Option<Box<dyn Fn(DragDropEvent) -> bool>>,
+  #[cfg(not(feature = "drag-drop"))]
+  drag_drop_handler: Option<Box<dyn Fn(DragDropEvent) -> bool>>,
 
   /// A navigation handler to decide if incoming url is allowed to navigate.
   ///
@@ -505,7 +507,7 @@ impl Default for WebViewAttributes {
       initialization_scripts: vec![],
       custom_protocols: vec![],
       ipc_handler: None,
-      file_drop_handler: None,
+      drag_drop_handler: None,
       navigation_handler: None,
       download_started_handler: None,
       download_completed_handler: None,
@@ -560,7 +562,7 @@ impl<'a> WebViewBuilder<'a> {
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
   ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
   /// - **Windows**: The webview will auto-resize when the passed handle is resized.
-  /// - **Linux (X11)**: Unlike macOS and Windows, the webview will not auto-resize and you'll need to call [`WebView::set_size`] manually.
+  /// - **Linux (X11)**: Unlike macOS and Windows, the webview will not auto-resize and you'll need to call [`WebView::set_bounds`] manually.
   ///
   /// # Panics:
   ///
@@ -768,19 +770,20 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set a handler closure to process incoming [`FileDropEvent`] of the webview.
+  /// Set a handler closure to process incoming [`DragDropEvent`] of the webview.
   ///
   /// # Blocking OS Default Behavior
-  /// Return `true` in the callback to block the OS' default behavior of handling a file drop.
+  /// Return `true` in the callback to block the OS' default behavior.
   ///
   /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
-  #[cfg(feature = "file-drop")]
-  pub fn with_file_drop_handler<F>(mut self, handler: F) -> Self
+  #[cfg(feature = "drag-drop")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "drag-drop")))]
+  pub fn with_drag_drop_handler<F>(mut self, handler: F) -> Self
   where
-    F: Fn(FileDropEvent) -> bool + 'static,
+    F: Fn(DragDropEvent) -> bool + 'static,
   {
-    self.attrs.file_drop_handler = Some(Box::new(handler));
+    self.attrs.drag_drop_handler = Some(Box::new(handler));
     self
   }
 
@@ -789,7 +792,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Note
   ///
-  /// Data URLs are not supported, use [`html`](Self::html) option instead.
+  /// Data URLs are not supported, use [`html`](Self::with_html) option instead.
   pub fn with_url_and_headers(mut self, url: impl Into<String>, headers: http::HeaderMap) -> Self {
     self.attrs.url = Some(url.into());
     self.attrs.headers = Some(headers);
@@ -801,7 +804,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Note
   ///
-  /// Data URLs are not supported, use [`html`](Self::html) option instead.
+  /// Data URLs are not supported, use [`html`](Self::with_html) option instead.
   pub fn with_url(mut self, url: impl Into<String>) -> Self {
     self.attrs.url = Some(url.into());
     self.attrs.headers = None;
@@ -1067,7 +1070,7 @@ pub trait WebViewBuilderExtWindows {
   /// `false`, it disables all accelerator keys that access features specific to a web browser.
   /// The default value is `true`. See the following link to know more details.
   ///
-  /// https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2settings#arebrowseracceleratorkeysenabled
+  /// <https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2settings#arebrowseracceleratorkeysenabled>
   fn with_browser_accelerator_keys(self, enabled: bool) -> Self;
 
   /// Specifies the theme of webview2. This affects things like `prefers-color-scheme`.
@@ -1250,7 +1253,7 @@ impl WebView {
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
   ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
   /// - **macOS / Windows**: The webview will auto-resize when the passed handle is resized.
-  /// - **Linux (X11)**: Unlike macOS and Windows, the webview will not auto-resize and you'll need to call [`WebView::set_size`] manually.
+  /// - **Linux (X11)**: Unlike macOS and Windows, the webview will not auto-resize and you'll need to call [`WebView::set_bounds`] manually.
   ///
   /// # Panics:
   ///
@@ -1410,24 +1413,31 @@ impl WebView {
   }
 }
 
-/// An event describing the files drop on the webview.
+/// An event describing drag and drop operations on the webview.
 #[non_exhaustive]
 #[derive(Debug, serde::Serialize, Clone)]
-pub enum FileDropEvent {
-  /// The file(s) have been dragged onto the window, but have not been dropped yet.
-  Hovered {
+pub enum DragDropEvent {
+  /// A drag operation has entered the webview.
+  Enter {
+    /// List of paths that are being dragged onto the webview.
     paths: Vec<PathBuf>,
-    /// The position of the mouse cursor.
+    /// Position of the drag operation, relative to the webview top-left corner.
+    position: (i32, i32),
+  },
+  /// A drag operation is moving over the window.
+  Over {
+    /// Position of the drag operation, relative to the webview top-left corner.
     position: (i32, i32),
   },
   /// The file(s) have been dropped onto the window.
-  Dropped {
+  Drop {
+    /// List of paths that are being dropped onto the window.
     paths: Vec<PathBuf>,
-    /// The position of the mouse cursor.
+    /// Position of the drag operation, relative to the webview top-left corner.
     position: (i32, i32),
   },
-  /// The file drop was aborted.
-  Cancelled,
+  /// The drag operation has been cancelled or left the window.
+  Leave,
 }
 
 /// Get WebView/Webkit version on current platform.
