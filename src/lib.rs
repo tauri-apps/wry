@@ -1415,7 +1415,7 @@ impl WebView {
 
 /// An event describing drag and drop operations on the webview.
 #[non_exhaustive]
-#[derive(Debug, serde::Serialize, Clone)]
+#[derive(Debug, Clone)]
 pub enum DragDropEvent {
   /// A drag operation has entered the webview.
   Enter {

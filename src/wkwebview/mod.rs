@@ -160,7 +160,8 @@ impl InnerWebView {
           }
         }
 
-        log::warn!("WebView received invalid IPC call.");
+        #[cfg(feature = "tracing")]
+        tracing::warn!("WebView received invalid IPC call.");
       }
     }
 
@@ -288,7 +289,8 @@ impl InnerWebView {
             Err(_) => respond_with_404(),
           };
         } else {
-          log::warn!(
+          #[cfg(feature = "tracing")]
+          tracing::warn!(
             "Either WebView or WebContext instance is dropped! This handler shouldn't be called."
           );
         }

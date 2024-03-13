@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use cocoa::base::nil;
-use libc::c_char;
+use std::ffi::c_char;
 
 use crate::{proxy::ProxyEndpoint, Error};
 
