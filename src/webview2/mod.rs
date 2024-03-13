@@ -14,7 +14,7 @@ use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 use windows::{
-  core::{s, ComInterface, PCWSTR, PWSTR},
+  core::{s, Interface, PCWSTR, PWSTR},
   Win32::{
     Foundation::*,
     Globalization::{self, MAX_LOCALE_NAME},
