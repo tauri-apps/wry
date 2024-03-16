@@ -1068,7 +1068,7 @@ impl InnerWebView {
         let _ = (*controller).NotifyParentWindowPositionChanged();
       }
 
-      msg if msg == win32wm::WM_DESTROY || msg == PARENT_DESTROY_MESSAGE => {
+      msg if msg == win32wm::WM_DESTROY /* || msg == PARENT_DESTROY_MESSAGE */ => {
         drop(Box::from_raw(dwrefdata as *mut ICoreWebView2Controller));
       }
 
