@@ -2,7 +2,7 @@ workspace = { }
 
 [package]
 name = "wry"
-version = "0.37.0"
+version = "0.38.0"
 authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -70,9 +70,9 @@ webview2-com = "0.29"
 windows-version = "0.1"
 dunce = "1"
 
-[target."cfg(target_os = \"windows\")".dependencies.windows]
-version = "0.54"
-features = [
+  [target."cfg(target_os = \"windows\")".dependencies.windows]
+  version = "0.54"
+  features = [
   "implement",
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
