@@ -1,5 +1,33 @@
 # Changelog
 
+## \[0.38.0]
+
+- [`e6f0fbd`](https://github.com/tauri-apps/wry/commit/e6f0fbd33365070af46361605a922ba24e542fb5)([#1180](https://github.com/tauri-apps/wry/pull/1180)) Fixes a null pointer exception when running `window.ipc.postMessage(null)` on Android.
+- [`5789bf7`](https://github.com/tauri-apps/wry/commit/5789bf759ce94e4dad5ff26a08fe81521658a4e4)([#1187](https://github.com/tauri-apps/wry/pull/1187)) **Breaking change**: Refactored the file-drop handling on the webview for better representation of the actual drag and drop operation:
+
+  - Renamed `file-drop` cargo feature flag to `drag-drop`.
+  - Removed `FileDropEvent` enum and replaced with a new `DragDropEvent` enum.
+  - Renamed `WebViewAttributes::file_drop_handler` field to `WebViewAttributes::drag_drop_handler`.
+  - Renamed `WebViewAttributes::with_file_drop_handler` method to `WebViewAttributes::with_drag_drop_handler`.
+- [`b8fea39`](https://github.com/tauri-apps/wry/commit/b8fea396c2eca289e2f930ad635a15397b7c0dda)([#1183](https://github.com/tauri-apps/wry/pull/1183)) Changed `WebViewBuilder::with_ipc_handler` closure to take `http::Request` instead of `String` so the request URL is available.
+- [`3a2026b`](https://github.com/tauri-apps/wry/commit/3a2026b37be67dea53535f0a7d78b32452ac8b40)([#1182](https://github.com/tauri-apps/wry/pull/1182)) **Breaking changes**: Changed a few methods on `WebView` type to return a `Result`:
+
+  - `Webview::url`
+  - `Webview::zoom`
+  - `Webview::load_url`
+  - `Webview::load_url_with_headers`
+  - `Webview::bounds`
+  - `Webview::set_bounds`
+  - `Webview::set_visible`
+  - `WebviewExtWindows::set_theme`
+  - `WebviewExtWindows::set_memory_usage_level`
+  - `WebviewExtWindows::reparent`
+  - `WebviewExtUnix::reparent`
+  - `WebviewExtMacOS::reparent`
+- [`e1e2e07`](https://github.com/tauri-apps/wry/commit/e1e2e071e5329bc1a94864e368fdaa3041e79427)([#1190](https://github.com/tauri-apps/wry/pull/1190)) Update `webview2-com` crate to `0.29`
+- [`e1e2e07`](https://github.com/tauri-apps/wry/commit/e1e2e071e5329bc1a94864e368fdaa3041e79427)([#1190](https://github.com/tauri-apps/wry/pull/1190)) Update `windows` crate to `0.54`
+- [`00bc96d`](https://github.com/tauri-apps/wry/commit/00bc96d115879c841fc47242271db3761d19f746)([#1179](https://github.com/tauri-apps/wry/pull/1179)) Added `WryActivity::onWebViewCreate(android.webkit.WebView)` on Android.
+
 ## \[0.37.0]
 
 - [`8c86fba`](https://github.com/tauri-apps/wry/commit/8c86fbaf51cd970737cc070583318d4b532349d2) **Breaking change**: Removed `data:` url support, as its native support in Windows and macOS are buggy and unreliable, use `Webview::with_html` instead.
