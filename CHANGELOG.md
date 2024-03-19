@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.38.1]
+
+- [`7c9e71f`](https://github.com/tauri-apps/wry/commit/7c9e71f4692e94fd401ad3508ff3912d43880e2c)([#1192](https://github.com/tauri-apps/wry/pull/1192)) Fixes compilation failing on Windows with the `tracing` feature enabled.
+
 ## \[0.38.0]
 
 - [`e6f0fbd`](https://github.com/tauri-apps/wry/commit/e6f0fbd33365070af46361605a922ba24e542fb5)([#1180](https://github.com/tauri-apps/wry/pull/1180)) Fixes a null pointer exception when running `window.ipc.postMessage(null)` on Android.
