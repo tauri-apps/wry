@@ -139,7 +139,7 @@ impl DragDropTarget {
         tracing::warn!(
           "{}",
           match _error.code() {
-            win32f::DV_E_FORMATETC => {
+            windows::Win32::Foundation::DV_E_FORMATETC => {
               // If the dropped item is not a file this error will occur.
               // In this case it is OK to return without taking further action.
               "Error occurred while processing dropped/hovered item: item is not a file."

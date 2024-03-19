@@ -44,7 +44,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: build wry
-        run: cargo build --target ${{ matrix.platform.target }}
+        run: cargo build --target ${{ matrix.platform.target }} --all-features
 
       - name: build tests and examples
         shell: bash
