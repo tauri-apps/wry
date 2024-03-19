@@ -1,11 +1,11 @@
 use std::{path::PathBuf, ptr::null_mut, rc::Rc};
 
 use cocoa::base::id;
-use libc::c_void;
 use objc::{
   declare::ClassDecl,
   runtime::{Object, Sel},
 };
+use std::ffi::c_void;
 
 use super::NSString;
 
@@ -79,7 +79,8 @@ pub extern "C" fn download_policy(
         false => (*handler).call((null_mut(),)),
       };
     } else {
-      log::warn!("WebView instance is dropped! This navigation handler shouldn't be called.");
+      #[cfg(feature = "tracing")]
+      tracing::warn!("WebView instance is dropped! This navigation handler shouldn't be called.");
       (*handler).call((null_mut(),));
     }
   }

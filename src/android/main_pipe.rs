@@ -188,7 +188,8 @@ impl<'a> MainPipe<'a> {
               activity,
               webview: &webview,
             }) {
-              log::warn!("failed to run webview created hook: {e}");
+              #[cfg(feature = "tracing")]
+              tracing::warn!("failed to run webview created hook: {e}");
             }
           }
 

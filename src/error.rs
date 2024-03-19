@@ -32,8 +32,6 @@ pub enum Error {
   SenderError(#[from] std::sync::mpsc::SendError<String>),
   #[error("Failed to send the message")]
   MessageSender,
-  #[error(transparent)]
-  Json(#[from] serde_json::Error),
   #[error("IO error: {0}")]
   Io(#[from] std::io::Error),
   #[cfg(target_os = "windows")]

@@ -157,7 +157,8 @@ fn handle_request(
     let final_request = match request_builder.body(Vec::new()) {
       Ok(req) => req,
       Err(e) => {
-        log::warn!("Failed to build response: {}", e);
+        #[cfg(feature = "tracing")]
+        tracing::warn!("Failed to build response: {}", e);
         return Ok(*JObject::null());
       }
     };
@@ -180,7 +181,8 @@ fn handle_request(
         None
       };
       if let Some(err) = status_err {
-        log::warn!("{}", err);
+        #[cfg(feature = "tracing")]
+        tracing::warn!("{}", err);
         return Ok(*JObject::null());
       }
 
@@ -253,7 +255,8 @@ pub unsafe fn handleRequest(
   match handle_request(&mut env, request, is_document_start_script_enabled) {
     Ok(response) => response,
     Err(e) => {
-      log::warn!("Failed to handle request: {}", e);
+      #[cfg(feature = "tracing")]
+      tracing::warn!("Failed to handle request: {}", e);
       JObject::null().as_raw()
     }
   }
@@ -274,7 +277,8 @@ pub unsafe fn shouldOverride(mut env: JNIEnv, _: JClass, url: JString) -> jboole
         .unwrap_or(false)
     }
     Err(e) => {
-      log::warn!("Failed to parse JString: {}", e);
+      #[cfg(feature = "tracing")]
+      tracing::warn!("Failed to parse JString: {}", e);
       false
     }
   }
@@ -295,7 +299,8 @@ pub unsafe fn onEval(mut env: JNIEnv, _: JClass, id: jint, result: JString) {
       }
     }
     Err(e) => {
-      log::warn!("Failed to parse JString: {}", e);
+      #[cfg(feature = "tracing")]
+      tracing::warn!("Failed to parse JString: {}", e);
     }
   }
 }
@@ -312,7 +317,10 @@ pub unsafe fn ipc(mut env: JNIEnv, _: JClass, url: JString, body: JString) {
         (ipc.handler)(Request::builder().uri(url).body(body).unwrap())
       }
     }
-    (Err(e), _) | (_, Err(e)) => log::warn!("Failed to parse JString: {}", e),
+    (Err(e), _) | (_, Err(e)) => {
+      #[cfg(feature = "tracing")]
+      tracing::warn!("Failed to parse JString: {}", e)
+    }
   }
 }
 
@@ -325,7 +333,10 @@ pub unsafe fn handleReceivedTitle(mut env: JNIEnv, _: JClass, _webview: JObject,
         (title_handler.handler)(title)
       }
     }
-    Err(e) => log::warn!("Failed to parse JString: {}", e),
+    Err(e) => {
+      #[cfg(feature = "tracing")]
+      tracing::warn!("Failed to parse JString: {}", e)
+    }
   }
 }
 
@@ -352,7 +363,10 @@ pub unsafe fn onPageLoading(mut env: JNIEnv, _: JClass, url: JString) {
         (on_load.handler)(PageLoadEvent::Started, url)
       }
     }
-    Err(e) => log::warn!("Failed to parse JString: {}", e),
+    Err(e) => {
+      #[cfg(feature = "tracing")]
+      tracing::warn!("Failed to parse JString: {}", e)
+    }
   }
 }
 
@@ -365,6 +379,9 @@ pub unsafe fn onPageLoaded(mut env: JNIEnv, _: JClass, url: JString) {
         (on_load.handler)(PageLoadEvent::Finished, url)
       }
     }
-    Err(e) => log::warn!("Failed to parse JString: {}", e),
+    Err(e) => {
+      #[cfg(feature = "tracing")]
+      tracing::warn!("Failed to parse JString: {}", e)
+    }
   }
 }

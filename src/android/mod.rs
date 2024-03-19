@@ -220,7 +220,8 @@ impl InnerWebView {
             let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
               Box::new(move |mut response| {
                 if !is_document_start_script_enabled {
-                  log::info!("`addDocumentStartJavaScript` is not supported; injecting initialization scripts via custom protocol handler");
+                  #[cfg(feature = "tracing")]
+                  tracing::info!("`addDocumentStartJavaScript` is not supported; injecting initialization scripts via custom protocol handler");
                   let should_inject_scripts = response
                     .headers()
                     .get(CONTENT_TYPE)
