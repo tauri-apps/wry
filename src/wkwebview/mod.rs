@@ -15,7 +15,9 @@ mod synthetic_mouse_events;
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewMinYMargin, NSViewWidthSizable};
 use cocoa::{
   base::{id, nil, NO, YES},
-  foundation::{NSDictionary, NSFastEnumeration, NSInteger},
+  foundation::{
+    NSDictionary, NSFastEnumeration, NSInteger, NSOperatingSystemVersion, NSProcessInfo,
+  },
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
@@ -806,10 +808,19 @@ impl InnerWebView {
             run_file_upload_panel as extern "C" fn(&Object, Sel, id, id, id, id),
           );
 
-          ctl.add_method(
-            sel!(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:),
-            request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, id, id),
-          );
+          #[cfg(target_os = "macos")]
+          match operating_system_version() {
+            (14, 0, _) => {
+              // Do not suppress media request on 14.0:
+              // https://github.com/tauri-apps/wry/issues/1101
+            }
+            _ => {
+              ctl.add_method(
+                sel!(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:),
+                request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, id, id),
+              );
+            }
+          }
 
           ctl.register()
         }
@@ -1201,8 +1212,22 @@ pub fn url_from_webview(webview: id) -> Result<String> {
     .map_err(Into::into)
 }
 
+pub fn operating_system_version() -> (u64, u64, u64) {
+  unsafe {
+    let process_info: id = msg_send![class!(NSProcessInfo), processInfo];
+    let version: NSOperatingSystemVersion = msg_send![process_info, operatingSystemVersion];
+    (
+      version.majorVersion,
+      version.minorVersion,
+      version.patchVersion,
+    )
+  }
+}
+
+/// **Warning:** Panic occurs when caller application's `CFBundleDisplayName` contains non-ASCII characters.
 pub fn platform_webview_version() -> Result<String> {
   unsafe {
+    // bundleWithIdentifier: panic when CFBundleDisplayName contains non-ASCII characters.
     let bundle: id =
       msg_send![class!(NSBundle), bundleWithIdentifier: NSString::new("com.apple.WebKit")];
     let dict: id = msg_send![bundle, infoDictionary];
