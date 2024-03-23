@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+// TODO: remove this once the issue is fixed
+mod objc_type;
+
 mod download;
 #[cfg(target_os = "macos")]
 mod drag_drop;
@@ -15,9 +18,7 @@ mod synthetic_mouse_events;
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewMinYMargin, NSViewWidthSizable};
 use cocoa::{
   base::{id, nil, NO, YES},
-  foundation::{
-    NSDictionary, NSFastEnumeration, NSInteger, NSOperatingSystemVersion, NSProcessInfo,
-  },
+  foundation::{NSDictionary, NSFastEnumeration, NSInteger, NSOperatingSystemVersion},
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
@@ -55,6 +56,7 @@ use crate::{
       set_download_delegate,
     },
     navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
+    objc_type::{WKDisplayCapturePermissionDecision, WKMediaCaptureType, WKPermissionDecision},
   },
   Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
 };
@@ -785,78 +787,84 @@ impl InnerWebView {
         }
       }
 
+      // getUserMedia permission request handler
       extern "C" fn request_media_capture_permission(
         _this: &Object,
         _: Sel,
         _webview: id,
         _origin: id,
         _frame: id,
-        _type: id,
+        capture_type: isize,
         decision_handler: id,
       ) {
         unsafe {
           println!("request_media_capture_permission");
-          let ty: NSInteger = msg_send![_type, integerValue];
-          dbg!(ty);
 
-          let decision_handler = decision_handler as *mut block::Block<(NSInteger,), c_void>;
-          //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
-          (*decision_handler).call((0,)); // should be 1 for mic/cam
+          dbg!(WKMediaCaptureType::from(capture_type));
+
+          // https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
+          let decision_handler =
+            decision_handler as *mut block::Block<(WKPermissionDecision,), c_void>;
+          (*decision_handler).call((WKPermissionDecision::Prompt,)); // should be 1 for mic/cam
         }
       }
 
-      extern "C" fn request_user_media_authorization(
-        _this: &Object,
-        _: Sel,
-        _webview: id,
-        _devices: id,
-        _url: id,
-        _main_frame_url: id,
-        decision_handler: id,
-      ) {
-        unsafe {
-          println!("request_user_media_authorization");
+      // extern "C" fn request_user_media_authorization(
+      //   _this: &Object,
+      //   _: Sel,
+      //   _webview: id,
+      //   _devices: id,
+      //   _url: id,
+      //   _main_frame_url: id,
+      //   decision_handler: id,
+      // ) {
+      //   unsafe {
+      //     println!("request_user_media_authorization");
 
-          let decision_handler = decision_handler as *mut block::Block<(BOOL,), c_void>;
-          //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
-          (*decision_handler).call((BOOL::from(true),));
-        }
-      }
+      //     let decision_handler = decision_handler as *mut block::Block<(BOOL,), c_void>;
+      //     //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
+      //     (*decision_handler).call((BOOL::from(true),));
+      //   }
+      // }
 
+      // getDisplayMedia permission request handler
       extern "C" fn request_display_capture_permission(
         _this: &Object,
         _: Sel,
         _webview: id,
         _origin: id,
         _frame: id,
-        _type: id,
+        capture_type: isize,
         decision_handler: id,
       ) {
         unsafe {
           println!("request_display_capture_permission");
 
-          let decision_handler = decision_handler as *mut block::Block<(NSInteger,), c_void>;
+          dbg!(WKMediaCaptureType::from(capture_type));
+
+          let decision_handler =
+            decision_handler as *mut block::Block<(WKDisplayCapturePermissionDecision,), c_void>;
           //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
-          (*decision_handler).call((1,));
+          (*decision_handler).call((WKDisplayCapturePermissionDecision::ScreenPrompt,));
         }
       }
 
-      extern "C" fn query_permission_for_name(
-        _this: &Object,
-        _: Sel,
-        _webview: id,
-        _name: id,
-        _origin: id,
-        handler: id,
-      ) {
-        unsafe {
-          println!("query_permission_for_name");
+      // extern "C" fn query_permission_for_name(
+      //   _this: &Object,
+      //   _: Sel,
+      //   _webview: id,
+      //   _name: id,
+      //   _origin: id,
+      //   handler: id,
+      // ) {
+      //   unsafe {
+      //     println!("query_permission_for_name");
 
-          let handler = handler as *mut block::Block<(NSInteger,), c_void>;
-          //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
-          (*handler).call((1,)); // should be 1 for mic/cam
-        }
-      }
+      //     let handler = handler as *mut block::Block<(NSInteger,), c_void>;
+      //     //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
+      //     (*handler).call((1,)); // should be 1 for mic/cam
+      //   }
+      // }
 
       let ui_delegate = match ClassDecl::new("WebViewUIDelegate", class!(NSObject)) {
         Some(mut ctl) => {
@@ -884,26 +892,26 @@ impl InnerWebView {
 
               ctl.add_method(
                 sel!(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:),
-                request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, id, id),
+                request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, isize, id),
               );
 
               // I tried webView _webView and webView_ and none of them worked but this is probably not the root cause
               // Also, they seem to do _something_ because i have to comment out all of them (and requestMediaCapturePermission above) for getDisplayMedia to work.
               // If i leave requestMediaCapturePermission commented out but add those 3 methods below it does seem to do something because
               // https://webrtc.github.io/samples/src/content/getusermedia/getdisplaymedia/ stops printing NotAllowed.
-              ctl
-                .add_method(sel!(_webView:requestUserMediaAuthorizationForDevices:url:mainFrameURL:decisionHandler:),
-              request_user_media_authorization as extern "C" fn(&Object, Sel, id, id, id, id, id));
+              // ctl
+              //   .add_method(sel!(_webView:requestUserMediaAuthorizationForDevices:url:mainFrameURL:decisionHandler:),
+              // request_user_media_authorization as extern "C" fn(&Object, Sel, id, id, id, id, id));
 
               ctl.add_method(
-                sel!(_webView:requestDisplayCapturePermissionForSecurityOrigin:initiatedByFrame:withSystemAudio:decisionHandler:),
-                request_display_capture_permission as extern "C" fn(&Object, Sel, id, id, id, id, id),
+                sel!(_webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:withSystemAudio:decisionHandler:),
+                request_display_capture_permission as extern "C" fn(&Object, Sel, id, id, id, isize, id),
               );
 
-              ctl.add_method(
-                sel!(_webView:queryPermissionName:forOrigin:completionHandler:),
-                query_permission_for_name as extern "C" fn(&Object, Sel, id, id, id, id),
-              );
+              // ctl.add_method(
+              //   sel!(webView:queryPermissionName:forOrigin:completionHandler:),
+              //   query_permission_for_name as extern "C" fn(&Object, Sel, id, id, id, id),
+              // );
             }
           }
 

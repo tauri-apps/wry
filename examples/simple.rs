@@ -35,7 +35,7 @@ fn main() -> wry::Result<()> {
   };
 
   let _webview = builder
-    .with_url("http://tauri.app")
+    .with_url("https://webrtc.github.io/samples/src/content/getusermedia/getdisplaymedia/")
     .with_drag_drop_handler(|e| {
       match e {
         wry::DragDropEvent::Enter { paths, position } => {
