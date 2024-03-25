@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.38.2]
+
+- [`3e84a0e`](https://github.com/tauri-apps/wry/commit/3e84a0e276dfac0b28fb01f42460f9367fff9f22)([#1200](https://github.com/tauri-apps/wry/pull/1200)) Fixes compilation for 32bit Linux targets.
+
 ## \[0.38.1]
 
 - [`7c9e71f`](https://github.com/tauri-apps/wry/commit/7c9e71f4692e94fd401ad3508ff3912d43880e2c)([#1192](https://github.com/tauri-apps/wry/pull/1192)) Fixes compilation failing on Windows with the `tracing` feature enabled.
