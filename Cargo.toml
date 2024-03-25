@@ -52,7 +52,7 @@ cfg_aliases = "0.1"
 tracing = { version = "0.1", optional = true }
 once_cell = "1"
 thiserror = "1.0"
-http = "0.2"
+http = "1.1"
 raw-window-handle = { version = "0.6", features = [ "std" ] }
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
