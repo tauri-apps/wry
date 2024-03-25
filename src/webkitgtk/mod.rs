@@ -17,7 +17,10 @@ use javascriptcore::ValueExt;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::{
+  ffi::c_ulong,
+  sync::{Arc, Mutex},
+};
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use webkit2gtk::WebInspectorExt;
 use webkit2gtk::{
@@ -51,7 +54,7 @@ struct X11Data {
   is_child: bool,
   xlib: Xlib,
   x11_display: *mut std::ffi::c_void,
-  x11_window: u64,
+  x11_window: c_ulong,
   gtk_window: gtk::Window,
 }
 
@@ -152,9 +155,9 @@ impl InnerWebView {
   fn create_container_x11_window(
     xlib: &Xlib,
     display: *mut _XDisplay,
-    parent: u64,
+    parent: c_ulong,
     attributes: &WebViewAttributes,
-  ) -> u64 {
+  ) -> c_ulong {
     let window = unsafe {
       (xlib.XCreateSimpleWindow)(
         display,
@@ -179,7 +182,10 @@ impl InnerWebView {
     window
   }
 
-  pub fn create_gtk_window(raw: *mut GdkX11Display, x11_window: u64) -> (gtk::Window, gtk::Box) {
+  pub fn create_gtk_window(
+    raw: *mut GdkX11Display,
+    x11_window: c_ulong,
+  ) -> (gtk::Window, gtk::Box) {
     // Gdk.Window
     let gdk_window = unsafe { gdk_x11_window_foreign_new_for_display(raw, x11_window) };
     let gdk_window = unsafe { gdk::Window::from_glib_full(gdk_window) };
