@@ -38,8 +38,9 @@ fn main() -> wry::Result<()> {
   let _webview = builder
     .with_url("https://webrtc.github.io/samples/src/content/getusermedia/getdisplaymedia/")
     .with_display_capture_decision_handler(|capture_type| {
+      // TODO: remove this
       dbg!(capture_type);
-      wry::WKDisplayCapturePermissionDecision::ScreenPrompt
+      wry::WKDisplayCapturePermissionDecision::WindowPrompt
     })
     .with_drag_drop_handler(|e| {
       match e {

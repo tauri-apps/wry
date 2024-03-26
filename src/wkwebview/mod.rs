@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+#[cfg(target_os = "macos")]
+mod display_capture;
 mod download;
 #[cfg(target_os = "macos")]
 mod drag_drop;
@@ -46,6 +48,9 @@ use crate::{
   },
 };
 
+#[cfg(target_os = "macos")]
+pub use display_capture::{WKDisplayCapturePermissionDecision, WKMediaCaptureType};
+
 use crate::{
   wkwebview::{
     download::{
@@ -54,8 +59,7 @@ use crate::{
     },
     navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
   },
-  Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WKDisplayCapturePermissionDecision,
-  WKMediaCaptureType, WebContext, WebViewAttributes, RGBA,
+  Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
 };
 
 use http::{
@@ -126,7 +130,7 @@ impl InnerWebView {
   fn new_ns_view(
     ns_view: id,
     attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
     is_child: bool,
   ) -> Result<Self> {
@@ -801,36 +805,6 @@ impl InnerWebView {
         }
       }
 
-      // getDisplayMedia permission request handler
-      extern "C" fn request_display_capture_permission(
-        this: &Object,
-        _: Sel,
-        _webview: id,
-        _origin: id,
-        _frame: id,
-        capture_type: isize,
-        decision_handler: id,
-      ) {
-        unsafe {
-          println!("request_display_capture_permission");
-
-          let decision_handler =
-            decision_handler as *mut block::Block<(WKDisplayCapturePermissionDecision,), c_void>;
-
-          let function = this.get_ivar::<*mut c_void>("display_capture_decision_handler");
-          if !function.is_null() {
-            let function = &mut *(*function
-              as *mut Box<
-                dyn for<'s> Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision,
-              >);
-            let decision = (function)(WKMediaCaptureType::from(capture_type));
-            (*decision_handler).call((decision,));
-          } else {
-            (*decision_handler).call((WKDisplayCapturePermissionDecision::Deny,));
-          }
-        }
-      }
-
       let ui_delegate = match ClassDecl::new("WebViewUIDelegate", class!(NSObject)) {
         Some(mut ctl) => {
           ctl.add_method(
@@ -843,34 +817,20 @@ impl InnerWebView {
             request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, isize, id),
           );
 
+          // Workaround for getDisplayMedia()
           // https://github.com/tauri-apps/wry/issues/1195
           #[cfg(target_os = "macos")]
-          if operating_system_version().0 >= 13 {
-            ctl.add_ivar::<*mut c_void>("display_capture_decision_handler");
-            ctl.add_method(
-                sel!(_webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:withSystemAudio:decisionHandler:),
-                request_display_capture_permission as extern "C" fn(&Object, Sel, id, id, id, isize, id),
-              );
-          }
+          display_capture::declare_decision_handler(&mut ctl);
 
           ctl.register()
         }
         None => class!(WebViewUIDelegate),
       };
       let ui_delegate: id = msg_send![ui_delegate, new];
+      let _: () = msg_send![webview, setUIDelegate: ui_delegate];
 
       #[cfg(target_os = "macos")]
-      if operating_system_version().0 >= 13 {
-        if let Some(handler) = attributes.display_capture_decision_handler {
-          let handler = Box::into_raw(Box::new(handler));
-          (*ui_delegate).set_ivar(
-            "display_capture_decision_handler",
-            handler as *mut _ as *mut c_void,
-          );
-        }
-      }
-
-      let _: () = msg_send![webview, setUIDelegate: ui_delegate];
+      display_capture::set_decision_handler(ui_delegate, pl_attrs.display_capture_decision_handler);
 
       // File drop handling
       #[cfg(target_os = "macos")]
