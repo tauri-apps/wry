@@ -8,6 +8,7 @@ use tao::{
   window::WindowBuilder,
 };
 use wry::WebViewBuilder;
+use wry::WebViewBuilderExtMacOS;
 
 fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
@@ -36,6 +37,10 @@ fn main() -> wry::Result<()> {
 
   let _webview = builder
     .with_url("https://webrtc.github.io/samples/src/content/getusermedia/getdisplaymedia/")
+    .with_display_capture_decision_handler(|capture_type| {
+      dbg!(capture_type);
+      wry::WKDisplayCapturePermissionDecision::ScreenPrompt
+    })
     .with_drag_drop_handler(|e| {
       match e {
         wry::DragDropEvent::Enter { paths, position } => {

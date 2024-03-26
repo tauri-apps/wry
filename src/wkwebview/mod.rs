@@ -2,9 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-// TODO: remove this once the issue is fixed
-mod objc_type;
-
 mod download;
 #[cfg(target_os = "macos")]
 mod drag_drop;
@@ -56,9 +53,9 @@ use crate::{
       set_download_delegate,
     },
     navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
-    objc_type::{WKDisplayCapturePermissionDecision, WKMediaCaptureType, WKPermissionDecision},
   },
-  Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
+  Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WKDisplayCapturePermissionDecision,
+  WKMediaCaptureType, WebContext, WebViewAttributes, RGBA,
 };
 
 use http::{
@@ -794,42 +791,19 @@ impl InnerWebView {
         _webview: id,
         _origin: id,
         _frame: id,
-        capture_type: isize,
+        _capture_type: isize,
         decision_handler: id,
       ) {
         unsafe {
-          println!("request_media_capture_permission");
-
-          dbg!(WKMediaCaptureType::from(capture_type));
-
           // https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
-          let decision_handler =
-            decision_handler as *mut block::Block<(WKPermissionDecision,), c_void>;
-          (*decision_handler).call((WKPermissionDecision::Prompt,)); // should be 1 for mic/cam
+          let decision_handler = decision_handler as *mut block::Block<(u64,), c_void>;
+          (*decision_handler).call((1,)); // should be 1 for mic/cam
         }
       }
 
-      // extern "C" fn request_user_media_authorization(
-      //   _this: &Object,
-      //   _: Sel,
-      //   _webview: id,
-      //   _devices: id,
-      //   _url: id,
-      //   _main_frame_url: id,
-      //   decision_handler: id,
-      // ) {
-      //   unsafe {
-      //     println!("request_user_media_authorization");
-
-      //     let decision_handler = decision_handler as *mut block::Block<(BOOL,), c_void>;
-      //     //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
-      //     (*decision_handler).call((BOOL::from(true),));
-      //   }
-      // }
-
       // getDisplayMedia permission request handler
       extern "C" fn request_display_capture_permission(
-        _this: &Object,
+        this: &Object,
         _: Sel,
         _webview: id,
         _origin: id,
@@ -840,31 +814,22 @@ impl InnerWebView {
         unsafe {
           println!("request_display_capture_permission");
 
-          dbg!(WKMediaCaptureType::from(capture_type));
-
           let decision_handler =
             decision_handler as *mut block::Block<(WKDisplayCapturePermissionDecision,), c_void>;
-          //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
-          (*decision_handler).call((WKDisplayCapturePermissionDecision::ScreenPrompt,));
+
+          let function = this.get_ivar::<*mut c_void>("display_capture_decision_handler");
+          if !function.is_null() {
+            let function = &mut *(*function
+              as *mut Box<
+                dyn for<'s> Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision,
+              >);
+            let decision = (function)(WKMediaCaptureType::from(capture_type));
+            (*decision_handler).call((decision,));
+          } else {
+            (*decision_handler).call((WKDisplayCapturePermissionDecision::Deny,));
+          }
         }
       }
-
-      // extern "C" fn query_permission_for_name(
-      //   _this: &Object,
-      //   _: Sel,
-      //   _webview: id,
-      //   _name: id,
-      //   _origin: id,
-      //   handler: id,
-      // ) {
-      //   unsafe {
-      //     println!("query_permission_for_name");
-
-      //     let handler = handler as *mut block::Block<(NSInteger,), c_void>;
-      //     //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
-      //     (*handler).call((1,)); // should be 1 for mic/cam
-      //   }
-      // }
 
       let ui_delegate = match ClassDecl::new("WebViewUIDelegate", class!(NSObject)) {
         Some(mut ctl) => {
@@ -873,46 +838,19 @@ impl InnerWebView {
             run_file_upload_panel as extern "C" fn(&Object, Sel, id, id, id, id),
           );
 
+          ctl.add_method(
+            sel!(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:),
+            request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, isize, id),
+          );
+
+          // https://github.com/tauri-apps/wry/issues/1195
           #[cfg(target_os = "macos")]
-          // TODO: remove this later
-          #[allow(clippy::match_single_binding)]
-          match operating_system_version() {
-            // TODO: Test on older versions
-            /* (14, 0, _) => {
-              // Do not suppress media request on 14.0:
-              // https://github.com/tauri-apps/wry/issues/1101
-            } */
-            _ => {
-              dbg!("register");
-
-              // This probably isn't working but we somehow need an equivalent to:
-              // @protocol WKUIDelegatePrivate <NSObject>
-              let p = objc::runtime::Protocol::get("WKUIDelegatePrivate");
-              ctl.add_protocol(p.unwrap());
-
-              ctl.add_method(
-                sel!(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:),
-                request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, isize, id),
-              );
-
-              // I tried webView _webView and webView_ and none of them worked but this is probably not the root cause
-              // Also, they seem to do _something_ because i have to comment out all of them (and requestMediaCapturePermission above) for getDisplayMedia to work.
-              // If i leave requestMediaCapturePermission commented out but add those 3 methods below it does seem to do something because
-              // https://webrtc.github.io/samples/src/content/getusermedia/getdisplaymedia/ stops printing NotAllowed.
-              // ctl
-              //   .add_method(sel!(_webView:requestUserMediaAuthorizationForDevices:url:mainFrameURL:decisionHandler:),
-              // request_user_media_authorization as extern "C" fn(&Object, Sel, id, id, id, id, id));
-
-              ctl.add_method(
+          if operating_system_version().0 >= 13 {
+            ctl.add_ivar::<*mut c_void>("display_capture_decision_handler");
+            ctl.add_method(
                 sel!(_webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:withSystemAudio:decisionHandler:),
                 request_display_capture_permission as extern "C" fn(&Object, Sel, id, id, id, isize, id),
               );
-
-              // ctl.add_method(
-              //   sel!(webView:queryPermissionName:forOrigin:completionHandler:),
-              //   query_permission_for_name as extern "C" fn(&Object, Sel, id, id, id, id),
-              // );
-            }
           }
 
           ctl.register()
@@ -920,6 +858,18 @@ impl InnerWebView {
         None => class!(WebViewUIDelegate),
       };
       let ui_delegate: id = msg_send![ui_delegate, new];
+
+      #[cfg(target_os = "macos")]
+      if operating_system_version().0 >= 13 {
+        if let Some(handler) = attributes.display_capture_decision_handler {
+          let handler = Box::into_raw(Box::new(handler));
+          (*ui_delegate).set_ivar(
+            "display_capture_decision_handler",
+            handler as *mut _ as *mut c_void,
+          );
+        }
+      }
+
       let _: () = msg_send![webview, setUIDelegate: ui_delegate];
 
       // File drop handling
