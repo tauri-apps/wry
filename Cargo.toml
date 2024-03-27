@@ -26,6 +26,7 @@ rustdoc-args = [ "--cfg", "docsrs" ]
 
 [features]
 default = [ "drag-drop", "objc-exception", "protocol", "os-webview" ]
+serde = [ "dpi/serde" ]
 objc-exception = [ "objc/exception" ]
 drag-drop = [ ]
 protocol = [ ]
@@ -54,6 +55,7 @@ once_cell = "1"
 thiserror = "1.0"
 http = "0.2"
 raw-window-handle = { version = "0.6", features = [ "std" ] }
+dpi = "0.1"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
 javascriptcore-rs = { version = "=1.1", features = [ "v2_28" ], optional = true }

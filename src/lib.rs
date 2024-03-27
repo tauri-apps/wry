@@ -248,22 +248,28 @@ use std::{borrow::Cow, path::PathBuf, rc::Rc};
 
 use http::{Request, Response};
 
+pub use dpi;
 pub use error::*;
 pub use http;
 pub use proxy::{ProxyConfig, ProxyEndpoint};
 pub use web_context::WebContext;
 
 /// A rectangular region.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 pub struct Rect {
-  /// x coordinate of top left corner
-  pub x: i32,
-  /// y coordinate of top left corner
-  pub y: i32,
-  /// width
-  pub width: u32,
-  /// height
-  pub height: u32,
+  /// Rect position.
+  pub position: dpi::Position,
+  /// Rect size.
+  pub size: dpi::Size,
+}
+
+impl Default for Rect {
+  fn default() -> Self {
+    Self {
+      position: dpi::LogicalPosition::new(0, 0).into(),
+      size: dpi::LogicalSize::new(0, 0).into(),
+    }
+  }
 }
 
 /// Resolves a custom protocol [`Request`] asynchronously.
@@ -527,10 +533,8 @@ impl Default for WebViewAttributes {
       proxy_config: None,
       focused: true,
       bounds: Some(Rect {
-        x: 0,
-        y: 0,
-        width: 200,
-        height: 200,
+        position: dpi::LogicalPosition::new(0, 0).into(),
+        size: dpi::LogicalSize::new(200, 200).into(),
       }),
     }
   }

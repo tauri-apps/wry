@@ -72,7 +72,7 @@ fn main() -> wry::Result<()> {
           ..
         } => {
           _webview
-            .set_bounds(wry::Rect {
+            .set_bounds(wry::Bounds {
               x: 0,
               y: 0,
               width: size.width,
