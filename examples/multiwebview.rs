@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use dpi::{LogicalPosition, LogicalSize};
 use winit::{
   event::{Event, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
+use wry::dpi::{LogicalPosition, LogicalSize};
 use wry::{Rect, WebViewBuilder};
 
 fn main() -> wry::Result<()> {

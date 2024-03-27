@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use dpi::{PhysicalPosition, PhysicalSize};
 use winit::{
   event::{Event, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
@@ -71,6 +70,8 @@ fn main() -> wry::Result<()> {
           event: WindowEvent::Resized(size),
           ..
         } => {
+          use wry::dpi::{PhysicalPosition, PhysicalSize};
+
           _webview
             .set_bounds(wry::Rect {
               position: PhysicalPosition::new(0, 0).into(),

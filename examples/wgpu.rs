@@ -1,10 +1,10 @@
-use dpi::{LogicalPosition, LogicalSize};
 use std::borrow::Cow;
 use winit::{
   event::{Event, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
   window::Window,
 };
+use wry::dpi::{LogicalPosition, LogicalSize};
 use wry::{Rect, WebViewBuilder};
 
 async fn run(event_loop: EventLoop<()>, window: Window) {
