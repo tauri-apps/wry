@@ -96,6 +96,18 @@ cocoa = "0.25"
 core-graphics = "0.23"
 objc = "0.2"
 objc_id = "0.1"
+block2 = "0.4"
+objc2 = "0.5"
+icrate = { version = "0.1.0", features = [
+  "Foundation",
+  "Foundation_NSURLRequest",
+  "AppKit_NSView",
+  "AppKit_NSPasteboard",
+  "WebKit",
+  "WebKit_WKWebView",
+  "WebKit_WKWebViewConfiguration",
+  "WebKit_WKWebsiteDataStore"
+] }
 
 [target."cfg(target_os = \"android\")".dependencies]
 crossbeam-channel = "0.5"

@@ -17,6 +17,7 @@ use cocoa::{
   base::{id, nil, NO, YES},
   foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
+// use objc2::class;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
@@ -339,7 +340,7 @@ impl InnerWebView {
 
       // WebView and manager
       let manager: id = msg_send![config, userContentController];
-      let cls = match ClassDecl::new("WryWebView", class!(WKWebView)) {
+      let cls = match objc::declare::ClassDecl::new("WryWebView", class!(WKWebView)) {
         #[allow(unused_mut)]
         Some(mut decl) => {
           #[cfg(target_os = "macos")]
