@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use dpi::{PhysicalPosition, PhysicalSize};
 use winit::{
-  dpi::LogicalSize,
   event::{Event, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
@@ -36,7 +36,7 @@ fn main() -> wry::Result<()> {
 
   let event_loop = EventLoop::new().unwrap();
   let window = WindowBuilder::new()
-    .with_inner_size(LogicalSize::new(800, 800))
+    .with_inner_size(winit::dpi::LogicalSize::new(800, 800))
     .build(&event_loop)
     .unwrap();
 
@@ -72,18 +72,18 @@ fn main() -> wry::Result<()> {
           ..
         } => {
           _webview
-            .set_bounds(wry::Bounds {
-              x: 0,
-              y: 0,
-              width: size.width,
-              height: size.height,
+            .set_bounds(wry::Rect {
+              position: PhysicalPosition::new(0, 0).into(),
+              size: PhysicalSize::new(size.width, size.height).into(),
             })
             .unwrap();
         }
         Event::WindowEvent {
           event: WindowEvent::CloseRequested,
           ..
-        } => evl.exit(),
+        } => {
+          dbg!(_webview.bounds().unwrap());
+        }
         _ => {}
       }
     })
