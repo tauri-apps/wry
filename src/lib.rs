@@ -55,7 +55,7 @@
 //! macOS, Windows and Linux (X11 Only).
 //!
 //! ```no_run
-//! # use wry::{WebViewBuilder, raw_window_handle, Rect};
+//! # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
 //! # use winit::{window::WindowBuilder, event_loop::EventLoop};
 //! let event_loop = EventLoop::new().unwrap();
 //! let window = WindowBuilder::new().build(&event_loop).unwrap();
@@ -63,10 +63,8 @@
 //! let webview = WebViewBuilder::new_as_child(&window)
 //!   .with_url("https://tauri.app")
 //!   .with_bounds(Rect {
-//!     x: 100,
-//!     y: 100,
-//!     width: 200,
-//!     height: 200,
+//!     position: LogicalPosition::new(100, 100).into(),
+//!     size: LogicalSize::new(200, 200).into(),
 //!   })
 //!   .build()
 //!   .unwrap();
@@ -103,10 +101,8 @@
 //! let webview = builder
 //!   .with_url("https://tauri.app")
 //!   .with_bounds(Rect {
-//!     x: 100,
-//!     y: 100,
-//!     width: 200,
-//!     height: 200,
+//!     position: LogicalPosition::new(100, 100).into(),
+//!     size: LogicalSize::new(200, 200).into(),
 //!   })
 //!   .build()
 //!   .unwrap();
