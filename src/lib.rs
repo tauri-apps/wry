@@ -236,6 +236,8 @@ use webkitgtk::*;
 pub(crate) mod wkwebview;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use wkwebview::*;
+#[cfg(target_os = "macos")]
+pub use wkwebview::{WKDisplayCapturePermissionDecision, WKMediaCaptureType};
 
 #[cfg(target_os = "windows")]
 pub(crate) mod webview2;
@@ -1181,6 +1183,34 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
   }
 }
 
+#[cfg(target_os = "macos")]
+#[derive(Default)]
+pub(crate) struct PlatformSpecificWebViewAttributes {
+  /// A closure that make the permission decision for display capture (e.g. getDisplayMedia()) requests.
+  ///
+  /// Only available on macOS 13+.
+  pub display_capture_decision_handler:
+    Option<Box<dyn Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision>>,
+}
+
+#[cfg(target_os = "macos")]
+pub trait WebViewBuilderExtMacOS {
+  fn with_display_capture_decision_handler<F>(self, handler: F) -> Self
+  where
+    F: Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision + 'static;
+}
+
+#[cfg(target_os = "macos")]
+impl WebViewBuilderExtMacOS for WebViewBuilder<'_> {
+  fn with_display_capture_decision_handler<F>(mut self, handler: F) -> Self
+  where
+    F: Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision + 'static,
+  {
+    self.platform_specific.display_capture_decision_handler = Some(Box::new(handler));
+    self
+  }
+}
+
 #[cfg(any(
   target_os = "linux",
   target_os = "dragonfly",
@@ -1654,7 +1684,6 @@ pub enum PageLoadEvent {
   target_os = "netbsd",
   target_os = "openbsd",
   target_os = "ios",
-  target_os = "macos",
 ))]
 #[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes;
