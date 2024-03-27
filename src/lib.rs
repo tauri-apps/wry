@@ -74,7 +74,7 @@
 //! [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
 //!
 //! ```no_run
-//! # use wry::{WebViewBuilder, raw_window_handle, Rect};
+//! # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
 //! # use tao::{window::WindowBuilder, event_loop::EventLoop};
 //! # #[cfg(target_os = "linux")]
 //! # use wry::WebViewBuilderExtUnix;
