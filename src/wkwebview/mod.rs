@@ -1150,7 +1150,8 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub fn set_bounds(&self, bounds: Rect) -> crate::Result<()> {
+  pub fn set_bounds(&self, #[allow(unused)] bounds: Rect) -> crate::Result<()> {
+    #[cfg(target_os = "macos")]
     if self.is_child {
       use cocoa::appkit::NSWindow;
 
