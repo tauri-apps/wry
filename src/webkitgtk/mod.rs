@@ -158,22 +158,22 @@ impl InnerWebView {
     parent: c_ulong,
     attributes: &WebViewAttributes,
   ) -> c_ulong {
-    let window = unsafe {
-      (xlib.XCreateSimpleWindow)(
-        display,
-        parent,
-        attributes.bounds.map(|p| p.x).unwrap_or(0),
-        attributes.bounds.map(|p| p.y).unwrap_or(0),
-        // it is unlikey that bounds are not set because
-        // we have a default for it, but anyways we need to have a fallback
-        // and we need to use 1 not 0 here otherwise xlib will crash
-        attributes.bounds.map(|s| s.width).unwrap_or(1),
-        attributes.bounds.map(|s| s.height).unwrap_or(1),
-        0,
-        0,
-        0,
-      )
-    };
+    let (x, y) = attributes
+      .bounds
+      .map(|b| b.position.to_physical::<f64>(scale_factor))
+      .map(Into::into)
+      .unwrap_or((0, 0));
+    let (width, height) = attributes
+      .bounds
+      .map(|b| b.size.to_physical::<u32>(scale_factor))
+      .map(Into::into)
+      // it is unlikey that bounds are not set because
+      // we have a default for it, but anyways we need to have a fallback
+      // and we need to use 1 not 0 here otherwise xlib will crash
+      .unwrap_or((1, 1));
+
+    let window =
+      unsafe { (xlib.XCreateSimpleWindow)(display, parent, x, y, width, height, 0, 0, 0) };
 
     if attributes.visible {
       unsafe { (xlib.XMapWindow)(display, window) };
