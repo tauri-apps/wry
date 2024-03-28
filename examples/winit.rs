@@ -82,9 +82,7 @@ fn main() -> wry::Result<()> {
         Event::WindowEvent {
           event: WindowEvent::CloseRequested,
           ..
-        } => {
-          dbg!(_webview.bounds().unwrap());
-        }
+        } => evl.exit(),
         _ => {}
       }
     })
