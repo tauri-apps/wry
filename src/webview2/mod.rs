@@ -471,8 +471,8 @@ impl InnerWebView {
       controller.SetBounds(RECT {
         left: 0,
         top: 0,
-        right: bounds.0 as i32,
-        bottom: bounds.1 as i32,
+        right: bounds.0,
+        bottom: bounds.1,
       })?;
 
       controller.SetIsVisible(attributes.visible)?;
