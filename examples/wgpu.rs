@@ -4,6 +4,7 @@ use winit::{
   event_loop::{ControlFlow, EventLoop},
   window::Window,
 };
+use wry::dpi::{LogicalPosition, LogicalSize};
 use wry::{Rect, WebViewBuilder};
 
 async fn run(event_loop: EventLoop<()>, window: Window) {
@@ -100,10 +101,8 @@ fn fs_main() -> @location(0) vec4<f32> {
 
   let _webview = WebViewBuilder::new_as_child(&window)
     .with_bounds(Rect {
-      x: 100,
-      y: 100,
-      width: 200,
-      height: 200,
+      position: LogicalPosition::new(100, 100).into(),
+      size: LogicalSize::new(200, 200).into(),
     })
     .with_transparent(true)
     .with_html(

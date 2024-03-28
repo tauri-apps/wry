@@ -3,18 +3,19 @@
 // SPDX-License-Identifier: MIT
 
 mod drag_drop;
+mod util;
 
 use std::{
-  borrow::Cow, cell::RefCell, collections::HashSet, fmt::Write, iter::once,
-  os::windows::prelude::OsStrExt, path::PathBuf, rc::Rc, sync::mpsc,
+  borrow::Cow, cell::RefCell, collections::HashSet, fmt::Write, path::PathBuf, rc::Rc, sync::mpsc,
 };
 
+use dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use http::{Request, Response as HttpResponse, StatusCode};
 use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 use windows::{
-  core::{s, Interface, PCWSTR, PWSTR},
+  core::{s, w, Interface, HSTRING, PCWSTR, PWSTR},
   Win32::{
     Foundation::*,
     Globalization::{self, MAX_LOCALE_NAME},
@@ -124,7 +125,7 @@ impl InnerWebView {
   ) -> Result<Self> {
     let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
 
-    let (hwnd, bounds) = Self::create_container_hwnd(parent, &attributes, is_child)?;
+    let (hwnd, size) = Self::create_container_hwnd(parent, &attributes, is_child)?;
 
     let drop_handler = attributes.drag_drop_handler.take();
 
@@ -133,7 +134,7 @@ impl InnerWebView {
     let webview = Self::init_webview(
       parent,
       hwnd,
-      bounds,
+      size,
       attributes,
       &env,
       &controller,
@@ -159,7 +160,7 @@ impl InnerWebView {
     parent: HWND,
     attributes: &WebViewAttributes,
     is_child: bool,
-  ) -> Result<(HWND, Rect)> {
+  ) -> Result<(HWND, (i32, i32))> {
     unsafe extern "system" fn default_window_proc(
       hwnd: HWND,
       msg: u32,
@@ -169,7 +170,7 @@ impl InnerWebView {
       DefWindowProcW(hwnd, msg, wparam, lparam)
     }
 
-    let class_name = encode_wide("WRY_WEBVIEW");
+    let class_name = w!("WRY_WEBVIEW");
 
     let class = WNDCLASSEXW {
       cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
@@ -182,7 +183,7 @@ impl InnerWebView {
       hCursor: HCURSOR::default(),
       hbrBackground: HBRUSH::default(),
       lpszMenuName: PCWSTR::null(),
-      lpszClassName: PCWSTR::from_raw(class_name.as_ptr()),
+      lpszClassName: class_name,
       hIconSm: HICON::default(),
     };
 
@@ -193,17 +194,21 @@ impl InnerWebView {
       window_styles |= WS_VISIBLE;
     }
 
+    let dpi = unsafe { util::hwnd_dpi(parent) };
+    let scale_factor = util::dpi_to_scale_factor(dpi);
+
     let (x, y, width, height) = if is_child {
-      let x = attributes.bounds.map(|a| a.x).unwrap_or(CW_USEDEFAULT);
-      let y = attributes.bounds.map(|a| a.y).unwrap_or(CW_USEDEFAULT);
-      let width = attributes
+      let (x, y) = attributes
         .bounds
-        .map(|a| a.width as i32)
-        .unwrap_or(CW_USEDEFAULT);
-      let height = attributes
+        .map(|b| b.position.to_physical::<f64>(scale_factor))
+        .map(Into::into)
+        .unwrap_or((CW_USEDEFAULT, CW_USEDEFAULT));
+      let (width, height) = attributes
         .bounds
-        .map(|a| a.height as i32)
-        .unwrap_or(CW_USEDEFAULT);
+        .map(|b| b.size.to_physical::<u32>(scale_factor))
+        .map(Into::into)
+        .unwrap_or((CW_USEDEFAULT, CW_USEDEFAULT));
+
       (x, y, width, height)
     } else {
       let mut rect = RECT::default();
@@ -230,15 +235,7 @@ impl InnerWebView {
       )
     };
 
-    Ok((
-      hwnd,
-      Rect {
-        x,
-        y,
-        width: width as u32,
-        height: height as u32,
-      },
-    ))
+    Ok((hwnd, (width, height)))
   }
 
   #[inline]
@@ -283,10 +280,10 @@ impl InnerWebView {
 
       arguments
     });
-    let additional_browser_args = encode_wide(additional_browser_args);
+    let additional_browser_args = HSTRING::from(additional_browser_args);
     let additional_browser_args = PCWSTR::from_raw(additional_browser_args.as_ptr());
 
-    let data_directory = data_directory.map(encode_wide);
+    let data_directory = data_directory.map(HSTRING::from);
     let data_directory = data_directory.map(|d| PCWSTR::from_raw(d.as_ptr()));
 
     let (tx, rx) = mpsc::channel();
@@ -357,7 +354,7 @@ impl InnerWebView {
   fn init_webview(
     parent: HWND,
     hwnd: HWND,
-    bounds: Rect,
+    bounds: (i32, i32),
     mut attributes: WebViewAttributes,
     env: &ICoreWebView2Environment,
     controller: &ICoreWebView2Controller,
@@ -457,11 +454,11 @@ impl InnerWebView {
       if let Some(headers) = attributes.headers {
         load_url_with_headers(&webview, env, &url, headers)?;
       } else {
-        let url = encode_wide(url);
+        let url = HSTRING::from(url);
         unsafe { webview.Navigate(PCWSTR::from_raw(url.as_ptr()))? };
       }
     } else if let Some(html) = attributes.html {
-      let html = encode_wide(html);
+      let html = HSTRING::from(html);
       unsafe { webview.NavigateToString(PCWSTR::from_raw(html.as_ptr()))? };
     }
 
@@ -474,8 +471,8 @@ impl InnerWebView {
       controller.SetBounds(RECT {
         left: 0,
         top: 0,
-        right: bounds.x + bounds.width as i32,
-        bottom: bounds.y + bounds.height as i32,
+        right: bounds.0,
+        bottom: bounds.1,
       })?;
 
       controller.SetIsVisible(attributes.visible)?;
@@ -502,7 +499,7 @@ impl InnerWebView {
 
     if let Some(user_agent) = &attributes.user_agent {
       let settings2: ICoreWebView2Settings2 = webview.Settings()?.cast()?;
-      let user_agent = encode_wide(user_agent);
+      let user_agent = HSTRING::from(user_agent);
       settings2.SetUserAgent(PCWSTR::from_raw(user_agent.as_ptr()))?;
     }
 
@@ -698,7 +695,7 @@ impl InnerWebView {
 
             if download_started_handler(uri, &mut path) {
               let simplified = dunce::simplified(&path);
-              let path = encode_wide(simplified.as_os_str());
+              let path = HSTRING::from(simplified.as_os_str());
               let result_file_path = PCWSTR::from_raw(path.as_ptr());
               args.SetResultFilePath(result_file_path)?;
               args.SetHandled(true)?;
@@ -772,8 +769,9 @@ impl InnerWebView {
     for (name, _) in &attributes.custom_protocols {
       // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
       // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
+      let filter = HSTRING::from(format!("{scheme}://{name}.*"));
       webview.AddWebResourceRequestedFilter(
-        PCWSTR::from_raw(encode_wide(format!("{scheme}://{name}.*")).as_ptr()),
+        PCWSTR::from_raw(filter.as_ptr()),
         COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
       )?;
     }
@@ -939,7 +937,7 @@ impl InnerWebView {
 
     let status = sent_response.status();
     let status_code = status.as_u16();
-    let status = encode_wide(status.canonical_reason().unwrap_or("OK"));
+    let status = HSTRING::from(status.canonical_reason().unwrap_or("OK"));
 
     let mut headers_map = String::new();
     for (name, value) in sent_response.headers().iter() {
@@ -948,7 +946,7 @@ impl InnerWebView {
         let _ = writeln!(headers_map, "{}: {}", header_key, value);
       }
     }
-    let headers_map = encode_wide(headers_map);
+    let headers_map = HSTRING::from(headers_map);
 
     let mut stream = None;
     if !content.is_empty() {
@@ -970,8 +968,8 @@ impl InnerWebView {
   ) -> windows::core::Result<ICoreWebView2WebResourceResponse> {
     let status = StatusCode::BAD_REQUEST;
     let status_code = status.as_u16();
-    let status = encode_wide(status.canonical_reason().unwrap_or("Bad Request"));
-    let error = encode_wide(err.to_string());
+    let status = HSTRING::from(status.canonical_reason().unwrap_or("Bad Request"));
+    let error = HSTRING::from(err.to_string());
     env.CreateWebResourceResponse(
       None,
       status_code as i32,
@@ -1114,7 +1112,7 @@ impl InnerWebView {
     let webview = webview.clone();
     AddScriptToExecuteOnDocumentCreatedCompletedHandler::wait_for_async_operation(
       Box::new(move |handler| unsafe {
-        let js = encode_wide(js);
+        let js = HSTRING::from(js);
         let js = PCWSTR::from_raw(js.as_ptr());
         webview
           .AddScriptToExecuteOnDocumentCreated(js, &handler)
@@ -1134,8 +1132,9 @@ impl InnerWebView {
     unsafe {
       #[cfg(feature = "tracing")]
       let span = tracing::debug_span!("wry::eval").entered();
+      let js = HSTRING::from(js);
       webview.ExecuteScript(
-        PCWSTR::from_raw(encode_wide(js).as_ptr()),
+        PCWSTR::from_raw(js.as_ptr()),
         &ExecuteScriptCompletedHandler::create(Box::new(|_, res| {
           #[cfg(feature = "tracing")]
           drop(span);
@@ -1178,7 +1177,7 @@ impl InnerWebView {
   }
 
   pub fn load_url(&self, url: &str) -> Result<()> {
-    let url = encode_wide(url);
+    let url = HSTRING::from(url);
     unsafe { self.webview.Navigate(PCWSTR::from_raw(url.as_ptr())) }.map_err(Into::into)
   }
 
@@ -1199,40 +1198,58 @@ impl InnerWebView {
       }];
       unsafe { MapWindowPoints(self.hwnd, *self.parent.borrow(), position_point) };
 
-      bounds.x = position_point[0].x;
-      bounds.y = position_point[0].y;
-      bounds.width = (rect.right - rect.left) as u32;
-      bounds.height = (rect.bottom - rect.top) as u32;
+      bounds.position = LogicalPosition::new(position_point[0].x, position_point[0].y).into();
+      bounds.size = LogicalSize::new(
+        (rect.right - rect.left) as u32,
+        (rect.bottom - rect.top) as u32,
+      )
+      .into();
     } else {
       let mut rect = RECT::default();
       unsafe { self.controller.Bounds(&mut rect) }?;
-      bounds.width = (rect.right - rect.left) as u32;
-      bounds.height = (rect.bottom - rect.top) as u32;
+      bounds.size = LogicalSize::new(
+        (rect.right - rect.left) as u32,
+        (rect.bottom - rect.top) as u32,
+      )
+      .into();
     }
 
     Ok(bounds)
   }
 
-  pub fn set_bounds(&self, bounds: Rect) -> Result<()> {
+  pub fn set_bounds_inner(
+    &self,
+    size: PhysicalSize<i32>,
+    position: PhysicalPosition<i32>,
+  ) -> Result<()> {
     unsafe {
       self.controller.SetBounds(RECT {
         top: 0,
         left: 0,
-        right: bounds.width as _,
-        bottom: bounds.height as _,
+        right: size.width,
+        bottom: size.height,
       })?;
 
       SetWindowPos(
         self.hwnd,
         HWND::default(),
-        bounds.x,
-        bounds.y,
-        bounds.width as i32,
-        bounds.height as i32,
+        position.x,
+        position.y,
+        size.width,
+        size.height,
         SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOZORDER,
       )?;
     }
 
+    Ok(())
+  }
+
+  pub fn set_bounds(&self, bounds: Rect) -> Result<()> {
+    let dpi = unsafe { util::hwnd_dpi(self.hwnd) };
+    let scale_factor = util::dpi_to_scale_factor(dpi);
+    let size = bounds.size.to_physical::<i32>(scale_factor);
+    let position = bounds.position.to_physical(scale_factor);
+    self.set_bounds_inner(size, position)?;
     Ok(())
   }
 
@@ -1279,12 +1296,7 @@ impl InnerWebView {
         let width = rect.right - rect.left;
         let height = rect.bottom - rect.top;
 
-        self.set_bounds(Rect {
-          x: 0,
-          y: 0,
-          width: width as u32,
-          height: height as u32,
-        })?;
+        self.set_bounds_inner((width, height).into(), (0, 0).into())?;
       }
     }
 
@@ -1352,7 +1364,7 @@ fn load_url_with_headers(
   url: &str,
   headers: http::HeaderMap,
 ) -> Result<()> {
-  let url = encode_wide(url);
+  let url = HSTRING::from(url);
 
   let headers_map = {
     let mut headers_map = String::new();
@@ -1362,12 +1374,12 @@ fn load_url_with_headers(
         let _ = writeln!(headers_map, "{}: {}", header_key, value);
       }
     }
-    encode_wide(headers_map)
+    HSTRING::from(headers_map)
   };
 
   unsafe {
     let env = env.cast::<ICoreWebView2Environment9>()?;
-    let method = encode_wide("GET");
+    let method = HSTRING::from("GET");
     if let Ok(request) = env.CreateWebResourceRequest(
       PCWSTR::from_raw(url.as_ptr()),
       PCWSTR::from_raw(method.as_ptr()),
@@ -1443,11 +1455,6 @@ fn is_windows_7() -> bool {
   let v = windows_version::OsVersion::current();
   // windows 7 is 6.1
   v.major == 6 && v.minor == 1
-}
-
-#[inline]
-fn encode_wide(string: impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
-  string.as_ref().encode_wide().chain(once(0)).collect()
 }
 
 #[cfg(test)]

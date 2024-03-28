@@ -354,12 +354,7 @@ impl InnerWebView {
   }
 
   pub fn bounds(&self) -> Result<crate::Rect> {
-    Ok(crate::Rect {
-      x: 0,
-      y: 0,
-      width: 0,
-      height: 0,
-    })
+    Ok(crate::Rect::default())
   }
 
   pub fn set_bounds(&self, _bounds: crate::Rect) -> Result<()> {
