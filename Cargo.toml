@@ -106,7 +106,7 @@ kuchiki = { package = "kuchikiki", version = "0.8" }
 sha2 = "0.10"
 base64 = "0.21"
 jni = "0.21"
-ndk = "0.7"
+ndk = "0.8"
 ndk-sys = "0.4"
 ndk-context = "0.1"
 tao-macros = "0.1"
