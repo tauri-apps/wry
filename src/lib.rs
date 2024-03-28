@@ -55,7 +55,7 @@
 //! macOS, Windows and Linux (X11 Only).
 //!
 //! ```no_run
-//! # use wry::{WebViewBuilder, raw_window_handle, Rect};
+//! # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
 //! # use winit::{window::WindowBuilder, event_loop::EventLoop};
 //! let event_loop = EventLoop::new().unwrap();
 //! let window = WindowBuilder::new().build(&event_loop).unwrap();
@@ -63,10 +63,8 @@
 //! let webview = WebViewBuilder::new_as_child(&window)
 //!   .with_url("https://tauri.app")
 //!   .with_bounds(Rect {
-//!     x: 100,
-//!     y: 100,
-//!     width: 200,
-//!     height: 200,
+//!     position: LogicalPosition::new(100, 100).into(),
+//!     size: LogicalSize::new(200, 200).into(),
 //!   })
 //!   .build()
 //!   .unwrap();
@@ -76,7 +74,7 @@
 //! [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
 //!
 //! ```no_run
-//! # use wry::{WebViewBuilder, raw_window_handle, Rect};
+//! # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
 //! # use tao::{window::WindowBuilder, event_loop::EventLoop};
 //! # #[cfg(target_os = "linux")]
 //! # use wry::WebViewBuilderExtUnix;
@@ -103,10 +101,8 @@
 //! let webview = builder
 //!   .with_url("https://tauri.app")
 //!   .with_bounds(Rect {
-//!     x: 100,
-//!     y: 100,
-//!     width: 200,
-//!     height: 200,
+//!     position: LogicalPosition::new(100, 100).into(),
+//!     size: LogicalSize::new(200, 200).into(),
 //!   })
 //!   .build()
 //!   .unwrap();
@@ -248,22 +244,28 @@ use std::{borrow::Cow, path::PathBuf, rc::Rc};
 
 use http::{Request, Response};
 
+pub use dpi;
 pub use error::*;
 pub use http;
 pub use proxy::{ProxyConfig, ProxyEndpoint};
 pub use web_context::WebContext;
 
 /// A rectangular region.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 pub struct Rect {
-  /// x coordinate of top left corner
-  pub x: i32,
-  /// y coordinate of top left corner
-  pub y: i32,
-  /// width
-  pub width: u32,
-  /// height
-  pub height: u32,
+  /// Rect position.
+  pub position: dpi::Position,
+  /// Rect size.
+  pub size: dpi::Size,
+}
+
+impl Default for Rect {
+  fn default() -> Self {
+    Self {
+      position: dpi::LogicalPosition::new(0, 0).into(),
+      size: dpi::LogicalSize::new(0, 0).into(),
+    }
+  }
 }
 
 /// Resolves a custom protocol [`Request`] asynchronously.
@@ -527,10 +529,8 @@ impl Default for WebViewAttributes {
       proxy_config: None,
       focused: true,
       bounds: Some(Rect {
-        x: 0,
-        y: 0,
-        width: 200,
-        height: 200,
+        position: dpi::LogicalPosition::new(0, 0).into(),
+        size: dpi::LogicalSize::new(200, 200).into(),
       }),
     }
   }

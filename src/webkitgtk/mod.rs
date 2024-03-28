@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use dpi::{LogicalPosition, LogicalSize};
 use gdkx11::{
   ffi::{gdk_x11_window_foreign_new_for_display, GdkX11Display},
   X11Display,
@@ -158,22 +159,23 @@ impl InnerWebView {
     parent: c_ulong,
     attributes: &WebViewAttributes,
   ) -> c_ulong {
-    let window = unsafe {
-      (xlib.XCreateSimpleWindow)(
-        display,
-        parent,
-        attributes.bounds.map(|p| p.x).unwrap_or(0),
-        attributes.bounds.map(|p| p.y).unwrap_or(0),
-        // it is unlikey that bounds are not set because
-        // we have a default for it, but anyways we need to have a fallback
-        // and we need to use 1 not 0 here otherwise xlib will crash
-        attributes.bounds.map(|s| s.width).unwrap_or(1),
-        attributes.bounds.map(|s| s.height).unwrap_or(1),
-        0,
-        0,
-        0,
-      )
-    };
+    let scale_factor = scale_factor_from_x11(xlib, display, parent);
+    let (x, y) = attributes
+      .bounds
+      .map(|b| b.position.to_physical::<f64>(scale_factor))
+      .map(Into::into)
+      .unwrap_or((0, 0));
+    let (width, height) = attributes
+      .bounds
+      .map(|b| b.size.to_physical::<u32>(scale_factor))
+      .map(Into::into)
+      // it is unlikey that bounds are not set because
+      // we have a default for it, but anyways we need to have a fallback
+      // and we need to use 1 not 0 here otherwise xlib will crash
+      .unwrap_or((1, 1));
+
+    let window =
+      unsafe { (xlib.XCreateSimpleWindow)(display, parent, x, y, width, height, 0, 0, 0) };
 
     if attributes.visible {
       unsafe { (xlib.XMapWindow)(display, window) };
@@ -480,16 +482,24 @@ impl InnerWebView {
         .unwrap()
         .pack_start(webview, true, true, 0);
     } else if container_type == "GtkFixed" {
-      webview.set_size_request(
-        attributes.bounds.map(|s| s.width).unwrap_or(1) as i32,
-        attributes.bounds.map(|s| s.height).unwrap_or(1) as i32,
-      );
+      let scale_factor = webview.scale_factor() as f64;
+      let (width, height) = attributes
+        .bounds
+        .map(|b| b.size.to_logical::<i32>(scale_factor))
+        .map(Into::into)
+        .unwrap_or((1, 1));
+      let (x, y) = attributes
+        .bounds
+        .map(|b| b.position.to_logical::<i32>(scale_factor))
+        .map(Into::into)
+        .unwrap_or((0, 0));
 
-      container.dynamic_cast_ref::<gtk::Fixed>().unwrap().put(
-        webview,
-        attributes.bounds.map(|p| p.x).unwrap_or(0),
-        attributes.bounds.map(|p| p.y).unwrap_or(0),
-      );
+      webview.set_size_request(width, height);
+
+      container
+        .dynamic_cast_ref::<gtk::Fixed>()
+        .unwrap()
+        .put(webview, x, y);
 
       is_in_fixed_parent = true;
     } else {
@@ -692,43 +702,36 @@ impl InnerWebView {
         );
 
         if ok != 0 {
-          bounds.x = attributes.x;
-          bounds.y = attributes.y;
-          bounds.width = attributes.width as u32;
-          bounds.height = attributes.height as u32;
+          bounds.position = LogicalPosition::new(attributes.x, attributes.y).into();
+          bounds.size = LogicalSize::new(attributes.width, attributes.height).into();
         }
       }
     } else {
       let (size, _) = self.webview.allocated_size();
-      bounds.width = size.width() as u32;
-      bounds.height = size.height() as u32;
+      bounds.size = LogicalSize::new(size.width(), size.height()).into();
     }
 
     Ok(bounds)
   }
 
   pub fn set_bounds(&self, bounds: Rect) -> Result<()> {
+    let scale_factor = self.webview.scale_factor() as f64;
+    let (width, height) = bounds.size.to_logical::<i32>(scale_factor).into();
+    let (x, y) = bounds.position.to_logical::<i32>(scale_factor).into();
+
     if let Some(x11_data) = &self.x11 {
       let window = &x11_data.gtk_window;
-      window.move_(bounds.x, bounds.y);
+      window.move_(x, y);
       if let Some(window) = window.window() {
-        window.resize(bounds.width as i32, bounds.height as i32);
+        window.resize(width, height);
       }
-      window.size_allocate(&gtk::Allocation::new(
-        0,
-        0,
-        bounds.width as i32,
-        bounds.height as i32,
-      ));
+      window.size_allocate(&gtk::Allocation::new(0, 0, width, height));
     }
 
     if self.is_in_fixed_parent {
-      self.webview.size_allocate(&gtk::Allocation::new(
-        bounds.x,
-        bounds.y,
-        bounds.width as i32,
-        bounds.height as i32,
-      ));
+      self
+        .webview
+        .size_allocate(&gtk::Allocation::new(x, y, width, height));
     }
 
     Ok(())
@@ -825,3 +828,11 @@ struct SendEnteredSpan(tracing::span::EnteredSpan);
 
 #[cfg(feature = "tracing")]
 unsafe impl Send for SendEnteredSpan {}
+
+const BASE_DPI: f64 = 96.0;
+fn scale_factor_from_x11(xlib: &Xlib, display: *mut _XDisplay, parent: c_ulong) -> f64 {
+  let mut attrs = unsafe { std::mem::zeroed() };
+  unsafe { (xlib.XGetWindowAttributes)(display, parent, &mut attrs) };
+  let scale_factor = unsafe { (*attrs.screen).width as f64 * 25.4 / (*attrs.screen).mwidth as f64 };
+  scale_factor / BASE_DPI
+}

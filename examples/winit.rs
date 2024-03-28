@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MIT
 
 use winit::{
-  dpi::LogicalSize,
   event::{Event, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
@@ -36,7 +35,7 @@ fn main() -> wry::Result<()> {
 
   let event_loop = EventLoop::new().unwrap();
   let window = WindowBuilder::new()
-    .with_inner_size(LogicalSize::new(800, 800))
+    .with_inner_size(winit::dpi::LogicalSize::new(800, 800))
     .build(&event_loop)
     .unwrap();
 
@@ -71,12 +70,12 @@ fn main() -> wry::Result<()> {
           event: WindowEvent::Resized(size),
           ..
         } => {
+          use wry::dpi::{PhysicalPosition, PhysicalSize};
+
           _webview
             .set_bounds(wry::Rect {
-              x: 0,
-              y: 0,
-              width: size.width,
-              height: size.height,
+              position: PhysicalPosition::new(0, 0).into(),
+              size: PhysicalSize::new(size.width, size.height).into(),
             })
             .unwrap();
         }
