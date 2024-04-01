@@ -1073,7 +1073,18 @@ impl InnerWebView {
       }
 
       msg if msg == win32wm::WM_DESTROY || msg == PARENT_DESTROY_MESSAGE => {
-        drop(Box::from_raw(dwrefdata as *mut ICoreWebView2Controller));
+        // check if `dwrefdata` is null to avoid double-freeing the controller
+        if !(dwrefdata as *mut ()).is_null() {
+          drop(Box::from_raw(dwrefdata as *mut ICoreWebView2Controller));
+
+          // update `dwrefdata` to null to avoid double-freeing the controller
+          SetWindowSubclass(
+            hwnd,
+            Some(Self::parent_subclass_proc),
+            PARENT_SUBCLASS_ID as _,
+            std::ptr::null::<()>() as _,
+          );
+        }
       }
 
       _ => (),
