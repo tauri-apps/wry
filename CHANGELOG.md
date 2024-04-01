@@ -1,5 +1,14 @@
 # Changelog
 
+## \[0.39.0]
+
+- [`ddda455`](https://github.com/tauri-apps/wry/commit/ddda4556b36a41b1c6f3f4d200eb16612d5f3f12)([#1207](https://github.com/tauri-apps/wry/pull/1207)) Disable deprecated applicationCache web api. This api was completely removed upstream in webkitgtk 2.44.
+- [`d7031ae`](https://github.com/tauri-apps/wry/commit/d7031aed8eebc6324e4b3db46ee53120ce24930b)([#1206](https://github.com/tauri-apps/wry/pull/1206)) On Windows, fix a crash due to a double-free when the host window is destroyed before the webview is dropped.
+- [`34ae1ca`](https://github.com/tauri-apps/wry/commit/34ae1ca3af75c471f77b90fd342bbcc79ac7189a)([#1202](https://github.com/tauri-apps/wry/pull/1202)) Add `dpi` module which is a re-export of `dpi` crate.
+- [`fdbd3d3`](https://github.com/tauri-apps/wry/commit/fdbd3d3c614acd42dddb49583d16de6b3f02e62d)([#1081](https://github.com/tauri-apps/wry/pull/1081)) Update `http` dependency to `1`
+- [`34ae1ca`](https://github.com/tauri-apps/wry/commit/34ae1ca3af75c471f77b90fd342bbcc79ac7189a)([#1202](https://github.com/tauri-apps/wry/pull/1202)) **Breaking Change**: Removed `x`, `y`, `with` and `height` fields from `Rect` struct and replaced it with `size` and `position` fields.
+- [`c033bd2`](https://github.com/tauri-apps/wry/commit/c033bd27f23953537520d17493c7b77ea146e7d5)([#1156](https://github.com/tauri-apps/wry/pull/1156)) On `macOS`, fix menu keyboard shortcuts when added `webview` as `child`.
+
 ## \[0.38.2]
 
 - [`3e84a0e`](https://github.com/tauri-apps/wry/commit/3e84a0e276dfac0b28fb01f42460f9367fff9f22)([#1200](https://github.com/tauri-apps/wry/pull/1200)) Fixes compilation for 32bit Linux targets.
