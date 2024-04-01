@@ -378,7 +378,6 @@ impl InnerWebView {
       }
 
       // Enable App cache
-      settings.set_enable_offline_web_application_cache(true);
       settings.set_enable_page_cache(true);
 
       // Set user agent
