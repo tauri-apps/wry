@@ -404,6 +404,9 @@ impl InnerWebView {
 
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("allowsPictureInPictureMediaPlayback")];
 
+      #[cfg(target_os = "ios")]
+      let _: id = msg_send![config, setAllowsInlineMediaPlayback: YES];
+
       if attributes.autoplay {
         let _: id = msg_send![config, setMediaTypesRequiringUserActionForPlayback:0];
       }
