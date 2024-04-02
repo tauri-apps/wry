@@ -222,6 +222,9 @@ use android::*;
 
 #[cfg(gtk)]
 pub(crate) mod webkitgtk;
+use objc2::rc::Retained;
+use objc2_app_kit::NSWindow;
+use objc2_web_kit::WKUserContentController;
 /// Re-exported [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate.
 pub use raw_window_handle;
 use raw_window_handle::HasWindowHandle;
@@ -1559,33 +1562,34 @@ impl WebViewExtUnix for WebView {
 #[cfg(target_os = "macos")]
 pub trait WebViewExtMacOS {
   /// Returns WKWebView handle
-  fn webview(&self) -> cocoa::base::id;
+  fn webview(&self) -> Retained<WryWebView>;
   /// Returns WKWebView manager [(userContentController)](https://developer.apple.com/documentation/webkit/wkscriptmessagehandler/1396222-usercontentcontroller) handle
-  fn manager(&self) -> cocoa::base::id;
+  fn manager(&self) -> Retained<WKUserContentController>;
   /// Returns NSWindow associated with the WKWebView webview
-  fn ns_window(&self) -> cocoa::base::id;
+  fn ns_window(&self) -> Retained<NSWindow>;
   /// Attaches this webview to the given NSWindow and removes it from the current one.
-  fn reparent(&self, window: cocoa::base::id) -> Result<()>;
+  fn reparent(&self, window: Retained<NSWindow>) -> Result<()>;
 }
 
 #[cfg(target_os = "macos")]
 impl WebViewExtMacOS for WebView {
-  fn webview(&self) -> cocoa::base::id {
-    self.webview.webview
+  fn webview(&self) -> Retained<WryWebView> {
+    self.webview.webview.clone()
   }
 
-  fn manager(&self) -> cocoa::base::id {
-    self.webview.manager
+  fn manager(&self) -> Retained<WKUserContentController> {
+    self.webview.manager.clone()
   }
 
-  fn ns_window(&self) -> cocoa::base::id {
-    unsafe {
-      let ns_window: cocoa::base::id = msg_send![self.webview.webview, window];
-      ns_window
-    }
+  fn ns_window(&self) -> Retained<NSWindow> {
+    // unsafe {
+    //   let ns_window: cocoa::base::id = msg_send![self.webview.webview, window];
+    //   ns_window
+    // }
+    self.webview.webview.window().unwrap().clone()
   }
 
-  fn reparent(&self, window: cocoa::base::id) -> Result<()> {
+  fn reparent(&self, window: Retained<NSWindow>) -> Result<()> {
     self.webview.reparent(window)
   }
 }
