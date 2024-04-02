@@ -114,6 +114,6 @@ libc = "0.2"
 
 [dev-dependencies]
 pollster = "0.3.0"
-tao = "0.25"
+tao = "0.27"
 wgpu = "0.19"
 winit = "0.29"
