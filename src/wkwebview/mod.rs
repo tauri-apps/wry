@@ -250,9 +250,9 @@ impl InnerWebView {
                   let stoppedtaskslock:id = * (* _this).get_ivar("stoppedtaskslock");
                   let _: () = msg_send![stoppedtaskslock, lock];
                   let stoppedtasks:id = *(* _this).get_ivar("stoppedtasks");
-                  let ctns:bool = msg_send![stoppedtasks, containsObject: task];
+                  let hash:id = msg_send![task, hash];
+                  let ctns:bool = msg_send![stoppedtasks, containsObject: hash];
                   if !ctns {
-                    let _: () = msg_send![stoppedtaskslock, unlock];
                     let content = sent_response.body();
                     // default: application/octet-stream, but should be provided by the client
                     let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
@@ -289,9 +289,9 @@ impl InnerWebView {
                     let () = msg_send![task, didFinish];
                   } else {
                     // Remove stopped task
-                    let _: () = msg_send![stoppedtasks, removeObject: task];
-                    let _: () = msg_send![stoppedtaskslock, unlock];
-                  }  
+                    let _: () = msg_send![stoppedtasks, removeObject: hash];
+                  }
+                  let _: () = msg_send![stoppedtaskslock, unlock];
                 },
               );
 
@@ -315,7 +315,8 @@ impl InnerWebView {
         let stoppedtaskslock:id = * (* this).get_ivar("stoppedtaskslock");
         let _: () = msg_send![stoppedtaskslock, lock];
         let stoppedtasks:id = * (* this).get_ivar("stoppedtasks");
-        let _: () = msg_send![stoppedtasks, addObject: task];
+        let hash:id = msg_send![task, hash];
+        let _: () = msg_send![stoppedtasks, addObject: hash];
         let _: () = msg_send![stoppedtaskslock, unlock];
       }
     }
