@@ -240,16 +240,15 @@ impl InnerWebView {
             // Finish
             let () = msg_send![task, didFinish];
           };
-          let _this:*const Object = &(* this) as *const Object;
+          let stoppedtaskslock:id = * (* this).get_ivar("stoppedtaskslock");
+          let stoppedtasks:id = *(* this).get_ivar("stoppedtasks");
           // send response
           match http_request.body(sent_form_body) {
             Ok(final_request) => {
               let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> = Box::new(
                 move |sent_response| {
                   // Check if task was stopped
-                  let stoppedtaskslock:id = * (* _this).get_ivar("stoppedtaskslock");
                   let _: () = msg_send![stoppedtaskslock, lock];
-                  let stoppedtasks:id = *(* _this).get_ivar("stoppedtasks");
                   let hash:id = msg_send![task, hash];
                   let ctns:bool = msg_send![stoppedtasks, containsObject: hash];
                   if !ctns {
