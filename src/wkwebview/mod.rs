@@ -1278,7 +1278,7 @@ impl Drop for InnerWebView {
     WEBVIEW_IDS
       .lock()
       .unwrap()
-      .remove(i);
+      .remove(&self.webview_id);
 
     // We need to drop handler closures here
     unsafe {
