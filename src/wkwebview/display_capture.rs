@@ -56,19 +56,34 @@ pub(crate) fn declare_decision_handler(ctl: &mut ClassDecl) {
 }
 
 pub(crate) fn set_decision_handler(
-  delegate: id,
+  webview: id,
   handler: Option<Box<dyn Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision + 'static>>,
 ) {
   #[cfg(target_os = "macos")]
   if operating_system_version().0 >= 13 {
     unsafe {
       if let Some(handler) = handler {
+        drop_decision_hanlder(webview);
+
+        let ui_delegate: id = msg_send![webview, UIDelegate];
         let handler = Box::into_raw(Box::new(handler));
-        (*delegate).set_ivar(
+        (*ui_delegate).set_ivar(
           "display_capture_decision_handler",
           handler as *mut _ as *mut c_void,
         );
       }
+    }
+  }
+}
+
+pub(crate) fn drop_decision_hanlder(webview: *mut Object) {
+  unsafe {
+    let ui_delegate: id = msg_send![webview, UIDelegate];
+    let function = (*ui_delegate).get_ivar::<*mut c_void>("display_capture_decision_handler");
+    if !function.is_null() {
+      let function = *function
+        as *mut Box<dyn for<'s> Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision>;
+      drop(Box::from_raw(function));
     }
   }
 }

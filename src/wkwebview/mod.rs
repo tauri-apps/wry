@@ -853,7 +853,7 @@ impl InnerWebView {
       let _: () = msg_send![webview, setUIDelegate: ui_delegate];
 
       #[cfg(target_os = "macos")]
-      display_capture::set_decision_handler(ui_delegate, pl_attrs.display_capture_decision_handler);
+      display_capture::set_decision_handler(webview, pl_attrs.display_capture_decision_handler);
 
       // File drop handling
       #[cfg(target_os = "macos")]
@@ -1223,6 +1223,14 @@ r#"Object.defineProperty(window, 'ipc', {
 
     Ok(())
   }
+
+  #[cfg(target_os = "macos")]
+  pub fn set_display_capture_decision_handler<F>(&self, handler: F)
+  where
+    F: Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision + 'static,
+  {
+    display_capture::set_decision_handler(self.webview, Some(Box::new(handler)));
+  }
 }
 
 pub fn url_from_webview(webview: id) -> Result<String> {
@@ -1306,6 +1314,9 @@ impl Drop for InnerWebView {
           drop(Box::from_raw(*ptr));
         }
       }
+
+      #[cfg(target_os = "macos")]
+      display_capture::drop_decision_hanlder(self.webview);
 
       // Remove webview from window's NSView before dropping.
       let () = msg_send![self.webview, removeFromSuperview];

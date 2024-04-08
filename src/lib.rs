@@ -1596,6 +1596,10 @@ pub trait WebViewExtMacOS {
   fn ns_window(&self) -> cocoa::base::id;
   /// Attaches this webview to the given NSWindow and removes it from the current one.
   fn reparent(&self, window: cocoa::base::id) -> Result<()>;
+  /// Set display capture decision handler to decide if incoming display capture request is allowed and its target.
+  fn set_display_capture_decision_handler<F>(&self, handler: F)
+  where
+    F: Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision + 'static;
 }
 
 #[cfg(target_os = "macos")]
@@ -1617,6 +1621,13 @@ impl WebViewExtMacOS for WebView {
 
   fn reparent(&self, window: cocoa::base::id) -> Result<()> {
     self.webview.reparent(window)
+  }
+
+  fn set_display_capture_decision_handler<F>(&self, handler: F)
+  where
+    F: Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision + 'static,
+  {
+    self.webview.set_display_capture_decision_handler(handler);
   }
 }
 

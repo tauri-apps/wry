@@ -7,7 +7,7 @@ use tao::{
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
-use wry::WebViewBuilder;
+use wry::{WebViewBuilder, WebViewExtMacOS};
 
 fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
@@ -40,7 +40,7 @@ fn main() -> wry::Result<()> {
   };
 
   let _webview = builder
-    .with_url("https://webrtc.github.io/samples/src/content/getusermedia/getdisplaymedia/")
+    .with_url("https://webrtc.github.io/samples/src/content/getusermedia/getdisplaymedia/") // TODO: revert
     .with_drag_drop_handler(|e| {
       match e {
         wry::DragDropEvent::Enter { paths, position } => {
@@ -57,6 +57,11 @@ fn main() -> wry::Result<()> {
       true
     })
     .build()?;
+
+  // TODO: remove me
+  _webview.set_display_capture_decision_handler(|_capture_type| {
+    wry::WKDisplayCapturePermissionDecision::ScreenPrompt
+  });
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
