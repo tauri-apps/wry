@@ -19,6 +19,7 @@ use cocoa::{
   base::{id, nil, NO, YES},
   foundation::{NSDictionary, NSFastEnumeration, NSInteger, NSOperatingSystemVersion},
 };
+use dpi::{LogicalPosition, LogicalSize};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
@@ -356,6 +357,14 @@ impl InnerWebView {
               sel!(acceptsFirstMouse:),
               accept_first_mouse as extern "C" fn(&Object, Sel, id) -> BOOL,
             );
+            decl.add_method(
+              sel!(performKeyEquivalent:),
+              key_equivalent as extern "C" fn(&mut Object, Sel, id) -> BOOL,
+            );
+
+            extern "C" fn key_equivalent(_this: &mut Object, _sel: Sel, _event: id) -> BOOL {
+              NO
+            }
 
             extern "C" fn accept_first_mouse(this: &Object, _sel: Sel, _event: id) -> BOOL {
               unsafe {
@@ -400,6 +409,9 @@ impl InnerWebView {
 
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("allowsPictureInPictureMediaPlayback")];
 
+      #[cfg(target_os = "ios")]
+      let _: id = msg_send![config, setAllowsInlineMediaPlayback: YES];
+
       if attributes.autoplay {
         let _: id = msg_send![config, setMediaTypesRequiringUserActionForPlayback:0];
       }
@@ -422,9 +434,20 @@ impl InnerWebView {
 
       #[cfg(target_os = "macos")]
       {
-        let (x, y) = attributes.bounds.map(|b| (b.x, b.y)).unwrap_or((0, 0));
+        use cocoa::appkit::NSWindow;
+
+        let window: id = msg_send![ns_view, window];
+        let scale_factor = window.backingScaleFactor();
+        let (x, y) = attributes
+          .bounds
+          .map(|b| b.position.to_logical::<f64>(scale_factor))
+          .map(Into::into)
+          .unwrap_or((0, 0));
         let (w, h) = if is_child {
-          attributes.bounds.map(|b| (b.width, b.height))
+          attributes
+            .bounds
+            .map(|b| b.size.to_logical::<u32>(scale_factor))
+            .map(Into::into)
         } else {
           None
         }
@@ -1142,25 +1165,30 @@ r#"Object.defineProperty(window, 'ipc', {
       let webview_frame: CGRect = msg_send![self.webview, frame];
 
       Ok(Rect {
-        x: webview_frame.origin.x as i32,
-        y: (parent_frame.size.height - webview_frame.origin.y - webview_frame.size.height) as i32,
-        width: webview_frame.size.width as u32,
-        height: webview_frame.size.height as u32,
+        position: LogicalPosition::new(
+          webview_frame.origin.x,
+          parent_frame.size.height - webview_frame.origin.y - webview_frame.size.height,
+        )
+        .into(),
+        size: LogicalSize::new(webview_frame.size.width, webview_frame.size.height).into(),
       })
     }
   }
 
-  pub fn set_bounds(&self, bounds: Rect) -> crate::Result<()> {
+  pub fn set_bounds(&self, #[allow(unused)] bounds: Rect) -> crate::Result<()> {
+    #[cfg(target_os = "macos")]
     if self.is_child {
+      use cocoa::appkit::NSWindow;
+
+      let window: id = unsafe { msg_send![self.webview, window] };
+      let scale_factor = unsafe { window.backingScaleFactor() };
+      let (x, y) = bounds.position.to_logical::<f64>(scale_factor).into();
+      let (width, height) = bounds.size.to_logical::<i32>(scale_factor).into();
+
       unsafe {
         let frame = CGRect {
-          origin: window_position(
-            msg_send![self.webview, superview],
-            bounds.x,
-            bounds.y,
-            bounds.height as f64,
-          ),
-          size: CGSize::new(bounds.width as f64, bounds.height as f64),
+          origin: window_position(msg_send![self.webview, superview], x, y, height),
+          size: CGSize::new(width, height),
         };
         let () = msg_send![self.webview, setFrame: frame];
       }

@@ -7,6 +7,7 @@ use tao::{
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
+use wry::dpi::{LogicalPosition, LogicalSize};
 use wry::{Rect, WebViewBuilder};
 
 fn main() -> wry::Result<()> {
@@ -55,37 +56,29 @@ fn main() -> wry::Result<()> {
 
   let webview = create_webview_builder()
     .with_bounds(Rect {
-      x: 0,
-      y: 0,
-      width: size.width / 2,
-      height: size.height / 2,
+      position: LogicalPosition::new(0, 0).into(),
+      size: LogicalSize::new(size.width / 2, size.height / 2).into(),
     })
     .with_url("https://tauri.app")
     .build()?;
-  let webview2 = create_webview_builder()
+  let webview2 = WebViewBuilder::new_as_child(&window)
     .with_bounds(Rect {
-      x: (size.width / 2) as i32,
-      y: 0,
-      width: size.width / 2,
-      height: size.height / 2,
+      position: LogicalPosition::new(size.width / 2, 0).into(),
+      size: LogicalSize::new(size.width / 2, size.height / 2).into(),
     })
     .with_url("https://github.com/tauri-apps/wry")
     .build()?;
-  let webview3 = create_webview_builder()
+  let webview3 = WebViewBuilder::new_as_child(&window)
     .with_bounds(Rect {
-      x: 0,
-      y: (size.height / 2) as i32,
-      width: size.width / 2,
-      height: size.height / 2,
+      position: LogicalPosition::new(0, size.height / 2).into(),
+      size: LogicalSize::new(size.width / 2, size.height / 2).into(),
     })
     .with_url("https://twitter.com/TauriApps")
     .build()?;
-  let webview4 = create_webview_builder()
+  let webview4 = WebViewBuilder::new_as_child(&window)
     .with_bounds(Rect {
-      x: (size.width / 2) as i32,
-      y: (size.height / 2) as i32,
-      width: size.width / 2,
-      height: size.height / 2,
+      position: LogicalPosition::new(size.width / 2, size.height / 2).into(),
+      size: LogicalSize::new(size.width / 2, size.height / 2).into(),
     })
     .with_url("https://google.com")
     .build()?;
@@ -101,34 +94,26 @@ fn main() -> wry::Result<()> {
         let size = size.to_logical::<u32>(window.scale_factor());
         webview
           .set_bounds(Rect {
-            x: 0,
-            y: 0,
-            width: size.width / 2,
-            height: size.height / 2,
+            position: LogicalPosition::new(0, 0).into(),
+            size: LogicalSize::new(size.width / 2, size.height / 2).into(),
           })
           .unwrap();
         webview2
           .set_bounds(Rect {
-            x: (size.width / 2) as i32,
-            y: 0,
-            width: size.width / 2,
-            height: size.height / 2,
+            position: LogicalPosition::new(size.width / 2, 0).into(),
+            size: LogicalSize::new(size.width / 2, size.height / 2).into(),
           })
           .unwrap();
         webview3
           .set_bounds(Rect {
-            x: 0,
-            y: (size.height / 2) as i32,
-            width: size.width / 2,
-            height: size.height / 2,
+            position: LogicalPosition::new(0, size.height / 2).into(),
+            size: LogicalSize::new(size.width / 2, size.height / 2).into(),
           })
           .unwrap();
         webview4
           .set_bounds(Rect {
-            x: (size.width / 2) as i32,
-            y: (size.height / 2) as i32,
-            width: size.width / 2,
-            height: size.height / 2,
+            position: LogicalPosition::new(size.width / 2, size.height / 2).into(),
+            size: LogicalSize::new(size.width / 2, size.height / 2).into(),
           })
           .unwrap();
       }
