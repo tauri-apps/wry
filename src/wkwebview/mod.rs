@@ -10,6 +10,7 @@ mod navigation;
 mod proxy;
 #[cfg(target_os = "macos")]
 mod synthetic_mouse_events;
+mod util;
 
 #[cfg(target_os = "macos")]
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewMinYMargin, NSViewWidthSizable};
@@ -23,6 +24,7 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
   borrow::Cow,
+  collections::HashSet,
   ffi::{c_void, CStr},
   os::raw::c_char,
   ptr::{null, null_mut},
@@ -66,13 +68,16 @@ use http::{
   Request, Response as HttpResponse,
 };
 
+use self::util::Counter;
+
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
 #[cfg(target_os = "macos")]
 const ACCEPT_FIRST_MOUSE: &str = "accept_first_mouse";
 
 const NS_JSON_WRITING_FRAGMENTS_ALLOWED: u64 = 4;
 
-static WEBVIEW_IDS: Lazy<Mutex<Vec<usize>>> = Lazy::new(Default::default);
+static COUNTER: Counter = Counter::new();
+static WEBVIEW_IDS: Lazy<Mutex<HashSet<u32>>> = Lazy::new(Default::default);
 
 pub(crate) struct InnerWebView {
   pub webview: id,
@@ -89,7 +94,7 @@ pub(crate) struct InnerWebView {
   drag_drop_ptr: *mut Box<dyn Fn(crate::DragDropEvent) -> bool>,
   download_delegate: id,
   protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>>,
-  webview_id: usize,
+  webview_id: u32,
 }
 
 impl InnerWebView {
@@ -176,7 +181,7 @@ impl InnerWebView {
         #[cfg(feature = "tracing")]
         let span = tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty)
           .entered();
-        let webview_id = *this.get_ivar::<usize>("webview_id");
+        let webview_id = *this.get_ivar::<u32>("webview_id");
 
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
@@ -317,8 +322,8 @@ impl InnerWebView {
     extern "C" fn stop_task(_: &Object, _: Sel, _webview: id, _task: id) {}
 
     let mut wv_ids = WEBVIEW_IDS.lock().unwrap();
-    let webview_id = wv_ids.last().unwrap_or(&0) + 1;
-    wv_ids.push(webview_id);
+    let webview_id = COUNTER.next();
+    wv_ids.insert(webview_id);
     drop(wv_ids);
 
     // Safety: objc runtime calls are unsafe
@@ -340,7 +345,7 @@ impl InnerWebView {
         let cls = match cls {
           Some(mut cls) => {
             cls.add_ivar::<*mut c_void>("function");
-            cls.add_ivar::<usize>("webview_id");
+            cls.add_ivar::<u32>("webview_id");
             cls.add_method(
               sel!(webView:startURLSchemeTask:),
               start_task as extern "C" fn(&Object, Sel, id, id),
