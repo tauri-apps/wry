@@ -1275,10 +1275,7 @@ pub fn platform_webview_version() -> Result<String> {
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
-    WEBVIEW_IDS
-      .lock()
-      .unwrap()
-      .remove(&self.webview_id);
+    WEBVIEW_IDS.lock().unwrap().remove(&self.webview_id);
 
     // We need to drop handler closures here
     unsafe {
