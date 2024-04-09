@@ -101,15 +101,22 @@ fn main() {
     }
   }
 
-  cfg_aliases::cfg_aliases! {
-      // Platforms
-      android: { target_os = "android" },
-      macos: { target_os = "macos" },
-      ios: { target_os = "ios" },
-      windows: { target_os = "windows" },
-      apple: { any(target_os = "ios", target_os = "macos") },
-      linux: { all(unix, not(apple), not(android)) },
-      // Backends
-      gtk: { all(feature = "os-webview", unix, not(apple), not(android)) },
+  let target = std::env::var("TARGET").unwrap();
+  alias("android", target.contains("android"));
+  alias("macos", target.contains("darwin"));
+  alias("ios", target.contains("ios"));
+  alias("windows", target.contains("windows"));
+  alias("apple", target.contains("apple"));
+  alias("linux", target.contains("linux"));
+
+  alias(
+    "gtk",
+    cfg!(feature = "os-webview") && target.contains("linux"),
+  );
+}
+
+fn alias(alias: &str, condition: bool) {
+  if condition {
+    println!("cargo:rustc-cfg={alias}");
   }
 }
