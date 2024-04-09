@@ -110,6 +110,6 @@ fn main() {
       apple: { any(target_os = "ios", target_os = "macos") },
       linux: { all(unix, not(apple), not(android)) },
       // Backends
-      gtk: { all(feature = "os-webview", linux) },
+      gtk: { all(feature = "os-webview", unix, not(apple), not(android)) },
   }
 }
