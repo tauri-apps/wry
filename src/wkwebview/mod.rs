@@ -277,6 +277,11 @@ impl InnerWebView {
 
                     let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
                     let response: id = msg_send![urlresponse, initWithURL:url statusCode: wanted_status_code HTTPVersion:NSString::new(&wanted_version) headerFields:headers];
+                    
+                    // release lock before calls to task to avoid a deadlock with main thread (which may be locked in stop_task)
+                    // with unfortunate timing, task could be invalid from here, because the lock is released
+                    let _: () = msg_send![stoppedtaskslock, unlock];
+
                     let () = msg_send![task, didReceiveResponse: response];
 
                     // Send data
@@ -289,8 +294,8 @@ impl InnerWebView {
                   } else {
                     // Remove stopped task
                     let _: () = msg_send![stoppedtasks, removeObject: hash];
+                    let _: () = msg_send![stoppedtaskslock, unlock];
                   }
-                  let _: () = msg_send![stoppedtaskslock, unlock];
                 },
               );
 
