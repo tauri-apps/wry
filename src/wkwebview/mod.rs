@@ -165,7 +165,7 @@ impl InnerWebView {
         tracing::warn!("WebView received invalid IPC call.");
       }
     }
-
+    
     // Task handler for custom protocol
     extern "C" fn start_task(this: &Object, _: Sel, _webview: id, task: id) {
       unsafe {
@@ -240,62 +240,52 @@ impl InnerWebView {
             // Finish
             let () = msg_send![task, didFinish];
           };
-          let stoppedtaskslock:id = * (* this).get_ivar("stoppedtaskslock");
           let stoppedtasks:id = *(* this).get_ivar("stoppedtasks");
+          let srcls:*mut Class = *(* this).get_ivar("srcls");
           // send response
           match http_request.body(sent_form_body) {
             Ok(final_request) => {
               let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> = Box::new(
                 move |sent_response| {
-                  // Check if task was stopped
-                  let _: () = msg_send![stoppedtaskslock, lock];
-                  let hash:id = msg_send![task, hash];
-                  let ctns:bool = msg_send![stoppedtasks, containsObject: hash];
-                  if !ctns {
-                    let content = sent_response.body();
-                    // default: application/octet-stream, but should be provided by the client
-                    let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
-                    // default to 200
-                    let wanted_status_code = sent_response.status().as_u16() as i32;
-                    // default to HTTP/1.1
-                    let wanted_version = format!("{:#?}", sent_response.version());
+                  let content = sent_response.body();
+                  // default: application/octet-stream, but should be provided by the client
+                  let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
+                  // default to 200
+                  let wanted_status_code = sent_response.status().as_u16() as i32;
+                  // default to HTTP/1.1
+                  let wanted_version = format!("{:#?}", sent_response.version());
 
-                    let dictionary: id = msg_send![class!(NSMutableDictionary), alloc];
-                    let headers: id = msg_send![dictionary, initWithCapacity:1];
-                    if let Some(mime) = wanted_mime {
-                      let () = msg_send![headers, setObject:NSString::new(mime.to_str().unwrap()) forKey: NSString::new(CONTENT_TYPE.as_str())];
-                    }
-                    let () = msg_send![headers, setObject:NSString::new(&content.len().to_string()) forKey: NSString::new(CONTENT_LENGTH.as_str())];
-
-                    // add headers
-                    for (name, value) in sent_response.headers().iter() {
-                      let header_key = name.as_str();
-                      if let Ok(value) = value.to_str() {
-                        let () = msg_send![headers, setObject:NSString::new(value) forKey: NSString::new(header_key)];
-                      }
-                    }
-
-                    let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
-                    let response: id = msg_send![urlresponse, initWithURL:url statusCode: wanted_status_code HTTPVersion:NSString::new(&wanted_version) headerFields:headers];
-                    
-                    // release lock before calls to task to avoid a deadlock with main thread (which may be locked in stop_task)
-                    // with unfortunate timing, task could be invalid from here, because the lock is released
-                    let _: () = msg_send![stoppedtaskslock, unlock];
-
-                    let () = msg_send![task, didReceiveResponse: response];
-
-                    // Send data
-                    let bytes = content.as_ptr() as *mut c_void;
-                    let data: id = msg_send![class!(NSData), alloc];
-                    let data: id = msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: if content.len() == 0 { NO } else { YES }];
-                    let () = msg_send![task, didReceiveData: data];
-                    // Finish
-                    let () = msg_send![task, didFinish];
-                  } else {
-                    // Remove stopped task
-                    let _: () = msg_send![stoppedtasks, removeObject: hash];
-                    let _: () = msg_send![stoppedtaskslock, unlock];
+                  let dictionary: id = msg_send![class!(NSMutableDictionary), alloc];
+                  let headers: id = msg_send![dictionary, initWithCapacity:1];
+                  if let Some(mime) = wanted_mime {
+                    let () = msg_send![headers, setObject:NSString::new(mime.to_str().unwrap()) forKey: NSString::new(CONTENT_TYPE.as_str())];
                   }
+                  let () = msg_send![headers, setObject:NSString::new(&content.len().to_string()) forKey: NSString::new(CONTENT_LENGTH.as_str())];
+
+                  // add headers
+                  for (name, value) in sent_response.headers().iter() {
+                    let header_key = name.as_str();
+                    if let Ok(value) = value.to_str() {
+                      let () = msg_send![headers, setObject:NSString::new(value) forKey: NSString::new(header_key)];
+                    }
+                  }
+
+                  let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
+                  let response: id = msg_send![urlresponse, initWithURL:url statusCode: wanted_status_code HTTPVersion:NSString::new(&wanted_version) headerFields:headers];
+                  
+                  // prepare response object to be run on main thread
+                  let send_response: id = msg_send![srcls, new];
+                  let send_response: id = msg_send![send_response, autorelease];
+                  (* send_response).set_ivar("task", task);
+                  (* send_response).set_ivar("stoppedtasks", stoppedtasks);
+                  (* send_response).set_ivar("response", response);
+                  let bytes = content.as_ptr();
+                  let data: id = msg_send![class!(NSData), alloc];
+                  let data: id = msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: if content.len() == 0 { NO } else { YES }];
+                  (* send_response).set_ivar("responsedata", data);
+                  
+                  // send task response on main thread
+                  let _: () = msg_send![send_response, performSelectorOnMainThread: sel!(sendTaskResponse:) withObject: nil waitUntilDone: true];
                 },
               );
 
@@ -313,15 +303,34 @@ impl InnerWebView {
         }
       }
     }
+
     extern "C" fn stop_task(this: &Object, _: Sel, _webview: id, task: id) {
       unsafe {
         // Add stopped task
-        let stoppedtaskslock:id = * (* this).get_ivar("stoppedtaskslock");
-        let _: () = msg_send![stoppedtaskslock, lock];
         let stoppedtasks:id = * (* this).get_ivar("stoppedtasks");
         let hash:id = msg_send![task, hash];
         let _: () = msg_send![stoppedtasks, addObject: hash];
-        let _: () = msg_send![stoppedtaskslock, unlock];
+      }
+    }
+
+    extern "C" fn send_task_response(this: &Object, _: Sel, _: id) {
+      unsafe {
+        let task:id = * (* this).get_ivar("task");
+        let hash:id = msg_send![task, hash];
+        let stoppedtasks:id = * (* this).get_ivar("stoppedtasks");
+        let ctns:bool = msg_send![stoppedtasks, containsObject: hash];
+        if !ctns {
+          let response:id = * (* this).get_ivar("response");
+          let data:id = * (* this).get_ivar("responsedata");
+          let () = msg_send![task, didReceiveResponse: response];
+          // Send data
+          let () = msg_send![task, didReceiveData: data];
+          // Finish
+          let () = msg_send![task, didFinish];
+        } else {
+          // Remove stopped task
+          let _: () = msg_send![stoppedtasks, removeObject: hash];
+        }
       }
     }
     
@@ -345,7 +354,7 @@ impl InnerWebView {
           Some(mut cls) => {
             cls.add_ivar::<*mut c_void>("function");
             cls.add_ivar::<id>("stoppedtasks");
-            cls.add_ivar::<id>("stoppedtaskslock");
+            cls.add_ivar::<*mut Class>("srcls");
             cls.add_method(
               sel!(webView:startURLSchemeTask:),
               start_task as extern "C" fn(&Object, Sel, id, id),
@@ -364,10 +373,22 @@ impl InnerWebView {
         tasks = msg_send![tasks, init];
         tasks = msg_send![tasks, autorelease];
         (* handler).set_ivar("stoppedtasks", tasks);
-        let mut taskslock: id = msg_send![class!(NSLock), alloc];
-        taskslock = msg_send![taskslock, init];
-        taskslock = msg_send![taskslock, autorelease];
-        (* handler).set_ivar("stoppedtaskslock", taskslock);
+        let srcls = ClassDecl::new(&"SendResponse", class!(NSObject));
+        let srcls = match srcls {
+          Some(mut srcls) => {
+            srcls.add_ivar::<id>("task");
+            srcls.add_ivar::<id>("stoppedtasks");
+            srcls.add_ivar::<id>("response");
+            srcls.add_ivar::<id>("responsedata");
+            srcls.add_method(
+              sel!(sendTaskResponse:),
+              send_task_response as extern "C" fn(&Object, Sel, id),
+            );
+            srcls.register()
+          }
+          None => Class::get(&"SendResponse").expect("Failed to get the class definition"),
+        };
+        (* handler).set_ivar("srcls", srcls);
 
         let function = Box::into_raw(Box::new(function));
         protocol_ptrs.push(function);
