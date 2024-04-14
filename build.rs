@@ -107,11 +107,11 @@ fn main() {
   alias("ios", target.contains("ios"));
   alias("windows", target.contains("windows"));
   alias("apple", target.contains("apple"));
-  alias("linux", target.contains("linux"));
+  alias("linux", target.contains("unknown-linux"));
 
   alias(
     "gtk",
-    cfg!(feature = "os-webview") && target.contains("linux"),
+    cfg!(feature = "os-webview") && target.contains("unknown-linux"),
   );
 }
 
