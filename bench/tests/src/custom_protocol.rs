@@ -48,7 +48,27 @@ fn main() -> wry::Result<()> {
       exit(0);
     }
   };
-  let _webview = WebViewBuilder::new(&window)
+  #[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  ))]
+  let builder = WebViewBuilder::new(&window);
+
+  #[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  )))]
+  let builder = {
+    use tao::platform::unix::WindowExtUnix;
+    use wry::WebViewBuilderExtUnix;
+    let vbox = window.default_vbox().unwrap();
+    WebViewBuilder::new_gtk(vbox)
+  };
+  let _webview = builder
     .with_ipc_handler(handler)
     .with_custom_protocol("wrybench".into(), move |_request| {
       Response::builder()
