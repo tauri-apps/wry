@@ -10,6 +10,7 @@ mod navigation;
 mod proxy;
 #[cfg(target_os = "macos")]
 mod synthetic_mouse_events;
+mod util;
 
 #[cfg(target_os = "macos")]
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewMinYMargin, NSViewWidthSizable};
@@ -18,10 +19,12 @@ use cocoa::{
   foundation::{NSDictionary, NSFastEnumeration, NSInteger},
 };
 use dpi::{LogicalPosition, LogicalSize};
+use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
   borrow::Cow,
+  collections::HashSet,
   ffi::{c_void, CStr},
   os::raw::c_char,
   ptr::{null, null_mut},
@@ -65,11 +68,16 @@ use http::{
   Request, Response as HttpResponse,
 };
 
+use self::util::Counter;
+
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
 #[cfg(target_os = "macos")]
 const ACCEPT_FIRST_MOUSE: &str = "accept_first_mouse";
 
 const NS_JSON_WRITING_FRAGMENTS_ALLOWED: u64 = 4;
+
+static COUNTER: Counter = Counter::new();
+static WEBVIEW_IDS: Lazy<Mutex<HashSet<u32>>> = Lazy::new(Default::default);
 
 pub(crate) struct InnerWebView {
   pub webview: id,
@@ -86,6 +94,7 @@ pub(crate) struct InnerWebView {
   drag_drop_ptr: *mut Box<dyn Fn(crate::DragDropEvent) -> bool>,
   download_delegate: id,
   protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>>,
+  webview_id: u32,
 }
 
 impl InnerWebView {
@@ -172,6 +181,8 @@ impl InnerWebView {
         #[cfg(feature = "tracing")]
         let span = tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty)
           .entered();
+        let webview_id = *this.get_ivar::<u32>("webview_id");
+
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
           let function =
@@ -271,14 +282,25 @@ impl InnerWebView {
 
                   let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
                   let response: id = msg_send![urlresponse, initWithURL:url statusCode: wanted_status_code HTTPVersion:NSString::new(&wanted_version) headerFields:headers];
+                  if !WEBVIEW_IDS.lock().unwrap().contains(&webview_id) {
+                    return;
+                  }
                   let () = msg_send![task, didReceiveResponse: response];
 
                   // Send data
                   let bytes = content.as_ptr() as *mut c_void;
                   let data: id = msg_send![class!(NSData), alloc];
                   let data: id = msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: if content.len() == 0 { NO } else { YES }];
+
+                  if !WEBVIEW_IDS.lock().unwrap().contains(&webview_id) {
+                    return;
+                  }
                   let () = msg_send![task, didReceiveData: data];
+
                   // Finish
+                  if !WEBVIEW_IDS.lock().unwrap().contains(&webview_id) {
+                    return;
+                  }
                   let () = msg_send![task, didFinish];
                 },
               );
@@ -299,6 +321,11 @@ impl InnerWebView {
     }
     extern "C" fn stop_task(_: &Object, _: Sel, _webview: id, _task: id) {}
 
+    let mut wv_ids = WEBVIEW_IDS.lock().unwrap();
+    let webview_id = COUNTER.next();
+    wv_ids.insert(webview_id);
+    drop(wv_ids);
+
     // Safety: objc runtime calls are unsafe
     unsafe {
       // Config and custom protocol
@@ -318,6 +345,7 @@ impl InnerWebView {
         let cls = match cls {
           Some(mut cls) => {
             cls.add_ivar::<*mut c_void>("function");
+            cls.add_ivar::<u32>("webview_id");
             cls.add_method(
               sel!(webView:startURLSchemeTask:),
               start_task as extern "C" fn(&Object, Sel, id, id),
@@ -335,6 +363,7 @@ impl InnerWebView {
         protocol_ptrs.push(function);
 
         (*handler).set_ivar("function", function as *mut _ as *mut c_void);
+        (*handler).set_ivar("webview_id", webview_id);
         let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:NSString::new(&name)];
       }
 
@@ -878,6 +907,7 @@ impl InnerWebView {
         download_delegate,
         protocol_ptrs,
         is_child,
+        webview_id,
       };
 
       // Initialize scripts
@@ -1245,6 +1275,8 @@ pub fn platform_webview_version() -> Result<String> {
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
+    WEBVIEW_IDS.lock().unwrap().remove(&self.webview_id);
+
     // We need to drop handler closures here
     unsafe {
       if !self.ipc_handler_ptr.is_null() {
