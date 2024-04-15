@@ -283,9 +283,6 @@ impl InnerWebView {
     let additional_browser_args = HSTRING::from(additional_browser_args);
     let additional_browser_args = PCWSTR::from_raw(additional_browser_args.as_ptr());
 
-    let data_directory = data_directory.map(HSTRING::from);
-    let data_directory = data_directory.map(|d| PCWSTR::from_raw(d.as_ptr()));
-
     let (tx, rx) = mpsc::channel();
     CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
       Box::new(move |environmentcreatedhandler| unsafe {
@@ -304,9 +301,14 @@ impl InnerWebView {
         );
         options.SetLanguage(PCWSTR::from_raw(lang.as_ptr()))?;
 
+        let data_directory = data_directory.map(HSTRING::from);
+        let data_directory = data_directory
+          .map(|d| PCWSTR::from_raw(d.as_ptr()))
+          .unwrap_or_else(PCWSTR::null);
+
         CreateCoreWebView2EnvironmentWithOptions(
           PCWSTR::null(),
-          data_directory.unwrap_or_else(PCWSTR::null),
+          data_directory,
           &options,
           &environmentcreatedhandler,
         )
