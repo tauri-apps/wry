@@ -35,10 +35,28 @@ fn main() -> wry::Result<()> {
       exit(0);
     }
   };
-  let _webview = WebViewBuilder::new(&window)
-    .with_url(url)
-    .with_ipc_handler(handler)
-    .build()?;
+
+  #[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  ))]
+  let builder = WebViewBuilder::new(&window);
+
+  #[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  )))]
+  let builder = {
+    use tao::platform::unix::WindowExtUnix;
+    use wry::WebViewBuilderExtUnix;
+    let vbox = window.default_vbox().unwrap();
+    WebViewBuilder::new_gtk(vbox)
+  };
+  let _webview = builder.with_url(url).with_ipc_handler(handler).build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
