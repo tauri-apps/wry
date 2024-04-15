@@ -165,7 +165,7 @@ impl InnerWebView {
         tracing::warn!("WebView received invalid IPC call.");
       }
     }
-
+    
     // Task handler for custom protocol
     extern "C" fn start_task(this: &Object, _: Sel, _webview: id, task: id) {
       unsafe {
@@ -240,7 +240,8 @@ impl InnerWebView {
             // Finish
             let () = msg_send![task, didFinish];
           };
-
+          let stoppedtasks:id = *(* this).get_ivar("stoppedtasks");
+          let srcls:*mut Class = *(* this).get_ivar("srcls");
           // send response
           match http_request.body(sent_form_body) {
             Ok(final_request) => {
@@ -271,15 +272,20 @@ impl InnerWebView {
 
                   let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
                   let response: id = msg_send![urlresponse, initWithURL:url statusCode: wanted_status_code HTTPVersion:NSString::new(&wanted_version) headerFields:headers];
-                  let () = msg_send![task, didReceiveResponse: response];
-
-                  // Send data
-                  let bytes = content.as_ptr() as *mut c_void;
+                  
+                  // prepare response object to be run on main thread
+                  let send_response: id = msg_send![srcls, new];
+                  let send_response: id = msg_send![send_response, autorelease];
+                  (* send_response).set_ivar("task", task);
+                  (* send_response).set_ivar("stoppedtasks", stoppedtasks);
+                  (* send_response).set_ivar("response", response);
+                  let bytes = content.as_ptr();
                   let data: id = msg_send![class!(NSData), alloc];
                   let data: id = msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: if content.len() == 0 { NO } else { YES }];
-                  let () = msg_send![task, didReceiveData: data];
-                  // Finish
-                  let () = msg_send![task, didFinish];
+                  (* send_response).set_ivar("responsedata", data);
+                  
+                  // send task response on main thread
+                  let _: () = msg_send![send_response, performSelectorOnMainThread: sel!(sendTaskResponse:) withObject: nil waitUntilDone: true];
                 },
               );
 
@@ -297,8 +303,37 @@ impl InnerWebView {
         }
       }
     }
-    extern "C" fn stop_task(_: &Object, _: Sel, _webview: id, _task: id) {}
 
+    extern "C" fn stop_task(this: &Object, _: Sel, _webview: id, task: id) {
+      unsafe {
+        // Add stopped task
+        let stoppedtasks:id = * (* this).get_ivar("stoppedtasks");
+        let hash:id = msg_send![task, hash];
+        let _: () = msg_send![stoppedtasks, addObject: hash];
+      }
+    }
+
+    extern "C" fn send_task_response(this: &Object, _: Sel, _: id) {
+      unsafe {
+        let task:id = * (* this).get_ivar("task");
+        let hash:id = msg_send![task, hash];
+        let stoppedtasks:id = * (* this).get_ivar("stoppedtasks");
+        let ctns:bool = msg_send![stoppedtasks, containsObject: hash];
+        if !ctns {
+          let response:id = * (* this).get_ivar("response");
+          let data:id = * (* this).get_ivar("responsedata");
+          let () = msg_send![task, didReceiveResponse: response];
+          // Send data
+          let () = msg_send![task, didReceiveData: data];
+          // Finish
+          let () = msg_send![task, didFinish];
+        } else {
+          // Remove stopped task
+          let _: () = msg_send![stoppedtasks, removeObject: hash];
+        }
+      }
+    }
+    
     // Safety: objc runtime calls are unsafe
     unsafe {
       // Config and custom protocol
@@ -318,6 +353,8 @@ impl InnerWebView {
         let cls = match cls {
           Some(mut cls) => {
             cls.add_ivar::<*mut c_void>("function");
+            cls.add_ivar::<id>("stoppedtasks");
+            cls.add_ivar::<*mut Class>("srcls");
             cls.add_method(
               sel!(webView:startURLSchemeTask:),
               start_task as extern "C" fn(&Object, Sel, id, id),
@@ -331,6 +368,28 @@ impl InnerWebView {
           None => Class::get(&scheme_name).expect("Failed to get the class definition"),
         };
         let handler: id = msg_send![cls, new];
+
+        let mut tasks: id = msg_send![class!(NSMutableArray), alloc];
+        tasks = msg_send![tasks, init];
+        tasks = msg_send![tasks, autorelease];
+        (* handler).set_ivar("stoppedtasks", tasks);
+        let srcls = ClassDecl::new(&"SendResponse", class!(NSObject));
+        let srcls = match srcls {
+          Some(mut srcls) => {
+            srcls.add_ivar::<id>("task");
+            srcls.add_ivar::<id>("stoppedtasks");
+            srcls.add_ivar::<id>("response");
+            srcls.add_ivar::<id>("responsedata");
+            srcls.add_method(
+              sel!(sendTaskResponse:),
+              send_task_response as extern "C" fn(&Object, Sel, id),
+            );
+            srcls.register()
+          }
+          None => Class::get(&"SendResponse").expect("Failed to get the class definition"),
+        };
+        (* handler).set_ivar("srcls", srcls);
+
         let function = Box::into_raw(Box::new(function));
         protocol_ptrs.push(function);
 
