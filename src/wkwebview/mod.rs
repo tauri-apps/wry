@@ -112,7 +112,6 @@ impl InnerWebView {
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    println!("N");
     let ns_view = match window.window_handle()?.as_raw() {
       #[cfg(target_os = "macos")]
       RawWindowHandle::AppKit(w) => w.ns_view.as_ptr(),
@@ -1204,11 +1203,8 @@ r#"Object.defineProperty(window, 'ipc', {
   #[cfg(target_os = "macos")]
   pub(crate) fn reparent(&self, window: id) -> crate::Result<()> {
     unsafe {
-      println!("A");
       let content_view: id = msg_send![window, contentView];
-      println!("AB");
       let _: () = msg_send![content_view, addSubview: self.webview];
-      println!("ABC");
     }
 
     Ok(())
