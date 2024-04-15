@@ -46,9 +46,6 @@ os-webview = [
 ]
 tracing = [ "dep:tracing" ]
 
-[build-dependencies]
-cfg_aliases = "0.1"
-
 [dependencies]
 tracing = { version = "0.1", optional = true }
 once_cell = "1"
