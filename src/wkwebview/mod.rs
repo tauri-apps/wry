@@ -135,7 +135,7 @@ impl InnerWebView {
   fn new_ns_view(
     ns_view: id,
     attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
     is_child: bool,
   ) -> Result<Self> {
@@ -332,9 +332,15 @@ impl InnerWebView {
       let config: id = msg_send![class!(WKWebViewConfiguration), new];
       let mut protocol_ptrs = Vec::new();
 
-      // Incognito mode
+      // data store is either default, non-persistent if incognito is set, or custom
       let data_store: id = if attributes.incognito {
+        // incognito
         msg_send![class!(WKWebsiteDataStore), nonPersistentDataStore]
+      // Custom data store identifier
+      } else if let Some(data_store) = pl_attrs.data_store_identifier {
+        let ns_uuid = NSUUID::new(&data_store);
+        msg_send![class!(WKWebsiteDataStore), dataStoreForIdentifier:ns_uuid.0]
+      // Default data store
       } else {
         msg_send![class!(WKWebsiteDataStore), defaultDataStore]
       };
@@ -1320,6 +1326,21 @@ impl Drop for InnerWebView {
 }
 
 const UTF8_ENCODING: usize = 4;
+
+struct NSUUID(id);
+
+impl NSUUID {
+  fn new(data: &[u8; 16]) -> Self {
+    NSUUID(unsafe {
+      let ns_uuid: id = msg_send![class!(NSUUID), alloc];
+      let ns_uuid: id = msg_send![ns_uuid, initWithUUIDBytes:data.as_ptr()];
+
+      let _: () = msg_send![ns_uuid, autorelease];
+
+      ns_uuid
+    })
+  }
+}
 
 struct NSString(id);
 

@@ -1032,6 +1032,36 @@ impl<'a> WebViewBuilder<'a> {
   }
 }
 
+#[cfg(target_os = "macos")]
+#[derive(Clone)]
+pub(crate) struct PlatformSpecificWebViewAttributes {
+  data_store_identifier: Option<[u8; 16]>,
+}
+
+#[cfg(target_os = "macos")]
+impl Default for PlatformSpecificWebViewAttributes {
+  fn default() -> Self {
+    Self {
+      data_store_identifier: None,
+    }
+  }
+}
+
+#[cfg(target_os = "macos")]
+pub trait WebViewBuilderExtMacOS {
+  /// Initialize the WebView with a custom data store identifier. This can be used as a replacement for
+  /// data_directory not being available in WKWebView.
+  fn with_data_store_identifier(self, identifier: [u8; 16]) -> Self;
+}
+
+#[cfg(target_os = "macos")]
+impl WebViewBuilderExtMacOS for WebViewBuilder<'_> {
+  fn with_data_store_identifier(mut self, identifier: [u8; 16]) -> Self {
+    self.platform_specific.data_store_identifier = Some(identifier);
+    self
+  }
+}
+
 #[cfg(windows)]
 #[derive(Clone)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
@@ -1654,7 +1684,6 @@ pub enum PageLoadEvent {
   target_os = "netbsd",
   target_os = "openbsd",
   target_os = "ios",
-  target_os = "macos",
 ))]
 #[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes;
