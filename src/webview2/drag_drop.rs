@@ -57,7 +57,7 @@ impl DragDropController {
         let closure = &mut *(lparam.0 as *mut c_void as *mut &mut dyn FnMut(HWND) -> bool);
         closure(hwnd).into()
       }
-      unsafe { EnumChildWindows(hwnd, Some(enumerate_callback), lparam) };
+      let _ = unsafe { EnumChildWindows(hwnd, Some(enumerate_callback), lparam) };
     }
 
     controller
@@ -163,7 +163,7 @@ impl IDropTarget_Impl for DragDropTarget {
     pdwEffect: *mut DROPEFFECT,
   ) -> windows::core::Result<()> {
     let mut pt = POINT { x: pt.x, y: pt.y };
-    unsafe { ScreenToClient(self.hwnd, &mut pt) };
+    let _ = unsafe { ScreenToClient(self.hwnd, &mut pt) };
 
     let mut paths = Vec::new();
     let hdrop = unsafe { Self::iterate_filenames(pDataObj, |path| paths.push(path)) };
@@ -196,7 +196,7 @@ impl IDropTarget_Impl for DragDropTarget {
   ) -> windows::core::Result<()> {
     if unsafe { *self.enter_is_valid.get() } {
       let mut pt = POINT { x: pt.x, y: pt.y };
-      unsafe { ScreenToClient(self.hwnd, &mut pt) };
+      let _ = unsafe { ScreenToClient(self.hwnd, &mut pt) };
       (self.listener)(DragDropEvent::Over {
         position: (pt.x as _, pt.y as _),
       });
@@ -222,7 +222,7 @@ impl IDropTarget_Impl for DragDropTarget {
   ) -> windows::core::Result<()> {
     if unsafe { *self.enter_is_valid.get() } {
       let mut pt = POINT { x: pt.x, y: pt.y };
-      unsafe { ScreenToClient(self.hwnd, &mut pt) };
+      let _ = unsafe { ScreenToClient(self.hwnd, &mut pt) };
 
       let mut paths = Vec::new();
       let hdrop = unsafe { Self::iterate_filenames(pDataObj, |path| paths.push(path)) };
