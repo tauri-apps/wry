@@ -103,16 +103,17 @@ fn main() {
 
   let target = std::env::var("TARGET").unwrap();
   let android = target.contains("android");
+  let linux = target.contains("linux");
   alias("android", android);
   alias("macos", target.contains("darwin"));
   alias("ios", target.contains("ios"));
   alias("windows", target.contains("windows"));
   alias("apple", target.contains("apple"));
-  alias("linux", !android && target.contains("linux"));
+  alias("linux", !android && linux);
 
   alias(
     "gtk",
-    cfg!(feature = "os-webview") && target.contains("unknown-linux"),
+    cfg!(feature = "os-webview") && linux,
   );
 }
 
