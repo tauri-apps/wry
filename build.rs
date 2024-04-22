@@ -100,11 +100,12 @@ fn main() {
 
   let target = std::env::var("TARGET").unwrap_or_default();
   let android = target.contains("android");
-  let linux = !android && target.contains("linux")
-    || target.contains("freebsd")
-    || target.contains("dragonfly")
-    || target.contains("netbsd")
-    || target.contains("openbsd");
+  let linux = !android
+    && (target.contains("linux")
+      || target.contains("freebsd")
+      || target.contains("dragonfly")
+      || target.contains("netbsd")
+      || target.contains("openbsd"));
   alias("linux", linux);
   alias("gtk", cfg!(feature = "os-webview") && linux);
 }
