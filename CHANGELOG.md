@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.24.8]
+
+- [`e780957`](https://github.com/tauri-apps/wry/commit/e78095770053bf29d3a7c261b8ec8224fb53f7f8)([#1222](https://github.com/tauri-apps/wry/pull/1222)) Fix IPC crash on wkwebview if receiving invalid types.
+
 ## \[0.24.7]
 
 - [`dba375f`](https://github.com/tauri-apps/wry/commit/dba375f2b1ba1cfc73582f58a9ff1ccc82d50f8c)([#1106](https://github.com/tauri-apps/wry/pull/1106)) Update the unmaintained `kuchiki` crate to the maintained `kuchikiki` crate.
