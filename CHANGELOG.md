@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.39.2]
+
+- [`3e3d59c`](https://github.com/tauri-apps/wry/commit/3e3d59cd4f79c21571e503a5bf80d4d54a654a38)([#1215](https://github.com/tauri-apps/wry/pull/1215)) On macOS, prevent NSExceptions and invalid memory access panics when dropping the WebView while custom protocols handlers may still be running.
+- [`ca6b5fb`](https://github.com/tauri-apps/wry/commit/ca6b5fbef6e5a5efe43b5cbebe6bfc4bc13930d3)([#1224](https://github.com/tauri-apps/wry/pull/1224)) Update `windows` crate to `0.56`
+
 ## \[0.39.1]
 
 - [`f0e82d3`](https://github.com/tauri-apps/wry/commit/f0e82d3aa2da9da2b935d97c9a9b5e2dbd65b6ea)([#1217](https://github.com/tauri-apps/wry/pull/1217)) Fix target detection on build script to enhance cross compiling capabilities.

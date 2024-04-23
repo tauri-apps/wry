@@ -1009,7 +1009,7 @@ impl InnerWebView {
     if msg == *EXEC_MSG_ID {
       let mut function: Box<Box<dyn FnMut()>> = Box::from_raw(wparam.0 as *mut _);
       function();
-      RedrawWindow(hwnd, None, HRGN::default(), RDW_INTERNALPAINT);
+      let _ = RedrawWindow(hwnd, None, HRGN::default(), RDW_INTERNALPAINT);
       return LRESULT(0);
     }
 
@@ -1017,7 +1017,7 @@ impl InnerWebView {
   }
 
   unsafe fn attach_main_thread_dispatcher(hwnd: HWND) {
-    SetWindowSubclass(
+    let _ = SetWindowSubclass(
       hwnd,
       Some(Self::main_thread_dispatcher_proc),
       MAIN_THREAD_DISPATCHER_SUBCLASS_ID as _,
@@ -1080,7 +1080,7 @@ impl InnerWebView {
           drop(Box::from_raw(dwrefdata as *mut ICoreWebView2Controller));
 
           // update `dwrefdata` to null to avoid double-freeing the controller
-          SetWindowSubclass(
+          let _ = SetWindowSubclass(
             hwnd,
             Some(Self::parent_subclass_proc),
             PARENT_SUBCLASS_ID as _,
@@ -1097,7 +1097,7 @@ impl InnerWebView {
 
   #[inline]
   unsafe fn attach_parent_subclass(parent: HWND, controller: &ICoreWebView2Controller) {
-    SetWindowSubclass(
+    let _ = SetWindowSubclass(
       parent,
       Some(Self::parent_subclass_proc),
       PARENT_SUBCLASS_ID as _,
@@ -1113,7 +1113,7 @@ impl InnerWebView {
       WPARAM::default(),
       LPARAM::default(),
     );
-    RemoveWindowSubclass(
+    let _ = RemoveWindowSubclass(
       parent,
       Some(Self::parent_subclass_proc),
       PARENT_SUBCLASS_ID as _,
@@ -1268,7 +1268,7 @@ impl InnerWebView {
 
   pub fn set_visible(&self, visible: bool) -> Result<()> {
     unsafe {
-      ShowWindow(
+      let _ = ShowWindow(
         self.hwnd,
         match visible {
           true => SW_SHOW,
