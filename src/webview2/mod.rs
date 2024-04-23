@@ -250,6 +250,9 @@ impl InnerWebView {
       .and_then(|path| path.to_str())
       .map(HSTRING::from);
 
+    // clone here so HSTRING is not dropped eagerly
+    let data_directory_param = data_directory.clone().map(|d| PCWSTR::from_raw(d.as_ptr()));
+
     // additional browser args
     let additional_browser_args = pl_attrs.additional_browser_args.unwrap_or_else(|| {
       // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
@@ -280,10 +283,10 @@ impl InnerWebView {
 
       arguments
     });
-    let additional_browser_args = HSTRING::from(additional_browser_args);
-    let additional_browser_args = PCWSTR::from_raw(additional_browser_args.as_ptr());
 
-    let data_directory_param = data_directory.clone().map(|d| PCWSTR::from_raw(d.as_ptr()));
+    let additional_browser_args = HSTRING::from(additional_browser_args);
+    let additional_browser_args = additional_browser_args.clone();
+    let additional_browser_args = PCWSTR::from_raw(additional_browser_args.as_ptr());
 
     let (tx, rx) = mpsc::channel();
     CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
