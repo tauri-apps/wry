@@ -2,4 +2,4 @@
 "wry": "patch"
 ---
 
-On Windows, fix data directory created next to the executable even if it was provided in `WebConext::new`
+On Windows, fix data directory created next to the executable with a gibberish name even if it was explicitly provided in `WebConext::new`
