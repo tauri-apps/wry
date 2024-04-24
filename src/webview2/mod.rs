@@ -125,7 +125,7 @@ impl InnerWebView {
   ) -> Result<Self> {
     let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
 
-    let (hwnd, size) = Self::create_container_hwnd(parent, &attributes, is_child)?;
+    let hwnd = Self::create_container_hwnd(parent, &attributes, is_child)?;
 
     let drop_handler = attributes.drag_drop_handler.take();
 
@@ -134,7 +134,6 @@ impl InnerWebView {
     let webview = Self::init_webview(
       parent,
       hwnd,
-      size,
       attributes,
       &env,
       &controller,
@@ -144,7 +143,7 @@ impl InnerWebView {
 
     let drag_drop_controller = drop_handler.map(|handler| DragDropController::new(hwnd, handler));
 
-    Ok(Self {
+    let w = Self {
       parent: RefCell::new(parent),
       hwnd,
       controller,
@@ -152,7 +151,13 @@ impl InnerWebView {
       webview,
       env,
       drag_drop_controller,
-    })
+    };
+
+    if !is_child {
+      w.resize_to_parent()?;
+    }
+
+    Ok(w)
   }
 
   #[inline]
@@ -160,7 +165,7 @@ impl InnerWebView {
     parent: HWND,
     attributes: &WebViewAttributes,
     is_child: bool,
-  ) -> Result<(HWND, (i32, i32))> {
+  ) -> Result<HWND> {
     unsafe extern "system" fn default_window_proc(
       hwnd: HWND,
       msg: u32,
@@ -235,7 +240,7 @@ impl InnerWebView {
       )
     };
 
-    Ok((hwnd, (width, height)))
+    Ok(hwnd)
   }
 
   #[inline]
@@ -355,7 +360,6 @@ impl InnerWebView {
   fn init_webview(
     parent: HWND,
     hwnd: HWND,
-    bounds: (i32, i32),
     mut attributes: WebViewAttributes,
     env: &ICoreWebView2Environment,
     controller: &ICoreWebView2Controller,
@@ -469,13 +473,6 @@ impl InnerWebView {
     }
 
     unsafe {
-      controller.SetBounds(RECT {
-        left: 0,
-        top: 0,
-        right: bounds.0,
-        bottom: bounds.1,
-      })?;
-
       controller.SetIsVisible(attributes.visible)?;
 
       if attributes.focused {
@@ -1263,6 +1260,18 @@ impl InnerWebView {
     let position = bounds.position.to_physical(scale_factor);
     self.set_bounds_inner(size, position)?;
     Ok(())
+  }
+
+  fn resize_to_parent(&self) -> crate::Result<()> {
+    let mut rect = RECT::default();
+    unsafe { win32wm::GetClientRect(*self.parent.borrow(), &mut rect)? };
+    let width = rect.right - rect.left;
+    let height = rect.bottom - rect.top;
+
+    self.set_bounds(Rect {
+      size: dpi::Size::Logical((width, height).into()),
+      ..Default::default()
+    })
   }
 
   pub fn set_visible(&self, visible: bool) -> Result<()> {
