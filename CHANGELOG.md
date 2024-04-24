@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.39.3]
+
+- [`c7ca3db`](https://github.com/tauri-apps/wry/commit/c7ca3db581bbeb4f16a28f47c3a1fd59889c0978)([#1221](https://github.com/tauri-apps/wry/pull/1221)) On Windows, fix data directory created next to the executable with a gibberish name even if it was explicitly provided in `WebConext::new`
+
 ## \[0.39.2]
 
 - [`3e3d59c`](https://github.com/tauri-apps/wry/commit/3e3d59cd4f79c21571e503a5bf80d4d54a654a38)([#1215](https://github.com/tauri-apps/wry/pull/1215)) On macOS, prevent NSExceptions and invalid memory access panics when dropping the WebView while custom protocols handlers may still be running.
