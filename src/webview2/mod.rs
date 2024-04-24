@@ -248,7 +248,7 @@ impl InnerWebView {
       .as_deref()
       .and_then(|context| context.data_directory())
       .and_then(|path| path.to_str())
-      .map(String::from);
+      .map(HSTRING::from);
 
     // additional browser args
     let additional_browser_args = pl_attrs.additional_browser_args.unwrap_or_else(|| {
@@ -280,11 +280,8 @@ impl InnerWebView {
 
       arguments
     });
-    let additional_browser_args = HSTRING::from(additional_browser_args);
-    let additional_browser_args = PCWSTR::from_raw(additional_browser_args.as_ptr());
 
-    let data_directory = data_directory.map(HSTRING::from);
-    let data_directory = data_directory.map(|d| PCWSTR::from_raw(d.as_ptr()));
+    let additional_browser_args = HSTRING::from(additional_browser_args);
 
     let (tx, rx) = mpsc::channel();
     CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
@@ -292,6 +289,7 @@ impl InnerWebView {
         let options: ICoreWebView2EnvironmentOptions =
           CoreWebView2EnvironmentOptions::default().into();
 
+        let additional_browser_args = PCWSTR::from_raw(additional_browser_args.as_ptr());
         let _ = options.SetAdditionalBrowserArguments(additional_browser_args);
 
         // Get user's system language
@@ -304,9 +302,12 @@ impl InnerWebView {
         );
         options.SetLanguage(PCWSTR::from_raw(lang.as_ptr()))?;
 
+        let data_directory_param = data_directory
+          .as_ref()
+          .map(|d| PCWSTR::from_raw(d.as_ptr()));
         CreateCoreWebView2EnvironmentWithOptions(
           PCWSTR::null(),
-          data_directory.unwrap_or_else(PCWSTR::null),
+          data_directory_param.unwrap_or_else(PCWSTR::null),
           &options,
           &environmentcreatedhandler,
         )
