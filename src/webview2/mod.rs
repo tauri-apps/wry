@@ -250,9 +250,6 @@ impl InnerWebView {
       .and_then(|path| path.to_str())
       .map(HSTRING::from);
 
-    // clone here so HSTRING is not dropped eagerly
-    let data_directory_param = data_directory.clone().map(|d| PCWSTR::from_raw(d.as_ptr()));
-
     // additional browser args
     let additional_browser_args = pl_attrs.additional_browser_args.unwrap_or_else(|| {
       // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
@@ -285,8 +282,6 @@ impl InnerWebView {
     });
 
     let additional_browser_args = HSTRING::from(additional_browser_args);
-    let additional_browser_args = additional_browser_args.clone();
-    let additional_browser_args = PCWSTR::from_raw(additional_browser_args.as_ptr());
 
     let (tx, rx) = mpsc::channel();
     CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
@@ -294,6 +289,7 @@ impl InnerWebView {
         let options: ICoreWebView2EnvironmentOptions =
           CoreWebView2EnvironmentOptions::default().into();
 
+        let additional_browser_args = PCWSTR::from_raw(additional_browser_args.as_ptr());
         let _ = options.SetAdditionalBrowserArguments(additional_browser_args);
 
         // Get user's system language
@@ -305,6 +301,8 @@ impl InnerWebView {
           Globalization::LOCALE_ALLOW_NEUTRAL_NAMES,
         );
         options.SetLanguage(PCWSTR::from_raw(lang.as_ptr()))?;
+
+        let data_directory_param = data_directory.as_ref().map(|d| PCWSTR::from_raw(d.as_ptr()));
 
         CreateCoreWebView2EnvironmentWithOptions(
           PCWSTR::null(),
