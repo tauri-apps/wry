@@ -302,8 +302,9 @@ impl InnerWebView {
         );
         options.SetLanguage(PCWSTR::from_raw(lang.as_ptr()))?;
 
-        let data_directory_param = data_directory.as_ref().map(|d| PCWSTR::from_raw(d.as_ptr()));
-
+        let data_directory_param = data_directory
+          .as_ref()
+          .map(|d| PCWSTR::from_raw(d.as_ptr()));
         CreateCoreWebView2EnvironmentWithOptions(
           PCWSTR::null(),
           data_directory_param.unwrap_or_else(PCWSTR::null),
