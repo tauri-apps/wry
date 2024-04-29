@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+#[cfg(target_os = "macos")]
+mod display_capture;
 mod download;
 #[cfg(target_os = "macos")]
 mod drag_drop;
@@ -16,7 +18,7 @@ mod util;
 use cocoa::appkit::{NSView, NSViewHeightSizable, NSViewMinYMargin, NSViewWidthSizable};
 use cocoa::{
   base::{id, nil, NO, YES},
-  foundation::{NSDictionary, NSFastEnumeration, NSInteger},
+  foundation::{NSDictionary, NSFastEnumeration, NSInteger, NSOperatingSystemVersion},
 };
 use dpi::{LogicalPosition, LogicalSize};
 use once_cell::sync::Lazy;
@@ -49,6 +51,9 @@ use crate::{
     nw_endpoint_t, nw_proxy_config_create_http_connect, nw_proxy_config_create_socksv5,
   },
 };
+
+#[cfg(target_os = "macos")]
+pub use display_capture::{WKDisplayCapturePermissionDecision, WKMediaCaptureType};
 
 use crate::{
   wkwebview::{
@@ -135,7 +140,7 @@ impl InnerWebView {
   fn new_ns_view(
     ns_view: id,
     attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
     is_child: bool,
   ) -> Result<Self> {
@@ -835,19 +840,20 @@ impl InnerWebView {
         }
       }
 
+      // getUserMedia permission request handler
       extern "C" fn request_media_capture_permission(
         _this: &Object,
         _: Sel,
         _webview: id,
         _origin: id,
         _frame: id,
-        _type: id,
+        _capture_type: isize,
         decision_handler: id,
       ) {
         unsafe {
-          let decision_handler = decision_handler as *mut block::Block<(NSInteger,), c_void>;
-          //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
-          (*decision_handler).call((1,));
+          // https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
+          let decision_handler = decision_handler as *mut block::Block<(u64,), c_void>;
+          (*decision_handler).call((1,)); // should be 1 for mic/cam
         }
       }
 
@@ -860,8 +866,13 @@ impl InnerWebView {
 
           ctl.add_method(
             sel!(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:),
-            request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, id, id),
+            request_media_capture_permission as extern "C" fn(&Object, Sel, id, id, id, isize, id),
           );
+
+          // Workaround for getDisplayMedia()
+          // https://github.com/tauri-apps/wry/issues/1195
+          #[cfg(target_os = "macos")]
+          display_capture::declare_decision_handler(&mut ctl);
 
           ctl.register()
         }
@@ -869,6 +880,9 @@ impl InnerWebView {
       };
       let ui_delegate: id = msg_send![ui_delegate, new];
       let _: () = msg_send![webview, setUIDelegate: ui_delegate];
+
+      #[cfg(target_os = "macos")]
+      display_capture::set_decision_handler(webview, pl_attrs.display_capture_decision_handler);
 
       // File drop handling
       #[cfg(target_os = "macos")]
@@ -1239,6 +1253,14 @@ r#"Object.defineProperty(window, 'ipc', {
 
     Ok(())
   }
+
+  #[cfg(target_os = "macos")]
+  pub fn set_display_capture_decision_handler<F>(&self, handler: F)
+  where
+    F: Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision + 'static,
+  {
+    display_capture::set_decision_handler(self.webview, Some(Box::new(handler)));
+  }
 }
 
 pub fn url_from_webview(webview: id) -> Result<String> {
@@ -1259,8 +1281,22 @@ pub fn url_from_webview(webview: id) -> Result<String> {
     .map_err(Into::into)
 }
 
+pub fn operating_system_version() -> (u64, u64, u64) {
+  unsafe {
+    let process_info: id = msg_send![class!(NSProcessInfo), processInfo];
+    let version: NSOperatingSystemVersion = msg_send![process_info, operatingSystemVersion];
+    (
+      version.majorVersion,
+      version.minorVersion,
+      version.patchVersion,
+    )
+  }
+}
+
+/// **Warning:** Panic occurs when caller application's `CFBundleDisplayName` contains non-ASCII characters.
 pub fn platform_webview_version() -> Result<String> {
   unsafe {
+    // bundleWithIdentifier: panic when CFBundleDisplayName contains non-ASCII characters.
     let bundle: id =
       msg_send![class!(NSBundle), bundleWithIdentifier: NSString::new("com.apple.WebKit")];
     let dict: id = msg_send![bundle, infoDictionary];
@@ -1310,6 +1346,9 @@ impl Drop for InnerWebView {
           drop(Box::from_raw(*ptr));
         }
       }
+
+      #[cfg(target_os = "macos")]
+      display_capture::drop_decision_hanlder(self.webview);
 
       // Remove webview from window's NSView before dropping.
       let () = msg_send![self.webview, removeFromSuperview];
