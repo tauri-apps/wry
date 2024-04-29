@@ -332,17 +332,28 @@ impl InnerWebView {
       let config: id = msg_send![class!(WKWebViewConfiguration), new];
       let mut protocol_ptrs = Vec::new();
 
-      // data store is either default, non-persistent if incognito is set, or custom
-      let data_store: id = if attributes.incognito {
-        // incognito
-        msg_send![class!(WKWebsiteDataStore), nonPersistentDataStore]
-      // Custom data store identifier
-      } else if let Some(data_store) = pl_attrs.data_store_identifier {
-        let ns_uuid = NSUUID::new(&data_store);
-        msg_send![class!(WKWebsiteDataStore), dataStoreForIdentifier:ns_uuid.0]
-      // Default data store
-      } else {
-        msg_send![class!(WKWebsiteDataStore), defaultDataStore]
+      let os_version = util::operating_system_version();
+
+      #[cfg(target_os = "macos")]
+      let custom_data_store_available = os_version.0 >= 14;
+
+      #[cfg(target_os = "ios")]
+      let custom_data_store_available = os_version.0 >= 17;
+
+      let data_store: id = match (
+        attributes.incognito,
+        custom_data_store_available,
+        pl_attrs.data_store_identifier,
+      ) {
+        // incognito has priority
+        (true, _, _) => msg_send![class!(WKWebsiteDataStore), nonPersistentDataStore],
+        // if data_store_identifier is given and custom data stores are available, use custom store
+        (false, true, Some(data_store)) => {
+          let ns_uuid = NSUUID::new(&data_store);
+          msg_send![class!(WKWebsiteDataStore), dataStoreForIdentifier:ns_uuid.0]
+        }
+        // default data store
+        _ => msg_send![class!(WKWebsiteDataStore), defaultDataStore],
       };
 
       for (name, function) in attributes.custom_protocols {
