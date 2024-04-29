@@ -348,21 +348,10 @@ fn load_html<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>, html: &JString<'a>
 fn set_background_color<'a>(
   env: &mut JNIEnv<'a>,
   webview: &JObject<'a>,
-  background_color: RGBA,
+  (r, g, b, a): RGBA,
 ) -> JniResult<()> {
-  let color_class = env.find_class("android/graphics/Color")?;
-  let color = env.call_static_method(
-    color_class,
-    "argb",
-    "(IIII)I",
-    &[
-      background_color.3.into(),
-      background_color.0.into(),
-      background_color.1.into(),
-      background_color.2.into(),
-    ],
-  )?;
-  env.call_method(webview, "setBackgroundColor", "(I)V", &[color.borrow()])?;
+  let color = (a as i32) << 24 | (r as i32) << 16 | (g as i32) << 8 | (b as i32);
+  env.call_method(webview, "setBackgroundColor", "(I)V", &[color.into()])?;
   Ok(())
 }
 
