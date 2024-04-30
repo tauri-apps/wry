@@ -18,7 +18,6 @@ impl Counter {
   }
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub fn operating_system_version() -> (u64, u64, u64) {
   unsafe {
     let process_info: id = msg_send![class!(NSProcessInfo), processInfo];
