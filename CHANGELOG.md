@@ -1,5 +1,11 @@
 # Changelog
 
+## \[0.39.4]
+
+- [`8bbc2bf`](https://github.com/tauri-apps/wry/commit/8bbc2bf388113af2e7d91250abe1569070b351a9)([#1237](https://github.com/tauri-apps/wry/pull/1237)) Fix `WebviewBuilder::with_transparent`, `WebviewBuilder::with_background_color`, and `Webview::set_background_color` always failing and causing the webview to fail to load.
+- [`130c469`](https://github.com/tauri-apps/wry/commit/130c46965d0cd0ae2389d2fa9b683488a16e0cc8)([#1238](https://github.com/tauri-apps/wry/pull/1238)) Add `WebViewBuilderExtDarwin::with_data_store_identifier`.
+- [`203604c`](https://github.com/tauri-apps/wry/commit/203604c519e4acb169676b20ddf5956ba21b4d57)([#1233](https://github.com/tauri-apps/wry/pull/1233)) On Windows, fix the webview not filling up the whole window if the parent window was resized during the webview initialization.
+
 ## \[0.39.3]
 
 - [`c7ca3db`](https://github.com/tauri-apps/wry/commit/c7ca3db581bbeb4f16a28f47c3a1fd59889c0978)([#1221](https://github.com/tauri-apps/wry/pull/1221)) On Windows, fix data directory created next to the executable with a gibberish name even if it was explicitly provided in `WebConext::new`
