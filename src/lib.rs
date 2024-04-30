@@ -1052,7 +1052,7 @@ pub trait WebViewBuilderExtDarwin {
   /// Initialize the WebView with a custom data store identifier.
   /// Can be used as a replacement for data_directory not being available in WKWebView.
   ///
-  /// Only available on macOS >= 14 and iOS >= 17
+  /// - **macOS / iOS**: Available on macOS >= 14 and iOS >= 17
   fn with_data_store_identifier(self, identifier: [u8; 16]) -> Self;
 }
 
