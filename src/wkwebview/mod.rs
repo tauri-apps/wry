@@ -135,7 +135,7 @@ impl InnerWebView {
   fn new_ns_view(
     ns_view: id,
     attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
     is_child: bool,
   ) -> Result<Self> {
@@ -332,11 +332,28 @@ impl InnerWebView {
       let config: id = msg_send![class!(WKWebViewConfiguration), new];
       let mut protocol_ptrs = Vec::new();
 
-      // Incognito mode
-      let data_store: id = if attributes.incognito {
-        msg_send![class!(WKWebsiteDataStore), nonPersistentDataStore]
-      } else {
-        msg_send![class!(WKWebsiteDataStore), defaultDataStore]
+      let os_version = util::operating_system_version();
+
+      #[cfg(target_os = "macos")]
+      let custom_data_store_available = os_version.0 >= 14;
+
+      #[cfg(target_os = "ios")]
+      let custom_data_store_available = os_version.0 >= 17;
+
+      let data_store: id = match (
+        attributes.incognito,
+        custom_data_store_available,
+        pl_attrs.data_store_identifier,
+      ) {
+        // incognito has priority
+        (true, _, _) => msg_send![class!(WKWebsiteDataStore), nonPersistentDataStore],
+        // if data_store_identifier is given and custom data stores are available, use custom store
+        (false, true, Some(data_store)) => {
+          let ns_uuid = NSUUID::new(&data_store);
+          msg_send![class!(WKWebsiteDataStore), dataStoreForIdentifier:ns_uuid.0]
+        }
+        // default data store
+        _ => msg_send![class!(WKWebsiteDataStore), defaultDataStore],
       };
 
       for (name, function) in attributes.custom_protocols {
@@ -1320,6 +1337,21 @@ impl Drop for InnerWebView {
 }
 
 const UTF8_ENCODING: usize = 4;
+
+struct NSUUID(id);
+
+impl NSUUID {
+  fn new(data: &[u8; 16]) -> Self {
+    NSUUID(unsafe {
+      let ns_uuid: id = msg_send![class!(NSUUID), alloc];
+      let ns_uuid: id = msg_send![ns_uuid, initWithUUIDBytes:data.as_ptr()];
+
+      let _: () = msg_send![ns_uuid, autorelease];
+
+      ns_uuid
+    })
+  }
+}
 
 struct NSString(id);
 
