@@ -98,8 +98,11 @@ impl InnerWebView {
 
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
-          let function =
-            &mut *(*function as *mut (Box<dyn for<'r> Fn(&'r Window, String, Option<String>)>, Rc<Window>));
+          let function = &mut *(*function
+            as *mut (
+              Box<dyn for<'r> Fn(&'r Window, String, Option<String>)>,
+              Rc<Window>,
+            ));
           let body: id = msg_send![msg, body];
           let is_string: bool = msg_send![body, isKindOfClass: class!(NSString)];
           if is_string {
@@ -127,10 +130,8 @@ impl InnerWebView {
         }
       }
     }
-    
-    fn id_to_string(id: id) -> Result<String> {
-      
-    }
+
+    fn id_to_string(id: id) -> Result<String> {}
 
     // Task handler for custom protocol
     extern "C" fn start_task(this: &Object, _: Sel, _webview: id, task: id) {
