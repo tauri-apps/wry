@@ -76,14 +76,11 @@ fn main() -> wry::Result<()> {
       Event::NewEvents(StartCause::Init) => println!("Wry application started!"),
       Event::WindowEvent {
         event, window_id, ..
-      } => match event {
-        WindowEvent::CloseRequested => {
-          webviews.remove(&window_id);
-          if webviews.is_empty() {
-            *control_flow = ControlFlow::Exit
-          }
+      } => if event == WindowEvent::CloseRequested {
+        webviews.remove(&window_id);
+        if webviews.is_empty() {
+          *control_flow = ControlFlow::Exit
         }
-        _ => (),
       },
       Event::UserEvent(UserEvents::NewWindow()) => {
         let new_window = create_new_window(
