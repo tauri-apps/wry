@@ -73,7 +73,7 @@ pub(crate) struct InnerWebView {
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
   // Note that if following functions signatures are changed in the future,
   // all functions pointer declarations in objc callbacks below all need to get updated.
-  ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
+  ipc_handler_ptr: *mut (Box<dyn Fn(&Window, String, Option<String>)>, Rc<Window>),
   document_title_changed_handler: *mut (Box<dyn Fn(&Window, String)>, Rc<Window>),
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
   #[cfg(target_os = "macos")]
@@ -99,13 +99,23 @@ impl InnerWebView {
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
           let function =
-            &mut *(*function as *mut (Box<dyn for<'r> Fn(&'r Window, String)>, Rc<Window>));
+            &mut *(*function as *mut (Box<dyn for<'r> Fn(&'r Window, String, Option<String>)>, Rc<Window>));
           let body: id = msg_send![msg, body];
           let is_string: bool = msg_send![body, isKindOfClass: class!(NSString)];
           if is_string {
-            let utf8: *const c_char = msg_send![body, UTF8String];
-            if let Ok(js) = CStr::from_ptr(utf8).to_str() {
-              (function.0)(&function.1, js.to_string());
+            let js_utf8: *const c_char = msg_send![body, UTF8String];
+
+            let frame_info: id = msg_send![msg, frameInfo];
+            let request: id = msg_send![frame_info, request];
+            let url: id = msg_send![request, URL];
+            let absolute_url: id = msg_send![url, absoluteString];
+            let url_utf8: *const c_char = msg_send![absolute_url, UTF8String];
+
+            if let (Ok(url), Ok(js)) = (
+              CStr::from_ptr(url_utf8).to_str(),
+              CStr::from_ptr(js_utf8).to_str(),
+            ) {
+              (function.0)(&function.1, js.to_string(), Some(url));
             } else {
               log::warn!("WebView received invalid UTF8 string from IPC.");
             }
@@ -116,6 +126,10 @@ impl InnerWebView {
           log::warn!("WebView instance is dropped! This handler shouldn't be called.");
         }
       }
+    }
+    
+    fn id_to_string(id: id) -> Result<String> {
+      
     }
 
     // Task handler for custom protocol
