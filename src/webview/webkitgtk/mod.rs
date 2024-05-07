@@ -94,7 +94,7 @@ impl InnerWebView {
 
       if let Some(js) = msg.js_value() {
         if let Some(ipc_handler) = &ipc_handler {
-          ipc_handler(&w, js.to_string());
+          ipc_handler(&w, js.to_string(), None);
         }
       }
     });

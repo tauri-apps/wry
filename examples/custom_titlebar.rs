@@ -116,7 +116,7 @@ fn main() -> wry::Result<()> {
 
   let proxy = event_loop.create_proxy();
 
-  let handler = move |window: &Window, req: String| {
+  let handler = move |window: &Window, req: String, _origin: Option<String>| {
     if req == "minimize" {
       window.set_minimized(true);
     }

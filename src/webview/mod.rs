@@ -145,7 +145,10 @@ pub struct WebViewAttributes {
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
   ///
   /// Both functions return promises but `notify()` resolves immediately.
-  pub ipc_handler: Option<Box<dyn Fn(&Window, String)>>,
+  /// 
+  /// The optional string argument is the frame which sent the message, if available.
+  pub ipc_handler: Option<Box<dyn Fn(&Window, String, Option<String>)>>,
+
   /// Set a handler closure to process incoming [`FileDropEvent`] of the webview.
   ///
   /// # Blocking OS Default Behavior
@@ -435,9 +438,11 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Set the IPC handler to receive the message from Javascript on webview to host Rust code.
   /// The message sent from webview should call `window.ipc.postMessage("insert_message_here");`.
+  /// 
+  /// The optional string argument is the frame which sent the message, if available.
   pub fn with_ipc_handler<F>(mut self, handler: F) -> Self
   where
-    F: Fn(&Window, String) + 'static,
+    F: Fn(&Window, String, Option<String>) + 'static,
   {
     self.webview.ipc_handler = Some(Box::new(handler));
     self

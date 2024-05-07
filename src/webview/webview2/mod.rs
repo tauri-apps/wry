@@ -357,10 +357,16 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
               return Ok(());
             }
 
+            let url = {
+              let mut url = PWSTR::null();
+              args.Source(&mut url)?;
+              take_pwstr(url)
+            };
+
             if let Some(ipc_handler) = &ipc_handler {
               #[cfg(feature = "tracing")]
               let _span = tracing::info_span!("wry::ipc::handle").entered();
-              ipc_handler(&window, js);
+              ipc_handler(&window, js, Some(url));
             }
           }
 

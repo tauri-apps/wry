@@ -28,7 +28,7 @@ fn main() -> wry::Result<()> {
       .build(event_loop)
       .unwrap();
     let window_id = window.id();
-    let handler = move |window: &Window, req: String| match req.as_str() {
+    let handler = move |window: &Window, req: String, _origin: Option<String>| match req.as_str() {
       "new-window" => {
         let _ = proxy.send_event(UserEvents::NewWindow());
       }
