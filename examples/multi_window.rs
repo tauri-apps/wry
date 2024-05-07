@@ -88,7 +88,7 @@ fn main() -> wry::Result<()> {
       Event::UserEvent(UserEvents::NewWindow()) => {
         let new_window = create_new_window(
           format!("Window {}", webviews.len() + 1),
-          &event_loop,
+          event_loop,
           proxy.clone(),
         );
         webviews.insert(new_window.0, new_window.1);

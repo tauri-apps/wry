@@ -42,7 +42,7 @@ fn main() -> wry::Result<()> {
         if uri.contains("wry-v0.13.3") {
           let path = temp_dir().join("example.zip").as_path().to_path_buf();
 
-          *default_path = path.clone();
+          default_path.clone_from(&path);
 
           let submitted = proxy
             .send_event(UserEvent::DownloadStarted(
