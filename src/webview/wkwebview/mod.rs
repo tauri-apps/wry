@@ -115,10 +115,10 @@ impl InnerWebView {
             let url_utf8: *const c_char = msg_send![absolute_url, UTF8String];
 
             if let (Ok(url), Ok(js)) = (
-              CStr::from_ptr(url_utf8).to_str(),
-              CStr::from_ptr(js_utf8).to_str(),
+              CStr::from_ptr(url_utf8).to_str().map(String::from),
+              CStr::from_ptr(js_utf8).to_str().map(String::from),
             ) {
-              (function.0)(&function.1, js.to_string(), Some(url));
+              (function.0)(&function.1, js, Some(url));
             } else {
               log::warn!("WebView received invalid UTF8 string from IPC.");
             }
@@ -130,8 +130,6 @@ impl InnerWebView {
         }
       }
     }
-
-    fn id_to_string(id: id) -> Result<String> {}
 
     // Task handler for custom protocol
     extern "C" fn start_task(this: &Object, _: Sel, _webview: id, task: id) {
