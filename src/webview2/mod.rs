@@ -1268,10 +1268,7 @@ impl InnerWebView {
     let width = rect.right - rect.left;
     let height = rect.bottom - rect.top;
 
-    self.set_bounds(Rect {
-      size: dpi::Size::Logical((width, height).into()),
-      ..Default::default()
-    })
+    self.set_bounds_inner((width, height).into(), (0, 0).into())
   }
 
   pub fn set_visible(&self, visible: bool) -> Result<()> {
