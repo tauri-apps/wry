@@ -744,7 +744,7 @@ impl InnerWebView {
         };
 
         #[cfg(feature = "tracing")]
-        let _span = tracing::info_span!("wry::ipc::handle").entered();
+        let _span = tracing::info_span!(parent: None, "wry::ipc::handle").entered();
         ipc_handler(Request::builder().uri(url).body(js).unwrap());
 
         Ok(())
@@ -785,7 +785,7 @@ impl InnerWebView {
         };
 
         #[cfg(feature = "tracing")]
-        let span = tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty)
+        let span = tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty)
           .entered();
 
         // Request uri
