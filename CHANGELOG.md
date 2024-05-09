@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.39.5]
+
+- [`4c88c66`](https://github.com/tauri-apps/wry/commit/4c88c66fb79fc3742f4592252c260e7e012d5fcf)([#1247](https://github.com/tauri-apps/wry/pull/1247)) Force the IPC and custom protocol tracing spans to have no parent.
+- [`2d43d62`](https://github.com/tauri-apps/wry/commit/2d43d62a8e61514ade27ae63fa33c1dee2de6744)([#1254](https://github.com/tauri-apps/wry/pull/1254)) On Windows, fix webview having a bigger size than the actual window size after creation and until the window is resized.
+
 ## \[0.39.4]
 
 - [`8bbc2bf`](https://github.com/tauri-apps/wry/commit/8bbc2bf388113af2e7d91250abe1569070b351a9)([#1237](https://github.com/tauri-apps/wry/pull/1237)) Fix `WebviewBuilder::with_transparent`, `WebviewBuilder::with_background_color`, and `Webview::set_background_color` always failing and causing the webview to fail to load.
