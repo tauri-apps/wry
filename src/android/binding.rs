@@ -106,7 +106,7 @@ fn handle_request(
   if let Some(handler) = REQUEST_HANDLER.get() {
     #[cfg(feature = "tracing")]
     let span =
-      tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty).entered();
+      tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty).entered();
 
     let mut request_builder = Request::builder();
 
@@ -309,7 +309,7 @@ pub unsafe fn ipc(mut env: JNIEnv, _: JClass, url: JString, body: JString) {
   match (env.get_string(&url), env.get_string(&body)) {
     (Ok(url), Ok(body)) => {
       #[cfg(feature = "tracing")]
-      let _span = tracing::info_span!("wry::ipc::handle").entered();
+      let _span = tracing::info_span!(parent: None, "wry::ipc::handle").entered();
 
       let url = url.to_string_lossy().to_string();
       let body = body.to_string_lossy().to_string();
