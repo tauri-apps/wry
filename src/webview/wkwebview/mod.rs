@@ -898,8 +898,8 @@ r#"Object.defineProperty(window, 'ipc', {
     // [manager addUserScript:[[WKUserScript alloc] initWithSource:[NSString stringWithUTF8String:js.c_str()] injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]]
     unsafe {
       let userscript: id = msg_send![class!(WKUserScript), alloc];
-      let script: id =
       // TODO: feature to allow injecting into subframes
+      let script: id =
         msg_send![userscript, initWithSource:NSString::new(js) injectionTime:0 forMainFrameOnly:1];
       let _: () = msg_send![self.manager, addUserScript: script];
     }
