@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.24.9]
+
+- [`df69525`](https://github.com/tauri-apps/wry/commit/df695253dfd725f0fe55e8b702889df47f2e16c1)([#1248](https://github.com/tauri-apps/wry/pull/1248)) Force the IPC and custom protocol tracing span to have no parent.
+
 ## \[0.24.8]
 
 - [`e780957`](https://github.com/tauri-apps/wry/commit/e78095770053bf29d3a7c261b8ec8224fb53f7f8)([#1222](https://github.com/tauri-apps/wry/pull/1222)) Fix IPC crash on wkwebview if receiving invalid types.
