@@ -359,7 +359,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
 
             if let Some(ipc_handler) = &ipc_handler {
               #[cfg(feature = "tracing")]
-              let _span = tracing::info_span!("wry::ipc::handle").entered();
+              let _span = tracing::info_span!(parent: None, "wry::ipc::handle").entered();
               ipc_handler(&window, js);
             }
           }
@@ -518,7 +518,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
             &WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
               #[cfg(feature = "tracing")]
               let span =
-                tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty)
+                tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty)
                   .entered();
               if let Some(args) = args {
                 let webview_request = args.Request()?;
