@@ -289,7 +289,7 @@ where
   context.register_uri_scheme(name, move |request| {
     #[cfg(feature = "tracing")]
     let span =
-      tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty).entered();
+      tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty).entered();
 
     if let Some(uri) = request.uri() {
       let uri = uri.as_str();

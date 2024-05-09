@@ -94,7 +94,7 @@ impl InnerWebView {
       // Safety: objc runtime calls are unsafe
       unsafe {
         #[cfg(feature = "tracing")]
-        let _span = tracing::info_span!("wry::ipc::handle").entered();
+        let _span = tracing::info_span!(parent: None, "wry::ipc::handle").entered();
 
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
@@ -122,7 +122,7 @@ impl InnerWebView {
     extern "C" fn start_task(this: &Object, _: Sel, _webview: id, task: id) {
       unsafe {
         #[cfg(feature = "tracing")]
-        let span = tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty)
+        let span = tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty)
           .entered();
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
