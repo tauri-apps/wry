@@ -372,7 +372,7 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn screenshot<F>(&self, region: ScreenshotRegion, handler: F) -> Result<()>
+  pub fn screenshot<F>(&self, handler: F) -> Result<()>
   where
     F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
   {
