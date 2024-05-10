@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use cairo::ImageSurface;
 use dpi::{LogicalPosition, LogicalSize};
 use gdkx11::{
   ffi::{gdk_x11_window_foreign_new_for_display, GdkX11Display},
   X11Display,
 };
 use gtk::{
+  cairo::ImageSurface,
   gdk::{self},
   gio::Cancellable,
   glib::{self, translate::FromGlibPtrFull},
@@ -30,9 +30,9 @@ use webkit2gtk::{
   AutoplayPolicy, InputMethodContextExt, LoadEvent, NavigationPolicyDecision,
   NavigationPolicyDecisionExt, NetworkProxyMode, NetworkProxySettings, PolicyDecisionType,
   PrintOperationExt, SettingsExt, SnapshotOptions, SnapshotRegion, URIRequest, URIRequestExt,
-  URISchemeRequestExt, UserContentInjectedFrames, UserContentManagerExt, UserScript,
-  UserScriptInjectionTime, WebContextExt as Webkit2gtkWeContextExt, WebView, WebViewExt,
-  WebsiteDataManagerExt, WebsiteDataManagerExtManual, WebsitePolicies,
+  UserContentInjectedFrames, UserContentManagerExt, UserScript, UserScriptInjectionTime,
+  WebContextExt as Webkit2gtkWeContextExt, WebView, WebViewExt, WebsiteDataManagerExt,
+  WebsiteDataManagerExtManual, WebsitePolicies,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -816,7 +816,7 @@ impl InnerWebView {
     F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
   {
     let cancellable: Option<&Cancellable> = None;
-    let cb = move |result: std::result::Result<cairo::Surface, glib::Error>| match result {
+    let cb = move |result: std::result::Result<gtk::cairo::Surface, glib::Error>| match result {
       Ok(surface) => match ImageSurface::try_from(surface) {
         Ok(image) => {
           let mut bytes = Vec::new();
@@ -825,12 +825,14 @@ impl InnerWebView {
             Err(err) => handler(Err(Error::CairoIoError(err))),
           }
         }
-        Err(_) => handler(Err(Error::CairoError(cairo::Error::SurfaceTypeMismatch))),
+        Err(_) => handler(Err(Error::CairoError(
+          gtk::cairo::Error::SurfaceTypeMismatch,
+        ))),
       },
       Err(err) => handler(Err(Error::GlibError(err))),
     };
 
-    self.webview.get_snapshot(
+    self.webview.snapshot(
       SnapshotRegion::FullDocument,
       SnapshotOptions::NONE,
       cancellable,
