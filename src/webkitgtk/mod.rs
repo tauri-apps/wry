@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use cairo::ImageSurface;
 use dpi::{LogicalPosition, LogicalSize};
 use gdkx11::{
   ffi::{gdk_x11_window_foreign_new_for_display, GdkX11Display},
@@ -19,6 +20,7 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
+  convert::TryFrom,
   ffi::c_ulong,
   sync::{Arc, Mutex},
 };
@@ -27,10 +29,10 @@ use webkit2gtk::WebInspectorExt;
 use webkit2gtk::{
   AutoplayPolicy, InputMethodContextExt, LoadEvent, NavigationPolicyDecision,
   NavigationPolicyDecisionExt, NetworkProxyMode, NetworkProxySettings, PolicyDecisionType,
-  PrintOperationExt, SettingsExt, URIRequest, URIRequestExt, UserContentInjectedFrames,
-  UserContentManagerExt, UserScript, UserScriptInjectionTime,
-  WebContextExt as Webkit2gtkWeContextExt, WebView, WebViewExt, WebsiteDataManagerExt,
-  WebsiteDataManagerExtManual, WebsitePolicies,
+  PrintOperationExt, SettingsExt, SnapshotOptions, SnapshotRegion, URIRequest, URIRequestExt,
+  URISchemeRequestExt, UserContentInjectedFrames, UserContentManagerExt, UserScript,
+  UserScriptInjectionTime, WebContextExt as Webkit2gtkWeContextExt, WebView, WebViewExt,
+  WebsiteDataManagerExt, WebsiteDataManagerExtManual, WebsitePolicies,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -805,6 +807,35 @@ impl InnerWebView {
         container.add(&self.webview);
       }
     }
+
+    Ok(())
+  }
+
+  pub fn screenshot<F>(&self, handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
+  {
+    let cancellable: Option<&Cancellable> = None;
+    let cb = move |result: std::result::Result<cairo::Surface, glib::Error>| match result {
+      Ok(surface) => match ImageSurface::try_from(surface) {
+        Ok(image) => {
+          let mut bytes = Vec::new();
+          match image.write_to_png(&mut bytes) {
+            Ok(_) => handler(Ok(bytes)),
+            Err(err) => handler(Err(Error::CairoIoError(err))),
+          }
+        }
+        Err(_) => handler(Err(Error::CairoError(cairo::Error::SurfaceTypeMismatch))),
+      },
+      Err(err) => handler(Err(Error::GlibError(err))),
+    };
+
+    self.webview.get_snapshot(
+      SnapshotRegion::FullDocument,
+      SnapshotOptions::NONE,
+      cancellable,
+      cb,
+    );
 
     Ok(())
   }

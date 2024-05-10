@@ -1443,6 +1443,13 @@ impl WebView {
   pub fn focus(&self) -> Result<()> {
     self.webview.focus()
   }
+
+  pub fn screenshot<F>(&self, handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
+  {
+    self.webview.screenshot(handler)
+  }
 }
 
 /// An event describing drag and drop operations on the webview.
