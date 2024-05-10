@@ -60,8 +60,8 @@ pub enum Error {
   
   #[cfg(target_os = "linux")]
   #[error(transparent)]
-  CairoError(#[from] gtk::cairo::Error),
+  CairoError(#[from] cairo::Error),
   #[cfg(target_os = "linux")]
   #[error(transparent)]
-  CairoIoError(#[from] gtk::cairo::IoError),
+  CairoIoError(#[from] cairo::IoError),
 }

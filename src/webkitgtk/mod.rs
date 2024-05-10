@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use cairo::ImageSurface;
 use dpi::{LogicalPosition, LogicalSize};
 use gdkx11::{
   ffi::{gdk_x11_window_foreign_new_for_display, GdkX11Display},
   X11Display,
 };
 use gtk::{
-  cairo::ImageSurface,
   gdk::{self},
   gio::Cancellable,
   glib::{self, translate::FromGlibPtrFull},
@@ -816,7 +816,7 @@ impl InnerWebView {
     F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
   {
     let cancellable: Option<&Cancellable> = None;
-    let cb = move |result: std::result::Result<gtk::cairo::Surface, glib::Error>| match result {
+    let cb = move |result: std::result::Result<cairo::Surface, glib::Error>| match result {
       Ok(surface) => match ImageSurface::try_from(surface) {
         Ok(image) => {
           let mut bytes = Vec::new();
@@ -826,7 +826,7 @@ impl InnerWebView {
           }
         }
         Err(_) => handler(Err(Error::CairoError(
-          gtk::cairo::Error::SurfaceTypeMismatch,
+          cairo::Error::SurfaceTypeMismatch,
         ))),
       },
       Err(err) => handler(Err(Error::GlibError(err))),

@@ -42,7 +42,8 @@ os-webview = [
   "dep:gtk",
   "soup3",
   "x11-dl",
-  "gdkx11"
+  "gdkx11",
+  "cairo-rs"
 ]
 tracing = [ "dep:tracing" ]
 
@@ -59,6 +60,7 @@ javascriptcore-rs = { version = "=1.1.2", features = [ "v2_28" ], optional = tru
 webkit2gtk = { version = "=2.0.1", features = [ "v2_38" ], optional = true }
 webkit2gtk-sys = { version = "=2.0.1", optional = true }
 gtk = { version = "0.18", optional = true }
+cairo-rs = { version = "0.18", features = ["png"], optional = true }
 soup3 = { version = "0.5", optional = true }
 x11-dl = { version = "2.21", optional = true }
 gdkx11 = { version = "0.18", optional = true }
