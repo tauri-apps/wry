@@ -33,6 +33,8 @@ use std::{
 };
 
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
+use core_graphics::base::CGFloat;
+
 use objc::{
   declare::ClassDecl,
   runtime::{Class, Object, Sel, BOOL},
@@ -78,6 +80,30 @@ const NS_JSON_WRITING_FRAGMENTS_ALLOWED: u64 = 4;
 
 static COUNTER: Counter = Counter::new();
 static WEBVIEW_IDS: Lazy<Mutex<HashSet<u32>>> = Lazy::new(Default::default);
+
+#[derive(Debug)]
+pub struct PrintMargin {
+  pub top: f32,
+  pub right: f32,
+  pub bottom: f32,
+  pub left: f32, 
+}
+
+impl Default for PrintMargin {
+  fn default() -> Self {
+    PrintMargin {
+      top: 0.0,
+      right: 0.0,
+      bottom: 0.0,
+      left: 0.0,
+    }
+  }
+}
+
+#[derive(Debug, Default)]
+pub struct PrintOptions {
+  pub margins: PrintMargin,
+}
 
 pub(crate) struct InnerWebView {
   pub webview: id,
@@ -1122,6 +1148,10 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn print(&self) -> crate::Result<()> {
+    self.print_with_options(&PrintOptions::default())
+  }
+
+  pub fn print_with_options(&self, options: &PrintOptions) -> crate::Result<()> {
     // Safety: objc runtime calls are unsafe
     #[cfg(target_os = "macos")]
     unsafe {
@@ -1133,6 +1163,10 @@ r#"Object.defineProperty(window, 'ipc', {
         // Create a shared print info
         let print_info: id = msg_send![class!(NSPrintInfo), sharedPrintInfo];
         let print_info: id = msg_send![print_info, init];
+        let () = msg_send![print_info, setTopMargin:CGFloat::from(options.margins.top)];
+        let () = msg_send![print_info, setRightMargin:CGFloat::from(options.margins.right)];
+        let () = msg_send![print_info, setBottomMargin:CGFloat::from(options.margins.bottom)];
+        let () = msg_send![print_info, setLeftMargin:CGFloat::from(options.margins.left)];
         // Create new print operation from the webview content
         let print_operation: id = msg_send![self.webview, printOperationWithPrintInfo: print_info];
         // Allow the modal to detach from the current thread and be non-blocker

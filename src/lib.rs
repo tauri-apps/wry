@@ -232,6 +232,8 @@ use webkitgtk::*;
 pub(crate) mod wkwebview;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use wkwebview::*;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub use wkwebview::{PrintOptions, PrintMargin};
 
 #[cfg(target_os = "windows")]
 pub(crate) mod webview2;
@@ -1598,6 +1600,8 @@ pub trait WebViewExtMacOS {
   fn ns_window(&self) -> cocoa::base::id;
   /// Attaches this webview to the given NSWindow and removes it from the current one.
   fn reparent(&self, window: cocoa::base::id) -> Result<()>;
+  // Prints with extra options
+  fn print_with_options(&self, options: &PrintOptions) -> Result<()>;
 }
 
 #[cfg(target_os = "macos")]
@@ -1620,6 +1624,10 @@ impl WebViewExtMacOS for WebView {
   fn reparent(&self, window: cocoa::base::id) -> Result<()> {
     self.webview.reparent(window)
   }
+  
+  fn print_with_options(&self, options: &PrintOptions) -> Result<()> {
+        self.webview.print_with_options(options)
+    }
 }
 
 /// Additional methods on `WebView` that are specific to iOS.
