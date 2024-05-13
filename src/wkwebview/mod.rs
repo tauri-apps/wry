@@ -398,15 +398,6 @@ impl InnerWebView {
               sel!(acceptsFirstMouse:),
               accept_first_mouse as extern "C" fn(&Object, Sel, id) -> BOOL,
             );
-            decl.add_method(
-              sel!(performKeyEquivalent:),
-              key_equivalent as extern "C" fn(&mut Object, Sel, id) -> BOOL,
-            );
-
-            extern "C" fn key_equivalent(_this: &mut Object, _sel: Sel, _event: id) -> BOOL {
-              NO
-            }
-
             extern "C" fn accept_first_mouse(this: &Object, _sel: Sel, _event: id) -> BOOL {
               unsafe {
                 let accept: bool = *this.get_ivar(ACCEPT_FIRST_MOUSE);
@@ -415,6 +406,21 @@ impl InnerWebView {
                 } else {
                   NO
                 }
+              }
+            }
+
+            // This is a temporary workaround for https://github.com/tauri-apps/tauri/issues/9426
+            // FIXME: When the webview is a child webview, performKeyEquivalent always return YES
+            // and stop propagating the event to the window, hence the menu shortcut won't be
+            // triggered. However, overriding this method also means the cmd+key event won't be
+            // handled in webview, which means the key cannot be listened by JavaScript.
+            if is_child {
+              decl.add_method(
+                sel!(performKeyEquivalent:),
+                key_equivalent as extern "C" fn(&mut Object, Sel, id) -> BOOL,
+              );
+              extern "C" fn key_equivalent(_this: &mut Object, _sel: Sel, _event: id) -> BOOL {
+                NO
               }
             }
           }
