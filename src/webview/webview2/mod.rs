@@ -798,6 +798,7 @@ window.addEventListener('mousemove', (e) => window.chrome.webview.postMessage('_
     Ok(webview)
   }
 
+  // TODO: feature to allow injecting into (specific) subframes
   fn add_script_to_execute_on_document_created(
     webview: &ICoreWebView2,
     js: String,

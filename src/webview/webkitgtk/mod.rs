@@ -423,9 +423,7 @@ impl InnerWebView {
     if let Some(manager) = self.webview.user_content_manager() {
       let script = UserScript::new(
         js,
-        // FIXME: We allow subframe injection because webview2 does and cannot be disabled (currently).
-        // once webview2 allows disabling all-frame script injection, TopFrame should be set
-        // if it does not break anything. (originally added for isolation pattern).
+        // TODO: feature to allow injecting into subframes
         UserContentInjectedFrames::TopFrame,
         UserScriptInjectionTime::Start,
         &[],
