@@ -233,7 +233,7 @@ pub(crate) mod wkwebview;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use wkwebview::*;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-pub use wkwebview::{PrintOptions, PrintMargin};
+pub use wkwebview::{PrintMargin, PrintOptions};
 
 #[cfg(target_os = "windows")]
 pub(crate) mod webview2;
@@ -1624,10 +1624,10 @@ impl WebViewExtMacOS for WebView {
   fn reparent(&self, window: cocoa::base::id) -> Result<()> {
     self.webview.reparent(window)
   }
-  
+
   fn print_with_options(&self, options: &PrintOptions) -> Result<()> {
-        self.webview.print_with_options(options)
-    }
+    self.webview.print_with_options(options)
+  }
 }
 
 /// Additional methods on `WebView` that are specific to iOS.

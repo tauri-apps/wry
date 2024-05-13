@@ -32,8 +32,8 @@ use std::{
   sync::{Arc, Mutex},
 };
 
-use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use core_graphics::base::CGFloat;
+use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 
 use objc::{
   declare::ClassDecl,
@@ -86,7 +86,7 @@ pub struct PrintMargin {
   pub top: f32,
   pub right: f32,
   pub bottom: f32,
-  pub left: f32, 
+  pub left: f32,
 }
 
 impl Default for PrintMargin {

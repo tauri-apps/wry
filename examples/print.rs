@@ -70,18 +70,18 @@ fn main() -> wry::Result<()> {
       Event::UserEvent(UserEvent::Print) => {
         #[cfg(target_os = "macos")]
         {
-            use wry::{PrintOptions, WebViewExtMacOS};
-            
-            let print_options = PrintOptions {
-                margins: wry::PrintMargin {
-                    top: 20.0,
-                    right: 0.0,
-                    bottom: 0.0,
-                    left: 20.0,
-                },
-            };
+          use wry::{PrintOptions, WebViewExtMacOS};
 
-            webview.print_with_options(&print_options).unwrap();
+          let print_options = PrintOptions {
+            margins: wry::PrintMargin {
+              top: 20.0,
+              right: 0.0,
+              bottom: 0.0,
+              left: 20.0,
+            },
+          };
+
+          webview.print_with_options(&print_options).unwrap();
         }
 
         #[cfg(not(target_os = "macos"))]
