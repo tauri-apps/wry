@@ -81,23 +81,12 @@ const NS_JSON_WRITING_FRAGMENTS_ALLOWED: u64 = 4;
 static COUNTER: Counter = Counter::new();
 static WEBVIEW_IDS: Lazy<Mutex<HashSet<u32>>> = Lazy::new(Default::default);
 
-#[derive(Debug)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct PrintMargin {
   pub top: f32,
   pub right: f32,
   pub bottom: f32,
   pub left: f32,
-}
-
-impl Default for PrintMargin {
-  fn default() -> Self {
-    PrintMargin {
-      top: 0.0,
-      right: 0.0,
-      bottom: 0.0,
-      left: 0.0,
-    }
-  }
 }
 
 #[derive(Debug, Default)]
