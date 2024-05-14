@@ -89,7 +89,7 @@ pub struct PrintMargin {
   pub left: f32,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct PrintOptions {
   pub margins: PrintMargin,
 }
