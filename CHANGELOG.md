@@ -2,7 +2,7 @@
 
 ## \[0.24.10]
 
-- [`3bfbea8`](https://github.com/tauri-apps/wry/commit/3bfbea812345e22743001f9a8f6843cf28baaa86)([#1263](https://github.com/tauri-apps/wry/pull/1263)) On macOS, disable initialization script injection into subframes.
+- [`3bfbea8`](https://github.com/tauri-apps/wry/commit/3bfbea812345e22743001f9a8f6843cf28baaa86)([#1251](https://github.com/tauri-apps/wry/pull/1251)) On macOS, disable initialization script injection into subframes.
 
 ## \[0.24.9]
 
