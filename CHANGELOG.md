@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.24.10]
+
+- [`3bfbea8`](https://github.com/tauri-apps/wry/commit/3bfbea812345e22743001f9a8f6843cf28baaa86)([#1251](https://github.com/tauri-apps/wry/pull/1251)) On macOS, disable initialization script injection into subframes.
+
 ## \[0.24.9]
 
 - [`df69525`](https://github.com/tauri-apps/wry/commit/df695253dfd725f0fe55e8b702889df47f2e16c1)([#1248](https://github.com/tauri-apps/wry/pull/1248)) Force the IPC and custom protocol tracing span to have no parent.
