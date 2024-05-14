@@ -512,6 +512,10 @@ impl InnerWebView {
     let settings6 = settings.cast::<ICoreWebView2Settings6>()?;
     settings6.SetIsSwipeNavigationEnabled(attributes.back_forward_navigation_gestures)?;
 
+    if let Ok(settings9) = settings.cast::<ICoreWebView2Settings9>() {
+      settings9.SetIsNonClientRegionSupportEnabled(true)?;
+    }
+
     Ok(())
   }
 
