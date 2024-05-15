@@ -252,7 +252,7 @@ impl InnerWebView {
     let data_directory = web_context
       .as_deref()
       .and_then(|context| context.data_directory())
-      .and_then(|path| Some(HSTRING::from(path)));
+      .map(HSTRING::from);
 
     // additional browser args
     let additional_browser_args = pl_attrs.additional_browser_args.unwrap_or_else(|| {
@@ -307,7 +307,7 @@ impl InnerWebView {
 
         CreateCoreWebView2EnvironmentWithOptions(
           PCWSTR::null(),
-          &data_directory.unwrap_or_else(HSTRING::new),
+          &data_directory.unwrap_or_default(),
           &options,
           &environmentcreatedhandler,
         )
