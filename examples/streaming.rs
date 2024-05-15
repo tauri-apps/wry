@@ -122,7 +122,7 @@ fn stream_protocol(
     .decode_utf8_lossy()
     .to_string();
 
-  let mut file = std::fs::File::open(&path)?;
+  let mut file = std::fs::File::open(path)?;
 
   // get file length
   let len = {

@@ -226,7 +226,7 @@ impl InnerWebView {
     let hwnd = unsafe {
       CreateWindowExW(
         WINDOW_EX_STYLE::default(),
-        PCWSTR::from_raw(class_name.as_ptr()),
+        class_name,
         PCWSTR::null(),
         window_styles,
         x,
@@ -252,7 +252,6 @@ impl InnerWebView {
     let data_directory = web_context
       .as_deref()
       .and_then(|context| context.data_directory())
-      .and_then(|path| path.to_str())
       .map(HSTRING::from);
 
     // additional browser args
@@ -294,8 +293,7 @@ impl InnerWebView {
         let options: ICoreWebView2EnvironmentOptions =
           CoreWebView2EnvironmentOptions::default().into();
 
-        let additional_browser_args = PCWSTR::from_raw(additional_browser_args.as_ptr());
-        let _ = options.SetAdditionalBrowserArguments(additional_browser_args);
+        let _ = options.SetAdditionalBrowserArguments(&additional_browser_args);
 
         // Get user's system language
         let lcid = Globalization::GetUserDefaultUILanguage();
@@ -307,12 +305,9 @@ impl InnerWebView {
         );
         options.SetLanguage(PCWSTR::from_raw(lang.as_ptr()))?;
 
-        let data_directory_param = data_directory
-          .as_ref()
-          .map(|d| PCWSTR::from_raw(d.as_ptr()));
         CreateCoreWebView2EnvironmentWithOptions(
           PCWSTR::null(),
-          data_directory_param.unwrap_or_else(PCWSTR::null),
+          &data_directory.unwrap_or_default(),
           &options,
           &environmentcreatedhandler,
         )
@@ -460,11 +455,11 @@ impl InnerWebView {
         load_url_with_headers(&webview, env, &url, headers)?;
       } else {
         let url = HSTRING::from(url);
-        unsafe { webview.Navigate(PCWSTR::from_raw(url.as_ptr()))? };
+        unsafe { webview.Navigate(&url)? };
       }
     } else if let Some(html) = attributes.html {
       let html = HSTRING::from(html);
-      unsafe { webview.NavigateToString(PCWSTR::from_raw(html.as_ptr()))? };
+      unsafe { webview.NavigateToString(&html)? };
     }
 
     // Subclass parent for resizing and focus
@@ -498,7 +493,7 @@ impl InnerWebView {
     if let Some(user_agent) = &attributes.user_agent {
       let settings2: ICoreWebView2Settings2 = webview.Settings()?.cast()?;
       let user_agent = HSTRING::from(user_agent);
-      settings2.SetUserAgent(PCWSTR::from_raw(user_agent.as_ptr()))?;
+      settings2.SetUserAgent(&user_agent)?;
     }
 
     if !pl_attrs.browser_accelerator_keys {
@@ -697,9 +692,8 @@ impl InnerWebView {
 
             if download_started_handler(uri, &mut path) {
               let simplified = dunce::simplified(&path);
-              let path = HSTRING::from(simplified.as_os_str());
-              let result_file_path = PCWSTR::from_raw(path.as_ptr());
-              args.SetResultFilePath(result_file_path)?;
+              let path = HSTRING::from(simplified);
+              args.SetResultFilePath(&path)?;
               args.SetHandled(true)?;
             } else {
               args.SetCancel(true)?;
@@ -772,10 +766,7 @@ impl InnerWebView {
       // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
       // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
       let filter = HSTRING::from(format!("{scheme}://{name}.*"));
-      webview.AddWebResourceRequestedFilter(
-        PCWSTR::from_raw(filter.as_ptr()),
-        COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
-      )?;
+      webview.AddWebResourceRequestedFilter(&filter, COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL)?;
     }
 
     let env = env.clone();
@@ -955,12 +946,7 @@ impl InnerWebView {
       stream = SHCreateMemStream(Some(content));
     }
 
-    env.CreateWebResourceResponse(
-      stream.as_ref(),
-      status_code as i32,
-      PCWSTR::from_raw(status.as_ptr()),
-      PCWSTR::from_raw(headers_map.as_ptr()),
-    )
+    env.CreateWebResourceResponse(stream.as_ref(), status_code as i32, &status, &headers_map)
   }
 
   #[inline]
@@ -972,12 +958,7 @@ impl InnerWebView {
     let status_code = status.as_u16();
     let status = HSTRING::from(status.canonical_reason().unwrap_or("Bad Request"));
     let error = HSTRING::from(err.to_string());
-    env.CreateWebResourceResponse(
-      None,
-      status_code as i32,
-      PCWSTR::from_raw(status.as_ptr()),
-      PCWSTR::from_raw(error.as_ptr()),
-    )
+    env.CreateWebResourceResponse(None, status_code as i32, &status, &error)
   }
 
   #[inline]
@@ -1126,9 +1107,8 @@ impl InnerWebView {
     AddScriptToExecuteOnDocumentCreatedCompletedHandler::wait_for_async_operation(
       Box::new(move |handler| unsafe {
         let js = HSTRING::from(js);
-        let js = PCWSTR::from_raw(js.as_ptr());
         webview
-          .AddScriptToExecuteOnDocumentCreated(js, &handler)
+          .AddScriptToExecuteOnDocumentCreated(&js, &handler)
           .map_err(Into::into)
       }),
       Box::new(|e, _| e),
@@ -1147,7 +1127,7 @@ impl InnerWebView {
       let span = tracing::debug_span!("wry::eval").entered();
       let js = HSTRING::from(js);
       webview.ExecuteScript(
-        PCWSTR::from_raw(js.as_ptr()),
+        &js,
         &ExecuteScriptCompletedHandler::create(Box::new(|_, res| {
           #[cfg(feature = "tracing")]
           drop(span);
@@ -1191,7 +1171,7 @@ impl InnerWebView {
 
   pub fn load_url(&self, url: &str) -> Result<()> {
     let url = HSTRING::from(url);
-    unsafe { self.webview.Navigate(PCWSTR::from_raw(url.as_ptr())) }.map_err(Into::into)
+    unsafe { self.webview.Navigate(&url) }.map_err(Into::into)
   }
 
   pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) -> Result<()> {
@@ -1402,12 +1382,7 @@ fn load_url_with_headers(
   unsafe {
     let env = env.cast::<ICoreWebView2Environment9>()?;
     let method = HSTRING::from("GET");
-    if let Ok(request) = env.CreateWebResourceRequest(
-      PCWSTR::from_raw(url.as_ptr()),
-      PCWSTR::from_raw(method.as_ptr()),
-      None,
-      PCWSTR::from_raw(headers_map.as_ptr()),
-    ) {
+    if let Ok(request) = env.CreateWebResourceRequest(&url, &method, None, &headers_map) {
       let webview: ICoreWebView2_10 = webview.cast()?;
       webview.NavigateWithWebResourceRequest(&request)?;
     }
