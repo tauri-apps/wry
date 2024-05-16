@@ -232,7 +232,9 @@ impl InnerWebView {
           if !body.is_null() {
             let length = msg_send![body, length];
             let data_bytes: id = msg_send![body, bytes];
-            sent_form_body = slice::from_raw_parts(data_bytes as *const u8, length).to_vec();
+            if !data_bytes.is_null() {
+              sent_form_body = slice::from_raw_parts(data_bytes as *const u8, length).to_vec();
+            }
           } else if !body_stream.is_null() {
             let _: () = msg_send![body_stream, open];
 
