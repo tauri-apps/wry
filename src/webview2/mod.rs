@@ -1376,7 +1376,7 @@ impl InnerWebView {
 
   pub fn screenshot<F>(&self, handler: F) -> Result<()>
   where
-    F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
+    F: Fn(Result<Vec<u8>>) + 'static + Send,
   {
     unsafe {
       let stream = SHCreateMemStream(None);

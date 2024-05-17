@@ -1446,7 +1446,7 @@ impl WebView {
 
   pub fn screenshot<F>(&self, handler: F) -> Result<()>
   where
-    F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
+    F: Fn(Result<Vec<u8>>) + 'static + Send,
   {
     self.webview.screenshot(handler)
   }
