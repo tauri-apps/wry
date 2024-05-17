@@ -21,7 +21,7 @@ use windows::{
     Globalization::{self, MAX_LOCALE_NAME},
     Graphics::Gdi::{MapWindowPoints, RedrawWindow, HBRUSH, HRGN, RDW_INTERNALPAINT},
     System::{
-      Com::{CoInitializeEx, IStream, COINIT_APARTMENTTHREADED},
+      Com::{CoInitializeEx, IStream, COINIT_APARTMENTTHREADED, STREAM_SEEK_SET},
       LibraryLoader::GetModuleHandleW,
       WinRT::EventRegistrationToken,
     },
@@ -1356,6 +1356,49 @@ impl InnerWebView {
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn is_devtools_open(&self) -> bool {
     false
+  }
+
+  pub fn screenshot<F>(&self, handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) + 'static + Send,
+  {
+    unsafe {
+      let stream = SHCreateMemStream(None);
+      let _ = self.webview.CapturePreview(
+        COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG,
+        stream.clone().as_ref(),
+        &CapturePreviewCompletedHandler::create(Box::new(move |res| {
+          res?;
+
+          let mut bytes = Vec::new();
+          if let Some(stream) = stream {
+            stream.Seek(0, STREAM_SEEK_SET, None)?;
+            let mut buffer: [u8; 1024] = [0; 1024];
+            loop {
+              let mut cb_read = 0;
+
+              stream
+                .Read(
+                  buffer.as_mut_ptr() as *mut _,
+                  buffer.len() as u32,
+                  Some(&mut cb_read),
+                )
+                .ok()?;
+
+              if cb_read == 0 {
+                break;
+              }
+
+              bytes.extend_from_slice(&buffer[..(cb_read as usize)]);
+            }
+          }
+          handler(Ok(bytes));
+
+          Ok(())
+        })),
+      );
+    }
+    Ok(())
   }
 }
 

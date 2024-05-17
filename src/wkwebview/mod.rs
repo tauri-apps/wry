@@ -1287,6 +1287,33 @@ r#"Object.defineProperty(window, 'ipc', {
 
     Ok(())
   }
+
+  pub fn screenshot<F>(&self, handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
+  {
+    unsafe {
+      let config: id = msg_send![class!(WKSnapshotConfiguration), new];
+      let handler = block::ConcreteBlock::new(move |image: id, _error: id| {
+        let cgref: id =
+          msg_send![image, CGImageForProposedRect:null::<*const c_void>() context:nil hints:nil];
+        let bitmap_image_ref: id = msg_send![class!(NSBitmapImageRep), alloc];
+        let newrep: id = msg_send![bitmap_image_ref, initWithCGImage: cgref];
+        let size: id = msg_send![image, size];
+        let () = msg_send![newrep, setSize: size];
+        let nsdata: id = msg_send![newrep, representationUsingType:4 properties:nil];
+        let bytes: *const u8 = msg_send![nsdata, bytes];
+        let len: usize = msg_send![nsdata, length];
+        let vector = slice::from_raw_parts(bytes, len).to_vec();
+        handler(Ok(vector));
+      });
+      let handler = handler.copy();
+      let handler: &block::Block<(id, id), ()> = &handler;
+      let () =
+        msg_send![self.webview, takeSnapshotWithConfiguration:config completionHandler:handler];
+    }
+    Ok(())
+  }
 }
 
 pub fn url_from_webview(webview: id) -> Result<String> {

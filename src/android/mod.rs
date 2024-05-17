@@ -371,6 +371,14 @@ impl InnerWebView {
     // Unsupported
     Ok(())
   }
+
+  pub fn screenshot<F>(&self, handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
+  {
+    // Unsupported
+    Ok(())
+  }
 }
 
 #[derive(Clone, Copy)]
