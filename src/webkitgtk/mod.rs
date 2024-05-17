@@ -833,7 +833,7 @@ impl InnerWebView {
     };
 
     self.webview.snapshot(
-      SnapshotRegion::FullDocument,
+      SnapshotRegion::Visible,
       SnapshotOptions::NONE,
       cancellable,
       cb,
