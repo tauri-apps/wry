@@ -17,7 +17,7 @@ abstract class WryActivity : AppCompatActivity() {
 
     open fun onWebViewCreate(webView: WebView) { }
 
-    private fun setWebView(webView: RustWebView) {
+    fun setWebView(webView: RustWebView) {
         mWebView = webView
         onWebViewCreate(webView)
     }
