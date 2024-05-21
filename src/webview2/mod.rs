@@ -1101,6 +1101,7 @@ impl InnerWebView {
     );
   }
 
+  // TODO: feature to allow injecting into (specific) subframes
   #[inline]
   fn add_script_to_execute_on_document_created(webview: &ICoreWebView2, js: String) -> Result<()> {
     let webview = webview.clone();
