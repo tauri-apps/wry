@@ -115,7 +115,7 @@ impl InnerWebView {
     let hwnd = Self::create_container_hwnd(parent, &attributes, is_child)?;
 
     let drop_handler = attributes.drag_drop_handler.take();
-    let bounds = attributes.bounds.clone();
+    let bounds = attributes.bounds;
 
     let env = Self::create_environment(&web_context, pl_attrs.clone(), &attributes)?;
     let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
