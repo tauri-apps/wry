@@ -31,8 +31,9 @@ use windows::{
         self as win32wm, CreateWindowExW, DefWindowProcW, DestroyWindow, GetClientRect,
         PostMessageW, RegisterClassExW, RegisterWindowMessageA, SendMessageW, SetParent,
         SetWindowPos, ShowWindow, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, HCURSOR, HICON, HMENU,
-        SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SW_HIDE, SW_SHOW,
-        WINDOW_EX_STYLE, WM_USER, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_VISIBLE,
+        HWND_TOP, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE,
+        SWP_NOZORDER, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WM_USER, WNDCLASSEXW, WS_CHILD,
+        WS_CLIPCHILDREN, WS_VISIBLE,
       },
     },
   },
@@ -239,6 +240,18 @@ impl InnerWebView {
         None,
       )
     };
+
+    unsafe {
+      SetWindowPos(
+        hwnd,
+        HWND_TOP,
+        0,
+        0,
+        0,
+        0,
+        SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOSIZE,
+      )
+    }?;
 
     Ok(hwnd)
   }
