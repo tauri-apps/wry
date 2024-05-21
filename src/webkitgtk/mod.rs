@@ -601,6 +601,7 @@ impl InnerWebView {
     if let Some(manager) = self.webview.user_content_manager() {
       let script = UserScript::new(
         js,
+        // TODO: feature to allow injecting into subframes
         UserContentInjectedFrames::TopFrame,
         UserScriptInjectionTime::Start,
         &[],
