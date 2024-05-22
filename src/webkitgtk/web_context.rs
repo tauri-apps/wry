@@ -5,7 +5,7 @@
 //! Unix platform extensions for [`WebContext`](super::WebContext).
 
 use crate::{web_context::WebContextData, Error, RequestAsyncResponder};
-use gtk::glib;
+use gtk::glib::{self, MainContext};
 use http::{header::CONTENT_TYPE, HeaderName, HeaderValue, Request, Response as HttpResponse};
 use soup::{MessageHeaders, MessageHeadersType};
 use std::{
@@ -364,7 +364,7 @@ where
       let request_ = MainThreadRequest(request.clone());
       let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
         Box::new(move |http_response| {
-          gtk::glib::idle_add(move || {
+          MainContext::default().invoke(move || {
             let buffer = http_response.body();
             let input = gtk::gio::MemoryInputStream::from_bytes(&gtk::glib::Bytes::from(buffer));
             let content_type = http_response
@@ -384,8 +384,6 @@ where
             }
             response.set_http_headers(headers);
             request_.finish_with_response(&response);
-
-            gtk::glib::ControlFlow::Break
           });
 
         });
