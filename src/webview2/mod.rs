@@ -18,23 +18,10 @@ use windows::{
   core::{s, w, Interface, HSTRING, PCWSTR, PWSTR},
   Win32::{
     Foundation::*,
-    Globalization::{self, MAX_LOCALE_NAME},
-    Graphics::Gdi::{MapWindowPoints, RedrawWindow, HBRUSH, HRGN, RDW_INTERNALPAINT},
-    System::{
-      Com::{CoInitializeEx, IStream, COINIT_APARTMENTTHREADED},
-      LibraryLoader::GetModuleHandleW,
-      WinRT::EventRegistrationToken,
-    },
-    UI::{
-      Shell::{DefSubclassProc, RemoveWindowSubclass, SHCreateMemStream, SetWindowSubclass},
-      WindowsAndMessaging::{
-        self as win32wm, CreateWindowExW, DefWindowProcW, DestroyWindow, GetClientRect,
-        PostMessageW, RegisterClassExW, RegisterWindowMessageA, SendMessageW, SetParent,
-        SetWindowPos, ShowWindow, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, HCURSOR, HICON, HMENU,
-        SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SW_HIDE, SW_SHOW,
-        WINDOW_EX_STYLE, WM_USER, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_VISIBLE,
-      },
-    },
+    Globalization::*,
+    Graphics::Gdi::*,
+    System::{Com::*, LibraryLoader::GetModuleHandleW, WinRT::EventRegistrationToken},
+    UI::{Shell::*, WindowsAndMessaging::*},
   },
 };
 
@@ -128,6 +115,7 @@ impl InnerWebView {
     let hwnd = Self::create_container_hwnd(parent, &attributes, is_child)?;
 
     let drop_handler = attributes.drag_drop_handler.take();
+    let bounds = attributes.bounds;
 
     let env = Self::create_environment(&web_context, pl_attrs.clone(), &attributes)?;
     let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
@@ -153,7 +141,9 @@ impl InnerWebView {
       drag_drop_controller,
     };
 
-    if !is_child {
+    if is_child {
+      w.set_bounds(bounds.unwrap_or_default())?;
+    } else {
       w.resize_to_parent()?;
     }
 
@@ -217,7 +207,7 @@ impl InnerWebView {
       (x, y, width, height)
     } else {
       let mut rect = RECT::default();
-      unsafe { win32wm::GetClientRect(parent, &mut rect)? };
+      unsafe { GetClientRect(parent, &mut rect)? };
       let width = rect.right - rect.left;
       let height = rect.bottom - rect.top;
       (0, 0, width, height)
@@ -239,6 +229,18 @@ impl InnerWebView {
         None,
       )
     };
+
+    unsafe {
+      SetWindowPos(
+        hwnd,
+        HWND_TOP,
+        0,
+        0,
+        0,
+        0,
+        SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOSIZE,
+      )
+    }?;
 
     Ok(hwnd)
   }
@@ -296,13 +298,9 @@ impl InnerWebView {
         let _ = options.SetAdditionalBrowserArguments(&additional_browser_args);
 
         // Get user's system language
-        let lcid = Globalization::GetUserDefaultUILanguage();
+        let lcid = GetUserDefaultUILanguage();
         let mut lang = [0; MAX_LOCALE_NAME as usize];
-        Globalization::LCIDToLocaleName(
-          lcid as u32,
-          Some(&mut lang),
-          Globalization::LOCALE_ALLOW_NEUTRAL_NAMES,
-        );
+        LCIDToLocaleName(lcid as u32, Some(&mut lang), LOCALE_ALLOW_NEUTRAL_NAMES);
         options.SetLanguage(PCWSTR::from_raw(lang.as_ptr()))?;
 
         CreateCoreWebView2EnvironmentWithOptions(
@@ -1015,11 +1013,11 @@ impl InnerWebView {
     dwrefdata: usize,
   ) -> LRESULT {
     match msg {
-      win32wm::WM_SIZE => {
-        if wparam.0 != win32wm::SIZE_MINIMIZED as usize {
+      WM_SIZE => {
+        if wparam.0 != SIZE_MINIMIZED as usize {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
           let mut rect = RECT::default();
-          let _ = win32wm::GetClientRect(hwnd, &mut rect);
+          let _ = GetClientRect(hwnd, &mut rect);
           let width = rect.right - rect.left;
           let height = rect.bottom - rect.top;
 
@@ -1045,17 +1043,17 @@ impl InnerWebView {
         }
       }
 
-      win32wm::WM_SETFOCUS | win32wm::WM_ENTERSIZEMOVE => {
+      WM_SETFOCUS | WM_ENTERSIZEMOVE => {
         let controller = dwrefdata as *mut ICoreWebView2Controller;
         let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
       }
 
-      win32wm::WM_WINDOWPOSCHANGED => {
+      WM_WINDOWPOSCHANGED => {
         let controller = dwrefdata as *mut ICoreWebView2Controller;
         let _ = (*controller).NotifyParentWindowPositionChanged();
       }
 
-      msg if msg == win32wm::WM_DESTROY || msg == PARENT_DESTROY_MESSAGE => {
+      msg if msg == WM_DESTROY || msg == PARENT_DESTROY_MESSAGE => {
         // check if `dwrefdata` is null to avoid double-freeing the controller
         if !(dwrefdata as *mut ()).is_null() {
           drop(Box::from_raw(dwrefdata as *mut ICoreWebView2Controller));
@@ -1101,6 +1099,7 @@ impl InnerWebView {
     );
   }
 
+  // TODO: feature to allow injecting into (specific) subframes
   #[inline]
   fn add_script_to_execute_on_document_created(webview: &ICoreWebView2, js: String) -> Result<()> {
     let webview = webview.clone();
@@ -1248,7 +1247,7 @@ impl InnerWebView {
 
   fn resize_to_parent(&self) -> crate::Result<()> {
     let mut rect = RECT::default();
-    unsafe { win32wm::GetClientRect(*self.parent.borrow(), &mut rect)? };
+    unsafe { GetClientRect(*self.parent.borrow(), &mut rect)? };
     let width = rect.right - rect.left;
     let height = rect.bottom - rect.top;
 
@@ -1293,7 +1292,7 @@ impl InnerWebView {
         *self.parent.borrow_mut() = parent;
 
         let mut rect = RECT::default();
-        win32wm::GetClientRect(parent, &mut rect)?;
+        GetClientRect(parent, &mut rect)?;
 
         let width = rect.right - rect.left;
         let height = rect.bottom - rect.top;

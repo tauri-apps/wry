@@ -1,5 +1,16 @@
 # Changelog
 
+## \[0.40.0]
+
+- [`a424a0b`](https://github.com/tauri-apps/wry/commit/a424a0b234cb20b3ca7305d87e82aba3c8b2bd41)([#1270](https://github.com/tauri-apps/wry/pull/1270)) On Windows, fix child webview invisible after creation because it was created with `0,0` size
+- [`d6f8dd7`](https://github.com/tauri-apps/wry/commit/d6f8dd7b6c0485fbb96fed34717969540eef2b96)([#1271](https://github.com/tauri-apps/wry/pull/1271)) On Windows, create child webview at the top of z-order to align with other platforms.
+- [`03d2535`](https://github.com/tauri-apps/wry/commit/03d25357d2c20a21640871cfca9d5f6a39c7afc8)([#1269](https://github.com/tauri-apps/wry/pull/1269)) On macOS, disable initialization script injection into subframes.
+- [`1e65049`](https://github.com/tauri-apps/wry/commit/1e65049d4842947ced6a807b93211542c46ca771)([#1267](https://github.com/tauri-apps/wry/pull/1267)) On macOS, fixed a crash when sending empty body by IPC.
+- [`0f3c886`](https://github.com/tauri-apps/wry/commit/0f3c886a224a1b52980ef90667860e58a6ad669a)([#1260](https://github.com/tauri-apps/wry/pull/1260)) On macOS, fixed an issue of not being able to listen to the cmd+key event in javascript in single WebView.
+- [`0f14e2a`](https://github.com/tauri-apps/wry/commit/0f14e2a540a1d54f82bdee2a3c2f93c43c593959)([#1259](https://github.com/tauri-apps/wry/pull/1259)) Default the margin when printing on MacOS to 0 so it is closer to the behavior of when printing on the web.
+- [`0f14e2a`](https://github.com/tauri-apps/wry/commit/0f14e2a540a1d54f82bdee2a3c2f93c43c593959)([#1259](https://github.com/tauri-apps/wry/pull/1259)) Add `WebViewExtMacOS::print_with_options` which allows to modify the margins that will be used on the print dialog.
+- [`f516122`](https://github.com/tauri-apps/wry/commit/f5161225940c545dd457af1178c73f36dfe63710)([#1262](https://github.com/tauri-apps/wry/pull/1262)) On Windows, enable webview2 [non client region support](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2settings9?view=webview2-1.0.2478.35#get_isnonclientregionsupportenabled) which allows using `app-region` CSS style.
+
 ## \[0.39.5]
 
 - [`4c88c66`](https://github.com/tauri-apps/wry/commit/4c88c66fb79fc3742f4592252c260e7e012d5fcf)([#1247](https://github.com/tauri-apps/wry/pull/1247)) Force the IPC and custom protocol tracing spans to have no parent.
