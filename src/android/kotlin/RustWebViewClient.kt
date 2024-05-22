@@ -39,6 +39,7 @@ class RustWebViewClient(context: Context): WebViewClient() {
     }
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+        currentUrl = url
         if (interceptedState[url] == false) {
             val webView = view as RustWebView
             for (script in webView.initScripts) {
@@ -49,7 +50,6 @@ class RustWebViewClient(context: Context): WebViewClient() {
     }
 
     override fun onPageFinished(view: WebView, url: String) {
-        currentUrl = url
         return onPageLoaded(url)
     }
 
