@@ -21,7 +21,7 @@ use std::{
 };
 use webkit2gtk::{
   ApplicationInfo, AutomationSessionExt, CookiePersistentStorage, DownloadExt, LoadEvent,
-  SecurityManagerExt, URIRequest, URIRequestExt, URISchemeRequestExt, URISchemeResponse,
+  SecurityManagerExt, URIRequest, URIRequestExt, URISchemeRequestExt, URISchemeResponse, URISchemeRequest,
   URISchemeResponseExt, UserContentManager, WebContext, WebContextExt as Webkit2gtkContextExt,
   WebView, WebViewExt,
 };
@@ -361,28 +361,33 @@ where
         }
       };
 
-      let request_ = request.clone();
+      let request_ = MainThreadRequest(request.clone());
       let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
         Box::new(move |http_response| {
-          let buffer = http_response.body();
-          let input = gtk::gio::MemoryInputStream::from_bytes(&gtk::glib::Bytes::from(buffer));
-          let content_type = http_response
-            .headers()
-            .get(CONTENT_TYPE)
-            .and_then(|h| h.to_str().ok());
+          gtk::glib::idle_add(move || {
+            let buffer = http_response.body();
+            let input = gtk::gio::MemoryInputStream::from_bytes(&gtk::glib::Bytes::from(buffer));
+            let content_type = http_response
+              .headers()
+              .get(CONTENT_TYPE)
+              .and_then(|h| h.to_str().ok());
 
-          let response = URISchemeResponse::new(&input, buffer.len() as i64);
-          response.set_status(http_response.status().as_u16() as u32, None);
-          if let Some(content_type) = content_type {
-            response.set_content_type(content_type);
-          }
+            let response = URISchemeResponse::new(&input, buffer.len() as i64);
+            response.set_status(http_response.status().as_u16() as u32, None);
+            if let Some(content_type) = content_type {
+              response.set_content_type(content_type);
+            }
 
-          let headers = MessageHeaders::new(MessageHeadersType::Response);
-          for (name, value) in http_response.headers().into_iter() {
-            headers.append(name.as_str(), value.to_str().unwrap_or(""));
-          }
-          response.set_http_headers(headers);
-          request_.finish_with_response(&response);
+            let headers = MessageHeaders::new(MessageHeadersType::Response);
+            for (name, value) in http_response.headers().into_iter() {
+              headers.append(name.as_str(), value.to_str().unwrap_or(""));
+            }
+            response.set_http_headers(headers);
+            request_.finish_with_response(&response);
+
+            gtk::glib::ControlFlow::Break
+          });
+          
         });
 
       #[cfg(feature = "tracing")]
@@ -398,6 +403,17 @@ where
 
   Ok(())
 }
+
+struct MainThreadRequest(URISchemeRequest);
+
+impl MainThreadRequest {
+  fn finish_with_response(&self, response: &URISchemeResponse) {
+    self.0.finish_with_response(response);
+  }
+}
+
+unsafe impl Send for MainThreadRequest {}
+unsafe impl Sync for MainThreadRequest {}
 
 #[derive(Debug)]
 struct WebviewUriRequest {
