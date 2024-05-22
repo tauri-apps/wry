@@ -7,8 +7,10 @@ use tao::{
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
-use wry::dpi::{LogicalPosition, LogicalSize};
-use wry::{Rect, WebViewBuilder};
+use wry::{
+  dpi::{LogicalPosition, LogicalSize},
+  Rect, WebViewBuilder,
+};
 
 fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();

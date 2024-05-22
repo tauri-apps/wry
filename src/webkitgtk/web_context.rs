@@ -21,9 +21,9 @@ use std::{
 };
 use webkit2gtk::{
   ApplicationInfo, AutomationSessionExt, CookiePersistentStorage, DownloadExt, LoadEvent,
-  SecurityManagerExt, URIRequest, URIRequestExt, URISchemeRequestExt, URISchemeResponse, URISchemeRequest,
-  URISchemeResponseExt, UserContentManager, WebContext, WebContextExt as Webkit2gtkContextExt,
-  WebView, WebViewExt,
+  SecurityManagerExt, URIRequest, URIRequestExt, URISchemeRequest, URISchemeRequestExt,
+  URISchemeResponse, URISchemeResponseExt, UserContentManager, WebContext,
+  WebContextExt as Webkit2gtkContextExt, WebView, WebViewExt,
 };
 
 #[derive(Debug)]
@@ -387,7 +387,7 @@ where
 
             gtk::glib::ControlFlow::Break
           });
-          
+
         });
 
       #[cfg(feature = "tracing")]
