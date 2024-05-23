@@ -107,7 +107,7 @@ jni = "0.21"
 ndk = "0.7"
 ndk-sys = "0.4"
 ndk-context = "0.1"
-tao-macros = "0.1"
+tao-macros = { path = "../tao/tao-macros" }
 libc = "0.2"
 
 [dev-dependencies]

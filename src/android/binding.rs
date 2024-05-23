@@ -24,73 +24,37 @@ use crate::PageLoadEvent;
 
 #[macro_export]
 macro_rules! android_binding {
-  ($domain:ident, $package:ident) => {
-    ::wry::android_binding!($domain, $package, ::wry)
+  ($domain:ident) => {
+    ::wry::android_binding!($domain, ::wry)
   };
   // use import `android_setup` just to force the import path to use `wry::{}`
   // as the macro breaks without braces
-  ($domain:ident, $package:ident, $wry:path) => {{
+  ($domain:ident, $wry:path) => {{
     use $wry::{android_setup as _, prelude::*};
 
     android_fn!(
       $domain,
-      $package,
       RustWebViewClient,
       handleRequest,
       [JObject, jboolean],
       jobject
     );
+    android_fn!($domain, RustWebViewClient, withAssetLoader, [], jboolean);
+    android_fn!($domain, RustWebViewClient, assetLoaderDomain, [], jstring);
     android_fn!(
       $domain,
-      $package,
-      RustWebViewClient,
-      withAssetLoader,
-      [],
-      jboolean
-    );
-    android_fn!(
-      $domain,
-      $package,
-      RustWebViewClient,
-      assetLoaderDomain,
-      [],
-      jstring
-    );
-    android_fn!(
-      $domain,
-      $package,
       RustWebViewClient,
       shouldOverride,
       [JString],
       jboolean
     );
+    android_fn!($domain, RustWebView, shouldOverride, [JString], jboolean);
+    android_fn!($domain, RustWebView, onEval, [jint, JString]);
+    android_fn!($domain, RustWebViewClient, onPageLoading, [JString]);
+    android_fn!($domain, RustWebViewClient, onPageLoaded, [JString]);
+    android_fn!($domain, Ipc, ipc, [JString, JString]);
     android_fn!(
       $domain,
-      $package,
-      RustWebView,
-      shouldOverride,
-      [JString],
-      jboolean
-    );
-    android_fn!($domain, $package, RustWebView, onEval, [jint, JString]);
-    android_fn!(
-      $domain,
-      $package,
-      RustWebViewClient,
-      onPageLoading,
-      [JString]
-    );
-    android_fn!(
-      $domain,
-      $package,
-      RustWebViewClient,
-      onPageLoaded,
-      [JString]
-    );
-    android_fn!($domain, $package, Ipc, ipc, [JString, JString]);
-    android_fn!(
-      $domain,
-      $package,
       RustWebChromeClient,
       handleReceivedTitle,
       [JObject, JString],
