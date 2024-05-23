@@ -8,8 +8,7 @@ use tao::{
   event_loop::{ControlFlow, EventLoopBuilder},
   window::{CursorIcon, ResizeDirection, Window, WindowBuilder},
 };
-use wry::http::Request;
-use wry::WebViewBuilder;
+use wry::{http::Request, WebViewBuilder};
 
 #[derive(Debug)]
 enum HitTestResult {

@@ -14,9 +14,8 @@ use tao::{
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
-use wry::http::Request;
 use wry::{
-  http::{header::*, Response},
+  http::{header::*, Request, Response},
   WebViewBuilder,
 };
 

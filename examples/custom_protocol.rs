@@ -9,9 +9,8 @@ use tao::{
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
-use wry::http::Request;
 use wry::{
-  http::{header::CONTENT_TYPE, Response},
+  http::{header::CONTENT_TYPE, Request, Response},
   WebViewBuilder,
 };
 

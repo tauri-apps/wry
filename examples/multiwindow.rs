@@ -8,8 +8,7 @@ use tao::{
   event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWindowTarget},
   window::{Window, WindowBuilder, WindowId},
 };
-use wry::http::Request;
-use wry::{WebView, WebViewBuilder};
+use wry::{http::Request, WebView, WebViewBuilder};
 
 enum UserEvent {
   CloseWindow(WindowId),
