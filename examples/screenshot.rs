@@ -20,7 +20,14 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
   // Build the webview
-  let webview = WebViewBuilder::new(&window)
+  let webview = WebViewBuilder::new_as_child(&window)
+    .with_bounds(wry::Rect {
+      position: dpi::Position::Logical(dpi::LogicalPosition { x: 50.0, y: 50.0 }),
+      size: dpi::Size::Logical(dpi::LogicalSize {
+        width: 600.0,
+        height: 400.0,
+      }),
+    })
     .with_url("https://html5test.com")
     .with_on_page_load_handler(move |_, _| event_proxy.send_event(()).unwrap())
     .build()?;

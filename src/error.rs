@@ -64,4 +64,8 @@ pub enum Error {
   #[cfg(target_os = "linux")]
   #[error(transparent)]
   CairoIoError(#[from] cairo::IoError),
+
+  #[cfg(any(target_os = "macos", target_os = "ios"))]
+  #[error("Could not obtain screenshot from webview")]
+  NilScreenshot()
 }

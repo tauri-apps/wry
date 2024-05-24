@@ -32,7 +32,10 @@ use std::{
   sync::{Arc, Mutex},
 };
 
-use core_graphics::geometry::{CGPoint, CGRect, CGSize};
+use core_graphics::{
+  display::CGRectNull,
+  geometry::{CGPoint, CGRect, CGSize},
+};
 use objc::{
   declare::ClassDecl,
   runtime::{Class, Object, Sel, BOOL},
@@ -1262,24 +1265,66 @@ r#"Object.defineProperty(window, 'ipc', {
     F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
   {
     unsafe {
-      let config: id = msg_send![class!(WKSnapshotConfiguration), new];
-      let handler = block::ConcreteBlock::new(move |image: id, _error: id| {
-        let cgref: id =
-          msg_send![image, CGImageForProposedRect:null::<*const c_void>() context:nil hints:nil];
-        let bitmap_image_ref: id = msg_send![class!(NSBitmapImageRep), alloc];
-        let newrep: id = msg_send![bitmap_image_ref, initWithCGImage: cgref];
-        let size: id = msg_send![image, size];
-        let () = msg_send![newrep, setSize: size];
-        let nsdata: id = msg_send![newrep, representationUsingType:4 properties:nil];
-        let bytes: *const u8 = msg_send![nsdata, bytes];
-        let len: usize = msg_send![nsdata, length];
-        let vector = slice::from_raw_parts(bytes, len).to_vec();
-        handler(Ok(vector));
-      });
-      let handler = handler.copy();
-      let handler: &block::Block<(id, id), ()> = &handler;
-      let () =
-        msg_send![self.webview, takeSnapshotWithConfiguration:config completionHandler:handler];
+      let bounds: CGRect = msg_send![self.webview, bounds];
+      let eps: id = msg_send![self.webview, dataWithEPSInsideRect:bounds];
+      let ns_image: id = msg_send![class!(NSImage), alloc];
+      let () = msg_send![ns_image, initWithData:eps];
+
+      // let context: id = msg_send![class!(NSGraphicsContext), currentContext];
+      // let dict: id = msg_send![class!(NSDictionary), alloc];
+      // let () = msg_send![dict, init];
+      let image: id = msg_send![ns_image, CGImageForProposedRect:nil context:nil hints:nil];
+
+      let bitmap_image_ref: id = msg_send![class!(NSBitmapImageRep), alloc];
+      let newrep: id = msg_send![bitmap_image_ref, initWithCGImage: image];
+      let nsdata: id = msg_send![newrep, representationUsingType:4 properties:nil];
+      let bytes: *const u8 = msg_send![nsdata, bytes];
+      let len: usize = msg_send![nsdata, length];
+      let vector = slice::from_raw_parts(bytes, len).to_vec();
+      handler(Ok(vector));
+    }
+    Ok(())
+  }
+
+  pub fn deprecated_screenshot<F>(&self, handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) -> () + 'static + Send,
+  {
+    unsafe {
+      let ns_window: id = msg_send![self.webview, window];
+      let window_frame: CGRect = msg_send![ns_window, frame];
+      let content_view: id = msg_send![ns_window, contentView];
+
+      let screens: id = msg_send![class!(NSScreen), screens];
+      let primary_screen: id = msg_send![screens, objectAtIndex:0];
+      let primary_frame: CGRect = msg_send![primary_screen, frame];
+
+      let bounds: CGRect = msg_send![self.webview, bounds];
+      let mut origin_rect: CGRect = msg_send![self.webview, convertRect:bounds toView:content_view];
+      origin_rect.origin.x += window_frame.origin.x;
+      origin_rect.origin.y = primary_frame.size.height
+        - window_frame.origin.y
+        - origin_rect.origin.y
+        - origin_rect.size.height;
+
+      let window_id: u32 = msg_send![ns_window, windowNumber];
+      let image = core_graphics::window::create_image(
+        origin_rect,
+        core_graphics::window::kCGWindowListOptionIncludingWindow
+          & core_graphics::window::kCGWindowListOptionOnScreenAboveWindow
+          & core_graphics::window::kCGWindowListOptionExcludeDesktopElements,
+        window_id,
+        core_graphics::window::kCGWindowImageNominalResolution,
+      )
+      .unwrap();
+
+      let bitmap_image_ref: id = msg_send![class!(NSBitmapImageRep), alloc];
+      let newrep: id = msg_send![bitmap_image_ref, initWithCGImage: image];
+      let nsdata: id = msg_send![newrep, representationUsingType:4 properties:nil];
+      let bytes: *const u8 = msg_send![nsdata, bytes];
+      let len: usize = msg_send![nsdata, length];
+      let vector = slice::from_raw_parts(bytes, len).to_vec();
+      handler(Ok(vector));
     }
     Ok(())
   }
