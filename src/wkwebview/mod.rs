@@ -1438,6 +1438,7 @@ impl From<NSData> for NSString {
   }
 }
 
+#[allow(dead_code)] // rustc complains `id` is unused, but it is actually used from Objective-C
 struct NSData(id);
 
 /// Converts from wry screen-coordinates to macOS screen-coordinates.
