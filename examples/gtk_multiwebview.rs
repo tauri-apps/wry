@@ -20,6 +20,7 @@ fn main() -> wry::Result<()> {
     target_os = "windows",
     target_os = "macos",
     target_os = "ios",
+    target_os = "visionos",
     target_os = "android"
   )))]
   let fixed = {
@@ -38,6 +39,7 @@ fn main() -> wry::Result<()> {
       target_os = "windows",
       target_os = "macos",
       target_os = "ios",
+      target_os = "visionos",
       target_os = "android"
     ))]
     return WebViewBuilder::new_as_child(&window);
@@ -46,6 +48,7 @@ fn main() -> wry::Result<()> {
       target_os = "windows",
       target_os = "macos",
       target_os = "ios",
+      target_os = "visionos",
       target_os = "android"
     )))]
     {

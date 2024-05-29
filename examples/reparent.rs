@@ -19,12 +19,14 @@ use {tao::platform::windows::WindowExtWindows, wry::WebViewExtWindows};
   target_os = "windows",
   target_os = "macos",
   target_os = "ios",
+  target_os = "visionos",
   target_os = "android"
 )))]
 #[cfg(not(any(
   target_os = "windows",
   target_os = "macos",
   target_os = "ios",
+  target_os = "visionos",
   target_os = "android"
 )))]
 use {
@@ -41,6 +43,7 @@ fn main() -> wry::Result<()> {
     target_os = "windows",
     target_os = "macos",
     target_os = "ios",
+    target_os = "visionos",
     target_os = "android"
   ))]
   let builder = WebViewBuilder::new(&window);
@@ -49,6 +52,7 @@ fn main() -> wry::Result<()> {
     target_os = "windows",
     target_os = "macos",
     target_os = "ios",
+    target_os = "visionos",
     target_os = "android"
   )))]
   let builder = {
@@ -97,6 +101,7 @@ fn main() -> wry::Result<()> {
           target_os = "windows",
           target_os = "macos",
           target_os = "ios",
+          target_os = "visionos",
           target_os = "android"
         )))]
         webview
