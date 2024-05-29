@@ -198,7 +198,7 @@
 #![allow(clippy::type_complexity)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "visionos"))]
 #[macro_use]
 extern crate objc;
 
@@ -228,11 +228,11 @@ use raw_window_handle::HasWindowHandle;
 #[cfg(gtk)]
 use webkitgtk::*;
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "visionos"))]
 pub(crate) mod wkwebview;
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "visionos"))]
 use wkwebview::*;
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "visionos"))]
 pub use wkwebview::{PrintMargin, PrintOptions};
 
 #[cfg(target_os = "windows")]
@@ -1034,13 +1034,13 @@ impl<'a> WebViewBuilder<'a> {
   }
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios",))]
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "visionos"))]
 #[derive(Clone)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   data_store_identifier: Option<[u8; 16]>,
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios",))]
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "visionos"))]
 impl Default for PlatformSpecificWebViewAttributes {
   fn default() -> Self {
     Self {
@@ -1049,7 +1049,7 @@ impl Default for PlatformSpecificWebViewAttributes {
   }
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios",))]
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "visionos"))]
 pub trait WebViewBuilderExtDarwin {
   /// Initialize the WebView with a custom data store identifier.
   /// Can be used as a replacement for data_directory not being available in WKWebView.
@@ -1058,7 +1058,7 @@ pub trait WebViewBuilderExtDarwin {
   fn with_data_store_identifier(self, identifier: [u8; 16]) -> Self;
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios",))]
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "visionos"))]
 impl WebViewBuilderExtDarwin for WebViewBuilder<'_> {
   fn with_data_store_identifier(mut self, identifier: [u8; 16]) -> Self {
     self.platform_specific.data_store_identifier = Some(identifier);
@@ -1631,7 +1631,7 @@ impl WebViewExtMacOS for WebView {
 }
 
 /// Additional methods on `WebView` that are specific to iOS.
-#[cfg(target_os = "ios")]
+#[cfg(any(target_os = "ios", target_os = "visionos"))]
 pub trait WebViewExtIOS {
   /// Returns WKWebView handle
   fn webview(&self) -> cocoa::base::id;
@@ -1639,7 +1639,7 @@ pub trait WebViewExtIOS {
   fn manager(&self) -> cocoa::base::id;
 }
 
-#[cfg(target_os = "ios")]
+#[cfg(any(target_os = "ios", target_os = "visionos"))]
 impl WebViewExtIOS for WebView {
   fn webview(&self) -> cocoa::base::id {
     self.webview.webview
