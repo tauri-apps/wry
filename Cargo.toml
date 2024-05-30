@@ -118,3 +118,10 @@ winit = "0.29"
 getrandom = "0.2"
 http-range = "0.1"
 percent-encoding = "2.3"
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = [
+  "cfg(linux)",
+  "cfg(gtk)",
+]
