@@ -118,3 +118,7 @@ winit = "0.29"
 getrandom = "0.2"
 http-range = "0.1"
 percent-encoding = "2.3"
+
+# TODO: comment this warning about linux and gtk on macos for visionos
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(gtk)'] }
