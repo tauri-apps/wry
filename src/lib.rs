@@ -10,7 +10,7 @@
 //!
 //! ## Examples
 //!
-//! This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only).
+//! This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, visionOS, Android and Linux (X11 Only).
 //! See the following example using [`winit`].
 //!
 //! ```no_run
