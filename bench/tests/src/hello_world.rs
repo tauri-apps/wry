@@ -22,12 +22,15 @@ fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-  let url = r#"data:text/html,
+  let html = r#"
+    <!DOCTYPE html>
+    <body>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
       ipc.postMessage('dom-loaded')
     })
     </script>
+    </body>
   "#;
 
   let handler = |req: Request<String>| {
@@ -56,7 +59,7 @@ fn main() -> wry::Result<()> {
     let vbox = window.default_vbox().unwrap();
     WebViewBuilder::new_gtk(vbox)
   };
-  let _webview = builder.with_url(url).with_ipc_handler(handler).build()?;
+  let _webview = builder.with_html(html).with_ipc_handler(handler).build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
