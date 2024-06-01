@@ -1,5 +1,11 @@
 # Changelog
 
+## \[0.40.1]
+
+- [`b6863ed`](https://github.com/tauri-apps/wry/commit/b6863ed1884fb190ae46f37ed72dcdd92de700cd)([#1275](https://github.com/tauri-apps/wry/pull/1275)) On Android, set `RustWebViewClient.currentUrl` field early in `onPageStarted` method instead of `onPageFinished`
+- [`f089964`](https://github.com/tauri-apps/wry/commit/f089964a3cf3014987aca24a7e7d6cae83e67d8a)([#1276](https://github.com/tauri-apps/wry/pull/1276)) Fixes `with_asynchronous_custom_protocol` crashing when sending the response on Linux.
+- [`637289d`](https://github.com/tauri-apps/wry/commit/637289dfb36150635177eb629a12b40fdaac1afe)([#1272](https://github.com/tauri-apps/wry/pull/1272)) On Android, make `WryActivity.setWebview` method public to prevent JNI crashes.
+
 ## \[0.40.0]
 
 - [`a424a0b`](https://github.com/tauri-apps/wry/commit/a424a0b234cb20b3ca7305d87e82aba3c8b2bd41)([#1270](https://github.com/tauri-apps/wry/pull/1270)) On Windows, fix child webview invisible after creation because it was created with `0,0` size

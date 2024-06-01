@@ -2,7 +2,7 @@ workspace = { }
 
 [package]
 name = "wry"
-version = "0.40.0"
+version = "0.40.1"
 authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -121,7 +121,4 @@ percent-encoding = "2.3"
 
 [lints.rust.unexpected_cfgs]
 level = "warn"
-check-cfg = [
-  "cfg(linux)",
-  "cfg(gtk)",
-]
+check-cfg = [ "cfg(linux)", "cfg(gtk)" ]
