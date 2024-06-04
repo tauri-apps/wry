@@ -264,7 +264,7 @@ impl InnerWebView {
       let mut arguments = String::from(default_args);
 
       if attributes.autoplay {
-        arguments.push_str("--autoplay-policy=no-user-gesture-required");
+        arguments.push_str(" --autoplay-policy=no-user-gesture-required");
       }
 
       if let Some(proxy_setting) = &attributes.proxy_config {
