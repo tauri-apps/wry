@@ -358,7 +358,7 @@ impl InnerWebView {
 
       #[cfg(target_os = "ios")]
       let custom_data_store_available = os_version.0 >= 17;
-      
+
       #[cfg(target_os = "visionos")]
       let custom_data_store_available = os_version.0 >= 1;
 
