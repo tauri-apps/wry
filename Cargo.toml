@@ -2,7 +2,7 @@ workspace = { }
 
 [package]
 name = "wry"
-version = "0.40.0"
+version = "0.40.1"
 authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -119,6 +119,6 @@ getrandom = "0.2"
 http-range = "0.1"
 percent-encoding = "2.3"
 
-# TODO: comment this warning about linux and gtk on macos for visionos
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(gtk)'] }
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = [ "cfg(linux)", "cfg(gtk)" ]
