@@ -276,8 +276,9 @@ impl InnerWebView {
           // send response
           match http_request.body(sent_form_body) {
             Ok(final_request) => {
-              // Place here to prevent task is dropped when responder is called
+              let () = msg_send![task, retain];
               let task_id: NSUInteger = msg_send![task, hash];
+
               let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> = Box::new(
                 move |sent_response| {
                   // Best-effort. OS may release task at any moment.
@@ -353,6 +354,7 @@ impl InnerWebView {
                     let _ = response(task, task_id, webview_id, url, sent_response);
                   }
                   TASK_IDS.lock().unwrap().remove(&task_id);
+                  let () = msg_send![task, release];
                 },
               );
 
