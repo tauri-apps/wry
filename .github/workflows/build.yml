@@ -32,8 +32,9 @@ jobs:
       - name: install nightly
         uses: dtolnay/rust-toolchain@nightly
         with:
+          profile: minimal
           targets: ${{ matrix.platform.target }}
-          components: rust-src, miri
+          # components: rust-src, miri
 
       - name: install webkit2gtk (ubuntu only)
         if: contains(matrix.platform.target, 'gnu')
@@ -70,7 +71,9 @@ jobs:
 
       - name: Run tests with miri
         if: (!contains(matrix.platform.target, 'android') && !contains(matrix.platform.target, 'ios'))
-        run: cargo +nightly -Z build-std=std,panic_abort miri test --verbose --target ${{ matrix.platform.target }} --features linux-body
+        run: |
+          rustup +nightly component add miri
+          cargo +nightly -Z build-std=std,panic_abort miri test --verbose --target ${{ matrix.platform.target }} --features linux-body
 
   doc:
     runs-on: ubuntu-latest
