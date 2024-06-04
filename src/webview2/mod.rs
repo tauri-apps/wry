@@ -287,8 +287,6 @@ impl InnerWebView {
       arguments
     });
 
-    dbg!(&additional_browser_args);
-
     let additional_browser_args = HSTRING::from(additional_browser_args);
 
     let (tx, rx) = mpsc::channel();
