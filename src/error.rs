@@ -57,4 +57,6 @@ pub enum Error {
   #[cfg(target_os = "android")]
   #[error(transparent)]
   CrossBeamRecvError(#[from] crossbeam_channel::RecvError),
+  #[error("Custom protocol task is invalid.")]
+  CustomProtocolTaskInvalid,
 }
