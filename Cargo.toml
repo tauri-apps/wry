@@ -90,7 +90,7 @@ dunce = "1"
   "Win32_UI_Input_KeyboardAndMouse"
 ]
 
-[target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
+[target."cfg(any(target_os = \"ios\", target_os = \"visionos\", target_os = \"macos\"))".dependencies]
 block = "0.1"
 cocoa = "0.25"
 core-graphics = "0.23"

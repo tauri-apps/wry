@@ -16,17 +16,25 @@ jobs:
           - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
           - { target: x86_64-apple-darwin, os: macos-latest }
           - { target: aarch64-apple-ios, os: macos-latest }
+          - { target: aarch64-apple-visionos, os: macos-latest }
           - { target: aarch64-apple-darwin, os: macos-14 }
           - { target: aarch64-linux-android, os: ubuntu-latest }
 
     runs-on: ${{ matrix.platform.os }}
 
     steps:
+      # - uses: actions/checkout@v4
+      # - name: install stable
+      #   uses: dtolnay/rust-toolchain@stable
+      #   with:
+      #     targets: ${{ matrix.platform.target }}
       - uses: actions/checkout@v4
-      - name: install stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: install nightly
+        uses: dtolnay/rust-toolchain@nightly
         with:
+          profile: minimal
           targets: ${{ matrix.platform.target }}
+          # components: rust-src, miri
 
       - name: install webkit2gtk (ubuntu only)
         if: contains(matrix.platform.target, 'gnu')
@@ -44,7 +52,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: build wry
-        run: cargo build --target ${{ matrix.platform.target }} --all-features
+        run: cargo +nightly build -Z build-std=std,panic_abort --target ${{ matrix.platform.target }} --all-features
 
       - name: build tests and examples
         shell: bash
@@ -55,15 +63,17 @@ jobs:
         if: (!contains(matrix.platform.target, 'android') && !contains(matrix.platform.target, 'ios'))
         run: cargo test --verbose --target ${{ matrix.platform.target }} --features linux-body
 
-      - name: install nightly
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          targets: ${{ matrix.platform.target }}
-          components: miri
+      # - name: install nightly
+      #   uses: dtolnay/rust-toolchain@nightly
+      #   with:
+      #     targets: ${{ matrix.platform.target }}
+      #     components: miri
 
       - name: Run tests with miri
         if: (!contains(matrix.platform.target, 'android') && !contains(matrix.platform.target, 'ios'))
-        run: cargo +nightly miri test --verbose --target ${{ matrix.platform.target }} --features linux-body
+        run: |
+          rustup +nightly component add miri
+          cargo +nightly -Z build-std=std,panic_abort miri test --verbose --target ${{ matrix.platform.target }} --features linux-body
 
   doc:
     runs-on: ubuntu-latest

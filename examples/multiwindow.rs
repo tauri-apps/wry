@@ -96,6 +96,7 @@ fn create_new_window(
     target_os = "windows",
     target_os = "macos",
     target_os = "ios",
+    target_os = "visionos",
     target_os = "android"
   ))]
   let builder = WebViewBuilder::new(&window);
@@ -104,6 +105,7 @@ fn create_new_window(
     target_os = "windows",
     target_os = "macos",
     target_os = "ios",
+    target_os = "visionos",
     target_os = "android"
   )))]
   let builder = {

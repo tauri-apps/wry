@@ -125,7 +125,7 @@ impl InnerWebView {
     let ns_view = match window.window_handle()?.as_raw() {
       #[cfg(target_os = "macos")]
       RawWindowHandle::AppKit(w) => w.ns_view.as_ptr(),
-      #[cfg(target_os = "ios")]
+      #[cfg(any(target_os = "ios", target_os = "visionos"))]
       RawWindowHandle::UiKit(w) => w.ui_view.as_ptr(),
       _ => return Err(Error::UnsupportedWindowHandle),
     };
@@ -142,7 +142,7 @@ impl InnerWebView {
     let ns_view = match window.window_handle()?.as_raw() {
       #[cfg(target_os = "macos")]
       RawWindowHandle::AppKit(w) => w.ns_view.as_ptr(),
-      #[cfg(target_os = "ios")]
+      #[cfg(any(target_os = "ios", target_os = "visionos"))]
       RawWindowHandle::UiKit(w) => w.ui_view.as_ptr(),
       _ => return Err(Error::UnsupportedWindowHandle),
     };
@@ -382,6 +382,9 @@ impl InnerWebView {
       #[cfg(target_os = "ios")]
       let custom_data_store_available = os_version.0 >= 17;
 
+      #[cfg(target_os = "visionos")]
+      let custom_data_store_available = os_version.0 >= 1;
+
       let data_store: id = match (
         attributes.incognito,
         custom_data_store_available,
@@ -498,7 +501,7 @@ impl InnerWebView {
 
       let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("allowsPictureInPictureMediaPlayback")];
 
-      #[cfg(target_os = "ios")]
+      #[cfg(any(target_os = "ios", target_os = "visionos"))]
       let _: id = msg_send![config, setAllowsInlineMediaPlayback: YES];
 
       if attributes.autoplay {
@@ -564,7 +567,7 @@ impl InnerWebView {
         }
       }
 
-      #[cfg(target_os = "ios")]
+      #[cfg(any(target_os = "ios", target_os = "visionos"))]
       {
         let frame: CGRect = msg_send![ns_view, frame];
         // set all autoresizingmasks
@@ -1042,7 +1045,7 @@ r#"Object.defineProperty(window, 'ipc', {
         let _: () = msg_send![app, activateIgnoringOtherApps: YES];
       }
 
-      #[cfg(target_os = "ios")]
+      #[cfg(any(target_os = "ios", target_os = "visionos"))]
       {
         let _: () = msg_send![ns_view, addSubview: webview];
       }
