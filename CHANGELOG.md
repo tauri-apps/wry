@@ -1,5 +1,11 @@
 # Changelog
 
+## \[0.41.0]
+
+- [`8b691df`](https://github.com/tauri-apps/wry/commit/8b691df1ac57eb5eb15082c5f6d72e871965c61e) ([#1285](https://github.com/tauri-apps/wry/pull/1285) by [@pewsheen](https://github.com/tauri-apps/wry/../../pewsheen)) On macOS, fix an issue that could cause a panic when running an async command.
+- [`6c7f45e`](https://github.com/tauri-apps/wry/commit/6c7f45e1e3f89805a9fd6b58a9382a6bbc2b0c28) ([#1287](https://github.com/tauri-apps/wry/pull/1287) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) Fixed a regression causing autoplay on windows to require user gestures.
+- [`24a7d27`](https://github.com/tauri-apps/wry/commit/24a7d275c9059dd9e54544b75a5996c9d0762f26) ([#1289](https://github.com/tauri-apps/wry/pull/1289) by [@renovate](https://github.com/tauri-apps/wry/../../renovate)) Update `windows` crate to `0.57` and `webview2-com` crate to `0.31`
+
 ## \[0.40.1]
 
 - [`b6863ed`](https://github.com/tauri-apps/wry/commit/b6863ed1884fb190ae46f37ed72dcdd92de700cd)([#1275](https://github.com/tauri-apps/wry/pull/1275)) On Android, set `RustWebViewClient.currentUrl` field early in `onPageStarted` method instead of `onPageFinished`
