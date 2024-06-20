@@ -9,7 +9,7 @@ use std::{
   borrow::Cow, cell::RefCell, collections::HashSet, fmt::Write, path::PathBuf, rc::Rc, sync::mpsc,
 };
 
-use dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
+use dpi::{PhysicalPosition, PhysicalSize};
 use http::{Request, Response as HttpResponse, StatusCode};
 use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -1178,10 +1178,12 @@ impl InnerWebView {
   }
 
   pub fn bounds(&self) -> Result<Rect> {
-    let mut bounds = Rect::default();
+    let dpi = unsafe { util::hwnd_dpi(self.hwnd) };
+    let scale_factor = util::dpi_to_scale_factor(dpi);
 
+    let mut bounds = Rect::default();
+    let mut rect = RECT::default();
     if self.is_child {
-      let mut rect = RECT::default();
       unsafe { GetClientRect(self.hwnd, &mut rect)? };
 
       let position_point = &mut [POINT {
@@ -1190,21 +1192,16 @@ impl InnerWebView {
       }];
       unsafe { MapWindowPoints(self.hwnd, *self.parent.borrow(), position_point) };
 
-      bounds.position = LogicalPosition::new(position_point[0].x, position_point[0].y).into();
-      bounds.size = LogicalSize::new(
-        (rect.right - rect.left) as u32,
-        (rect.bottom - rect.top) as u32,
-      )
-      .into();
+      bounds.position = PhysicalPosition::new(position_point[0].x, position_point[0].y)
+        .to_logical::<f64>(scale_factor)
+        .into();
     } else {
-      let mut rect = RECT::default();
       unsafe { self.controller.Bounds(&mut rect) }?;
-      bounds.size = LogicalSize::new(
-        (rect.right - rect.left) as u32,
-        (rect.bottom - rect.top) as u32,
-      )
-      .into();
     }
+
+    bounds.size = PhysicalSize::new(rect.right - rect.left, rect.bottom - rect.top)
+      .to_logical::<f64>(scale_factor)
+      .into();
 
     Ok(bounds)
   }
