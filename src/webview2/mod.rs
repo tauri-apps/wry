@@ -1178,9 +1178,6 @@ impl InnerWebView {
   }
 
   pub fn bounds(&self) -> Result<Rect> {
-    let dpi = unsafe { util::hwnd_dpi(self.hwnd) };
-    let scale_factor = util::dpi_to_scale_factor(dpi);
-
     let mut bounds = Rect::default();
     let mut rect = RECT::default();
     if self.is_child {
@@ -1192,16 +1189,12 @@ impl InnerWebView {
       }];
       unsafe { MapWindowPoints(self.hwnd, *self.parent.borrow(), position_point) };
 
-      bounds.position = PhysicalPosition::new(position_point[0].x, position_point[0].y)
-        .to_logical::<f64>(scale_factor)
-        .into();
+      bounds.position = PhysicalPosition::new(position_point[0].x, position_point[0].y).into();
     } else {
       unsafe { self.controller.Bounds(&mut rect) }?;
     }
 
-    bounds.size = PhysicalSize::new(rect.right - rect.left, rect.bottom - rect.top)
-      .to_logical::<f64>(scale_factor)
-      .into();
+    bounds.size = PhysicalSize::new(rect.right - rect.left, rect.bottom - rect.top).into();
 
     Ok(bounds)
   }
