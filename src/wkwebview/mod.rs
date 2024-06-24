@@ -95,6 +95,7 @@ pub struct PrintMargin {
 #[derive(Debug, Default, Clone)]
 pub struct PrintOptions {
   pub margins: PrintMargin,
+  pub header_and_footer: bool,
 }
 
 pub(crate) struct InnerWebView {
@@ -1187,12 +1188,17 @@ r#"Object.defineProperty(window, 'ipc', {
       ];
       if can_print == YES {
         // Create a shared print info
-        let print_info: id = msg_send![class!(NSPrintInfo), sharedPrintInfo];
+        let print_info: id /* NSPrintInfo */ = msg_send![class!(NSPrintInfo), sharedPrintInfo];
         let print_info: id = msg_send![print_info, init];
         let () = msg_send![print_info, setTopMargin:CGFloat::from(options.margins.top)];
         let () = msg_send![print_info, setRightMargin:CGFloat::from(options.margins.right)];
         let () = msg_send![print_info, setBottomMargin:CGFloat::from(options.margins.bottom)];
         let () = msg_send![print_info, setLeftMargin:CGFloat::from(options.margins.left)];
+        // Set NSPrintInfoAttributeKey values
+        let print_info_dict: id /* NSMutableDictionary<NSPrintInfoAttributeKey, id> */ = msg_send![print_info, dictionary];
+        let val: id = msg_send![class!(NSNumber), numberWithBool:options.header_and_footer];
+        let () =
+          msg_send![print_info_dict, setObject:val forKey:NSString::new("NSPrintHeaderAndFooter")];
         // Create new print operation from the webview content
         let print_operation: id = msg_send![self.webview, printOperationWithPrintInfo: print_info];
         // Allow the modal to detach from the current thread and be non-blocker
