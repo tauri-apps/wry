@@ -2,4 +2,4 @@
 "wry": patch
 ---
 
-Convert physical position/size to logical values in bounds method
+Set physical values in bounds method
