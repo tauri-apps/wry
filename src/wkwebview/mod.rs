@@ -423,7 +423,13 @@ impl InnerWebView {
 
         (*handler).set_ivar("function", function as *mut _ as *mut c_void);
         (*handler).set_ivar("webview_id", webview_id);
-        let () = msg_send![config, setURLSchemeHandler:handler forURLScheme:NSString::new(&name)];
+
+        (*config)
+          .send_message::<(id, NSString), ()>(
+            sel!(setURLSchemeHandler:forURLScheme:),
+            (handler, NSString::new(&name)),
+          )
+          .map_err(|_| crate::Error::UrlSchemeRegisterError(name))?;
       }
 
       // WebView and manager
