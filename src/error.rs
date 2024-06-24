@@ -59,4 +59,6 @@ pub enum Error {
   CrossBeamRecvError(#[from] crossbeam_channel::RecvError),
   #[error("Custom protocol task is invalid.")]
   CustomProtocolTaskInvalid,
+  #[error("Failed to register URL scheme: {0}, could be due to invalid URL scheme or the scheme is already registered.")]
+  UrlSchemeRegisterError(String),
 }
