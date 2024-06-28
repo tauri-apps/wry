@@ -1,0 +1,28 @@
+name: covector comment
+on:
+  workflow_run:
+    workflows: [covector status] # the `name` of the workflow run on `pull_request` running `status` with `comment: true`
+    types:
+      - completed
+
+# note all other permissions are set to none if not specified
+#  and these set the permissions for `secrets.GITHUB_TOKEN`
+permissions:
+  # to read the action artifacts on `covector status` workflows
+  actions: read
+  # to write the comment
+  pull-requests: write
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' &&
+      (github.event.workflow_run.head_repository.full_name != github.repository || github.actor == 'dependabot[bot]')
+    steps:
+      - name: covector status
+        # note we are using the release branch temporarily awaiting a publish of these versions: https://github.com/jbolda/covector/pull/317
+        #  those changes include updates to support commenting from forks
+        uses: jbolda/covector/packages/action@release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          command: "status"
