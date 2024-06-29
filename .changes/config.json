@@ -1,17 +1,21 @@
 {
   "gitSiteUrl": "https://github.com/tauri-apps/wry/",
   "timeout": 3600000,
-  "additionalBumpTypes": [
-    "housekeeping"
-  ],
+  "additionalBumpTypes": ["housekeeping"],
   "pkgManagers": {
     "rust": {
       "version": true,
-      "getPublishedVersion": "cargo search ${ pkg.pkg } --limit 1 | sed -nE 's/^[^\"]*\"//; s/\".*//1p'",
+      "getPublishedVersion": {
+        "use": "fetch:check",
+        "options": {
+          "url": "https://crates.io/api/v1/crates/${ pkg.pkg }/${ pkg.pkgFile.version }"
+        }
+      },
       "prepublish": [
-        "sudo apt-get update",
-        "sudo apt-get install -y libgtk-3-dev libgtksourceview-3.0-dev webkit2gtk-4.1 libayatana-appindicator3-dev",
-        "cargo install cargo-audit --features=fix",
+        {
+          "command": "cargo install cargo-audit --features=fix",
+          "dryRunCommand": true
+        },
         {
           "command": "cargo generate-lockfile",
           "dryRunCommand": true,
@@ -37,17 +41,13 @@
       ],
       "publish": [
         {
-          "command": "cargo package --allow-dirty",
-          "dryRunCommand": true
-        },
-        {
           "command": "echo '<details>\n<summary><em><h4>Cargo Publish</h4></em></summary>\n\n```'",
           "dryRunCommand": true,
           "pipe": true
         },
         {
-          "command": "cargo publish --no-verify",
-          "dryRunCommand": "cargo publish --no-verify --dry-run --allow-dirty",
+          "command": "cargo publish --no-verify --allow-dirty",
+          "dryRunCommand": "cargo publish --no-verify --allow-dirty --dry-run",
           "pipe": true
         },
         {
@@ -60,12 +60,6 @@
         "git tag ${ pkg.pkg }-v${ pkgFile.versionMajor } -f",
         "git tag ${ pkg.pkg }-v${ pkgFile.versionMajor }.${ pkgFile.versionMinor } -f",
         "git push --tags -f"
-      ],
-      "assets": [
-        {
-          "path": "./target/package/${ pkg.pkg }-${ pkgFile.version }.crate",
-          "name": "${ pkg.pkg }-${ pkgFile.version }.crate"
-        }
       ]
     }
   },
