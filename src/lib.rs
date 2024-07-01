@@ -1509,7 +1509,7 @@ pub trait WebViewExtWindows {
 
   /// Changes the webview2 theme.
   ///
-  /// Requires WebView2 Runtime version 101.0.1210.39 or higher, fails on older versions,
+  /// Requires WebView2 Runtime version 101.0.1210.39 or higher, returns error on older versions,
   /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
   fn set_theme(&self, theme: Theme) -> Result<()>;
 
