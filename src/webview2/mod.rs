@@ -328,17 +328,29 @@ impl InnerWebView {
     incognito: bool,
   ) -> Result<ICoreWebView2Controller> {
     let (tx, rx) = mpsc::channel();
-    let env = env.clone().cast::<ICoreWebView2Environment10>()?;
-    let controller_opts = unsafe { env.CreateCoreWebView2ControllerOptions()? };
-
-    unsafe { controller_opts.SetIsInPrivateModeEnabled(incognito)? }
+    let env = env.clone();
+    let env10 = env.cast::<ICoreWebView2Environment10>();
 
     CreateCoreWebView2ControllerCompletedHandler::wait_for_async_operation(
-      Box::new(move |handler| unsafe {
-        env
-          .CreateCoreWebView2ControllerWithOptions(hwnd, &controller_opts, &handler)
-          .map_err(Into::into)
-      }),
+      if let Ok(env10) = env10 {
+        let controller_opts = unsafe { env10.CreateCoreWebView2ControllerOptions()? };
+        unsafe { controller_opts.SetIsInPrivateModeEnabled(incognito)? }
+        Box::new(
+          move |handler: ICoreWebView2CreateCoreWebView2ControllerCompletedHandler| unsafe {
+            env10
+              .CreateCoreWebView2ControllerWithOptions(hwnd, &controller_opts, &handler)
+              .map_err(Into::into)
+          },
+        )
+      } else {
+        Box::new(
+          move |handler: ICoreWebView2CreateCoreWebView2ControllerCompletedHandler| unsafe {
+            env
+              .CreateCoreWebView2Controller(hwnd, &handler)
+              .map_err(Into::into)
+          },
+        )
+      },
       Box::new(move |error_code, controller| {
         error_code?;
         tx.send(controller.ok_or_else(|| windows::core::Error::from(E_POINTER)))
@@ -363,7 +375,15 @@ impl InnerWebView {
 
     // Theme
     if let Some(theme) = pl_attrs.theme {
-      unsafe { set_theme(&webview, theme)? };
+      if let Err(error) = unsafe { set_theme(&webview, theme) } {
+        match error {
+          // Ignore cast error
+          Error::WebView2Error(webview2_com::Error::WindowsError(windows_error))
+            if windows_error.code() == E_NOINTERFACE => {}
+          // Return error if other things went wrong
+          _ => return Err(error),
+        };
+      }
     }
 
     // Background color
