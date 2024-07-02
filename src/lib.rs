@@ -470,6 +470,8 @@ pub struct WebViewAttributes {
   ///
   /// ## Platform-specific:
   ///
+  /// - Windows: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
+  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
   /// - **Android:** Unsupported yet.
   pub incognito: bool,
 
@@ -961,6 +963,8 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific:
   ///
+  /// - Windows: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
+  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
   /// - **Android:** Unsupported yet.
   pub fn with_incognito(mut self, incognito: bool) -> Self {
     self.attrs.incognito = incognito;
@@ -1110,6 +1114,9 @@ pub trait WebViewBuilderExtWindows {
   /// Specifies the theme of webview2. This affects things like `prefers-color-scheme`.
   ///
   /// Defaults to [`Theme::Auto`] which will follow the OS defaults.
+  ///
+  /// Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
+  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
   fn with_theme(self, theme: Theme) -> Self;
 
   /// Determines whether the custom protocols should use `https://<scheme>.path/to/page` instead of the default `http://<scheme>.path/to/page`.
@@ -1503,6 +1510,9 @@ pub trait WebViewExtWindows {
   fn controller(&self) -> ICoreWebView2Controller;
 
   /// Changes the webview2 theme.
+  ///
+  /// Requires WebView2 Runtime version 101.0.1210.39 or higher, returns error on older versions,
+  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
   fn set_theme(&self, theme: Theme) -> Result<()>;
 
   /// Sets the [memory usage target level][1].
