@@ -10,9 +10,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: covector status
-        # note we are using the release branch temporarily awaiting a publish of these versions: https://github.com/jbolda/covector/pull/317
-        #  those changes include updates to support commenting from forks
-        uses: jbolda/covector/packages/action@release
+        uses: jbolda/covector/packages/action@covector-v0
         with:
           command: "status"
           token: ${{ secrets.GITHUB_TOKEN }}
