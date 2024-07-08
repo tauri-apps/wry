@@ -34,13 +34,14 @@ use objc2_foundation::{
   NSMutableURLRequest, NSNumber, NSObjectNSKeyValueCoding, NSObjectNSKeyValueObserverRegistration,
   NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL,
 };
+#[cfg(target_os = "ios")]
+use objc2_ui_kit::UIScrollView;
 use objc2_web_kit::{
   WKAudiovisualMediaTypes, WKFrameInfo, WKMediaCaptureType, WKNavigationAction,
   WKNavigationActionPolicy, WKNavigationDelegate, WKNavigationResponse, WKNavigationResponsePolicy,
   WKOpenPanelParameters, WKPermissionDecision, WKScriptMessage, WKScriptMessageHandler,
   WKSecurityOrigin, WKUIDelegate, WKURLSchemeTask, WKUserContentController, WKUserScript,
-  WKUserScriptInjectionTime, WKWebView, WKWebViewConfiguration, WKWebpagePreferences,
-  WKWebsiteDataStore,
+  WKUserScriptInjectionTime, WKWebView, WKWebViewConfiguration, WKWebsiteDataStore,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
@@ -428,7 +429,7 @@ impl InnerWebView {
 
       config.setWebsiteDataStore(&data_store);
       let _preference = config.preferences();
-      let _yes = NSNumber::numberWithBool(YES);
+      let _yes = NSNumber::numberWithBool(true);
 
       #[cfg(feature = "mac-proxy")]
       if let Some(proxy_config) = attributes.proxy_config {
@@ -460,16 +461,18 @@ impl InnerWebView {
 
       #[cfg(feature = "transparent")]
       if attributes.transparent {
-        let no: id = msg_send![class!(NSNumber), numberWithBool:0];
+        let no = NSNumber::numberWithBool(false);
         // Equivalent Obj-C:
         // [config setValue:@NO forKey:@"drawsBackground"];
-        let _: id = msg_send![config, setValue:no forKey:NSString::new("drawsBackground")];
+        config.setValue_forKey(Some(&no), ns_string!("drawsBackground"));
       }
 
       #[cfg(feature = "fullscreen")]
       // Equivalent Obj-C:
       // [preference setValue:@YES forKey:@"fullScreenEnabled"];
-      let _: id = msg_send![_preference, setValue:_yes forKey:NSString::new("fullScreenEnabled")];
+      _preference
+        .as_super()
+        .setValue_forKey(Some(&_yes), ns_string!("fullScreenEnabled"));
 
       #[cfg(target_os = "macos")]
       let webview = {
@@ -546,8 +549,8 @@ impl InnerWebView {
         // let () = msg_send![webview, setAutoresizingMask: 31];
 
         // disable scroll bounce by default
-        let scroll: id = msg_send![webview, scrollView];
-        let _: () = msg_send![scroll, setBounces: NO];
+        let scroll_view: UIScrollView = webview.scrollView(); // FIXME: not test yet
+        scroll_view.setBounces(false)
       }
 
       if !attributes.visible {
@@ -938,10 +941,8 @@ impl InnerWebView {
       #[cfg(target_os = "macos")]
       {
         let ns_window = ns_view.window().unwrap();
-
         let can_set_titlebar_style =
           ns_window.respondsToSelector(objc2::sel!(setTitlebarSeparatorStyle:));
-
         if can_set_titlebar_style == YES {
           ns_window.setTitlebarSeparatorStyle(NSTitlebarSeparatorStyle::None);
         }
@@ -1435,7 +1436,7 @@ declare_class!(
   #[cfg(target_os = "macos")]
   unsafe impl WryWebView {
     #[method(draggingEntered:)]
-    unsafe fn dragging_entered(
+    fn dragging_entered(
       &self,
       drag_info: &ProtocolObject<dyn NSDraggingInfo>,
     ) -> NSDragOperation {
@@ -1443,7 +1444,7 @@ declare_class!(
     }
 
     #[method(draggingUpdated:)]
-    unsafe fn dragging_updated(
+    fn dragging_updated(
       &self,
       drag_info: &ProtocolObject<dyn NSDraggingInfo>,
     ) -> NSDragOperation {
@@ -1451,7 +1452,7 @@ declare_class!(
     }
 
     #[method(performDragOperation:)]
-    unsafe fn perform_drag_operation(
+    fn perform_drag_operation(
       &self,
       drag_info: &ProtocolObject<dyn NSDraggingInfo>,
     ) -> Bool {
@@ -1459,7 +1460,7 @@ declare_class!(
     }
 
     #[method(draggingExited:)]
-    unsafe fn dragging_exited(
+    fn dragging_exited(
       &self,
       drag_info: &ProtocolObject<dyn NSDraggingInfo>,
     ) {
@@ -1471,7 +1472,7 @@ declare_class!(
   #[cfg(target_os = "macos")]
   unsafe impl WryWebView {
     #[method(otherMouseDown:)]
-    unsafe fn other_mouse_down(
+    fn other_mouse_down(
       &self,
       event: &NSEvent,
     ) {
@@ -1479,7 +1480,7 @@ declare_class!(
     }
 
     #[method(otherMouseUp:)]
-    unsafe fn other_mouse_up(
+    fn other_mouse_up(
       &self,
       event: &NSEvent,
     ) {
