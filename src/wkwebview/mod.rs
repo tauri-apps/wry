@@ -32,7 +32,7 @@ use objc2_foundation::{
   ns_string, CGPoint, CGRect, CGSize, MainThreadMarker, NSArray, NSBundle, NSDate, NSError,
   NSHTTPURLResponse, NSJSONSerialization, NSKeyValueObservingOptions, NSMutableDictionary,
   NSMutableURLRequest, NSNumber, NSObjectNSKeyValueCoding, NSObjectNSKeyValueObserverRegistration,
-  NSObjectProtocol, NSString, NSURL,
+  NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL,
 };
 use objc2_web_kit::{
   WKAudiovisualMediaTypes, WKFrameInfo, WKMediaCaptureType, WKNavigationAction,
@@ -1067,7 +1067,11 @@ r#"Object.defineProperty(window, 'ipc', {
                 objc2_foundation::NSJSONWritingOptions::NSJSONWritingFragmentsAllowed,
               )
               .unwrap();
-              let json_string = Retained::cast::<NSString>(json_ns_data);
+              let json_string = NSString::alloc();
+              let json_string =
+                NSString::initWithData_encoding(json_string, &json_ns_data, NSUTF8StringEncoding)
+                  .unwrap();
+
               result = json_string.to_string();
             }
 
