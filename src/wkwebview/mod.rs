@@ -338,12 +338,10 @@ impl InnerWebView {
                   // Send data
                   let bytes = content.as_ptr() as *mut c_void;
                   let data = objc2_foundation::NSData::alloc();
-                  let data = objc2_foundation::NSData::initWithBytesNoCopy_length_freeWhenDone(
-                    data,
-                    NonNull::new(bytes).unwrap(),
-                    content.len(),
-                    if content.len() == 0 { false } else { true },
-                  );
+                  // MIGRATE NOTE: we copied the content to the NSData because content will be freed
+                  // when out of scope but NSData will also free the content when it's done and cause doube free.
+                  let data =
+                    objc2_foundation::NSData::initWithBytes_length(data, bytes, content.len());
                   (*task).didReceiveData(&data);
                   // Finish
                   (*task).didFinish();
