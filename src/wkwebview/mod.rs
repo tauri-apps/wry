@@ -19,8 +19,8 @@ use objc2::{
   declare::ClassBuilder,
   declare_class,
   ffi::YES,
-  msg_send_id,
-  mutability::MainThreadOnly,
+  msg_send, msg_send_id,
+  mutability::{InteriorMutable, MainThreadOnly},
   rc::{Allocated, Retained},
   runtime::{AnyClass, AnyObject, Bool, NSObject, ProtocolObject},
   ClassType, DeclaredClass,
@@ -30,10 +30,10 @@ use objc2_app_kit::{
   NSModalResponse, NSModalResponseOK, NSPrintInfo, NSTitlebarSeparatorStyle, NSView,
 };
 use objc2_foundation::{
-  ns_string, CGPoint, CGRect, CGSize, MainThreadMarker, NSArray, NSBundle, NSDate, NSError,
-  NSHTTPURLResponse, NSJSONSerialization, NSKeyValueObservingOptions, NSMutableDictionary,
-  NSMutableURLRequest, NSNumber, NSObjectNSKeyValueCoding, NSObjectNSKeyValueObserverRegistration,
-  NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL,
+  ns_string, CGPoint, CGRect, CGSize, MainThreadMarker, NSArray, NSBundle, NSDate, NSDictionary,
+  NSError, NSHTTPURLResponse, NSJSONSerialization, NSKeyValueChangeKey, NSKeyValueObservingOptions,
+  NSMutableDictionary, NSMutableURLRequest, NSNumber, NSObjectNSKeyValueCoding,
+  NSObjectNSKeyValueObserverRegistration, NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL,
 };
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::UIScrollView;
@@ -93,7 +93,7 @@ pub(crate) struct InnerWebView {
   // Note that if following functions signatures are changed in the future,
   // all functions pointer declarations in objc callbacks below all need to get updated.
   ipc_handler_ptr: *mut Box<dyn Fn(Request<String>)>,
-  document_title_changed_handler: *mut Box<dyn Fn(String)>,
+  document_title_changed_observer: Option<Retained<DocumentTitleChangedObserver>>,
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
   page_load_handler: *mut Box<dyn Fn(PageLoadEvent)>,
   #[cfg(target_os = "macos")]
@@ -537,58 +537,12 @@ impl InnerWebView {
       };
 
       // Document title changed handler
-      let document_title_changed_handler =
-        if let Some(document_title_changed_handler) = attributes.document_title_changed_handler {
-          let cls = ClassBuilder::new("DocumentTitleChangedDelegate", NSObject::class());
-          let cls = match cls {
-            Some(mut cls) => {
-              cls.add_ivar::<*mut c_void>("function");
-              cls.add_method(
-                objc2::sel!(observeValueForKeyPath:ofObject:change:context:),
-                observe_value_for_key_path as extern "C" fn(_, _, _, _, _, _),
-              );
-              extern "C" fn observe_value_for_key_path(
-                this: &AnyObject,
-                _sel: objc2::runtime::Sel,
-                key_path: &NSString,
-                of_object: &AnyObject,
-                _change: &AnyObject,
-                _context: &AnyObject,
-              ) {
-                if key_path.to_string() == "title" {
-                  unsafe {
-                    let function = this.get_ivar::<*mut c_void>("function");
-                    if !function.is_null() {
-                      let function = &mut *(*function as *mut Box<dyn Fn(String)>);
-                      let title: *const NSString = objc2::msg_send![of_object, title];
-                      (function)((*title).to_string());
-                    }
-                  }
-                }
-              }
-              cls.register()
-            }
-            None => class!(DocumentTitleChangedDelegate),
-          };
-
-          let handler: Retained<AnyObject> = objc2::msg_send_id![cls, new];
-          let document_title_changed_handler =
-            Box::into_raw(Box::new(document_title_changed_handler));
-
-          let ivar = handler.class().instance_variable("function").unwrap();
-          let ivar_delegate = ivar.load_mut(&mut *Retained::into_raw(handler.clone()));
-          *ivar_delegate = document_title_changed_handler as *mut _ as *mut c_void;
-
-          webview.addObserver_forKeyPath_options_context(
-            &*(Retained::cast::<NSObject>(handler)),
-            &NSString::from_str("title"),
-            NSKeyValueObservingOptions::NSKeyValueObservingOptionNew,
-            null_mut(),
-          );
-
-          document_title_changed_handler
+      let document_title_changed_observer =
+        if let Some(handler) = attributes.document_title_changed_handler {
+          let delegate = DocumentTitleChangedObserver::new(webview.clone(), handler);
+          Some(delegate)
         } else {
-          null_mut()
+          None
         };
 
       // Navigation handler
@@ -885,7 +839,7 @@ impl InnerWebView {
         manager: manager.clone(),
         pending_scripts,
         ipc_handler_ptr,
-        document_title_changed_handler,
+        document_title_changed_observer,
         navigation_decide_policy_ptr,
         #[cfg(target_os = "macos")]
         drag_drop_ptr: webview.ivars().drag_drop_handler,
@@ -1285,10 +1239,6 @@ impl Drop for InnerWebView {
         self.manager.removeScriptMessageHandlerForName(&ipc);
       }
 
-      if !self.document_title_changed_handler.is_null() {
-        drop(Box::from_raw(self.document_title_changed_handler));
-      }
-
       if !self.navigation_decide_policy_ptr.is_null() {
         drop(Box::from_raw(self.navigation_decide_policy_ptr));
       }
@@ -1491,5 +1441,85 @@ impl WryWebViewDelegate {
       .set_ivars(WryWebViewDelegateIvars { ipc_handler });
 
     unsafe { msg_send_id![super(this), init] }
+  }
+}
+
+struct DocumentTitleChangedObserverIvars {
+  object: Retained<WryWebView>,
+  handler: Box<dyn Fn(String)>,
+}
+
+declare_class!(
+  struct DocumentTitleChangedObserver;
+
+  unsafe impl ClassType for DocumentTitleChangedObserver {
+    type Super = NSObject;
+    type Mutability = InteriorMutable;
+    const NAME: &'static str = "DocumentTitleChangedObserver";
+  }
+
+  impl DeclaredClass for DocumentTitleChangedObserver {
+    type Ivars = DocumentTitleChangedObserverIvars;
+  }
+
+  unsafe impl DocumentTitleChangedObserver {
+    #[method(observeValueForKeyPath:ofObject:change:context:)]
+    fn observe_value_for_key_path(
+      &self,
+      key_path: Option<&NSString>,
+      of_object: Option<&AnyObject>,
+      _change: Option<&NSDictionary<NSKeyValueChangeKey, AnyObject>>,
+      _context: *mut c_void,
+    ) {
+      if let (Some(key_path), Some(object)) = (key_path, of_object) {
+        if key_path.to_string() == "title" {
+          unsafe {
+            let handler = &self.ivars().handler;
+            // if !handler.is_null() {
+              let title: *const NSString = msg_send![object, title];
+              handler((*title).to_string());
+            // }
+          }
+        }
+      }
+    }
+  }
+
+  unsafe impl NSObjectProtocol for DocumentTitleChangedObserver {}
+);
+
+impl DocumentTitleChangedObserver {
+  fn new(webview: Retained<WryWebView>, handler: Box<dyn Fn(String)>) -> Retained<Self> {
+    let observer = Self::alloc().set_ivars(DocumentTitleChangedObserverIvars {
+      object: webview,
+      handler,
+    });
+
+    let observer: Retained<Self> = unsafe { msg_send_id![super(observer), init] };
+
+    unsafe {
+      observer
+        .ivars()
+        .object
+        .addObserver_forKeyPath_options_context(
+          &observer,
+          &NSString::from_str("title"),
+          NSKeyValueObservingOptions::NSKeyValueObservingOptionNew,
+          null_mut(),
+        );
+    }
+
+    observer
+  }
+}
+
+impl Drop for DocumentTitleChangedObserver {
+  fn drop(&mut self) {
+    unsafe {
+      self
+        .ivars()
+        .object
+        .removeObserver_forKeyPath(&self, &NSString::from_str("title"));
+    }
   }
 }
