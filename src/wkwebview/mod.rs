@@ -91,7 +91,7 @@ pub(crate) struct InnerWebView {
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
   // Note that if following functions signatures are changed in the future,
   // all functions pointer declarations in objc callbacks below all need to get updated.
-  ipc_handler_ptr: *mut Box<dyn Fn(Request<String>)>,
+  ipc_handler_delegate: Option<Retained<WryWebViewDelegate>>,
   document_title_changed_observer: Option<Retained<DocumentTitleChangedObserver>>,
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
   page_load_handler: *mut Box<dyn Fn(PageLoadEvent)>,
@@ -520,17 +520,11 @@ impl InnerWebView {
       }
 
       // Message handler
-      let ipc_handler_ptr = if let Some(ipc_handler) = attributes.ipc_handler {
-        let ipc_handler_ptr = Box::into_raw(Box::new(ipc_handler));
-        let delegate = WryWebViewDelegate::new(ipc_handler_ptr, mtm);
-        let proto_delegate = ProtocolObject::from_ref(delegate.as_ref());
-        manager.addScriptMessageHandler_name(
-          proto_delegate,
-          &NSString::from_str(IPC_MESSAGE_HANDLER_NAME),
-        );
-        ipc_handler_ptr
+      let ipc_handler_delegate = if let Some(ipc_handler) = attributes.ipc_handler {
+        let delegate = WryWebViewDelegate::new(manager.clone(), ipc_handler, mtm);
+        Some(delegate)
       } else {
-        null_mut()
+        None
       };
 
       // Document title changed handler
@@ -835,7 +829,7 @@ impl InnerWebView {
         webview: webview.clone(),
         manager: manager.clone(),
         pending_scripts,
-        ipc_handler_ptr,
+        ipc_handler_delegate,
         document_title_changed_observer,
         navigation_decide_policy_ptr,
         page_load_handler,
@@ -1227,11 +1221,13 @@ impl Drop for InnerWebView {
   fn drop(&mut self) {
     // We need to drop handler closures here
     unsafe {
-      if !self.ipc_handler_ptr.is_null() {
-        drop(Box::from_raw(self.ipc_handler_ptr));
-
+      if let Some(ipc_handler) = self.ipc_handler_delegate.take() {
         let ipc = NSString::from_str(IPC_MESSAGE_HANDLER_NAME);
-        self.manager.removeScriptMessageHandlerForName(&ipc);
+        // this will decrease the retain count of the ipc handler and trigger the drop
+        ipc_handler
+          .ivars()
+          .controller
+          .removeScriptMessageHandlerForName(&ipc);
       }
 
       if !self.navigation_decide_policy_ptr.is_null() {
@@ -1362,7 +1358,8 @@ declare_class!(
 );
 
 struct WryWebViewDelegateIvars {
-  ipc_handler: *mut Box<dyn Fn(Request<String>)>,
+  controller: Retained<WKUserContentController>,
+  ipc_handler: Box<dyn Fn(Request<String>)>,
 }
 
 declare_class!(
@@ -1393,27 +1390,25 @@ declare_class!(
         #[cfg(feature = "tracing")]
         let _span = tracing::info_span!("wry::ipc::handle").entered();
 
-        let ipc_handler = this.ivars().ipc_handler;
-        if !ipc_handler.is_null() {
-          let body = msg.body();
-          let is_string = Retained::cast::<NSObject>(body.clone()).isKindOfClass(NSString::class());
-          if is_string {
-            let body = Retained::cast::<NSString>(body);
-            let js_utf8 = body.UTF8String();
+        let ipc_handler = &this.ivars().ipc_handler;
+        let body = msg.body();
+        let is_string = Retained::cast::<NSObject>(body.clone()).isKindOfClass(NSString::class());
+        if is_string {
+          let body = Retained::cast::<NSString>(body);
+          let js_utf8 = body.UTF8String();
 
-            let frame_info = msg.frameInfo();
-            let request = frame_info.request();
-            let url = request.URL().unwrap();
-            let absolute_url = url.absoluteString().unwrap();
-            let url_utf8 = absolute_url.UTF8String();
+          let frame_info = msg.frameInfo();
+          let request = frame_info.request();
+          let url = request.URL().unwrap();
+          let absolute_url = url.absoluteString().unwrap();
+          let url_utf8 = absolute_url.UTF8String();
 
-            if let (Ok(url), Ok(js)) = (
-              CStr::from_ptr(url_utf8).to_str(),
-              CStr::from_ptr(js_utf8).to_str(),
-            ) {
-              (*ipc_handler)(Request::builder().uri(url).body(js.to_string()).unwrap());
-              return;
-            }
+          if let (Ok(url), Ok(js)) = (
+            CStr::from_ptr(url_utf8).to_str(),
+            CStr::from_ptr(js_utf8).to_str(),
+          ) {
+            ipc_handler(Request::builder().uri(url).body(js.to_string()).unwrap());
+            return;
           }
         }
 
@@ -1425,12 +1420,30 @@ declare_class!(
 );
 
 impl WryWebViewDelegate {
-  fn new(ipc_handler: *mut Box<dyn Fn(Request<String>)>, mtm: MainThreadMarker) -> Retained<Self> {
-    let this = mtm
+  fn new(
+    controller: Retained<WKUserContentController>,
+    ipc_handler: Box<dyn Fn(Request<String>)>,
+    mtm: MainThreadMarker,
+  ) -> Retained<Self> {
+    let delegate = mtm
       .alloc::<WryWebViewDelegate>()
-      .set_ivars(WryWebViewDelegateIvars { ipc_handler });
+      .set_ivars(WryWebViewDelegateIvars {
+        ipc_handler,
+        controller,
+      });
 
-    unsafe { msg_send_id![super(this), init] }
+    let delegate: Retained<Self> = unsafe { msg_send_id![super(delegate), init] };
+
+    let proto_delegate = ProtocolObject::from_ref(delegate.as_ref());
+    unsafe {
+      // this will increate the retain count of the delegate
+      delegate.ivars().controller.addScriptMessageHandler_name(
+        proto_delegate,
+        &NSString::from_str(IPC_MESSAGE_HANDLER_NAME),
+      );
+    }
+
+    delegate
   }
 }
 
