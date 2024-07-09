@@ -50,8 +50,7 @@ use std::{
   borrow::Cow,
   ffi::{c_void, CStr},
   os::raw::c_char,
-  ptr::{null, null_mut, NonNull},
-  rc::Rc,
+  ptr::{null_mut, NonNull},
   slice, str,
   sync::{Arc, Mutex},
 };
@@ -96,8 +95,6 @@ pub(crate) struct InnerWebView {
   document_title_changed_observer: Option<Retained<DocumentTitleChangedObserver>>,
   navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
   page_load_handler: *mut Box<dyn Fn(PageLoadEvent)>,
-  #[cfg(target_os = "macos")]
-  drag_drop_ptr: *mut Box<dyn Fn(crate::DragDropEvent) -> bool>,
   download_delegate: *mut AnyObject,
   protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>>,
 }
@@ -378,8 +375,8 @@ impl InnerWebView {
       let webview = mtm.alloc::<WryWebView>().set_ivars(WryWebViewIvars {
         #[cfg(target_os = "macos")]
         drag_drop_handler: match attributes.drag_drop_handler {
-          Some(handler) => Box::into_raw(Box::new(handler)),
-          None => Box::into_raw(Box::new(Box::new(|_| false))),
+          Some(handler) => handler,
+          None => Box::new(|_| false),
         },
         #[cfg(target_os = "macos")]
         accept_first_mouse: Bool::new(attributes.accept_first_mouse),
@@ -841,8 +838,6 @@ impl InnerWebView {
         ipc_handler_ptr,
         document_title_changed_observer,
         navigation_decide_policy_ptr,
-        #[cfg(target_os = "macos")]
-        drag_drop_ptr: webview.ivars().drag_drop_handler,
         page_load_handler,
         download_delegate,
         protocol_ptrs,
@@ -1245,11 +1240,6 @@ impl Drop for InnerWebView {
 
       drop_navigation_methods(self);
 
-      #[cfg(target_os = "macos")]
-      if !self.drag_drop_ptr.is_null() {
-        drop(Box::from_raw(self.drag_drop_ptr));
-      }
-
       if !self.download_delegate.is_null() {
         self.download_delegate.drop_in_place();
       }
@@ -1278,7 +1268,7 @@ unsafe fn window_position(view: &NSView, x: i32, y: i32, height: f64) -> CGPoint
 
 pub struct WryWebViewIvars {
   #[cfg(target_os = "macos")]
-  drag_drop_handler: *mut Box<dyn Fn(DragDropEvent) -> bool>,
+  drag_drop_handler: Box<dyn Fn(DragDropEvent) -> bool>,
   #[cfg(target_os = "macos")]
   accept_first_mouse: objc2::runtime::Bool,
 }
