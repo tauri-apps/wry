@@ -19,6 +19,7 @@ use objc2::{
   declare::ClassBuilder,
   declare_class,
   ffi::YES,
+  msg_send_id,
   mutability::MainThreadOnly,
   rc::{Allocated, Retained},
   runtime::{AnyClass, AnyObject, Bool, NSObject, ProtocolObject},
@@ -47,7 +48,6 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
   borrow::Cow,
-  cell::RefCell,
   ffi::{c_void, CStr},
   os::raw::c_char,
   ptr::{null_mut, NonNull},
@@ -161,48 +161,6 @@ impl InnerWebView {
     is_child: bool,
   ) -> Result<Self> {
     let mtm = MainThreadMarker::new().ok_or(Error::NotMainThread)?;
-
-    // Function for ipc handler
-    extern "C" fn did_receive(
-      this: &AnyObject,
-      _: objc2::runtime::Sel,
-      _: &AnyObject,
-      msg: &WKScriptMessage,
-    ) {
-      // Safety: objc runtime calls are unsafe
-      unsafe {
-        #[cfg(feature = "tracing")]
-        let _span = tracing::info_span!("wry::ipc::handle").entered();
-
-        let function = this.get_ivar::<*mut c_void>("function");
-        if !function.is_null() {
-          let function = &mut *(*function as *mut Box<dyn Fn(Request<String>)>);
-          let body = msg.body();
-          let is_string = Retained::cast::<NSObject>(body.clone()).isKindOfClass(NSString::class());
-          if is_string {
-            let body = Retained::cast::<NSString>(body);
-            let js_utf8 = body.UTF8String();
-
-            let frame_info = msg.frameInfo();
-            let request = frame_info.request();
-            let url = request.URL().unwrap();
-            let absolute_url = url.absoluteString().unwrap();
-            let url_utf8 = absolute_url.UTF8String();
-
-            if let (Ok(url), Ok(js)) = (
-              CStr::from_ptr(url_utf8).to_str(),
-              CStr::from_ptr(js_utf8).to_str(),
-            ) {
-              (function)(Request::builder().uri(url).body(js.to_string()).unwrap());
-              return;
-            }
-          }
-        }
-
-        #[cfg(feature = "tracing")]
-        tracing::warn!("WebView received invalid IPC call.");
-      }
-    }
 
     // Task handler for custom protocol
     extern "C" fn start_task(
@@ -420,8 +378,8 @@ impl InnerWebView {
       let webview = mtm.alloc::<WryWebView>().set_ivars(WryWebViewIvars {
         #[cfg(target_os = "macos")]
         drag_drop_handler: match attributes.drag_drop_handler {
-          Some(handler) => RefCell::new(handler),
-          None => RefCell::new(Box::new(|_| false)),
+          Some(handler) => Box::into_raw(Box::new(handler)),
+          None => Box::into_raw(Box::new(Box::new(|_| false))),
         },
         #[cfg(target_os = "macos")]
         accept_first_mouse: Bool::new(attributes.accept_first_mouse),
@@ -448,7 +406,7 @@ impl InnerWebView {
         let () = msg_send![data_store, setProxyConfigurations: proxies];
       }
 
-      _preference.as_super().setValue_forKey(
+      _preference.setValue_forKey(
         Some(&_yes),
         ns_string!("allowsPictureInPictureMediaPlayback"),
       );
@@ -470,9 +428,7 @@ impl InnerWebView {
       #[cfg(feature = "fullscreen")]
       // Equivalent Obj-C:
       // [preference setValue:@YES forKey:@"fullScreenEnabled"];
-      _preference
-        .as_super()
-        .setValue_forKey(Some(&_yes), ns_string!("fullScreenEnabled"));
+      _preference.setValue_forKey(Some(&_yes), ns_string!("fullScreenEnabled"));
 
       #[cfg(target_os = "macos")]
       let webview = {
@@ -534,13 +490,10 @@ impl InnerWebView {
         }
 
         // allowsBackForwardNavigation
-        let value = attributes.back_forward_navigation_gestures;
-        webview.setAllowsBackForwardNavigationGestures(value);
+        webview.setAllowsBackForwardNavigationGestures(attributes.back_forward_navigation_gestures);
 
         // tabFocusesLinks
-        _preference
-          .as_super()
-          .setValue_forKey(Some(&_yes), ns_string!("tabFocusesLinks"));
+        _preference.setValue_forKey(Some(&_yes), ns_string!("tabFocusesLinks"));
       }
       #[cfg(target_os = "ios")]
       {
@@ -571,29 +524,12 @@ impl InnerWebView {
 
       // Message handler
       let ipc_handler_ptr = if let Some(ipc_handler) = attributes.ipc_handler {
-        let cls = ClassBuilder::new("WebViewDelegate", NSObject::class());
-        let cls = match cls {
-          Some(mut cls) => {
-            cls.add_ivar::<*mut c_void>("function");
-            cls.add_method(
-              objc2::sel!(userContentController:didReceiveScriptMessage:),
-              did_receive as extern "C" fn(_, _, _, _),
-            );
-            cls.register()
-          }
-          None => class!(WebViewDelegate),
-        };
-        let handler: *mut AnyObject = objc2::msg_send![cls, new];
         let ipc_handler_ptr = Box::into_raw(Box::new(ipc_handler));
-
-        let ivar = (*handler).class().instance_variable("function").unwrap();
-        let ivar_delegate = ivar.load_mut(&mut *handler);
-        *ivar_delegate = ipc_handler_ptr as *mut _ as *mut c_void;
-
-        let ipc = NSString::from_str(IPC_MESSAGE_HANDLER_NAME);
+        let delegate = WryWebViewDelegate::new(ipc_handler_ptr, mtm);
+        let proto_delegate = ProtocolObject::from_ref(delegate.as_ref());
         manager.addScriptMessageHandler_name(
-          &*(handler.cast::<ProtocolObject<dyn WKScriptMessageHandler>>()),
-          &ipc,
+          proto_delegate,
+          &NSString::from_str(IPC_MESSAGE_HANDLER_NAME),
         );
         ipc_handler_ptr
       } else {
@@ -933,10 +869,6 @@ impl InnerWebView {
         objc2::msg_send_id![ui_delegate, new];
       webview.setUIDelegate(Some(&*ui_delegate));
 
-      // File drop handling
-      #[cfg(target_os = "macos")]
-      let drag_drop_ptr = webview.ivars().drag_drop_handler.as_ptr();
-
       // ns window is required for the print operation
       #[cfg(target_os = "macos")]
       {
@@ -956,7 +888,7 @@ impl InnerWebView {
         document_title_changed_handler,
         navigation_decide_policy_ptr,
         #[cfg(target_os = "macos")]
-        drag_drop_ptr,
+        drag_drop_ptr: webview.ivars().drag_drop_handler,
         page_load_handler,
         download_delegate,
         protocol_ptrs,
@@ -1365,7 +1297,7 @@ impl Drop for InnerWebView {
 
       #[cfg(target_os = "macos")]
       if !self.drag_drop_ptr.is_null() {
-        drop(Rc::from_raw(self.drag_drop_ptr));
+        drop(Box::from_raw(self.drag_drop_ptr));
       }
 
       if !self.download_delegate.is_null() {
@@ -1396,7 +1328,7 @@ unsafe fn window_position(view: &NSView, x: i32, y: i32, height: f64) -> CGPoint
 
 pub struct WryWebViewIvars {
   #[cfg(target_os = "macos")]
-  drag_drop_handler: RefCell<Box<dyn Fn(DragDropEvent) -> bool>>,
+  drag_drop_handler: *mut Box<dyn Fn(DragDropEvent) -> bool>,
   #[cfg(target_os = "macos")]
   accept_first_mouse: objc2::runtime::Bool,
 }
@@ -1488,3 +1420,76 @@ declare_class!(
     }
   }
 );
+
+struct WryWebViewDelegateIvars {
+  ipc_handler: *mut Box<dyn Fn(Request<String>)>,
+}
+
+declare_class!(
+  struct WryWebViewDelegate;
+
+  unsafe impl ClassType for WryWebViewDelegate {
+    type Super = NSObject;
+    type Mutability = MainThreadOnly;
+    const NAME: &'static str = "WryWebViewDelegate";
+  }
+
+  impl DeclaredClass for WryWebViewDelegate {
+    type Ivars = WryWebViewDelegateIvars;
+  }
+
+  unsafe impl NSObjectProtocol for WryWebViewDelegate {}
+
+  unsafe impl WKScriptMessageHandler for WryWebViewDelegate {
+    // Function for ipc handler
+    #[method(userContentController:didReceiveScriptMessage:)]
+    fn did_receive(
+      this: &WryWebViewDelegate,
+      _controller: &WKUserContentController,
+      msg: &WKScriptMessage,
+    ) {
+      // Safety: objc runtime calls are unsafe
+      unsafe {
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!("wry::ipc::handle").entered();
+
+        let ipc_handler = this.ivars().ipc_handler;
+        if !ipc_handler.is_null() {
+          let body = msg.body();
+          let is_string = Retained::cast::<NSObject>(body.clone()).isKindOfClass(NSString::class());
+          if is_string {
+            let body = Retained::cast::<NSString>(body);
+            let js_utf8 = body.UTF8String();
+
+            let frame_info = msg.frameInfo();
+            let request = frame_info.request();
+            let url = request.URL().unwrap();
+            let absolute_url = url.absoluteString().unwrap();
+            let url_utf8 = absolute_url.UTF8String();
+
+            if let (Ok(url), Ok(js)) = (
+              CStr::from_ptr(url_utf8).to_str(),
+              CStr::from_ptr(js_utf8).to_str(),
+            ) {
+              (*ipc_handler)(Request::builder().uri(url).body(js.to_string()).unwrap());
+              return;
+            }
+          }
+        }
+
+        #[cfg(feature = "tracing")]
+        tracing::warn!("WebView received invalid IPC call.");
+      }
+    }
+  }
+);
+
+impl WryWebViewDelegate {
+  fn new(ipc_handler: *mut Box<dyn Fn(Request<String>)>, mtm: MainThreadMarker) -> Retained<Self> {
+    let this = mtm
+      .alloc::<WryWebViewDelegate>()
+      .set_ivars(WryWebViewDelegateIvars { ipc_handler });
+
+    unsafe { msg_send_id![super(this), init] }
+  }
+}
