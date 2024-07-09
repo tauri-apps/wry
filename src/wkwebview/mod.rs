@@ -50,7 +50,7 @@ use std::{
   borrow::Cow,
   ffi::{c_void, CStr},
   os::raw::c_char,
-  ptr::{null_mut, NonNull},
+  ptr::{null, null_mut, NonNull},
   rc::Rc,
   slice, str,
   sync::{Arc, Mutex},
@@ -394,7 +394,7 @@ impl InnerWebView {
         let proxy_config = match proxy_config {
           ProxyConfig::Http(endpoint) => {
             let nw_endpoint = nw_endpoint_t::try_from(endpoint).unwrap();
-            nw_proxy_config_create_http_connect(nw_endpoint, nil)
+            nw_proxy_config_create_http_connect(nw_endpoint, null_mut())
           }
           ProxyConfig::Socks5(endpoint) => {
             let nw_endpoint = nw_endpoint_t::try_from(endpoint).unwrap();
@@ -402,8 +402,8 @@ impl InnerWebView {
           }
         };
 
-        let proxies: id = msg_send![class!(NSArray), arrayWithObject: proxy_config];
-        let () = msg_send![data_store, setProxyConfigurations: proxies];
+        let proxies: Retained<NSArray<NSObject>> = NSArray::arrayWithObject(&*proxy_config);
+        data_store.setValue_forKey(Some(&proxies), ns_string!("proxyConfigurations"));
       }
 
       _preference.setValue_forKey(
