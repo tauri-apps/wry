@@ -13,7 +13,11 @@ mod synthetic_mouse_events;
 
 use block2::Block;
 
+use download::{navigation_download_action, navigation_download_response};
 use dpi::{LogicalPosition, LogicalSize};
+use navigation::{
+  did_commit_navigation, did_finish_navigation, navigation_policy, navigation_policy_response,
+};
 use objc2::{
   class,
   declare::ClassBuilder,
@@ -30,19 +34,21 @@ use objc2_app_kit::{
   NSModalResponse, NSModalResponseOK, NSPrintInfo, NSTitlebarSeparatorStyle, NSView,
 };
 use objc2_foundation::{
-  ns_string, CGPoint, CGRect, CGSize, MainThreadMarker, NSArray, NSBundle, NSDate, NSDictionary,
-  NSError, NSHTTPURLResponse, NSJSONSerialization, NSKeyValueChangeKey, NSKeyValueObservingOptions,
-  NSMutableDictionary, NSMutableURLRequest, NSNumber, NSObjectNSKeyValueCoding,
-  NSObjectNSKeyValueObserverRegistration, NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL,
+  ns_string, CGPoint, CGRect, CGSize, MainThreadMarker, NSArray, NSBundle, NSData, NSDate,
+  NSDictionary, NSError, NSHTTPURLResponse, NSJSONSerialization, NSKeyValueChangeKey,
+  NSKeyValueObservingOptions, NSMutableDictionary, NSMutableURLRequest, NSNumber,
+  NSObjectNSKeyValueCoding, NSObjectNSKeyValueObserverRegistration, NSObjectProtocol, NSString,
+  NSURLResponse, NSUTF8StringEncoding, NSURL,
 };
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::UIScrollView;
 use objc2_web_kit::{
-  WKAudiovisualMediaTypes, WKFrameInfo, WKMediaCaptureType, WKNavigationAction,
-  WKNavigationActionPolicy, WKNavigationDelegate, WKNavigationResponse, WKNavigationResponsePolicy,
-  WKOpenPanelParameters, WKPermissionDecision, WKScriptMessage, WKScriptMessageHandler,
-  WKSecurityOrigin, WKUIDelegate, WKURLSchemeTask, WKUserContentController, WKUserScript,
-  WKUserScriptInjectionTime, WKWebView, WKWebViewConfiguration, WKWebsiteDataStore,
+  WKAudiovisualMediaTypes, WKDownload, WKDownloadDelegate, WKFrameInfo, WKMediaCaptureType,
+  WKNavigation, WKNavigationAction, WKNavigationActionPolicy, WKNavigationDelegate,
+  WKNavigationResponse, WKNavigationResponsePolicy, WKOpenPanelParameters, WKPermissionDecision,
+  WKScriptMessage, WKScriptMessageHandler, WKSecurityOrigin, WKUIDelegate, WKURLSchemeTask,
+  WKUserContentController, WKUserScript, WKUserScriptInjectionTime, WKWebView,
+  WKWebViewConfiguration, WKWebsiteDataStore,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
@@ -50,7 +56,9 @@ use std::{
   borrow::Cow,
   ffi::{c_void, CStr},
   os::raw::c_char,
+  path::PathBuf,
   ptr::{null_mut, NonNull},
+  rc::Rc,
   slice, str,
   sync::{Arc, Mutex},
 };
@@ -64,13 +72,7 @@ use crate::{
 };
 
 use crate::{
-  wkwebview::{
-    download::{
-      add_download_methods, download_did_fail, download_did_finish, download_policy,
-      set_download_delegate,
-    },
-    navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
-  },
+  wkwebview::download::{download_did_fail, download_did_finish, download_policy},
   DragDropEvent, Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebContext,
   WebViewAttributes, RGBA,
 };
@@ -92,10 +94,15 @@ pub(crate) struct InnerWebView {
   // Note that if following functions signatures are changed in the future,
   // all functions pointer declarations in objc callbacks below all need to get updated.
   ipc_handler_delegate: Option<Retained<WryWebViewDelegate>>,
+  #[allow(dead_code)]
+  // We need this the keep the reference count
   document_title_changed_observer: Option<Retained<DocumentTitleChangedObserver>>,
-  navigation_decide_policy_ptr: *mut Box<dyn Fn(String, bool) -> bool>,
-  page_load_handler: *mut Box<dyn Fn(PageLoadEvent)>,
-  download_delegate: *mut AnyObject,
+  #[allow(dead_code)]
+  // We need this the keep the reference count
+  navigation_policy_delegate: Retained<WryNavigationDelegate>,
+  #[allow(dead_code)]
+  // We need this the keep the reference count
+  download_delegate: Option<Retained<WryDownloadDelegate>>,
   protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>>,
 }
 
@@ -536,222 +543,36 @@ impl InnerWebView {
           None
         };
 
-      // Navigation handler
-      extern "C" fn navigation_policy(
-        this: &AnyObject,
-        _: objc2::runtime::Sel,
-        _: &AnyObject,
-        action: &WKNavigationAction,
-        handler: &block2::Block<dyn Fn(WKNavigationActionPolicy)>,
-      ) {
-        unsafe {
-          // shouldPerformDownload is only available on macOS 11.3+
-          let can_download = action.respondsToSelector(objc2::sel!(shouldPerformDownload));
-          let should_download: bool = if can_download {
-            action.shouldPerformDownload()
-          } else {
-            false
-          };
-          let request = action.request();
-          let url = request.URL().unwrap().absoluteString().unwrap();
-          let target_frame = action.targetFrame().unwrap();
-          let is_main_frame = target_frame.isMainFrame();
-
-          if should_download {
-            let has_download_handler = this.get_ivar::<*mut c_void>("HasDownloadHandler");
-            if !has_download_handler.is_null() {
-              let has_download_handler = &mut *(*has_download_handler as *mut Box<bool>);
-              if **has_download_handler {
-                (*handler).call((WKNavigationActionPolicy::Download,));
-              } else {
-                (*handler).call((WKNavigationActionPolicy::Cancel,));
-              }
-            } else {
-              (*handler).call((WKNavigationActionPolicy::Cancel,));
-            }
-          } else {
-            let function = this.get_ivar::<*mut c_void>("navigation_policy_function");
-            if !function.is_null() {
-              let function = &mut *(*function as *mut Box<dyn for<'s> Fn(String, bool) -> bool>);
-              match (function)(url.to_string(), is_main_frame) {
-                true => (*handler).call((WKNavigationActionPolicy::Allow,)),
-                false => (*handler).call((WKNavigationActionPolicy::Cancel,)),
-              };
-            } else {
-              (*handler).call((WKNavigationActionPolicy::Allow,));
-            }
-          }
-        }
-      }
-
-      // Navigation handler
-      extern "C" fn navigation_policy_response(
-        this: &AnyObject,
-        _: objc2::runtime::Sel,
-        _: &AnyObject,
-        response: &WKNavigationResponse,
-        handler: &block2::Block<dyn Fn(WKNavigationResponsePolicy)>,
-      ) {
-        unsafe {
-          let can_show_mime_type = response.canShowMIMEType();
-
-          if !can_show_mime_type {
-            let has_download_handler = this.get_ivar::<*mut c_void>("HasDownloadHandler");
-            if !has_download_handler.is_null() {
-              let has_download_handler = &mut *(*has_download_handler as *mut Box<bool>);
-              if **has_download_handler {
-                (*handler).call((WKNavigationResponsePolicy::Download,));
-                return;
-              }
-            }
-          }
-
-          (*handler).call((WKNavigationResponsePolicy::Allow,));
-        }
-      }
-
       let pending_scripts = Arc::new(Mutex::new(Some(Vec::new())));
-
-      let navigation_delegate_cls =
-        match ClassBuilder::new("WryNavigationDelegate", NSObject::class()) {
-          Some(mut cls) => {
-            cls.add_ivar::<*mut c_void>("pending_scripts");
-            cls.add_ivar::<*mut c_void>("HasDownloadHandler");
-            cls.add_method(
-              objc2::sel!(webView:decidePolicyForNavigationAction:decisionHandler:),
-              navigation_policy as extern "C" fn(_, _, _, _, _),
-            );
-            cls.add_method(
-              objc2::sel!(webView:decidePolicyForNavigationResponse:decisionHandler:),
-              navigation_policy_response as extern "C" fn(_, _, _, _, _),
-            );
-            add_download_methods(&mut cls);
-            add_navigation_mathods(&mut cls);
-            cls.register()
-          }
-          None => objc2::class!(WryNavigationDelegate),
-        };
-
-      let navigation_policy_handler: Retained<AnyObject> =
-        objc2::msg_send_id![navigation_delegate_cls, new];
-
-      let ivar = (*navigation_policy_handler)
-        .class()
-        .instance_variable("pending_scripts")
-        .unwrap();
-      let ivar_delegate =
-        ivar.load_mut(&mut *Retained::into_raw(navigation_policy_handler.clone()));
-      *ivar_delegate = Box::into_raw(Box::new(pending_scripts.clone())) as *mut c_void;
-
-      let (navigation_decide_policy_ptr, download_delegate) = if attributes
-        .navigation_handler
-        .is_some()
-        || attributes.new_window_req_handler.is_some()
-        || attributes.download_started_handler.is_some()
+      let has_download_handler = attributes.download_started_handler.is_some();
+      // Download handler
+      let download_delegate = if attributes.download_started_handler.is_some()
+        || attributes.download_completed_handler.is_some()
       {
-        let function_ptr = {
-          let navigation_handler = attributes.navigation_handler;
-          let new_window_req_handler = attributes.new_window_req_handler;
-          Box::into_raw(Box::new(
-            Box::new(move |url: String, is_main_frame: bool| -> bool {
-              if is_main_frame {
-                navigation_handler
-                  .as_ref()
-                  .map_or(true, |navigation_handler| (navigation_handler)(url))
-              } else {
-                new_window_req_handler
-                  .as_ref()
-                  .map_or(true, |new_window_req_handler| (new_window_req_handler)(url))
-              }
-            }) as Box<dyn Fn(String, bool) -> bool>,
-          ))
-        };
-
-        let ivar = navigation_policy_handler
-          .class()
-          .instance_variable("navigation_policy_function")
-          .unwrap();
-        let ivar_delegate =
-          ivar.load_mut(&mut *Retained::into_raw(navigation_policy_handler.clone()));
-        *ivar_delegate = function_ptr as *mut c_void;
-
-        let has_download_handler = Box::into_raw(Box::new(Box::new(
-          attributes.download_started_handler.is_some(),
-        )));
-        let ivar = navigation_policy_handler
-          .class()
-          .instance_variable("HasDownloadHandler")
-          .unwrap();
-        let ivar_delegate =
-          ivar.load_mut(&mut *Retained::into_raw(navigation_policy_handler.clone()));
-        *ivar_delegate = has_download_handler as *mut c_void;
-
-        // Download handler
-        let download_delegate = if attributes.download_started_handler.is_some()
-          || attributes.download_completed_handler.is_some()
-        {
-          let cls = match ClassBuilder::new("WryDownloadDelegate", NSObject::class()) {
-            Some(mut cls) => {
-              cls.add_ivar::<*mut c_void>("started");
-              cls.add_ivar::<*mut c_void>("completed");
-              cls.add_method(
-                objc2::sel!(download:decideDestinationUsingResponse:suggestedFilename:completionHandler:),
-                download_policy as extern "C" fn(_, _, _, _, _, _),
-              );
-              cls.add_method(
-                objc2::sel!(downloadDidFinish:),
-                download_did_finish as extern "C" fn(_, _, _),
-              );
-              cls.add_method(
-                objc2::sel!(download:didFailWithError:resumeData:),
-                download_did_fail as extern "C" fn(_, _, _, _, _),
-              );
-              cls.register()
-            }
-            None => objc2::class!(WryDownloadDelegate),
-          };
-
-          let download_delegate: Retained<AnyObject> = objc2::msg_send_id![cls, new];
-          if let Some(download_started_handler) = attributes.download_started_handler {
-            let download_started_ptr = Box::into_raw(Box::new(download_started_handler));
-            let ivar = download_delegate
-              .class()
-              .instance_variable("started")
-              .unwrap();
-            let ivar_delegate = ivar.load_mut(&mut *Retained::into_raw(download_delegate.clone()));
-            *ivar_delegate = download_started_ptr as *mut _ as *mut c_void;
-          }
-          if let Some(download_completed_handler) = attributes.download_completed_handler {
-            let download_completed_ptr = Box::into_raw(Box::new(download_completed_handler));
-            let ivar = download_delegate
-              .class()
-              .instance_variable("completed")
-              .unwrap();
-            let ivar_delegate = ivar.load_mut(&mut *Retained::into_raw(download_delegate.clone()));
-            *ivar_delegate = download_completed_ptr as *mut _ as *mut c_void;
-          }
-
-          set_download_delegate(navigation_policy_handler.clone(), download_delegate.clone());
-
-          Retained::into_raw(navigation_policy_handler.clone())
-        } else {
-          null_mut()
-        };
-
-        (function_ptr, download_delegate)
+        let delegate = WryDownloadDelegate::new(
+          attributes.download_started_handler,
+          attributes.download_completed_handler,
+          mtm,
+        );
+        Some(delegate)
       } else {
-        (null_mut(), null_mut())
+        None
       };
 
-      let page_load_handler = set_navigation_methods(
-        Retained::into_raw(navigation_policy_handler.clone()),
+      let navigation_policy_delegate = WryNavigationDelegate::new(
         webview.clone(),
+        pending_scripts.clone(),
+        has_download_handler,
+        attributes.navigation_handler,
+        attributes.new_window_req_handler,
+        download_delegate.clone(),
         attributes.on_page_load_handler,
+        mtm,
       );
 
-      webview.setNavigationDelegate(Some(
-        &(Retained::cast::<ProtocolObject<dyn WKNavigationDelegate>>(navigation_policy_handler)),
-      ));
+      let proto_navigation_policy_delegate =
+        ProtocolObject::from_ref(navigation_policy_delegate.as_ref());
+      webview.setNavigationDelegate(Some(proto_navigation_policy_delegate));
 
       // File upload panel handler
       extern "C" fn run_file_upload_panel(
@@ -831,8 +652,7 @@ impl InnerWebView {
         pending_scripts,
         ipc_handler_delegate,
         document_title_changed_observer,
-        navigation_decide_policy_ptr,
-        page_load_handler,
+        navigation_policy_delegate,
         download_delegate,
         protocol_ptrs,
         is_child,
@@ -1230,16 +1050,6 @@ impl Drop for InnerWebView {
           .removeScriptMessageHandlerForName(&ipc);
       }
 
-      if !self.navigation_decide_policy_ptr.is_null() {
-        drop(Box::from_raw(self.navigation_decide_policy_ptr));
-      }
-
-      drop_navigation_methods(self);
-
-      if !self.download_delegate.is_null() {
-        self.download_delegate.drop_in_place();
-      }
-
       for ptr in self.protocol_ptrs.iter() {
         if !ptr.is_null() {
           drop(Box::from_raw(*ptr));
@@ -1523,6 +1333,223 @@ impl Drop for DocumentTitleChangedObserver {
         .ivars()
         .object
         .removeObserver_forKeyPath(&self, &NSString::from_str("title"));
+    }
+  }
+}
+
+pub struct WryNavigationDelegateIvars {
+  pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
+  has_download_handler: bool,
+  navigation_policy_function: Box<dyn Fn(String, bool) -> bool>,
+  download_delegate: Option<Retained<WryDownloadDelegate>>,
+  on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent)>>,
+}
+
+declare_class!(
+  pub struct WryNavigationDelegate;
+
+  unsafe impl ClassType for WryNavigationDelegate {
+    type Super = NSObject;
+    type Mutability = MainThreadOnly;
+    const NAME: &'static str = "WryNavigationDelegate";
+  }
+
+  impl DeclaredClass for WryNavigationDelegate {
+    type Ivars = WryNavigationDelegateIvars;
+  }
+
+  unsafe impl NSObjectProtocol for WryNavigationDelegate {}
+
+  unsafe impl WKNavigationDelegate for WryNavigationDelegate {
+    #[method(webView:decidePolicyForNavigationAction:decisionHandler:)]
+    fn navigation_policy(
+      &self,
+      webview: &WKWebView,
+      action: &WKNavigationAction,
+      handler: &block2::Block<dyn Fn(WKNavigationActionPolicy)>,
+    ) {
+      navigation_policy(self, webview, action, handler);
+    }
+
+    #[method(webView:decidePolicyForNavigationResponse:decisionHandler:)]
+    fn navigation_policy_response(
+      &self,
+      webview: &WKWebView,
+      response: &WKNavigationResponse,
+      handler: &block2::Block<dyn Fn(WKNavigationResponsePolicy)>,
+    ) {
+      navigation_policy_response(self, webview, response, handler);
+    }
+
+    #[method(webView:didFinishNavigation:)]
+    fn did_finish_navigation(
+      &self,
+      webview: &WKWebView,
+      navigation: &WKNavigation,
+    ) {
+      did_finish_navigation(self, webview, navigation);
+    }
+
+    #[method(webView:didCommitNavigation:)]
+    fn did_commit_navigation(
+      &self,
+      webview: &WKWebView,
+      navigation: &WKNavigation,
+    ) {
+      did_commit_navigation(self, webview, navigation);
+    }
+
+    #[method(webView:navigationAction:didBecomeDownload:)]
+    fn navigation_download_action(
+      &self,
+      webview: &WKWebView,
+      action: &WKNavigationAction,
+      download: &WKDownload,
+    ) {
+      navigation_download_action(self, webview, action, download);
+    }
+
+    #[method(webView:navigationResponse:didBecomeDownload:)]
+    fn navigation_download_response(
+      &self,
+      webview: &WKWebView,
+      response: &WKNavigationResponse,
+      download: &WKDownload,
+    ) {
+      navigation_download_response(self, webview, response, download);
+    }
+  }
+);
+
+impl WryNavigationDelegate {
+  fn new(
+    webview: Retained<WryWebView>,
+    pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
+    has_download_handler: bool,
+    navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
+    new_window_req_handler: Option<Box<dyn Fn(String) -> bool>>,
+    download_delegate: Option<Retained<WryDownloadDelegate>>,
+    on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
+    mtm: MainThreadMarker,
+  ) -> Retained<Self> {
+    let navigation_policy_function = Box::new(move |url: String, is_main_frame: bool| -> bool {
+      if is_main_frame {
+        navigation_handler
+          .as_ref()
+          .map_or(true, |navigation_handler| (navigation_handler)(url))
+      } else {
+        new_window_req_handler
+          .as_ref()
+          .map_or(true, |new_window_req_handler| (new_window_req_handler)(url))
+      }
+    });
+
+    let on_page_load_handler = if let Some(on_page_load_handler) = on_page_load_handler {
+      let on_page_load_handler = Box::new(move |event| {
+        on_page_load_handler(event, url_from_webview(&webview).unwrap_or_default());
+      }) as Box<dyn Fn(PageLoadEvent)>;
+
+      Some(on_page_load_handler)
+    } else {
+      None
+    };
+
+    let delegate = mtm
+      .alloc::<WryNavigationDelegate>()
+      .set_ivars(WryNavigationDelegateIvars {
+        pending_scripts,
+        navigation_policy_function,
+        has_download_handler,
+        download_delegate,
+        on_page_load_handler,
+      });
+
+    unsafe { msg_send_id![super(delegate), init] }
+  }
+}
+
+pub struct WryDownloadDelegateIvars {
+  started: *mut Box<dyn FnMut(String, &mut PathBuf) -> bool>,
+  completed: *mut Rc<dyn Fn(String, Option<PathBuf>, bool)>,
+}
+
+declare_class!(
+  pub struct WryDownloadDelegate;
+
+  unsafe impl ClassType for WryDownloadDelegate {
+    type Super = NSObject;
+    type Mutability = MainThreadOnly;
+    const NAME: &'static str = "WryDownloadDelegate";
+  }
+
+  impl DeclaredClass for WryDownloadDelegate {
+    type Ivars = WryDownloadDelegateIvars;
+  }
+
+  unsafe impl NSObjectProtocol for WryDownloadDelegate {}
+
+  unsafe impl WKDownloadDelegate for WryDownloadDelegate {
+    #[method(download:decideDestinationUsingResponse:suggestedFilename:completionHandler:)]
+    fn download_policy(
+      &self,
+      download: &WKDownload,
+      response: &NSURLResponse,
+      suggested_path: &NSString,
+      handler: &block2::Block<dyn Fn(*const NSURL)>,
+    ) {
+      download_policy(self, download, response, suggested_path, handler);
+    }
+
+    #[method(downloadDidFinish:)]
+    fn download_did_finish(&self, download: &WKDownload) {
+      download_did_finish(self, download);
+    }
+
+    #[method(download:didFailWithError:resumeData:)]
+    fn download_did_fail(
+      &self,
+      download: &WKDownload,
+      error: &NSError,
+      resume_data: &NSData,
+    ) {
+      download_did_fail(self, download, error, resume_data);
+    }
+  }
+);
+
+impl WryDownloadDelegate {
+  fn new(
+    download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
+    download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool)>>,
+    mtm: MainThreadMarker,
+  ) -> Retained<Self> {
+    let started = match download_started_handler {
+      Some(handler) => Box::into_raw(Box::new(handler)),
+      None => null_mut(),
+    };
+    let completed = match download_completed_handler {
+      Some(handler) => Box::into_raw(Box::new(handler)),
+      None => null_mut(),
+    };
+    let delegate = mtm
+      .alloc::<WryDownloadDelegate>()
+      .set_ivars(WryDownloadDelegateIvars { started, completed });
+
+    unsafe { msg_send_id![super(delegate), init] }
+  }
+}
+
+impl Drop for WryDownloadDelegate {
+  fn drop(&mut self) {
+    if self.ivars().started != null_mut() {
+      unsafe {
+        drop(Box::from_raw(self.ivars().started));
+      }
+    }
+    if self.ivars().completed != null_mut() {
+      unsafe {
+        drop(Box::from_raw(self.ivars().completed));
+      }
     }
   }
 }

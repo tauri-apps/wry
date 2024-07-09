@@ -1,81 +1,45 @@
-use std::{path::PathBuf, ptr::null_mut, rc::Rc};
+use std::{path::PathBuf, ptr::null_mut};
 
-use objc2::{
-  declare::ClassBuilder,
-  rc::Retained,
-  runtime::{AnyObject, NSObject, ProtocolObject, Sel},
-};
-use objc2_foundation::{NSError, NSString, NSURL};
-use objc2_web_kit::{WKDownload, WKDownloadDelegate, WKWebView};
-use std::ffi::c_void;
+use objc2::{rc::Retained, runtime::ProtocolObject, DeclaredClass};
+use objc2_foundation::{NSData, NSError, NSString, NSURLResponse, NSURL};
+use objc2_web_kit::{WKDownload, WKNavigationAction, WKNavigationResponse, WKWebView};
 
-pub(crate) unsafe fn set_download_delegate(
-  navigation: Retained<AnyObject>,
-  download_delegate: Retained<AnyObject>,
-) {
-  let ivar = navigation
-    .class()
-    .instance_variable("DownloadDelegate")
-    .unwrap();
-  let ivar_delegate = ivar.load_mut::<*mut c_void>(&mut *Retained::into_raw(navigation));
-  *ivar_delegate = Retained::into_raw(download_delegate.clone()) as *mut _ as *mut c_void;
-}
-
-unsafe fn get_download_delegate(this: &WKWebView) -> &ProtocolObject<dyn WKDownloadDelegate> {
-  let ivar = this.class().instance_variable("DownloadDelegate").unwrap();
-  let value = ivar.load::<&ProtocolObject<dyn WKDownloadDelegate>>(this);
-  value
-}
+use crate::{WryDownloadDelegate, WryNavigationDelegate};
 
 // Download action handler
-extern "C" fn navigation_download_action(
-  this: &WKWebView,
-  _: Sel,
-  _: &AnyObject,
-  _: &AnyObject,
+pub(crate) fn navigation_download_action(
+  this: &WryNavigationDelegate,
+  _webview: &WKWebView,
+  _action: &WKNavigationAction,
   download: &WKDownload,
 ) {
   unsafe {
-    let delegate = get_download_delegate(&this);
-    download.setDelegate(Some(delegate));
-    // let _: () = msg_send![download, setDelegate: delegate];
+    if let Some(delegate) = &this.ivars().download_delegate {
+      let proto_delegate = ProtocolObject::from_ref(delegate.as_ref());
+      download.setDelegate(Some(proto_delegate));
+    }
   }
 }
 
 // Download response handler
-extern "C" fn navigation_download_response(
-  this: &WKWebView,
-  _: Sel,
-  _: &AnyObject,
-  _: &AnyObject,
+pub(crate) fn navigation_download_response(
+  this: &WryNavigationDelegate,
+  _webview: &WKWebView,
+  _response: &WKNavigationResponse,
   download: &WKDownload,
 ) {
   unsafe {
-    let delegate = get_download_delegate(this);
-    download.setDelegate(Some(delegate));
-    // let _: () = msg_send![download, setDelegate: delegate];
+    if let Some(delegate) = &this.ivars().download_delegate {
+      let proto_delegate = ProtocolObject::from_ref(delegate.as_ref());
+      download.setDelegate(Some(proto_delegate));
+    }
   }
 }
 
-pub(crate) unsafe fn add_download_methods(decl: &mut ClassBuilder) {
-  decl.add_ivar::<*mut c_void>("DownloadDelegate");
-
-  decl.add_method(
-    objc2::sel!(webView:navigationAction:didBecomeDownload:),
-    navigation_download_action as extern "C" fn(_, _, _, _, _),
-  );
-
-  decl.add_method(
-    objc2::sel!(webView:navigationResponse:didBecomeDownload:),
-    navigation_download_response as extern "C" fn(_, _, _, _, _),
-  );
-}
-
-pub extern "C" fn download_policy(
-  this: &NSObject,
-  _: Sel,
+pub(crate) fn download_policy(
+  this: &WryDownloadDelegate,
   download: &WKDownload,
-  _response: &AnyObject,
+  _response: &NSURLResponse,
   suggested_path: &NSString,
   completion_handler: &block2::Block<dyn Fn(*const NSURL)>,
 ) {
@@ -84,10 +48,9 @@ pub extern "C" fn download_policy(
     let url = request.URL().unwrap().absoluteString().unwrap();
     let mut path = PathBuf::from(suggested_path.to_string());
 
-    let function = (*this).get_ivar::<*mut c_void>("started");
+    let function = this.ivars().started;
     if !function.is_null() {
-      let function = &mut *(*function as *mut Box<dyn for<'s> FnMut(String, &mut PathBuf) -> bool>);
-      match (function)(url.to_string().to_string(), &mut path) {
+      match (*function)(url.to_string().to_string(), &mut path) {
         true => {
           let path = NSString::from_str(&path.display().to_string());
           let ns_url = NSURL::fileURLWithPath_isDirectory(&path, false);
@@ -103,25 +66,22 @@ pub extern "C" fn download_policy(
   }
 }
 
-pub extern "C" fn download_did_finish(this: &NSObject, _: Sel, download: &WKDownload) {
+pub(crate) fn download_did_finish(this: &WryDownloadDelegate, download: &WKDownload) {
   unsafe {
-    let function = this.get_ivar::<*mut c_void>("completed");
     let original_request = download.originalRequest().unwrap();
     let url = original_request.URL().unwrap().absoluteString().unwrap();
-
+    let function = this.ivars().completed;
     if !function.is_null() {
-      let function = &mut *(*function as *mut Rc<dyn for<'s> Fn(String, Option<PathBuf>, bool)>);
-      function(url.to_string(), None, true);
+      (*function)(url.to_string(), None, true);
     }
   }
 }
 
-pub extern "C" fn download_did_fail(
-  this: &NSObject,
-  _: Sel,
+pub(crate) fn download_did_fail(
+  this: &WryDownloadDelegate,
   download: &WKDownload,
   error: &NSError,
-  _resume_data: &AnyObject,
+  _resume_data: &NSData,
 ) {
   unsafe {
     #[cfg(debug_assertions)]
@@ -133,10 +93,9 @@ pub extern "C" fn download_did_fail(
     let original_request = download.originalRequest().unwrap();
     let url = original_request.URL().unwrap().absoluteString().unwrap();
 
-    let function = this.get_ivar::<*mut c_void>("completed");
+    let function = this.ivars().completed;
     if !function.is_null() {
-      let function = &mut *(*function as *mut Rc<dyn for<'s> Fn(String, Option<PathBuf>, bool)>);
-      function(url.to_string(), None, false);
+      (*function)(url.to_string(), None, false);
     }
   }
 }
