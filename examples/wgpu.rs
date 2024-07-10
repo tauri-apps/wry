@@ -4,8 +4,10 @@ use winit::{
   event_loop::{ControlFlow, EventLoop},
   window::Window,
 };
-use wry::dpi::{LogicalPosition, LogicalSize};
-use wry::{Rect, WebViewBuilder};
+use wry::{
+  dpi::{LogicalPosition, LogicalSize},
+  Rect, WebViewBuilder,
+};
 
 async fn run(event_loop: EventLoop<()>, window: Window) {
   let size = window.inner_size();

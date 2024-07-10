@@ -235,6 +235,8 @@ use webkitgtk::*;
 pub(crate) mod wkwebview;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use wkwebview::*;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub use wkwebview::{PrintMargin, PrintOptions};
 
 #[cfg(target_os = "windows")]
 pub(crate) mod webview2;
@@ -471,6 +473,8 @@ pub struct WebViewAttributes {
   ///
   /// ## Platform-specific:
   ///
+  /// - Windows: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
+  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
   /// - **Android:** Unsupported yet.
   pub incognito: bool,
 
@@ -962,6 +966,8 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific:
   ///
+  /// - Windows: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
+  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
   /// - **Android:** Unsupported yet.
   pub fn with_incognito(mut self, incognito: bool) -> Self {
     self.attrs.incognito = incognito;
@@ -1035,6 +1041,38 @@ impl<'a> WebViewBuilder<'a> {
   }
 }
 
+#[cfg(any(target_os = "macos", target_os = "ios",))]
+#[derive(Clone)]
+pub(crate) struct PlatformSpecificWebViewAttributes {
+  data_store_identifier: Option<[u8; 16]>,
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios",))]
+impl Default for PlatformSpecificWebViewAttributes {
+  fn default() -> Self {
+    Self {
+      data_store_identifier: None,
+    }
+  }
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios",))]
+pub trait WebViewBuilderExtDarwin {
+  /// Initialize the WebView with a custom data store identifier.
+  /// Can be used as a replacement for data_directory not being available in WKWebView.
+  ///
+  /// - **macOS / iOS**: Available on macOS >= 14 and iOS >= 17
+  fn with_data_store_identifier(self, identifier: [u8; 16]) -> Self;
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios",))]
+impl WebViewBuilderExtDarwin for WebViewBuilder<'_> {
+  fn with_data_store_identifier(mut self, identifier: [u8; 16]) -> Self {
+    self.platform_specific.data_store_identifier = Some(identifier);
+    self
+  }
+}
+
 #[cfg(windows)]
 #[derive(Clone)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
@@ -1079,6 +1117,9 @@ pub trait WebViewBuilderExtWindows {
   /// Specifies the theme of webview2. This affects things like `prefers-color-scheme`.
   ///
   /// Defaults to [`Theme::Auto`] which will follow the OS defaults.
+  ///
+  /// Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
+  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
   fn with_theme(self, theme: Theme) -> Self;
 
   /// Determines whether the custom protocols should use `https://<scheme>.path/to/page` instead of the default `http://<scheme>.path/to/page`.
@@ -1472,6 +1513,9 @@ pub trait WebViewExtWindows {
   fn controller(&self) -> ICoreWebView2Controller;
 
   /// Changes the webview2 theme.
+  ///
+  /// Requires WebView2 Runtime version 101.0.1210.39 or higher, returns error on older versions,
+  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
   fn set_theme(&self, theme: Theme) -> Result<()>;
 
   /// Sets the [memory usage target level][1].
@@ -1569,6 +1613,8 @@ pub trait WebViewExtMacOS {
   fn ns_window(&self) -> Retained<NSWindow>;
   /// Attaches this webview to the given NSWindow and removes it from the current one.
   fn reparent(&self, window: Retained<NSWindow>) -> Result<()>;
+  // Prints with extra options
+  fn print_with_options(&self, options: &PrintOptions) -> Result<()>;
 }
 
 #[cfg(target_os = "macos")]
@@ -1591,6 +1637,10 @@ impl WebViewExtMacOS for WebView {
 
   fn reparent(&self, window: Retained<NSWindow>) -> Result<()> {
     self.webview.reparent(window)
+  }
+
+  fn print_with_options(&self, options: &PrintOptions) -> Result<()> {
+    self.webview.print_with_options(options)
   }
 }
 
@@ -1657,8 +1707,6 @@ pub enum PageLoadEvent {
   target_os = "freebsd",
   target_os = "netbsd",
   target_os = "openbsd",
-  target_os = "ios",
-  target_os = "macos",
 ))]
 #[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes;

@@ -1,4 +1,4 @@
-// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
+// Copyright 2020-2024 Tauri Programme within The Commons Conservancy
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
@@ -10,6 +10,7 @@ mod navigation;
 mod proxy;
 #[cfg(target_os = "macos")]
 mod synthetic_mouse_events;
+mod util;
 
 use block2::Block;
 
@@ -21,12 +22,10 @@ use navigation::{
 use objc2::{
   class,
   declare::ClassBuilder,
-  declare_class,
-  ffi::YES,
-  msg_send, msg_send_id,
+  declare_class, msg_send, msg_send_id,
   mutability::{InteriorMutable, MainThreadOnly},
   rc::{Allocated, Retained},
-  runtime::{AnyClass, AnyObject, Bool, NSObject, ProtocolObject},
+  runtime::{AnyClass, AnyObject, Bool, MessageReceiver, NSObject, ProtocolObject},
   ClassType, DeclaredClass,
 };
 use objc2_app_kit::{
@@ -38,7 +37,7 @@ use objc2_foundation::{
   NSDictionary, NSError, NSHTTPURLResponse, NSJSONSerialization, NSKeyValueChangeKey,
   NSKeyValueObservingOptions, NSMutableDictionary, NSMutableURLRequest, NSNumber,
   NSObjectNSKeyValueCoding, NSObjectNSKeyValueObserverRegistration, NSObjectProtocol, NSString,
-  NSURLResponse, NSUTF8StringEncoding, NSURL,
+  NSURLResponse, NSUTF8StringEncoding, NSURL, NSUUID,
 };
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::UIScrollView;
@@ -50,12 +49,15 @@ use objc2_web_kit::{
   WKUserContentController, WKUserScript, WKUserScriptInjectionTime, WKWebView,
   WKWebViewConfiguration, WKWebsiteDataStore,
 };
+use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
   borrow::Cow,
+  collections::HashSet,
   ffi::{c_void, CStr},
   os::raw::c_char,
+  panic::{catch_unwind, AssertUnwindSafe},
   path::PathBuf,
   ptr::{null_mut, NonNull},
   rc::Rc,
@@ -84,7 +86,25 @@ use http::{
   Request, Response as HttpResponse,
 };
 
+use self::util::Counter;
+
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
+
+static COUNTER: Counter = Counter::new();
+static WEBVIEW_IDS: Lazy<Mutex<HashSet<u32>>> = Lazy::new(Default::default);
+
+#[derive(Debug, Default, Copy, Clone)]
+pub struct PrintMargin {
+  pub top: f32,
+  pub right: f32,
+  pub bottom: f32,
+  pub left: f32,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct PrintOptions {
+  pub margins: PrintMargin,
+}
 
 pub(crate) struct InnerWebView {
   pub webview: Retained<WryWebView>,
@@ -104,6 +124,7 @@ pub(crate) struct InnerWebView {
   // We need this the keep the reference count
   download_delegate: Option<Retained<WryDownloadDelegate>>,
   protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>>,
+  webview_id: u32,
 }
 
 impl InnerWebView {
@@ -160,14 +181,14 @@ impl InnerWebView {
   fn new_ns_view(
     ns_view: &NSView,
     attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
     _web_context: Option<&mut WebContext>,
     is_child: bool,
   ) -> Result<Self> {
     let mtm = MainThreadMarker::new().ok_or(Error::NotMainThread)?;
 
     // Task handler for custom protocol
-    extern "C" fn start_task(
+    extern "C" fn start_task<'a>(
       this: &AnyObject,
       _: objc2::runtime::Sel,
       _webview: &WKWebView,
@@ -175,9 +196,14 @@ impl InnerWebView {
     ) {
       unsafe {
         #[cfg(feature = "tracing")]
-        let span = tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty)
-          .entered();
-        let function = this.get_ivar::<*mut c_void>("function");
+        tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty).entered();
+
+        let webview_id = *this.get_ivar::<u32>("webview_id");
+
+        let ivar = this.class().instance_variable("webview_id").unwrap();
+        let webview_id: u32 = ivar.load::<u32>(this).clone();
+        let ivar = this.class().instance_variable("function").unwrap();
+        let function: &*mut c_void = ivar.load(this);
         if !function.is_null() {
           let function =
             &mut *(*function as *mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>);
@@ -253,61 +279,88 @@ impl InnerWebView {
           // send response
           match http_request.body(sent_form_body) {
             Ok(final_request) => {
+              // [objc2] FIXME: retain the task?
+              // let () = msg_send![task, retain];
               let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
                 Box::new(move |sent_response| {
-                  let content = sent_response.body();
-                  // default: application/octet-stream, but should be provided by the client
-                  let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
-                  // default to 200
-                  let wanted_status_code = sent_response.status().as_u16() as i32;
-                  // default to HTTP/1.1
-                  let wanted_version = format!("{:#?}", sent_response.version());
-
-                  let mut headers = NSMutableDictionary::new();
-
-                  if let Some(mime) = wanted_mime {
-                    headers.insert_id(
-                      NSString::from_str(mime.to_str().unwrap()).as_ref(),
-                      NSString::from_str(CONTENT_TYPE.as_str()),
-                    );
-                  }
-                  headers.insert_id(
-                    NSString::from_str(&content.len().to_string()).as_ref(),
-                    NSString::from_str(CONTENT_LENGTH.as_str()),
-                  );
-
-                  // add headers
-                  for (name, value) in sent_response.headers().iter() {
-                    if let Ok(value) = value.to_str() {
-                      headers.insert_id(
-                        NSString::from_str(name.as_str()).as_ref(),
-                        NSString::from_str(value),
-                      );
+                  fn check_webview_id_valid(webview_id: u32) -> crate::Result<()> {
+                    match WEBVIEW_IDS.lock().unwrap().contains(&webview_id) {
+                      true => Ok(()),
+                      false => Err(crate::Error::CustomProtocolTaskInvalid),
                     }
                   }
 
-                  let urlresponse = NSHTTPURLResponse::alloc();
-                  let response =
-                    NSHTTPURLResponse::initWithURL_statusCode_HTTPVersion_headerFields(
-                      urlresponse,
-                      &url,
-                      wanted_status_code.try_into().unwrap(),
-                      Some(&NSString::from_str(&wanted_version)),
-                      Some(&headers),
-                    )
-                    .unwrap();
-                  (*task).didReceiveResponse(&response);
+                  unsafe fn response(
+                    task: *mut ProtocolObject<dyn WKURLSchemeTask>,
+                    webview_id: u32,
+                    url: Retained<NSURL>,
+                    sent_response: HttpResponse<Cow<'_, [u8]>>,
+                  ) -> crate::Result<()> {
+                    let content = sent_response.body();
+                    // default: application/octet-stream, but should be provided by the client
+                    let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
+                    // default to 200
+                    let wanted_status_code = sent_response.status().as_u16() as i32;
+                    // default to HTTP/1.1
+                    let wanted_version = format!("{:#?}", sent_response.version());
 
-                  // Send data
-                  let bytes = content.as_ptr() as *mut c_void;
-                  let data = objc2_foundation::NSData::alloc();
-                  // MIGRATE NOTE: we copied the content to the NSData because content will be freed
-                  // when out of scope but NSData will also free the content when it's done and cause doube free.
-                  let data =
-                    objc2_foundation::NSData::initWithBytes_length(data, bytes, content.len());
-                  (*task).didReceiveData(&data);
-                  // Finish
-                  (*task).didFinish();
+                    let mut headers = NSMutableDictionary::new();
+
+                    if let Some(mime) = wanted_mime {
+                      headers.insert_id(
+                        NSString::from_str(mime.to_str().unwrap()).as_ref(),
+                        NSString::from_str(CONTENT_TYPE.as_str()),
+                      );
+                    }
+                    headers.insert_id(
+                      NSString::from_str(&content.len().to_string()).as_ref(),
+                      NSString::from_str(CONTENT_LENGTH.as_str()),
+                    );
+
+                    // add headers
+                    for (name, value) in sent_response.headers().iter() {
+                      if let Ok(value) = value.to_str() {
+                        headers.insert_id(
+                          NSString::from_str(name.as_str()).as_ref(),
+                          NSString::from_str(value),
+                        );
+                      }
+                    }
+
+                    let urlresponse = NSHTTPURLResponse::alloc();
+                    let response =
+                      NSHTTPURLResponse::initWithURL_statusCode_HTTPVersion_headerFields(
+                        urlresponse,
+                        &url,
+                        wanted_status_code.try_into().unwrap(),
+                        Some(&NSString::from_str(&wanted_version)),
+                        Some(&headers),
+                      )
+                      .unwrap();
+
+                    // [objc2] FIXME: https://github.com/tauri-apps/wry/commit/8b691df1ac57eb5eb15082c5f6d72e871965c61e
+                    check_webview_id_valid(webview_id)?;
+                    (*task).didReceiveResponse(&response);
+
+                    // Send data
+                    let bytes = content.as_ptr() as *mut c_void;
+                    let data = NSData::alloc();
+                    // MIGRATE NOTE: we copied the content to the NSData because content will be freed
+                    // when out of scope but NSData will also free the content when it's done and cause doube free.
+                    let data = NSData::initWithBytes_length(data, bytes, content.len());
+                    // [objc2] FIXME: https://github.com/tauri-apps/wry/commit/8b691df1ac57eb5eb15082c5f6d72e871965c61e
+                    check_webview_id_valid(webview_id)?;
+                    (*task).didReceiveData(&data);
+
+                    // Finish
+                    // [objc2] FIXME: https://github.com/tauri-apps/wry/commit/8b691df1ac57eb5eb15082c5f6d72e871965c61e
+                    check_webview_id_valid(webview_id)?;
+                    (*task).didFinish();
+
+                    Ok(())
+                  }
+
+                  let _ = response(task, webview_id, url.clone(), sent_response);
                 });
 
               #[cfg(feature = "tracing")]
@@ -332,17 +385,39 @@ impl InnerWebView {
     ) {
     }
 
+    let mut wv_ids = WEBVIEW_IDS.lock().unwrap();
+    let webview_id = COUNTER.next();
+    wv_ids.insert(webview_id);
+    drop(wv_ids);
+
     // Safety: objc runtime calls are unsafe
     unsafe {
       // Config and custom protocol
       let config = WKWebViewConfiguration::new();
       let mut protocol_ptrs = Vec::new();
 
+      let os_version = util::operating_system_version();
+
+      #[cfg(target_os = "macos")]
+      let custom_data_store_available = os_version.0 >= 14;
+
+      #[cfg(target_os = "ios")]
+      let custom_data_store_available = os_version.0 >= 17;
+
       // Incognito mode
-      let data_store = if attributes.incognito {
-        WKWebsiteDataStore::nonPersistentDataStore()
-      } else {
-        WKWebsiteDataStore::defaultDataStore()
+      let data_store = match (
+        attributes.incognito,
+        custom_data_store_available,
+        pl_attrs.data_store_identifier,
+      ) {
+        (true, _, _) => WKWebsiteDataStore::nonPersistentDataStore(),
+        // if data_store_identifier is given and custom data stores are available, use custom store
+        (false, true, Some(data_store)) => {
+          let identifier = NSUUID::from_bytes(data_store);
+          WKWebsiteDataStore::dataStoreForIdentifier(&identifier)
+        }
+        // default data store
+        _ => WKWebsiteDataStore::defaultDataStore(),
       };
 
       for (name, function) in attributes.custom_protocols {
@@ -351,6 +426,7 @@ impl InnerWebView {
         let cls = match cls {
           Some(mut cls) => {
             cls.add_ivar::<*mut c_void>("function");
+            cls.add_ivar::<u32>("webview_id");
             cls.add_method(
               objc2::sel!(webView:startURLSchemeTask:),
               start_task as extern "C" fn(_, _, _, _),
@@ -371,15 +447,28 @@ impl InnerWebView {
         let ivar_delegate = ivar.load_mut(&mut *handler);
         *ivar_delegate = function as *mut _ as *mut c_void;
 
-        config.setURLSchemeHandler_forURLScheme(
-          Some(&*(handler.cast::<ProtocolObject<dyn objc2_web_kit::WKURLSchemeHandler>>())),
+        let ivar = (*handler).class().instance_variable("webview_id").unwrap();
+        let ivar_delegate = ivar.load_mut(&mut *handler);
+        *ivar_delegate = webview_id;
+
+        let config_unwind_safe = AssertUnwindSafe(&config);
+        let handler_unwind_safe = AssertUnwindSafe(handler);
+        if catch_unwind(|| {
+          config_unwind_safe.setURLSchemeHandler_forURLScheme(
+            Some(&*(handler_unwind_safe.cast::<ProtocolObject<dyn WKURLSchemeHandler>>())),
           &NSString::from_str(&name),
         );
+        })
+        .is_err()
+        {
+          return Err(Error::UrlSchemeRegisterError(name));
+        }
       }
 
       // WebView and manager
       let manager = config.userContentController();
       let webview = mtm.alloc::<WryWebView>().set_ivars(WryWebViewIvars {
+        is_child,
         #[cfg(target_os = "macos")]
         drag_drop_handler: match attributes.drag_drop_handler {
           Some(handler) => handler,
@@ -415,6 +504,9 @@ impl InnerWebView {
         ns_string!("allowsPictureInPictureMediaPlayback"),
       );
 
+      #[cfg(target_os = "ios")]
+      config.setValue_forKey(Some(&_yes), ns_string!("allowsInlineMediaPlayback"));
+
       if attributes.autoplay {
         config.setMediaTypesRequiringUserActionForPlayback(
           WKAudiovisualMediaTypes::WKAudiovisualMediaTypeNone,
@@ -425,18 +517,17 @@ impl InnerWebView {
       if attributes.transparent {
         let no = NSNumber::numberWithBool(false);
         // Equivalent Obj-C:
-        // [config setValue:@NO forKey:@"drawsBackground"];
         config.setValue_forKey(Some(&no), ns_string!("drawsBackground"));
       }
 
       #[cfg(feature = "fullscreen")]
       // Equivalent Obj-C:
-      // [preference setValue:@YES forKey:@"fullScreenEnabled"];
       _preference.setValue_forKey(Some(&_yes), ns_string!("fullScreenEnabled"));
 
       #[cfg(target_os = "macos")]
       let webview = {
         let window = ns_view.window().unwrap();
+
         let scale_factor = window.backingScaleFactor();
         let (x, y) = attributes
           .bounds
@@ -641,7 +732,7 @@ impl InnerWebView {
         let ns_window = ns_view.window().unwrap();
         let can_set_titlebar_style =
           ns_window.respondsToSelector(objc2::sel!(setTitlebarSeparatorStyle:));
-        if can_set_titlebar_style == YES {
+        if can_set_titlebar_style {
           ns_window.setTitlebarSeparatorStyle(NSTitlebarSeparatorStyle::None);
         }
       }
@@ -656,6 +747,7 @@ impl InnerWebView {
         download_delegate,
         protocol_ptrs,
         is_child,
+        webview_id,
       };
 
       // Initialize scripts
@@ -797,18 +889,14 @@ r#"Object.defineProperty(window, 'ipc', {
 
   fn init(&self, js: &str) {
     // Safety: objc runtime calls are unsafe
-    // Equivalent Obj-C:
-    // [manager addUserScript:[[WKUserScript alloc] initWithSource:[NSString stringWithUTF8String:js.c_str()] injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]]
     unsafe {
       let userscript = WKUserScript::alloc();
-      // FIXME: We allow subframe injection because webview2 does and cannot be disabled (currently).
-      // once webview2 allows disabling all-frame script injection, forMainFrameOnly should be enabled
-      // if it does not break anything. (originally added for isolation pattern).
+      // TODO: feature to allow injecting into subframes
       let script = WKUserScript::initWithSource_injectionTime_forMainFrameOnly(
         userscript,
         &NSString::from_str(js),
         WKUserScriptInjectionTime::AtDocumentStart,
-        false,
+        true,
       );
       self.manager.addUserScript(&script);
     }
@@ -870,6 +958,10 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn print(&self) -> crate::Result<()> {
+    self.print_with_options(&PrintOptions::default())
+  }
+
+  pub fn print_with_options(&self, options: &PrintOptions) -> crate::Result<()> {
     // Safety: objc runtime calls are unsafe
     #[cfg(target_os = "macos")]
     unsafe {
@@ -879,6 +971,11 @@ r#"Object.defineProperty(window, 'ipc', {
       if can_print {
         // Create a shared print info
         let print_info = NSPrintInfo::sharedPrintInfo();
+        // let print_info: id = msg_send![print_info, init];
+        print_info.setTopMargin(options.margins.top.into());
+        print_info.setRightMargin(options.margins.right.into());
+        print_info.setBottomMargin(options.margins.bottom.into());
+        print_info.setLeftMargin(options.margins.left.into());
 
         // Create new print operation from the webview content
         let print_operation = self.webview.printOperationWithPrintInfo(&print_info);
@@ -1039,6 +1136,8 @@ pub fn platform_webview_version() -> Result<String> {
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
+    WEBVIEW_IDS.lock().unwrap().remove(&self.webview_id);
+
     // We need to drop handler closures here
     unsafe {
       if let Some(ipc_handler) = self.ipc_handler_delegate.take() {
@@ -1073,6 +1172,7 @@ unsafe fn window_position(view: &NSView, x: i32, y: i32, height: f64) -> CGPoint
 }
 
 pub struct WryWebViewIvars {
+  is_child: bool,
   #[cfg(target_os = "macos")]
   drag_drop_handler: Box<dyn Fn(DragDropEvent) -> bool>,
   #[cfg(target_os = "macos")]
@@ -1097,8 +1197,24 @@ declare_class!(
     fn perform_key_equivalent(
       &self,
       _event: &NSEvent,
-    ) -> objc2::runtime::Bool {
-      objc2::runtime::Bool::NO
+    ) -> bool {
+      // This is a temporary workaround for https://github.com/tauri-apps/tauri/issues/9426
+      // FIXME: When the webview is a child webview, performKeyEquivalent always return YES
+      // and stop propagating the event to the window, hence the menu shortcut won't be
+      // triggered. However, overriding this method also means the cmd+key event won't be
+      // handled in webview, which means the key cannot be listened by JavaScript.
+      if self.ivars().is_child {
+        false
+      } else {
+        unsafe {
+          let _: Bool = self.send_super_message(
+            WKWebView::class(),
+            objc2::sel!(performKeyEquivalent:),
+            (_event,),
+          );
+        };
+        true
+      }
     }
 
     #[method(acceptsFirstMouse:)]
@@ -1198,7 +1314,7 @@ declare_class!(
       // Safety: objc runtime calls are unsafe
       unsafe {
         #[cfg(feature = "tracing")]
-        let _span = tracing::info_span!("wry::ipc::handle").entered();
+        let _span = tracing::info_span!(parent: None, "wry::ipc::handle").entered();
 
         let ipc_handler = &this.ivars().ipc_handler;
         let body = msg.body();
@@ -1444,12 +1560,11 @@ impl WryNavigationDelegate {
       }
     });
 
-    let on_page_load_handler = if let Some(on_page_load_handler) = on_page_load_handler {
-      let on_page_load_handler = Box::new(move |event| {
-        on_page_load_handler(event, url_from_webview(&webview).unwrap_or_default());
+    let on_page_load_handler = if let Some(handler) = on_page_load_handler {
+      let custom_handler = Box::new(move |event| {
+        handler(event, url_from_webview(&webview).unwrap_or_default());
       }) as Box<dyn Fn(PageLoadEvent)>;
-
-      Some(on_page_load_handler)
+      Some(custom_handler)
     } else {
       None
     };

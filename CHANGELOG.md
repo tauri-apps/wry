@@ -1,5 +1,53 @@
 # Changelog
 
+## \[0.41.0]
+
+- [`8b691df`](https://github.com/tauri-apps/wry/commit/8b691df1ac57eb5eb15082c5f6d72e871965c61e) ([#1285](https://github.com/tauri-apps/wry/pull/1285) by [@pewsheen](https://github.com/tauri-apps/wry/../../pewsheen)) On macOS, fix an issue that could cause a panic when running an async command.
+- [`6c7f45e`](https://github.com/tauri-apps/wry/commit/6c7f45e1e3f89805a9fd6b58a9382a6bbc2b0c28) ([#1287](https://github.com/tauri-apps/wry/pull/1287) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) Fixed a regression causing autoplay on windows to require user gestures.
+- [`24a7d27`](https://github.com/tauri-apps/wry/commit/24a7d275c9059dd9e54544b75a5996c9d0762f26) ([#1289](https://github.com/tauri-apps/wry/pull/1289) by [@renovate](https://github.com/tauri-apps/wry/../../renovate)) Update `windows` crate to `0.57` and `webview2-com` crate to `0.31`
+
+## \[0.40.1]
+
+- [`b6863ed`](https://github.com/tauri-apps/wry/commit/b6863ed1884fb190ae46f37ed72dcdd92de700cd)([#1275](https://github.com/tauri-apps/wry/pull/1275)) On Android, set `RustWebViewClient.currentUrl` field early in `onPageStarted` method instead of `onPageFinished`
+- [`f089964`](https://github.com/tauri-apps/wry/commit/f089964a3cf3014987aca24a7e7d6cae83e67d8a)([#1276](https://github.com/tauri-apps/wry/pull/1276)) Fixes `with_asynchronous_custom_protocol` crashing when sending the response on Linux.
+- [`637289d`](https://github.com/tauri-apps/wry/commit/637289dfb36150635177eb629a12b40fdaac1afe)([#1272](https://github.com/tauri-apps/wry/pull/1272)) On Android, make `WryActivity.setWebview` method public to prevent JNI crashes.
+
+## \[0.40.0]
+
+- [`a424a0b`](https://github.com/tauri-apps/wry/commit/a424a0b234cb20b3ca7305d87e82aba3c8b2bd41)([#1270](https://github.com/tauri-apps/wry/pull/1270)) On Windows, fix child webview invisible after creation because it was created with `0,0` size
+- [`d6f8dd7`](https://github.com/tauri-apps/wry/commit/d6f8dd7b6c0485fbb96fed34717969540eef2b96)([#1271](https://github.com/tauri-apps/wry/pull/1271)) On Windows, create child webview at the top of z-order to align with other platforms.
+- [`03d2535`](https://github.com/tauri-apps/wry/commit/03d25357d2c20a21640871cfca9d5f6a39c7afc8)([#1269](https://github.com/tauri-apps/wry/pull/1269)) On macOS, disable initialization script injection into subframes.
+- [`1e65049`](https://github.com/tauri-apps/wry/commit/1e65049d4842947ced6a807b93211542c46ca771)([#1267](https://github.com/tauri-apps/wry/pull/1267)) On macOS, fixed a crash when sending empty body by IPC.
+- [`0f3c886`](https://github.com/tauri-apps/wry/commit/0f3c886a224a1b52980ef90667860e58a6ad669a)([#1260](https://github.com/tauri-apps/wry/pull/1260)) On macOS, fixed an issue of not being able to listen to the cmd+key event in javascript in single WebView.
+- [`0f14e2a`](https://github.com/tauri-apps/wry/commit/0f14e2a540a1d54f82bdee2a3c2f93c43c593959)([#1259](https://github.com/tauri-apps/wry/pull/1259)) Default the margin when printing on MacOS to 0 so it is closer to the behavior of when printing on the web.
+- [`0f14e2a`](https://github.com/tauri-apps/wry/commit/0f14e2a540a1d54f82bdee2a3c2f93c43c593959)([#1259](https://github.com/tauri-apps/wry/pull/1259)) Add `WebViewExtMacOS::print_with_options` which allows to modify the margins that will be used on the print dialog.
+- [`f516122`](https://github.com/tauri-apps/wry/commit/f5161225940c545dd457af1178c73f36dfe63710)([#1262](https://github.com/tauri-apps/wry/pull/1262)) On Windows, enable webview2 [non client region support](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2settings9?view=webview2-1.0.2478.35#get_isnonclientregionsupportenabled) which allows using `app-region` CSS style.
+
+## \[0.39.5]
+
+- [`4c88c66`](https://github.com/tauri-apps/wry/commit/4c88c66fb79fc3742f4592252c260e7e012d5fcf)([#1247](https://github.com/tauri-apps/wry/pull/1247)) Force the IPC and custom protocol tracing spans to have no parent.
+- [`2d43d62`](https://github.com/tauri-apps/wry/commit/2d43d62a8e61514ade27ae63fa33c1dee2de6744)([#1254](https://github.com/tauri-apps/wry/pull/1254)) On Windows, fix webview having a bigger size than the actual window size after creation and until the window is resized.
+
+## \[0.39.4]
+
+- [`8bbc2bf`](https://github.com/tauri-apps/wry/commit/8bbc2bf388113af2e7d91250abe1569070b351a9)([#1237](https://github.com/tauri-apps/wry/pull/1237)) Fix `WebviewBuilder::with_transparent`, `WebviewBuilder::with_background_color`, and `Webview::set_background_color` always failing and causing the webview to fail to load.
+- [`130c469`](https://github.com/tauri-apps/wry/commit/130c46965d0cd0ae2389d2fa9b683488a16e0cc8)([#1238](https://github.com/tauri-apps/wry/pull/1238)) Add `WebViewBuilderExtDarwin::with_data_store_identifier`.
+- [`203604c`](https://github.com/tauri-apps/wry/commit/203604c519e4acb169676b20ddf5956ba21b4d57)([#1233](https://github.com/tauri-apps/wry/pull/1233)) On Windows, fix the webview not filling up the whole window if the parent window was resized during the webview initialization.
+
+## \[0.39.3]
+
+- [`c7ca3db`](https://github.com/tauri-apps/wry/commit/c7ca3db581bbeb4f16a28f47c3a1fd59889c0978)([#1221](https://github.com/tauri-apps/wry/pull/1221)) On Windows, fix data directory created next to the executable with a gibberish name even if it was explicitly provided in `WebConext::new`
+
+## \[0.39.2]
+
+- [`3e3d59c`](https://github.com/tauri-apps/wry/commit/3e3d59cd4f79c21571e503a5bf80d4d54a654a38)([#1215](https://github.com/tauri-apps/wry/pull/1215)) On macOS, prevent NSExceptions and invalid memory access panics when dropping the WebView while custom protocols handlers may still be running.
+- [`ca6b5fb`](https://github.com/tauri-apps/wry/commit/ca6b5fbef6e5a5efe43b5cbebe6bfc4bc13930d3)([#1224](https://github.com/tauri-apps/wry/pull/1224)) Update `windows` crate to `0.56`
+
+## \[0.39.1]
+
+- [`f0e82d3`](https://github.com/tauri-apps/wry/commit/f0e82d3aa2da9da2b935d97c9a9b5e2dbd65b6ea)([#1217](https://github.com/tauri-apps/wry/pull/1217)) Fix target detection on build script to enhance cross compiling capabilities.
+- [`ed9fa9b`](https://github.com/tauri-apps/wry/commit/ed9fa9b3950206548cdaf0bcdb6c2d5fb72619b3)([#1210](https://github.com/tauri-apps/wry/pull/1210)) On iOS, allows media plays inline.
+
 ## \[0.39.0]
 
 - [`ddda455`](https://github.com/tauri-apps/wry/commit/ddda4556b36a41b1c6f3f4d200eb16612d5f3f12)([#1207](https://github.com/tauri-apps/wry/pull/1207)) Disable deprecated applicationCache web api. This api was completely removed upstream in webkitgtk 2.44.

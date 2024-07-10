@@ -18,23 +18,10 @@ use windows::{
   core::{s, w, Interface, HSTRING, PCWSTR, PWSTR},
   Win32::{
     Foundation::*,
-    Globalization::{self, MAX_LOCALE_NAME},
-    Graphics::Gdi::{MapWindowPoints, RedrawWindow, HBRUSH, HRGN, RDW_INTERNALPAINT},
-    System::{
-      Com::{CoInitializeEx, IStream, COINIT_APARTMENTTHREADED},
-      LibraryLoader::GetModuleHandleW,
-      WinRT::EventRegistrationToken,
-    },
-    UI::{
-      Shell::{DefSubclassProc, RemoveWindowSubclass, SHCreateMemStream, SetWindowSubclass},
-      WindowsAndMessaging::{
-        self as win32wm, CreateWindowExW, DefWindowProcW, DestroyWindow, GetClientRect,
-        PostMessageW, RegisterClassExW, RegisterWindowMessageA, SendMessageW, SetParent,
-        SetWindowPos, ShowWindow, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, HCURSOR, HICON, HMENU,
-        SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SW_HIDE, SW_SHOW,
-        WINDOW_EX_STYLE, WM_USER, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_VISIBLE,
-      },
-    },
+    Globalization::*,
+    Graphics::Gdi::*,
+    System::{Com::*, LibraryLoader::GetModuleHandleW, WinRT::EventRegistrationToken},
+    UI::{Shell::*, WindowsAndMessaging::*},
   },
 };
 
@@ -125,16 +112,16 @@ impl InnerWebView {
   ) -> Result<Self> {
     let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
 
-    let (hwnd, size) = Self::create_container_hwnd(parent, &attributes, is_child)?;
+    let hwnd = Self::create_container_hwnd(parent, &attributes, is_child)?;
 
     let drop_handler = attributes.drag_drop_handler.take();
+    let bounds = attributes.bounds;
 
     let env = Self::create_environment(&web_context, pl_attrs.clone(), &attributes)?;
     let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
     let webview = Self::init_webview(
       parent,
       hwnd,
-      size,
       attributes,
       &env,
       &controller,
@@ -144,7 +131,7 @@ impl InnerWebView {
 
     let drag_drop_controller = drop_handler.map(|handler| DragDropController::new(hwnd, handler));
 
-    Ok(Self {
+    let w = Self {
       parent: RefCell::new(parent),
       hwnd,
       controller,
@@ -152,7 +139,15 @@ impl InnerWebView {
       webview,
       env,
       drag_drop_controller,
-    })
+    };
+
+    if is_child {
+      w.set_bounds(bounds.unwrap_or_default())?;
+    } else {
+      w.resize_to_parent()?;
+    }
+
+    Ok(w)
   }
 
   #[inline]
@@ -160,7 +155,7 @@ impl InnerWebView {
     parent: HWND,
     attributes: &WebViewAttributes,
     is_child: bool,
-  ) -> Result<(HWND, (i32, i32))> {
+  ) -> Result<HWND> {
     unsafe extern "system" fn default_window_proc(
       hwnd: HWND,
       msg: u32,
@@ -212,7 +207,7 @@ impl InnerWebView {
       (x, y, width, height)
     } else {
       let mut rect = RECT::default();
-      unsafe { win32wm::GetClientRect(parent, &mut rect)? };
+      unsafe { GetClientRect(parent, &mut rect)? };
       let width = rect.right - rect.left;
       let height = rect.bottom - rect.top;
       (0, 0, width, height)
@@ -221,7 +216,7 @@ impl InnerWebView {
     let hwnd = unsafe {
       CreateWindowExW(
         WINDOW_EX_STYLE::default(),
-        PCWSTR::from_raw(class_name.as_ptr()),
+        class_name,
         PCWSTR::null(),
         window_styles,
         x,
@@ -235,7 +230,19 @@ impl InnerWebView {
       )
     };
 
-    Ok((hwnd, (width, height)))
+    unsafe {
+      SetWindowPos(
+        hwnd,
+        HWND_TOP,
+        0,
+        0,
+        0,
+        0,
+        SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOSIZE,
+      )
+    }?;
+
+    Ok(hwnd)
   }
 
   #[inline]
@@ -247,8 +254,7 @@ impl InnerWebView {
     let data_directory = web_context
       .as_deref()
       .and_then(|context| context.data_directory())
-      .and_then(|path| path.to_str())
-      .map(String::from);
+      .map(HSTRING::from);
 
     // additional browser args
     let additional_browser_args = pl_attrs.additional_browser_args.unwrap_or_else(|| {
@@ -258,7 +264,7 @@ impl InnerWebView {
       let mut arguments = String::from(default_args);
 
       if attributes.autoplay {
-        arguments.push_str("--autoplay-policy=no-user-gesture-required");
+        arguments.push_str(" --autoplay-policy=no-user-gesture-required");
       }
 
       if let Some(proxy_setting) = &attributes.proxy_config {
@@ -280,11 +286,8 @@ impl InnerWebView {
 
       arguments
     });
-    let additional_browser_args = HSTRING::from(additional_browser_args);
-    let additional_browser_args = PCWSTR::from_raw(additional_browser_args.as_ptr());
 
-    let data_directory = data_directory.map(HSTRING::from);
-    let data_directory = data_directory.map(|d| PCWSTR::from_raw(d.as_ptr()));
+    let additional_browser_args = HSTRING::from(additional_browser_args);
 
     let (tx, rx) = mpsc::channel();
     CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
@@ -292,21 +295,17 @@ impl InnerWebView {
         let options: ICoreWebView2EnvironmentOptions =
           CoreWebView2EnvironmentOptions::default().into();
 
-        let _ = options.SetAdditionalBrowserArguments(additional_browser_args);
+        let _ = options.SetAdditionalBrowserArguments(&additional_browser_args);
 
         // Get user's system language
-        let lcid = Globalization::GetUserDefaultUILanguage();
+        let lcid = GetUserDefaultUILanguage();
         let mut lang = [0; MAX_LOCALE_NAME as usize];
-        Globalization::LCIDToLocaleName(
-          lcid as u32,
-          Some(&mut lang),
-          Globalization::LOCALE_ALLOW_NEUTRAL_NAMES,
-        );
+        LCIDToLocaleName(lcid as u32, Some(&mut lang), LOCALE_ALLOW_NEUTRAL_NAMES);
         options.SetLanguage(PCWSTR::from_raw(lang.as_ptr()))?;
 
         CreateCoreWebView2EnvironmentWithOptions(
           PCWSTR::null(),
-          data_directory.unwrap_or_else(PCWSTR::null),
+          &data_directory.unwrap_or_default(),
           &options,
           &environmentcreatedhandler,
         )
@@ -329,17 +328,29 @@ impl InnerWebView {
     incognito: bool,
   ) -> Result<ICoreWebView2Controller> {
     let (tx, rx) = mpsc::channel();
-    let env = env.clone().cast::<ICoreWebView2Environment10>()?;
-    let controller_opts = unsafe { env.CreateCoreWebView2ControllerOptions()? };
-
-    unsafe { controller_opts.SetIsInPrivateModeEnabled(incognito)? }
+    let env = env.clone();
+    let env10 = env.cast::<ICoreWebView2Environment10>();
 
     CreateCoreWebView2ControllerCompletedHandler::wait_for_async_operation(
-      Box::new(move |handler| unsafe {
-        env
-          .CreateCoreWebView2ControllerWithOptions(hwnd, &controller_opts, &handler)
-          .map_err(Into::into)
-      }),
+      if let Ok(env10) = env10 {
+        let controller_opts = unsafe { env10.CreateCoreWebView2ControllerOptions()? };
+        unsafe { controller_opts.SetIsInPrivateModeEnabled(incognito)? }
+        Box::new(
+          move |handler: ICoreWebView2CreateCoreWebView2ControllerCompletedHandler| unsafe {
+            env10
+              .CreateCoreWebView2ControllerWithOptions(hwnd, &controller_opts, &handler)
+              .map_err(Into::into)
+          },
+        )
+      } else {
+        Box::new(
+          move |handler: ICoreWebView2CreateCoreWebView2ControllerCompletedHandler| unsafe {
+            env
+              .CreateCoreWebView2Controller(hwnd, &handler)
+              .map_err(Into::into)
+          },
+        )
+      },
       Box::new(move |error_code, controller| {
         error_code?;
         tx.send(controller.ok_or_else(|| windows::core::Error::from(E_POINTER)))
@@ -354,7 +365,6 @@ impl InnerWebView {
   fn init_webview(
     parent: HWND,
     hwnd: HWND,
-    bounds: (i32, i32),
     mut attributes: WebViewAttributes,
     env: &ICoreWebView2Environment,
     controller: &ICoreWebView2Controller,
@@ -365,7 +375,15 @@ impl InnerWebView {
 
     // Theme
     if let Some(theme) = pl_attrs.theme {
-      unsafe { set_theme(&webview, theme)? };
+      if let Err(error) = unsafe { set_theme(&webview, theme) } {
+        match error {
+          // Ignore cast error
+          Error::WebView2Error(webview2_com::Error::WindowsError(windows_error))
+            if windows_error.code() == E_NOINTERFACE => {}
+          // Return error if other things went wrong
+          _ => return Err(error),
+        };
+      }
     }
 
     // Background color
@@ -455,11 +473,11 @@ impl InnerWebView {
         load_url_with_headers(&webview, env, &url, headers)?;
       } else {
         let url = HSTRING::from(url);
-        unsafe { webview.Navigate(PCWSTR::from_raw(url.as_ptr()))? };
+        unsafe { webview.Navigate(&url)? };
       }
     } else if let Some(html) = attributes.html {
       let html = HSTRING::from(html);
-      unsafe { webview.NavigateToString(PCWSTR::from_raw(html.as_ptr()))? };
+      unsafe { webview.NavigateToString(&html)? };
     }
 
     // Subclass parent for resizing and focus
@@ -468,13 +486,6 @@ impl InnerWebView {
     }
 
     unsafe {
-      controller.SetBounds(RECT {
-        left: 0,
-        top: 0,
-        right: bounds.0,
-        bottom: bounds.1,
-      })?;
-
       controller.SetIsVisible(attributes.visible)?;
 
       if attributes.focused {
@@ -500,7 +511,7 @@ impl InnerWebView {
     if let Some(user_agent) = &attributes.user_agent {
       let settings2: ICoreWebView2Settings2 = webview.Settings()?.cast()?;
       let user_agent = HSTRING::from(user_agent);
-      settings2.SetUserAgent(PCWSTR::from_raw(user_agent.as_ptr()))?;
+      settings2.SetUserAgent(&user_agent)?;
     }
 
     if !pl_attrs.browser_accelerator_keys {
@@ -513,6 +524,10 @@ impl InnerWebView {
 
     let settings6 = settings.cast::<ICoreWebView2Settings6>()?;
     settings6.SetIsSwipeNavigationEnabled(attributes.back_forward_navigation_gestures)?;
+
+    if let Ok(settings9) = settings.cast::<ICoreWebView2Settings9>() {
+      settings9.SetIsNonClientRegionSupportEnabled(true)?;
+    }
 
     Ok(())
   }
@@ -695,9 +710,8 @@ impl InnerWebView {
 
             if download_started_handler(uri, &mut path) {
               let simplified = dunce::simplified(&path);
-              let path = HSTRING::from(simplified.as_os_str());
-              let result_file_path = PCWSTR::from_raw(path.as_ptr());
-              args.SetResultFilePath(result_file_path)?;
+              let path = HSTRING::from(simplified);
+              args.SetResultFilePath(&path)?;
               args.SetHandled(true)?;
             } else {
               args.SetCancel(true)?;
@@ -746,7 +760,7 @@ impl InnerWebView {
         };
 
         #[cfg(feature = "tracing")]
-        let _span = tracing::info_span!("wry::ipc::handle").entered();
+        let _span = tracing::info_span!(parent: None, "wry::ipc::handle").entered();
         ipc_handler(Request::builder().uri(url).body(js).unwrap());
 
         Ok(())
@@ -770,10 +784,7 @@ impl InnerWebView {
       // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
       // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
       let filter = HSTRING::from(format!("{scheme}://{name}.*"));
-      webview.AddWebResourceRequestedFilter(
-        PCWSTR::from_raw(filter.as_ptr()),
-        COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
-      )?;
+      webview.AddWebResourceRequestedFilter(&filter, COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL)?;
     }
 
     let env = env.clone();
@@ -787,7 +798,7 @@ impl InnerWebView {
         };
 
         #[cfg(feature = "tracing")]
-        let span = tracing::info_span!("wry::custom_protocol::handle", uri = tracing::field::Empty)
+        let span = tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty)
           .entered();
 
         // Request uri
@@ -953,12 +964,7 @@ impl InnerWebView {
       stream = SHCreateMemStream(Some(content));
     }
 
-    env.CreateWebResourceResponse(
-      stream.as_ref(),
-      status_code as i32,
-      PCWSTR::from_raw(status.as_ptr()),
-      PCWSTR::from_raw(headers_map.as_ptr()),
-    )
+    env.CreateWebResourceResponse(stream.as_ref(), status_code as i32, &status, &headers_map)
   }
 
   #[inline]
@@ -970,12 +976,7 @@ impl InnerWebView {
     let status_code = status.as_u16();
     let status = HSTRING::from(status.canonical_reason().unwrap_or("Bad Request"));
     let error = HSTRING::from(err.to_string());
-    env.CreateWebResourceResponse(
-      None,
-      status_code as i32,
-      PCWSTR::from_raw(status.as_ptr()),
-      PCWSTR::from_raw(error.as_ptr()),
-    )
+    env.CreateWebResourceResponse(None, status_code as i32, &status, &error)
   }
 
   #[inline]
@@ -1007,7 +1008,7 @@ impl InnerWebView {
     if msg == *EXEC_MSG_ID {
       let mut function: Box<Box<dyn FnMut()>> = Box::from_raw(wparam.0 as *mut _);
       function();
-      RedrawWindow(hwnd, None, HRGN::default(), RDW_INTERNALPAINT);
+      let _ = RedrawWindow(hwnd, None, HRGN::default(), RDW_INTERNALPAINT);
       return LRESULT(0);
     }
 
@@ -1015,7 +1016,7 @@ impl InnerWebView {
   }
 
   unsafe fn attach_main_thread_dispatcher(hwnd: HWND) {
-    SetWindowSubclass(
+    let _ = SetWindowSubclass(
       hwnd,
       Some(Self::main_thread_dispatcher_proc),
       MAIN_THREAD_DISPATCHER_SUBCLASS_ID as _,
@@ -1032,11 +1033,11 @@ impl InnerWebView {
     dwrefdata: usize,
   ) -> LRESULT {
     match msg {
-      win32wm::WM_SIZE => {
-        if wparam.0 != win32wm::SIZE_MINIMIZED as usize {
+      WM_SIZE => {
+        if wparam.0 != SIZE_MINIMIZED as usize {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
           let mut rect = RECT::default();
-          let _ = win32wm::GetClientRect(hwnd, &mut rect);
+          let _ = GetClientRect(hwnd, &mut rect);
           let width = rect.right - rect.left;
           let height = rect.bottom - rect.top;
 
@@ -1062,23 +1063,23 @@ impl InnerWebView {
         }
       }
 
-      win32wm::WM_SETFOCUS | win32wm::WM_ENTERSIZEMOVE => {
+      WM_SETFOCUS | WM_ENTERSIZEMOVE => {
         let controller = dwrefdata as *mut ICoreWebView2Controller;
         let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
       }
 
-      win32wm::WM_WINDOWPOSCHANGED => {
+      WM_WINDOWPOSCHANGED => {
         let controller = dwrefdata as *mut ICoreWebView2Controller;
         let _ = (*controller).NotifyParentWindowPositionChanged();
       }
 
-      msg if msg == win32wm::WM_DESTROY || msg == PARENT_DESTROY_MESSAGE => {
+      msg if msg == WM_DESTROY || msg == PARENT_DESTROY_MESSAGE => {
         // check if `dwrefdata` is null to avoid double-freeing the controller
         if !(dwrefdata as *mut ()).is_null() {
           drop(Box::from_raw(dwrefdata as *mut ICoreWebView2Controller));
 
           // update `dwrefdata` to null to avoid double-freeing the controller
-          SetWindowSubclass(
+          let _ = SetWindowSubclass(
             hwnd,
             Some(Self::parent_subclass_proc),
             PARENT_SUBCLASS_ID as _,
@@ -1095,7 +1096,7 @@ impl InnerWebView {
 
   #[inline]
   unsafe fn attach_parent_subclass(parent: HWND, controller: &ICoreWebView2Controller) {
-    SetWindowSubclass(
+    let _ = SetWindowSubclass(
       parent,
       Some(Self::parent_subclass_proc),
       PARENT_SUBCLASS_ID as _,
@@ -1111,22 +1112,22 @@ impl InnerWebView {
       WPARAM::default(),
       LPARAM::default(),
     );
-    RemoveWindowSubclass(
+    let _ = RemoveWindowSubclass(
       parent,
       Some(Self::parent_subclass_proc),
       PARENT_SUBCLASS_ID as _,
     );
   }
 
+  // TODO: feature to allow injecting into (specific) subframes
   #[inline]
   fn add_script_to_execute_on_document_created(webview: &ICoreWebView2, js: String) -> Result<()> {
     let webview = webview.clone();
     AddScriptToExecuteOnDocumentCreatedCompletedHandler::wait_for_async_operation(
       Box::new(move |handler| unsafe {
         let js = HSTRING::from(js);
-        let js = PCWSTR::from_raw(js.as_ptr());
         webview
-          .AddScriptToExecuteOnDocumentCreated(js, &handler)
+          .AddScriptToExecuteOnDocumentCreated(&js, &handler)
           .map_err(Into::into)
       }),
       Box::new(|e, _| e),
@@ -1145,7 +1146,7 @@ impl InnerWebView {
       let span = tracing::debug_span!("wry::eval").entered();
       let js = HSTRING::from(js);
       webview.ExecuteScript(
-        PCWSTR::from_raw(js.as_ptr()),
+        &js,
         &ExecuteScriptCompletedHandler::create(Box::new(|_, res| {
           #[cfg(feature = "tracing")]
           drop(span);
@@ -1189,7 +1190,7 @@ impl InnerWebView {
 
   pub fn load_url(&self, url: &str) -> Result<()> {
     let url = HSTRING::from(url);
-    unsafe { self.webview.Navigate(PCWSTR::from_raw(url.as_ptr())) }.map_err(Into::into)
+    unsafe { self.webview.Navigate(&url) }.map_err(Into::into)
   }
 
   pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) -> Result<()> {
@@ -1264,9 +1265,18 @@ impl InnerWebView {
     Ok(())
   }
 
+  fn resize_to_parent(&self) -> crate::Result<()> {
+    let mut rect = RECT::default();
+    unsafe { GetClientRect(*self.parent.borrow(), &mut rect)? };
+    let width = rect.right - rect.left;
+    let height = rect.bottom - rect.top;
+
+    self.set_bounds_inner((width, height).into(), (0, 0).into())
+  }
+
   pub fn set_visible(&self, visible: bool) -> Result<()> {
     unsafe {
-      ShowWindow(
+      let _ = ShowWindow(
         self.hwnd,
         match visible {
           true => SW_SHOW,
@@ -1302,7 +1312,7 @@ impl InnerWebView {
         *self.parent.borrow_mut() = parent;
 
         let mut rect = RECT::default();
-        win32wm::GetClientRect(parent, &mut rect)?;
+        GetClientRect(parent, &mut rect)?;
 
         let width = rect.right - rect.left;
         let height = rect.bottom - rect.top;
@@ -1391,12 +1401,7 @@ fn load_url_with_headers(
   unsafe {
     let env = env.cast::<ICoreWebView2Environment9>()?;
     let method = HSTRING::from("GET");
-    if let Ok(request) = env.CreateWebResourceRequest(
-      PCWSTR::from_raw(url.as_ptr()),
-      PCWSTR::from_raw(method.as_ptr()),
-      None,
-      PCWSTR::from_raw(headers_map.as_ptr()),
-    ) {
+    if let Ok(request) = env.CreateWebResourceRequest(&url, &method, None, &headers_map) {
       let webview: ICoreWebView2_10 = webview.cast()?;
       webview.NavigateWithWebResourceRequest(&request)?;
     }

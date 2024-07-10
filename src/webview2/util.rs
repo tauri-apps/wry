@@ -4,7 +4,7 @@
 
 use once_cell::sync::Lazy;
 use windows::{
-  core::{HRESULT, HSTRING, PCSTR, PCWSTR},
+  core::{HRESULT, HSTRING, PCSTR},
   Win32::{
     Foundation::{FARPROC, HWND, S_OK},
     Graphics::Gdi::{
@@ -23,7 +23,7 @@ fn get_function_impl(library: &str, function: &str) -> FARPROC {
   assert_eq!(function.chars().last(), Some('\0'));
 
   // Library names we will use are ASCII so we can use the A version to avoid string conversion.
-  let module = unsafe { LoadLibraryW(PCWSTR::from_raw(library.as_ptr())) }.unwrap_or_default();
+  let module = unsafe { LoadLibraryW(&library) }.unwrap_or_default();
   if module.is_invalid() {
     return None;
   }

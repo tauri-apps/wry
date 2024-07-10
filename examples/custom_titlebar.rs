@@ -8,8 +8,7 @@ use tao::{
   event_loop::{ControlFlow, EventLoopBuilder},
   window::{CursorIcon, ResizeDirection, Window, WindowBuilder},
 };
-use wry::http::Request;
-use wry::WebViewBuilder;
+use wry::{http::Request, WebViewBuilder};
 
 #[derive(Debug)]
 enum HitTestResult {
@@ -127,6 +126,10 @@ fn main() -> wry::Result<()> {
               box-sizing: border-box;
           }
 
+          *[data-wry-darg-region] {
+            app-region: drag; /* Supported on Windows only, on WebView2 123+ and makes dragging with touch work */
+          }
+
           main {
             display: grid;
             place-items: center;
@@ -169,7 +172,7 @@ fn main() -> wry::Result<()> {
 
   <body>
       <div class="titlebar">
-          <div class="drag-region">Custom Titlebar</div>
+          <div data-wry-darg-region>Custom Titlebar</div>
           <div>
               <div class="titlebar-button" onclick="window.ipc.postMessage('minimize')">
                   <img src="https://api.iconify.design/codicon:chrome-minimize.svg" />
@@ -188,7 +191,7 @@ fn main() -> wry::Result<()> {
       <script>
           document.addEventListener('mousemove', (e) => window.ipc.postMessage(`mousemove:${e.clientX},${e.clientY}`))
           document.addEventListener('mousedown', (e) => {
-              if (e.target.classList.contains('drag-region') && e.buttons === 1) {
+              if (e.target.hasAttribute('data-wry-darg-region') && e.button === 0) {
                   e.detail === 2
                       ? window.ipc.postMessage('maximize')
                       : window.ipc.postMessage('drag_window');
@@ -197,7 +200,7 @@ fn main() -> wry::Result<()> {
               }
           })
           document.addEventListener('touchstart', (e) => {
-              if (e.target.classList.contains('drag-region')) {
+              if (e.target.hasAttribute('data-wry-darg-region')) {
                   window.ipc.postMessage('drag_window');
               }
           })

@@ -2,8 +2,8 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.39.0"
-authors = ["Tauri Programme within The Commons Conservancy"]
+version = "0.41.0"
+authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 description = "Cross-platform WebView rendering library"
@@ -25,16 +25,16 @@ rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["drag-drop", "objc-exception", "protocol", "os-webview"]
-serde = ["dpi/serde"]
+default = [ "drag-drop", "objc-exception", "protocol", "os-webview" ]
+serde = [ "dpi/serde" ]
 objc-exception = ["objc2/exception"]
-drag-drop = []
-protocol = []
-devtools = []
-transparent = []
-fullscreen = []
-linux-body = ["webkit2gtk/v2_40", "os-webview"]
-mac-proxy = []
+drag-drop = [ ]
+protocol = [ ]
+devtools = [ ]
+transparent = [ ]
+fullscreen = [ ]
+linux-body = [ "webkit2gtk/v2_40", "os-webview" ]
+mac-proxy = [ ]
 os-webview = [
   "javascriptcore-rs",
   "webkit2gtk",
@@ -46,35 +46,33 @@ os-webview = [
 ]
 tracing = ["dep:tracing"]
 
-[build-dependencies]
-cfg_aliases = "0.1"
-
 [dependencies]
 tracing = { version = "0.1", optional = true }
 once_cell = "1"
 thiserror = "1.0"
 http = "1.1"
-raw-window-handle = { version = "0.6", features = ["std"] }
+raw-window-handle = { version = "0.6", features = [ "std" ] }
 dpi = "0.1"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
-javascriptcore-rs = { version = "=1.1", features = ["v2_28"], optional = true }
-webkit2gtk = { version = "=2.0", features = ["v2_38"], optional = true }
-webkit2gtk-sys = { version = "=2.0", optional = true }
+javascriptcore-rs = { version = "=1.1.2", features = [ "v2_28" ], optional = true }
+webkit2gtk = { version = "=2.0.1", features = [ "v2_38" ], optional = true }
+webkit2gtk-sys = { version = "=2.0.1", optional = true }
 gtk = { version = "0.18", optional = true }
 soup3 = { version = "0.5", optional = true }
-x11-dl = { version = "2.9", optional = true }
+x11-dl = { version = "2.21", optional = true }
 gdkx11 = { version = "0.18", optional = true }
-percent-encoding = "2.1"
+percent-encoding = "2.3"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.29"
+webview2-com = "0.31"
 windows-version = "0.1"
+windows-core = "0.57"
 dunce = "1"
 
-[target."cfg(target_os = \"windows\")".dependencies.windows]
-version = "0.54"
-features = [
+  [target."cfg(target_os = \"windows\")".dependencies.windows]
+  version = "0.57"
+  features = [
   "implement",
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
@@ -94,7 +92,7 @@ features = [
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
 block2 = "0.5"
-objc2 = { version = "0.5" }
+objc2 = { version = "0.5", features = ["catch-all"] }
 objc2-web-kit = { version = "0.2.0", features = [
   "objc2-app-kit",
   "block2",
@@ -134,6 +132,7 @@ objc2-foundation = { version = "0.2.0", features = [
   "NSJSONSerialization",
   "NSDate",
   "NSBundle",
+  "NSProcessInfo",
 ] }
 objc2-app-kit = { version = "0.2.0", features = [
   "NSApplication",
@@ -159,7 +158,7 @@ crossbeam-channel = "0.5"
 html5ever = "0.26"
 kuchiki = { package = "kuchikiki", version = "0.8" }
 sha2 = "0.10"
-base64 = "0.21"
+base64 = "0.22"
 jni = "0.21"
 ndk = "0.7"
 ndk-sys = "0.4"
@@ -169,6 +168,13 @@ libc = "0.2"
 
 [dev-dependencies]
 pollster = "0.3.0"
-tao = "0.25"
+tao = "0.28"
 wgpu = "0.19"
 winit = "0.29"
+getrandom = "0.2"
+http-range = "0.1"
+percent-encoding = "2.3"
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = [ "cfg(linux)", "cfg(gtk)" ]

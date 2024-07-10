@@ -3,15 +3,12 @@
 // SPDX-License-Identifier: MIT
 
 fn main() {
-  let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+  let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
   if target_os == "macos" || target_os == "ios" {
     println!("cargo:rustc-link-lib=framework=WebKit");
   }
 
-  let is_android = std::env::var("CARGO_CFG_TARGET_OS")
-    .map(|t| t == "android")
-    .unwrap_or_default();
-  if is_android {
+  if target_os == "android" {
     use std::{fs, path::PathBuf};
 
     fn env_var(var: &str) -> String {
@@ -101,15 +98,20 @@ fn main() {
     }
   }
 
-  cfg_aliases::cfg_aliases! {
-      // Platforms
-      android: { target_os = "android" },
-      macos: { target_os = "macos" },
-      ios: { target_os = "ios" },
-      windows: { target_os = "windows" },
-      apple: { any(target_os = "ios", target_os = "macos") },
-      linux: { all(unix, not(apple), not(android)) },
-      // Backends
-      gtk: { all(feature = "os-webview", linux) },
+  let target = std::env::var("TARGET").unwrap_or_default();
+  let android = target.contains("android");
+  let linux = !android
+    && (target.contains("linux")
+      || target.contains("freebsd")
+      || target.contains("dragonfly")
+      || target.contains("netbsd")
+      || target.contains("openbsd"));
+  alias("linux", linux);
+  alias("gtk", cfg!(feature = "os-webview") && linux);
+}
+
+fn alias(alias: &str, condition: bool) {
+  if condition {
+    println!("cargo:rustc-cfg={alias}");
   }
 }

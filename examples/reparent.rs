@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use objc2::rc::Retained;
+use objc2_app_kit::NSWindow;
 use tao::{
   event::{ElementState, Event, KeyEvent, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
@@ -90,9 +92,11 @@ fn main() -> wry::Result<()> {
         webview_container = new_parent.id();
 
         #[cfg(target_os = "macos")]
-        webview
-          .reparent(new_parent.ns_window() as cocoa::base::id)
-          .unwrap();
+        unsafe {
+          let parent_window: Retained<NSWindow> =
+            Retained::from_raw(new_parent.ns_window() as *mut NSWindow).unwrap();
+          webview.reparent(parent_window).unwrap();
+        }
         #[cfg(not(any(
           target_os = "windows",
           target_os = "macos",
