@@ -29,9 +29,8 @@ use objc2::{
   ClassType, DeclaredClass,
 };
 use objc2_app_kit::{
-  NSApp, NSApplication, NSAutoresizingMaskOptions, NSDragOperation, NSDraggingInfo, NSEvent,
-  NSModalResponse, NSModalResponseOK, NSOpenPanel, NSPrintInfo, NSTitlebarSeparatorStyle, NSView,
-  NSWindow,
+  NSApp, NSApplication, NSAutoresizingMaskOptions, NSEvent, NSModalResponse, NSModalResponseOK,
+  NSOpenPanel, NSTitlebarSeparatorStyle, NSView, NSWindow,
 };
 use objc2_foundation::{
   ns_string, CGPoint, CGRect, CGSize, MainThreadMarker, NSArray, NSBundle, NSData, NSDate,
@@ -1001,7 +1000,7 @@ r#"Object.defineProperty(window, 'ipc', {
     self.print_with_options(&PrintOptions::default())
   }
 
-  pub fn print_with_options(&self, options: &PrintOptions) -> crate::Result<()> {
+  pub fn print_with_options(&self, _options: &PrintOptions) -> crate::Result<()> {
     // Safety: objc runtime calls are unsafe
     #[cfg(target_os = "macos")]
     unsafe {
@@ -1010,12 +1009,12 @@ r#"Object.defineProperty(window, 'ipc', {
         .respondsToSelector(objc2::sel!(printOperationWithPrintInfo:));
       if can_print {
         // Create a shared print info
-        let print_info = NSPrintInfo::sharedPrintInfo();
+        let print_info = objc2_app_kit::NSPrintInfo::sharedPrintInfo();
         // let print_info: id = msg_send![print_info, init];
-        print_info.setTopMargin(options.margins.top.into());
-        print_info.setRightMargin(options.margins.right.into());
-        print_info.setBottomMargin(options.margins.bottom.into());
-        print_info.setLeftMargin(options.margins.left.into());
+        print_info.setTopMargin(_options.margins.top.into());
+        print_info.setRightMargin(_options.margins.right.into());
+        print_info.setBottomMargin(_options.margins.bottom.into());
+        print_info.setLeftMargin(_options.margins.left.into());
 
         // Create new print operation from the webview content
         let print_operation = self.webview.printOperationWithPrintInfo(&print_info);
@@ -1273,23 +1272,23 @@ declare_class!(
     #[method(draggingEntered:)]
     fn dragging_entered(
       &self,
-      drag_info: &ProtocolObject<dyn NSDraggingInfo>,
-    ) -> NSDragOperation {
+      drag_info: &ProtocolObject<dyn objc2_app_kit::NSDraggingInfo>,
+    ) -> objc2_app_kit::NSDragOperation {
       drag_drop::dragging_entered(self, drag_info)
     }
 
     #[method(draggingUpdated:)]
     fn dragging_updated(
       &self,
-      drag_info: &ProtocolObject<dyn NSDraggingInfo>,
-    ) -> NSDragOperation {
+      drag_info: &ProtocolObject<dyn objc2_app_kit::NSDraggingInfo>,
+    ) -> objc2_app_kit::NSDragOperation {
       drag_drop::dragging_updated(self, drag_info)
     }
 
     #[method(performDragOperation:)]
     fn perform_drag_operation(
       &self,
-      drag_info: &ProtocolObject<dyn NSDraggingInfo>,
+      drag_info: &ProtocolObject<dyn objc2_app_kit::NSDraggingInfo>,
     ) -> Bool {
       drag_drop::perform_drag_operation(self, drag_info)
     }
@@ -1297,7 +1296,7 @@ declare_class!(
     #[method(draggingExited:)]
     fn dragging_exited(
       &self,
-      drag_info: &ProtocolObject<dyn NSDraggingInfo>,
+      drag_info: &ProtocolObject<dyn objc2_app_kit::NSDraggingInfo>,
     ) {
       drag_drop::dragging_exited(self, drag_info)
     }
