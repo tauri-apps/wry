@@ -222,15 +222,18 @@ use android::*;
 
 #[cfg(gtk)]
 pub(crate) mod webkitgtk;
-use objc2::rc::Retained;
-use objc2_app_kit::NSWindow;
-use objc2_web_kit::WKUserContentController;
 /// Re-exported [raw-window-handle](https://docs.rs/raw-window-handle/latest/raw_window_handle/) crate.
 pub use raw_window_handle;
 use raw_window_handle::HasWindowHandle;
 #[cfg(gtk)]
 use webkitgtk::*;
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use objc2::rc::Retained;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use objc2_app_kit::NSWindow;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use objc2_web_kit::WKUserContentController;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) mod wkwebview;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -1612,7 +1615,7 @@ pub trait WebViewExtMacOS {
   /// Returns NSWindow associated with the WKWebView webview
   fn ns_window(&self) -> Retained<NSWindow>;
   /// Attaches this webview to the given NSWindow and removes it from the current one.
-  fn reparent(&self, window: Retained<NSWindow>) -> Result<()>;
+  fn reparent(&self, window: *mut NSWindow) -> Result<()>;
   // Prints with extra options
   fn print_with_options(&self, options: &PrintOptions) -> Result<()>;
 }
@@ -1635,7 +1638,7 @@ impl WebViewExtMacOS for WebView {
     self.webview.webview.window().unwrap().clone()
   }
 
-  fn reparent(&self, window: Retained<NSWindow>) -> Result<()> {
+  fn reparent(&self, window: *mut NSWindow) -> Result<()> {
     self.webview.reparent(window)
   }
 

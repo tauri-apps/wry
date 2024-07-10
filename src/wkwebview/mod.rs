@@ -30,7 +30,8 @@ use objc2::{
 };
 use objc2_app_kit::{
   NSApp, NSApplication, NSAutoresizingMaskOptions, NSDragOperation, NSDraggingInfo, NSEvent,
-  NSModalResponse, NSModalResponseOK, NSPrintInfo, NSTitlebarSeparatorStyle, NSView,
+  NSModalResponse, NSModalResponseOK, NSOpenPanel, NSPrintInfo, NSTitlebarSeparatorStyle, NSView,
+  NSWindow,
 };
 use objc2_foundation::{
   ns_string, CGPoint, CGRect, CGSize, MainThreadMarker, NSArray, NSBundle, NSData, NSDate,
@@ -196,7 +197,8 @@ impl InnerWebView {
     ) {
       unsafe {
         #[cfg(feature = "tracing")]
-        tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty).entered();
+        let span = tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty)
+          .entered();
 
         let task_key = (*task).hash(); // hash by task object address
         let task_uuid = (*webview).add_custom_task_key(task_key);
@@ -216,7 +218,7 @@ impl InnerWebView {
           let uri = url.absoluteString().unwrap().to_string();
 
           #[cfg(feature = "tracing")]
-          span.record("uri", uri);
+          span.record("uri", uri.clone());
 
           // Get request method (GET, POST, PUT etc...)
           let method = request.HTTPMethod().unwrap().to_string();
@@ -714,7 +716,7 @@ impl InnerWebView {
       ) {
         unsafe {
           if let Some(mtm) = MainThreadMarker::new() {
-            let open_panel = objc2_app_kit::NSOpenPanel::openPanel(mtm);
+            let open_panel = NSOpenPanel::openPanel(mtm);
             open_panel.setCanChooseFiles(true);
             let allow_multi = open_panel_params.allowsMultipleSelection();
             open_panel.setAllowsMultipleSelection(allow_multi);
@@ -1130,9 +1132,9 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   #[cfg(target_os = "macos")]
-  pub(crate) fn reparent(&self, window: Retained<objc2_app_kit::NSWindow>) -> crate::Result<()> {
+  pub(crate) fn reparent(&self, window: *mut NSWindow) -> crate::Result<()> {
     unsafe {
-      let content_view = window.contentView().unwrap();
+      let content_view = (*window).contentView().unwrap();
       content_view.addSubview(&self.webview);
     }
 
