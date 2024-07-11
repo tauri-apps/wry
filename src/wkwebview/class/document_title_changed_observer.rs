@@ -92,7 +92,7 @@ impl Drop for DocumentTitleChangedObserver {
       self
         .ivars()
         .object
-        .removeObserver_forKeyPath(&self, &NSString::from_str("title"));
+        .removeObserver_forKeyPath(self, &NSString::from_str("title"));
     }
   }
 }

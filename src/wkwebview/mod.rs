@@ -218,14 +218,13 @@ impl InnerWebView {
 
         let config_unwind_safe = AssertUnwindSafe(&config);
         let handler_unwind_safe = AssertUnwindSafe(handler);
-        if catch_unwind(|| {
+        let set_result = catch_unwind(|| {
           config_unwind_safe.setURLSchemeHandler_forURLScheme(
             Some(&*(handler_unwind_safe.cast::<ProtocolObject<dyn WKURLSchemeHandler>>())),
             &NSString::from_str(&name),
           );
-        })
-        .is_err()
-        {
+        });
+        if set_result.is_err() {
           return Err(Error::UrlSchemeRegisterError(name));
         }
       }
@@ -261,7 +260,8 @@ impl InnerWebView {
           }
         };
 
-        let proxies: Retained<NSArray<NSObject>> = NSArray::arrayWithObject(&*proxy_config);
+        let proxies: Retained<objc2_foundation::NSArray<NSObject>> =
+          objc2_foundation::NSArray::arrayWithObject(&*proxy_config);
         data_store.setValue_forKey(Some(&proxies), ns_string!("proxyConfigurations"));
       }
 
@@ -375,7 +375,7 @@ impl InnerWebView {
       if attributes.devtools {
         let has_inspectable_property: bool =
           NSObject::respondsToSelector(&webview, objc2::sel!(setInspectable:));
-        if has_inspectable_property == true {
+        if has_inspectable_property {
           webview.setInspectable(true);
         }
         // this cannot be on an `else` statement, it does not work on macOS :(
@@ -433,7 +433,7 @@ impl InnerWebView {
 
       let ui_delegate: Retained<WryWebViewUIDelegate> = WryWebViewUIDelegate::new(mtm);
       let proto_ui_delegate = ProtocolObject::from_ref(ui_delegate.as_ref());
-      webview.setUIDelegate(Some(&proto_ui_delegate));
+      webview.setUIDelegate(Some(proto_ui_delegate));
 
       // ns window is required for the print operation
       #[cfg(target_os = "macos")]
@@ -538,7 +538,7 @@ r#"Object.defineProperty(window, 'ipc', {
 
             let mut result = String::new();
 
-            if val != null_mut() {
+            if !val.is_null() {
               let json_ns_data = NSJSONSerialization::dataWithJSONObject_options_error(
                 &*val,
                 objc2_foundation::NSJSONWritingOptions::NSJSONWritingFragmentsAllowed,
@@ -561,14 +561,18 @@ r#"Object.defineProperty(window, 'ipc', {
             .evaluateJavaScript_completionHandler(&NSString::from_str(js), Some(&handler));
         } else {
           #[cfg(feature = "tracing")]
-          let handler = block2::RcBlock::new(move |val: *mut AnyObject, _err: *mut NSError| {
-            span.lock().unwrap().take();
-          })
-          .copy();
+          let handler = Some(
+            block2::RcBlock::new(move |_val: *mut AnyObject, _err: *mut NSError| {
+              span.lock().unwrap().take();
+            })
+            .copy(),
+          );
+          #[cfg(not(feature = "tracing"))]
+          let handler: Option<block2::RcBlock<dyn Fn(*mut AnyObject, *mut NSError)>> = None;
 
           self
             .webview
-            .evaluateJavaScript_completionHandler(&NSString::from_str(js), None);
+            .evaluateJavaScript_completionHandler(&NSString::from_str(js), handler.as_deref());
         }
       }
     }

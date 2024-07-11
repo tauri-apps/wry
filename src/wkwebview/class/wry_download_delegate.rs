@@ -88,12 +88,12 @@ impl WryDownloadDelegate {
 
 impl Drop for WryDownloadDelegate {
   fn drop(&mut self) {
-    if self.ivars().started != null_mut() {
+    if !self.ivars().started.is_null() {
       unsafe {
         drop(Box::from_raw(self.ivars().started));
       }
     }
-    if self.ivars().completed != null_mut() {
+    if !self.ivars().completed.is_null() {
       unsafe {
         drop(Box::from_raw(self.ivars().completed));
       }

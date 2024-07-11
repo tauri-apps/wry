@@ -25,7 +25,7 @@ pub fn create(name: &str) -> &AnyClass {
   unsafe {
     let scheme_name = format!("{}URLSchemeHandler", name);
     let cls = ClassBuilder::new(&scheme_name, NSObject::class());
-    let cls = match cls {
+    match cls {
       Some(mut cls) => {
         cls.add_ivar::<*mut c_void>("function");
         cls.add_ivar::<u32>("webview_id");
@@ -40,13 +40,12 @@ pub fn create(name: &str) -> &AnyClass {
         cls.register()
       }
       None => AnyClass::get(&scheme_name).expect("Failed to get the class definition"),
-    };
-    cls
+    }
   }
 }
 
 // Task handler for custom protocol
-extern "C" fn start_task<'a>(
+extern "C" fn start_task(
   this: &AnyObject,
   _sel: objc2::runtime::Sel,
   webview: *mut WryWebView,
@@ -61,7 +60,7 @@ extern "C" fn start_task<'a>(
     let task_uuid = (*webview).add_custom_task_key(task_key);
 
     let ivar = this.class().instance_variable("webview_id").unwrap();
-    let webview_id: u32 = ivar.load::<u32>(this).clone();
+    let webview_id: u32 = *ivar.load::<u32>(this);
     let ivar = this.class().instance_variable("function").unwrap();
     let function: &*mut c_void = ivar.load(this);
     if !function.is_null() {

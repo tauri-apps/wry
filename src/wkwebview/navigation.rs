@@ -25,7 +25,7 @@ pub(crate) fn did_commit_navigation(
     let mut pending_scripts = this.ivars().pending_scripts.lock().unwrap();
     if let Some(scripts) = &*pending_scripts {
       for script in scripts {
-        webview.evaluateJavaScript_completionHandler(&NSString::from_str(&script), None);
+        webview.evaluateJavaScript_completionHandler(&NSString::from_str(script), None);
       }
       *pending_scripts = None;
     }
