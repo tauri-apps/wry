@@ -20,11 +20,10 @@ use navigation::{
   did_commit_navigation, did_finish_navigation, navigation_policy, navigation_policy_response,
 };
 use objc2::{
-  class,
   declare::ClassBuilder,
   declare_class, msg_send, msg_send_id,
   mutability::{InteriorMutable, MainThreadOnly},
-  rc::{Allocated, Retained},
+  rc::Retained,
   runtime::{AnyClass, AnyObject, Bool, MessageReceiver, NSObject, ProtocolObject},
   ClassType, DeclaredClass,
 };
@@ -764,27 +763,7 @@ r#"Object.defineProperty(window, 'ipc', {
         if is_child {
           ns_view.addSubview(&webview);
         } else {
-          let parent_view_cls = match ClassBuilder::new("WryWebViewParent", NSView::class()) {
-            Some(mut decl) => {
-              decl.add_method(objc2::sel!(keyDown:), key_down as extern "C" fn(_, _, _));
-
-              extern "C" fn key_down(_this: &NSView, _sel: objc2::runtime::Sel, event: &NSEvent) {
-                unsafe {
-                  let mtm = MainThreadMarker::new().unwrap();
-                  let app = NSApp(mtm);
-                  if let Some(menu) = app.mainMenu() {
-                    menu.performKeyEquivalent(event);
-                  }
-                }
-              }
-
-              decl.register()
-            }
-            None => class!(NSView),
-          };
-
-          let parent_view: Allocated<NSView> = objc2::msg_send_id![parent_view_cls, alloc];
-          let parent_view = NSView::init(parent_view);
+          let parent_view = WryWebViewParent::new(mtm);
           parent_view.setAutoresizingMask(
             NSAutoresizingMaskOptions::NSViewHeightSizable
               | NSAutoresizingMaskOptions::NSViewWidthSizable,
@@ -1183,23 +1162,23 @@ declare_class!(
     fn perform_key_equivalent(
       &self,
       _event: &NSEvent,
-    ) -> bool {
+    ) -> Bool {
       // This is a temporary workaround for https://github.com/tauri-apps/tauri/issues/9426
       // FIXME: When the webview is a child webview, performKeyEquivalent always return YES
       // and stop propagating the event to the window, hence the menu shortcut won't be
       // triggered. However, overriding this method also means the cmd+key event won't be
       // handled in webview, which means the key cannot be listened by JavaScript.
       if self.ivars().is_child {
-        false
+        Bool::NO
       } else {
         unsafe {
-          let _: Bool = self.send_super_message(
+          let result: Bool = self.send_super_message(
             WKWebView::class(),
             objc2::sel!(performKeyEquivalent:),
             (_event,),
           );
-        };
-        true
+          result
+        }
       }
     }
 
@@ -1207,7 +1186,7 @@ declare_class!(
     fn accept_first_mouse(
       &self,
       _event: &NSEvent,
-    ) -> objc2::runtime::Bool {
+    ) -> Bool {
         self.ivars().accept_first_mouse
     }
   }
@@ -1738,6 +1717,47 @@ impl WryWebViewUIDelegate {
     let delegate = mtm
       .alloc::<WryWebViewUIDelegate>()
       .set_ivars(WryWebViewUIDelegateIvars {});
+    unsafe { msg_send_id![super(delegate), init] }
+  }
+}
+
+struct WryWebViewParentIvars {}
+
+declare_class!(
+  struct WryWebViewParent;
+
+  unsafe impl ClassType for WryWebViewParent {
+    type Super = NSView;
+    type Mutability = MainThreadOnly;
+    const NAME: &'static str = "WryWebViewParent";
+  }
+
+  impl DeclaredClass for WryWebViewParent {
+    type Ivars = WryWebViewParentIvars;
+  }
+
+  unsafe impl WryWebViewParent {
+    #[method(keyDown:)]
+    fn key_down(
+      &self,
+      event: &NSEvent,
+    ) {
+      let mtm = MainThreadMarker::new().unwrap();
+      let app = NSApp(mtm);
+      unsafe {
+        if let Some(menu) = app.mainMenu() {
+          menu.performKeyEquivalent(event);
+        }
+      }
+    }
+  }
+);
+
+impl WryWebViewParent {
+  fn new(mtm: MainThreadMarker) -> Retained<Self> {
+    let delegate = mtm
+      .alloc::<WryWebViewParent>()
+      .set_ivars(WryWebViewParentIvars {});
     unsafe { msg_send_id![super(delegate), init] }
   }
 }
