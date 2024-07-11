@@ -6,7 +6,9 @@ use objc2_web_kit::{
   WKNavigationResponsePolicy, WKWebView,
 };
 
-use crate::{PageLoadEvent, WryNavigationDelegate};
+use crate::PageLoadEvent;
+
+use super::class::wry_navigation_delegate::WryNavigationDelegate;
 
 pub(crate) fn did_commit_navigation(
   this: &WryNavigationDelegate,

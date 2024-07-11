@@ -4,7 +4,9 @@ use objc2::{rc::Retained, runtime::ProtocolObject, DeclaredClass};
 use objc2_foundation::{NSData, NSError, NSString, NSURLResponse, NSURL};
 use objc2_web_kit::{WKDownload, WKNavigationAction, WKNavigationResponse, WKWebView};
 
-use crate::{WryDownloadDelegate, WryNavigationDelegate};
+use super::class::{
+  wry_download_delegate::WryDownloadDelegate, wry_navigation_delegate::WryNavigationDelegate,
+};
 
 // Download action handler
 pub(crate) fn navigation_download_action(

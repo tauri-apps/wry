@@ -239,7 +239,7 @@ pub(crate) mod wkwebview;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use wkwebview::*;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-pub use wkwebview::{PrintMargin, PrintOptions};
+pub use wkwebview::{PrintMargin, PrintOptions, WryWebView};
 
 #[cfg(target_os = "windows")]
 pub(crate) mod webview2;
@@ -1631,10 +1631,6 @@ impl WebViewExtMacOS for WebView {
   }
 
   fn ns_window(&self) -> Retained<NSWindow> {
-    // unsafe {
-    //   let ns_window: cocoa::base::id = msg_send![self.webview.webview, window];
-    //   ns_window
-    // }
     self.webview.webview.window().unwrap().clone()
   }
 

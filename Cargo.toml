@@ -144,7 +144,6 @@ objc2-app-kit = { version = "0.2.0", features = [
   "NSResponder",
   "NSOpenPanel",
   "NSSavePanel",
-  "NSWindow",
   "NSMenu",
 ] }
 objc2-ui-kit = { version = "0.2.2", features = [
