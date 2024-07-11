@@ -123,6 +123,9 @@ pub(crate) struct InnerWebView {
   #[allow(dead_code)]
   // We need this the keep the reference count
   download_delegate: Option<Retained<WryDownloadDelegate>>,
+  #[allow(dead_code)]
+  // We need this the keep the reference count
+  ui_delegate: Retained<WryWebViewUIDelegate>,
   protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>>,
   webview_id: u32,
 }
@@ -295,7 +298,7 @@ impl InnerWebView {
                   /// 1. Task has stopped. pointer of the task not valid anymore.
                   /// 2. Task had stopped, but the pointer of the task has allocated to a new task.
                   ///    Outdated custom handler may call to the new task instance and cause segfault.
-                  fn check_task_is_valud(
+                  fn check_task_is_valid(
                     webview: &WryWebView,
                     task_key: usize,
                     current_uuid: Retained<NSUUID>,
@@ -322,7 +325,7 @@ impl InnerWebView {
                     url: Retained<NSURL>,
                     sent_response: HttpResponse<Cow<'_, [u8]>>,
                   ) -> crate::Result<()> {
-                    check_task_is_valud(&*webview, task_key, task_uuid.clone())?;
+                    check_task_is_valid(&*webview, task_key, task_uuid.clone())?;
 
                     let content = sent_response.body();
                     // default: application/octet-stream, but should be provided by the client
@@ -367,7 +370,7 @@ impl InnerWebView {
                       .unwrap();
 
                     check_webview_id_valid(webview_id)?;
-                    check_task_is_valud(&*webview, task_key, task_uuid.clone())?;
+                    check_task_is_valid(&*webview, task_key, task_uuid.clone())?;
                     (*task).didReceiveResponse(&response);
 
                     // Send data
@@ -377,12 +380,12 @@ impl InnerWebView {
                     // when out of scope but NSData will also free the content when it's done and cause doube free.
                     let data = NSData::initWithBytes_length(data, bytes, content.len());
                     check_webview_id_valid(webview_id)?;
-                    check_task_is_valud(&*webview, task_key, task_uuid.clone())?;
+                    check_task_is_valid(&*webview, task_key, task_uuid.clone())?;
                     (*task).didReceiveData(&data);
 
                     // Finish
                     check_webview_id_valid(webview_id)?;
-                    check_task_is_valud(&*webview, task_key, task_uuid.clone())?;
+                    check_task_is_valid(&*webview, task_key, task_uuid.clone())?;
                     (*task).didFinish();
 
                     (*webview).remove_custom_task_key(task_key);
@@ -704,66 +707,9 @@ impl InnerWebView {
         ProtocolObject::from_ref(navigation_policy_delegate.as_ref());
       webview.setNavigationDelegate(Some(proto_navigation_policy_delegate));
 
-      // File upload panel handler
-      extern "C" fn run_file_upload_panel(
-        _this: &ProtocolObject<dyn WKUIDelegate>,
-        _: objc2::runtime::Sel,
-        _webview: &WKWebView,
-        open_panel_params: &WKOpenPanelParameters,
-        _frame: &WKFrameInfo,
-        handler: &block2::Block<dyn Fn(*const NSArray<NSURL>)>,
-      ) {
-        unsafe {
-          if let Some(mtm) = MainThreadMarker::new() {
-            let open_panel = NSOpenPanel::openPanel(mtm);
-            open_panel.setCanChooseFiles(true);
-            let allow_multi = open_panel_params.allowsMultipleSelection();
-            open_panel.setAllowsMultipleSelection(allow_multi);
-            let allow_dir = open_panel_params.allowsDirectories();
-            open_panel.setCanChooseDirectories(allow_dir);
-            let ok: NSModalResponse = open_panel.runModal();
-            if ok == NSModalResponseOK {
-              let url = open_panel.URLs();
-              (*handler).call((Retained::as_ptr(&url),));
-            } else {
-              (*handler).call((null_mut(),));
-            }
-          }
-        }
-      }
-
-      extern "C" fn request_media_capture_permission(
-        _this: &ProtocolObject<dyn WKUIDelegate>,
-        _: objc2::runtime::Sel,
-        _webview: &WKWebView,
-        _origin: &WKSecurityOrigin,
-        _frame: &WKFrameInfo,
-        _type: WKMediaCaptureType,
-        decision_handler: &Block<dyn Fn(WKPermissionDecision)>,
-      ) {
-        //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
-        (*decision_handler).call((WKPermissionDecision::Grant,));
-      }
-
-      let ui_delegate = match ClassBuilder::new("WebViewUIDelegate", NSObject::class()) {
-        Some(mut ctl) => {
-          ctl.add_method(
-            objc2::sel!(webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:),
-            run_file_upload_panel as extern "C" fn(_, _, _, _, _, _),
-          );
-
-          ctl.add_method(
-            objc2::sel!(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:),
-            request_media_capture_permission as extern "C" fn(_, _, _, _, _, _, _),
-          );
-
-          ctl.register()
-        }
-        None => class!(WebViewUIDelegate),
-      };
-      let ui_delegate: Retained<ProtocolObject<dyn WKUIDelegate>> =
-        objc2::msg_send_id![ui_delegate, new];
-      webview.setUIDelegate(Some(&*ui_delegate));
+      let ui_delegate: Retained<WryWebViewUIDelegate> = WryWebViewUIDelegate::new(mtm);
+      let proto_ui_delegate = ProtocolObject::from_ref(ui_delegate.as_ref());
+      webview.setUIDelegate(Some(&proto_ui_delegate));
 
       // ns window is required for the print operation
       #[cfg(target_os = "macos")]
@@ -784,6 +730,7 @@ impl InnerWebView {
         document_title_changed_observer,
         navigation_policy_delegate,
         download_delegate,
+        ui_delegate,
         protocol_ptrs,
         is_child,
         webview_id,
@@ -853,7 +800,6 @@ r#"Object.defineProperty(window, 'ipc', {
         }
 
         // make sure the window is always on top when we create a new webview
-        let mtm = MainThreadMarker::new().unwrap();
         let app = NSApplication::sharedApplication(mtm);
         NSApplication::activate(&app);
       }
@@ -1724,5 +1670,74 @@ impl Drop for WryDownloadDelegate {
         drop(Box::from_raw(self.ivars().completed));
       }
     }
+  }
+}
+
+struct WryWebViewUIDelegateIvars {}
+
+declare_class!(
+  struct WryWebViewUIDelegate;
+
+  unsafe impl ClassType for WryWebViewUIDelegate {
+    type Super = NSObject;
+    type Mutability = MainThreadOnly;
+    const NAME: &'static str = "WryWebViewUIDelegate";
+  }
+
+  impl DeclaredClass for WryWebViewUIDelegate {
+    type Ivars = WryWebViewUIDelegateIvars;
+  }
+
+  unsafe impl NSObjectProtocol for WryWebViewUIDelegate {}
+
+  unsafe impl WKUIDelegate for WryWebViewUIDelegate {
+    #[method(webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:)]
+    fn run_file_upload_panel(
+      &self,
+      _webview: &WryWebView,
+      open_panel_params: &WKOpenPanelParameters,
+      _frame: &WKFrameInfo,
+      handler: &block2::Block<dyn Fn(*const NSArray<NSURL>)>
+    ) {
+      unsafe {
+        if let Some(mtm) = MainThreadMarker::new() {
+          let open_panel = NSOpenPanel::openPanel(mtm);
+          open_panel.setCanChooseFiles(true);
+          let allow_multi = open_panel_params.allowsMultipleSelection();
+          open_panel.setAllowsMultipleSelection(allow_multi);
+          let allow_dir = open_panel_params.allowsDirectories();
+          open_panel.setCanChooseDirectories(allow_dir);
+          let ok: NSModalResponse = open_panel.runModal();
+          if ok == NSModalResponseOK {
+            let url = open_panel.URLs();
+            (*handler).call((Retained::as_ptr(&url),));
+          } else {
+            (*handler).call((null_mut(),));
+          }
+        }
+      }
+    }
+
+    #[method(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:)]
+    fn request_media_capture_permission(
+      &self,
+      _webview: &WryWebView,
+      _origin: &WKSecurityOrigin,
+      _frame: &WKFrameInfo,
+      _capture_type: WKMediaCaptureType,
+      decision_handler: &Block<dyn Fn(WKPermissionDecision)>
+    ) {
+      //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
+      (*decision_handler).call((WKPermissionDecision::Grant,));
+    }
+  }
+);
+
+impl WryWebViewUIDelegate {
+  fn new(mtm: MainThreadMarker) -> Retained<Self> {
+    let delegate = mtm
+      .alloc::<WryWebViewUIDelegate>()
+      .set_ivars(WryWebViewUIDelegateIvars {});
+    unsafe { msg_send_id![super(delegate), init] }
   }
 }
