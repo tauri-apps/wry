@@ -64,6 +64,7 @@ use crate::{
     navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
   },
   Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
+  PrintOption, PrintMargin
 };
 
 use http::{
@@ -84,17 +85,8 @@ const NS_JSON_WRITING_FRAGMENTS_ALLOWED: u64 = 4;
 static COUNTER: Counter = Counter::new();
 static WEBVIEW_IDS: Lazy<Mutex<HashSet<u32>>> = Lazy::new(Default::default);
 
-#[derive(Debug, Default, Copy, Clone)]
-pub struct PrintMargin {
-  pub top: f32,
-  pub right: f32,
-  pub bottom: f32,
-  pub left: f32,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct PrintOptions {
-  pub margins: PrintMargin,
+fn mm_to_printer_points(mm: f32) -> f32 {
+  mm * 2.8452755906
 }
 
 pub(crate) struct InnerWebView {
@@ -1173,11 +1165,20 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub fn print(&self) -> crate::Result<()> {
-    self.print_with_options(&PrintOptions::default())
-  }
+  pub fn print_with_options(&self, options: &[WebViewPrintOption]) -> Result<()> {
+    let mut margins: PrintMargin = PrintMargin::default();
 
-  pub fn print_with_options(&self, options: &PrintOptions) -> crate::Result<()> {
+    for opt in options.iter() {
+      match opt {
+        PrintOption::Margins(m) => {
+          margins = m;
+        },
+        _ => {
+          return Err(Error::PrintOptionError(opt.clone()))
+        }
+      }
+    }
+
     // Safety: objc runtime calls are unsafe
     #[cfg(target_os = "macos")]
     unsafe {
@@ -1189,10 +1190,10 @@ r#"Object.defineProperty(window, 'ipc', {
         // Create a shared print info
         let print_info: id = msg_send![class!(NSPrintInfo), sharedPrintInfo];
         let print_info: id = msg_send![print_info, init];
-        let () = msg_send![print_info, setTopMargin:CGFloat::from(options.margins.top)];
-        let () = msg_send![print_info, setRightMargin:CGFloat::from(options.margins.right)];
-        let () = msg_send![print_info, setBottomMargin:CGFloat::from(options.margins.bottom)];
-        let () = msg_send![print_info, setLeftMargin:CGFloat::from(options.margins.left)];
+        let () = msg_send![print_info, setTopMargin:CGFloat::from(mm_to_printer_points(margins.top))];
+        let () = msg_send![print_info, setRightMargin:CGFloat::from(mm_to_printer_points(margins.right))];
+        let () = msg_send![print_info, setBottomMargin:CGFloat::from(mm_to_printer_points(margins.bottom))];
+        let () = msg_send![print_info, setLeftMargin:CGFloat::from(mm_to_printer_points(margins.left))];
         // Create new print operation from the webview content
         let print_operation: id = msg_send![self.webview, printOperationWithPrintInfo: print_info];
         // Allow the modal to detach from the current thread and be non-blocker
