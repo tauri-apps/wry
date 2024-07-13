@@ -1314,7 +1314,11 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn print(&self) -> Result<()> {
+  pub fn print_with_options(&self, options: &[PrintOption]) -> Result<()> {
+    for opt in options.iter() {
+      return Err(Error::PrintOptionError(opt.clone()))
+    }
+
     self.eval(
       "window.print()",
       None::<Box<dyn FnOnce(String) + Send + 'static>>,
