@@ -395,6 +395,9 @@ impl InnerWebView {
     web_context: &mut WebContext,
     attributes: &mut WebViewAttributes,
   ) {
+    // window.close()
+    webview.connect_close(move |webview| unsafe { webview.destroy() });
+
     // Synthetic mouse events
     synthetic_mouse_events::setup(webview);
 
