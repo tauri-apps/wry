@@ -17,13 +17,14 @@ use jni::{
   JNIEnv,
 };
 use kuchiki::NodeRef;
-use ndk::looper::{FdEvent, ForeignLooper};
+use ndk::looper::{FdEvent, ThreadLooper};
 use once_cell::sync::OnceCell;
 use raw_window_handle::HasWindowHandle;
 use sha2::{Digest, Sha256};
 use std::{
   borrow::Cow,
   collections::HashMap,
+  os::fd::{AsFd as _, AsRawFd as _},
   sync::{atomic::AtomicI32, mpsc::channel, Mutex},
 };
 
@@ -75,10 +76,13 @@ pub static EVAL_CALLBACKS: once_cell::sync::OnceCell<Mutex<HashMap<i32, EvalCall
   once_cell::sync::OnceCell::new();
 
 /// Sets up the necessary logic for wry to be able to create the webviews later.
+///
+/// This function must be run on the thread where the [`JNIEnv`] is registered and the looper is local,
+/// hence the requirement for a [`ThreadLooper`].
 pub unsafe fn android_setup(
   package: &str,
   mut env: JNIEnv,
-  looper: &ForeignLooper,
+  looper: &ThreadLooper,
   activity: GlobalRef,
 ) {
   PACKAGE.get_or_init(move || package.to_string());
@@ -108,10 +112,10 @@ pub unsafe fn android_setup(
   };
 
   looper
-    .add_fd_with_callback(MAIN_PIPE[0], FdEvent::INPUT, move |_| {
+    .add_fd_with_callback(MAIN_PIPE[0].as_fd(), FdEvent::INPUT, move |fd, _event| {
       let size = std::mem::size_of::<bool>();
       let mut wake = false;
-      if libc::read(MAIN_PIPE[0], &mut wake as *mut _ as *mut _, size) == size as libc::ssize_t {
+      if libc::read(fd.as_raw_fd(), &mut wake as *mut _ as *mut _, size) == size as libc::ssize_t {
         main_pipe.recv().is_ok()
       } else {
         false
