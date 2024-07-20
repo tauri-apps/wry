@@ -459,6 +459,9 @@ pub struct WebViewAttributes {
   ///
   /// ## Platform-specific:
   ///
+  /// - Windows: Setting to `false` does nothing on WebView2 Runtime version before 92.0.902.0,
+  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10902-prerelease
+  ///
   /// - **Android / iOS:** Unsupported.
   pub back_forward_navigation_gestures: bool,
 
@@ -843,6 +846,11 @@ impl<'a> WebViewBuilder<'a> {
   }
 
   /// Set a custom [user-agent](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent) for the WebView.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - Windows: Requires WebView2 Runtime version 86.0.616.0 or higher, does nothing on older versions,
+  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10790-prerelease
   pub fn with_user_agent(mut self, user_agent: &str) -> Self {
     self.attrs.user_agent = Some(user_agent.to_string());
     self
@@ -868,7 +876,10 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific
   ///
-  /// **macOS / Linux / Android / iOS**: Unsupported
+  /// - Windows: Setting to `false` can't disable pinch zoom on WebView2 Runtime version before 91.0.865.0,
+  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10865-prerelease
+  ///
+  /// - **macOS / Linux / Android / iOS**: Unsupported
   pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
     self.attrs.zoom_hotkeys_enabled = zoom;
     self
@@ -1107,6 +1118,9 @@ pub trait WebViewBuilderExtWindows {
   /// Determines whether browser-specific accelerator keys are enabled. When this setting is set to
   /// `false`, it disables all accelerator keys that access features specific to a web browser.
   /// The default value is `true`. See the following link to know more details.
+  ///
+  /// Setting to `false` does nothing on WebView2 Runtime version before 92.0.902.0,
+  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10824-prerelease
   ///
   /// <https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2settings#arebrowseracceleratorkeysenabled>
   fn with_browser_accelerator_keys(self, enabled: bool) -> Self;

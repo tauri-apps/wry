@@ -509,21 +509,24 @@ impl InnerWebView {
     settings.SetAreDevToolsEnabled(attributes.devtools)?;
 
     if let Some(user_agent) = &attributes.user_agent {
-      let settings2: ICoreWebView2Settings2 = webview.Settings()?.cast()?;
-      let user_agent = HSTRING::from(user_agent);
-      settings2.SetUserAgent(&user_agent)?;
+      if let Ok(settings2) = settings.cast::<ICoreWebView2Settings2>() {
+        settings2.SetUserAgent(&HSTRING::from(user_agent))?;
+      }
     }
 
     if !pl_attrs.browser_accelerator_keys {
-      let settings3 = settings.cast::<ICoreWebView2Settings5>()?;
-      settings3.SetAreBrowserAcceleratorKeysEnabled(false)?;
+      if let Ok(settings3) = settings.cast::<ICoreWebView2Settings3>() {
+        settings3.SetAreBrowserAcceleratorKeysEnabled(false)?;
+      }
     }
 
-    let settings5 = settings.cast::<ICoreWebView2Settings5>()?;
-    settings5.SetIsPinchZoomEnabled(attributes.zoom_hotkeys_enabled)?;
+    if let Ok(settings5) = settings.cast::<ICoreWebView2Settings5>() {
+      settings5.SetIsPinchZoomEnabled(attributes.zoom_hotkeys_enabled)?;
+    }
 
-    let settings6 = settings.cast::<ICoreWebView2Settings6>()?;
-    settings6.SetIsSwipeNavigationEnabled(attributes.back_forward_navigation_gestures)?;
+    if let Ok(settings6) = settings.cast::<ICoreWebView2Settings6>() {
+      settings6.SetIsSwipeNavigationEnabled(attributes.back_forward_navigation_gestures)?;
+    }
 
     if let Ok(settings9) = settings.cast::<ICoreWebView2Settings9>() {
       settings9.SetIsNonClientRegionSupportEnabled(true)?;
