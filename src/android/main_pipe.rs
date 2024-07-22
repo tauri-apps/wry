@@ -15,10 +15,10 @@ use std::{os::unix::prelude::*, sync::atomic::Ordering};
 use super::{find_class, EvalCallback, EVAL_CALLBACKS, EVAL_ID_GENERATOR, PACKAGE};
 
 static CHANNEL: Lazy<(Sender<WebViewMessage>, Receiver<WebViewMessage>)> = Lazy::new(|| bounded(8));
-pub static MAIN_PIPE: Lazy<[RawFd; 2]> = Lazy::new(|| {
+pub static MAIN_PIPE: Lazy<[OwnedFd; 2]> = Lazy::new(|| {
   let mut pipe: [RawFd; 2] = Default::default();
   unsafe { libc::pipe(pipe.as_mut_ptr()) };
-  pipe
+  unsafe { pipe.map(|fd| OwnedFd::from_raw_fd(fd)) }
 });
 
 pub struct MainPipe<'a> {
@@ -32,7 +32,13 @@ impl<'a> MainPipe<'a> {
   pub(crate) fn send(message: WebViewMessage) {
     let size = std::mem::size_of::<bool>();
     if let Ok(()) = CHANNEL.0.send(message) {
-      unsafe { libc::write(MAIN_PIPE[1], &true as *const _ as *const _, size) };
+      unsafe {
+        libc::write(
+          MAIN_PIPE[1].as_raw_fd(),
+          &true as *const _ as *const _,
+          size,
+        )
+      };
     }
   }
 

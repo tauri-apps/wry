@@ -27,7 +27,7 @@ macro_rules! android_binding {
   ($domain:ident, $package:ident) => {
     ::wry::android_binding!($domain, $package, ::wry)
   };
-  // use import `android_setup` just to force the import path to use `wry::{}`
+  // use imported `android_setup` just to force the import path to use `wry::{}`
   // as the macro breaks without braces
   ($domain:ident, $package:ident, $wry:path) => {{
     use $wry::{android_setup as _, prelude::*};
