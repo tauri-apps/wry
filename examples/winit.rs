@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+use dpi::{LogicalPosition, LogicalSize};
 use winit::{
   event::{Event, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
-use wry::WebViewBuilder;
+use wry::{Rect, WebViewBuilder};
 
 fn main() -> wry::Result<()> {
   #[cfg(any(
@@ -39,9 +40,9 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  #[allow(unused_mut)]
-  let mut builder = WebViewBuilder::new(&window);
-  let _webview = builder.with_url("https://tauri.app").build()?;
+  let webview = WebViewBuilder::new_as_child(&window)
+    .with_url("https://tauri.app")
+    .build()?;
 
   event_loop
     .run(move |event, evl| {
@@ -59,23 +60,15 @@ fn main() -> wry::Result<()> {
       }
 
       match event {
-        #[cfg(any(
-          target_os = "linux",
-          target_os = "dragonfly",
-          target_os = "freebsd",
-          target_os = "netbsd",
-          target_os = "openbsd",
-        ))]
         Event::WindowEvent {
           event: WindowEvent::Resized(size),
           ..
         } => {
-          use wry::dpi::{PhysicalPosition, PhysicalSize};
-
-          _webview
-            .set_bounds(wry::Rect {
-              position: PhysicalPosition::new(0, 0).into(),
-              size: PhysicalSize::new(size.width, size.height).into(),
+          let size = size.to_logical::<u32>(window.scale_factor());
+          webview
+            .set_bounds(Rect {
+              position: LogicalPosition::new(0, 0).into(),
+              size: LogicalSize::new(size.width, size.height).into(),
             })
             .unwrap();
         }
