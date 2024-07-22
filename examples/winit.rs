@@ -72,26 +72,6 @@ fn main() -> wry::Result<()> {
             })
             .unwrap();
         }
-        #[cfg(any(
-          target_os = "linux",
-          target_os = "dragonfly",
-          target_os = "freebsd",
-          target_os = "netbsd",
-          target_os = "openbsd",
-        ))]
-        Event::WindowEvent {
-          event: WindowEvent::Resized(size),
-          ..
-        } => {
-          use wry::dpi::{PhysicalPosition, PhysicalSize};
-
-          _webview
-            .set_bounds(wry::Rect {
-              position: PhysicalPosition::new(0, 0).into(),
-              size: PhysicalSize::new(size.width, size.height).into(),
-            })
-            .unwrap();
-        }
         Event::WindowEvent {
           event: WindowEvent::CloseRequested,
           ..
