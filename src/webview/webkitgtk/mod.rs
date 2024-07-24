@@ -343,10 +343,11 @@ impl InnerWebView {
     }
 
     for (name, handler) in attributes.custom_protocols {
-      match web_context.register_uri_scheme(&name, handler) {
+      match web_context.try_register_uri_scheme(&name, handler) {
         // Swallow duplicate scheme errors to preserve current behavior.
-        // FIXME: we should log this error in the future
-        Err(Error::DuplicateCustomProtocol(_)) => (),
+        Err(Error::DuplicateCustomProtocol(_)) => {
+          log::warn!("Ignoring already registered custom protocol {name}");
+        }
         Err(e) => return Err(e),
         Ok(_) => (),
       }
