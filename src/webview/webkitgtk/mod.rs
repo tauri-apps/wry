@@ -9,15 +9,14 @@ use gtk::prelude::*;
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
-  collections::hash_map::DefaultHasher,
-  hash::{Hash, Hasher},
   rc::Rc,
   sync::{Arc, Mutex},
 };
 use url::Url;
 use webkit2gtk::{
   traits::*, LoadEvent, NavigationPolicyDecision, PolicyDecisionType, URIRequest,
-  UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView, WebViewBuilder,
+  UserContentInjectedFrames, UserContentManager, UserScript, UserScriptInjectionTime, WebView,
+  WebViewBuilder,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -63,9 +62,11 @@ impl InnerWebView {
       }
     };
 
+    let manager = UserContentManager::new();
+
     let webview = {
       let mut webview = WebViewBuilder::new();
-      webview = webview.user_content_manager(web_context.manager());
+      webview = webview.user_content_manager(&manager);
       webview = webview.web_context(web_context.context());
       webview = webview.is_controlled_by_automation(web_context.allows_automation());
       webview.build()
@@ -77,15 +78,6 @@ impl InnerWebView {
     let webview = Rc::new(webview);
     let w = window_rc.clone();
     let ipc_handler = attributes.ipc_handler.take();
-    let manager = web_context.manager();
-
-    // Use the window hash as the script handler name to prevent from conflict when sharing same
-    // web context.
-    let window_hash = {
-      let mut hasher = DefaultHasher::new();
-      w.id().hash(&mut hasher);
-      hasher.finish().to_string()
-    };
 
     // Connect before registering as recommended by the docs
     manager.connect_script_message_received(None, move |_m, msg| {
@@ -99,8 +91,8 @@ impl InnerWebView {
       }
     });
 
-    // Register the handler we just connected
-    manager.register_script_message_handler(&window_hash);
+    // Register handler on JS side
+    manager.register_script_message_handler("ipc");
 
     // Allow the webview to close it's own window
     let close_window = window_rc.clone();
@@ -343,11 +335,7 @@ impl InnerWebView {
     };
 
     // Initialize message handler
-    let mut init = String::with_capacity(115 + 20 + 22);
-    init.push_str("Object.defineProperty(window, 'ipc', {value: Object.freeze({postMessage:function(x){window.webkit.messageHandlers[\"");
-    init.push_str(&window_hash);
-    init.push_str("\"].postMessage(x)}})})");
-    w.init(&init)?;
+    w.init("Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })")?;
 
     // Initialize scripts
     for js in attributes.initialization_scripts {
