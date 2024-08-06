@@ -203,21 +203,21 @@ impl InnerWebView {
     REQUEST_HANDLER.get_or_init(move || {
       UnsafeRequestHandler::new(Box::new(
         move |mut request, is_document_start_script_enabled| {
+          let uri = request.uri().to_string();
           if let Some(custom_protocol) = custom_protocols.iter().find(|(name, _)| {
-            request
-              .uri()
-              .to_string()
-              .starts_with(&format!("{scheme}://{}.", name))
+            uri.starts_with(&format!("{scheme}://{}.", name))
           }) {
-            *request.uri_mut() = request
-              .uri()
-              .to_string()
+            let uri_res = uri
               .replace(
                 &format!("{scheme}://{}.", custom_protocol.0),
                 &format!("{}://", custom_protocol.0),
               )
-              .parse()
-              .unwrap();
+              .parse();
+            println!("{:?} {:?}", request.uri(), uri_res);
+
+            if let Ok(uri) = uri_res {
+              *request.uri_mut() = uri;
+            }
 
             let (tx, rx) = channel();
             let initialization_scripts = initialization_scripts.clone();
