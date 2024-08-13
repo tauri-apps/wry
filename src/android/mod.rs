@@ -213,7 +213,6 @@ impl InnerWebView {
                 &format!("{}://", custom_protocol.0),
               )
               .parse();
-            println!("{:?} {:?}", request.uri(), uri_res);
 
             if let Ok(uri) = uri_res {
               *request.uri_mut() = uri;
