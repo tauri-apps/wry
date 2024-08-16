@@ -93,7 +93,7 @@ dunce = "1"
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
 block = "0.1"
 cocoa = "0.25"
-core-graphics = "0.23"
+core-graphics = "0.24"
 objc = "0.2"
 objc_id = "0.1"
 
