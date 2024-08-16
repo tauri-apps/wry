@@ -68,7 +68,7 @@ pub unsafe fn hwnd_dpi(hwnd: HWND) -> u32 {
   } else if let Some(GetDpiForMonitor) = *GET_DPI_FOR_MONITOR {
     // We are on Windows 8.1 or later.
     let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-    if monitor.0 == 0 {
+    if monitor.is_invalid() {
       return BASE_DPI;
     }
 

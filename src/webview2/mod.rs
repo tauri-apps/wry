@@ -227,7 +227,7 @@ impl InnerWebView {
         HMENU::default(),
         GetModuleHandleW(PCWSTR::null()).unwrap_or_default(),
         None,
-      )
+      )?
     };
 
     unsafe {
@@ -1293,10 +1293,10 @@ impl InnerWebView {
   }
 
   pub fn reparent(&self, parent: isize) -> Result<()> {
-    let parent = HWND(parent);
+    let parent = HWND(parent as _);
 
     unsafe {
-      SetParent(self.hwnd, parent);
+      SetParent(self.hwnd, parent)?;
 
       if !self.is_child {
         Self::dettach_parent_subclass(*self.parent.borrow());
