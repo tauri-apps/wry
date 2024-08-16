@@ -92,7 +92,10 @@ fn main() {
         out.push_str(&content);
 
         let out_path = kotlin_out_dir.join(file.file_name());
-        fs::write(&out_path, out).expect("Failed to write kotlin file");
+        // Overwrite only if changed to not trigger rebuilds
+        if fs::read_to_string(&out_path).map_or(true, |o| o != out) {
+          fs::write(&out_path, out).expect("Failed to write kotlin file");
+        }
         println!("cargo:rerun-if-changed={}", out_path.display());
       }
     }
