@@ -287,26 +287,23 @@ impl InnerWebView {
       arguments
     });
 
-    let additional_browser_args = HSTRING::from(additional_browser_args);
-
     let (tx, rx) = mpsc::channel();
     CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
       Box::new(move |environmentcreatedhandler| unsafe {
-        let options: ICoreWebView2EnvironmentOptions =
-          CoreWebView2EnvironmentOptions::default().into();
+        let options = CoreWebView2EnvironmentOptions::default();
 
-        let _ = options.SetAdditionalBrowserArguments(&additional_browser_args);
+        options.set_additional_browser_arguments(additional_browser_args);
 
         // Get user's system language
         let lcid = GetUserDefaultUILanguage();
         let mut lang = [0; MAX_LOCALE_NAME as usize];
         LCIDToLocaleName(lcid as u32, Some(&mut lang), LOCALE_ALLOW_NEUTRAL_NAMES);
-        options.SetLanguage(PCWSTR::from_raw(lang.as_ptr()))?;
+        options.set_language(String::from_utf16_lossy(&lang));
 
         CreateCoreWebView2EnvironmentWithOptions(
           PCWSTR::null(),
           &data_directory.unwrap_or_default(),
-          &options,
+          &ICoreWebView2EnvironmentOptions::from(options),
           &environmentcreatedhandler,
         )
         .map_err(Into::into)
