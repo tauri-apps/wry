@@ -300,6 +300,13 @@ impl InnerWebView {
         LCIDToLocaleName(lcid as u32, Some(&mut lang), LOCALE_ALLOW_NEUTRAL_NAMES);
         options.set_language(String::from_utf16_lossy(&lang));
 
+        let scroll_bar_style = match pl_attrs.scroll_bar_style {
+          ScrollBarStyle::Default => COREWEBVIEW2_SCROLLBAR_STYLE_DEFAULT,
+          ScrollBarStyle::FluentOverlay => COREWEBVIEW2_SCROLLBAR_STYLE_FLUENT_OVERLAY,
+        };
+
+        options.set_scroll_bar_style(scroll_bar_style);
+
         CreateCoreWebView2EnvironmentWithOptions(
           PCWSTR::null(),
           &data_directory.unwrap_or_default(),
@@ -1366,6 +1373,17 @@ impl InnerWebView {
   pub fn is_devtools_open(&self) -> bool {
     false
   }
+}
+
+/// The scrollbar style to use in the webview.
+#[derive(Clone, Copy, Default)]
+pub enum ScrollBarStyle {
+  #[default]
+  /// The browser default scrollbar style.
+  Default,
+
+  /// Fluent UI style overlay scrollbars.
+  FluentOverlay,
 }
 
 #[inline]
