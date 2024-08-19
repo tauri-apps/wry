@@ -238,9 +238,9 @@ pub use wkwebview::{PrintMargin, PrintOptions};
 #[cfg(target_os = "windows")]
 pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
-use self::webview2::*;
-#[cfg(target_os = "windows")]
 pub use self::webview2::ScrollBarStyle;
+#[cfg(target_os = "windows")]
+use self::webview2::*;
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 
@@ -1147,9 +1147,9 @@ pub trait WebViewBuilderExtWindows {
 
   /// Specifies the native scrollbar style to use with webview2.
   /// CSS styles that modify the scrollbar are applied on top of the native appearance configured here.
-  /// 
+  ///
   /// Defaults to [`ScrollbarStyle::Default`] which is the browser default used by Microsoft Edge.
-  /// 
+  ///
   /// Requires WebView2 Runtime version 125.0.2535.41 or higher, does nothing on older versions,
   /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/?tabs=dotnetcsharp#10253541
   fn with_scroll_bar_style(self, style: ScrollBarStyle) -> Self;
