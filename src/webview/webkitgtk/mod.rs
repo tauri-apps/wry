@@ -78,7 +78,13 @@ impl InnerWebView {
     let webview = Rc::new(webview);
     let w = window_rc.clone();
     let ipc_handler = attributes.ipc_handler.take();
-
+    // Use the window hash as the script handler name to prevent from conflict when sharing same
+    // web context.
+    let window_hash = {
+      let mut hasher = DefaultHasher::new();
+      w.id().hash(&mut hasher);
+      hasher.finish().to_string()
+    };
     // Connect before registering as recommended by the docs
     manager.connect_script_message_received(None, move |_m, msg| {
       #[cfg(feature = "tracing")]
