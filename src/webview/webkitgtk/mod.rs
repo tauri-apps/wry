@@ -9,6 +9,8 @@ use gtk::prelude::*;
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
+  collections::hash_map::DefaultHasher,
+  hash::{Hash, Hasher},
   rc::Rc,
   sync::{Arc, Mutex},
 };
