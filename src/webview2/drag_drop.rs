@@ -154,7 +154,7 @@ impl DragDropTarget {
 }
 
 #[allow(non_snake_case)]
-impl IDropTarget_Impl for DragDropTarget {
+impl IDropTarget_Impl for DragDropTarget_Impl {
   fn DragEnter(
     &self,
     pDataObj: Option<&IDataObject>,
@@ -166,7 +166,7 @@ impl IDropTarget_Impl for DragDropTarget {
     let _ = unsafe { ScreenToClient(self.hwnd, &mut pt) };
 
     let mut paths = Vec::new();
-    let hdrop = unsafe { Self::iterate_filenames(pDataObj, |path| paths.push(path)) };
+    let hdrop = unsafe { DragDropTarget::iterate_filenames(pDataObj, |path| paths.push(path)) };
     (self.listener)(DragDropEvent::Enter {
       paths,
       position: (pt.x as _, pt.y as _),
@@ -225,7 +225,7 @@ impl IDropTarget_Impl for DragDropTarget {
       let _ = unsafe { ScreenToClient(self.hwnd, &mut pt) };
 
       let mut paths = Vec::new();
-      let hdrop = unsafe { Self::iterate_filenames(pDataObj, |path| paths.push(path)) };
+      let hdrop = unsafe { DragDropTarget::iterate_filenames(pDataObj, |path| paths.push(path)) };
       (self.listener)(DragDropEvent::Drop {
         paths,
         position: (pt.x as _, pt.y as _),

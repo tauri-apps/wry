@@ -2,7 +2,7 @@ workspace = { }
 
 [package]
 name = "wry"
-version = "0.41.0"
+version = "0.42.0"
 authors = [ "Tauri Programme within The Commons Conservancy" ]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -65,14 +65,14 @@ gdkx11 = { version = "0.18", optional = true }
 percent-encoding = "2.3"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.31"
+webview2-com = "0.33"
 windows-version = "0.1"
-windows-core = "0.57"
+windows-core = "0.58"
 dunce = "1"
 
-  [target."cfg(target_os = \"windows\")".dependencies.windows]
-  version = "0.57"
-  features = [
+[target."cfg(target_os = \"windows\")".dependencies.windows]
+version = "0.58"
+features = [
   "implement",
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
@@ -92,8 +92,8 @@ dunce = "1"
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
 block = "0.1"
-cocoa = "0.25"
-core-graphics = "0.23"
+cocoa = "0.26"
+core-graphics = "0.24"
 objc = "0.2"
 objc_id = "0.1"
 

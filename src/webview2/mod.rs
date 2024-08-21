@@ -227,7 +227,7 @@ impl InnerWebView {
         HMENU::default(),
         GetModuleHandleW(PCWSTR::null()).unwrap_or_default(),
         None,
-      )
+      )?
     };
 
     unsafe {
@@ -287,26 +287,30 @@ impl InnerWebView {
       arguments
     });
 
-    let additional_browser_args = HSTRING::from(additional_browser_args);
-
     let (tx, rx) = mpsc::channel();
     CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
       Box::new(move |environmentcreatedhandler| unsafe {
-        let options: ICoreWebView2EnvironmentOptions =
-          CoreWebView2EnvironmentOptions::default().into();
+        let options = CoreWebView2EnvironmentOptions::default();
 
-        let _ = options.SetAdditionalBrowserArguments(&additional_browser_args);
+        options.set_additional_browser_arguments(additional_browser_args);
 
         // Get user's system language
         let lcid = GetUserDefaultUILanguage();
         let mut lang = [0; MAX_LOCALE_NAME as usize];
         LCIDToLocaleName(lcid as u32, Some(&mut lang), LOCALE_ALLOW_NEUTRAL_NAMES);
-        options.SetLanguage(PCWSTR::from_raw(lang.as_ptr()))?;
+        options.set_language(String::from_utf16_lossy(&lang));
+
+        let scroll_bar_style = match pl_attrs.scroll_bar_style {
+          ScrollBarStyle::Default => COREWEBVIEW2_SCROLLBAR_STYLE_DEFAULT,
+          ScrollBarStyle::FluentOverlay => COREWEBVIEW2_SCROLLBAR_STYLE_FLUENT_OVERLAY,
+        };
+
+        options.set_scroll_bar_style(scroll_bar_style);
 
         CreateCoreWebView2EnvironmentWithOptions(
           PCWSTR::null(),
           &data_directory.unwrap_or_default(),
-          &options,
+          &ICoreWebView2EnvironmentOptions::from(options),
           &environmentcreatedhandler,
         )
         .map_err(Into::into)
@@ -1293,10 +1297,10 @@ impl InnerWebView {
   }
 
   pub fn reparent(&self, parent: isize) -> Result<()> {
-    let parent = HWND(parent);
+    let parent = HWND(parent as _);
 
     unsafe {
-      SetParent(self.hwnd, parent);
+      SetParent(self.hwnd, parent)?;
 
       if !self.is_child {
         Self::dettach_parent_subclass(*self.parent.borrow());
@@ -1369,6 +1373,17 @@ impl InnerWebView {
   pub fn is_devtools_open(&self) -> bool {
     false
   }
+}
+
+/// The scrollbar style to use in the webview.
+#[derive(Clone, Copy, Default)]
+pub enum ScrollBarStyle {
+  #[default]
+  /// The browser default scrollbar style.
+  Default,
+
+  /// Fluent UI style overlay scrollbars.
+  FluentOverlay,
 }
 
 #[inline]
