@@ -85,6 +85,7 @@ impl InnerWebView {
       w.id().hash(&mut hasher);
       hasher.finish().to_string()
     };
+
     // Connect before registering as recommended by the docs
     manager.connect_script_message_received(None, move |_m, msg| {
       #[cfg(feature = "tracing")]
