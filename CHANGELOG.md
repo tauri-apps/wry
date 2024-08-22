@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.24.11]
+
+- [`3937421`](https://github.com/tauri-apps/wry/commit/39374211f95e84a68620e9527c6d1f797829b471) ([#1325](https://github.com/tauri-apps/wry/pull/1325) by [@ollpu](https://github.com/tauri-apps/wry/../../ollpu)) Fix Linux IPC handler and initialization scripts when sharing a WebContext between multiple WebViews.
+
 ## \[0.24.10]
 
 - [`3bfbea8`](https://github.com/tauri-apps/wry/commit/3bfbea812345e22743001f9a8f6843cf28baaa86)([#1251](https://github.com/tauri-apps/wry/pull/1251)) On macOS, disable initialization script injection into subframes.
