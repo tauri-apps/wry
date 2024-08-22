@@ -21,14 +21,13 @@ use std::{
 };
 use url::Url;
 use webkit2gtk::{
-  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, URIRequest, UserContentManager,
-  WebContext, WebContextBuilder, WebView, WebsiteDataManagerBuilder,
+  traits::*, ApplicationInfo, CookiePersistentStorage, LoadEvent, URIRequest, WebContext,
+  WebContextBuilder, WebView, WebsiteDataManagerBuilder,
 };
 
 #[derive(Debug)]
 pub struct WebContextImpl {
   context: WebContext,
-  manager: UserContentManager,
   webview_uri_loader: Rc<WebviewUriLoader>,
   registered_protocols: HashSet<String>,
   automation: bool,
@@ -82,7 +81,6 @@ impl WebContextImpl {
     Self {
       context,
       automation,
-      manager: UserContentManager::new(),
       registered_protocols: Default::default(),
       webview_uri_loader: Rc::default(),
       app_info: Some(app_info),
@@ -100,9 +98,6 @@ impl WebContextImpl {
 pub trait WebContextExt {
   /// The GTK [`WebContext`] of all webviews in the context.
   fn context(&self) -> &WebContext;
-
-  /// The GTK [`UserContentManager`] of all webviews in the context.
-  fn manager(&self) -> &UserContentManager;
 
   /// Register a custom protocol to the web context.
   ///
@@ -148,10 +143,6 @@ pub trait WebContextExt {
 impl WebContextExt for super::WebContext {
   fn context(&self) -> &WebContext {
     &self.os.context
-  }
-
-  fn manager(&self) -> &UserContentManager {
-    &self.os.manager
   }
 
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>

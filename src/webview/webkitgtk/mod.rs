@@ -17,7 +17,8 @@ use std::{
 use url::Url;
 use webkit2gtk::{
   traits::*, LoadEvent, NavigationPolicyDecision, PolicyDecisionType, URIRequest,
-  UserContentInjectedFrames, UserScript, UserScriptInjectionTime, WebView, WebViewBuilder,
+  UserContentInjectedFrames, UserContentManager, UserScript, UserScriptInjectionTime, WebView,
+  WebViewBuilder,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -63,9 +64,11 @@ impl InnerWebView {
       }
     };
 
+    let manager = UserContentManager::new();
+
     let webview = {
       let mut webview = WebViewBuilder::new();
-      webview = webview.user_content_manager(web_context.manager());
+      webview = webview.user_content_manager(&manager);
       webview = webview.web_context(web_context.context());
       webview = webview.is_controlled_by_automation(web_context.allows_automation());
       webview.build()
@@ -77,8 +80,6 @@ impl InnerWebView {
     let webview = Rc::new(webview);
     let w = window_rc.clone();
     let ipc_handler = attributes.ipc_handler.take();
-    let manager = web_context.manager();
-
     // Use the window hash as the script handler name to prevent from conflict when sharing same
     // web context.
     let window_hash = {
@@ -99,8 +100,8 @@ impl InnerWebView {
       }
     });
 
-    // Register the handler we just connected
-    manager.register_script_message_handler(&window_hash);
+    // Register handler on JS side
+    manager.register_script_message_handler("ipc");
 
     // Allow the webview to close it's own window
     let close_window = window_rc.clone();
@@ -355,10 +356,11 @@ impl InnerWebView {
     }
 
     for (name, handler) in attributes.custom_protocols {
-      match web_context.register_uri_scheme(&name, handler) {
+      match web_context.try_register_uri_scheme(&name, handler) {
         // Swallow duplicate scheme errors to preserve current behavior.
-        // FIXME: we should log this error in the future
-        Err(Error::DuplicateCustomProtocol(_)) => (),
+        Err(Error::DuplicateCustomProtocol(_)) => {
+          log::warn!("Ignoring already registered custom protocol {name}");
+        }
         Err(e) => return Err(e),
         Ok(_) => (),
       }
