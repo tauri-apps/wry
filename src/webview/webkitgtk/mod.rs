@@ -101,7 +101,7 @@ impl InnerWebView {
     });
 
     // Register handler on JS side
-    manager.register_script_message_handler("ipc");
+    manager.register_script_message_handler(&window_hash);
 
     // Allow the webview to close it's own window
     let close_window = window_rc.clone();
