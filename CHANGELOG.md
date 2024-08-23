@@ -1,5 +1,18 @@
 # Changelog
 
+## \[0.42.0]
+
+- [`556a359`](https://github.com/tauri-apps/wry/commit/556a359d3739ac3a3e671ab2d1c3dda2784c511e) ([#1301](https://github.com/tauri-apps/wry/pull/1301) by [@pewsheen](https://github.com/tauri-apps/wry/../../pewsheen)) On macOS, emit an error when the URL scheme registration fails.
+- [`19d83d7`](https://github.com/tauri-apps/wry/commit/19d83d7d01ef9704197c09e6197a6da31a4eec6c) ([#1332](https://github.com/tauri-apps/wry/pull/1332) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fixes a crash on the Android custom protocol handler when the request URL is invalid.
+- [`38abcb9`](https://github.com/tauri-apps/wry/commit/38abcb95090a3917ad5092f4933acb95c721f893) ([#1340](https://github.com/tauri-apps/wry/pull/1340) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fixes custom protocols not triggered on Android on external redirects.
+- [`d1f1e7e`](https://github.com/tauri-apps/wry/commit/d1f1e7e6fa82722d9848fbb540e6f9a3d5925cdd) ([#1299](https://github.com/tauri-apps/wry/pull/1299) by [@kanatapple](https://github.com/tauri-apps/wry/../../kanatapple)) Fix `Webview::bounds` returning logical values where it should have been physical.
+- [`03cdf93`](https://github.com/tauri-apps/wry/commit/03cdf93f1e39469a1cd73565ba61138c58567fb6) ([#1311](https://github.com/tauri-apps/wry/pull/1311) by [@bukowa](https://github.com/tauri-apps/wry/../../bukowa)) Handle `webkit2gtk` close signal (when `window.close` is called from js)
+- [`68413e8`](https://github.com/tauri-apps/wry/commit/68413e837f81a88e8de0df39d12ba2b405b89e5e) ([#1296](https://github.com/tauri-apps/wry/pull/1296) by [@MarijnS95](https://github.com/tauri-apps/wry/../../MarijnS95)) **Breaking change**: Upgrade `ndk` crate to `0.9` and delete unused `ndk-sys` and `ndk-context` dependencies.  Types from the `ndk` crate are used in public API surface.
+  **Breaking change**: The public `android_setup()` function now takes `&ThreadLooper` instead of `&ForeignLooper`, signifying that the setup function must be called on the thread where the looper is attached (and the `JNIEnv` argument is already thread-local as well).
+- [`39fc82c`](https://github.com/tauri-apps/wry/commit/39fc82c9276bd039a9130919645db149f067719a) ([#1306](https://github.com/tauri-apps/wry/pull/1306) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Support WebView2 version older than 101.0.1210.39 and document `incognito` and `theme` will not work for versions before it
+- [`5231a37`](https://github.com/tauri-apps/wry/commit/5231a379d09c9eea27f490b3062129dd474cb44c) ([#1322](https://github.com/tauri-apps/wry/pull/1322) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Support WebView2 version older than 86.0.616.0 and document version requirements for `back_forward_navigation_gestures`, `with_user_agent`, `with_hotkeys_zoom`, `with_browser_accelerator_keys`
+- [`a23a28d`](https://github.com/tauri-apps/wry/commit/a23a28d32a01a0a4c8e62e83d34813ec7db4a004) ([#1341](https://github.com/tauri-apps/wry/pull/1341) by [@amrbashir](https://github.com/tauri-apps/wry/../../amrbashir)) Updated `windows` to 0.58.
+
 ## \[0.41.0]
 
 - [`8b691df`](https://github.com/tauri-apps/wry/commit/8b691df1ac57eb5eb15082c5f6d72e871965c61e) ([#1285](https://github.com/tauri-apps/wry/pull/1285) by [@pewsheen](https://github.com/tauri-apps/wry/../../pewsheen)) On macOS, fix an issue that could cause a panic when running an async command.

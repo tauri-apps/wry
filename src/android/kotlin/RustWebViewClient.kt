@@ -4,6 +4,7 @@
 
 package {{package}}
 
+import android.net.Uri
 import android.webkit.*
 import android.content.Context
 import android.graphics.Bitmap
@@ -12,6 +13,7 @@ import androidx.webkit.WebViewAssetLoader
 class RustWebViewClient(context: Context): WebViewClient() {
     private val interceptedState = mutableMapOf<String, Boolean>()
     var currentUrl: String = "about:blank"
+    var lastInterceptedUrl: Uri? = null
 
     private val assetLoader = WebViewAssetLoader.Builder()
         .setDomain(assetLoaderDomain())
@@ -22,6 +24,7 @@ class RustWebViewClient(context: Context): WebViewClient() {
         view: WebView,
         request: WebResourceRequest
     ): WebResourceResponse? {
+        lastInterceptedUrl = request.url
         return if (withAssetLoader()) {
             assetLoader.shouldInterceptRequest(request.url)
         } else {
@@ -53,6 +56,20 @@ class RustWebViewClient(context: Context): WebViewClient() {
         return onPageLoaded(url)
     }
 
+    override fun onReceivedError(
+        view: WebView,
+        request: WebResourceRequest,
+        error: WebResourceError
+    ) {
+       // we get a net::ERR_CONNECTION_REFUSED when an external URL redirects to a custom protocol
+       // e.g. oauth flow, because shouldInterceptRequest is not called on redirects
+       // so we must force retry here with loadUrl() to get a chance of the custom protocol to kick in
+       if (error.errorCode == ERROR_CONNECT && request.url != lastInterceptedUrl) {
+         view.loadUrl(request.url.toString())
+       } else {
+         super.onReceivedError(view, request, error)
+       }
+    }
 
     companion object {
         init {

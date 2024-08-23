@@ -28,7 +28,7 @@ use webkit2gtk::{
   AutoplayPolicy, InputMethodContextExt, LoadEvent, NavigationPolicyDecision,
   NavigationPolicyDecisionExt, NetworkProxyMode, NetworkProxySettings, PolicyDecisionType,
   PrintOperationExt, SettingsExt, URIRequest, URIRequestExt, UserContentInjectedFrames,
-  UserContentManagerExt, UserScript, UserScriptInjectionTime,
+  UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime,
   WebContextExt as Webkit2gtkWeContextExt, WebView, WebViewExt, WebsiteDataManagerExt,
   WebsiteDataManagerExtManual, WebsitePolicies,
 };
@@ -266,7 +266,7 @@ impl InnerWebView {
     Self::attach_handlers(&webview, web_context, &mut attributes);
 
     // IPC handler
-    Self::attach_ipc_handler(webview.clone(), web_context, &mut attributes);
+    Self::attach_ipc_handler(webview.clone(), &mut attributes);
 
     // Drag drop handler
     if let Some(drag_drop_handler) = attributes.drag_drop_handler.take() {
@@ -339,7 +339,7 @@ impl InnerWebView {
 
   fn create_webview(web_context: &WebContext, attributes: &WebViewAttributes) -> WebView {
     let mut builder = WebView::builder()
-      .user_content_manager(web_context.manager())
+      .user_content_manager(&UserContentManager::new())
       .web_context(web_context.context())
       .is_controlled_by_automation(web_context.allows_automation());
 
@@ -511,14 +511,12 @@ impl InnerWebView {
     is_in_fixed_parent
   }
 
-  fn attach_ipc_handler(
-    webview: WebView,
-    web_context: &WebContext,
-    attributes: &mut WebViewAttributes,
-  ) {
+  fn attach_ipc_handler(webview: WebView, attributes: &mut WebViewAttributes) {
     // Message handler
     let ipc_handler = attributes.ipc_handler.take();
-    let manager = web_context.manager();
+    let manager = webview
+      .user_content_manager()
+      .expect("WebView does not have UserContentManager");
 
     // Connect before registering as recommended by the docs
     manager.connect_script_message_received(None, move |_m, msg| {
