@@ -92,7 +92,7 @@ features = [
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
 block2 = "0.5"
-objc2 = { version = "0.5", features = ["catch-all"] }
+objc2 = "0.5"
 objc2-web-kit = { version = "0.2.0", features = [
   "objc2-app-kit",
   "block2",

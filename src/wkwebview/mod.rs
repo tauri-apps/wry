@@ -49,7 +49,7 @@ use std::{
   collections::{HashMap, HashSet},
   ffi::c_void,
   os::raw::c_char,
-  panic::{catch_unwind, AssertUnwindSafe},
+  panic::AssertUnwindSafe,
   ptr::null_mut,
   str,
   sync::{Arc, Mutex},
@@ -216,14 +216,12 @@ impl InnerWebView {
         let ivar_delegate = ivar.load_mut(&mut *handler);
         *ivar_delegate = webview_id;
 
-        let config_unwind_safe = AssertUnwindSafe(&config);
-        let handler_unwind_safe = AssertUnwindSafe(handler);
-        let set_result = catch_unwind(|| {
-          config_unwind_safe.setURLSchemeHandler_forURLScheme(
-            Some(&*(handler_unwind_safe.cast::<ProtocolObject<dyn WKURLSchemeHandler>>())),
+        let set_result = objc2::exception::catch(AssertUnwindSafe(|| {
+          config.setURLSchemeHandler_forURLScheme(
+            Some(&*(handler.cast::<ProtocolObject<dyn WKURLSchemeHandler>>())),
             &NSString::from_str(&name),
           );
-        });
+        }));
         if set_result.is_err() {
           return Err(Error::UrlSchemeRegisterError(name));
         }

@@ -4,6 +4,7 @@
 
 use std::borrow::Cow;
 use std::ffi::c_void;
+use std::panic::AssertUnwindSafe;
 use std::ptr::NonNull;
 use std::slice;
 
@@ -48,16 +49,16 @@ pub fn create(name: &str) -> &AnyClass {
 extern "C" fn start_task(
   this: &AnyObject,
   _sel: objc2::runtime::Sel,
-  webview: *mut WryWebView,
-  task: *mut ProtocolObject<dyn WKURLSchemeTask>,
+  webview: &'static mut WryWebView,
+  task: &'static ProtocolObject<dyn WKURLSchemeTask>,
 ) {
   unsafe {
     #[cfg(feature = "tracing")]
           let span = tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty)
             .entered();
 
-    let task_key = (*task).hash(); // hash by task object address
-    let task_uuid = (*webview).add_custom_task_key(task_key);
+    let task_key = task.hash(); // hash by task object address
+    let task_uuid = webview.add_custom_task_key(task_key);
 
     let ivar = this.class().instance_variable("webview_id").unwrap();
     let webview_id: u32 = *ivar.load::<u32>(this);
@@ -67,7 +68,7 @@ extern "C" fn start_task(
       let function = &mut *(*function as *mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>);
 
       // Get url request
-      let request = (*task).request();
+      let request = task.request();
       let url = request.URL().unwrap();
 
       let uri = url.absoluteString().unwrap().to_string();
@@ -128,9 +129,9 @@ extern "C" fn start_task(
           None,
         )
         .unwrap();
-        (*task).didReceiveResponse(&response);
+        task.didReceiveResponse(&response);
         // Finish
-        (*task).didFinish();
+        task.didFinish();
       };
 
       // send response
@@ -166,11 +167,11 @@ extern "C" fn start_task(
                 Ok(())
               }
 
-              // FIXME: This is 10000% unsafe. `task` and `webview` are not guaranteed to be valid.
-              // We should consider use sync command only.
               unsafe fn response(
-                task: *mut ProtocolObject<dyn WKURLSchemeTask>,
-                webview: *mut WryWebView,
+                // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
+                task: &'static ProtocolObject<dyn WKURLSchemeTask>,
+                // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
+                webview: &'static mut WryWebView,
                 task_key: usize,
                 task_uuid: Retained<NSUUID>,
                 webview_id: u32,
@@ -222,7 +223,11 @@ extern "C" fn start_task(
 
                 check_webview_id_valid(webview_id)?;
                 check_task_is_valid(&*webview, task_key, task_uuid.clone())?;
-                (*task).didReceiveResponse(&response);
+
+                objc2::exception::catch(AssertUnwindSafe(|| {
+                  task.didReceiveResponse(&response);
+                }))
+                .unwrap();
 
                 // Send data
                 let bytes = content.as_ptr() as *mut c_void;
@@ -232,14 +237,20 @@ extern "C" fn start_task(
                 let data = NSData::initWithBytes_length(data, bytes, content.len());
                 check_webview_id_valid(webview_id)?;
                 check_task_is_valid(&*webview, task_key, task_uuid.clone())?;
-                (*task).didReceiveData(&data);
+                objc2::exception::catch(AssertUnwindSafe(|| {
+                  task.didReceiveData(&data);
+                }))
+                .unwrap();
 
                 // Finish
                 check_webview_id_valid(webview_id)?;
                 check_task_is_valid(&*webview, task_key, task_uuid.clone())?;
-                (*task).didFinish();
+                objc2::exception::catch(AssertUnwindSafe(|| {
+                  task.didFinish();
+                }))
+                .unwrap();
 
-                (*webview).remove_custom_task_key(task_key);
+                webview.remove_custom_task_key(task_key);
                 Ok(())
               }
 
