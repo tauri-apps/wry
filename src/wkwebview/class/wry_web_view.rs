@@ -46,7 +46,7 @@ declare_class!(
     #[method(performKeyEquivalent:)]
     fn perform_key_equivalent(
       &self,
-      _event: &NSEvent,
+      event: &NSEvent,
     ) -> Bool {
       // This is a temporary workaround for https://github.com/tauri-apps/tauri/issues/9426
       // FIXME: When the webview is a child webview, performKeyEquivalent always return YES
@@ -57,12 +57,7 @@ declare_class!(
         Bool::NO
       } else {
         unsafe {
-          let result: Bool = self.send_super_message(
-            WKWebView::class(),
-            objc2::sel!(performKeyEquivalent:),
-            (_event,),
-          );
-          result
+          objc2::msg_send![super(self), performKeyEquivalent: event]
         }
       }
     }
