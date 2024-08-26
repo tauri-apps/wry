@@ -5,62 +5,16 @@
 use std::{ffi::CStr, path::PathBuf};
 
 use objc2::{
-  class,
   rc::Id,
-  runtime::{AnyObject, Bool, ProtocolObject, Sel},
+  runtime::{AnyObject, Bool, ProtocolObject},
   DeclaredClass,
 };
-use objc2_app_kit::{NSDragOperation, NSDraggingInfo, NSFilenamesPboardType, NSView};
+use objc2_app_kit::{NSDragOperation, NSDraggingInfo, NSFilenamesPboardType};
 use objc2_foundation::{NSArray, NSPoint, NSRect, NSString};
-use once_cell::sync::Lazy;
 
 use crate::DragDropEvent;
 
 use super::WryWebView;
-
-static OBJC_DRAGGING_ENTERED: Lazy<
-  extern "C" fn(&NSView, Sel, &ProtocolObject<dyn NSDraggingInfo>) -> NSDragOperation,
-> = Lazy::new(|| unsafe {
-  std::mem::transmute(
-    class!(WKWebView)
-      .instance_method(objc2::sel!(draggingEntered:))
-      .unwrap()
-      .implementation(),
-  )
-});
-
-static OBJC_DRAGGING_EXITED: Lazy<
-  extern "C" fn(&NSView, Sel, &ProtocolObject<dyn NSDraggingInfo>),
-> = Lazy::new(|| unsafe {
-  std::mem::transmute(
-    class!(WKWebView)
-      .instance_method(objc2::sel!(draggingExited:))
-      .unwrap()
-      .implementation(),
-  )
-});
-
-static OBJC_PERFORM_DRAG_OPERATION: Lazy<
-  extern "C" fn(&NSView, Sel, &ProtocolObject<dyn NSDraggingInfo>) -> objc2::runtime::Bool,
-> = Lazy::new(|| unsafe {
-  std::mem::transmute(
-    class!(WKWebView)
-      .instance_method(objc2::sel!(performDragOperation:))
-      .unwrap()
-      .implementation(),
-  )
-});
-
-static OBJC_DRAGGING_UPDATED: Lazy<
-  extern "C" fn(&NSView, Sel, &ProtocolObject<dyn NSDraggingInfo>) -> NSDragOperation,
-> = Lazy::new(|| unsafe {
-  std::mem::transmute(
-    class!(WKWebView)
-      .instance_method(objc2::sel!(draggingUpdated:))
-      .unwrap()
-      .implementation(),
-  )
-});
 
 pub(crate) unsafe fn collect_paths(drag_info: &ProtocolObject<dyn NSDraggingInfo>) -> Vec<PathBuf> {
   let pb = drag_info.draggingPasteboard();
@@ -90,7 +44,7 @@ pub(crate) fn dragging_entered(
   let listener = &this.ivars().drag_drop_handler;
   if !listener(DragDropEvent::Enter { paths, position }) {
     // Reject the Wry file drop (invoke the OS default behaviour)
-    OBJC_DRAGGING_ENTERED(this, objc2::sel!(draggingEntered:), drag_info)
+    unsafe { objc2::msg_send![super(this), draggingEntered: drag_info] }
   } else {
     NSDragOperation::Copy
   }
@@ -106,15 +60,17 @@ pub(crate) fn dragging_updated(
 
   let listener = &this.ivars().drag_drop_handler;
   if !listener(DragDropEvent::Over { position }) {
-    let os_operation = OBJC_DRAGGING_UPDATED(this, objc2::sel!(draggingUpdated:), drag_info);
-    if os_operation == NSDragOperation::None {
-      // 0 will be returned for a drop on any arbitrary location on the webview.
-      // We'll override that with NSDragOperationCopy.
-      NSDragOperation::Copy
-    } else {
-      // A different NSDragOperation is returned when a file is hovered over something like
-      // a <input type="file">, so we'll make sure to preserve that behaviour.
-      os_operation
+    unsafe {
+      let os_operation = objc2::msg_send![super(this), draggingUpdated: drag_info];
+      if os_operation == NSDragOperation::None {
+        // 0 will be returned for a drop on any arbitrary location on the webview.
+        // We'll override that with NSDragOperationCopy.
+        NSDragOperation::Copy
+      } else {
+        // A different NSDragOperation is returned when a file is hovered over something like
+        // a <input type="file">, so we'll make sure to preserve that behaviour.
+        os_operation
+      }
     }
   } else {
     NSDragOperation::Copy
@@ -133,7 +89,7 @@ pub(crate) fn perform_drag_operation(
   let listener = &this.ivars().drag_drop_handler;
   if !listener(DragDropEvent::Drop { paths, position }) {
     // Reject the Wry drop (invoke the OS default behaviour)
-    OBJC_PERFORM_DRAG_OPERATION(this, objc2::sel!(performDragOperation:), drag_info)
+    unsafe { objc2::msg_send![super(this), performDragOperation: drag_info] }
   } else {
     Bool::YES
   }
@@ -143,6 +99,6 @@ pub(crate) fn dragging_exited(this: &WryWebView, drag_info: &ProtocolObject<dyn 
   let listener = &this.ivars().drag_drop_handler;
   if !listener(DragDropEvent::Leave) {
     // Reject the Wry drop (invoke the OS default behaviour)
-    OBJC_DRAGGING_EXITED(this, objc2::sel!(draggingExited:), drag_info);
+    unsafe { objc2::msg_send![super(this), draggingExited: drag_info] }
   }
 }

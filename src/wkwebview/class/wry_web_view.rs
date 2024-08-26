@@ -11,8 +11,8 @@ use objc2::{
   runtime::{Bool, MessageReceiver, ProtocolObject},
   ClassType, DeclaredClass,
 };
-use objc2_app_kit::NSEvent;
-use objc2_foundation::NSUUID;
+use objc2_app_kit::{NSDraggingDestination, NSEvent};
+use objc2_foundation::{NSObjectProtocol, NSUUID};
 use objc2_web_kit::WKWebView;
 
 use crate::{
@@ -75,10 +75,11 @@ declare_class!(
         self.ivars().accept_first_mouse
     }
   }
+  unsafe impl NSObjectProtocol for WryWebView {}
 
   // Drag & Drop
   #[cfg(target_os = "macos")]
-  unsafe impl WryWebView {
+  unsafe impl NSDraggingDestination for WryWebView {
     #[method(draggingEntered:)]
     fn dragging_entered(
       &self,
