@@ -250,7 +250,7 @@ use self::webview2::*;
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 
-use std::{borrow::Cow, cell::RefCell, path::PathBuf, rc::Rc};
+use std::{borrow::Cow, path::PathBuf, rc::Rc};
 
 use http::{Request, Response};
 
@@ -414,8 +414,7 @@ pub struct WebViewAttributes {
   /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
   /// parameter can be used to set the download location by assigning a new path to it, the assigned path _must_ be
   /// absolute. The closure returns a `bool` to allow or deny the download.
-  pub download_started_handler:
-    Option<RefCell<Box<dyn FnMut(String, &mut PathBuf) -> bool + 'static>>>,
+  pub download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool + 'static>>,
 
   /// A download completion handler to manage downloads that have finished.
   ///
@@ -913,7 +912,7 @@ impl<'a> WebViewBuilder<'a> {
     mut self,
     started_handler: impl FnMut(String, &mut PathBuf) -> bool + 'static,
   ) -> Self {
-    self.attrs.download_started_handler = Some(RefCell::new(Box::new(started_handler)));
+    self.attrs.download_started_handler = Some(Box::new(started_handler));
     self
   }
 

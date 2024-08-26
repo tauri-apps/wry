@@ -66,16 +66,14 @@ declare_class!(
 
 impl WryDownloadDelegate {
   pub fn new(
-    download_started_handler: Option<
-      RefCell<Box<dyn FnMut(String, &mut PathBuf) -> bool + 'static>>,
-    >,
+    download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool + 'static>>,
     download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
     mtm: MainThreadMarker,
   ) -> Retained<Self> {
     let delegate = mtm
       .alloc::<WryDownloadDelegate>()
       .set_ivars(WryDownloadDelegateIvars {
-        started: download_started_handler,
+        started: download_started_handler.map(|handler| RefCell::new(handler)),
         completed: download_completed_handler,
       });
 
