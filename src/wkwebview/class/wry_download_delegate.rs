@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{path::PathBuf, ptr::null_mut, rc::Rc};
+use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use objc2::{
   declare_class, msg_send_id, mutability::MainThreadOnly, rc::Retained, runtime::NSObject,
@@ -16,8 +16,8 @@ use objc2_web_kit::{WKDownload, WKDownloadDelegate};
 use crate::wkwebview::download::{download_did_fail, download_did_finish, download_policy};
 
 pub struct WryDownloadDelegateIvars {
-  pub started: *mut Box<dyn FnMut(String, &mut PathBuf) -> bool>,
-  pub completed: *mut Rc<dyn Fn(String, Option<PathBuf>, bool)>,
+  pub started: Option<RefCell<Box<dyn FnMut(String, &mut PathBuf) -> bool + 'static>>>,
+  pub completed: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
 }
 
 declare_class!(
@@ -66,37 +66,19 @@ declare_class!(
 
 impl WryDownloadDelegate {
   pub fn new(
-    download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
-    download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool)>>,
+    download_started_handler: Option<
+      RefCell<Box<dyn FnMut(String, &mut PathBuf) -> bool + 'static>>,
+    >,
+    download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
     mtm: MainThreadMarker,
   ) -> Retained<Self> {
-    let started = match download_started_handler {
-      Some(handler) => Box::into_raw(Box::new(handler)),
-      None => null_mut(),
-    };
-    let completed = match download_completed_handler {
-      Some(handler) => Box::into_raw(Box::new(handler)),
-      None => null_mut(),
-    };
     let delegate = mtm
       .alloc::<WryDownloadDelegate>()
-      .set_ivars(WryDownloadDelegateIvars { started, completed });
+      .set_ivars(WryDownloadDelegateIvars {
+        started: download_started_handler,
+        completed: download_completed_handler,
+      });
 
     unsafe { msg_send_id![super(delegate), init] }
-  }
-}
-
-impl Drop for WryDownloadDelegate {
-  fn drop(&mut self) {
-    if !self.ivars().started.is_null() {
-      unsafe {
-        drop(Box::from_raw(self.ivars().started));
-      }
-    }
-    if !self.ivars().completed.is_null() {
-      unsafe {
-        drop(Box::from_raw(self.ivars().completed));
-      }
-    }
   }
 }

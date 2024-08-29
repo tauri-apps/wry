@@ -8,7 +8,7 @@ use objc2::{
   declare_class,
   mutability::MainThreadOnly,
   rc::Retained,
-  runtime::{Bool, MessageReceiver, ProtocolObject},
+  runtime::{Bool, ProtocolObject},
   ClassType, DeclaredClass,
 };
 use objc2_app_kit::{NSDraggingDestination, NSEvent};

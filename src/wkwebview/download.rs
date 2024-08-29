@@ -50,9 +50,10 @@ pub(crate) fn download_policy(
     let url = request.URL().unwrap().absoluteString().unwrap();
     let mut path = PathBuf::from(suggested_path.to_string());
 
-    let function = this.ivars().started;
-    if !function.is_null() {
-      match (*function)(url.to_string().to_string(), &mut path) {
+    let started_fn = &this.ivars().started;
+    if let Some(started_fn) = started_fn {
+      let mut started_fn = started_fn.borrow_mut();
+      match started_fn(url.to_string().to_string(), &mut path) {
         true => {
           let path = NSString::from_str(&path.display().to_string());
           let ns_url = NSURL::fileURLWithPath_isDirectory(&path, false);
@@ -72,9 +73,8 @@ pub(crate) fn download_did_finish(this: &WryDownloadDelegate, download: &WKDownl
   unsafe {
     let original_request = download.originalRequest().unwrap();
     let url = original_request.URL().unwrap().absoluteString().unwrap();
-    let function = this.ivars().completed;
-    if !function.is_null() {
-      (*function)(url.to_string(), None, true);
+    if let Some(completed_fn) = this.ivars().completed.clone() {
+      completed_fn(url.to_string(), None, true);
     }
   }
 }
@@ -94,10 +94,8 @@ pub(crate) fn download_did_fail(
 
     let original_request = download.originalRequest().unwrap();
     let url = original_request.URL().unwrap().absoluteString().unwrap();
-
-    let function = this.ivars().completed;
-    if !function.is_null() {
-      (*function)(url.to_string(), None, false);
+    if let Some(completed_fn) = this.ivars().completed.clone() {
+      completed_fn(url.to_string(), None, false);
     }
   }
 }

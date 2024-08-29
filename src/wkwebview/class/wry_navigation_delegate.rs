@@ -112,6 +112,7 @@ declare_class!(
 );
 
 impl WryNavigationDelegate {
+  #[allow(clippy::too_many_arguments)]
   pub fn new(
     webview: Retained<WryWebView>,
     pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
