@@ -341,11 +341,10 @@ impl InnerWebView {
           webview.setAutoresizingMask(NSAutoresizingMaskOptions::NSViewMinYMargin);
         } else {
           // Auto-resize
-          let options = NSAutoresizingMaskOptions(
-            NSAutoresizingMaskOptions::NSViewHeightSizable.0
-              | NSAutoresizingMaskOptions::NSViewWidthSizable.0,
+          webview.setAutoresizingMask(
+            NSAutoresizingMaskOptions::NSViewHeightSizable
+              | NSAutoresizingMaskOptions::NSViewWidthSizable,
           );
-          webview.setAutoresizingMask(options);
         }
 
         // allowsBackForwardNavigation
