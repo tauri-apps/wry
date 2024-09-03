@@ -391,8 +391,7 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
         override fun onActivityResult(result: ActivityResult?) {
           val res: Array<Uri?>?
           val resultIntent = result?.data
-          if (result?.resultCode == Activity.RESULT_OK && resultIntent!!.clipData != null && resultIntent.clipData!!.itemCount > 1
-          ) {
+          if (result?.resultCode == Activity.RESULT_OK && resultIntent!!.clipData != null) {
             val numFiles = resultIntent.clipData!!.itemCount
             res = arrayOfNulls(numFiles)
             for (i in 0 until numFiles) {
