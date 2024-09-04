@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.43.1]
+
+- [`5cea504`](https://github.com/tauri-apps/wry/commit/5cea5045c9e646ace1f94767d91b746c2afd3c14) ([#1352](https://github.com/tauri-apps/wry/pull/1352) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fixes Android file picker result processing.
+
 ## \[0.43.0]
 
 - [`7b1c26a`](https://github.com/tauri-apps/wry/commit/7b1c26adff5fdf13a3364b6fc26c8444c120d5c1) ([#1344](https://github.com/tauri-apps/wry/pull/1344) by [@Themayu](https://github.com/tauri-apps/wry/../../Themayu)) Windows: Implement `WebViewBuilderExtWindows::with_scroll_bar_style` to allow opting into Fluent Overlay style scrollbars.
