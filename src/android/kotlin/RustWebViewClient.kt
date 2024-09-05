@@ -64,7 +64,7 @@ class RustWebViewClient(context: Context): WebViewClient() {
        // we get a net::ERR_CONNECTION_REFUSED when an external URL redirects to a custom protocol
        // e.g. oauth flow, because shouldInterceptRequest is not called on redirects
        // so we must force retry here with loadUrl() to get a chance of the custom protocol to kick in
-       if (error.errorCode == ERROR_CONNECT && request.url != lastInterceptedUrl) {
+       if (error.errorCode == ERROR_CONNECT && request.isForMainFrame() && request.url != lastInterceptedUrl) {
          view.loadUrl(request.url.toString())
        } else {
          super.onReceivedError(view, request, error)
