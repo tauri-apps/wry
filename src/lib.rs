@@ -1160,7 +1160,7 @@ pub trait WebViewBuilderExtWindows {
   ///
   /// By default, extensions are disabled.
   ///
-  /// Requires WebView2 Runtime version 1.0.2210.55 or higher, does nothing on older versions,,
+  /// Requires WebView2 Runtime version 1.0.2210.55 or higher, does nothing on older versions,
   /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10221055
   fn with_browser_extensions_enabled(self, enabled: bool) -> Self;
 }
