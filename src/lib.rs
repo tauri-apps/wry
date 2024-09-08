@@ -1091,6 +1091,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   theme: Option<Theme>,
   use_https: bool,
   scroll_bar_style: ScrollBarStyle,
+  browser_extensions_enabled: bool,
 }
 
 #[cfg(windows)]
@@ -1102,6 +1103,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       theme: None,
       use_https: false, // To match macOS & Linux behavior in the context of mixed content.
       scroll_bar_style: ScrollBarStyle::default(),
+      browser_extensions_enabled: false,
     }
   }
 }
@@ -1153,6 +1155,14 @@ pub trait WebViewBuilderExtWindows {
   /// Requires WebView2 Runtime version 125.0.2535.41 or higher, does nothing on older versions,
   /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/?tabs=dotnetcsharp#10253541
   fn with_scroll_bar_style(self, style: ScrollBarStyle) -> Self;
+
+  /// Determines whether the ability to install and enable extensions is enabled.
+  ///
+  /// By default, extensions are disabled.
+  ///
+  /// Requires WebView2 Runtime version 1.0.2210.55 or higher, does nothing on older versions,
+  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10221055
+  fn with_browser_extensions_enabled(self, enabled: bool) -> Self;
 }
 
 #[cfg(windows)]
@@ -1179,6 +1189,11 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 
   fn with_scroll_bar_style(mut self, style: ScrollBarStyle) -> Self {
     self.platform_specific.scroll_bar_style = style;
+    self
+  }
+
+  fn with_browser_extensions_enabled(mut self, enabled: bool) -> Self {
+    self.platform_specific.browser_extensions_enabled = enabled;
     self
   }
 }
