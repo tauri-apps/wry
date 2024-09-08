@@ -293,6 +293,7 @@ impl InnerWebView {
         let options = CoreWebView2EnvironmentOptions::default();
 
         options.set_additional_browser_arguments(additional_browser_args);
+        options.set_are_browser_extensions_enabled(pl_attrs.browser_extensions_enabled);
 
         // Get user's system language
         let lcid = GetUserDefaultUILanguage();

@@ -1,5 +1,14 @@
 # Changelog
 
+## \[0.43.1]
+
+- [`5cea504`](https://github.com/tauri-apps/wry/commit/5cea5045c9e646ace1f94767d91b746c2afd3c14) ([#1352](https://github.com/tauri-apps/wry/pull/1352) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fixes Android file picker result processing.
+
+## \[0.43.0]
+
+- [`7b1c26a`](https://github.com/tauri-apps/wry/commit/7b1c26adff5fdf13a3364b6fc26c8444c120d5c1) ([#1344](https://github.com/tauri-apps/wry/pull/1344) by [@Themayu](https://github.com/tauri-apps/wry/../../Themayu)) Windows: Implement `WebViewBuilderExtWindows::with_scroll_bar_style` to allow opting into Fluent Overlay style scrollbars.
+- [`98d1a83`](https://github.com/tauri-apps/wry/commit/98d1a835e2c818e9f733a55b074e7de3c0cd725f) ([#1326](https://github.com/tauri-apps/wry/pull/1326) by [@ollpu](https://github.com/tauri-apps/wry/../../ollpu)) Fix Linux IPC handler and initialization scripts when sharing a WebContext between multiple WebViews.
+
 ## \[0.42.0]
 
 - [`556a359`](https://github.com/tauri-apps/wry/commit/556a359d3739ac3a3e671ab2d1c3dda2784c511e) ([#1301](https://github.com/tauri-apps/wry/pull/1301) by [@pewsheen](https://github.com/tauri-apps/wry/../../pewsheen)) On macOS, emit an error when the URL scheme registration fails.
