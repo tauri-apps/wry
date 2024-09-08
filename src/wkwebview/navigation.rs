@@ -1,10 +1,14 @@
 use objc2::DeclaredClass;
-use objc2_foundation::NSObjectProtocol;
-use objc2_foundation::NSString;
+use objc2_foundation::{NSObjectProtocol, NSString};
 use objc2_web_kit::{
   WKNavigation, WKNavigationAction, WKNavigationActionPolicy, WKNavigationResponse,
-  WKNavigationResponsePolicy, WKWebView,
+  WKNavigationResponsePolicy,
 };
+
+#[cfg(target_os = "ios")]
+use crate::wkwebview::ios::WKWebView::WKWebView;
+#[cfg(target_os = "macos")]
+use objc2_web_kit::WKWebView;
 
 use crate::PageLoadEvent;
 

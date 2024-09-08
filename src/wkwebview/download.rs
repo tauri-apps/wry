@@ -2,7 +2,12 @@ use std::{path::PathBuf, ptr::null_mut};
 
 use objc2::{rc::Retained, runtime::ProtocolObject, DeclaredClass};
 use objc2_foundation::{NSData, NSError, NSString, NSURLResponse, NSURL};
-use objc2_web_kit::{WKDownload, WKNavigationAction, WKNavigationResponse, WKWebView};
+use objc2_web_kit::{WKDownload, WKNavigationAction, WKNavigationResponse};
+
+#[cfg(target_os = "ios")]
+use crate::wkwebview::ios::WKWebView::WKWebView;
+#[cfg(target_os = "macos")]
+use objc2_web_kit::WKWebView;
 
 use super::class::{
   wry_download_delegate::WryDownloadDelegate, wry_navigation_delegate::WryNavigationDelegate,

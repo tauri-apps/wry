@@ -2,25 +2,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::borrow::Cow;
-use std::ffi::c_void;
-use std::panic::AssertUnwindSafe;
-use std::ptr::NonNull;
-use std::slice;
+use std::{borrow::Cow, ffi::c_void, panic::AssertUnwindSafe, ptr::NonNull, slice};
 
-use http::header::{CONTENT_LENGTH, CONTENT_TYPE};
-use http::{Request, Response as HttpResponse, StatusCode, Version};
-use objc2::rc::Retained;
-use objc2::runtime::{AnyClass, AnyObject, ClassBuilder, ProtocolObject};
-use objc2::ClassType;
-use objc2_foundation::NSObjectProtocol;
+use http::{
+  header::{CONTENT_LENGTH, CONTENT_TYPE},
+  Request, Response as HttpResponse, StatusCode, Version,
+};
+use objc2::{
+  rc::Retained,
+  runtime::{AnyClass, AnyObject, ClassBuilder, ProtocolObject},
+  ClassType,
+};
 use objc2_foundation::{
-  NSData, NSHTTPURLResponse, NSMutableDictionary, NSObject, NSString, NSURL, NSUUID,
+  NSData, NSHTTPURLResponse, NSMutableDictionary, NSObject, NSObjectProtocol, NSString, NSURL,
+  NSUUID,
 };
 use objc2_web_kit::{WKURLSchemeHandler, WKURLSchemeTask};
 
-use crate::wkwebview::WEBVIEW_IDS;
-use crate::{RequestAsyncResponder, WryWebView};
+use crate::{wkwebview::WEBVIEW_IDS, RequestAsyncResponder, WryWebView};
 
 pub fn create(name: &str) -> &AnyClass {
   unsafe {

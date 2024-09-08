@@ -230,7 +230,7 @@ use webkitgtk::*;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use objc2::rc::Retained;
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(any(target_os = "macos"))]
 use objc2_app_kit::NSWindow;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use objc2_web_kit::WKUserContentController;
@@ -1685,19 +1685,19 @@ impl WebViewExtMacOS for WebView {
 #[cfg(target_os = "ios")]
 pub trait WebViewExtIOS {
   /// Returns WKWebView handle
-  fn webview(&self) -> cocoa::base::id;
+  fn webview(&self) -> Retained<WryWebView>;
   /// Returns WKWebView manager [(userContentController)](https://developer.apple.com/documentation/webkit/wkscriptmessagehandler/1396222-usercontentcontroller) handle
-  fn manager(&self) -> cocoa::base::id;
+  fn manager(&self) -> Retained<WKUserContentController>;
 }
 
 #[cfg(target_os = "ios")]
 impl WebViewExtIOS for WebView {
-  fn webview(&self) -> cocoa::base::id {
-    self.webview.webview
+  fn webview(&self) -> Retained<WryWebView> {
+    self.webview.webview.clone()
   }
 
-  fn manager(&self) -> cocoa::base::id {
-    self.webview.manager
+  fn manager(&self) -> Retained<WKUserContentController> {
+    self.webview.manager.clone()
   }
 }
 

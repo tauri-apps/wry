@@ -4,21 +4,26 @@
 
 use std::collections::HashMap;
 
+#[cfg(target_os = "macos")]
+use objc2::runtime::ProtocolObject;
 use objc2::{
-  declare_class,
-  mutability::MainThreadOnly,
-  rc::Retained,
-  runtime::{Bool, ProtocolObject},
-  ClassType, DeclaredClass,
+  declare_class, mutability::MainThreadOnly, rc::Retained, runtime::Bool, ClassType, DeclaredClass,
 };
+#[cfg(target_os = "macos")]
 use objc2_app_kit::{NSDraggingDestination, NSEvent};
 use objc2_foundation::{NSObjectProtocol, NSUUID};
-use objc2_web_kit::WKWebView;
 
+#[cfg(target_os = "ios")]
+use crate::wkwebview::ios::WKWebView::WKWebView;
+#[cfg(target_os = "macos")]
 use crate::{
   wkwebview::{drag_drop, synthetic_mouse_events},
   DragDropEvent,
 };
+#[cfg(target_os = "ios")]
+use objc2_ui_kit::UIEvent as NSEvent;
+#[cfg(target_os = "macos")]
+use objc2_web_kit::WKWebView;
 
 pub struct WryWebViewIvars {
   pub(crate) is_child: bool,
@@ -62,6 +67,7 @@ declare_class!(
       }
     }
 
+    #[cfg(target_os = "macos")]
     #[method(acceptsFirstMouse:)]
     fn accept_first_mouse(
       &self,

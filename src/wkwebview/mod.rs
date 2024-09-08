@@ -12,35 +12,58 @@ mod proxy;
 mod synthetic_mouse_events;
 mod util;
 
+#[cfg(target_os = "ios")]
+mod ios;
+
 mod class;
-use class::url_scheme_handler;
-use class::wry_download_delegate::WryDownloadDelegate;
 pub use class::wry_web_view::WryWebView;
-use class::wry_web_view::WryWebViewIvars;
-use class::wry_web_view_delegate::{WryWebViewDelegate, IPC_MESSAGE_HANDLER_NAME};
+#[cfg(target_os = "macos")]
 use class::wry_web_view_parent::WryWebViewParent;
-use class::wry_web_view_ui_delegate::WryWebViewUIDelegate;
-use class::{document_title_changed_observer::*, wry_navigation_delegate::WryNavigationDelegate};
+use class::{
+  document_title_changed_observer::*,
+  url_scheme_handler,
+  wry_download_delegate::WryDownloadDelegate,
+  wry_navigation_delegate::WryNavigationDelegate,
+  wry_web_view::WryWebViewIvars,
+  wry_web_view_delegate::{WryWebViewDelegate, IPC_MESSAGE_HANDLER_NAME},
+  wry_web_view_ui_delegate::WryWebViewUIDelegate,
+};
 
 use dpi::{LogicalPosition, LogicalSize};
+#[cfg(target_os = "macos")]
+use objc2::runtime::Bool;
 use objc2::{
   rc::Retained,
-  runtime::{AnyObject, Bool, NSObject, ProtocolObject},
+  runtime::{AnyObject, NSObject, ProtocolObject},
   ClassType, DeclaredClass,
 };
-use objc2_app_kit::{
-  NSApplication, NSAutoresizingMaskOptions, NSTitlebarSeparatorStyle, NSView, NSWindow,
-};
+#[cfg(target_os = "macos")]
+use objc2_app_kit::{NSApplication, NSAutoresizingMaskOptions, NSTitlebarSeparatorStyle, NSView};
+#[cfg(target_os = "macos")]
+use objc2_foundation::CGSize;
 use objc2_foundation::{
-  ns_string, CGPoint, CGRect, CGSize, MainThreadMarker, NSBundle, NSDate, NSError,
-  NSJSONSerialization, NSMutableURLRequest, NSNumber, NSObjectNSKeyValueCoding, NSObjectProtocol,
-  NSString, NSUTF8StringEncoding, NSURL, NSUUID,
+  ns_string, CGPoint, CGRect, MainThreadMarker, NSBundle, NSDate, NSError, NSJSONSerialization,
+  NSMutableURLRequest, NSNumber, NSObjectNSKeyValueCoding, NSObjectProtocol, NSString,
+  NSUTF8StringEncoding, NSURL, NSUUID,
 };
 #[cfg(target_os = "ios")]
-use objc2_ui_kit::UIScrollView;
+use objc2_ui_kit::{UIScrollView, UIViewAutoresizing};
+
+#[cfg(target_os = "macos")]
+use objc2_app_kit::NSWindow;
+#[cfg(target_os = "ios")]
+use objc2_ui_kit::UIView as NSView;
+// #[cfg(target_os = "ios")]
+// use objc2_ui_kit::UIWindow as NSWindow;
+
+#[cfg(target_os = "ios")]
+use crate::wkwebview::ios::WKWebView::WKWebView;
+#[cfg(target_os = "macos")]
+use objc2_web_kit::WKWebView;
+
 use objc2_web_kit::{
   WKAudiovisualMediaTypes, WKURLSchemeHandler, WKUserContentController, WKUserScript,
-  WKUserScriptInjectionTime, WKWebView, WKWebViewConfiguration, WKWebsiteDataStore,
+  WKUserScriptInjectionTime, WKWebViewConfiguration, WKWebsiteDataStore,
 };
 use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -88,6 +111,7 @@ pub struct PrintOptions {
 pub(crate) struct InnerWebView {
   pub webview: Retained<WryWebView>,
   pub manager: Retained<WKUserContentController>,
+  #[allow(dead_code)]
   is_child: bool,
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
   // Note that if following functions signatures are changed in the future,
@@ -330,7 +354,8 @@ impl InnerWebView {
       #[cfg(target_os = "ios")]
       let webview = {
         let frame = ns_view.frame();
-        let webview = WKWebView::initWithFrame_configuration(webview, frame, &config);
+        let webview: Retained<WryWebView> =
+          objc2::msg_send_id![super(webview), initWithFrame:frame configuration:&**config];
         webview
       };
 
@@ -356,11 +381,14 @@ impl InnerWebView {
       #[cfg(target_os = "ios")]
       {
         // set all autoresizingmasks
-        webview.setAutoresizingMask(NSAutoresizingMaskOptions::from_bits(31).unwrap());
+        webview.setAutoresizingMask(UIViewAutoresizing::from_bits(31).unwrap());
         // let () = msg_send![webview, setAutoresizingMask: 31];
 
         // disable scroll bounce by default
-        let scroll_view: UIScrollView = webview.scrollView(); // FIXME: not test yet
+        // https://developer.apple.com/documentation/webkit/wkwebview/1614784-scrollview?language=objc
+        // But not exist in objc2-web-kit
+        let scroll_view: Retained<UIScrollView> = objc2::msg_send_id![&webview, scrollView];
+        // let scroll_view: Retained<UIScrollView> = webview.ivars().scrollView; // FIXME: not test yet
         scroll_view.setBounces(false)
       }
 
@@ -733,6 +761,7 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn bounds(&self) -> crate::Result<Rect> {
+    #[allow(unused_unsafe)]
     unsafe {
       let parent = self.webview.superview().unwrap();
       let parent_frame = parent.frame();
@@ -776,8 +805,11 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn focus(&self) -> Result<()> {
-    let window = self.webview.window().unwrap();
-    window.makeFirstResponder(Some(&self.webview));
+    #[cfg(target_os = "macos")]
+    {
+      let window = self.webview.window().unwrap();
+      window.makeFirstResponder(Some(&self.webview));
+    }
     Ok(())
   }
 
@@ -856,6 +888,7 @@ impl Drop for InnerWebView {
 /// Converts from wry screen-coordinates to macOS screen-coordinates.
 /// wry: top-left is (0, 0) and y increasing downwards
 /// macOS: bottom-left is (0, 0) and y increasing upwards
+#[allow(dead_code)]
 unsafe fn window_position(view: &NSView, x: i32, y: i32, height: f64) -> CGPoint {
   let frame: CGRect = view.frame();
   CGPoint::new(x as f64, frame.size.height - y as f64 - height)

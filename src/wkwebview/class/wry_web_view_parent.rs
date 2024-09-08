@@ -5,8 +5,11 @@
 use objc2::{
   declare_class, msg_send_id, mutability::MainThreadOnly, rc::Retained, ClassType, DeclaredClass,
 };
-use objc2_app_kit::{NSApp, NSEvent, NSView};
+#[cfg(target_os = "macos")]
+use objc2_app_kit::{NSApplication, NSEvent, NSView};
 use objc2_foundation::MainThreadMarker;
+#[cfg(target_os = "ios")]
+use objc2_ui_kit::UIView as NSView;
 
 pub struct WryWebViewParentIvars {}
 
@@ -24,13 +27,14 @@ declare_class!(
   }
 
   unsafe impl WryWebViewParent {
+    #[cfg(target_os = "macos")]
     #[method(keyDown:)]
     fn key_down(
       &self,
       event: &NSEvent,
     ) {
       let mtm = MainThreadMarker::new().unwrap();
-      let app = NSApp(mtm);
+      let app = NSApplication::sharedApplication(mtm);
       unsafe {
         if let Some(menu) = app.mainMenu() {
           menu.performKeyEquivalent(event);
@@ -41,6 +45,7 @@ declare_class!(
 );
 
 impl WryWebViewParent {
+  #[allow(dead_code)]
   pub fn new(mtm: MainThreadMarker) -> Retained<Self> {
     let delegate = mtm
       .alloc::<WryWebViewParent>()

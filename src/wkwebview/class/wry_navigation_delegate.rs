@@ -11,8 +11,13 @@ use objc2::{
 use objc2_foundation::{MainThreadMarker, NSObjectProtocol};
 use objc2_web_kit::{
   WKDownload, WKNavigation, WKNavigationAction, WKNavigationActionPolicy, WKNavigationDelegate,
-  WKNavigationResponse, WKNavigationResponsePolicy, WKWebView,
+  WKNavigationResponse, WKNavigationResponsePolicy,
 };
+
+#[cfg(target_os = "ios")]
+use crate::wkwebview::ios::WKWebView::WKWebView;
+#[cfg(target_os = "macos")]
+use objc2_web_kit::WKWebView;
 
 use crate::{
   url_from_webview,
