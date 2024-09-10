@@ -216,6 +216,8 @@ fn handle_request(
       let response_headers = {
         let headers_map = JMap::from_env(env, &obj)?;
         for (name, value) in headers.iter() {
+          // WebResourceResponse will automatically generate Content-Type and
+          // Content-Length headers so we should skip them to avoid duplication.
           if name == CONTENT_TYPE || name == CONTENT_LENGTH {
             continue;
           }
