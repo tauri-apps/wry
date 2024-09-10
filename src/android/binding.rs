@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use http::{
-  header::{HeaderName, HeaderValue, CONTENT_TYPE},
+  header::{HeaderName, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE},
   Request,
 };
 use jni::errors::Result as JniResult;
@@ -216,6 +216,11 @@ fn handle_request(
       let response_headers = {
         let headers_map = JMap::from_env(env, &obj)?;
         for (name, value) in headers.iter() {
+          // WebResourceResponse will automatically generate Content-Type and
+          // Content-Length headers so we should skip them to avoid duplication.
+          if name == CONTENT_TYPE || name == CONTENT_LENGTH {
+            continue;
+          }
           let key = env.new_string(name)?;
           let value = env.new_string(value.to_str().unwrap_or_default())?;
           headers_map.put(env, &key, &value)?;
