@@ -8,12 +8,15 @@ import android.net.Uri
 import android.webkit.*
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.Handler
+import android.os.Looper
 import androidx.webkit.WebViewAssetLoader
 
 class RustWebViewClient(context: Context): WebViewClient() {
     private val interceptedState = mutableMapOf<String, Boolean>()
     var currentUrl: String = "about:blank"
-    var lastInterceptedUrl: Uri? = null
+    private var lastInterceptedUrl: Uri? = null
+    private var pendingUrlRedirect: String? = null
 
     private val assetLoader = WebViewAssetLoader.Builder()
         .setDomain(assetLoaderDomain())
@@ -24,6 +27,14 @@ class RustWebViewClient(context: Context): WebViewClient() {
         view: WebView,
         request: WebResourceRequest
     ): WebResourceResponse? {
+        pendingUrlRedirect?.let {
+            Handler(Looper.getMainLooper()).post {
+              view.loadUrl(it)
+            }
+            pendingUrlRedirect = null
+            return null
+        }
+
         lastInterceptedUrl = request.url
         return if (withAssetLoader()) {
             assetLoader.shouldInterceptRequest(request.url)
@@ -53,7 +64,7 @@ class RustWebViewClient(context: Context): WebViewClient() {
     }
 
     override fun onPageFinished(view: WebView, url: String) {
-        return onPageLoaded(url)
+        onPageLoaded(url)
     }
 
     override fun onReceivedError(
@@ -61,14 +72,19 @@ class RustWebViewClient(context: Context): WebViewClient() {
         request: WebResourceRequest,
         error: WebResourceError
     ) {
-       // we get a net::ERR_CONNECTION_REFUSED when an external URL redirects to a custom protocol
-       // e.g. oauth flow, because shouldInterceptRequest is not called on redirects
-       // so we must force retry here with loadUrl() to get a chance of the custom protocol to kick in
-       if (error.errorCode == ERROR_CONNECT && request.url != lastInterceptedUrl) {
-         view.loadUrl(request.url.toString())
-       } else {
-         super.onReceivedError(view, request, error)
-       }
+        // we get a net::ERR_CONNECTION_REFUSED when an external URL redirects to a custom protocol
+        // e.g. oauth flow, because shouldInterceptRequest is not called on redirects
+        // so we must force retry here with loadUrl() to get a chance of the custom protocol to kick in
+        if (error.errorCode == ERROR_CONNECT && request.isForMainFrame && request.url != lastInterceptedUrl) {
+            // prevent the default error page from showing
+            view.stopLoading()
+            // without this initial loadUrl the app is stuck
+            view.loadUrl(request.url.toString())
+            // ensure the URL is actually loaded - for some reason there's a race condition and we need to call loadUrl() again later
+            pendingUrlRedirect = request.url.toString()
+        } else {
+            super.onReceivedError(view, request, error)
+        }
     }
 
     companion object {
