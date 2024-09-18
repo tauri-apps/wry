@@ -1,5 +1,14 @@
 # Changelog
 
+## \[0.44.0]
+
+- [`b863d38`](https://github.com/tauri-apps/wry/commit/b863d38ff705e037b297c1651e17775d3dbe473c) ([#1356](https://github.com/tauri-apps/wry/pull/1356) by [@SpikeHD](https://github.com/tauri-apps/wry/../../SpikeHD)) Expose ability to enable browser extensions in WebView2
+- [`9220793`](https://github.com/tauri-apps/wry/commit/92207933c9de4a0c1ef65ecbacb0c303619ced4c) ([#1361](https://github.com/tauri-apps/wry/pull/1361) by [@amrbashir](https://github.com/tauri-apps/wry/../../amrbashir)) Ignore duplicate custom protocols in `WebviewBuilder::with_custom_protocol` and `WebviewBuilder::with_async_custom_protocol` and use the last registered one.
+- [`9220793`](https://github.com/tauri-apps/wry/commit/92207933c9de4a0c1ef65ecbacb0c303619ced4c) ([#1361](https://github.com/tauri-apps/wry/pull/1361) by [@amrbashir](https://github.com/tauri-apps/wry/../../amrbashir)) Removed `Error::DuplicateCustomProtocol` variant.
+- [`5915341`](https://github.com/tauri-apps/wry/commit/59153413d87549964b885ad3ed84473acf4b70df) ([#1354](https://github.com/tauri-apps/wry/pull/1354) by [@millermk](https://github.com/tauri-apps/wry/../../millermk)) Fixes Android webview error page flashing when a redirect to the app is performed.
+- [`170095b`](https://github.com/tauri-apps/wry/commit/170095b9a5829ac9279cfeea3fac0da2c922d448) ([#1360](https://github.com/tauri-apps/wry/pull/1360) by [@Steve-xmh](https://github.com/tauri-apps/wry/../../Steve-xmh)) Fix web resource loading in android binding by skip duplicate Content-Type/Content-Length headers.
+- [`5915341`](https://github.com/tauri-apps/wry/commit/59153413d87549964b885ad3ed84473acf4b70df) ([#1354](https://github.com/tauri-apps/wry/pull/1354) by [@millermk](https://github.com/tauri-apps/wry/../../millermk)) Fix navigation error handling to trigger custom protocol on Android.
+
 ## \[0.43.1]
 
 - [`5cea504`](https://github.com/tauri-apps/wry/commit/5cea5045c9e646ace1f94767d91b746c2afd3c14) ([#1352](https://github.com/tauri-apps/wry/pull/1352) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fixes Android file picker result processing.
