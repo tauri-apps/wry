@@ -696,6 +696,8 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// The closure takes a [Request] and returns a [Response]
   ///
+  /// When registering a custom protocol with the same name, only the last regisered one will be used.
+  ///
   /// # Warning
   ///
   /// Pages loaded from custom protocol will have different Origin on different platforms. And
@@ -730,6 +732,8 @@ impl<'a> WebViewBuilder<'a> {
   }
 
   /// Same as [`Self::with_custom_protocol`] but with an asynchronous responder.
+  ///
+  /// When registering a custom protocol with the same name, only the last regisered one will be used.
   ///
   /// # Examples
   ///
