@@ -1252,12 +1252,12 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     // register custom protocol with empty Response return,
     // this is necessary due to the need of fixing a domain
     // in WebViewAssetLoader.
-    self.attrs.custom_protocols.push((
+    self.attrs.custom_protocols.insert(
       protocol.clone(),
       Box::new(|_, api| {
         api.respond(Response::builder().body(Vec::new()).unwrap());
       }),
-    ));
+    );
     self.platform_specific.with_asset_loader = true;
     self.platform_specific.asset_loader_domain = Some(format!("{}.assets", protocol));
     self

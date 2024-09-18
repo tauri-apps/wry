@@ -153,16 +153,16 @@ impl WebContextExt for super::WebContext {
     self.os.context.register_uri_scheme(name, move |request| {
       #[cfg(feature = "tracing")]
       let span = tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty).entered();
-  
+
       if let Some(uri) = request.uri() {
         let uri = uri.as_str();
-  
+
         #[cfg(feature = "tracing")]
         span.record("uri", uri);
-  
+
         #[allow(unused_mut)]
         let mut http_request = Request::builder().uri(uri).method("GET");
-  
+
         // Set request http headers
         if let Some(headers) = request.http_headers() {
           if let Some(map) = http_request.headers_mut() {
@@ -175,17 +175,17 @@ impl WebContextExt for super::WebContext {
             });
           }
         }
-  
+
         // Set request http method
         if let Some(method) = request.http_method() {
           http_request = http_request.method(method.as_str());
         }
-  
+
         let body;
         #[cfg(feature = "linux-body")]
         {
           use gtk::{gdk::prelude::InputStreamExtManual, gio::Cancellable};
-  
+
           // Set request http body
           let cancellable: Option<&Cancellable> = None;
           body = request
@@ -212,7 +212,7 @@ impl WebContextExt for super::WebContext {
         {
           body = Vec::new();
         }
-  
+
         let http_request = match http_request.body(body) {
           Ok(req) => req,
           Err(_) => {
@@ -223,7 +223,7 @@ impl WebContextExt for super::WebContext {
             return;
           }
         };
-  
+
         let request_ = MainThreadRequest(request.clone());
         let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
           Box::new(move |http_response| {
@@ -234,13 +234,13 @@ impl WebContextExt for super::WebContext {
                 .headers()
                 .get(CONTENT_TYPE)
                 .and_then(|h| h.to_str().ok());
-  
+
               let response = URISchemeResponse::new(&input, buffer.len() as i64);
               response.set_status(http_response.status().as_u16() as u32, None);
               if let Some(content_type) = content_type {
                 response.set_content_type(content_type);
               }
-  
+
               let headers = MessageHeaders::new(MessageHeadersType::Response);
               for (name, value) in http_response.headers().into_iter() {
                 headers.append(name.as_str(), value.to_str().unwrap_or(""));
@@ -248,9 +248,9 @@ impl WebContextExt for super::WebContext {
               response.set_http_headers(headers);
               request_.finish_with_response(&response);
             });
-  
+
           });
-  
+
         #[cfg(feature = "tracing")]
         let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
         handler(http_request, RequestAsyncResponder { responder });
