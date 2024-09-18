@@ -244,7 +244,7 @@ use self::webview2::*;
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
 
-use std::{borrow::Cow, path::PathBuf, rc::Rc};
+use std::{borrow::Cow, collections::HashMap, path::PathBuf, rc::Rc};
 
 use http::{Request, Response};
 
@@ -377,7 +377,7 @@ pub struct WebViewAttributes {
   /// - Android: Android has `assets` and `resource` path finder to
   /// locate your files in those directories. For more information, see [Loading in-app content](https://developer.android.com/guide/webapps/load-local-content) page.
   /// - iOS: To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
-  pub custom_protocols: Vec<(String, Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>)>,
+  pub custom_protocols: HashMap<String, Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>>,
 
   /// The IPC handler to receive the message from Javascript on webview
   /// using `window.ipc.postMessage("insert_message_here")` to host Rust code.
@@ -515,8 +515,8 @@ impl Default for WebViewAttributes {
       url: None,
       headers: None,
       html: None,
-      initialization_scripts: vec![],
-      custom_protocols: vec![],
+      initialization_scripts: Default::default(),
+      custom_protocols: Default::default(),
       ipc_handler: None,
       drag_drop_handler: None,
       navigation_handler: None,
@@ -696,6 +696,8 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// The closure takes a [Request] and returns a [Response]
   ///
+  /// When registering a custom protocol with the same name, only the last regisered one will be used.
+  ///
   /// # Warning
   ///
   /// Pages loaded from custom protocol will have different Origin on different platforms. And
@@ -719,17 +721,19 @@ impl<'a> WebViewBuilder<'a> {
   where
     F: Fn(Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> + 'static,
   {
-    self.attrs.custom_protocols.push((
+    self.attrs.custom_protocols.insert(
       name,
       Box::new(move |request, responder| {
         let http_response = handler(request);
         responder.respond(http_response);
       }),
-    ));
+    );
     self
   }
 
   /// Same as [`Self::with_custom_protocol`] but with an asynchronous responder.
+  ///
+  /// When registering a custom protocol with the same name, only the last regisered one will be used.
   ///
   /// # Examples
   ///
@@ -761,7 +765,7 @@ impl<'a> WebViewBuilder<'a> {
   where
     F: Fn(Request<Vec<u8>>, RequestAsyncResponder) + 'static,
   {
-    self.attrs.custom_protocols.push((name, Box::new(handler)));
+    self.attrs.custom_protocols.insert(name, Box::new(handler));
     self
   }
 
@@ -1252,12 +1256,12 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     // register custom protocol with empty Response return,
     // this is necessary due to the need of fixing a domain
     // in WebViewAssetLoader.
-    self.attrs.custom_protocols.push((
+    self.attrs.custom_protocols.insert(
       protocol.clone(),
       Box::new(|_, api| {
         api.respond(Response::builder().body(Vec::new()).unwrap());
       }),
-    ));
+    );
     self.platform_specific.with_asset_loader = true;
     self.platform_specific.asset_loader_domain = Some(format!("{}.assets", protocol));
     self
