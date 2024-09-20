@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.44.1]
+
+- [`5111eb0`](https://github.com/tauri-apps/wry/commit/5111eb013e1b049d12aad38b96b2017a4fc54c72) ([#1362](https://github.com/tauri-apps/wry/pull/1362) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fixes `WebView::clear_all_browsing_data` crashing with a segfault on macOS.
+
 ## \[0.44.0]
 
 - [`b863d38`](https://github.com/tauri-apps/wry/commit/b863d38ff705e037b297c1651e17775d3dbe473c) ([#1356](https://github.com/tauri-apps/wry/pull/1356) by [@SpikeHD](https://github.com/tauri-apps/wry/../../SpikeHD)) Expose ability to enable browser extensions in WebView2
