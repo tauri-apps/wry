@@ -253,6 +253,7 @@ pub use error::*;
 pub use http;
 pub use proxy::{ProxyConfig, ProxyEndpoint};
 pub use web_context::WebContext;
+use webkit2gtk::UserContentInjectedFrames;
 
 /// A rectangular region.
 #[derive(Clone, Copy, Debug)]
@@ -503,6 +504,9 @@ pub struct WebViewAttributes {
   /// This is only effective if the webview was created by [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`]
   /// or on Linux, if was created by [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
   pub bounds: Option<Rect>,
+
+  /// Whether JavaScript code should be injected into only main or all subframes
+  pub inject_into_subframes: UserContentInjectedFrames,
 }
 
 impl Default for WebViewAttributes {
@@ -541,6 +545,7 @@ impl Default for WebViewAttributes {
         position: dpi::LogicalPosition::new(0, 0).into(),
         size: dpi::LogicalSize::new(200, 200).into(),
       }),
+      inject_into_subframes: UserContentInjectedFrames::TopFrame,
     }
   }
 }
@@ -888,6 +893,16 @@ impl<'a> WebViewBuilder<'a> {
   /// - **macOS / Linux / Android / iOS**: Unsupported
   pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
     self.attrs.zoom_hotkeys_enabled = zoom;
+    self
+  }
+
+  /// Whether JavaScript code should be injected to all subframes
+  pub fn with_inject_into_subframes(mut self, inject_into_subframes: bool) -> Self {
+    self.attrs.inject_into_subframes = if inject_into_subframes {
+      UserContentInjectedFrames::AllFrames
+    } else {
+      UserContentInjectedFrames::TopFrame
+    };
     self
   }
 

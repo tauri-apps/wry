@@ -578,6 +578,8 @@ impl InnerWebView {
     if let Some(on_page_load_handler) = attributes.on_page_load_handler.take() {
       let on_page_load_handler = Rc::new(on_page_load_handler);
       let on_page_load_handler_ = on_page_load_handler.clone();
+      let scripts = attributes.initialization_scripts.clone();
+
       webview.add_ContentLoading(
         &ContentLoadingEventHandler::create(Box::new(move |webview, _| {
           let Some(webview) = webview else {
@@ -585,6 +587,10 @@ impl InnerWebView {
           };
 
           on_page_load_handler_(PageLoadEvent::Started, Self::url_from_webview(&webview)?);
+
+          for script in &scripts {
+            Self::execute_script(&webview, script.clone(), |_| ())?;
+          }
 
           Ok(())
         })),
