@@ -73,7 +73,6 @@ use http::{
   version::Version,
   Request, Response as HttpResponse,
 };
-use webkit2gtk::UserContentInjectedFrames;
 
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
 #[cfg(target_os = "macos")]
@@ -1110,16 +1109,16 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
-  fn init(&self, js: &str, injected_frames: UserContentInjectedFrames) {
-    let for_main_frame_only = match injected_frames {
-      UserContentInjectedFrames::AllFrames => 0,
-      _ => 1,
-    };
-
+  fn init(&self, js: &str, inject_into_subframes: bool) {
     // Safety: objc runtime calls are unsafe
     // Equivalent Obj-C:
     // [manager addUserScript:[[WKUserScript alloc] initWithSource:[NSString stringWithUTF8String:js.c_str()] injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]]
     unsafe {
+      let for_main_frame_only = match inject_into_subframes {
+        true => 0,
+        false => 1,
+      };
+
       let userscript: id = msg_send![class!(WKUserScript), alloc];
       let script: id = msg_send![userscript, initWithSource:NSString::new(js) injectionTime:0 forMainFrameOnly:for_main_frame_only];
       let _: () = msg_send![self.manager, addUserScript: script];

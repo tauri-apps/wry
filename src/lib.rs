@@ -253,7 +253,6 @@ pub use error::*;
 pub use http;
 pub use proxy::{ProxyConfig, ProxyEndpoint};
 pub use web_context::WebContext;
-use webkit2gtk::UserContentInjectedFrames;
 
 /// A rectangular region.
 #[derive(Clone, Copy, Debug)]
@@ -506,7 +505,7 @@ pub struct WebViewAttributes {
   pub bounds: Option<Rect>,
 
   /// Whether JavaScript code should be injected into only main or all subframes
-  pub inject_into_subframes: UserContentInjectedFrames,
+  pub inject_into_subframes: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -545,7 +544,7 @@ impl Default for WebViewAttributes {
         position: dpi::LogicalPosition::new(0, 0).into(),
         size: dpi::LogicalSize::new(200, 200).into(),
       }),
-      inject_into_subframes: UserContentInjectedFrames::TopFrame,
+      inject_into_subframes: false,
     }
   }
 }
@@ -898,11 +897,7 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Whether JavaScript code should be injected to all subframes
   pub fn with_inject_into_subframes(mut self, inject_into_subframes: bool) -> Self {
-    self.attrs.inject_into_subframes = if inject_into_subframes {
-      UserContentInjectedFrames::AllFrames
-    } else {
-      UserContentInjectedFrames::TopFrame
-    };
+    self.attrs.inject_into_subframes = inject_into_subframes;
     self
   }
 

@@ -598,8 +598,13 @@ impl InnerWebView {
     Ok(())
   }
 
-  fn init(&self, js: &str, injected_frames: UserContentInjectedFrames) -> Result<()> {
+  fn init(&self, js: &str, inject_into_subframes: bool) -> Result<()> {
     if let Some(manager) = self.webview.user_content_manager() {
+      let injected_frames = if inject_into_subframes {
+        UserContentInjectedFrames::AllFrames
+      } else {
+        UserContentInjectedFrames::TopFrame
+      };
       let script = UserScript::new(
         js,
         injected_frames,
