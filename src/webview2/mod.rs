@@ -438,9 +438,9 @@ impl InnerWebView {
       };
     }
 
-    // Initialize scripts
+    // Initialize main frame scripts
     for js in attributes.initialization_scripts {
-      Self::add_script_to_execute_on_document_created(&webview, js)?;
+      Self::add_script_to_execute_on_document_created(&webview, js.0)?;
     }
 
     // Enable clipboard
@@ -588,8 +588,10 @@ impl InnerWebView {
 
           on_page_load_handler_(PageLoadEvent::Started, Self::url_from_webview(&webview)?);
 
-          for script in &scripts {
-            Self::execute_script(&webview, script.clone(), |_| ())?;
+          for (script, inject_into_sub_frames) in &scripts {
+            if *inject_into_sub_frames {
+              Self::execute_script(&webview, script.clone(), |_| ())?;
+            }
           }
 
           Ok(())
@@ -1133,7 +1135,6 @@ impl InnerWebView {
     );
   }
 
-  // TODO: feature to allow injecting into (specific) subframes
   #[inline]
   fn add_script_to_execute_on_document_created(webview: &ICoreWebView2, js: String) -> Result<()> {
     let webview = webview.clone();

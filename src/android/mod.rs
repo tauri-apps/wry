@@ -250,10 +250,10 @@ impl InnerWebView {
                           QualName::new(None, ns!(html), "script".into()),
                           None,
                         );
-                        script_el.append(NodeRef::new_text(script));
+                        script_el.append(NodeRef::new_text(script.0.as_str()));
                         head.prepend(script_el);
                         if csp.is_some() {
-                          hashes.push(hash_script(script));
+                          hashes.push(hash_script(script.0.as_str()));
                         }
                       }
                     });

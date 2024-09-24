@@ -2,4 +2,4 @@
 "wry": minor
 ---
 
-Add option to injecting JavaScript code into subframes.
+Add options for scripts to enable injecting JavaScript code into all subframes.

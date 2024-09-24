@@ -72,7 +72,7 @@ impl<'a> MainPipe<'a> {
             self.env.set_object_array_element(
               &initialization_scripts_array,
               i as i32,
-              self.env.new_string(script)?,
+              self.env.new_string(script.0)?,
             )?;
           }
 
@@ -383,7 +383,7 @@ pub(crate) struct CreateWebViewAttributes {
   pub autoplay: bool,
   pub on_webview_created: Option<Box<dyn Fn(super::Context) -> JniResult<()> + Send>>,
   pub user_agent: Option<String>,
-  pub initialization_scripts: Vec<String>,
+  pub initialization_scripts: Vec<(String, bool)>,
 }
 
 // SAFETY: only use this when you are sure the span will be dropped on the same thread it was entered

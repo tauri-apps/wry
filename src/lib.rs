@@ -351,11 +351,14 @@ pub struct WebViewAttributes {
   /// initialization code will be executed. It is guaranteed that code is executed before
   /// `window.onload`.
   ///
+  /// Second parameter represents if script should be also added to all sub frames
+  /// Instead of only main one
+  ///
   /// ## Platform-specific
   ///
   /// - **Android:** The Android WebView does not provide an API for initialization scripts,
   /// so we prepend them to each HTML head. They are only implemented on custom protocol URLs.
-  pub initialization_scripts: Vec<String>,
+  pub initialization_scripts: Vec<(String, bool)>,
 
   /// A list of custom loading protocols with pairs of scheme uri string and a handling
   /// closure.
@@ -503,9 +506,6 @@ pub struct WebViewAttributes {
   /// This is only effective if the webview was created by [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`]
   /// or on Linux, if was created by [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
   pub bounds: Option<Rect>,
-
-  /// Whether JavaScript code should be injected into only main or all subframes
-  pub inject_into_subframes: bool,
 }
 
 impl Default for WebViewAttributes {
@@ -544,7 +544,6 @@ impl Default for WebViewAttributes {
         position: dpi::LogicalPosition::new(0, 0).into(),
         size: dpi::LogicalSize::new(200, 200).into(),
       }),
-      inject_into_subframes: false,
     }
   }
 }
@@ -688,9 +687,22 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// [addDocumentStartJavaScript]: https://developer.android.com/reference/androidx/webkit/WebViewCompat#addDocumentStartJavaScript(android.webkit.WebView,java.lang.String,java.util.Set%3Cjava.lang.String%3E)
   /// [onPageStarted]: https://developer.android.com/reference/android/webkit/WebViewClient#onPageStarted(android.webkit.WebView,%20java.lang.String,%20android.graphics.Bitmap)
-  pub fn with_initialization_script(mut self, js: &str) -> Self {
+  pub fn with_initialization_script(self, js: &str) -> Self {
+    self.with_initialization_script_sub_frames(js, false)
+  }
+
+  /// Works like [with_initialization_script] but provides a way to enable
+  /// Adding scripts to sub frames, instead of only main one
+  pub fn with_initialization_script_sub_frames(
+    mut self,
+    js: &str,
+    inject_to_sub_frames: bool,
+  ) -> Self {
     if !js.is_empty() {
-      self.attrs.initialization_scripts.push(js.to_string());
+      self
+        .attrs
+        .initialization_scripts
+        .push((js.to_string(), inject_to_sub_frames));
     }
     self
   }
@@ -892,12 +904,6 @@ impl<'a> WebViewBuilder<'a> {
   /// - **macOS / Linux / Android / iOS**: Unsupported
   pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
     self.attrs.zoom_hotkeys_enabled = zoom;
-    self
-  }
-
-  /// Whether JavaScript code should be injected to all subframes
-  pub fn with_inject_into_subframes(mut self, inject_into_subframes: bool) -> Self {
-    self.attrs.inject_into_subframes = inject_into_subframes;
     self
   }
 

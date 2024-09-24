@@ -985,10 +985,10 @@ impl InnerWebView {
 r#"Object.defineProperty(window, 'ipc', {
   value: Object.freeze({postMessage: function(s) {window.webkit.messageHandlers.ipc.postMessage(s);}})
 });"#,
-      attributes.inject_into_subframes
+      true
       );
-      for js in attributes.initialization_scripts {
-        w.init(&js, attributes.inject_into_subframes);
+      for (js, inject_into_sub_frames) in attributes.initialization_scripts {
+        w.init(&js, inject_into_sub_frames);
       }
 
       // Set user agent
