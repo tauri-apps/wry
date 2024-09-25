@@ -351,6 +351,11 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn load_html(&self, html: &str) -> Result<()> {
+    MainPipe::send(WebViewMessage::LoadHtml(html.to_string()));
+    Ok(())
+  }
+
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     MainPipe::send(WebViewMessage::ClearAllBrowsingData);
     Ok(())
