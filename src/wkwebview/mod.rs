@@ -1130,6 +1130,11 @@ r#"Object.defineProperty(window, 'ipc', {
     self.navigate_to_url(url, Some(headers))
   }
 
+  pub fn load_html(&self, html: &str) -> crate::Result<()> {
+    self.navigate_to_string(html);
+    Ok(())
+  }
+
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     unsafe {
       let config: id = msg_send![self.webview, configuration];

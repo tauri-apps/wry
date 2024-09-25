@@ -1477,6 +1477,11 @@ impl WebView {
     self.webview.load_url_with_headers(url, headers)
   }
 
+  /// Load html content into the webview
+  pub fn load_html(&self, html: &str) -> Result<()> {
+    self.webview.load_html(html)
+  }
+
   /// Clear all browsing data
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     self.webview.clear_all_browsing_data()
