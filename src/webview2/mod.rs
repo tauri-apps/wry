@@ -1205,6 +1205,11 @@ impl InnerWebView {
     load_url_with_headers(&self.webview, &self.env, url, headers)
   }
 
+  pub fn load_html(&self, html: &str) -> Result<()> {
+    let html = HSTRING::from(html);
+    unsafe { self.webview.NavigateToString(&html) }.map_err(Into::into)
+  }
+
   pub fn bounds(&self) -> Result<Rect> {
     let mut bounds = Rect::default();
     let mut rect = RECT::default();
