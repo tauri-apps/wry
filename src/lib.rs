@@ -1477,6 +1477,7 @@ impl WebView {
     self.webview.load_url_with_headers(url, headers)
   }
 
+  /// Load html content into the webview
   pub fn load_html(&self, html: &str) -> Result<()> {
     self.webview.load_html(html)
   }
