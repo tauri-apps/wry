@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.45.0]
+
+- [`0fd1229`](https://github.com/tauri-apps/wry/commit/0fd12297997f598e4893e8f5b6e235b09cedec09) ([#1369](https://github.com/tauri-apps/wry/pull/1369) by [@lloydzhou](https://github.com/tauri-apps/wry/../../lloydzhou)) On Linux, fixed incorrect path for indexeddb database directory which made apps using `wry@0.24` and `tauri@1` migrating to `wry@>=0.38` and `tauri@2` lose their indexeddb data.
+- [`e332eff`](https://github.com/tauri-apps/wry/commit/e332eff6ac41ff0f4ed6cf5196c3a78c776912d3) ([#1368](https://github.com/tauri-apps/wry/pull/1368) by [@zephraph](https://github.com/tauri-apps/wry/../../zephraph)) Add `Webview::load_html`.
+
 ## \[0.44.1]
 
 - [`5111eb0`](https://github.com/tauri-apps/wry/commit/5111eb013e1b049d12aad38b96b2017a4fc54c72) ([#1362](https://github.com/tauri-apps/wry/pull/1362) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fixes `WebView::clear_all_browsing_data` crashing with a segfault on macOS.
