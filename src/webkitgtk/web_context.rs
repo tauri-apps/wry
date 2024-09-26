@@ -40,12 +40,7 @@ impl WebContextImpl {
     let mut context_builder = WebContext::builder();
     if let Some(data_directory) = data.data_directory() {
       let data_manager = WebsiteDataManager::builder()
-        .base_data_directory(
-          data_directory
-            .join("databases")
-            .join("indexeddb")
-            .to_string_lossy(),
-        )
+        .base_data_directory(data_directory.to_string_lossy())
         .build();
       if let Some(cookie_manager) = data_manager.cookie_manager() {
         cookie_manager.set_persistent_storage(
