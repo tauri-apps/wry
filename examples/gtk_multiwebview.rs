@@ -63,21 +63,21 @@ fn main() -> wry::Result<()> {
     })
     .with_url("https://tauri.app")
     .build()?;
-  let webview2 = WebViewBuilder::new_as_child(&window)
+  let webview2 = create_webview_builder()
     .with_bounds(Rect {
       position: LogicalPosition::new(size.width / 2, 0).into(),
       size: LogicalSize::new(size.width / 2, size.height / 2).into(),
     })
     .with_url("https://github.com/tauri-apps/wry")
     .build()?;
-  let webview3 = WebViewBuilder::new_as_child(&window)
+  let webview3 = create_webview_builder()
     .with_bounds(Rect {
       position: LogicalPosition::new(0, size.height / 2).into(),
       size: LogicalSize::new(size.width / 2, size.height / 2).into(),
     })
     .with_url("https://twitter.com/TauriApps")
     .build()?;
-  let webview4 = WebViewBuilder::new_as_child(&window)
+  let webview4 = create_webview_builder()
     .with_bounds(Rect {
       position: LogicalPosition::new(size.width / 2, size.height / 2).into(),
       size: LogicalSize::new(size.width / 2, size.height / 2).into(),
