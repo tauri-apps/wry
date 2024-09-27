@@ -122,7 +122,6 @@ A `manifest.scm` is included in the subdirectory dev-shells.
 
 ```scheme
 ;; manifest.scm
-;; Author: D.A.Pelasgus
 
 (specifications->manifest
   '("pkg-config"                ; Helper tool used when compiling
