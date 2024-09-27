@@ -99,6 +99,24 @@ sudo dnf install gtk3-devel webkit2gtk4.1-devel
 
 Fedora does not have the Ayatana package yet, so you need to use the GTK one, see the [feature flags documentation](https://docs.rs/wry/latest/wry/#feature-flags).
 
+#### NixOS
+A `shell.nix` is included in the subdirectory dev-shells.
+
+```Nix
+let
+   # Unstable Channel | Rolling Release
+   pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
+   packages = with pkgs; [
+     pkg-config
+     webkitgtk_4_1
+     libayatana-appindicator
+     libappindicator-gtk3
+   ];
+ in
+ pkgs.mkShell {
+   buildInputs = packages;
+ }
+```
 ### macOS
 
 WebKit is native on macOS so everything should be fine.
