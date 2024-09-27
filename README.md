@@ -157,7 +157,8 @@ If you are cross-compiling for macOS using [osxcross](https://github.com/tpoecht
 RUSTFLAGS="-l framework=WebKit" cargo build --target=x86_64-apple-darwin --release
 ```
 
-If `nix` and/if `nix-darwin` are used then follow instructions from [Nix Section](#nix--nixos).
+> [!IMPORTANT]
+> If `nix` and/if `nix-darwin` are used then follow instructions from [Nix Section](#nix--nixos).
 
 ### Windows
 
