@@ -117,6 +117,19 @@ let
    buildInputs = packages;
  }
 ```
+#### GUIX
+A `manifest.scm` is included in the subdirectory dev-shells.
+
+```scheme
+;; manifest.scm
+;; Author: D.A.Pelasgus
+
+(specifications->manifest
+  '("pkg-config"                ; Helper tool used when compiling
+    "webkitgtk"                 ; Web content engine fot GTK+
+    "libappindicator"            ; Menu in Menu bar
+ ))
+```
 ### macOS
 
 WebKit is native on macOS so everything should be fine.
