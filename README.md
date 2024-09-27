@@ -121,8 +121,6 @@ let
 A `manifest.scm` is included in the subdirectory dev-shells.
 
 ```scheme
-;; manifest.scm
-
 (specifications->manifest
   '("pkg-config"                ; Helper tool used when compiling
     "webkitgtk"                 ; Web content engine fot GTK+
