@@ -49,7 +49,7 @@ fn run_strace_benchmarks(new_data: &mut utils::BenchResult) -> Result<()> {
     let mut file = tempfile::NamedTempFile::new()?;
 
     Command::new("strace")
-      .args(&[
+      .args([
         "-c",
         "-f",
         "-o",
@@ -86,7 +86,7 @@ fn run_max_mem_benchmark() -> Result<HashMap<String, u64>> {
     let benchmark_file = benchmark_file.to_str().unwrap();
 
     let proc = Command::new("mprof")
-      .args(&[
+      .args([
         "run",
         "-C",
         "-o",
@@ -101,7 +101,7 @@ fn run_max_mem_benchmark() -> Result<HashMap<String, u64>> {
     println!("{:?}", proc_result);
     results.insert(
       name.to_string(),
-      utils::parse_max_mem(&benchmark_file).unwrap(),
+      utils::parse_max_mem(benchmark_file).unwrap(),
     );
   }
 
@@ -135,12 +135,12 @@ fn rlib_size(target_dir: &std::path::Path, prefix: &str) -> u64 {
 fn get_binary_sizes(target_dir: &Path) -> Result<HashMap<String, u64>> {
   let mut sizes = HashMap::<String, u64>::new();
 
-  let wry_size = rlib_size(&target_dir, "libwry");
+  let wry_size = rlib_size(target_dir, "libwry");
   println!("wry {} bytes", wry_size);
   sizes.insert("wry_rlib".to_string(), wry_size);
 
   // add up size for everything in target/release/deps/libtao*
-  let tao_size = rlib_size(&target_dir, "libtao");
+  let tao_size = rlib_size(target_dir, "libtao");
   println!("tao {} bytes", tao_size);
   sizes.insert("tao_rlib".to_string(), tao_size);
 
@@ -182,9 +182,9 @@ fn cargo_deps() -> HashMap<String, usize> {
       let mut cmd = Command::new("cargo");
       cmd.arg("tree");
       cmd.arg("--no-dedupe");
-      cmd.args(&["--edges", "normal"]);
-      cmd.args(&["--prefix", "none"]);
-      cmd.args(&["--target", target]);
+      cmd.args(["--edges", "normal"]);
+      cmd.args(["--prefix", "none"]);
+      cmd.args(["--target", target]);
       cmd.current_dir(&utils::wry_root_path());
 
       let full_deps = cmd.output().expect("failed to run cargo tree").stdout;
@@ -258,14 +258,13 @@ fn main() -> Result<()> {
   println!("Starting wry benchmark");
 
   let target_dir = utils::target_dir();
-  env::set_current_dir(&utils::bench_root_path())?;
+  env::set_current_dir(utils::bench_root_path())?;
 
   let format =
     time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]:[second]Z").unwrap();
   let now = time::OffsetDateTime::now_utc();
-
   let mut new_data = utils::BenchResult {
-    created_at: format!("{}", now.format(&format).unwrap()),
+    created_at: now.format(&format).unwrap(),
     sha1: utils::run_collect(&["git", "rev-parse", "HEAD"])
       .0
       .trim()

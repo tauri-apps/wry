@@ -29,34 +29,54 @@ struct MessageParameters {
 }
 
 fn main() -> wry::Result<()> {
+  use tao::{
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::WindowBuilder,
+  };
+  use wry::http::Request;
   use wry::{
-    application::{
-      event::{Event, WindowEvent},
-      event_loop::{ControlFlow, EventLoop},
-      window::{Window, WindowBuilder},
-    },
     http::{header::CONTENT_TYPE, Response},
-    webview::WebViewBuilder,
+    WebViewBuilder,
   };
 
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-  let handler = |_window: &Window, req: String| {
-    if &req == "dom-loaded" {
+  let handler = |req: Request<String>| {
+    if req.body() == "dom-loaded" {
       exit(0);
     }
   };
-  let _webview = WebViewBuilder::new(window)
-    .unwrap()
+  #[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  ))]
+  let builder = WebViewBuilder::new(&window);
+
+  #[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  )))]
+  let builder = {
+    use tao::platform::unix::WindowExtUnix;
+    use wry::WebViewBuilderExtUnix;
+    let vbox = window.default_vbox().unwrap();
+    WebViewBuilder::new_gtk(vbox)
+  };
+  let _webview = builder
     .with_ipc_handler(handler)
     .with_custom_protocol("wrybench".into(), move |_request| {
       Response::builder()
         .header(CONTENT_TYPE, "text/html")
         .body(INDEX_HTML.into())
-        .map_err(Into::into)
+        .unwrap()
     })
-    .with_url("wrybench://localhost")?
+    .with_url("wrybench://localhost")
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {
@@ -69,5 +89,5 @@ fn main() -> wry::Result<()> {
       } => *control_flow = ControlFlow::Exit,
       _ => {}
     }
-  });
+  })
 }

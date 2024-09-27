@@ -2,53 +2,81 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-fn main() -> wry::Result<()> {
-  use wry::{
-    application::{
-      event::{Event, StartCause, WindowEvent},
-      event_loop::{ControlFlow, EventLoop},
-      window::WindowBuilder,
-    },
-    webview::WebViewBuilder,
-  };
+use tao::{
+  event::{Event, WindowEvent},
+  event_loop::{ControlFlow, EventLoop},
+  window::WindowBuilder,
+};
+use wry::WebViewBuilder;
 
+fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
-  let window = WindowBuilder::new()
+  #[allow(unused_mut)]
+  let mut builder = WindowBuilder::new()
     .with_decorations(false)
     // There are actually three layer of background color when creating webview window.
     // The first is window background...
-    .with_transparent(true)
-    .build(&event_loop)
-    .unwrap();
+    .with_transparent(true);
+  #[cfg(target_os = "windows")]
+  {
+    use tao::platform::windows::WindowBuilderExtWindows;
+    builder = builder.with_undecorated_shadow(false);
+  }
+  let window = builder.build(&event_loop).unwrap();
 
-  let _webview = WebViewBuilder::new(window)?
+  #[cfg(target_os = "windows")]
+  {
+    use tao::platform::windows::WindowExtWindows;
+    window.set_undecorated_shadow(true);
+  }
+
+  #[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  ))]
+  let builder = WebViewBuilder::new(&window);
+
+  #[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  )))]
+  let builder = {
+    use tao::platform::unix::WindowExtUnix;
+    use wry::WebViewBuilderExtUnix;
+    let vbox = window.default_vbox().unwrap();
+    WebViewBuilder::new_gtk(vbox)
+  };
+
+  let _webview = builder
     // The second is on webview...
+    // Feature `transparent` is required for transparency to work.
     .with_transparent(true)
     // And the last is in html.
     .with_html(
-      r#"
-            <!doctype html>
-            <html>
-              <body style="background-color:rgba(87,87,87,0.5);">hello</body>
-              <script>
-                window.onload = function() {
-                  document.body.innerText = `hello, ${navigator.userAgent}`;
-                };
-              </script>
-            </html>"#,
-    )?
+      r#"<html>
+          <body style="background-color:rgba(87,87,87,0.5);"></body>
+          <script>
+            window.onload = function() {
+              document.body.innerText = `hello, ${navigator.userAgent}`;
+            };
+          </script>
+        </html>"#,
+    )
     .build()?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
 
-    match event {
-      Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
-      Event::WindowEvent {
-        event: WindowEvent::CloseRequested,
-        ..
-      } => *control_flow = ControlFlow::Exit,
-      _ => {}
+    if let Event::WindowEvent {
+      event: WindowEvent::CloseRequested,
+      ..
+    } = event
+    {
+      *control_flow = ControlFlow::Exit
     }
   });
 }

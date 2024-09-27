@@ -23,10 +23,6 @@ If applicable, add screenshots to help explain your problem.
 OS:
 Rustc:
 
-**Would you want to assign yourself to resolve this bug?**
-- [ ] Yes
-- [ ] No
-
 **Additional context**
 Add any other context about the problem here.
 
