@@ -1,0 +1,3 @@
+[submodule "declerative-shells"]
+	path = declerative-shells
+	url = https://github.com/pelasgus/declerative-shells.git

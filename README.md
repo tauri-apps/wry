@@ -83,7 +83,8 @@ Wry also needs [WebKitGTK](https://webkitgtk.org/) for WebView. So please make s
 sudo pacman -S webkit2gtk-4.1
 ```
 
-The `libayatana-indicator` package can be installed from the Arch User Repository (AUR).
+> [!important]
+> The `libayatana-indicator` package can be installed from the Arch User Repository (AUR).
 
 #### Debian / Ubuntu:
 
@@ -97,7 +98,54 @@ sudo apt install libwebkit2gtk-4.1-dev
 sudo dnf install gtk3-devel webkit2gtk4.1-devel
 ```
 
-Fedora does not have the Ayatana package yet, so you need to use the GTK one, see the [feature flags documentation](https://docs.rs/wry/latest/wry/#feature-flags).
+> [!WARNING]
+> Fedora does not have the Ayatana package yet, so you need to use the GTK one, see the [feature flags documentation](https://docs.rs/wry/latest/wry/#feature-flags).
+
+#### Nix & NixOS
+
+```Nix
+let
+   # Unstable Channel | Rolling Release
+   pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
+   packages = with pkgs; [
+     pkg-config
+     webkitgtk_4_1
+     libayatana-appindicator
+     libappindicator-gtk3
+   ];
+ in
+ pkgs.mkShell {
+   buildInputs = packages;
+ }
+```
+
+> [!TIP]
+> A `shell.nix` is included in the subdirectory dev-shells. Use as follows:
+
+```sh
+nix-shell shell.nix
+```
+
+#### GUIX
+
+```scheme
+(specifications->manifest
+  '("pkg-config"                ; Helper tool used when compiling
+    "webkitgtk"                 ; Web content engine fot GTK+
+    "libappindicator"           ; Menu in Menu bar
+    "gtk"
+ ))
+```
+
+> [!TIP]
+> A `manifest.scm` is included in the subdirectory dev-shells. Use as follows:
+
+```sh
+guix shell -m manifest.scm
+```
+
+> [!WARNING]
+> Guix does not have the Ayatana package yet, so you need to use the GTK one, see the [feature flags documentation](https://docs.rs/wry/latest/wry/#feature-flags).
 
 ### macOS
 
@@ -108,6 +156,9 @@ If you are cross-compiling for macOS using [osxcross](https://github.com/tpoecht
 ```
 RUSTFLAGS="-l framework=WebKit" cargo build --target=x86_64-apple-darwin --release
 ```
+
+> [!IMPORTANT]
+> If `nix` and/if `nix-darwin` are used then follow instructions from [Nix Section](#nix--nixos).
 
 ### Windows
 
