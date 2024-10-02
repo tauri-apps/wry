@@ -92,7 +92,7 @@ sudo apt install libwebkit2gtk-4.1-dev
 #### Fedora
 
 ```bash
-sudo dnf instal gtk-devel webkit2gtk4.1-devel
+sudo dnf instal gtk3-devel webkit2gtk4.1-devel
 ```
 
 ### Nix & NixOS
