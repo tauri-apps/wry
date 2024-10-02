@@ -83,9 +83,6 @@ Wry also needs [WebKitGTK](https://webkitgtk.org/) for WebView. So please make s
 sudo pacman -S webkit2gtk-4.1
 ```
 
-> [!IMPORTANT]
-> The `libayatana-indicator` package can be installed from the Arch User Repository (AUR).
-
 #### Debian / Ubuntu:
 
 ```bash
@@ -95,11 +92,8 @@ sudo apt install libwebkit2gtk-4.1-dev
 #### Fedora
 
 ```bash
-sudo dnf install gtk3-devel webkit2gtk4.1-devel
+sudo dnf instal gtk-devel webkit2gtk4.1-devel
 ```
-
-> [!WARNING]
-> Fedora does not have the Ayatana package yet, so you need to use the GTK one, see the [feature flags documentation](https://docs.rs/wry/latest/wry/#feature-flags).
 
 ### Nix & NixOS
 
@@ -110,8 +104,6 @@ sudo dnf install gtk3-devel webkit2gtk4.1-devel
     packages = with pkgs; [
       pkg-config
       webkitgtk_4_1
-      libayatana-appindicator
-      libappindicator-gtk3
     ];
   in
   pkgs.mkShell {
@@ -119,8 +111,6 @@ sudo dnf install gtk3-devel webkit2gtk4.1-devel
   }
  ```
 
- > [!TIP]
- > A `shell.nix` is included in the subdirectory `declerative-shells/etc/shells/nix`. Use as follows:
  ```sh
  nix-shell shell.nix
  ```
@@ -128,23 +118,17 @@ sudo dnf install gtk3-devel webkit2gtk4.1-devel
 #### GUIX
 
  ```scheme
+;; manifest.scm
+
  (specifications->manifest
    '("pkg-config"                ; Helper tool used when compiling
      "webkitgtk"                 ; Web content engine fot GTK+
-     "libappindicator"           ; Menu in Menu bar
-     "gtk"
   ))
  ```
 
- > [!TIP]
- > A `manifest.scm` is included in the subdirectory `declerative-shells/etc/shells/guix`. Use as follows:
- 
 ```sh
- guix shell -m manifest.scm
- ```
-
- > [!WARNING]
- > Guix does not have the Ayatana package yet, so you need to use the GTK one, see the [feature flags documentation](https://docs.rs/wry/latest/wry/#feature-flags).
+guix shell -m manifest.scm
+````
 
 ### macOS
 
