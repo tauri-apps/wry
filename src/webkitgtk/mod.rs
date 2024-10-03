@@ -825,7 +825,7 @@ pub fn platform_webview_version() -> Result<String> {
       webkit_get_micro_version(),
     )
   };
-  Ok(format!("{}.{}.{}", major, minor, patch))
+  Ok(format!("{major}.{minor}.{patch}"))
 }
 
 // SAFETY: only use this when you are sure the span will be dropped on the same thread it was entered
