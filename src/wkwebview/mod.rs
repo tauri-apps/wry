@@ -279,11 +279,12 @@ impl InnerWebView {
 
               let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> = Box::new(
                 move |sent_response| {
-                  fn check_webview_id_valid(webview_id: u32) -> crate::Result<()> {
-                    match WEBVIEW_IDS.lock().unwrap().contains(&webview_id) {
-                      true => Ok(()),
-                      false => Err(crate::Error::CustomProtocolTaskInvalid),
-                    }
+                  fn assert_webview_id_valid(webview_id: u32) {
+                    assert!(
+                      WEBVIEW_IDS.lock().unwrap().contains(&webview_id),
+                      "WebView ID {} does not exist",
+                      webview_id,
+                    );
                   }
 
                   unsafe fn response(
@@ -291,7 +292,7 @@ impl InnerWebView {
                     webview_id: u32,
                     url: id, /* NSURL */
                     sent_response: HttpResponse<Cow<'_, [u8]>>,
-                  ) -> crate::Result<()> {
+                  ) {
                     let content = sent_response.body();
                     // default: application/octet-stream, but should be provided by the client
                     let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
@@ -318,31 +319,27 @@ impl InnerWebView {
                     let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
                     let response: id = msg_send![urlresponse, initWithURL:url statusCode: wanted_status_code HTTPVersion:NSString::new(&wanted_version) headerFields:headers];
 
-                    check_webview_id_valid(webview_id)?;
+                    assert_webview_id_valid(webview_id);
                     (*task)
                       .send_message::<(id,), ()>(sel!(didReceiveResponse:), (response,))
-                      .map_err(|_| crate::Error::CustomProtocolTaskInvalid)?;
+                      .unwrap();
 
                     // Send data
                     let bytes = content.as_ptr() as *mut c_void;
                     let data: id = msg_send![class!(NSData), alloc];
                     let data: id = msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: if content.len() == 0 { NO } else { YES }];
 
-                    check_webview_id_valid(webview_id)?;
+                    assert_webview_id_valid(webview_id);
                     (*task)
                       .send_message::<(id,), ()>(sel!(didReceiveData:), (data,))
-                      .map_err(|_| crate::Error::CustomProtocolTaskInvalid)?;
+                      .unwrap();
 
                     // Finish
-                    check_webview_id_valid(webview_id)?;
-                    (*task)
-                      .send_message::<(), ()>(sel!(didFinish), ())
-                      .map_err(|_| crate::Error::CustomProtocolTaskInvalid)?;
-
-                    Ok(())
+                    assert_webview_id_valid(webview_id);
+                    (*task).send_message::<(), ()>(sel!(didFinish), ()).unwrap();
                   }
 
-                  let _ = response(task, webview_id, url, sent_response);
+                  response(task, webview_id, url, sent_response);
                   let () = msg_send![task, release];
                 },
               );
