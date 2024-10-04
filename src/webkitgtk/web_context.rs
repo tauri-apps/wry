@@ -11,7 +11,7 @@ use soup::{MessageHeaders, MessageHeadersType};
 use std::{
   borrow::Cow,
   cell::RefCell,
-  collections::{HashSet, VecDeque},
+  collections::VecDeque,
   path::PathBuf,
   rc::Rc,
   sync::{
