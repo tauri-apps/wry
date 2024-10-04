@@ -13,9 +13,7 @@ fn main() {
 
     fn env_var(var: &str) -> String {
       std::env::var(var).unwrap_or_else(|_| {
-        panic!(
-          "`{var}` is not set, which is needed to generate the kotlin files for android."
-        )
+        panic!("`{var}` is not set, which is needed to generate the kotlin files for android.")
       })
     }
 
