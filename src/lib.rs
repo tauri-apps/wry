@@ -351,11 +351,14 @@ pub struct WebViewAttributes {
   /// initialization code will be executed. It is guaranteed that code is executed before
   /// `window.onload`.
   ///
+  /// Second parameter represents if script should be also added to all sub frames
+  /// Instead of only main one
+  ///
   /// ## Platform-specific
   ///
   /// - **Android:** The Android WebView does not provide an API for initialization scripts,
   /// so we prepend them to each HTML head. They are only implemented on custom protocol URLs.
-  pub initialization_scripts: Vec<String>,
+  pub initialization_scripts: Vec<(String, bool)>,
 
   /// A list of custom loading protocols with pairs of scheme uri string and a handling
   /// closure.
@@ -684,9 +687,22 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// [addDocumentStartJavaScript]: https://developer.android.com/reference/androidx/webkit/WebViewCompat#addDocumentStartJavaScript(android.webkit.WebView,java.lang.String,java.util.Set%3Cjava.lang.String%3E)
   /// [onPageStarted]: https://developer.android.com/reference/android/webkit/WebViewClient#onPageStarted(android.webkit.WebView,%20java.lang.String,%20android.graphics.Bitmap)
-  pub fn with_initialization_script(mut self, js: &str) -> Self {
+  pub fn with_initialization_script(self, js: &str) -> Self {
+    self.with_initialization_script_sub_frames(js, false)
+  }
+
+  /// Works like [with_initialization_script] but provides a way to enable
+  /// Adding scripts to sub frames, instead of only main one
+  pub fn with_initialization_script_sub_frames(
+    mut self,
+    js: &str,
+    inject_to_sub_frames: bool,
+  ) -> Self {
     if !js.is_empty() {
-      self.attrs.initialization_scripts.push(js.to_string());
+      self
+        .attrs
+        .initialization_scripts
+        .push((js.to_string(), inject_to_sub_frames));
     }
     self
   }

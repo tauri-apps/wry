@@ -292,11 +292,11 @@ impl InnerWebView {
     };
 
     // Initialize message handler
-    w.init("Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })")?;
+    w.init("Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })", true)?;
 
     // Initialize scripts
-    for js in attributes.initialization_scripts {
-      w.init(&js)?;
+    for (js, inject_into_sub_frames) in attributes.initialization_scripts {
+      w.init(&js, inject_into_sub_frames)?;
     }
 
     // Run pending webview.eval() scripts once webview loads.
@@ -598,12 +598,16 @@ impl InnerWebView {
     Ok(())
   }
 
-  fn init(&self, js: &str) -> Result<()> {
+  fn init(&self, js: &str, inject_into_subframes: bool) -> Result<()> {
     if let Some(manager) = self.webview.user_content_manager() {
+      let injected_frames = if inject_into_subframes {
+        UserContentInjectedFrames::AllFrames
+      } else {
+        UserContentInjectedFrames::TopFrame
+      };
       let script = UserScript::new(
         js,
-        // TODO: feature to allow injecting into subframes
-        UserContentInjectedFrames::TopFrame,
+        injected_frames,
         UserScriptInjectionTime::Start,
         &[],
         &[],

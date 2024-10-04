@@ -66,14 +66,13 @@ use crate::{
   Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
 };
 
+use self::util::Counter;
 use http::{
   header::{CONTENT_LENGTH, CONTENT_TYPE},
   status::StatusCode,
   version::Version,
   Request, Response as HttpResponse,
 };
-
-use self::util::Counter;
 
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
 #[cfg(target_os = "macos")]
@@ -986,9 +985,10 @@ impl InnerWebView {
 r#"Object.defineProperty(window, 'ipc', {
   value: Object.freeze({postMessage: function(s) {window.webkit.messageHandlers.ipc.postMessage(s);}})
 });"#,
+      true
       );
-      for js in attributes.initialization_scripts {
-        w.init(&js);
+      for (js, inject_into_sub_frames) in attributes.initialization_scripts {
+        w.init(&js, inject_into_sub_frames);
       }
 
       // Set user agent
@@ -1109,15 +1109,18 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
-  fn init(&self, js: &str) {
+  fn init(&self, js: &str, inject_into_subframes: bool) {
     // Safety: objc runtime calls are unsafe
     // Equivalent Obj-C:
     // [manager addUserScript:[[WKUserScript alloc] initWithSource:[NSString stringWithUTF8String:js.c_str()] injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]]
     unsafe {
+      let for_main_frame_only = match inject_into_subframes {
+        true => 0,
+        false => 1,
+      };
+
       let userscript: id = msg_send![class!(WKUserScript), alloc];
-      let script: id =
-      // TODO: feature to allow injecting into subframes
-        msg_send![userscript, initWithSource:NSString::new(js) injectionTime:0 forMainFrameOnly:1];
+      let script: id = msg_send![userscript, initWithSource:NSString::new(js) injectionTime:0 forMainFrameOnly:for_main_frame_only];
       let _: () = msg_send![self.manager, addUserScript: script];
     }
   }
