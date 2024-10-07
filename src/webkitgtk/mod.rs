@@ -42,7 +42,7 @@ pub use web_context::WebContextImpl;
 
 use crate::{
   proxy::ProxyConfig, web_context::WebContext, Error, PageLoadEvent, Rect, Result,
-  WebViewAttributes, RGBA,
+  WebViewAttributes, RGBA, PrintOption
 };
 
 use self::web_context::WebContextExt;
@@ -556,9 +556,33 @@ impl InnerWebView {
     is_inspector_open
   }
 
-  pub fn print(&self) -> Result<()> {
-    let print = webkit2gtk::PrintOperation::new(&self.webview);
-    print.run_dialog(None::<&gtk::Window>);
+  pub fn print_with_options(&self, options: &[PrintOption]) -> Result<()> {
+    let page_setup = gtk::PageSetup::new();
+    let mut silent: bool = false;
+
+    for opt in options.iter() {
+      match opt {
+        PrintOption::Silent(s) => {
+          silent = *s
+        },
+        PrintOption::Margins(m) => {
+          page_setup.set_left_margin(f64::from(m.left), gtk::Unit::Mm);
+          page_setup.set_right_margin(f64::from(m.right), gtk::Unit::Mm);
+          page_setup.set_top_margin(f64::from(m.top), gtk::Unit::Mm);
+          page_setup.set_bottom_margin(f64::from(m.bottom), gtk::Unit::Mm);
+        }
+      }
+    }
+    
+    let mut print = webkit2gtk::PrintOperation::builder();
+    print = print.web_view(&self.webview);
+    print = print.page_setup(&page_setup);
+
+    if silent {
+      print.build().print();
+    } else {
+      print.build().run_dialog(None::<&gtk::Window>);
+    }
     Ok(())
   }
 

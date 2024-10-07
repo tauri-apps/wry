@@ -1,6 +1,8 @@
 /// Convenient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;
 
+use crate::PrintOption;
+
 /// Errors returned by wry.
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
@@ -59,4 +61,6 @@ pub enum Error {
   CustomProtocolTaskInvalid,
   #[error("Failed to register URL scheme: {0}, could be due to invalid URL scheme or the scheme is already registered.")]
   UrlSchemeRegisterError(String),
+  #[error("Invalid print option {0}")]
+  PrintOptionError(PrintOption),
 }

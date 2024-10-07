@@ -1322,6 +1322,39 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
   }
 }
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+/// Print margins in millimeters
+#[derive(Debug, Default, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct PrintMargin {
+  pub top: f32,
+  pub right: f32,
+  pub bottom: f32,
+  pub left: f32,
+}
+
+/// The print options
+///
+/// When printing, multiple options can be passed to the print function causing it to alter the
+/// printing behavior. If a backend does not support a print option, it can return the option as an
+/// error using: `return Err(Error::PrintOptionError(opt.clone()))`
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum PrintOption {
+  Silent(bool),
+  Margins(PrintMargin)
+}
+
+impl std::fmt::Display for PrintOption {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{:?}", self)
+  }
+}
+
+impl std::error::Error for PrintOption {}
+
 /// The fundamental type to present a [`WebView`].
 ///
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
@@ -1409,7 +1442,11 @@ impl WebView {
 
   /// Launch print modal for the webview content.
   pub fn print(&self) -> Result<()> {
-    self.webview.print()
+    self.webview.print_with_options(&[])
+  }
+
+  pub fn print_with_options(&self, options: &[PrintOption]) -> Result<()> {
+    self.webview.print_with_options(options)
   }
 
   /// Open the web inspector which is usually called dev tool.
