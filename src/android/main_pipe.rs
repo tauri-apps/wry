@@ -300,6 +300,12 @@ impl<'a> MainPipe<'a> {
               .call_method(webview, "clearAllBrowsingData", "()V", &[])?;
           }
         }
+        WebViewMessage::LoadHtml(html) => {
+          if let Some(webview) = &self.webview {
+            let html = self.env.new_string(html)?;
+            load_html(&mut self.env, webview.as_obj(), &html)?;
+          }
+        }
       }
     }
     Ok(())
@@ -369,6 +375,7 @@ pub(crate) enum WebViewMessage {
   GetUrl(Sender<String>),
   Jni(Box<dyn FnOnce(&mut JNIEnv, &JObject, &JObject) + Send>),
   LoadUrl(String, Option<http::HeaderMap>),
+  LoadHtml(String),
   ClearAllBrowsingData,
 }
 

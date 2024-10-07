@@ -628,13 +628,18 @@ r#"Object.defineProperty(window, 'ipc', {
     self.navigate_to_url(url, Some(headers))
   }
 
+  pub fn load_html(&self, html: &str) -> crate::Result<()> {
+    self.navigate_to_string(html);
+    Ok(())
+  }
+
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     unsafe {
       let config = self.webview.configuration();
       let store = config.websiteDataStore();
       let all_data_types = WKWebsiteDataStore::allWebsiteDataTypes();
       let date = NSDate::dateWithTimeIntervalSince1970(0.0);
-      let handler = block2::RcBlock::new(|| {});
+      let handler = block2::RcBlock::new(|| {}).copy();
       store.removeDataOfTypes_modifiedSince_completionHandler(&all_data_types, &date, &handler);
     }
     Ok(())

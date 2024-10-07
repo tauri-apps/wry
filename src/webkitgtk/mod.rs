@@ -673,6 +673,11 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn load_html(&self, html: &str) -> Result<()> {
+    self.webview.load_html(html, None);
+    Ok(())
+  }
+
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     if let Some(context) = self.webview.context() {
       if let Some(data_manger) = context.website_data_manager() {
@@ -820,7 +825,7 @@ pub fn platform_webview_version() -> Result<String> {
       webkit_get_micro_version(),
     )
   };
-  Ok(format!("{}.{}.{}", major, minor, patch))
+  Ok(format!("{major}.{minor}.{patch}"))
 }
 
 // SAFETY: only use this when you are sure the span will be dropped on the same thread it was entered
