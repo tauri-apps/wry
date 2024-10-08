@@ -25,7 +25,7 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::{
   borrow::Cow,
   collections::HashSet,
-  ffi::{c_void, CStr},
+  ffi::{c_void, CStr, CString},
   os::raw::c_char,
   ptr::{null, null_mut},
   slice, str,
@@ -63,7 +63,7 @@ use crate::{
     },
     navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
   },
-  Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
+  Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebViewAttributes, RGBA,
 };
 
 use http::{
@@ -205,7 +205,12 @@ impl InnerWebView {
           let function = &mut *(*function
             as *mut Box<dyn Fn(Option<crate::WebViewId>, Request<Vec<u8>>, RequestAsyncResponder)>);
 
-          let webview_id = this.get_ivar::<String>("id");
+          let webview_id_ptr: *mut c_char = *this.get_ivar("id");
+          let webview_id = if webview_id_ptr.is_null() {
+            None
+          } else {
+            CStr::from_ptr(webview_id_ptr).to_str().ok()
+          };
 
           // Get url request
           let request: id = msg_send![task, request];
@@ -351,7 +356,7 @@ impl InnerWebView {
               #[cfg(feature = "tracing")]
               let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
               function(
-                webview_id.as_deref(),
+                webview_id,
                 final_request,
                 RequestAsyncResponder { responder },
               );
@@ -412,7 +417,7 @@ impl InnerWebView {
           Some(mut cls) => {
             cls.add_ivar::<*mut c_void>("function");
             cls.add_ivar::<u32>("internal_webview_id");
-            cls.add_ivar::<String>("id");
+            cls.add_ivar::<*mut c_char>("id");
             cls.add_method(
               sel!(webView:startURLSchemeTask:),
               start_task as extern "C" fn(&Object, Sel, id, id),
@@ -431,7 +436,14 @@ impl InnerWebView {
 
         (*handler).set_ivar("function", function as *mut _ as *mut c_void);
         (*handler).set_ivar("internal_webview_id", internal_webview_id);
-        (*handler).set_ivar("id", id.clone());
+        (*handler).set_ivar(
+          "id",
+          if let Some(id) = &id {
+            CString::new(id.as_bytes()).unwrap().into_raw()
+          } else {
+            std::ptr::null_mut()
+          },
+        );
 
         (*config)
           .send_message::<(id, NSString), ()>(
@@ -973,8 +985,6 @@ impl InnerWebView {
           let () = msg_send![ns_window, setTitlebarSeparatorStyle: 1];
         }
       }
-
-      let id = attributes.id.map(|id| id.to_string());
 
       let w = Self {
         id,

@@ -1169,7 +1169,7 @@ pub trait WebViewBuilderExtDarwin {
 
 #[cfg(any(target_os = "macos", target_os = "ios",))]
 impl WebViewBuilderExtDarwin for WebViewBuilder<'_> {
-  fn with_data_store_identifier(mut self, identifier: [u8; 16]) -> Self {
+  fn with_data_store_identifier(self, identifier: [u8; 16]) -> Self {
     self.and_then(|mut b| {
       b.platform_specific.data_store_identifier = Some(identifier);
       Ok(b)
