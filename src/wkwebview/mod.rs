@@ -205,13 +205,7 @@ impl InnerWebView {
           let function = &mut *(*function
             as *mut Box<dyn Fn(Option<crate::WebViewId>, Request<Vec<u8>>, RequestAsyncResponder)>);
 
-          let webview_id = this.get_ivar::<*mut c_void>("id");
-
-          let webview_id = if !webview_id.is_null() {
-            &*(*webview_id as *const &Option<String>)
-          } else {
-            None
-          };
+          let webview_id = this.get_ivar::<String>("id");
 
           // Get url request
           let request: id = msg_send![task, request];
@@ -418,7 +412,7 @@ impl InnerWebView {
           Some(mut cls) => {
             cls.add_ivar::<*mut c_void>("function");
             cls.add_ivar::<u32>("internal_webview_id");
-            cls.add_ivar::<Option<String>>("id");
+            cls.add_ivar::<String>("id");
             cls.add_method(
               sel!(webView:startURLSchemeTask:),
               start_task as extern "C" fn(&Object, Sel, id, id),
@@ -1379,7 +1373,10 @@ pub fn platform_webview_version() -> Result<String> {
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
-    WEBVIEW_IDS.lock().unwrap().remove(&self.webview_id);
+    WEBVIEW_IDS
+      .lock()
+      .unwrap()
+      .remove(&self.internal_webview_id);
 
     // We need to drop handler closures here
     unsafe {

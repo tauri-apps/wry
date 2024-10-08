@@ -114,7 +114,7 @@
 //! let event_loop = EventLoop::new().unwrap();
 //!
 //! let window = Window::new(&event_loop).unwrap();
-//! let webview = WebView::new(&window);
+//! let webview = WebView::new(&window, WebViewAttributes::default());
 //!
 //! event_loop.run(|_e, _evl|{
 //!   // process winit events
@@ -766,7 +766,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ```no_run
   /// use wry::{WebViewBuilder, raw_window_handle};
   /// WebViewBuilder::new()
-  ///   .with_asynchronous_custom_protocol("wry".into(), |request, responder| {
+  ///   .with_asynchronous_custom_protocol("wry".into(), |_webview_id, request, responder| {
   ///     // here you can use a tokio task, thread pool or anything
   ///     // to do heavy computation to resolve your request
   ///     // e.g. downloading files, opening the camera...
