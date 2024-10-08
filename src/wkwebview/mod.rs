@@ -99,6 +99,7 @@ pub struct PrintOptions {
 
 pub(crate) struct InnerWebView {
   pub webview: id,
+  ns_view: id,
   pub manager: id,
   is_child: bool,
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
@@ -966,6 +967,7 @@ impl InnerWebView {
       }
 
       let w = Self {
+        ns_view,
         webview,
         manager,
         pending_scripts,
@@ -1315,7 +1317,7 @@ r#"Object.defineProperty(window, 'ipc', {
   pub fn blur(&self) -> Result<()> {
     unsafe {
       let window: id = msg_send![self.webview, window];
-      let _: () = msg_send![window, makeFirstResponder: nil];
+      let _: () = msg_send![window, makeFirstResponder: self.ns_view];
     }
 
     Ok(())
