@@ -578,20 +578,18 @@ r#"Object.defineProperty(window, 'ipc', {
             }
 
             callback(result);
-          })
-          .copy();
+          });
 
           self
             .webview
             .evaluateJavaScript_completionHandler(&NSString::from_str(js), Some(&handler));
         } else {
           #[cfg(feature = "tracing")]
-          let handler = Some(
-            block2::RcBlock::new(move |_val: *mut AnyObject, _err: *mut NSError| {
+          let handler = Some(block2::RcBlock::new(
+            move |_val: *mut AnyObject, _err: *mut NSError| {
               span.lock().unwrap().take();
-            })
-            .copy(),
-          );
+            },
+          ));
           #[cfg(not(feature = "tracing"))]
           let handler: Option<block2::RcBlock<dyn Fn(*mut AnyObject, *mut NSError)>> = None;
 
@@ -639,7 +637,7 @@ r#"Object.defineProperty(window, 'ipc', {
       let store = config.websiteDataStore();
       let all_data_types = WKWebsiteDataStore::allWebsiteDataTypes();
       let date = NSDate::dateWithTimeIntervalSince1970(0.0);
-      let handler = block2::RcBlock::new(|| {}).copy();
+      let handler = block2::RcBlock::new(|| {});
       store.removeDataOfTypes_modifiedSince_completionHandler(&all_data_types, &date, &handler);
     }
     Ok(())
