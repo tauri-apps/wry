@@ -21,7 +21,7 @@ use windows::{
     Globalization::*,
     Graphics::Gdi::*,
     System::{Com::*, LibraryLoader::GetModuleHandleW, WinRT::EventRegistrationToken},
-    UI::{Shell::*, WindowsAndMessaging::*},
+    UI::{Input::KeyboardAndMouse::SetFocus, Shell::*, WindowsAndMessaging::*},
   },
 };
 
@@ -1303,10 +1303,15 @@ impl InnerWebView {
   }
 
   pub fn blur(&self) -> Result<()> {
-    self.eval(
-      "document.activeElement.blur();",
-      None::<Box<dyn FnOnce(String) + Send + 'static>>,
-    )
+    unsafe {
+      // Move the focus back to parent
+      let parent = *self.parent.borrow();
+      if parent != HWND::default() {
+        SetFocus(parent)?;
+      }
+    }
+
+    Ok(())
   }
 
   pub fn reparent(&self, parent: isize) -> Result<()> {
