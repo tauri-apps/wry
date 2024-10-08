@@ -29,7 +29,7 @@ use self::drag_drop::DragDropController;
 use super::Theme;
 use crate::{
   proxy::ProxyConfig, Error, MemoryUsageLevel, PageLoadEvent, Rect, RequestAsyncResponder, Result,
-  WebContext, WebViewAttributes, RGBA,
+  WebViewAttributes, RGBA,
 };
 
 const PARENT_SUBCLASS_ID: u32 = WM_USER + 0x64;
@@ -50,6 +50,7 @@ impl From<windows::core::Error> for Error {
 }
 
 pub(crate) struct InnerWebView {
+  id: Option<String>,
   parent: RefCell<HWND>,
   hwnd: HWND,
   is_child: bool,
@@ -78,13 +79,12 @@ impl InnerWebView {
     window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let window = match window.window_handle()?.as_raw() {
       RawWindowHandle::Win32(window) => HWND(window.hwnd.get() as _),
       _ => return Err(Error::UnsupportedWindowHandle),
     };
-    Self::new_in_hwnd(window, attributes, pl_attrs, web_context, false)
+    Self::new_in_hwnd(window, attributes, pl_attrs, false)
   }
 
   #[inline]
@@ -92,14 +92,13 @@ impl InnerWebView {
     parent: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let parent = match parent.window_handle()?.as_raw() {
       RawWindowHandle::Win32(parent) => HWND(parent.hwnd.get() as _),
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 
-    Self::new_in_hwnd(parent, attributes, pl_attrs, web_context, true)
+    Self::new_in_hwnd(parent, attributes, pl_attrs, true)
   }
 
   #[inline]
@@ -107,7 +106,6 @@ impl InnerWebView {
     parent: HWND,
     mut attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    web_context: Option<&mut WebContext>,
     is_child: bool,
   ) -> Result<Self> {
     let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
@@ -117,7 +115,9 @@ impl InnerWebView {
     let drop_handler = attributes.drag_drop_handler.take();
     let bounds = attributes.bounds;
 
-    let env = Self::create_environment(&web_context, pl_attrs.clone(), &attributes)?;
+    let id = attributes.id.map(|id| id.to_string());
+
+    let env = Self::create_environment(&attributes, pl_attrs.clone())?;
     let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
     let webview = Self::init_webview(
       parent,
@@ -132,6 +132,7 @@ impl InnerWebView {
     let drag_drop_controller = drop_handler.map(|handler| DragDropController::new(hwnd, handler));
 
     let w = Self {
+      id,
       parent: RefCell::new(parent),
       hwnd,
       controller,
@@ -247,11 +248,11 @@ impl InnerWebView {
 
   #[inline]
   fn create_environment(
-    web_context: &Option<&mut WebContext>,
-    pl_attrs: super::PlatformSpecificWebViewAttributes,
     attributes: &WebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
   ) -> Result<ICoreWebView2Environment> {
-    let data_directory = web_context
+    let data_directory = attributes
+      .context
       .as_deref()
       .and_then(|context| context.data_directory())
       .map(HSTRING::from);
@@ -798,6 +799,7 @@ impl InnerWebView {
     let env = env.clone();
     let custom_protocols = std::mem::take(&mut attributes.custom_protocols);
     let main_thread_id = std::thread::current().id();
+    let webview_id = attributes.id.map(|id| id.to_string());
 
     webview.add_WebResourceRequested(
       &WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
@@ -866,6 +868,7 @@ impl InnerWebView {
           #[cfg(feature = "tracing")]
           let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
           custom_protocol_handler(
+           webview_id.as_deref(),
             request,
             RequestAsyncResponder {
               responder: async_responder,
@@ -1175,6 +1178,10 @@ impl InnerWebView {
 
 /// Public APIs
 impl InnerWebView {
+  pub fn id(&self) -> Option<crate::WebViewId> {
+    self.id.as_deref()
+  }
+
   pub fn eval(
     &self,
     js: &str,

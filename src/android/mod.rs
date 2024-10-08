@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use super::{PageLoadEvent, WebContext, WebViewAttributes, RGBA};
+use super::{PageLoadEvent, WebViewAttributes, RGBA};
 use crate::{RequestAsyncResponder, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
@@ -58,7 +58,7 @@ macro_rules! define_static_handlers {
 
 define_static_handlers! {
   IPC =  UnsafeIpc { handler: Box<dyn Fn(Request<String>)> };
-  REQUEST_HANDLER = UnsafeRequestHandler { handler:  Box<dyn Fn(Request<Vec<u8>>, bool) -> Option<HttpResponse<Cow<'static, [u8]>>>> };
+  REQUEST_HANDLER = UnsafeRequestHandler { handler:  Box<dyn Fn(Option<String>, Request<Vec<u8>>, bool) -> Option<HttpResponse<Cow<'static, [u8]>>>> };
   TITLE_CHANGE_HANDLER = UnsafeTitleHandler { handler: Box<dyn Fn(String)> };
   URL_LOADING_OVERRIDE = UnsafeUrlLoadingOverride { handler: Box<dyn Fn(String) -> bool> };
   ON_LOAD_HANDLER = UnsafeOnPageLoadHandler { handler: Box<dyn Fn(PageLoadEvent, String)> };
@@ -124,23 +124,23 @@ pub unsafe fn android_setup(
     .unwrap();
 }
 
-pub(crate) struct InnerWebView;
+pub(crate) struct InnerWebView {
+  id: Option<String>,
+}
 
 impl InnerWebView {
   pub fn new_as_child(
     _window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    Self::new(_window, attributes, pl_attrs, _web_context)
+    Self::new(_window, attributes, pl_attrs)
   }
 
   pub fn new(
     _window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let WebViewAttributes {
       url,
@@ -182,6 +182,7 @@ impl InnerWebView {
     };
 
     MainPipe::send(WebViewMessage::CreateWebView(CreateWebViewAttributes {
+      id: attributes.id.map(|id| id.to_string()),
       url,
       html,
       #[cfg(any(debug_assertions, feature = "devtools"))]
@@ -202,7 +203,7 @@ impl InnerWebView {
 
     REQUEST_HANDLER.get_or_init(move || {
       UnsafeRequestHandler::new(Box::new(
-        move |mut request, is_document_start_script_enabled| {
+        move |webview_id: Option<String>, mut request, is_document_start_script_enabled| {
           let uri = request.uri().to_string();
           if let Some(custom_protocol) = custom_protocols.iter().find(|(name, _)| {
             uri.starts_with(&format!("{scheme}://{}.", name))
@@ -276,7 +277,7 @@ impl InnerWebView {
                 tx.send(response).unwrap();
               });
 
-            (custom_protocol.1)(request, RequestAsyncResponder { responder });
+            (custom_protocol.1)(webview_id.as_deref(), request, RequestAsyncResponder { responder });
             return Some(rx.recv().unwrap());
           }
           None
@@ -300,11 +301,17 @@ impl InnerWebView {
       ON_LOAD_HANDLER.get_or_init(move || UnsafeOnPageLoadHandler::new(h));
     }
 
-    Ok(Self)
+    Ok(Self {
+      id: attributes.id.map(|id| id.to_string()),
+    })
   }
 
   pub fn print(&self) -> crate::Result<()> {
     Ok(())
+  }
+
+  pub fn id(&self) -> Option<crate::WebViewId> {
+    self.id.as_deref()
   }
 
   pub fn url(&self) -> crate::Result<String> {

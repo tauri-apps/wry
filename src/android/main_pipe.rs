@@ -76,6 +76,12 @@ impl<'a> MainPipe<'a> {
             )?;
           }
 
+          let id = attrs.id.clone();
+          let id = match id {
+            Some(id) => self.env.new_string(id)?,
+            None => JString::default(),
+          };
+
           // Create webview
           let rust_webview_class = find_class(
             &mut self.env,
@@ -84,8 +90,12 @@ impl<'a> MainPipe<'a> {
           )?;
           let webview = self.env.new_object(
             &rust_webview_class,
-            "(Landroid/content/Context;[Ljava/lang/String;)V",
-            &[activity.into(), (&initialization_scripts_array).into()],
+            "(Landroid/content/Context;[Ljava/lang/String;Ljava/lang/String;)V",
+            &[
+              activity.into(),
+              (&initialization_scripts_array).into(),
+              (&id).into(),
+            ],
           )?;
 
           // set media autoplay
@@ -262,6 +272,24 @@ impl<'a> MainPipe<'a> {
             Err(e) => tx.send(Err(e.into())).unwrap(),
           }
         }
+        WebViewMessage::GetId(tx) => {
+          if let Some(webview) = &self.webview {
+            let url = self
+              .env
+              .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String;", &[])
+              .and_then(|v| v.l())
+              .and_then(|s| {
+                let s = JString::from(s);
+                self
+                  .env
+                  .get_string(&s)
+                  .map(|v| v.to_string_lossy().to_string())
+              })
+              .unwrap_or_default();
+
+            tx.send(url).unwrap()
+          }
+        }
         WebViewMessage::GetUrl(tx) => {
           if let Some(webview) = &self.webview {
             let url = self
@@ -372,6 +400,7 @@ pub(crate) enum WebViewMessage {
   Eval(String, Option<EvalCallback>),
   SetBackgroundColor(RGBA),
   GetWebViewVersion(Sender<Result<String, Error>>),
+  GetId(Sender<String>),
   GetUrl(Sender<String>),
   Jni(Box<dyn FnOnce(&mut JNIEnv, &JObject, &JObject) + Send>),
   LoadUrl(String, Option<http::HeaderMap>),
@@ -380,6 +409,7 @@ pub(crate) enum WebViewMessage {
 }
 
 pub(crate) struct CreateWebViewAttributes {
+  pub id: Option<String>,
   pub url: Option<String>,
   pub html: Option<String>,
   #[cfg(any(debug_assertions, feature = "devtools"))]
