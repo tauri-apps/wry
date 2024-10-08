@@ -786,6 +786,11 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn blur(&self) -> Result<()> {
+    // Unsupported
+    Ok(())
+  }
+
   pub fn reparent<W>(&self, container: &W) -> Result<()>
   where
     W: gtk::prelude::IsA<gtk::Container>,

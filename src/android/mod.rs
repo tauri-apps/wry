@@ -379,6 +379,11 @@ impl InnerWebView {
     // Unsupported
     Ok(())
   }
+
+  pub fn blur(&self) -> Result<()> {
+    // Unsupported
+    Ok(())
+  }
 }
 
 #[derive(Clone, Copy)]

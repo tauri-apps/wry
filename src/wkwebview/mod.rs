@@ -1312,6 +1312,15 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
+  pub fn blur(&self) -> Result<()> {
+    unsafe {
+      let window: id = msg_send![self.webview, window];
+      let _: () = msg_send![window, makeFirstResponder: nil];
+    }
+
+    Ok(())
+  }
+
   #[cfg(target_os = "macos")]
   pub(crate) fn reparent(&self, window: id) -> crate::Result<()> {
     unsafe {

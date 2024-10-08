@@ -1508,6 +1508,10 @@ impl WebView {
   pub fn focus(&self) -> Result<()> {
     self.webview.focus()
   }
+
+  pub fn blur(&self) -> Result<()> {
+    self.webview.blur()
+  }
 }
 
 /// An event describing drag and drop operations on the webview.

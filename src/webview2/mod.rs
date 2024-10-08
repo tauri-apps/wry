@@ -1302,6 +1302,13 @@ impl InnerWebView {
     }
   }
 
+  pub fn blur(&self) -> Result<()> {
+    self.eval(
+      "document.activeElement.blur();",
+      None::<Box<dyn FnOnce(String) + Send + 'static>>,
+    )
+  }
+
   pub fn reparent(&self, parent: isize) -> Result<()> {
     let parent = HWND(parent as _);
 
