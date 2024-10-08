@@ -116,6 +116,7 @@ winit = "0.29"
 getrandom = "0.2"
 http-range = "0.1"
 percent-encoding = "2.3"
+gpui = { git = "https://github.com/huacnlee/zed.git", branch = "export-platform-window" }
 
 [lints.rust.unexpected_cfgs]
 level = "warn"
