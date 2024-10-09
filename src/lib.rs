@@ -1509,6 +1509,9 @@ impl WebView {
     self.webview.focus()
   }
 
+  /// Try moving focus away from the webview back to the parent window.
+  ///
+  /// - **Linux / Android**: Not implemented.
   pub fn blur(&self) -> Result<()> {
     self.webview.blur()
   }
