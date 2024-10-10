@@ -108,7 +108,7 @@
 //!
 //! ```no_run
 //! # use winit::{event_loop::EventLoop, window::Window};
-//! # use wry::WebView;
+//! # use wry::{WebView, WebViewAttributes};
 //! #[cfg(target_os = "linux")]
 //! gtk::init().unwrap(); // <----- IMPORTANT
 //! let event_loop = EventLoop::new().unwrap();
