@@ -17,7 +17,7 @@ We also made a few changes to the builder, specficially `WebViewBuilder::new` an
 - Added `WebViewAttributes.id` field to specify an id for the webview.
 - Added `WebViewBuilder::with_id` method to specify an id for the webview.
 - Added `WebViewAttributes.context` field to specify a shared context for the webview.
-- **Breaking** Changed `WebViewAttributes.custom_protocols` field,`WebViewBuilder::with_custom_protocol` method and `WebViewBuilder::with_async_custom_protocol` method handler function to take `Option<WebViewId>` as the first argument to check which webview made the request to the protocol.
+- **Breaking** Changed `WebViewAttributes.custom_protocols` field,`WebViewBuilder::with_custom_protocol` method and `WebViewBuilder::with_async_custom_protocol` method handler function to take `WebViewId` as the first argument to check which webview made the request to the protocol.
 - **Breaking** Changed `WebViewBuilder::with_web_context` to be a static method to create a builder with a webcontext, instead of it being a setter method. It is now an alternaitve to `WebviewBuilder::new`
 - Added `WebViewBuilder::with_attributes` to create a webview builder with provided attributes.
 - **Breaking** Changed `WebViewBuilder::new` to take zero arguments.
