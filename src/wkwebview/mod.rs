@@ -375,7 +375,7 @@ impl InnerWebView {
       .unwrap_or_else(|| COUNTER.next().to_string());
 
     let mut wv_ids = WEBVIEW_IDS.lock().unwrap();
-    wv_ids.insert(webview_id);
+    wv_ids.insert(webview_id.clone());
     drop(wv_ids);
 
     // Safety: objc runtime calls are unsafe
