@@ -12,7 +12,7 @@ use wry::WebViewBuilder;
 
 #[cfg(target_os = "macos")]
 use {
-  objc2::rc::Retained, objc2_app_kit::NSWindow, tao::platform::macos::WindowExtMacOS,
+  objc2_app_kit::NSWindow, tao::platform::macos::WindowExtMacOS,
   wry::WebViewExtMacOS,
 };
 #[cfg(target_os = "windows")]
