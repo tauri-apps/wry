@@ -25,7 +25,7 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::{
   borrow::Cow,
   collections::HashSet,
-  ffi::{c_void, CStr},
+  ffi::{c_void, CStr, CString},
   os::raw::c_char,
   ptr::{null, null_mut},
   slice, str,
@@ -63,7 +63,7 @@ use crate::{
     },
     navigation::{add_navigation_mathods, drop_navigation_methods, set_navigation_methods},
   },
-  Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA,
+  Error, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebViewAttributes, RGBA,
 };
 
 use http::{
@@ -73,7 +73,7 @@ use http::{
   Request, Response as HttpResponse,
 };
 
-use self::util::Counter;
+use crate::util::Counter;
 
 const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
 #[cfg(target_os = "macos")]
@@ -82,7 +82,7 @@ const ACCEPT_FIRST_MOUSE: &str = "accept_first_mouse";
 const NS_JSON_WRITING_FRAGMENTS_ALLOWED: u64 = 4;
 
 static COUNTER: Counter = Counter::new();
-static WEBVIEW_IDS: Lazy<Mutex<HashSet<u32>>> = Lazy::new(Default::default);
+static WEBVIEW_IDS: Lazy<Mutex<HashSet<String>>> = Lazy::new(Default::default);
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct PrintMargin {
@@ -98,6 +98,7 @@ pub struct PrintOptions {
 }
 
 pub(crate) struct InnerWebView {
+  id: String,
   pub webview: id,
   pub manager: id,
   is_child: bool,
@@ -111,8 +112,7 @@ pub(crate) struct InnerWebView {
   #[cfg(target_os = "macos")]
   drag_drop_ptr: *mut Box<dyn Fn(crate::DragDropEvent) -> bool>,
   download_delegate: id,
-  protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>>,
-  webview_id: u32,
+  protocol_ptrs: Vec<*mut Box<dyn Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder)>>,
 }
 
 impl InnerWebView {
@@ -120,7 +120,6 @@ impl InnerWebView {
     window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let ns_view = match window.window_handle()?.as_raw() {
       #[cfg(target_os = "macos")]
@@ -130,14 +129,13 @@ impl InnerWebView {
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 
-    Self::new_ns_view(ns_view as _, attributes, pl_attrs, _web_context, false)
+    Self::new_ns_view(ns_view as _, attributes, pl_attrs, false)
   }
 
   pub fn new_as_child(
     window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let ns_view = match window.window_handle()?.as_raw() {
       #[cfg(target_os = "macos")]
@@ -147,14 +145,13 @@ impl InnerWebView {
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 
-    Self::new_ns_view(ns_view as _, attributes, pl_attrs, _web_context, true)
+    Self::new_ns_view(ns_view as _, attributes, pl_attrs, true)
   }
 
   fn new_ns_view(
     ns_view: id,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    _web_context: Option<&mut WebContext>,
     is_child: bool,
   ) -> Result<Self> {
     // Function for ipc handler
@@ -199,12 +196,17 @@ impl InnerWebView {
         #[cfg(feature = "tracing")]
         let span = tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty)
           .entered();
-        let webview_id = *this.get_ivar::<u32>("webview_id");
+
+        let webview_id_ptr: *mut c_char = *this.get_ivar("id");
+        let webview_id = CStr::from_ptr(webview_id_ptr)
+          .to_str()
+          .ok()
+          .unwrap_or_default();
 
         let function = this.get_ivar::<*mut c_void>("function");
         if !function.is_null() {
-          let function =
-            &mut *(*function as *mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>);
+          let function = &mut *(*function
+            as *mut Box<dyn Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder)>);
 
           // Get url request
           let request: id = msg_send![task, request];
@@ -279,8 +281,8 @@ impl InnerWebView {
 
               let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> = Box::new(
                 move |sent_response| {
-                  fn check_webview_id_valid(webview_id: u32) -> crate::Result<()> {
-                    match WEBVIEW_IDS.lock().unwrap().contains(&webview_id) {
+                  fn check_webview_id_valid(webview_id: &str) -> crate::Result<()> {
+                    match WEBVIEW_IDS.lock().unwrap().contains(webview_id) {
                       true => Ok(()),
                       false => Err(crate::Error::CustomProtocolTaskInvalid),
                     }
@@ -288,7 +290,7 @@ impl InnerWebView {
 
                   unsafe fn response(
                     task: id,
-                    webview_id: u32,
+                    webview_id: &str,
                     url: id, /* NSURL */
                     sent_response: HttpResponse<Cow<'_, [u8]>>,
                   ) -> crate::Result<()> {
@@ -318,7 +320,7 @@ impl InnerWebView {
                     let urlresponse: id = msg_send![class!(NSHTTPURLResponse), alloc];
                     let response: id = msg_send![urlresponse, initWithURL:url statusCode: wanted_status_code HTTPVersion:NSString::new(&wanted_version) headerFields:headers];
 
-                    check_webview_id_valid(webview_id)?;
+                    check_webview_id_valid(&webview_id)?;
                     (*task)
                       .send_message::<(id,), ()>(sel!(didReceiveResponse:), (response,))
                       .map_err(|_| crate::Error::CustomProtocolTaskInvalid)?;
@@ -328,13 +330,13 @@ impl InnerWebView {
                     let data: id = msg_send![class!(NSData), alloc];
                     let data: id = msg_send![data, initWithBytesNoCopy:bytes length:content.len() freeWhenDone: if content.len() == 0 { NO } else { YES }];
 
-                    check_webview_id_valid(webview_id)?;
+                    check_webview_id_valid(&webview_id)?;
                     (*task)
                       .send_message::<(id,), ()>(sel!(didReceiveData:), (data,))
                       .map_err(|_| crate::Error::CustomProtocolTaskInvalid)?;
 
                     // Finish
-                    check_webview_id_valid(webview_id)?;
+                    check_webview_id_valid(&webview_id)?;
                     (*task)
                       .send_message::<(), ()>(sel!(didFinish), ())
                       .map_err(|_| crate::Error::CustomProtocolTaskInvalid)?;
@@ -342,14 +344,18 @@ impl InnerWebView {
                     Ok(())
                   }
 
-                  let _ = response(task, webview_id, url, sent_response);
+                  let _ = response(task, &webview_id, url, sent_response);
                   let () = msg_send![task, release];
                 },
               );
 
               #[cfg(feature = "tracing")]
               let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
-              function(final_request, RequestAsyncResponder { responder });
+              function(
+                webview_id,
+                final_request,
+                RequestAsyncResponder { responder },
+              );
             }
             Err(_) => respond_with_404(),
           };
@@ -363,9 +369,13 @@ impl InnerWebView {
     }
     extern "C" fn stop_task(_: &Object, _: Sel, _webview: id, _task: id) {}
 
+    let webview_id = attributes
+      .id
+      .map(|id| id.to_string())
+      .unwrap_or_else(|| COUNTER.next().to_string());
+
     let mut wv_ids = WEBVIEW_IDS.lock().unwrap();
-    let webview_id = COUNTER.next();
-    wv_ids.insert(webview_id);
+    wv_ids.insert(webview_id.clone());
     drop(wv_ids);
 
     // Safety: objc runtime calls are unsafe
@@ -404,7 +414,7 @@ impl InnerWebView {
         let cls = match cls {
           Some(mut cls) => {
             cls.add_ivar::<*mut c_void>("function");
-            cls.add_ivar::<u32>("webview_id");
+            cls.add_ivar::<*mut c_char>("id");
             cls.add_method(
               sel!(webView:startURLSchemeTask:),
               start_task as extern "C" fn(&Object, Sel, id, id),
@@ -422,7 +432,10 @@ impl InnerWebView {
         protocol_ptrs.push(function);
 
         (*handler).set_ivar("function", function as *mut _ as *mut c_void);
-        (*handler).set_ivar("webview_id", webview_id);
+        (*handler).set_ivar(
+          "id",
+          CString::new(webview_id.as_bytes()).unwrap().into_raw(),
+        );
 
         (*config)
           .send_message::<(id, NSString), ()>(
@@ -966,6 +979,7 @@ impl InnerWebView {
       }
 
       let w = Self {
+        id: webview_id,
         webview,
         manager,
         pending_scripts,
@@ -978,7 +992,6 @@ impl InnerWebView {
         download_delegate,
         protocol_ptrs,
         is_child,
-        webview_id,
       };
 
       // Initialize scripts
@@ -1055,6 +1068,10 @@ r#"Object.defineProperty(window, 'ipc', {
 
       Ok(w)
     }
+  }
+
+  pub fn id(&self) -> crate::WebViewId {
+    &self.id
   }
 
   pub fn url(&self) -> crate::Result<String> {
@@ -1357,7 +1374,7 @@ pub fn platform_webview_version() -> Result<String> {
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
-    WEBVIEW_IDS.lock().unwrap().remove(&self.webview_id);
+    WEBVIEW_IDS.lock().unwrap().remove(&self.id);
 
     // We need to drop handler closures here
     unsafe {

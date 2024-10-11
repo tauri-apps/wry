@@ -40,9 +40,10 @@ fn main() -> wry::Result<()> {
     .with_title("Hello World")
     .build(&event_loop)
     .unwrap();
-  let _webview = WebViewBuilder::new(&window)
+
+  let webview = WebViewBuilder::new()
     .with_url("https://tauri.app")
-    .build()?;
+    .build(&window)?;
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

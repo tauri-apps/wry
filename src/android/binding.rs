@@ -37,7 +37,7 @@ macro_rules! android_binding {
       $package,
       RustWebViewClient,
       handleRequest,
-      [JObject, jboolean],
+      [JString, JObject, jboolean],
       jobject
     );
     android_fn!(
@@ -100,6 +100,7 @@ macro_rules! android_binding {
 
 fn handle_request(
   env: &mut JNIEnv,
+  webview_id: JString,
   request: JObject,
   is_document_start_script_enabled: jboolean,
 ) -> JniResult<jobject> {
@@ -163,10 +164,17 @@ fn handle_request(
       }
     };
 
+    let webview_id = env.get_string(&webview_id)?;
+    let webview_id = webview_id.to_str().ok().unwrap_or_default();
+
     let response = {
       #[cfg(feature = "tracing")]
       let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
-      (handler.handler)(final_request, is_document_start_script_enabled != 0)
+      (handler.handler)(
+        webview_id,
+        final_request,
+        is_document_start_script_enabled != 0,
+      )
     };
     if let Some(response) = response {
       let status = response.status();
@@ -254,10 +262,16 @@ fn handle_request(
 pub unsafe fn handleRequest(
   mut env: JNIEnv,
   _: JClass,
+  webview_id: JString,
   request: JObject,
   is_document_start_script_enabled: jboolean,
 ) -> jobject {
-  match handle_request(&mut env, request, is_document_start_script_enabled) {
+  match handle_request(
+    &mut env,
+    webview_id,
+    request,
+    is_document_start_script_enabled,
+  ) {
     Ok(response) => response,
     Err(e) => {
       #[cfg(feature = "tracing")]
