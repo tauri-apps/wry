@@ -11,7 +11,7 @@ use tao::{
 use wry::WebViewBuilder;
 
 #[cfg(target_os = "macos")]
-use {tao::platform::macos::WindowExtMacOS, wry::WebViewExtMacOS};
+use {objc2_app_kit::NSWindow, tao::platform::macos::WindowExtMacOS, wry::WebViewExtMacOS};
 #[cfg(target_os = "windows")]
 use {tao::platform::windows::WindowExtWindows, wry::WebViewExtWindows};
 
@@ -91,7 +91,7 @@ fn main() -> wry::Result<()> {
 
         #[cfg(target_os = "macos")]
         webview
-          .reparent(new_parent.ns_window() as cocoa::base::id)
+          .reparent(new_parent.ns_window() as *mut NSWindow)
           .unwrap();
         #[cfg(not(any(
           target_os = "windows",

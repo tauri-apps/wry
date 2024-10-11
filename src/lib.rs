@@ -190,9 +190,9 @@
 #![allow(clippy::type_complexity)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
-#[macro_use]
-extern crate objc;
+// #[cfg(any(target_os = "macos", target_os = "ios"))]
+// #[macro_use]
+// extern crate objc;
 
 mod error;
 mod proxy;
@@ -223,11 +223,17 @@ use raw_window_handle::HasWindowHandle;
 use webkitgtk::*;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
+use objc2::rc::Retained;
+#[cfg(target_os = "macos")]
+use objc2_app_kit::NSWindow;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use objc2_web_kit::WKUserContentController;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) mod wkwebview;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use wkwebview::*;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-pub use wkwebview::{PrintMargin, PrintOptions};
+pub use wkwebview::{PrintMargin, PrintOptions, WryWebView};
 
 #[cfg(target_os = "windows")]
 pub(crate) mod webview2;
@@ -416,7 +422,7 @@ pub struct WebViewAttributes<'a> {
   /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
   /// parameter can be used to set the download location by assigning a new path to it, the assigned path _must_ be
   /// absolute. The closure returns a `bool` to allow or deny the download.
-  pub download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
+  pub download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool + 'static>>,
 
   /// A download completion handler to manage downloads that have finished.
   ///
@@ -1146,18 +1152,9 @@ impl<'a> WebViewBuilder<'a> {
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios",))]
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   data_store_identifier: Option<[u8; 16]>,
-}
-
-#[cfg(any(target_os = "macos", target_os = "ios",))]
-impl Default for PlatformSpecificWebViewAttributes {
-  fn default() -> Self {
-    Self {
-      data_store_identifier: None,
-    }
-  }
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios",))]
@@ -1767,35 +1764,32 @@ impl WebViewExtUnix for WebView {
 #[cfg(target_os = "macos")]
 pub trait WebViewExtMacOS {
   /// Returns WKWebView handle
-  fn webview(&self) -> cocoa::base::id;
+  fn webview(&self) -> Retained<WryWebView>;
   /// Returns WKWebView manager [(userContentController)](https://developer.apple.com/documentation/webkit/wkscriptmessagehandler/1396222-usercontentcontroller) handle
-  fn manager(&self) -> cocoa::base::id;
+  fn manager(&self) -> Retained<WKUserContentController>;
   /// Returns NSWindow associated with the WKWebView webview
-  fn ns_window(&self) -> cocoa::base::id;
+  fn ns_window(&self) -> Retained<NSWindow>;
   /// Attaches this webview to the given NSWindow and removes it from the current one.
-  fn reparent(&self, window: cocoa::base::id) -> Result<()>;
+  fn reparent(&self, window: *mut NSWindow) -> Result<()>;
   // Prints with extra options
   fn print_with_options(&self, options: &PrintOptions) -> Result<()>;
 }
 
 #[cfg(target_os = "macos")]
 impl WebViewExtMacOS for WebView {
-  fn webview(&self) -> cocoa::base::id {
-    self.webview.webview
+  fn webview(&self) -> Retained<WryWebView> {
+    self.webview.webview.clone()
   }
 
-  fn manager(&self) -> cocoa::base::id {
-    self.webview.manager
+  fn manager(&self) -> Retained<WKUserContentController> {
+    self.webview.manager.clone()
   }
 
-  fn ns_window(&self) -> cocoa::base::id {
-    unsafe {
-      let ns_window: cocoa::base::id = msg_send![self.webview.webview, window];
-      ns_window
-    }
+  fn ns_window(&self) -> Retained<NSWindow> {
+    self.webview.webview.window().unwrap().clone()
   }
 
-  fn reparent(&self, window: cocoa::base::id) -> Result<()> {
+  fn reparent(&self, window: *mut NSWindow) -> Result<()> {
     self.webview.reparent(window)
   }
 
@@ -1808,19 +1802,19 @@ impl WebViewExtMacOS for WebView {
 #[cfg(target_os = "ios")]
 pub trait WebViewExtIOS {
   /// Returns WKWebView handle
-  fn webview(&self) -> cocoa::base::id;
+  fn webview(&self) -> Retained<WryWebView>;
   /// Returns WKWebView manager [(userContentController)](https://developer.apple.com/documentation/webkit/wkscriptmessagehandler/1396222-usercontentcontroller) handle
-  fn manager(&self) -> cocoa::base::id;
+  fn manager(&self) -> Retained<WKUserContentController>;
 }
 
 #[cfg(target_os = "ios")]
 impl WebViewExtIOS for WebView {
-  fn webview(&self) -> cocoa::base::id {
-    self.webview.webview
+  fn webview(&self) -> Retained<WryWebView> {
+    self.webview.webview.clone()
   }
 
-  fn manager(&self) -> cocoa::base::id {
-    self.webview.manager
+  fn manager(&self) -> Retained<WKUserContentController> {
+    self.webview.manager.clone()
   }
 }
 
