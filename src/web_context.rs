@@ -68,7 +68,7 @@ impl WebContext {
   }
 
   /// Check if a custom protocol has been registered on this context.
-  pub fn is_custom_protocol_registerd(&self, name: String) -> bool {
+  pub fn is_custom_protocol_registered(&self, name: String) -> bool {
     self.custom_protocols.contains(&name)
   }
 
