@@ -164,14 +164,8 @@ fn handle_request(
       }
     };
 
-    let webview_id = if webview_id.is_null() {
-      None
-    } else {
-      let id = env.get_string(&webview_id)?;
-      id.to_str().ok().map(|id| id.to_string())
-    };
-
-    dbg!(&webview_id);
+    let webview_id = env.get_string(&webview_id)?;
+    let webview_id = webview_id.to_str().ok().unwrap_or_default();
 
     let response = {
       #[cfg(feature = "tracing")]

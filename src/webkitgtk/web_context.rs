@@ -102,7 +102,7 @@ pub trait WebContextExt {
   /// Register a custom protocol to the web context.
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(Option<crate::WebViewId>, Request<Vec<u8>>, RequestAsyncResponder) + 'static;
+    F: Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + 'static;
 
   /// Add a [`WebView`] to the queue waiting to be opened.
   ///
@@ -135,7 +135,7 @@ impl WebContextExt for super::WebContext {
 
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(Option<crate::WebViewId>, Request<Vec<u8>>, RequestAsyncResponder) + 'static,
+    F: Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + 'static,
   {
     // Enable secure context
     self
@@ -252,9 +252,10 @@ impl WebContextExt for super::WebContext {
         let webview_id = request
           .web_view()
           .and_then(|w| unsafe { w.data::<String>(super::WEBVIEW_ID) })
-          .map(|id| unsafe { id.as_ref().clone() });
+          .map(|id| unsafe { id.as_ref().clone() })
+          .unwrap_or_default();
 
-        handler(webview_id.as_deref(), http_request, RequestAsyncResponder { responder });
+        handler(&webview_id, http_request, RequestAsyncResponder { responder });
       } else {
         request.finish_error(&mut glib::Error::new(
           glib::FileError::Exist,

@@ -196,6 +196,8 @@ extern crate objc;
 
 mod error;
 mod proxy;
+#[cfg(any(target_os = "macos", target_os = "android"))]
+mod util;
 mod web_context;
 
 #[cfg(target_os = "android")]
@@ -383,7 +385,7 @@ pub struct WebViewAttributes<'a> {
   /// locate your files in those directories. For more information, see [Loading in-app content](https://developer.android.com/guide/webapps/load-local-content) page.
   /// - iOS: To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   pub custom_protocols:
-    HashMap<String, Box<dyn Fn(Option<WebViewId>, Request<Vec<u8>>, RequestAsyncResponder)>>,
+    HashMap<String, Box<dyn Fn(WebViewId, Request<Vec<u8>>, RequestAsyncResponder)>>,
 
   /// The IPC handler to receive the message from Javascript on webview
   /// using `window.ipc.postMessage("insert_message_here")` to host Rust code.
@@ -727,7 +729,7 @@ impl<'a> WebViewBuilder<'a> {
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(self, name: String, handler: F) -> Self
   where
-    F: Fn(Option<WebViewId>, Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> + 'static,
+    F: Fn(WebViewId, Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> + 'static,
   {
     self.and_then(|mut b| {
       #[cfg(any(
@@ -779,7 +781,7 @@ impl<'a> WebViewBuilder<'a> {
   #[cfg(feature = "protocol")]
   pub fn with_asynchronous_custom_protocol<F>(self, name: String, handler: F) -> Self
   where
-    F: Fn(Option<WebViewId>, Request<Vec<u8>>, RequestAsyncResponder) + 'static,
+    F: Fn(WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + 'static,
   {
     self.and_then(|mut b| {
       #[cfg(any(
@@ -1483,7 +1485,7 @@ impl WebView {
   }
 
   /// Returns the id of this webview.
-  pub fn id(&self) -> Option<WebViewId> {
+  pub fn id(&self) -> WebViewId {
     self.webview.id()
   }
 

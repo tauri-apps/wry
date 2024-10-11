@@ -69,7 +69,7 @@ impl Drop for X11Data {
 }
 
 pub(crate) struct InnerWebView {
-  id: Option<String>,
+  id: String,
   pub webview: WebView,
   #[cfg(any(debug_assertions, feature = "devtools"))]
   is_inspector_open: Arc<AtomicBool>,
@@ -279,10 +279,11 @@ impl InnerWebView {
     #[cfg(any(debug_assertions, feature = "devtools"))]
     let is_inspector_open = Self::attach_inspector_handlers(&webview);
 
-    let id = attributes.id.map(|id| id.to_string());
-    if let Some(id) = &id {
-      unsafe { webview.set_data(WEBVIEW_ID, id.clone()) };
-    }
+    let id = attributes
+      .id
+      .map(|id| id.to_string())
+      .unwrap_or_else(|| (webview.as_ptr() as isize).to_string());
+    unsafe { webview.set_data(WEBVIEW_ID, id.clone()) };
 
     let w = Self {
       id,
@@ -561,8 +562,8 @@ impl InnerWebView {
     is_inspector_open
   }
 
-  pub fn id(&self) -> Option<crate::WebViewId> {
-    self.id.as_deref()
+  pub fn id(&self) -> crate::WebViewId {
+    &self.id
   }
 
   pub fn print(&self) -> Result<()> {

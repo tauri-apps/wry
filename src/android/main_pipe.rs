@@ -59,6 +59,7 @@ impl<'a> MainPipe<'a> {
             autoplay,
             user_agent,
             initialization_scripts,
+            id,
             ..
           } = attrs;
 
@@ -76,11 +77,7 @@ impl<'a> MainPipe<'a> {
             )?;
           }
 
-          let id = attrs.id.clone();
-          let id = match id {
-            Some(id) => self.env.new_string(id)?,
-            None => JString::default(),
-          };
+          let id = self.env.new_string(id)?;
 
           // Create webview
           let rust_webview_class = find_class(
@@ -215,9 +212,7 @@ impl<'a> MainPipe<'a> {
         }
         WebViewMessage::Eval(script, callback) => {
           if let Some(webview) = &self.webview {
-            let id = EVAL_ID_GENERATOR
-              .get_or_init(Default::default)
-              .fetch_add(1, Ordering::Relaxed);
+            let id = EVAL_ID_GENERATOR.next() as i32;
 
             #[cfg(feature = "tracing")]
             let span = std::sync::Mutex::new(Some(SendEnteredSpan(
@@ -409,7 +404,7 @@ pub(crate) enum WebViewMessage {
 }
 
 pub(crate) struct CreateWebViewAttributes {
-  pub id: Option<String>,
+  pub id: String,
   pub url: Option<String>,
   pub html: Option<String>,
   #[cfg(any(debug_assertions, feature = "devtools"))]

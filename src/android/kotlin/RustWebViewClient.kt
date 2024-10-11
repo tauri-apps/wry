@@ -96,7 +96,7 @@ class RustWebViewClient(context: Context): WebViewClient() {
 
     private external fun assetLoaderDomain(): String
     private external fun withAssetLoader(): Boolean
-    private external fun handleRequest(webviewId: String?, request: WebResourceRequest, isDocumentStartScriptEnabled: Boolean): WebResourceResponse?
+    private external fun handleRequest(webviewId: String, request: WebResourceRequest, isDocumentStartScriptEnabled: Boolean): WebResourceResponse?
     private external fun shouldOverride(url: String): Boolean
     private external fun onPageLoading(url: String)
     private external fun onPageLoaded(url: String)

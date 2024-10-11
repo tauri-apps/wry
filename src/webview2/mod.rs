@@ -50,7 +50,7 @@ impl From<windows::core::Error> for Error {
 }
 
 pub(crate) struct InnerWebView {
-  id: Option<String>,
+  id: String,
   parent: RefCell<HWND>,
   hwnd: HWND,
   is_child: bool,
@@ -115,13 +115,17 @@ impl InnerWebView {
     let drop_handler = attributes.drag_drop_handler.take();
     let bounds = attributes.bounds;
 
-    let id = attributes.id.map(|id| id.to_string());
+    let id = attributes
+      .id
+      .map(|id| id.to_string())
+      .unwrap_or_else(|| (hwnd.0 as isize).to_string());
 
     let env = Self::create_environment(&attributes, pl_attrs.clone())?;
     let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
     let webview = Self::init_webview(
       parent,
       hwnd,
+      id.clone(),
       attributes,
       &env,
       &controller,
@@ -371,6 +375,7 @@ impl InnerWebView {
   fn init_webview(
     parent: HWND,
     hwnd: HWND,
+    webview_id: String,
     mut attributes: WebViewAttributes,
     env: &ICoreWebView2Environment,
     controller: &ICoreWebView2Controller,
@@ -432,6 +437,7 @@ impl InnerWebView {
           &webview,
           env,
           hwnd,
+          webview_id,
           scheme,
           &mut attributes,
           &mut token,
@@ -785,6 +791,7 @@ impl InnerWebView {
     webview: &ICoreWebView2,
     env: &ICoreWebView2Environment,
     hwnd: HWND,
+    webview_id: String,
     scheme: &'static str,
     attributes: &mut WebViewAttributes,
     token: &mut EventRegistrationToken,
@@ -799,7 +806,6 @@ impl InnerWebView {
     let env = env.clone();
     let custom_protocols = std::mem::take(&mut attributes.custom_protocols);
     let main_thread_id = std::thread::current().id();
-    let webview_id = attributes.id.map(|id| id.to_string());
 
     webview.add_WebResourceRequested(
       &WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
@@ -868,7 +874,7 @@ impl InnerWebView {
           #[cfg(feature = "tracing")]
           let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
           custom_protocol_handler(
-           webview_id.as_deref(),
+            &webview_id,
             request,
             RequestAsyncResponder {
               responder: async_responder,
@@ -1178,8 +1184,8 @@ impl InnerWebView {
 
 /// Public APIs
 impl InnerWebView {
-  pub fn id(&self) -> Option<crate::WebViewId> {
-    self.id.as_deref()
+  pub fn id(&self) -> crate::WebViewId {
+    &self.id
   }
 
   pub fn eval(
