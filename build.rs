@@ -64,6 +64,7 @@ fn main() {
         let content = fs::read_to_string(file.path())
           .expect("failed to read kotlin file as string")
           .replace("{{package}}", &package)
+          .replace("{{package-unescaped}}", &package.replace('`', ""))
           .replace("{{library}}", &library)
           .replace(
             "{{class-extension}}",
