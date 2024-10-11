@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{borrow::Cow, ffi::c_void, panic::AssertUnwindSafe, ptr::NonNull, slice};
+use std::{
+  borrow::Cow,
+  ffi::{c_char, c_void, CStr},
+  panic::AssertUnwindSafe,
+  ptr::NonNull,
+  slice,
+};
 
 use http::{
   header::{CONTENT_LENGTH, CONTENT_TYPE},
@@ -28,7 +34,7 @@ pub fn create(name: &str) -> &AnyClass {
     match cls {
       Some(mut cls) => {
         cls.add_ivar::<*mut c_void>("function");
-        cls.add_ivar::<u32>("webview_id");
+        cls.add_ivar::<*mut c_char>("webview_id");
         cls.add_method(
           objc2::sel!(webView:startURLSchemeTask:),
           start_task as extern "C" fn(_, _, _, _),
@@ -60,11 +66,17 @@ extern "C" fn start_task(
     let task_uuid = webview.add_custom_task_key(task_key);
 
     let ivar = this.class().instance_variable("webview_id").unwrap();
-    let webview_id: u32 = *ivar.load::<u32>(this);
+    let webview_id_ptr: *mut c_char = *ivar.load(this);
+    let webview_id = CStr::from_ptr(webview_id_ptr)
+      .to_str()
+      .ok()
+      .unwrap_or_default();
+
     let ivar = this.class().instance_variable("function").unwrap();
     let function: &*mut c_void = ivar.load(this);
     if !function.is_null() {
-      let function = &mut *(*function as *mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>);
+      let function = &mut *(*function
+        as *mut Box<dyn Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder)>);
 
       // Get url request
       let request = task.request();
@@ -138,8 +150,8 @@ extern "C" fn start_task(
         Ok(final_request) => {
           let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
             Box::new(move |sent_response| {
-              fn check_webview_id_valid(webview_id: u32) -> crate::Result<()> {
-                if !WEBVIEW_IDS.lock().unwrap().contains(&webview_id) {
+              fn check_webview_id_valid(webview_id: &str) -> crate::Result<()> {
+                if !WEBVIEW_IDS.lock().unwrap().contains(webview_id) {
                   return Err(crate::Error::CustomProtocolTaskInvalid);
                 }
                 Ok(())
@@ -173,7 +185,7 @@ extern "C" fn start_task(
                 webview: &'static mut WryWebView,
                 task_key: usize,
                 task_uuid: Retained<NSUUID>,
-                webview_id: u32,
+                webview_id: &str,
                 url: Retained<NSURL>,
                 sent_response: HttpResponse<Cow<'_, [u8]>>,
               ) -> crate::Result<()> {
@@ -266,7 +278,11 @@ extern "C" fn start_task(
 
           #[cfg(feature = "tracing")]
           let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
-          function(final_request, RequestAsyncResponder { responder });
+          function(
+            webview_id,
+            final_request,
+            RequestAsyncResponder { responder },
+          );
         }
         Err(_) => respond_with_404(),
       };

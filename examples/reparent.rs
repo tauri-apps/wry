@@ -40,26 +40,26 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new().build(&event_loop).unwrap();
   let window2 = WindowBuilder::new().build(&event_loop).unwrap();
 
+  let builder = WebViewBuilder::new().with_url("https://tauri.app");
+
   #[cfg(any(
     target_os = "windows",
     target_os = "macos",
     target_os = "ios",
     target_os = "android"
   ))]
-  let builder = WebViewBuilder::new(&window);
-
+  let webview = builder.build(&window)?;
   #[cfg(not(any(
     target_os = "windows",
     target_os = "macos",
     target_os = "ios",
     target_os = "android"
   )))]
-  let builder = {
+  let webview = {
+    use tao::platform::unix::WindowExtUnix;
     let vbox = window.default_vbox().unwrap();
-    WebViewBuilder::new_gtk(vbox)
+    builder.build_gtk(vbox)?
   };
-
-  let webview = builder.with_url("https://tauri.app").build()?;
 
   let mut webview_container = window.id();
 

@@ -61,4 +61,8 @@ pub enum Error {
   CustomProtocolTaskInvalid,
   #[error("Failed to register URL scheme: {0}, could be due to invalid URL scheme or the scheme is already registered.")]
   UrlSchemeRegisterError(String),
+  #[error("Duplicate custom protocol registered on Linux: {0}")]
+  DuplicateCustomProtocol(String),
+  #[error("Duplicate custom protocol registered on the same web context on Linux: {0}")]
+  ContextDuplicateCustomProtocol(String),
 }

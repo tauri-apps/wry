@@ -47,6 +47,8 @@ use crate::{
 
 use self::web_context::WebContextExt;
 
+const WEBVIEW_ID: &str = "webview_id";
+
 mod drag_drop;
 mod synthetic_mouse_events;
 mod web_context;
@@ -67,6 +69,7 @@ impl Drop for X11Data {
 }
 
 pub(crate) struct InnerWebView {
+  id: String,
   pub webview: WebView,
   #[cfg(any(debug_assertions, feature = "devtools"))]
   is_inspector_open: Arc<AtomicBool>,
@@ -87,25 +90,22 @@ impl InnerWebView {
     window: &W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    Self::new_x11(window, attributes, pl_attrs, web_context, false)
+    Self::new_x11(window, attributes, pl_attrs, false)
   }
 
   pub fn new_as_child<W: HasWindowHandle>(
     parent: &W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    Self::new_x11(parent, attributes, pl_attrs, web_context, true)
+    Self::new_x11(parent, attributes, pl_attrs, true)
   }
 
   fn new_x11<W: HasWindowHandle>(
     window: &W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    web_context: Option<&mut WebContext>,
     is_child: bool,
   ) -> Result<Self> {
     let parent = match window.window_handle()?.as_raw() {
@@ -130,7 +130,7 @@ impl InnerWebView {
 
     let visible = attributes.visible;
 
-    Self::new_gtk(&vbox, attributes, pl_attrs, web_context).map(|mut w| {
+    Self::new_gtk(&vbox, attributes, pl_attrs).map(|mut w| {
       // for some reason, if the webview starts as hidden,
       // we will need about 3 calls to `webview.set_visible`
       // with alternating value.
@@ -209,7 +209,6 @@ impl InnerWebView {
     container: &W,
     mut attributes: WebViewAttributes,
     _pl_attrs: super::PlatformSpecificWebViewAttributes,
-    web_context: Option<&mut WebContext>,
   ) -> Result<Self>
   where
     W: IsA<gtk::Container>,
@@ -220,7 +219,7 @@ impl InnerWebView {
       default_context = WebContext::new_ephemeral();
       &mut default_context
     } else {
-      match web_context {
+      match attributes.context.take() {
         Some(w) => w,
         None => {
           default_context = Default::default();
@@ -280,7 +279,14 @@ impl InnerWebView {
     #[cfg(any(debug_assertions, feature = "devtools"))]
     let is_inspector_open = Self::attach_inspector_handlers(&webview);
 
+    let id = attributes
+      .id
+      .map(|id| id.to_string())
+      .unwrap_or_else(|| (webview.as_ptr() as isize).to_string());
+    unsafe { webview.set_data(WEBVIEW_ID, id.clone()) };
+
     let w = Self {
+      id,
       webview,
       pending_scripts: Arc::new(Mutex::new(Some(Vec::new()))),
 
@@ -554,6 +560,10 @@ impl InnerWebView {
       });
     }
     is_inspector_open
+  }
+
+  pub fn id(&self) -> crate::WebViewId {
+    &self.id
   }
 
   pub fn print(&self) -> Result<()> {

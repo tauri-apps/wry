@@ -70,7 +70,7 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
   collections::{HashMap, HashSet},
-  ffi::c_void,
+  ffi::{c_void, CString},
   os::raw::c_char,
   panic::AssertUnwindSafe,
   ptr::null_mut,
@@ -86,14 +86,14 @@ use crate::{
   },
 };
 
-use crate::{Error, Rect, RequestAsyncResponder, Result, WebContext, WebViewAttributes, RGBA};
+use crate::{Error, Rect, RequestAsyncResponder, Result, WebViewAttributes, RGBA};
 
 use http::Request;
 
-use self::util::Counter;
+use crate::util::Counter;
 
 static COUNTER: Counter = Counter::new();
-static WEBVIEW_IDS: Lazy<Mutex<HashSet<u32>>> = Lazy::new(Default::default);
+static WEBVIEW_IDS: Lazy<Mutex<HashSet<String>>> = Lazy::new(Default::default);
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct PrintMargin {
@@ -109,6 +109,7 @@ pub struct PrintOptions {
 }
 
 pub(crate) struct InnerWebView {
+  id: String,
   pub webview: Retained<WryWebView>,
   pub manager: Retained<WKUserContentController>,
   #[allow(dead_code)]
@@ -129,8 +130,7 @@ pub(crate) struct InnerWebView {
   #[allow(dead_code)]
   // We need this the keep the reference count
   ui_delegate: Retained<WryWebViewUIDelegate>,
-  protocol_ptrs: Vec<*mut Box<dyn Fn(Request<Vec<u8>>, RequestAsyncResponder)>>,
-  webview_id: u32,
+  protocol_ptrs: Vec<*mut Box<dyn Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder)>>,
 }
 
 impl InnerWebView {
@@ -138,7 +138,6 @@ impl InnerWebView {
     window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let ns_view = match window.window_handle()?.as_raw() {
       #[cfg(target_os = "macos")]
@@ -148,22 +147,13 @@ impl InnerWebView {
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 
-    unsafe {
-      Self::new_ns_view(
-        &*(ns_view as *mut NSView),
-        attributes,
-        pl_attrs,
-        _web_context,
-        false,
-      )
-    }
+    unsafe { Self::new_ns_view(&*(ns_view as *mut NSView), attributes, pl_attrs, false) }
   }
 
   pub fn new_as_child(
     window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let ns_view = match window.window_handle()?.as_raw() {
       #[cfg(target_os = "macos")]
@@ -173,29 +163,24 @@ impl InnerWebView {
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 
-    unsafe {
-      Self::new_ns_view(
-        &*(ns_view as *mut NSView),
-        attributes,
-        pl_attrs,
-        _web_context,
-        true,
-      )
-    }
+    unsafe { Self::new_ns_view(&*(ns_view as *mut NSView), attributes, pl_attrs, true) }
   }
 
   fn new_ns_view(
     ns_view: &NSView,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    _web_context: Option<&mut WebContext>,
     is_child: bool,
   ) -> Result<Self> {
     let mtm = MainThreadMarker::new().ok_or(Error::NotMainThread)?;
 
+    let webview_id = attributes
+      .id
+      .map(|id| id.to_string())
+      .unwrap_or_else(|| COUNTER.next().to_string());
+
     let mut wv_ids = WEBVIEW_IDS.lock().unwrap();
-    let webview_id = COUNTER.next();
-    wv_ids.insert(webview_id);
+    wv_ids.insert(webview_id.clone());
     drop(wv_ids);
 
     // Safety: objc runtime calls are unsafe
@@ -237,8 +222,8 @@ impl InnerWebView {
         *ivar_delegate = function as *mut _ as *mut c_void;
 
         let ivar = (*handler).class().instance_variable("webview_id").unwrap();
-        let ivar_delegate = ivar.load_mut(&mut *handler);
-        *ivar_delegate = webview_id;
+        let ivar_delegate: &mut *mut c_char = ivar.load_mut(&mut *handler);
+        *ivar_delegate = CString::new(webview_id.as_bytes()).unwrap().into_raw();
 
         let set_result = objc2::exception::catch(AssertUnwindSafe(|| {
           config.setURLSchemeHandler_forURLScheme(
@@ -472,6 +457,7 @@ impl InnerWebView {
       }
 
       let w = Self {
+        id: webview_id,
         webview: webview.clone(),
         manager: manager.clone(),
         pending_scripts,
@@ -482,7 +468,6 @@ impl InnerWebView {
         ui_delegate,
         protocol_ptrs,
         is_child,
-        webview_id,
       };
 
       // Initialize scripts
@@ -540,6 +525,10 @@ r#"Object.defineProperty(window, 'ipc', {
 
       Ok(w)
     }
+  }
+
+  pub fn id(&self) -> crate::WebViewId {
+    &self.id
   }
 
   pub fn url(&self) -> crate::Result<String> {
@@ -861,7 +850,7 @@ pub fn platform_webview_version() -> Result<String> {
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
-    WEBVIEW_IDS.lock().unwrap().remove(&self.webview_id);
+    WEBVIEW_IDS.lock().unwrap().remove(&self.id);
 
     // We need to drop handler closures here
     unsafe {
