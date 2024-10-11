@@ -112,8 +112,7 @@ pub(crate) struct InnerWebView {
   #[cfg(target_os = "macos")]
   drag_drop_ptr: *mut Box<dyn Fn(crate::DragDropEvent) -> bool>,
   download_delegate: id,
-  protocol_ptrs:
-    Vec<*mut Box<dyn Fn(Option<crate::WebViewId>, Request<Vec<u8>>, RequestAsyncResponder)>>,
+  protocol_ptrs: Vec<*mut Box<dyn Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder)>>,
 }
 
 impl InnerWebView {
