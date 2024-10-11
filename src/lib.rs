@@ -196,7 +196,7 @@ extern crate objc;
 
 mod error;
 mod proxy;
-#[cfg(any(target_os = "macos", target_os = "android"))]
+#[cfg(any(target_os = "macos", target_os = "android", target_os = "ios"))]
 mod util;
 mod web_context;
 
