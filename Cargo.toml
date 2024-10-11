@@ -3,7 +3,7 @@ workspace = {}
 [package]
 name = "wry"
 version = "0.45.0"
-authors = [ "Tauri Programme within The Commons Conservancy" ]
+authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 description = "Cross-platform WebView rendering library"
@@ -94,7 +94,7 @@ features = [
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
 block2 = "0.5"
-objc2 = "0.5"
+objc2 = { version = "0.5", features = ["exception"] }
 objc2-web-kit = { version = "0.2.0", features = [
   "objc2-app-kit",
   "block2",
