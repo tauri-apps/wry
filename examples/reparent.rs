@@ -11,10 +11,7 @@ use tao::{
 use wry::WebViewBuilder;
 
 #[cfg(target_os = "macos")]
-use {
-  objc2_app_kit::NSWindow, tao::platform::macos::WindowExtMacOS,
-  wry::WebViewExtMacOS,
-};
+use {objc2_app_kit::NSWindow, tao::platform::macos::WindowExtMacOS, wry::WebViewExtMacOS};
 #[cfg(target_os = "windows")]
 use {tao::platform::windows::WindowExtWindows, wry::WebViewExtWindows};
 
