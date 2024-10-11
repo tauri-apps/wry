@@ -23,7 +23,7 @@ use windows::{
     System::{
       Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL},
       Ole::{
-        registeredragDrop, IDropTarget, IDropTarget_Impl, RevokeDragDrop, CF_HDROP, DROPEFFECT,
+        IDropTarget, IDropTarget_Impl, RegisterDragDrop, RevokeDragDrop, CF_HDROP, DROPEFFECT,
         DROPEFFECT_COPY, DROPEFFECT_NONE,
       },
       SystemServices::MODIFIERKEYS_FLAGS,
@@ -67,7 +67,7 @@ impl DragDropController {
   fn inject_in_hwnd(&mut self, hwnd: HWND, handler: Rc<dyn Fn(DragDropEvent) -> bool>) -> bool {
     let drag_drop_target: IDropTarget = DragDropTarget::new(hwnd, handler).into();
     if unsafe { RevokeDragDrop(hwnd) } != Err(DRAGDROP_E_INVALIDHWND.into())
-      && unsafe { registeredragDrop(hwnd, &drag_drop_target) }.is_ok()
+      && unsafe { RegisterDragDrop(hwnd, &drag_drop_target) }.is_ok()
     {
       self.drop_targets.push(drag_drop_target);
     }
