@@ -833,7 +833,7 @@ impl InnerWebView {
           .iter()
           .find(|(protocol, _)| is_custom_protocol_uri(&uri, scheme, protocol))
         {
-          let request = match Self::perpare_request(scheme, custom_protocol, &webview_request, &uri)
+          let request = match Self::prepare_request(scheme, custom_protocol, &webview_request, &uri)
           {
             Ok(req) => req,
             Err(e) => {
@@ -893,7 +893,7 @@ impl InnerWebView {
   }
 
   #[inline]
-  unsafe fn perpare_request(
+  unsafe fn prepare_request(
     scheme: &'static str,
     custom_protocol: &str,
     webview_request: &ICoreWebView2WebResourceRequest,
