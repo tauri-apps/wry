@@ -99,6 +99,8 @@ sudo dnf install gtk3-devel webkit2gtk4.1-devel
 ### Nix & NixOS
 
  ```Nix
+# shell.nix
+
  let
     # Unstable Channel | Rolling Release
     pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
@@ -140,9 +142,6 @@ If you are cross-compiling for macOS using [osxcross](https://github.com/tpoecht
 ```
 RUSTFLAGS="-l framework=WebKit" cargo build --target=x86_64-apple-darwin --release
 ```
-
-> [!IMPORTANT]
-> If `nix` and/if `nix-darwin` are used then follow instructions from [Nix Section](#nix--nixos).
 
 ### Windows
 
