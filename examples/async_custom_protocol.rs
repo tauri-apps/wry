@@ -18,28 +18,8 @@ fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-  #[cfg(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "android"
-  ))]
-  let builder = WebViewBuilder::new(&window);
-
-  #[cfg(not(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "android"
-  )))]
-  let builder = {
-    use tao::platform::unix::WindowExtUnix;
-    use wry::WebViewBuilderExtUnix;
-    let vbox = window.default_vbox().unwrap();
-    WebViewBuilder::new_gtk(vbox)
-  };
-  let _webview = builder
-    .with_asynchronous_custom_protocol("wry".into(), move |request, responder| {
+  let builder = WebViewBuilder::new()
+    .with_asynchronous_custom_protocol("wry".into(), move |_webview_id, request, responder| {
       match get_wry_response(request) {
         Ok(http_response) => responder.respond(http_response),
         Err(e) => responder.respond(
@@ -52,8 +32,27 @@ fn main() -> wry::Result<()> {
       }
     })
     // tell the webview to load the custom protocol
-    .with_url("wry://localhost")
-    .build()?;
+    .with_url("wry://localhost");
+
+  #[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  ))]
+  let _webview = builder.build(&window)?;
+  #[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  )))]
+  let _webview = {
+    use tao::platform::unix::WindowExtUnix;
+    use wry::WebViewBuilderExtUnix;
+    let vbox = window.default_vbox().unwrap();
+    builder.build_gtk(vbox)?
+  };
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

@@ -13,28 +13,7 @@ fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-  #[cfg(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "android"
-  ))]
-  let builder = WebViewBuilder::new(&window);
-
-  #[cfg(not(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "android"
-  )))]
-  let builder = {
-    use tao::platform::unix::WindowExtUnix;
-    use wry::WebViewBuilderExtUnix;
-    let vbox = window.default_vbox().unwrap();
-    WebViewBuilder::new_gtk(vbox)
-  };
-
-  let _webview = builder
+  let builder = WebViewBuilder::new()
     .with_url("http://tauri.app")
     .with_drag_drop_handler(|e| {
       match e {
@@ -50,8 +29,27 @@ fn main() -> wry::Result<()> {
       }
 
       true
-    })
-    .build()?;
+    });
+
+  #[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  ))]
+  let _webview = builder.build(&window)?;
+  #[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  )))]
+  let _webview = {
+    use tao::platform::unix::WindowExtUnix;
+    use wry::WebViewBuilderExtUnix;
+    let vbox = window.default_vbox().unwrap();
+    builder.build_gtk(vbox)?
+  };
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

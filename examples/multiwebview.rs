@@ -44,34 +44,34 @@ fn main() -> wry::Result<()> {
 
   let size = window.inner_size().to_logical::<u32>(window.scale_factor());
 
-  let webview = WebViewBuilder::new_as_child(&window)
+  let webview = WebViewBuilder::new()
     .with_bounds(Rect {
       position: LogicalPosition::new(0, 0).into(),
       size: LogicalSize::new(size.width / 2, size.height / 2).into(),
     })
     .with_url("https://tauri.app")
-    .build()?;
-  let webview2 = WebViewBuilder::new_as_child(&window)
+    .build(&window)?;
+  let webview2 = WebViewBuilder::new()
     .with_bounds(Rect {
       position: LogicalPosition::new(size.width / 2, 0).into(),
       size: LogicalSize::new(size.width / 2, size.height / 2).into(),
     })
     .with_url("https://github.com/tauri-apps/wry")
-    .build()?;
-  let webview3 = WebViewBuilder::new_as_child(&window)
+    .build(&window)?;
+  let webview3 = WebViewBuilder::new()
     .with_bounds(Rect {
       position: LogicalPosition::new(0, size.height / 2).into(),
       size: LogicalSize::new(size.width / 2, size.height / 2).into(),
     })
     .with_url("https://twitter.com/TauriApps")
-    .build()?;
-  let webview4 = WebViewBuilder::new_as_child(&window)
+    .build(&window)?;
+  let webview4 = WebViewBuilder::new()
     .with_bounds(Rect {
       position: LogicalPosition::new(size.width / 2, size.height / 2).into(),
       size: LogicalSize::new(size.width / 2, size.height / 2).into(),
     })
     .with_url("https://google.com")
-    .build()?;
+    .build(&window)?;
 
   event_loop
     .run(move |event, evl| {

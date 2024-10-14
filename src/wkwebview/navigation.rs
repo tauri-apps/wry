@@ -1,86 +1,106 @@
-use std::{
-  ffi::c_void,
-  ptr::{null, null_mut},
-  sync::{Arc, Mutex},
+use objc2::DeclaredClass;
+use objc2_foundation::{NSObjectProtocol, NSString};
+use objc2_web_kit::{
+  WKNavigation, WKNavigationAction, WKNavigationActionPolicy, WKNavigationResponse,
+  WKNavigationResponsePolicy,
 };
 
-use cocoa::base::id;
-use objc::{
-  declare::ClassDecl,
-  runtime::{Object, Sel},
-};
+#[cfg(target_os = "ios")]
+use crate::wkwebview::ios::WKWebView::WKWebView;
+#[cfg(target_os = "macos")]
+use objc2_web_kit::WKWebView;
 
-use super::{url_from_webview, InnerWebView, NSString};
 use crate::PageLoadEvent;
 
-extern "C" fn did_commit_navigation(this: &Object, _: Sel, webview: id, _navigation: id) {
+use super::class::wry_navigation_delegate::WryNavigationDelegate;
+
+pub(crate) fn did_commit_navigation(
+  this: &WryNavigationDelegate,
+  webview: &WKWebView,
+  _navigation: &WKNavigation,
+) {
   unsafe {
     // Call on_load_handler
-    let on_page_load = this.get_ivar::<*mut c_void>("on_page_load_function");
-    if !on_page_load.is_null() {
-      let on_page_load = &mut *(*on_page_load as *mut Box<dyn Fn(PageLoadEvent)>);
+    if let Some(on_page_load) = &this.ivars().on_page_load_handler {
       on_page_load(PageLoadEvent::Started);
     }
 
     // Inject scripts
-    let pending_scripts_ptr: *mut c_void = *this.get_ivar("pending_scripts");
-    let pending_scripts = &(*(pending_scripts_ptr as *mut Arc<Mutex<Option<Vec<String>>>>));
-    let mut pending_scripts_ = pending_scripts.lock().unwrap();
-    if let Some(pending_scripts) = &*pending_scripts_ {
-      for script in pending_scripts {
-        let _: id = msg_send![webview, evaluateJavaScript:NSString::new(script) completionHandler:null::<*const c_void>()];
+    let mut pending_scripts = this.ivars().pending_scripts.lock().unwrap();
+    if let Some(scripts) = &*pending_scripts {
+      for script in scripts {
+        webview.evaluateJavaScript_completionHandler(&NSString::from_str(script), None);
       }
-      *pending_scripts_ = None;
+      *pending_scripts = None;
     }
   }
 }
 
-extern "C" fn did_finish_navigation(this: &Object, _: Sel, _webview: id, _navigation: id) {
+pub(crate) fn did_finish_navigation(
+  this: &WryNavigationDelegate,
+  _webview: &WKWebView,
+  _navigation: &WKNavigation,
+) {
+  if let Some(on_page_load) = &this.ivars().on_page_load_handler {
+    on_page_load(PageLoadEvent::Finished);
+  }
+}
+
+// Navigation handler
+pub(crate) fn navigation_policy(
+  this: &WryNavigationDelegate,
+  _webview: &WKWebView,
+  action: &WKNavigationAction,
+  handler: &block2::Block<dyn Fn(WKNavigationActionPolicy)>,
+) {
   unsafe {
-    // Call on_load_handler
-    let on_page_load = this.get_ivar::<*mut c_void>("on_page_load_function");
-    if !on_page_load.is_null() {
-      let on_page_load = &mut *(*on_page_load as *mut Box<dyn Fn(PageLoadEvent)>);
-      on_page_load(PageLoadEvent::Finished);
+    // shouldPerformDownload is only available on macOS 11.3+
+    let can_download = action.respondsToSelector(objc2::sel!(shouldPerformDownload));
+    let should_download: bool = if can_download {
+      action.shouldPerformDownload()
+    } else {
+      false
+    };
+    let request = action.request();
+    let url = request.URL().unwrap().absoluteString().unwrap();
+    let target_frame = action.targetFrame();
+    let is_main_frame = target_frame.map_or(false, |frame| frame.isMainFrame());
+
+    if should_download {
+      let has_download_handler = this.ivars().has_download_handler;
+      if has_download_handler {
+        (*handler).call((WKNavigationActionPolicy::Download,));
+      } else {
+        (*handler).call((WKNavigationActionPolicy::Cancel,));
+      }
+    } else {
+      let function = &this.ivars().navigation_policy_function;
+      match function(url.to_string(), is_main_frame) {
+        true => (*handler).call((WKNavigationActionPolicy::Allow,)),
+        false => (*handler).call((WKNavigationActionPolicy::Cancel,)),
+      };
     }
   }
 }
 
-pub(crate) unsafe fn add_navigation_mathods(cls: &mut ClassDecl) {
-  cls.add_ivar::<*mut c_void>("navigation_policy_function");
-  cls.add_ivar::<*mut c_void>("on_page_load_function");
+// Navigation handler
+pub(crate) fn navigation_policy_response(
+  this: &WryNavigationDelegate,
+  _webview: &WKWebView,
+  response: &WKNavigationResponse,
+  handler: &block2::Block<dyn Fn(WKNavigationResponsePolicy)>,
+) {
+  unsafe {
+    let can_show_mime_type = response.canShowMIMEType();
 
-  cls.add_method(
-    sel!(webView:didFinishNavigation:),
-    did_finish_navigation as extern "C" fn(&Object, Sel, id, id),
-  );
-  cls.add_method(
-    sel!(webView:didCommitNavigation:),
-    did_commit_navigation as extern "C" fn(&Object, Sel, id, id),
-  );
-}
+    if !can_show_mime_type {
+      let has_download_handler = this.ivars().has_download_handler;
+      if has_download_handler {
+        (*handler).call((WKNavigationResponsePolicy::Download,));
+        return;
+      }
+    }
 
-pub(crate) unsafe fn drop_navigation_methods(inner: &mut InnerWebView) {
-  if !inner.page_load_handler.is_null() {
-    drop(Box::from_raw(inner.page_load_handler))
-  }
-}
-
-pub(crate) unsafe fn set_navigation_methods(
-  navigation_policy_handler: *mut Object,
-  webview: id,
-  on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
-) -> *mut Box<dyn Fn(PageLoadEvent)> {
-  if let Some(on_page_load_handler) = on_page_load_handler {
-    let on_page_load_handler = Box::into_raw(Box::new(Box::new(move |event| {
-      on_page_load_handler(event, url_from_webview(webview).unwrap_or_default());
-    }) as Box<dyn Fn(PageLoadEvent)>));
-    (*navigation_policy_handler).set_ivar(
-      "on_page_load_function",
-      on_page_load_handler as *mut _ as *mut c_void,
-    );
-    on_page_load_handler
-  } else {
-    null_mut()
+    (*handler).call((WKNavigationResponsePolicy::Allow,));
   }
 }

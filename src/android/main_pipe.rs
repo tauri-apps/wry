@@ -59,6 +59,7 @@ impl<'a> MainPipe<'a> {
             autoplay,
             user_agent,
             initialization_scripts,
+            id,
             ..
           } = attrs;
 
@@ -76,6 +77,8 @@ impl<'a> MainPipe<'a> {
             )?;
           }
 
+          let id = self.env.new_string(id)?;
+
           // Create webview
           let rust_webview_class = find_class(
             &mut self.env,
@@ -84,8 +87,12 @@ impl<'a> MainPipe<'a> {
           )?;
           let webview = self.env.new_object(
             &rust_webview_class,
-            "(Landroid/content/Context;[Ljava/lang/String;)V",
-            &[activity.into(), (&initialization_scripts_array).into()],
+            "(Landroid/content/Context;[Ljava/lang/String;Ljava/lang/String;)V",
+            &[
+              activity.into(),
+              (&initialization_scripts_array).into(),
+              (&id).into(),
+            ],
           )?;
 
           // set media autoplay
@@ -205,9 +212,7 @@ impl<'a> MainPipe<'a> {
         }
         WebViewMessage::Eval(script, callback) => {
           if let Some(webview) = &self.webview {
-            let id = EVAL_ID_GENERATOR
-              .get_or_init(Default::default)
-              .fetch_add(1, Ordering::Relaxed);
+            let id = EVAL_ID_GENERATOR.next() as i32;
 
             #[cfg(feature = "tracing")]
             let span = std::sync::Mutex::new(Some(SendEnteredSpan(
@@ -260,6 +265,24 @@ impl<'a> MainPipe<'a> {
               tx.send(Ok(version)).unwrap();
             }
             Err(e) => tx.send(Err(e.into())).unwrap(),
+          }
+        }
+        WebViewMessage::GetId(tx) => {
+          if let Some(webview) = &self.webview {
+            let url = self
+              .env
+              .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String;", &[])
+              .and_then(|v| v.l())
+              .and_then(|s| {
+                let s = JString::from(s);
+                self
+                  .env
+                  .get_string(&s)
+                  .map(|v| v.to_string_lossy().to_string())
+              })
+              .unwrap_or_default();
+
+            tx.send(url).unwrap()
           }
         }
         WebViewMessage::GetUrl(tx) => {
@@ -372,6 +395,7 @@ pub(crate) enum WebViewMessage {
   Eval(String, Option<EvalCallback>),
   SetBackgroundColor(RGBA),
   GetWebViewVersion(Sender<Result<String, Error>>),
+  GetId(Sender<String>),
   GetUrl(Sender<String>),
   Jni(Box<dyn FnOnce(&mut JNIEnv, &JObject, &JObject) + Send>),
   LoadUrl(String, Option<http::HeaderMap>),
@@ -380,6 +404,7 @@ pub(crate) enum WebViewMessage {
 }
 
 pub(crate) struct CreateWebViewAttributes {
+  pub id: String,
   pub url: Option<String>,
   pub html: Option<String>,
   #[cfg(any(debug_assertions, feature = "devtools"))]
