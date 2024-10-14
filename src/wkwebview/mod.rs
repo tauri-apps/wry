@@ -113,6 +113,7 @@ pub(crate) struct InnerWebView {
   pub webview: Retained<WryWebView>,
   pub manager: Retained<WKUserContentController>,
   ns_view: id,
+  #[allow(dead_code)]
   is_child: bool,
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
   // Note that if following functions signatures are changed in the future,
