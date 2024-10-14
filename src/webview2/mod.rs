@@ -1302,7 +1302,7 @@ impl InnerWebView {
     }
   }
 
-  pub fn blur(&self) -> Result<()> {
+  pub fn focus_parent(&self) -> Result<()> {
     unsafe {
       // Move the focus back to parent
       let parent = *self.parent.borrow();

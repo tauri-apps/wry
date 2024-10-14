@@ -1314,7 +1314,7 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
-  pub fn blur(&self) -> Result<()> {
+  pub fn focus_parent(&self) -> Result<()> {
     unsafe {
       let window: id = msg_send![self.webview, window];
       let _: () = msg_send![window, makeFirstResponder: self.ns_view];

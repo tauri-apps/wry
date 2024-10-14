@@ -380,7 +380,7 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn blur(&self) -> Result<()> {
+  pub fn focus_parent(&self) -> Result<()> {
     // Unsupported
     Ok(())
   }
