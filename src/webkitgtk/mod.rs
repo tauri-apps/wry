@@ -797,7 +797,10 @@ impl InnerWebView {
   }
 
   pub fn focus_parent(&self) -> Result<()> {
-    // Unsupported
+    if let Some(window) = self.webview.parent_window() {
+      window.focus(gdk::ffi::GDK_CURRENT_TIME.try_into().unwrap_or(0));
+    }
+
     Ok(())
   }
 

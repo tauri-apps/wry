@@ -808,8 +808,9 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn focus_parent(&self) -> Result<()> {
-    let window = self.webview.window().unwrap();
-    window.makeFirstResponder(Some(&self.ns_view));
+    if let Some(window) = self.webview.window() {
+      window.makeFirstResponder(Some(&self.ns_view));
+    }
 
     Ok(())
   }

@@ -1317,7 +1317,6 @@ impl InnerWebView {
 
   pub fn focus_parent(&self) -> Result<()> {
     unsafe {
-      // Move the focus back to parent
       let parent = *self.parent.borrow();
       if parent != HWND::default() {
         SetFocus(parent)?;
