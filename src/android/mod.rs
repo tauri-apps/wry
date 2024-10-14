@@ -393,6 +393,11 @@ impl InnerWebView {
     // Unsupported
     Ok(())
   }
+
+  pub fn focus_parent(&self) -> Result<()> {
+    // Unsupported
+    Ok(())
+  }
 }
 
 #[derive(Clone, Copy)]

@@ -1613,6 +1613,15 @@ impl WebView {
   pub fn focus(&self) -> Result<()> {
     self.webview.focus()
   }
+
+  /// Try moving focus away from the webview back to the parent window.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Android**: Not implemented.
+  pub fn focus_parent(&self) -> Result<()> {
+    self.webview.focus_parent()
+  }
 }
 
 /// An event describing drag and drop operations on the webview.

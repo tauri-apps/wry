@@ -21,7 +21,7 @@ use windows::{
     Globalization::*,
     Graphics::Gdi::*,
     System::{Com::*, LibraryLoader::GetModuleHandleW, WinRT::EventRegistrationToken},
-    UI::{Shell::*, WindowsAndMessaging::*},
+    UI::{Input::KeyboardAndMouse::SetFocus, Shell::*, WindowsAndMessaging::*},
   },
 };
 
@@ -1313,6 +1313,17 @@ impl InnerWebView {
         .MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC)
         .map_err(Into::into)
     }
+  }
+
+  pub fn focus_parent(&self) -> Result<()> {
+    unsafe {
+      let parent = *self.parent.borrow();
+      if parent != HWND::default() {
+        SetFocus(parent)?;
+      }
+    }
+
+    Ok(())
   }
 
   pub fn reparent(&self, parent: isize) -> Result<()> {

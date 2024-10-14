@@ -796,6 +796,14 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn focus_parent(&self) -> Result<()> {
+    if let Some(window) = self.webview.parent_window() {
+      window.focus(gdk::ffi::GDK_CURRENT_TIME.try_into().unwrap_or(0));
+    }
+
+    Ok(())
+  }
+
   pub fn reparent<W>(&self, container: &W) -> Result<()>
   where
     W: gtk::prelude::IsA<gtk::Container>,

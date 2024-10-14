@@ -112,6 +112,7 @@ pub(crate) struct InnerWebView {
   id: String,
   pub webview: Retained<WryWebView>,
   pub manager: Retained<WKUserContentController>,
+  ns_view: Retained<NSView>,
   #[allow(dead_code)]
   is_child: bool,
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
@@ -460,6 +461,7 @@ impl InnerWebView {
         id: webview_id,
         webview: webview.clone(),
         manager: manager.clone(),
+        ns_view: ns_view.retain(),
         pending_scripts,
         ipc_handler_delegate,
         document_title_changed_observer,
@@ -802,6 +804,19 @@ r#"Object.defineProperty(window, 'ipc', {
       let window = self.webview.window().unwrap();
       window.makeFirstResponder(Some(&self.webview));
     }
+    Ok(())
+  }
+
+  pub fn focus_parent(&self) -> Result<()> {
+    if let Some(window) = self.webview.window() {
+      #[cfg(target_os = "macos")]
+      window.makeFirstResponder(Some(&self.ns_view));
+      #[cfg(target_os = "ios")]
+      unsafe {
+        window.becomeFirstResponder()
+      };
+    }
+
     Ok(())
   }
 
