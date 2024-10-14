@@ -515,7 +515,11 @@ r#"Object.defineProperty(window, 'ipc', {
 
         // make sure the window is always on top when we create a new webview
         let app = NSApplication::sharedApplication(mtm);
-        NSApplication::activate(&app);
+        if os_version.0 >= 14 {
+          NSApplication::activate(&app);
+        } else {
+          NSApplication::activateIgnoringOtherApps(&app, true);
+        }
       }
 
       #[cfg(target_os = "ios")]
