@@ -809,7 +809,12 @@ r#"Object.defineProperty(window, 'ipc', {
 
   pub fn focus_parent(&self) -> Result<()> {
     if let Some(window) = self.webview.window() {
+      #[cfg(target_os = "macos")]
       window.makeFirstResponder(Some(&self.ns_view));
+      #[cfg(target_os = "ios")]
+      unsafe {
+        window.becomeFirstResponder()
+      };
     }
 
     Ok(())
