@@ -518,6 +518,7 @@ r#"Object.defineProperty(window, 'ipc', {
         if os_version.0 >= 14 {
           NSApplication::activate(&app);
         } else {
+          #[allow(deprecated)]
           NSApplication::activateIgnoringOtherApps(&app, true);
         }
       }
