@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use super::{PageLoadEvent, WebContext, WebViewAttributes, RGBA};
+use super::{PageLoadEvent, WebViewAttributes, RGBA};
 use crate::{RequestAsyncResponder, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
@@ -25,12 +25,16 @@ use std::{
   borrow::Cow,
   collections::HashMap,
   os::fd::{AsFd as _, AsRawFd as _},
-  sync::{atomic::AtomicI32, mpsc::channel, Mutex},
+  sync::{mpsc::channel, Mutex},
 };
 
 pub(crate) mod binding;
 mod main_pipe;
 use main_pipe::{CreateWebViewAttributes, MainPipe, WebViewMessage, MAIN_PIPE};
+
+use crate::util::Counter;
+
+static COUNTER: Counter = Counter::new();
 
 pub struct Context<'a, 'b> {
   pub env: &'a mut JNIEnv<'b>,
@@ -58,7 +62,7 @@ macro_rules! define_static_handlers {
 
 define_static_handlers! {
   IPC =  UnsafeIpc { handler: Box<dyn Fn(Request<String>)> };
-  REQUEST_HANDLER = UnsafeRequestHandler { handler:  Box<dyn Fn(Request<Vec<u8>>, bool) -> Option<HttpResponse<Cow<'static, [u8]>>>> };
+  REQUEST_HANDLER = UnsafeRequestHandler { handler:  Box<dyn Fn(&str, Request<Vec<u8>>, bool) -> Option<HttpResponse<Cow<'static, [u8]>>>> };
   TITLE_CHANGE_HANDLER = UnsafeTitleHandler { handler: Box<dyn Fn(String)> };
   URL_LOADING_OVERRIDE = UnsafeUrlLoadingOverride { handler: Box<dyn Fn(String) -> bool> };
   ON_LOAD_HANDLER = UnsafeOnPageLoadHandler { handler: Box<dyn Fn(PageLoadEvent, String)> };
@@ -71,7 +75,7 @@ pub(crate) static PACKAGE: OnceCell<String> = OnceCell::new();
 
 type EvalCallback = Box<dyn Fn(String) + Send + 'static>;
 
-pub static EVAL_ID_GENERATOR: OnceCell<AtomicI32> = OnceCell::new();
+pub static EVAL_ID_GENERATOR: Counter = Counter::new();
 pub static EVAL_CALLBACKS: once_cell::sync::OnceCell<Mutex<HashMap<i32, EvalCallback>>> =
   once_cell::sync::OnceCell::new();
 
@@ -124,23 +128,23 @@ pub unsafe fn android_setup(
     .unwrap();
 }
 
-pub(crate) struct InnerWebView;
+pub(crate) struct InnerWebView {
+  id: String,
+}
 
 impl InnerWebView {
   pub fn new_as_child(
     _window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    Self::new(_window, attributes, pl_attrs, _web_context)
+    Self::new(_window, attributes, pl_attrs)
   }
 
   pub fn new(
     _window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    _web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
     let WebViewAttributes {
       url,
@@ -181,7 +185,13 @@ impl InnerWebView {
       None
     };
 
+    let id = attributes
+      .id
+      .map(|id| id.to_string())
+      .unwrap_or_else(|| COUNTER.next().to_string());
+
     MainPipe::send(WebViewMessage::CreateWebView(CreateWebViewAttributes {
+      id: id.clone(),
       url,
       html,
       #[cfg(any(debug_assertions, feature = "devtools"))]
@@ -202,7 +212,7 @@ impl InnerWebView {
 
     REQUEST_HANDLER.get_or_init(move || {
       UnsafeRequestHandler::new(Box::new(
-        move |mut request, is_document_start_script_enabled| {
+        move |webview_id: &str, mut request, is_document_start_script_enabled| {
           let uri = request.uri().to_string();
           if let Some(custom_protocol) = custom_protocols.iter().find(|(name, _)| {
             uri.starts_with(&format!("{scheme}://{}.", name))
@@ -276,7 +286,7 @@ impl InnerWebView {
                 tx.send(response).unwrap();
               });
 
-            (custom_protocol.1)(request, RequestAsyncResponder { responder });
+            (custom_protocol.1)(webview_id, request, RequestAsyncResponder { responder });
             return Some(rx.recv().unwrap());
           }
           None
@@ -300,11 +310,15 @@ impl InnerWebView {
       ON_LOAD_HANDLER.get_or_init(move || UnsafeOnPageLoadHandler::new(h));
     }
 
-    Ok(Self)
+    Ok(Self { id })
   }
 
   pub fn print(&self) -> crate::Result<()> {
     Ok(())
+  }
+
+  pub fn id(&self) -> crate::WebViewId {
+    &self.id
   }
 
   pub fn url(&self) -> crate::Result<String> {

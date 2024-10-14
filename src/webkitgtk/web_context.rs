@@ -4,15 +4,15 @@
 
 //! Unix platform extensions for [`WebContext`](super::WebContext).
 
-use crate::{web_context::WebContextData, Error, RequestAsyncResponder};
-use gtk::glib::{self, MainContext};
+use crate::{Error, RequestAsyncResponder};
+use gtk::glib::{self, MainContext, ObjectExt};
 use http::{header::CONTENT_TYPE, HeaderName, HeaderValue, Request, Response as HttpResponse};
 use soup::{MessageHeaders, MessageHeadersType};
 use std::{
   borrow::Cow,
   cell::RefCell,
   collections::VecDeque,
-  path::PathBuf,
+  path::{Path, PathBuf},
   rc::Rc,
   sync::{
     atomic::{AtomicBool, Ordering::SeqCst},
@@ -35,10 +35,10 @@ pub struct WebContextImpl {
 }
 
 impl WebContextImpl {
-  pub fn new(data: &WebContextData) -> Self {
+  pub fn new(data_directory: Option<&Path>) -> Self {
     use webkit2gtk::{CookieManagerExt, WebsiteDataManager, WebsiteDataManagerExt};
     let mut context_builder = WebContext::builder();
-    if let Some(data_directory) = data.data_directory() {
+    if let Some(data_directory) = data_directory {
       let data_manager = WebsiteDataManager::builder()
         .base_data_directory(data_directory.to_string_lossy())
         .build();
@@ -102,7 +102,7 @@ pub trait WebContextExt {
   /// Register a custom protocol to the web context.
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(Request<Vec<u8>>, RequestAsyncResponder) + 'static;
+    F: Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + 'static;
 
   /// Add a [`WebView`] to the queue waiting to be opened.
   ///
@@ -135,7 +135,7 @@ impl WebContextExt for super::WebContext {
 
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
   where
-    F: Fn(Request<Vec<u8>>, RequestAsyncResponder) + 'static,
+    F: Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + 'static,
   {
     // Enable secure context
     self
@@ -248,7 +248,14 @@ impl WebContextExt for super::WebContext {
 
         #[cfg(feature = "tracing")]
         let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
-        handler(http_request, RequestAsyncResponder { responder });
+
+        let webview_id = request
+          .web_view()
+          .and_then(|w| unsafe { w.data::<String>(super::WEBVIEW_ID) })
+          .map(|id| unsafe { id.as_ref().clone() })
+          .unwrap_or_default();
+
+        handler(&webview_id, http_request, RequestAsyncResponder { responder });
       } else {
         request.finish_error(&mut glib::Error::new(
           glib::FileError::Exist,
