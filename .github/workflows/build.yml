@@ -77,6 +77,8 @@ jobs:
           sudo apt-get update -y -q
           sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev
       - name: Run cargo doc with each targets
+        env:
+          DOCS_RS: true
         run: |
           set -ex
 
