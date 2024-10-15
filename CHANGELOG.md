@@ -1,5 +1,12 @@
 # Changelog
 
+## \[0.46.1]
+
+### bug
+
+- [`33c0193`](https://github.com/tauri-apps/wry/commit/33c01931a08b2178bb37b03b762d82f20f10aa3b) ([#1389](https://github.com/tauri-apps/wry/pull/1389) by [@amrbashir](https://github.com/tauri-apps/wry/../../amrbashir)) Fix crash on macOS versions below 14.
+- [`a57719e`](https://github.com/tauri-apps/wry/commit/a57719e6d63c8dbb002905e54c19d9d2f82c12de) ([#1385](https://github.com/tauri-apps/wry/pull/1385) by [@huacnlee](https://github.com/tauri-apps/wry/../../huacnlee)) Add `WebView::focus_parent` method.
+
 ## \[0.46.0]
 
 - [`8cc2a7f`](https://github.com/tauri-apps/wry/commit/8cc2a7f6570085da5d6a5ea57ad7f127520b778f) ([#1384](https://github.com/tauri-apps/wry/pull/1384) by [@amrbashir](https://github.com/tauri-apps/wry/../../amrbashir)) This release contains quite the breaking changes, because even though wry@0.44, ignored duplicate custom protocols, On Linux when using a shared web context, the custom protocol handler can only be registered once so we are bringing the duplicate custom protocols on Linux again, Windows and macOS are not affected. If using a shared web context, make sure to register a protocol only once on Linux (other platforms should be registed multiple times), use `WebContext::is_custom_protocol_registered` with `#[cfg(target_os = "linux")]`.
