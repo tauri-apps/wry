@@ -203,13 +203,13 @@ extern "C" fn start_task(
 
                 if let Some(mime) = wanted_mime {
                   headers.insert_id(
-                    NSString::from_str(mime.to_str().unwrap()).as_ref(),
-                    NSString::from_str(CONTENT_TYPE.as_str()),
+                    NSString::from_str(CONTENT_TYPE.as_str()).as_ref(),
+                    NSString::from_str(mime.to_str().unwrap()),
                   );
                 }
                 headers.insert_id(
-                  NSString::from_str(&content.len().to_string()).as_ref(),
-                  NSString::from_str(CONTENT_LENGTH.as_str()),
+                  NSString::from_str(CONTENT_LENGTH.as_str()).as_ref(),
+                  NSString::from_str(&content.len().to_string()),
                 );
 
                 // add headers
