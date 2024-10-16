@@ -74,7 +74,7 @@ use std::{
   ffi::{c_void, CString},
   os::raw::c_char,
   panic::AssertUnwindSafe,
-  ptr::null_mut,
+  ptr::{null_mut, NonNull},
   str,
   sync::{Arc, Mutex},
 };
@@ -827,17 +827,17 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
-  unsafe fn cookie_from_wkwebview(cookie: NSHTTPCookie) -> cookie::Cookie<'static> {
+  unsafe fn cookie_from_wkwebview(cookie: &NSHTTPCookie) -> cookie::Cookie<'static> {
     let name = cookie.name().to_string();
     let value = cookie.value().to_string();
 
     let mut cookie_builder = cookie::CookieBuilder::new(name, value);
 
     let domain = cookie.domain().to_string();
-    cookie_builder = cookie_builder.domain(value);
+    cookie_builder = cookie_builder.domain(domain);
 
     let path = cookie.path().to_string();
-    cookie_builder = cookie_builder.path(value);
+    cookie_builder = cookie_builder.path(path);
 
     let http_only = cookie.isHTTPOnly();
     cookie_builder = cookie_builder.http_only(http_only);
@@ -847,17 +847,17 @@ r#"Object.defineProperty(window, 'ipc', {
 
     let same_site = cookie.sameSitePolicy();
     let same_site = match same_site {
-      Some(policy) if policy == NSHTTPCookieSameSiteLax => cookie::SameSite::Lax,
-      Some(policy) if policy == NSHTTPCookieSameSiteStrict => cookie::SameSite::Strict,
+      Some(policy) if policy.as_ref() == NSHTTPCookieSameSiteLax => cookie::SameSite::Lax,
+      Some(policy) if policy.as_ref() == NSHTTPCookieSameSiteStrict => cookie::SameSite::Strict,
       _ => cookie::SameSite::None,
     };
     cookie_builder = cookie_builder.same_site(same_site);
 
-    let is_session = cookie.isSessionOnly();
     let expires = cookie.expiresDate();
     let expires = match expires {
       Some(datetime) => {
-        cookie::time::OffsetDateTime::from_unix_timestamp(datetime.timeIntervalSince1970())
+        cookie::time::OffsetDateTime::from_unix_timestamp(datetime.timeIntervalSince1970() as i64)
+          .ok()
           .map(cookie::Expiration::DateTime)
       }
       None => Some(cookie::Expiration::Session),
@@ -880,14 +880,17 @@ r#"Object.defineProperty(window, 'ipc', {
       self
         .data_store
         .httpCookieStore()
-        .getAllCookies(&block2::RcBlock::new(|cookies| {
-          let cookies: NSArray<NSHTTPCookie> = cookies.as_ref();
-          let mut out = Vec::with_capacity(cookies.len());
-          for cookie in cookies {
-            out.push(Self::cookie_from_wkwebview(cookie));
-          }
-          let _ = tx.send(out);
-        }));
+        .getAllCookies(&block2::RcBlock::new(
+          move |cookies: NonNull<NSArray<NSHTTPCookie>>| {
+            let cookies = cookies.as_ref();
+
+            let mut out = Vec::with_capacity(cookies.len());
+            for cookie in cookies.to_vec() {
+              out.push(Self::cookie_from_wkwebview(cookie));
+            }
+            let _ = tx.send(out);
+          },
+        ));
     };
 
     rx.recv().map_err(Into::into)
