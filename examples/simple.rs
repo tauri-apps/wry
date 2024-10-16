@@ -59,12 +59,7 @@ fn main() -> wry::Result<()> {
       ..
     } = event
     {
-      dbg!(_webview
-        .cookies()
-        .unwrap()
-        .iter()
-        .map(|c| c.to_string())
-        .collect::<Vec<_>>());
+      *control_flow = ControlFlow::Exit;
     }
   });
 }

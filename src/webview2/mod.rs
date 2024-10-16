@@ -315,6 +315,9 @@ impl InnerWebView {
         PCWSTR::null(),
         &data_directory.unwrap_or_default(),
         &ICoreWebView2EnvironmentOptions::from(options),
+        // we don't use CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async
+        // as it uses an mspc::channel under the hood, so we can avoid using two channels
+        // by manually creating the callback handler and use webview2_com::with_with_bump
         &CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
           move |error_code, environment| {
             error_code?;
@@ -338,6 +341,9 @@ impl InnerWebView {
     let env = env.clone();
     let env10 = env.cast::<ICoreWebView2Environment10>();
 
+    // we don't use CreateCoreWebView2ControllerCompletedHandler::wait_for_async
+    // as it uses an mspc::channel under the hood, so we can avoid using two channels
+    // by manually creating the callback handler and use webview2_com::with_with_bump
     let handler = CreateCoreWebView2ControllerCompletedHandler::create(Box::new(
       move |error_code, controller| {
         error_code?;
@@ -1386,6 +1392,9 @@ impl InnerWebView {
     unsafe {
       webview.CookieManager()?.GetCookies(
         uri,
+        // we don't use GetCookiesCompletedHandler::wait_for_async
+        // as it uses an mspc::channel under the hood, so we can avoid using two channels
+        // by manually creating the callback handler and use webview2_com::with_with_bump
         &GetCookiesCompletedHandler::create(Box::new(move |error_code, cookies| {
           error_code?;
 
