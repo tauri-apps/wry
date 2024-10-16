@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.46.2]
+
+- [`1189e2a`](https://github.com/tauri-apps/wry/commit/1189e2a2d5ee18ad83281eea92b05a93f9184ebf) ([#1392](https://github.com/tauri-apps/wry/pull/1392) by [@chrox](https://github.com/tauri-apps/wry/../../chrox)) Fix malformed headers in custom protocol response on macOS.
+
 ## \[0.46.1]
 
 ### bug
