@@ -42,9 +42,10 @@ use objc2_app_kit::{NSApplication, NSAutoresizingMaskOptions, NSTitlebarSeparato
 #[cfg(target_os = "macos")]
 use objc2_foundation::CGSize;
 use objc2_foundation::{
-  ns_string, CGPoint, CGRect, MainThreadMarker, NSBundle, NSDate, NSError, NSJSONSerialization,
-  NSMutableURLRequest, NSNumber, NSObjectNSKeyValueCoding, NSObjectProtocol, NSString,
-  NSUTF8StringEncoding, NSURL, NSUUID,
+  ns_string, CGPoint, CGRect, MainThreadMarker, NSArray, NSBundle, NSDate, NSError, NSHTTPCookie,
+  NSHTTPCookieSameSiteLax, NSHTTPCookieSameSiteStrict, NSJSONSerialization, NSMutableURLRequest,
+  NSNumber, NSObjectNSKeyValueCoding, NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL,
+  NSUUID,
 };
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::{UIScrollView, UIViewAutoresizing};
@@ -112,6 +113,7 @@ pub(crate) struct InnerWebView {
   id: String,
   pub webview: Retained<WryWebView>,
   pub manager: Retained<WKUserContentController>,
+  data_store: Retained<WKWebsiteDataStore>,
   ns_view: Retained<NSView>,
   #[allow(dead_code)]
   is_child: bool,
@@ -268,8 +270,7 @@ impl InnerWebView {
           }
         };
 
-        let proxies: Retained<objc2_foundation::NSArray<NSObject>> =
-          objc2_foundation::NSArray::arrayWithObject(&*proxy_config);
+        let proxies: Retained<NSArray<NSObject>> = NSArray::arrayWithObject(&*proxy_config);
         data_store.setValue_forKey(Some(&proxies), ns_string!("proxyConfigurations"));
       }
 
@@ -462,6 +463,7 @@ impl InnerWebView {
         webview: webview.clone(),
         manager: manager.clone(),
         ns_view: ns_view.retain(),
+        data_store,
         pending_scripts,
         ipc_handler_delegate,
         document_title_changed_observer,
@@ -823,6 +825,72 @@ r#"Object.defineProperty(window, 'ipc', {
     }
 
     Ok(())
+  }
+
+  unsafe fn cookie_from_wkwebview(cookie: NSHTTPCookie) -> cookie::Cookie<'static> {
+    let name = cookie.name().to_string();
+    let value = cookie.value().to_string();
+
+    let mut cookie_builder = cookie::CookieBuilder::new(name, value);
+
+    let domain = cookie.domain().to_string();
+    cookie_builder = cookie_builder.domain(value);
+
+    let path = cookie.path().to_string();
+    cookie_builder = cookie_builder.path(value);
+
+    let http_only = cookie.isHTTPOnly();
+    cookie_builder = cookie_builder.http_only(http_only);
+
+    let secure = cookie.isSecure();
+    cookie_builder = cookie_builder.secure(secure);
+
+    let same_site = cookie.sameSitePolicy();
+    let same_site = match same_site {
+      Some(policy) if policy == NSHTTPCookieSameSiteLax => cookie::SameSite::Lax,
+      Some(policy) if policy == NSHTTPCookieSameSiteStrict => cookie::SameSite::Strict,
+      _ => cookie::SameSite::None,
+    };
+    cookie_builder = cookie_builder.same_site(same_site);
+
+    let is_session = cookie.isSessionOnly();
+    let expires = cookie.expiresDate();
+    let expires = match expires {
+      Some(datetime) => {
+        cookie::time::OffsetDateTime::from_unix_timestamp(datetime.timeIntervalSince1970())
+          .map(cookie::Expiration::DateTime)
+      }
+      None => Some(cookie::Expiration::Session),
+    };
+    if let Some(expires) = expires {
+      cookie_builder = cookie_builder.expires(expires);
+    }
+
+    cookie_builder.build()
+  }
+
+  pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
+    todo!()
+  }
+
+  pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    unsafe {
+      self
+        .data_store
+        .httpCookieStore()
+        .getAllCookies(&block2::RcBlock::new(|cookies| {
+          let cookies: NSArray<NSHTTPCookie> = cookies.as_ref();
+          let mut out = Vec::with_capacity(cookies.len());
+          for cookie in cookies {
+            out.push(Self::cookie_from_wkwebview(cookie));
+          }
+          let _ = tx.send(out);
+        }));
+    };
+
+    rx.recv().map_err(Into::into)
   }
 
   #[cfg(target_os = "macos")]
