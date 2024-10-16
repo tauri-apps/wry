@@ -165,7 +165,7 @@ objc2-app-kit = { version = "0.2.0", features = [
 
 [target."cfg(target_os = \"android\")".dependencies]
 crossbeam-channel = "0.5"
-html5ever = "0.26"
+html5ever = "0.29"
 kuchiki = { package = "kuchikiki", version = "0.8" }
 sha2 = "0.10"
 base64 = "0.22"
