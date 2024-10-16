@@ -318,7 +318,7 @@ impl<'a> MainPipe<'a> {
               .env
               .call_method(
                 webview,
-                "cookies",
+                "getCookies",
                 "(Ljava/lang/String;)Ljava/lang/String;",
                 &[(&url).into()],
               )
