@@ -97,7 +97,7 @@ class RustWebView(context: Context, val initScripts: Array<String>, val id: Stri
         settings.userAgentString = ua
     }
 
-    fun cookies(url: String): String {
+    fun getCookies(url: String): String {
         val cookieManager = CookieManager.getInstance()
         return cookieManager.getCookie(url)
     }
