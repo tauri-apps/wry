@@ -865,6 +865,8 @@ impl InnerWebView {
         })
       });
 
+    gtk::main_iteration();
+
     rx.recv()?.map_err(Into::into)
   }
 
@@ -884,6 +886,8 @@ impl InnerWebView {
           }));
         })
       });
+
+    gtk::main_iteration();
 
     rx.recv()?.map_err(Into::into)
   }
