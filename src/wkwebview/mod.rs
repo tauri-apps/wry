@@ -70,7 +70,14 @@ use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
-  collections::{HashMap, HashSet}, ffi::{c_void, CString}, net::Ipv4Addr, os::raw::c_char, panic::AssertUnwindSafe, ptr::{null_mut, NonNull}, str::{self, FromStr}, sync::{Arc, Mutex}
+  collections::{HashMap, HashSet},
+  ffi::{c_void, CString},
+  net::Ipv4Addr,
+  os::raw::c_char,
+  panic::AssertUnwindSafe,
+  ptr::{null_mut, NonNull},
+  str::{self, FromStr},
+  sync::{Arc, Mutex},
 };
 
 #[cfg(feature = "mac-proxy")]
@@ -872,7 +879,7 @@ r#"Object.defineProperty(window, 'ipc', {
         cookie.domain() == url.domain()
           // path is the same
           && cookie.path() == Some(url.path())
-          /// and one of
+          // and one of
           && (
             // cookie is secure and url is https
             (cookie.secure() && url.scheme() == "https") ||
