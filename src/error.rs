@@ -1,3 +1,5 @@
+use core::error;
+
 /// Convenient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -65,4 +67,7 @@ pub enum Error {
   DuplicateCustomProtocol(String),
   #[error("Duplicate custom protocol registered on the same web context on Linux: {0}")]
   ContextDuplicateCustomProtocol(String),
+  #[error(transparent)]
+  #[cfg(any(target_os = "macos", target_os = "ios"))]
+  UrlPrase(#[from] url::ParseError),
 }

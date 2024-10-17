@@ -70,13 +70,7 @@ use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
-  collections::{HashMap, HashSet},
-  ffi::{c_void, CString},
-  os::raw::c_char,
-  panic::AssertUnwindSafe,
-  ptr::{null_mut, NonNull},
-  str,
-  sync::{Arc, Mutex},
+  collections::{HashMap, HashSet}, ffi::{c_void, CString}, net::Ipv4Addr, os::raw::c_char, panic::AssertUnwindSafe, ptr::{null_mut, NonNull}, str::{self, FromStr}, sync::{Arc, Mutex}
 };
 
 #[cfg(feature = "mac-proxy")]
@@ -870,7 +864,28 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
-    todo!()
+    let url = url::Url::parse(url)?;
+
+    self.cookies().map(|cookies| {
+      cookies.filter(|cookie: cookie::Cookie| {
+        // domain is the same
+        cookie.domain() == url.domain()
+          // path is the same
+          && cookie.path() == Some(url.path())
+          /// and one of
+          && (
+            // cookie is secure and url is https
+            (cookie.secure() && url.scheme() == "https") ||
+            // or cookie is secure and is localhost
+            (
+              cookie.secure() && url.scheme() == "http" && 
+              (url.domain() == Some("localhost") || url.domain().and_then(|d| Ipv4Addr::from_str(d).ok()).map(|ip| ip.is_loopback()).unwrap_or(false))
+            ) ||
+            // or cookie is not secure
+            (!cookie.secure())
+          )
+      })
+    })
   }
 
   pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {
@@ -883,12 +898,12 @@ r#"Object.defineProperty(window, 'ipc', {
         .getAllCookies(&block2::RcBlock::new(
           move |cookies: NonNull<NSArray<NSHTTPCookie>>| {
             let cookies = cookies.as_ref();
-
-            let mut out = Vec::with_capacity(cookies.len());
-            for cookie in cookies.to_vec() {
-              out.push(Self::cookie_from_wkwebview(cookie));
-            }
-            let _ = tx.send(out);
+            let cookies = cookies
+              .to_vec()
+              .into_iter()
+              .map(Self::cookie_from_wkwebview)
+              .collect();
+            let _ = tx.send(cookies);
           },
         ));
     };

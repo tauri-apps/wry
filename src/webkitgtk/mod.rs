@@ -856,12 +856,13 @@ impl InnerWebView {
       .and_then(|manager| manager.cookie_manager())
       .map(|cookies_manager| {
         cookies_manager.cookies(url, None::<&Cancellable>, move |cookies| {
-          let _ = tx.send(cookies.map(|cookies| {
+          let cookies = cookies.map(|cookies| {
             cookies
               .into_iter()
               .map(Self::cookie_from_soup_cookie)
               .collect()
-          }));
+          });
+          let _ = tx.send(cookies);
         })
       });
 
@@ -878,12 +879,13 @@ impl InnerWebView {
       .and_then(|manager| manager.cookie_manager())
       .map(|cookies_manager| {
         cookies_manager.all_cookies(None::<&Cancellable>, move |cookies| {
-          let _ = tx.send(cookies.map(|cookies| {
+          let cookies = cookies.map(|cookies| {
             cookies
               .into_iter()
               .map(Self::cookie_from_soup_cookie)
               .collect()
-          }));
+          });
+          let _ = tx.send(cookies);
         })
       });
 
