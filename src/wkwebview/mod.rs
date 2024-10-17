@@ -1001,9 +1001,9 @@ unsafe fn window_position(view: &NSView, x: i32, y: i32, height: f64) -> CGPoint
 }
 
 unsafe fn wait_for_blocking_operation<T>(rx: std::sync::mpsc::Receiver<T>) -> Result<T> {
-  let interval = 0.1;
-  let limit = 3.;
-  let mut slept_for = 0.;
+  let interval = 0.0002;
+  let limit = 1.;
+  let mut elapsed = 0.;
   // run event loop until we get the response back, blocking for at most 3 seconds
   loop {
     let rl = objc2_foundation::NSRunLoop::mainRunLoop();
@@ -1012,8 +1012,8 @@ unsafe fn wait_for_blocking_operation<T>(rx: std::sync::mpsc::Receiver<T>) -> Re
     if let Ok(response) = rx.try_recv() {
       return Ok(response);
     }
-    slept_for += interval;
-    if slept_for >= limit {
+    elapsed += interval;
+    if elapsed >= limit {
       return Err(Error::Io(std::io::Error::new(
         std::io::ErrorKind::TimedOut,
         "timed out waiting for cookies response",
