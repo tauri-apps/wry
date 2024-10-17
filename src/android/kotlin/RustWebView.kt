@@ -97,6 +97,11 @@ class RustWebView(context: Context, val initScripts: Array<String>, val id: Stri
         settings.userAgentString = ua
     }
 
+    fun getCookies(url: String): String {
+        val cookieManager = CookieManager.getInstance()
+        return cookieManager.getCookie(url)
+    }
+
     private external fun shouldOverride(url: String): Boolean
     private external fun onEval(id: Int, result: String)
 

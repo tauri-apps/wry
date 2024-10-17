@@ -59,7 +59,7 @@ fn main() -> wry::Result<()> {
       ..
     } = event
     {
-      *control_flow = ControlFlow::Exit
+      *control_flow = ControlFlow::Exit;
     }
   });
 }

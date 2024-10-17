@@ -42,9 +42,10 @@ use objc2_app_kit::{NSApplication, NSAutoresizingMaskOptions, NSTitlebarSeparato
 #[cfg(target_os = "macos")]
 use objc2_foundation::CGSize;
 use objc2_foundation::{
-  ns_string, CGPoint, CGRect, MainThreadMarker, NSBundle, NSDate, NSError, NSJSONSerialization,
-  NSMutableURLRequest, NSNumber, NSObjectNSKeyValueCoding, NSObjectProtocol, NSString,
-  NSUTF8StringEncoding, NSURL, NSUUID,
+  ns_string, CGPoint, CGRect, MainThreadMarker, NSArray, NSBundle, NSDate, NSError, NSHTTPCookie,
+  NSHTTPCookieSameSiteLax, NSHTTPCookieSameSiteStrict, NSJSONSerialization, NSMutableURLRequest,
+  NSNumber, NSObjectNSKeyValueCoding, NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL,
+  NSUUID,
 };
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::{UIScrollView, UIViewAutoresizing};
@@ -71,10 +72,11 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::{
   collections::{HashMap, HashSet},
   ffi::{c_void, CString},
+  net::Ipv4Addr,
   os::raw::c_char,
   panic::AssertUnwindSafe,
-  ptr::null_mut,
-  str,
+  ptr::{null_mut, NonNull},
+  str::{self, FromStr},
   sync::{Arc, Mutex},
 };
 
@@ -112,6 +114,7 @@ pub(crate) struct InnerWebView {
   id: String,
   pub webview: Retained<WryWebView>,
   pub manager: Retained<WKUserContentController>,
+  data_store: Retained<WKWebsiteDataStore>,
   ns_view: Retained<NSView>,
   #[allow(dead_code)]
   is_child: bool,
@@ -268,8 +271,7 @@ impl InnerWebView {
           }
         };
 
-        let proxies: Retained<objc2_foundation::NSArray<NSObject>> =
-          objc2_foundation::NSArray::arrayWithObject(&*proxy_config);
+        let proxies: Retained<NSArray<NSObject>> = NSArray::arrayWithObject(&*proxy_config);
         data_store.setValue_forKey(Some(&proxies), ns_string!("proxyConfigurations"));
       }
 
@@ -462,6 +464,7 @@ impl InnerWebView {
         webview: webview.clone(),
         manager: manager.clone(),
         ns_view: ns_view.retain(),
+        data_store,
         pending_scripts,
         ipc_handler_delegate,
         document_title_changed_observer,
@@ -825,6 +828,95 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
+  unsafe fn cookie_from_wkwebview(cookie: &NSHTTPCookie) -> cookie::Cookie<'static> {
+    let name = cookie.name().to_string();
+    let value = cookie.value().to_string();
+
+    let mut cookie_builder = cookie::CookieBuilder::new(name, value);
+
+    let domain = cookie.domain().to_string();
+    cookie_builder = cookie_builder.domain(domain);
+
+    let path = cookie.path().to_string();
+    cookie_builder = cookie_builder.path(path);
+
+    let http_only = cookie.isHTTPOnly();
+    cookie_builder = cookie_builder.http_only(http_only);
+
+    let secure = cookie.isSecure();
+    cookie_builder = cookie_builder.secure(secure);
+
+    let same_site = cookie.sameSitePolicy();
+    let same_site = match same_site {
+      Some(policy) if policy.as_ref() == NSHTTPCookieSameSiteLax => cookie::SameSite::Lax,
+      Some(policy) if policy.as_ref() == NSHTTPCookieSameSiteStrict => cookie::SameSite::Strict,
+      _ => cookie::SameSite::None,
+    };
+    cookie_builder = cookie_builder.same_site(same_site);
+
+    let expires = cookie.expiresDate();
+    let expires = match expires {
+      Some(datetime) => {
+        cookie::time::OffsetDateTime::from_unix_timestamp(datetime.timeIntervalSince1970() as i64)
+          .ok()
+          .map(cookie::Expiration::DateTime)
+      }
+      None => Some(cookie::Expiration::Session),
+    };
+    if let Some(expires) = expires {
+      cookie_builder = cookie_builder.expires(expires);
+    }
+
+    cookie_builder.build()
+  }
+
+  pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
+    let url = url::Url::parse(url)?;
+
+    self.cookies().map(|cookies| {
+      cookies.into_iter().filter(|cookie: &cookie::Cookie| {
+        let secure = cookie.secure().unwrap_or_default();
+        // domain is the same
+        cookie.domain() == url.domain()
+          // and one of
+          && (
+            // cookie is secure and url is https
+            (secure && url.scheme() == "https") ||
+            // or cookie is secure and is localhost
+            (
+              secure && url.scheme() == "http" && 
+              (url.domain() == Some("localhost") || url.domain().and_then(|d| Ipv4Addr::from_str(d).ok()).map(|ip| ip.is_loopback()).unwrap_or(false))
+            ) ||
+            // or cookie is not secure
+            (!secure)
+          )
+      }).collect()
+    })
+  }
+
+  pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    unsafe {
+      self
+        .data_store
+        .httpCookieStore()
+        .getAllCookies(&block2::RcBlock::new(
+          move |cookies: NonNull<NSArray<NSHTTPCookie>>| {
+            let cookies = cookies.as_ref();
+            let cookies = cookies
+              .to_vec()
+              .into_iter()
+              .map(|cookie| Self::cookie_from_wkwebview(cookie))
+              .collect();
+            let _ = tx.send(cookies);
+          },
+        ));
+
+      wait_for_blocking_operation(rx)
+    }
+  }
+
   #[cfg(target_os = "macos")]
   pub(crate) fn reparent(&self, window: *mut NSWindow) -> crate::Result<()> {
     unsafe {
@@ -904,4 +996,26 @@ impl Drop for InnerWebView {
 unsafe fn window_position(view: &NSView, x: i32, y: i32, height: f64) -> CGPoint {
   let frame: CGRect = view.frame();
   CGPoint::new(x as f64, frame.size.height - y as f64 - height)
+}
+
+unsafe fn wait_for_blocking_operation<T>(rx: std::sync::mpsc::Receiver<T>) -> Result<T> {
+  let interval = 0.0002;
+  let limit = 1.;
+  let mut elapsed = 0.;
+  // run event loop until we get the response back, blocking for at most 3 seconds
+  loop {
+    let rl = objc2_foundation::NSRunLoop::mainRunLoop();
+    let d = NSDate::dateWithTimeIntervalSinceNow(interval);
+    rl.runUntilDate(&d);
+    if let Ok(response) = rx.try_recv() {
+      return Ok(response);
+    }
+    elapsed += interval;
+    if elapsed >= limit {
+      return Err(Error::Io(std::io::Error::new(
+        std::io::ErrorKind::TimedOut,
+        "timed out waiting for cookies response",
+      )));
+    }
+  }
 }

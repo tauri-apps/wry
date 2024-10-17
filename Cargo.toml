@@ -53,6 +53,7 @@ thiserror = "1.0"
 http = "1.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
 dpi = "0.1"
+cookie = "0.18"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
 javascriptcore-rs = { version = "=1.1.2", features = [
@@ -93,6 +94,7 @@ features = [
 ]
 
 [target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
+url = "2.5"
 block2 = "0.5"
 objc2 = { version = "0.5", features = ["exception"] }
 objc2-web-kit = { version = "0.2.0", features = [
@@ -119,6 +121,7 @@ objc2-web-kit = { version = "0.2.0", features = [
   "WKWebpagePreferences",
   "WKNavigationResponse",
   "WKUserScript",
+  "WKHTTPCookieStore",
 ] }
 objc2-foundation = { version = "0.2.0", features = [
   "NSURLRequest",
@@ -137,6 +140,7 @@ objc2-foundation = { version = "0.2.0", features = [
   "NSProcessInfo",
   "NSValue",
   "NSRange",
+  "NSRunLoop",
 ] }
 
 [target."cfg(target_os = \"ios\")".dependencies]

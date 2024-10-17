@@ -375,6 +375,16 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
+    let (tx, rx) = bounded(1);
+    MainPipe::send(WebViewMessage::GetCookies(tx, url.to_string()));
+    rx.recv().map_err(Into::into)
+  }
+
+  pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {
+    Ok(Vec::new())
+  }
+
   pub fn bounds(&self) -> Result<crate::Rect> {
     Ok(crate::Rect::default())
   }

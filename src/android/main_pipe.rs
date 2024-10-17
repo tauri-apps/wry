@@ -10,7 +10,7 @@ use jni::{
   JNIEnv,
 };
 use once_cell::sync::Lazy;
-use std::{os::unix::prelude::*, sync::atomic::Ordering};
+use std::{os::unix::prelude::*, str::FromStr, sync::atomic::Ordering};
 
 use super::{find_class, EvalCallback, EVAL_CALLBACKS, EVAL_ID_GENERATOR, PACKAGE};
 
@@ -267,24 +267,6 @@ impl<'a> MainPipe<'a> {
             Err(e) => tx.send(Err(e.into())).unwrap(),
           }
         }
-        WebViewMessage::GetId(tx) => {
-          if let Some(webview) = &self.webview {
-            let url = self
-              .env
-              .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String;", &[])
-              .and_then(|v| v.l())
-              .and_then(|s| {
-                let s = JString::from(s);
-                self
-                  .env
-                  .get_string(&s)
-                  .map(|v| v.to_string_lossy().to_string())
-              })
-              .unwrap_or_default();
-
-            tx.send(url).unwrap()
-          }
-        }
         WebViewMessage::GetUrl(tx) => {
           if let Some(webview) = &self.webview {
             let url = self
@@ -327,6 +309,36 @@ impl<'a> MainPipe<'a> {
           if let Some(webview) = &self.webview {
             let html = self.env.new_string(html)?;
             load_html(&mut self.env, webview.as_obj(), &html)?;
+          }
+        }
+        WebViewMessage::GetCookies(tx, url) => {
+          if let Some(webview) = &self.webview {
+            let url = self.env.new_string(url)?;
+            let cookies = self
+              .env
+              .call_method(
+                webview,
+                "getCookies",
+                "(Ljava/lang/String;)Ljava/lang/String;",
+                &[(&url).into()],
+              )
+              .and_then(|v| v.l())
+              .and_then(|s| {
+                let s = JString::from(s);
+                self
+                  .env
+                  .get_string(&s)
+                  .map(|v| v.to_string_lossy().to_string())
+              })
+              .unwrap_or_default();
+
+            tx.send(
+              cookies
+                .split("; ")
+                .flat_map(|c| cookie::Cookie::parse(c.to_string()))
+                .collect(),
+            )
+            .unwrap();
           }
         }
       }
@@ -395,8 +407,8 @@ pub(crate) enum WebViewMessage {
   Eval(String, Option<EvalCallback>),
   SetBackgroundColor(RGBA),
   GetWebViewVersion(Sender<Result<String, Error>>),
-  GetId(Sender<String>),
   GetUrl(Sender<String>),
+  GetCookies(Sender<Vec<cookie::Cookie<'static>>>, String),
   Jni(Box<dyn FnOnce(&mut JNIEnv, &JObject, &JObject) + Send>),
   LoadUrl(String, Option<http::HeaderMap>),
   LoadHtml(String),
