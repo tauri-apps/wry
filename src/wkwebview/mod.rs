@@ -878,8 +878,6 @@ r#"Object.defineProperty(window, 'ipc', {
         let secure = cookie.secure().unwrap_or_default();
         // domain is the same
         cookie.domain() == url.domain()
-          // path is the same
-          && cookie.path() == Some(url.path())
           // and one of
           && (
             // cookie is secure and url is https
