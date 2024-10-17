@@ -1007,7 +1007,7 @@ unsafe fn wait_for_blocking_operation<T>(rx: std::sync::mpsc::Receiver<T>) -> Re
   // run event loop until we get the response back, blocking for at most 3 seconds
   loop {
     let rl = objc2_foundation::NSRunLoop::mainRunLoop();
-    let d = NSDate::dateWithTimeIntervalSinceNow(0.1);
+    let d = NSDate::dateWithTimeIntervalSinceNow(interval);
     rl.runUntilDate(&d);
     if let Ok(response) = rx.try_recv() {
       return Ok(response);
