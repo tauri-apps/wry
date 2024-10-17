@@ -140,6 +140,7 @@ objc2-foundation = { version = "0.2.0", features = [
   "NSProcessInfo",
   "NSValue",
   "NSRange",
+  "NSRunLoop",
 ] }
 
 [target."cfg(target_os = \"ios\")".dependencies]

@@ -1,5 +1,3 @@
-use core::error;
-
 /// Convenient type alias of Result type for wry.
 pub type Result<T> = std::result::Result<T, Error>;
 

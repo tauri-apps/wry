@@ -874,7 +874,8 @@ r#"Object.defineProperty(window, 'ipc', {
     let url = url::Url::parse(url)?;
 
     self.cookies().map(|cookies| {
-      cookies.filter(|cookie: cookie::Cookie| {
+      cookies.into_iter().filter(|cookie: &cookie::Cookie| {
+        let secure = cookie.secure().unwrap_or_default();
         // domain is the same
         cookie.domain() == url.domain()
           // path is the same
@@ -882,16 +883,16 @@ r#"Object.defineProperty(window, 'ipc', {
           // and one of
           && (
             // cookie is secure and url is https
-            (cookie.secure() && url.scheme() == "https") ||
+            (secure && url.scheme() == "https") ||
             // or cookie is secure and is localhost
             (
-              cookie.secure() && url.scheme() == "http" && 
+              secure && url.scheme() == "http" && 
               (url.domain() == Some("localhost") || url.domain().and_then(|d| Ipv4Addr::from_str(d).ok()).map(|ip| ip.is_loopback()).unwrap_or(false))
             ) ||
             // or cookie is not secure
-            (!cookie.secure())
+            (!secure)
           )
-      })
+      }).collect()
     })
   }
 
@@ -908,14 +909,14 @@ r#"Object.defineProperty(window, 'ipc', {
             let cookies = cookies
               .to_vec()
               .into_iter()
-              .map(Self::cookie_from_wkwebview)
+              .map(|cookie| Self::cookie_from_wkwebview(cookie))
               .collect();
             let _ = tx.send(cookies);
           },
         ));
-    };
 
-    rx.recv().map_err(Into::into)
+      wait_for_blocking_operation(rx)
+    }
   }
 
   #[cfg(target_os = "macos")]
@@ -997,4 +998,26 @@ impl Drop for InnerWebView {
 unsafe fn window_position(view: &NSView, x: i32, y: i32, height: f64) -> CGPoint {
   let frame: CGRect = view.frame();
   CGPoint::new(x as f64, frame.size.height - y as f64 - height)
+}
+
+unsafe fn wait_for_blocking_operation<T>(rx: std::sync::mpsc::Receiver<T>) -> Result<T> {
+  let interval = 0.1;
+  let limit = 3.;
+  let mut slept_for = 0.;
+  // run event loop until we get the response back, blocking for at most 3 seconds
+  loop {
+    let rl = objc2_foundation::NSRunLoop::mainRunLoop();
+    let d = NSDate::dateWithTimeIntervalSinceNow(0.1);
+    rl.runUntilDate(&d);
+    if let Ok(response) = rx.try_recv() {
+      return Ok(response);
+    }
+    slept_for += interval;
+    if slept_for >= limit {
+      return Err(Error::Io(std::io::Error::new(
+        std::io::ErrorKind::TimedOut,
+        "timed out waiting for cookies response",
+      )));
+    }
+  }
 }
