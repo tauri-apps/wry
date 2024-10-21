@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.46.3]
+
+- [`be122f6`](https://github.com/tauri-apps/wry/commit/be122f667f9f5516b4bc25f9e8c61cb99dbe1440) ([#1397](https://github.com/tauri-apps/wry/pull/1397) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fix `with_user_agent` regression.
+
 ## \[0.46.2]
 
 - [`1189e2a`](https://github.com/tauri-apps/wry/commit/1189e2a2d5ee18ad83281eea92b05a93f9184ebf) ([#1392](https://github.com/tauri-apps/wry/pull/1392) by [@chrox](https://github.com/tauri-apps/wry/../../chrox)) Fix malformed headers in custom protocol response on macOS.
