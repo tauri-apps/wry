@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.46.4]
+
+- [`c1b26b9`](https://github.com/tauri-apps/wry/commit/c1b26b9612bf5c5a9e4e0185f73739a2444343cd) ([#1394](https://github.com/tauri-apps/wry/pull/1394) by [@amrbashir](https://github.com/tauri-apps/wry/../../amrbashir)) Add `WebView::cookies` and `WebView::cookies_for_url` APIs.
+
 ## \[0.46.3]
 
 - [`be122f6`](https://github.com/tauri-apps/wry/commit/be122f667f9f5516b4bc25f9e8c61cb99dbe1440) ([#1397](https://github.com/tauri-apps/wry/pull/1397) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fix `with_user_agent` regression.
