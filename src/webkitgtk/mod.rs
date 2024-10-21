@@ -866,9 +866,13 @@ impl InnerWebView {
         })
       });
 
-    gtk::main_iteration();
+    loop {
+      gtk::main_iteration();
 
-    rx.recv()?.map_err(Into::into)
+      if let Ok(response) = rx.try_recv() {
+        return response.map_err(Into::into);
+      }
+    }
   }
 
   pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {
@@ -889,9 +893,13 @@ impl InnerWebView {
         })
       });
 
-    gtk::main_iteration();
+    loop {
+      gtk::main_iteration();
 
-    rx.recv()?.map_err(Into::into)
+      if let Ok(response) = rx.try_recv() {
+        return response.map_err(Into::into);
+      }
+    }
   }
 
   pub fn reparent<W>(&self, container: &W) -> Result<()>
