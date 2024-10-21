@@ -248,6 +248,7 @@ use std::{borrow::Cow, collections::HashMap, path::PathBuf, rc::Rc};
 
 use http::{Request, Response};
 
+pub use cookie;
 pub use dpi;
 pub use error::*;
 pub use http;
@@ -1515,6 +1516,20 @@ impl WebView {
   /// Launch print modal for the webview content.
   pub fn print(&self) -> Result<()> {
     self.webview.print()
+  }
+
+  /// Get a list of cookies for specific url.
+  pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
+    self.webview.cookies_for_url(url)
+  }
+
+  /// Get the list of cookies.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Android**: Unsupported, always returns an empty [`Vec`].
+  pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {
+    self.webview.cookies()
   }
 
   /// Open the web inspector which is usually called dev tool.

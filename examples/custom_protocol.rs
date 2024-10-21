@@ -19,46 +19,6 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
   let builder = WebViewBuilder::new()
-    .with_id("id2")
-    .with_custom_protocol(
-      "wry".into(),
-      move |_webview_id, request| match get_wry_response(request) {
-        Ok(r) => r.map(Into::into),
-        Err(e) => http::Response::builder()
-          .header(CONTENT_TYPE, "text/plain")
-          .status(500)
-          .body(e.to_string().as_bytes().to_vec())
-          .unwrap()
-          .map(Into::into),
-      },
-    )
-    // tell the webview to load the custom protocol
-    .with_url("wry://localhost");
-
-  #[cfg(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "android"
-  ))]
-  let _webview = builder.build(&window)?;
-  #[cfg(not(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "android"
-  )))]
-  let _webview = {
-    use tao::platform::unix::WindowExtUnix;
-    use wry::WebViewBuilderExtUnix;
-    let vbox = window.default_vbox().unwrap();
-    builder.build_gtk(vbox)?
-  };
-
-  let window = WindowBuilder::new().build(&event_loop).unwrap();
-
-  let builder = WebViewBuilder::new()
-    .with_id("id1")
     .with_custom_protocol(
       "wry".into(),
       move |_webview_id, request| match get_wry_response(request) {

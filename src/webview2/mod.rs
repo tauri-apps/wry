@@ -293,42 +293,42 @@ impl InnerWebView {
     });
 
     let (tx, rx) = mpsc::channel();
-    CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
-      Box::new(move |environmentcreatedhandler| unsafe {
-        let options = CoreWebView2EnvironmentOptions::default();
+    let options = CoreWebView2EnvironmentOptions::default();
+    unsafe {
+      options.set_additional_browser_arguments(additional_browser_args);
+      options.set_are_browser_extensions_enabled(pl_attrs.browser_extensions_enabled);
 
-        options.set_additional_browser_arguments(additional_browser_args);
-        options.set_are_browser_extensions_enabled(pl_attrs.browser_extensions_enabled);
+      // Get user's system language
+      let lcid = GetUserDefaultUILanguage();
+      let mut lang = [0; MAX_LOCALE_NAME as usize];
+      LCIDToLocaleName(lcid as u32, Some(&mut lang), LOCALE_ALLOW_NEUTRAL_NAMES);
+      options.set_language(String::from_utf16_lossy(&lang));
 
-        // Get user's system language
-        let lcid = GetUserDefaultUILanguage();
-        let mut lang = [0; MAX_LOCALE_NAME as usize];
-        LCIDToLocaleName(lcid as u32, Some(&mut lang), LOCALE_ALLOW_NEUTRAL_NAMES);
-        options.set_language(String::from_utf16_lossy(&lang));
+      let scroll_bar_style = match pl_attrs.scroll_bar_style {
+        ScrollBarStyle::Default => COREWEBVIEW2_SCROLLBAR_STYLE_DEFAULT,
+        ScrollBarStyle::FluentOverlay => COREWEBVIEW2_SCROLLBAR_STYLE_FLUENT_OVERLAY,
+      };
 
-        let scroll_bar_style = match pl_attrs.scroll_bar_style {
-          ScrollBarStyle::Default => COREWEBVIEW2_SCROLLBAR_STYLE_DEFAULT,
-          ScrollBarStyle::FluentOverlay => COREWEBVIEW2_SCROLLBAR_STYLE_FLUENT_OVERLAY,
-        };
+      options.set_scroll_bar_style(scroll_bar_style);
 
-        options.set_scroll_bar_style(scroll_bar_style);
+      CreateCoreWebView2EnvironmentWithOptions(
+        PCWSTR::null(),
+        &data_directory.unwrap_or_default(),
+        &ICoreWebView2EnvironmentOptions::from(options),
+        // we don't use CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async
+        // as it uses an mspc::channel under the hood, so we can avoid using two channels
+        // by manually creating the callback handler and use webview2_com::with_with_bump
+        &CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
+          move |error_code, environment| {
+            error_code?;
+            tx.send(environment.ok_or_else(|| windows::core::Error::from(E_POINTER)))
+              .map_err(|_| windows::core::Error::from(E_UNEXPECTED))
+          },
+        )),
+      )?;
+    }
 
-        CreateCoreWebView2EnvironmentWithOptions(
-          PCWSTR::null(),
-          &data_directory.unwrap_or_default(),
-          &ICoreWebView2EnvironmentOptions::from(options),
-          &environmentcreatedhandler,
-        )
-        .map_err(Into::into)
-      }),
-      Box::new(move |error_code, environment| {
-        error_code?;
-        tx.send(environment.ok_or_else(|| windows::core::Error::from(E_POINTER)))
-          .map_err(|_| windows::core::Error::from(E_UNEXPECTED))
-      }),
-    )?;
-
-    rx.recv()?.map_err(Into::into)
+    webview2_com::wait_with_pump(rx)?.map_err(Into::into)
   }
 
   #[inline]
@@ -341,34 +341,28 @@ impl InnerWebView {
     let env = env.clone();
     let env10 = env.cast::<ICoreWebView2Environment10>();
 
-    CreateCoreWebView2ControllerCompletedHandler::wait_for_async_operation(
-      if let Ok(env10) = env10 {
-        let controller_opts = unsafe { env10.CreateCoreWebView2ControllerOptions()? };
-        unsafe { controller_opts.SetIsInPrivateModeEnabled(incognito)? }
-        Box::new(
-          move |handler: ICoreWebView2CreateCoreWebView2ControllerCompletedHandler| unsafe {
-            env10
-              .CreateCoreWebView2ControllerWithOptions(hwnd, &controller_opts, &handler)
-              .map_err(Into::into)
-          },
-        )
-      } else {
-        Box::new(
-          move |handler: ICoreWebView2CreateCoreWebView2ControllerCompletedHandler| unsafe {
-            env
-              .CreateCoreWebView2Controller(hwnd, &handler)
-              .map_err(Into::into)
-          },
-        )
-      },
-      Box::new(move |error_code, controller| {
+    // we don't use CreateCoreWebView2ControllerCompletedHandler::wait_for_async
+    // as it uses an mspc::channel under the hood, so we can avoid using two channels
+    // by manually creating the callback handler and use webview2_com::with_with_bump
+    let handler = CreateCoreWebView2ControllerCompletedHandler::create(Box::new(
+      move |error_code, controller| {
         error_code?;
         tx.send(controller.ok_or_else(|| windows::core::Error::from(E_POINTER)))
           .map_err(|_| windows::core::Error::from(E_UNEXPECTED))
-      }),
-    )?;
+      },
+    ));
 
-    rx.recv()?.map_err(Into::into)
+    unsafe {
+      if let Ok(env10) = env10 {
+        let controller_opts = env10.CreateCoreWebView2ControllerOptions()?;
+        controller_opts.SetIsInPrivateModeEnabled(incognito)?;
+        env10.CreateCoreWebView2ControllerWithOptions(hwnd, &controller_opts, &handler)?;
+      } else {
+        env.CreateCoreWebView2Controller(hwnd, &handler)?
+      }
+    }
+
+    webview2_com::wait_with_pump(rx)?.map_err(Into::into)
   }
 
   #[inline]
@@ -1324,6 +1318,112 @@ impl InnerWebView {
     }
 
     Ok(())
+  }
+
+  unsafe fn cookie_from_win32(cookie: ICoreWebView2Cookie) -> Result<cookie::Cookie<'static>> {
+    let mut name = PWSTR::null();
+    cookie.Name(&mut name)?;
+    let name = take_pwstr(name);
+
+    let mut value = PWSTR::null();
+    cookie.Value(&mut value)?;
+    let value = take_pwstr(value);
+
+    let mut cookie_builder = cookie::CookieBuilder::new(name, value);
+
+    let mut domain = PWSTR::null();
+    cookie.Domain(&mut domain)?;
+    cookie_builder = cookie_builder.domain(take_pwstr(domain));
+
+    let mut path = PWSTR::null();
+    cookie.Path(&mut path)?;
+    cookie_builder = cookie_builder.path(take_pwstr(path));
+
+    let mut http_only: BOOL = false.into();
+    cookie.IsHttpOnly(&mut http_only)?;
+    cookie_builder = cookie_builder.http_only(http_only.as_bool());
+
+    let mut secure: BOOL = false.into();
+    cookie.IsSecure(&mut secure)?;
+    cookie_builder = cookie_builder.secure(secure.as_bool());
+
+    let mut same_site = COREWEBVIEW2_COOKIE_SAME_SITE_KIND_LAX;
+    cookie.SameSite(&mut same_site)?;
+    let same_site = match same_site {
+      COREWEBVIEW2_COOKIE_SAME_SITE_KIND_LAX => cookie::SameSite::Lax,
+      COREWEBVIEW2_COOKIE_SAME_SITE_KIND_STRICT => cookie::SameSite::Strict,
+      COREWEBVIEW2_COOKIE_SAME_SITE_KIND_NONE => cookie::SameSite::None,
+      _ => cookie::SameSite::None,
+    };
+    cookie_builder = cookie_builder.same_site(same_site);
+
+    let mut is_session: BOOL = false.into();
+    cookie.IsSession(&mut is_session)?;
+
+    let mut expires = 0.0;
+    cookie.Expires(&mut expires)?;
+
+    let expires = match expires {
+      -1.0 | _ if is_session.as_bool() => Some(cookie::Expiration::Session),
+      datetime => cookie::time::OffsetDateTime::from_unix_timestamp(datetime as _)
+        .ok()
+        .map(cookie::Expiration::DateTime),
+    };
+    if let Some(expires) = expires {
+      cookie_builder = cookie_builder.expires(expires);
+    }
+
+    Ok(cookie_builder.build())
+  }
+
+  pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
+    let uri = HSTRING::from(url);
+    self.cookies_inner(PCWSTR::from_raw(uri.as_ptr()))
+  }
+
+  pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {
+    self.cookies_inner(PCWSTR::null())
+  }
+
+  fn cookies_inner(&self, uri: PCWSTR) -> Result<Vec<cookie::Cookie<'static>>> {
+    let (tx, rx) = mpsc::channel();
+
+    let webview = self.webview.cast::<ICoreWebView2_2>()?;
+    unsafe {
+      webview.CookieManager()?.GetCookies(
+        uri,
+        // we don't use GetCookiesCompletedHandler::wait_for_async
+        // as it uses an mspc::channel under the hood, so we can avoid using two channels
+        // by manually creating the callback handler and use webview2_com::with_with_bump
+        &GetCookiesCompletedHandler::create(Box::new(move |error_code, cookies| {
+          error_code?;
+
+          let cookies = if let Some(cookies) = cookies {
+            let mut count = 0;
+            cookies.Count(&mut count)?;
+
+            let mut out = Vec::with_capacity(count as _);
+
+            for idx in 0..count {
+              let cookie = cookies.GetValueAtIndex(idx)?;
+
+              if let Ok(cookie) = Self::cookie_from_win32(cookie) {
+                out.push(cookie)
+              }
+            }
+
+            out
+          } else {
+            Vec::new()
+          };
+
+          tx.send(cookies)
+            .map_err(|_| windows::core::Error::from(E_UNEXPECTED))
+        })),
+      )?;
+    }
+
+    webview2_com::wait_with_pump(rx).map_err(Into::into)
   }
 
   pub fn reparent(&self, parent: isize) -> Result<()> {
