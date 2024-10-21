@@ -908,7 +908,7 @@ impl<'a> WebViewBuilder<'a> {
   /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10790-prerelease
   pub fn with_user_agent(self, user_agent: impl Into<String>) -> Self {
     self.and_then(|mut b| {
-      b.attrs.html = Some(user_agent.into());
+      b.attrs.user_agent = Some(user_agent.into());
       Ok(b)
     })
   }
