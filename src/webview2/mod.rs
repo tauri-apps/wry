@@ -1049,8 +1049,36 @@ impl InnerWebView {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
           let mut rect = RECT::default();
           let _ = GetClientRect(hwnd, &mut rect);
-          let width = rect.right - rect.left;
-          let height = rect.bottom - rect.top;
+          let mut width = rect.right - rect.left;
+          let mut height = rect.bottom - rect.top;
+
+          // adjust for borders
+          let mut pt: POINT = unsafe { std::mem::zeroed() };
+          if unsafe { ClientToScreen(hwnd, &mut pt) }.as_bool() == true {
+            let mut window_rc: RECT = unsafe { std::mem::zeroed() };
+            if unsafe { GetWindowRect(hwnd, &mut window_rc) }.is_ok() {
+              let top_b = pt.y - window_rc.top;
+
+              // this is a hack to check if the window is undecorated
+              // specifically for winit and tao
+              // or any window that uses `WM_NCCALCSIZE` to create undecorated windows
+              //
+              // tao and winit, set the top border to 0 for undecorated
+              // or 1 for undecorated but has shadows
+              //
+              // normal windows should have a top border of around 32 px
+              //
+              // TODO: find a better way to check if a window is decorated or not
+              if top_b <= 1 {
+                let left_b = pt.x - window_rc.left;
+                let right_b = pt.x + width - window_rc.right;
+                let bottom_b = pt.y + height - window_rc.bottom;
+
+                width = width - left_b - right_b;
+                height = height - top_b - bottom_b;
+              }
+            }
+          }
 
           let _ = (*controller).SetBounds(RECT {
             left: 0,
@@ -1277,9 +1305,38 @@ impl InnerWebView {
 
   fn resize_to_parent(&self) -> crate::Result<()> {
     let mut rect = RECT::default();
-    unsafe { GetClientRect(*self.parent.borrow(), &mut rect)? };
-    let width = rect.right - rect.left;
-    let height = rect.bottom - rect.top;
+    let parent = *self.parent.borrow();
+    unsafe { GetClientRect(parent, &mut rect)? };
+    let mut width = rect.right - rect.left;
+    let mut height = rect.bottom - rect.top;
+
+    // adjust for borders
+    let mut pt: POINT = unsafe { std::mem::zeroed() };
+    if unsafe { ClientToScreen(parent, &mut pt) }.as_bool() == true {
+      let mut window_rc: RECT = unsafe { std::mem::zeroed() };
+      if unsafe { GetWindowRect(parent, &mut window_rc) }.is_ok() {
+        let top_b = pt.y - window_rc.top;
+
+        // this is a hack to check if the window is undecorated
+        // specifically for winit and tao
+        // or any window that uses `WM_NCCALCSIZE` to create undecorated windows
+        //
+        // tao and winit, set the top border to 0 for undecorated
+        // or 1 for undecorated but has shadows
+        //
+        // normal windows should have a top border of around 32 px
+        //
+        // TODO: find a better way to check if a window is decorated or not
+        if top_b <= 1 {
+          let left_b = pt.x - window_rc.left;
+          let right_b = pt.x + width - window_rc.right;
+          let bottom_b = pt.y + height - window_rc.bottom;
+
+          width = width - left_b - right_b;
+          height = height - top_b - bottom_b;
+        }
+      }
+    }
 
     self.set_bounds_inner((width, height).into(), (0, 0).into())
   }
