@@ -482,8 +482,8 @@ r#"Object.defineProperty(window, 'ipc', {
 });"#,
       true
       );
-      for (js, inject_into_sub_frames) in attributes.initialization_scripts {
-        w.init(&js, inject_into_sub_frames);
+      for (js, for_main_only) in attributes.initialization_scripts {
+        w.init(&js, for_main_only);
       }
 
       // Set user agent
@@ -603,7 +603,7 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
-  fn init(&self, js: &str, inject_into_subframes: bool) {
+  fn init(&self, js: &str, for_main_only: bool) {
     // Safety: objc runtime calls are unsafe
     unsafe {
       let userscript = WKUserScript::alloc();
@@ -611,7 +611,7 @@ r#"Object.defineProperty(window, 'ipc', {
         userscript,
         &NSString::from_str(js),
         WKUserScriptInjectionTime::AtDocumentStart,
-        inject_into_subframes,
+        for_main_only,
       );
       self.manager.addUserScript(&script);
     }

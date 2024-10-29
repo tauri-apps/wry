@@ -441,8 +441,8 @@ impl InnerWebView {
     }
 
     // Initialize main frame scripts
-    for js in attributes.initialization_scripts {
-      Self::add_script_to_execute_on_document_created(&webview, js)?;
+    for (js, for_main_only) in attributes.initialization_scripts {
+      Self::add_script_to_execute_on_document_created(&webview, js, for_main_only)?;
     }
 
     // Enable clipboard
@@ -765,6 +765,7 @@ impl InnerWebView {
       String::from(
         r#"Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: s=> window.chrome.webview.postMessage(s) }) });"#,
       ),
+      true,
     )?;
 
     let ipc_handler = attributes.ipc_handler.take();
@@ -1149,7 +1150,11 @@ impl InnerWebView {
   }
 
   #[inline]
-  fn add_script_to_execute_on_document_created(webview: &ICoreWebView2, js: String) -> Result<()> {
+  fn add_script_to_execute_on_document_created(
+    webview: &ICoreWebView2,
+    js: String,
+    _for_main_only: bool,
+  ) -> Result<()> {
     let webview = webview.clone();
     AddScriptToExecuteOnDocumentCreatedCompletedHandler::wait_for_async_operation(
       Box::new(move |handler| unsafe {
