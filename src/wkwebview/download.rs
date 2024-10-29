@@ -1,123 +1,106 @@
-use std::{path::PathBuf, ptr::null_mut, rc::Rc};
+use std::{path::PathBuf, ptr::null_mut};
 
-use cocoa::base::id;
-use objc::{
-  declare::ClassDecl,
-  runtime::{Object, Sel},
+use objc2::{rc::Retained, runtime::ProtocolObject, DeclaredClass};
+use objc2_foundation::{NSData, NSError, NSString, NSURLResponse, NSURL};
+use objc2_web_kit::{WKDownload, WKNavigationAction, WKNavigationResponse};
+
+#[cfg(target_os = "ios")]
+use crate::wkwebview::ios::WKWebView::WKWebView;
+#[cfg(target_os = "macos")]
+use objc2_web_kit::WKWebView;
+
+use super::class::{
+  wry_download_delegate::WryDownloadDelegate, wry_navigation_delegate::WryNavigationDelegate,
 };
-use std::ffi::c_void;
-
-use super::NSString;
-
-pub(crate) unsafe fn set_download_delegate(webview: *mut Object, download_delegate: *mut Object) {
-  (*webview).set_ivar(
-    "DownloadDelegate",
-    download_delegate as *mut _ as *mut c_void,
-  );
-}
-
-unsafe fn get_download_delegate(this: &mut Object) -> *mut objc::runtime::Object {
-  let delegate: *mut c_void = *this.get_ivar("DownloadDelegate");
-  delegate as *mut Object
-}
 
 // Download action handler
-extern "C" fn navigation_download_action(this: &mut Object, _: Sel, _: id, _: id, download: id) {
+pub(crate) fn navigation_download_action(
+  this: &WryNavigationDelegate,
+  _webview: &WKWebView,
+  _action: &WKNavigationAction,
+  download: &WKDownload,
+) {
   unsafe {
-    let delegate = get_download_delegate(this);
-    let _: () = msg_send![download, setDelegate: delegate];
+    if let Some(delegate) = &this.ivars().download_delegate {
+      let proto_delegate = ProtocolObject::from_ref(delegate.as_ref());
+      download.setDelegate(Some(proto_delegate));
+    }
   }
 }
 
 // Download response handler
-extern "C" fn navigation_download_response(this: &mut Object, _: Sel, _: id, _: id, download: id) {
+pub(crate) fn navigation_download_response(
+  this: &WryNavigationDelegate,
+  _webview: &WKWebView,
+  _response: &WKNavigationResponse,
+  download: &WKDownload,
+) {
   unsafe {
-    let delegate = get_download_delegate(this);
-    let _: () = msg_send![download, setDelegate: delegate];
+    if let Some(delegate) = &this.ivars().download_delegate {
+      let proto_delegate = ProtocolObject::from_ref(delegate.as_ref());
+      download.setDelegate(Some(proto_delegate));
+    }
   }
 }
 
-pub(crate) unsafe fn add_download_methods(decl: &mut ClassDecl) {
-  decl.add_ivar::<*mut c_void>("DownloadDelegate");
-
-  decl.add_method(
-    sel!(webView:navigationAction:didBecomeDownload:),
-    navigation_download_action as extern "C" fn(&mut Object, Sel, id, id, id),
-  );
-
-  decl.add_method(
-    sel!(webView:navigationResponse:didBecomeDownload:),
-    navigation_download_response as extern "C" fn(&mut Object, Sel, id, id, id),
-  );
-}
-
-pub extern "C" fn download_policy(
-  this: &Object,
-  _: Sel,
-  download: id,
-  _: id,
-  suggested_path: id,
-  handler: id,
+pub(crate) fn download_policy(
+  this: &WryDownloadDelegate,
+  download: &WKDownload,
+  _response: &NSURLResponse,
+  suggested_path: &NSString,
+  completion_handler: &block2::Block<dyn Fn(*const NSURL)>,
 ) {
   unsafe {
-    let request: id = msg_send![download, originalRequest];
-    let url: id = msg_send![request, URL];
-    let url: id = msg_send![url, absoluteString];
-    let url = NSString(url);
-    let path = NSString(suggested_path);
-    let mut path = PathBuf::from(path.to_str());
-    let handler = handler as *mut block::Block<(id,), c_void>;
+    let request = download.originalRequest().unwrap();
+    let url = request.URL().unwrap().absoluteString().unwrap();
+    let mut path = PathBuf::from(suggested_path.to_string());
 
-    let function = this.get_ivar::<*mut c_void>("started");
-    if !function.is_null() {
-      let function = &mut *(*function as *mut Box<dyn for<'s> FnMut(String, &mut PathBuf) -> bool>);
-      match (function)(url.to_str().to_string(), &mut path) {
+    let started_fn = &this.ivars().started;
+    if let Some(started_fn) = started_fn {
+      let mut started_fn = started_fn.borrow_mut();
+      match started_fn(url.to_string().to_string(), &mut path) {
         true => {
-          let nsurl: id = msg_send![class!(NSURL), fileURLWithPath: NSString::new(&path.display().to_string()) isDirectory: false];
-          (*handler).call((nsurl,))
+          let path = NSString::from_str(&path.display().to_string());
+          let ns_url = NSURL::fileURLWithPath_isDirectory(&path, false);
+          (*completion_handler).call((Retained::as_ptr(&ns_url),))
         }
-        false => (*handler).call((null_mut(),)),
+        false => (*completion_handler).call((null_mut(),)),
       };
     } else {
       #[cfg(feature = "tracing")]
       tracing::warn!("WebView instance is dropped! This navigation handler shouldn't be called.");
-      (*handler).call((null_mut(),));
+      (*completion_handler).call((null_mut(),));
     }
   }
 }
 
-pub extern "C" fn download_did_finish(this: &Object, _: Sel, download: id) {
+pub(crate) fn download_did_finish(this: &WryDownloadDelegate, download: &WKDownload) {
   unsafe {
-    let function = this.get_ivar::<*mut c_void>("completed");
-    let original_request: id = msg_send![download, originalRequest];
-    let url: id = msg_send![original_request, URL];
-    let url: id = msg_send![url, absoluteString];
-    let url = NSString(url).to_str().to_string();
-    if !function.is_null() {
-      let function = &mut *(*function as *mut Rc<dyn for<'s> Fn(String, Option<PathBuf>, bool)>);
-      function(url, None, true);
+    let original_request = download.originalRequest().unwrap();
+    let url = original_request.URL().unwrap().absoluteString().unwrap();
+    if let Some(completed_fn) = this.ivars().completed.clone() {
+      completed_fn(url.to_string(), None, true);
     }
   }
 }
 
-pub extern "C" fn download_did_fail(this: &Object, _: Sel, download: id, _error: id, _: id) {
+pub(crate) fn download_did_fail(
+  this: &WryDownloadDelegate,
+  download: &WKDownload,
+  error: &NSError,
+  _resume_data: &NSData,
+) {
   unsafe {
     #[cfg(debug_assertions)]
     {
-      let description: id = msg_send![_error, localizedDescription];
-      let description = NSString(description).to_str().to_string();
+      let description = error.localizedDescription().to_string();
       eprintln!("Download failed with error: {}", description);
     }
 
-    let original_request: id = msg_send![download, originalRequest];
-    let url: id = msg_send![original_request, URL];
-    let url: id = msg_send![url, absoluteString];
-    let url = NSString(url).to_str().to_string();
-
-    let function = this.get_ivar::<*mut c_void>("completed");
-    if !function.is_null() {
-      let function = &mut *(*function as *mut Rc<dyn for<'s> Fn(String, Option<PathBuf>, bool)>);
-      function(url, None, false);
+    let original_request = download.originalRequest().unwrap();
+    let url = original_request.URL().unwrap().absoluteString().unwrap();
+    if let Some(completed_fn) = this.ivars().completed.clone() {
+      completed_fn(url.to_string(), None, false);
     }
   }
 }

@@ -14,7 +14,7 @@ import androidx.webkit.WebViewFeature
 import kotlin.collections.Map
 
 @SuppressLint("RestrictedApi")
-class RustWebView(context: Context, val initScripts: Array<String>): WebView(context) {
+class RustWebView(context: Context, val initScripts: Array<String>, val id: String): WebView(context) {
     val isDocumentStartScriptEnabled: Boolean
   
     init {
@@ -95,6 +95,11 @@ class RustWebView(context: Context, val initScripts: Array<String>): WebView(con
     fun setUserAgent(ua: String) {
         val settings = super.getSettings()
         settings.userAgentString = ua
+    }
+
+    fun getCookies(url: String): String {
+        val cookieManager = CookieManager.getInstance()
+        return cookieManager.getCookie(url)
     }
 
     private external fun shouldOverride(url: String): Boolean

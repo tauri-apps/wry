@@ -2,25 +2,25 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-License-Identifier: MIT
 
--keep class {{package}}.* {
+-keep class {{package-unescaped}}.* {
   native <methods>;
 }
 
--keep class {{package}}.WryActivity {
+-keep class {{package-unescaped}}.WryActivity {
   public <init>(...);
 
-  void setWebView({{package}}.RustWebView);
+  void setWebView({{package-unescaped}}.RustWebView);
   java.lang.Class getAppClass(...);
   java.lang.String getVersion();
 }
 
--keep class {{package}}.Ipc {
+-keep class {{package-unescaped}}.Ipc {
   public <init>(...);
 
   @android.webkit.JavascriptInterface public <methods>;
 }
 
--keep class {{package}}.RustWebView {
+-keep class {{package-unescaped}}.RustWebView {
   public <init>(...);
 
   void loadUrlMainThread(...);
@@ -30,6 +30,6 @@
   void evalScript(...);
 }
 
--keep class {{package}}.RustWebChromeClient,{{package}}.RustWebViewClient {
+-keep class {{package-unescaped}}.RustWebChromeClient,{{package-unescaped}}.RustWebViewClient {
   public <init>(...);
 }

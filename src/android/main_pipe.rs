@@ -10,7 +10,7 @@ use jni::{
   JNIEnv,
 };
 use once_cell::sync::Lazy;
-use std::{os::unix::prelude::*, sync::atomic::Ordering};
+use std::{os::unix::prelude::*, str::FromStr, sync::atomic::Ordering};
 
 use super::{find_class, EvalCallback, EVAL_CALLBACKS, EVAL_ID_GENERATOR, PACKAGE};
 
@@ -59,6 +59,7 @@ impl<'a> MainPipe<'a> {
             autoplay,
             user_agent,
             initialization_scripts,
+            id,
             ..
           } = attrs;
 
@@ -76,6 +77,8 @@ impl<'a> MainPipe<'a> {
             )?;
           }
 
+          let id = self.env.new_string(id)?;
+
           // Create webview
           let rust_webview_class = find_class(
             &mut self.env,
@@ -84,8 +87,12 @@ impl<'a> MainPipe<'a> {
           )?;
           let webview = self.env.new_object(
             &rust_webview_class,
-            "(Landroid/content/Context;[Ljava/lang/String;)V",
-            &[activity.into(), (&initialization_scripts_array).into()],
+            "(Landroid/content/Context;[Ljava/lang/String;Ljava/lang/String;)V",
+            &[
+              activity.into(),
+              (&initialization_scripts_array).into(),
+              (&id).into(),
+            ],
           )?;
 
           // set media autoplay
@@ -205,9 +212,7 @@ impl<'a> MainPipe<'a> {
         }
         WebViewMessage::Eval(script, callback) => {
           if let Some(webview) = &self.webview {
-            let id = EVAL_ID_GENERATOR
-              .get_or_init(Default::default)
-              .fetch_add(1, Ordering::Relaxed);
+            let id = EVAL_ID_GENERATOR.next() as i32;
 
             #[cfg(feature = "tracing")]
             let span = std::sync::Mutex::new(Some(SendEnteredSpan(
@@ -300,6 +305,42 @@ impl<'a> MainPipe<'a> {
               .call_method(webview, "clearAllBrowsingData", "()V", &[])?;
           }
         }
+        WebViewMessage::LoadHtml(html) => {
+          if let Some(webview) = &self.webview {
+            let html = self.env.new_string(html)?;
+            load_html(&mut self.env, webview.as_obj(), &html)?;
+          }
+        }
+        WebViewMessage::GetCookies(tx, url) => {
+          if let Some(webview) = &self.webview {
+            let url = self.env.new_string(url)?;
+            let cookies = self
+              .env
+              .call_method(
+                webview,
+                "getCookies",
+                "(Ljava/lang/String;)Ljava/lang/String;",
+                &[(&url).into()],
+              )
+              .and_then(|v| v.l())
+              .and_then(|s| {
+                let s = JString::from(s);
+                self
+                  .env
+                  .get_string(&s)
+                  .map(|v| v.to_string_lossy().to_string())
+              })
+              .unwrap_or_default();
+
+            tx.send(
+              cookies
+                .split("; ")
+                .flat_map(|c| cookie::Cookie::parse(c.to_string()))
+                .collect(),
+            )
+            .unwrap();
+          }
+        }
       }
     }
     Ok(())
@@ -367,12 +408,15 @@ pub(crate) enum WebViewMessage {
   SetBackgroundColor(RGBA),
   GetWebViewVersion(Sender<Result<String, Error>>),
   GetUrl(Sender<String>),
+  GetCookies(Sender<Vec<cookie::Cookie<'static>>>, String),
   Jni(Box<dyn FnOnce(&mut JNIEnv, &JObject, &JObject) + Send>),
   LoadUrl(String, Option<http::HeaderMap>),
+  LoadHtml(String),
   ClearAllBrowsingData,
 }
 
 pub(crate) struct CreateWebViewAttributes {
+  pub id: String,
   pub url: Option<String>,
   pub html: Option<String>,
   #[cfg(any(debug_assertions, feature = "devtools"))]

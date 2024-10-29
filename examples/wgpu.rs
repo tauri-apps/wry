@@ -101,7 +101,7 @@ fn fs_main() -> @location(0) vec4<f32> {
 
   surface.configure(&device, &config);
 
-  let _webview = WebViewBuilder::new_as_child(&window)
+  let _webview = WebViewBuilder::new()
     .with_bounds(Rect {
       position: LogicalPosition::new(100, 100).into(),
       size: LogicalSize::new(200, 200).into(),
@@ -117,7 +117,7 @@ fn fs_main() -> @location(0) vec4<f32> {
           </script>
         </html>"#,
     )
-    .build()
+    .build_as_child(&window)
     .unwrap();
 
   event_loop

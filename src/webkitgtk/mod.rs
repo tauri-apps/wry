@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use dpi::{LogicalPosition, LogicalSize};
+use ffi::CookieManageExt;
 use gdkx11::{
   ffi::{gdk_x11_window_foreign_new_for_display, GdkX11Display},
   X11Display,
@@ -25,7 +26,7 @@ use std::{
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use webkit2gtk::WebInspectorExt;
 use webkit2gtk::{
-  AutoplayPolicy, InputMethodContextExt, LoadEvent, NavigationPolicyDecision,
+  AutoplayPolicy, CookieManagerExt, InputMethodContextExt, LoadEvent, NavigationPolicyDecision,
   NavigationPolicyDecisionExt, NetworkProxyMode, NetworkProxySettings, PolicyDecisionType,
   PrintOperationExt, SettingsExt, URIRequest, URIRequestExt, UserContentInjectedFrames,
   UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime,
@@ -47,6 +48,8 @@ use crate::{
 
 use self::web_context::WebContextExt;
 
+const WEBVIEW_ID: &str = "webview_id";
+
 mod drag_drop;
 mod synthetic_mouse_events;
 mod web_context;
@@ -67,6 +70,7 @@ impl Drop for X11Data {
 }
 
 pub(crate) struct InnerWebView {
+  id: String,
   pub webview: WebView,
   #[cfg(any(debug_assertions, feature = "devtools"))]
   is_inspector_open: Arc<AtomicBool>,
@@ -87,25 +91,22 @@ impl InnerWebView {
     window: &W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    Self::new_x11(window, attributes, pl_attrs, web_context, false)
+    Self::new_x11(window, attributes, pl_attrs, false)
   }
 
   pub fn new_as_child<W: HasWindowHandle>(
     parent: &W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    web_context: Option<&mut WebContext>,
   ) -> Result<Self> {
-    Self::new_x11(parent, attributes, pl_attrs, web_context, true)
+    Self::new_x11(parent, attributes, pl_attrs, true)
   }
 
   fn new_x11<W: HasWindowHandle>(
     window: &W,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    web_context: Option<&mut WebContext>,
     is_child: bool,
   ) -> Result<Self> {
     let parent = match window.window_handle()?.as_raw() {
@@ -130,7 +131,7 @@ impl InnerWebView {
 
     let visible = attributes.visible;
 
-    Self::new_gtk(&vbox, attributes, pl_attrs, web_context).map(|mut w| {
+    Self::new_gtk(&vbox, attributes, pl_attrs).map(|mut w| {
       // for some reason, if the webview starts as hidden,
       // we will need about 3 calls to `webview.set_visible`
       // with alternating value.
@@ -208,8 +209,7 @@ impl InnerWebView {
   pub fn new_gtk<W>(
     container: &W,
     mut attributes: WebViewAttributes,
-    _pl_attrs: super::PlatformSpecificWebViewAttributes,
-    web_context: Option<&mut WebContext>,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
   ) -> Result<Self>
   where
     W: IsA<gtk::Container>,
@@ -220,7 +220,7 @@ impl InnerWebView {
       default_context = WebContext::new_ephemeral();
       &mut default_context
     } else {
-      match web_context {
+      match attributes.context.take() {
         Some(w) => w,
         None => {
           default_context = Default::default();
@@ -240,6 +240,11 @@ impl InnerWebView {
         website_data_manager
           .set_network_proxy_settings(NetworkProxyMode::Custom, Some(&mut settings));
       }
+    }
+
+    // Extension loading
+    if let Some(extension_path) = pl_attrs.extension_path {
+      web_context.os.set_web_extensions_directory(&extension_path);
     }
 
     let webview = Self::create_webview(web_context, &attributes);
@@ -280,7 +285,14 @@ impl InnerWebView {
     #[cfg(any(debug_assertions, feature = "devtools"))]
     let is_inspector_open = Self::attach_inspector_handlers(&webview);
 
+    let id = attributes
+      .id
+      .map(|id| id.to_string())
+      .unwrap_or_else(|| (webview.as_ptr() as isize).to_string());
+    unsafe { webview.set_data(WEBVIEW_ID, id.clone()) };
+
     let w = Self {
+      id,
       webview,
       pending_scripts: Arc::new(Mutex::new(Some(Vec::new()))),
 
@@ -556,6 +568,10 @@ impl InnerWebView {
     is_inspector_open
   }
 
+  pub fn id(&self) -> crate::WebViewId {
+    &self.id
+  }
+
   pub fn print(&self) -> Result<()> {
     let print = webkit2gtk::PrintOperation::new(&self.webview);
     print.run_dialog(None::<&gtk::Window>);
@@ -677,6 +693,11 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn load_html(&self, html: &str) -> Result<()> {
+    self.webview.load_html(html, None);
+    Ok(())
+  }
+
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     if let Some(context) = self.webview.context() {
       if let Some(data_manger) = context.website_data_manager() {
@@ -785,6 +806,111 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn focus_parent(&self) -> Result<()> {
+    if let Some(window) = self.webview.parent_window() {
+      window.focus(gdk::ffi::GDK_CURRENT_TIME.try_into().unwrap_or(0));
+    }
+
+    Ok(())
+  }
+
+  fn cookie_from_soup_cookie(mut cookie: soup::Cookie) -> cookie::Cookie<'static> {
+    let name = cookie.name().map(|n| n.to_string()).unwrap_or_default();
+    let value = cookie.value().map(|n| n.to_string()).unwrap_or_default();
+
+    let mut cookie_builder = cookie::CookieBuilder::new(name, value);
+
+    if let Some(domain) = cookie.domain().map(|n| n.to_string()) {
+      cookie_builder = cookie_builder.domain(domain);
+    }
+
+    if let Some(path) = cookie.path().map(|n| n.to_string()) {
+      cookie_builder = cookie_builder.path(path);
+    }
+
+    let http_only = cookie.is_http_only();
+    cookie_builder = cookie_builder.http_only(http_only);
+
+    let secure = cookie.is_secure();
+    cookie_builder = cookie_builder.secure(secure);
+
+    let same_site = cookie.same_site_policy();
+    let same_site = match same_site {
+      soup::SameSitePolicy::Lax => cookie::SameSite::Lax,
+      soup::SameSitePolicy::Strict => cookie::SameSite::Strict,
+      soup::SameSitePolicy::None => cookie::SameSite::None,
+      _ => cookie::SameSite::None,
+    };
+    cookie_builder = cookie_builder.same_site(same_site);
+
+    let expires = cookie.expires();
+    let expires = match expires {
+      Some(datetime) => cookie::time::OffsetDateTime::from_unix_timestamp(datetime.to_unix())
+        .ok()
+        .map(cookie::Expiration::DateTime),
+      None => Some(cookie::Expiration::Session),
+    };
+    if let Some(expires) = expires {
+      cookie_builder = cookie_builder.expires(expires);
+    }
+
+    cookie_builder.build()
+  }
+
+  pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    self
+      .webview
+      .website_data_manager()
+      .and_then(|manager| manager.cookie_manager())
+      .map(|cookies_manager| {
+        cookies_manager.cookies(url, None::<&Cancellable>, move |cookies| {
+          let cookies = cookies.map(|cookies| {
+            cookies
+              .into_iter()
+              .map(Self::cookie_from_soup_cookie)
+              .collect()
+          });
+          let _ = tx.send(cookies);
+        })
+      });
+
+    loop {
+      gtk::main_iteration();
+
+      if let Ok(response) = rx.try_recv() {
+        return response.map_err(Into::into);
+      }
+    }
+  }
+
+  pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    self
+      .webview
+      .website_data_manager()
+      .and_then(|manager| manager.cookie_manager())
+      .map(|cookies_manager| {
+        cookies_manager.all_cookies(None::<&Cancellable>, move |cookies| {
+          let cookies = cookies.map(|cookies| {
+            cookies
+              .into_iter()
+              .map(Self::cookie_from_soup_cookie)
+              .collect()
+          });
+          let _ = tx.send(cookies);
+        })
+      });
+
+    loop {
+      gtk::main_iteration();
+
+      if let Ok(response) = rx.try_recv() {
+        return response.map_err(Into::into);
+      }
+    }
+  }
+
   pub fn reparent<W>(&self, container: &W) -> Result<()>
   where
     W: gtk::prelude::IsA<gtk::Container>,
@@ -824,7 +950,7 @@ pub fn platform_webview_version() -> Result<String> {
       webkit_get_micro_version(),
     )
   };
-  Ok(format!("{}.{}.{}", major, minor, patch))
+  Ok(format!("{major}.{minor}.{patch}"))
 }
 
 // SAFETY: only use this when you are sure the span will be dropped on the same thread it was entered
@@ -840,4 +966,89 @@ fn scale_factor_from_x11(xlib: &Xlib, display: *mut _XDisplay, parent: c_ulong) 
   unsafe { (xlib.XGetWindowAttributes)(display, parent, &mut attrs) };
   let scale_factor = unsafe { (*attrs.screen).width as f64 * 25.4 / (*attrs.screen).mwidth as f64 };
   scale_factor / BASE_DPI
+}
+
+mod ffi {
+  use gtk::{
+    gdk,
+    gio::{
+      self,
+      ffi::{GAsyncReadyCallback, GCancellable},
+      prelude::*,
+      Cancellable,
+    },
+    glib::{
+      self,
+      translate::{FromGlibPtrContainer, ToGlibPtr},
+    },
+  };
+  use webkit2gtk::CookieManager;
+  use webkit2gtk_sys::WebKitCookieManager;
+
+  pub trait CookieManageExt: IsA<CookieManager> + 'static {
+    fn all_cookies<P: FnOnce(std::result::Result<Vec<soup::Cookie>, glib::Error>) + 'static>(
+      &self,
+      cancellable: Option<&impl IsA<Cancellable>>,
+      callback: P,
+    ) {
+      let main_context = glib::MainContext::ref_thread_default();
+      let is_main_context_owner = main_context.is_owner();
+      let has_acquired_main_context = (!is_main_context_owner)
+        .then(|| main_context.acquire().ok())
+        .flatten();
+      assert!(
+        is_main_context_owner || has_acquired_main_context.is_some(),
+        "Async operations only allowed if the thread is owning the MainContext"
+      );
+
+      let user_data: Box<glib::thread_guard::ThreadGuard<P>> =
+        Box::new(glib::thread_guard::ThreadGuard::new(callback));
+      unsafe extern "C" fn cookies_trampoline<
+        P: FnOnce(std::result::Result<Vec<soup::Cookie>, glib::Error>) + 'static,
+      >(
+        _source_object: *mut glib::gobject_ffi::GObject,
+        res: *mut gdk::gio::ffi::GAsyncResult,
+        user_data: glib::ffi::gpointer,
+      ) {
+        let mut error = std::ptr::null_mut();
+        let ret =
+          webkit_cookie_manager_get_all_cookies_finish(_source_object as *mut _, res, &mut error);
+        let result = if error.is_null() {
+          Ok(FromGlibPtrContainer::from_glib_full(ret))
+        } else {
+          Err(glib::translate::from_glib_full(error))
+        };
+        let callback: Box<glib::thread_guard::ThreadGuard<P>> = Box::from_raw(user_data as *mut _);
+        let callback: P = callback.into_inner();
+        callback(result);
+      }
+      let callback = cookies_trampoline::<P>;
+
+      unsafe {
+        webkit_cookie_manager_get_all_cookies(
+          self.as_ref().to_glib_none().0,
+          cancellable.map(|p| p.as_ref()).to_glib_none().0,
+          Some(callback),
+          Box::into_raw(user_data) as *mut _,
+        );
+      }
+    }
+  }
+
+  impl CookieManageExt for CookieManager {}
+
+  extern "C" {
+    pub fn webkit_cookie_manager_get_all_cookies(
+      cookie_manager: *mut webkit2gtk_sys::WebKitCookieManager,
+      cancellable: *mut GCancellable,
+      callback: GAsyncReadyCallback,
+      user_data: glib::ffi::gpointer,
+    );
+
+    pub fn webkit_cookie_manager_get_all_cookies_finish(
+      cookie_manager: *mut WebKitCookieManager,
+      result: *mut gio::ffi::GAsyncResult,
+      error: *mut *mut glib::ffi::GError,
+    ) -> *mut glib::ffi::GList;
+  }
 }

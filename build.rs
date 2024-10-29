@@ -13,10 +13,7 @@ fn main() {
 
     fn env_var(var: &str) -> String {
       std::env::var(var).unwrap_or_else(|_| {
-        panic!(
-          "`{}` is not set, which is needed to generate the kotlin files for android.",
-          var
-        )
+        panic!("`{var}` is not set, which is needed to generate the kotlin files for android.")
       })
     }
 
@@ -61,12 +58,13 @@ fn main() {
             .to_uppercase()
         );
 
-        println!("cargo:rerun-if-env-changed={}", class_extension_env);
-        println!("cargo:rerun-if-env-changed={}", class_init_env);
+        println!("cargo:rerun-if-env-changed={class_extension_env}");
+        println!("cargo:rerun-if-env-changed={class_init_env}");
 
         let content = fs::read_to_string(file.path())
           .expect("failed to read kotlin file as string")
           .replace("{{package}}", &package)
+          .replace("{{package-unescaped}}", &package.replace('`', ""))
           .replace("{{library}}", &library)
           .replace(
             "{{class-extension}}",

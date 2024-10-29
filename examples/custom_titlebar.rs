@@ -241,34 +241,32 @@ fn main() -> wry::Result<()> {
     }
   };
 
+  let builder = WebViewBuilder::new()
+    .with_html(HTML)
+    .with_ipc_handler(handler)
+    .with_accept_first_mouse(true);
+
   #[cfg(any(
     target_os = "windows",
     target_os = "macos",
     target_os = "ios",
     target_os = "android"
   ))]
-  let builder = WebViewBuilder::new(&window);
-
+  let webview = builder.build(&window)?;
   #[cfg(not(any(
     target_os = "windows",
     target_os = "macos",
     target_os = "ios",
     target_os = "android"
   )))]
-  let builder = {
+  let webview = {
     use tao::platform::unix::WindowExtUnix;
     use wry::WebViewBuilderExtUnix;
     let vbox = window.default_vbox().unwrap();
-    WebViewBuilder::new_gtk(vbox)
+    builder.build_gtk(vbox)?
   };
 
-  let mut webview = Some(
-    builder
-      .with_html(HTML)
-      .with_ipc_handler(handler)
-      .with_accept_first_mouse(true)
-      .build()?,
-  );
+  let mut webview = Some(webview);
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
