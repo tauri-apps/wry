@@ -28,6 +28,9 @@ pub enum Error {
   NulError(#[from] std::ffi::NulError),
   #[error(transparent)]
   ReceiverError(#[from] std::sync::mpsc::RecvError),
+  #[cfg(target_os = "android")]
+  #[error(transparent)]
+  ReceiverTimeoutError(#[from] crossbeam_channel::RecvTimeoutError),
   #[error(transparent)]
   SenderError(#[from] std::sync::mpsc::SendError<String>),
   #[error("Failed to send the message")]

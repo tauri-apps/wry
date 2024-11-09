@@ -167,20 +167,29 @@ impl IDropTarget_Impl for DragDropTarget_Impl {
 
     let mut paths = Vec::new();
     let hdrop = unsafe { DragDropTarget::iterate_filenames(pDataObj, |path| paths.push(path)) };
+
+    let enter_is_valid = hdrop.is_some();
+
+    if !enter_is_valid {
+      return Ok(());
+    };
+
+    unsafe {
+      *self.enter_is_valid.get() = enter_is_valid;
+    }
+
     (self.listener)(DragDropEvent::Enter {
       paths,
       position: (pt.x as _, pt.y as _),
     });
 
-    unsafe {
-      let enter_is_valid = hdrop.is_some();
-      *self.enter_is_valid.get() = enter_is_valid;
+    let cursor_effect = if enter_is_valid {
+      DROPEFFECT_COPY
+    } else {
+      DROPEFFECT_NONE
+    };
 
-      let cursor_effect = if enter_is_valid {
-        DROPEFFECT_COPY
-      } else {
-        DROPEFFECT_NONE
-      };
+    unsafe {
       *pdwEffect = cursor_effect;
       *self.cursor_effect.get() = cursor_effect;
     }

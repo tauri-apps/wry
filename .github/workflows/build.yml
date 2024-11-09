@@ -17,7 +17,6 @@ jobs:
           - { target: aarch64-apple-darwin, os: macos-latest }
           - { target: aarch64-apple-ios, os: macos-latest }
           - { target: x86_64-apple-darwin, os: macos-latest }
-          - { target: x86_64-apple-darwin, os: macos-12 }
           - { target: aarch64-linux-android, os: ubuntu-latest }
 
     runs-on: ${{ matrix.platform.os }}

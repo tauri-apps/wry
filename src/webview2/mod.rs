@@ -134,7 +134,15 @@ impl InnerWebView {
       is_child,
     )?;
 
-    let drag_drop_controller = drop_handler.map(|handler| DragDropController::new(hwnd, handler));
+    let drag_drop_controller = drop_handler.map(|handler| {
+      // Disable file drops, so our handler can capture it
+      unsafe {
+        let _ = controller
+          .cast::<ICoreWebView2Controller4>()
+          .and_then(|c| c.SetAllowExternalDrop(false));
+      }
+      DragDropController::new(hwnd, handler)
+    });
 
     let w = Self {
       id,

@@ -23,18 +23,21 @@ use raw_window_handle::HasWindowHandle;
 use sha2::{Digest, Sha256};
 use std::{
   borrow::Cow,
+  cell::RefCell,
   collections::HashMap,
   os::fd::{AsFd as _, AsRawFd as _},
   sync::{mpsc::channel, Mutex},
+  time::Duration,
 };
 
 pub(crate) mod binding;
 mod main_pipe;
-use main_pipe::{CreateWebViewAttributes, MainPipe, WebViewMessage, MAIN_PIPE};
+use main_pipe::{CreateWebViewAttributes, MainPipe, MainPipeState, WebViewMessage, MAIN_PIPE};
 
 use crate::util::Counter;
 
 static COUNTER: Counter = Counter::new();
+const MAIN_PIPE_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct Context<'a, 'b> {
   pub env: &'a mut JNIEnv<'b>,
@@ -42,9 +45,22 @@ pub struct Context<'a, 'b> {
   pub webview: &'a JObject<'b>,
 }
 
+pub(crate) struct StaticCell<T>(RefCell<T>);
+
+unsafe impl<T> Send for StaticCell<T> {}
+unsafe impl<T> Sync for StaticCell<T> {}
+
+impl<T> std::ops::Deref for StaticCell<T> {
+  type Target = RefCell<T>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
 macro_rules! define_static_handlers {
   ($($var:ident = $type_name:ident { $($fields:ident:$types:ty),+ $(,)? });+ $(;)?) => {
-    $(pub static $var: once_cell::sync::OnceCell<$type_name> = once_cell::sync::OnceCell::new();
+    $(pub static $var: StaticCell<Option<$type_name>> = StaticCell(RefCell::new(None));
     pub struct $type_name {
       $($fields: $types,)*
     }
@@ -68,16 +84,15 @@ define_static_handlers! {
   ON_LOAD_HANDLER = UnsafeOnPageLoadHandler { handler: Box<dyn Fn(PageLoadEvent, String)> };
 }
 
-pub static WITH_ASSET_LOADER: OnceCell<bool> = OnceCell::new();
-pub static ASSET_LOADER_DOMAIN: OnceCell<String> = OnceCell::new();
+pub static WITH_ASSET_LOADER: StaticCell<Option<bool>> = StaticCell(RefCell::new(None));
+pub static ASSET_LOADER_DOMAIN: StaticCell<Option<String>> = StaticCell(RefCell::new(None));
 
 pub(crate) static PACKAGE: OnceCell<String> = OnceCell::new();
 
 type EvalCallback = Box<dyn Fn(String) + Send + 'static>;
 
 pub static EVAL_ID_GENERATOR: Counter = Counter::new();
-pub static EVAL_CALLBACKS: once_cell::sync::OnceCell<Mutex<HashMap<i32, EvalCallback>>> =
-  once_cell::sync::OnceCell::new();
+pub static EVAL_CALLBACKS: OnceCell<Mutex<HashMap<i32, EvalCallback>>> = OnceCell::new();
 
 /// Sets up the necessary logic for wry to be able to create the webviews later.
 ///
@@ -120,8 +135,11 @@ pub unsafe fn android_setup(
       let size = std::mem::size_of::<bool>();
       let mut wake = false;
       if libc::read(fd.as_raw_fd(), &mut wake as *mut _ as *mut _, size) == size as libc::ssize_t {
-        main_pipe.recv().is_ok()
+        let res = main_pipe.recv();
+        // unregister itself on errors or destroy event
+        matches!(res, Ok(MainPipeState::Alive))
       } else {
+        // unregister itself
         false
       }
     })
@@ -205,12 +223,12 @@ impl InnerWebView {
       initialization_scripts: initialization_scripts.clone(),
     }));
 
-    WITH_ASSET_LOADER.get_or_init(move || with_asset_loader);
+    WITH_ASSET_LOADER.replace(Some(with_asset_loader));
     if let Some(domain) = asset_loader_domain {
-      ASSET_LOADER_DOMAIN.get_or_init(move || domain);
+      ASSET_LOADER_DOMAIN.replace(Some(domain));
     }
 
-    REQUEST_HANDLER.get_or_init(move || {
+    REQUEST_HANDLER.replace(Some(
       UnsafeRequestHandler::new(Box::new(
         move |webview_id: &str, mut request, is_document_start_script_enabled| {
           let uri = request.uri().to_string();
@@ -287,27 +305,27 @@ impl InnerWebView {
               });
 
             (custom_protocol.1)(webview_id, request, RequestAsyncResponder { responder });
-            return Some(rx.recv().unwrap());
+            return Some(rx.recv_timeout(MAIN_PIPE_TIMEOUT).unwrap());
           }
           None
         },
       ))
-    });
+    ));
 
     if let Some(i) = ipc_handler {
-      IPC.get_or_init(move || UnsafeIpc::new(Box::new(i)));
+      IPC.replace(Some(UnsafeIpc::new(Box::new(i))));
     }
 
     if let Some(i) = attributes.document_title_changed_handler {
-      TITLE_CHANGE_HANDLER.get_or_init(move || UnsafeTitleHandler::new(i));
+      TITLE_CHANGE_HANDLER.replace(Some(UnsafeTitleHandler::new(i)));
     }
 
     if let Some(i) = attributes.navigation_handler {
-      URL_LOADING_OVERRIDE.get_or_init(move || UnsafeUrlLoadingOverride::new(i));
+      URL_LOADING_OVERRIDE.replace(Some(UnsafeUrlLoadingOverride::new(i)));
     }
 
     if let Some(h) = attributes.on_page_load_handler {
-      ON_LOAD_HANDLER.get_or_init(move || UnsafeOnPageLoadHandler::new(h));
+      ON_LOAD_HANDLER.replace(Some(UnsafeOnPageLoadHandler::new(h)));
     }
 
     Ok(Self { id })
@@ -324,7 +342,7 @@ impl InnerWebView {
   pub fn url(&self) -> crate::Result<String> {
     let (tx, rx) = bounded(1);
     MainPipe::send(WebViewMessage::GetUrl(tx));
-    rx.recv().map_err(Into::into)
+    rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
   }
 
   pub fn eval(&self, js: &str, callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {
@@ -378,7 +396,7 @@ impl InnerWebView {
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
     let (tx, rx) = bounded(1);
     MainPipe::send(WebViewMessage::GetCookies(tx, url.to_string()));
-    rx.recv().map_err(Into::into)
+    rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
   }
 
   pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {
@@ -427,7 +445,7 @@ impl JniHandle {
 pub fn platform_webview_version() -> Result<String> {
   let (tx, rx) = bounded(1);
   MainPipe::send(WebViewMessage::GetWebViewVersion(tx));
-  rx.recv().unwrap()
+  rx.recv_timeout(MAIN_PIPE_TIMEOUT).unwrap()
 }
 
 fn with_html_head<F: FnOnce(&NodeRef)>(document: &mut NodeRef, f: F) {

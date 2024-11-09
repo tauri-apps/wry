@@ -93,6 +93,7 @@ abstract class WryActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         destroy()
+        onActivityDestroy()
     }
 
     override fun onLowMemory() {
@@ -125,6 +126,7 @@ abstract class WryActivity : AppCompatActivity() {
     private external fun stop()
     private external fun save()
     private external fun destroy()
+    private external fun onActivityDestroy()
     private external fun memory()
     private external fun focus(focus: Boolean)
 

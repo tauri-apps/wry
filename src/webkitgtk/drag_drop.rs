@@ -106,6 +106,7 @@ pub(crate) fn connect_drag_event(webview: &WebView, handler: Box<dyn Fn(DragDrop
     webview.connect_drag_drop(move |_, _, x, y, _| {
       if controller.state() == DragControllerState::Leaving {
         if let Some(paths) = controller.take_paths() {
+          ctx.drop_finish(true, time);
           controller.leave();
           return controller.call(DragDropEvent::Drop {
             paths,

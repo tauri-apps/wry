@@ -10,7 +10,7 @@ use jni::{
   JNIEnv,
 };
 use once_cell::sync::Lazy;
-use std::{os::unix::prelude::*, str::FromStr, sync::atomic::Ordering};
+use std::os::unix::prelude::*;
 
 use super::{find_class, EvalCallback, EVAL_CALLBACKS, EVAL_ID_GENERATOR, PACKAGE};
 
@@ -20,6 +20,11 @@ pub static MAIN_PIPE: Lazy<[OwnedFd; 2]> = Lazy::new(|| {
   unsafe { libc::pipe(pipe.as_mut_ptr()) };
   unsafe { pipe.map(|fd| OwnedFd::from_raw_fd(fd)) }
 });
+
+pub enum MainPipeState {
+  Alive,
+  Destroyed,
+}
 
 pub struct MainPipe<'a> {
   pub env: JNIEnv<'a>,
@@ -42,7 +47,7 @@ impl<'a> MainPipe<'a> {
     }
   }
 
-  pub fn recv(&mut self) -> JniResult<()> {
+  pub fn recv(&mut self) -> JniResult<MainPipeState> {
     let activity = self.activity.as_obj();
     if let Ok(message) = CHANNEL.1.recv() {
       match message {
@@ -341,9 +346,12 @@ impl<'a> MainPipe<'a> {
             .unwrap();
           }
         }
+        WebViewMessage::OnDestroy => {
+          return Ok(MainPipeState::Destroyed);
+        }
       }
     }
-    Ok(())
+    Ok(MainPipeState::Alive)
   }
 }
 
@@ -413,6 +421,7 @@ pub(crate) enum WebViewMessage {
   LoadUrl(String, Option<http::HeaderMap>),
   LoadHtml(String),
   ClearAllBrowsingData,
+  OnDestroy,
 }
 
 pub(crate) struct CreateWebViewAttributes {
