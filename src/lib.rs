@@ -366,7 +366,6 @@ pub struct WebViewAttributes<'a> {
   ///
   /// ## Platform-specific
   ///
-  /// - **Windows**: scripts are injected into sub frames.
   /// - **Android:** The Android WebView does not provide an API for initialization scripts,
   /// so we prepend them to each HTML head. They are only implemented on custom protocol URLs.
   pub initialization_scripts: Vec<(String, bool)>,
@@ -695,9 +694,22 @@ impl<'a> WebViewBuilder<'a> {
   /// initialization code will be executed. It is guaranteed that code is executed before
   /// `window.onload`.
   ///
+  /// ## Example
+  /// ```no_run
+  /// # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
+  /// # use winit::{window::WindowBuilder, event_loop::EventLoop};
+  /// let event_loop = EventLoop::new().unwrap();
+  /// let window = WindowBuilder::new().build(&event_loop).unwrap();
+  ///
+  /// let webview = WebViewBuilder::new()
+  ///   .with_initialization_script("console.log('Running inside main frame only')")
+  ///   .with_url("https://tauri.app")
+  ///   .build(&window)
+  ///   .unwrap();
+  /// ```
+  ///
   /// ## Platform-specific
   ///
-  /// - **Windows:** scripts are added to subframes as well.
   /// - **Android:** When [addDocumentStartJavaScript] is not supported,
   /// we prepend them to each HTML head (implementation only supported on custom protocol URLs).
   /// For remote URLs, we use [onPageStarted] which is not guaranteed to run before other scripts.
@@ -710,9 +722,20 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Same as [`with_initialization_script`](Self::with_initialization_script) but with option to inject into main frame only or sub frames.
   ///
-  /// ## Platform-specific:
+  /// ## Example
+  /// ```no_run
+  /// # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
+  /// # use winit::{window::WindowBuilder, event_loop::EventLoop};
+  /// let event_loop = EventLoop::new().unwrap();
+  /// let window = WindowBuilder::new().build(&event_loop).unwrap();
   ///
-  /// - **Windows:** scripts are always added to subframes regardless of the option.
+  /// let webview = WebViewBuilder::new()
+  ///   .with_initialization_script_for_main_only("console.log('Running inside main frame only')", true)
+  ///   .with_initialization_script_for_main_only("console.log('Running  main frame and sub frames')", false)
+  ///   .with_url("https://tauri.app")
+  ///   .build(&window)
+  ///   .unwrap();
+  /// ```
   pub fn with_initialization_script_for_main_only(self, js: &str, main_only: bool) -> Self {
     self.and_then(|mut b| {
       if !js.is_empty() {

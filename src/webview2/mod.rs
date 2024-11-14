@@ -448,9 +448,13 @@ impl InnerWebView {
       };
     }
 
-    // Initialize main frame scripts
-    for (js, for_main_only) in attributes.initialization_scripts {
-      Self::add_script_to_execute_on_document_created(&webview, js, for_main_only)?;
+    // Initialize main and subframe scripts
+    for (js, _) in attributes
+      .initialization_scripts
+      .iter()
+      .filter(|(_, for_main)| !*for_main)
+    {
+      Self::add_script_to_execute_on_document_created(&webview, js.clone())?;
     }
 
     // Enable clipboard
@@ -592,12 +596,27 @@ impl InnerWebView {
         token,
       )?;
     }
+    let scripts = attributes.initialization_scripts.clone();
+
+    webview.add_ContentLoading(
+      &ContentLoadingEventHandler::create(Box::new(move |webview, _| {
+        let Some(webview) = webview else {
+          return Ok(());
+        };
+
+        for (script, _) in scripts.iter().filter(|(_, for_main)| *for_main) {
+          Self::execute_script(&webview, script.clone(), |_| ())?;
+        }
+
+        Ok(())
+      })),
+      token,
+    )?;
 
     // Page load handler
     if let Some(on_page_load_handler) = attributes.on_page_load_handler.take() {
       let on_page_load_handler = Rc::new(on_page_load_handler);
       let on_page_load_handler_ = on_page_load_handler.clone();
-      let scripts = attributes.initialization_scripts.clone();
 
       webview.add_ContentLoading(
         &ContentLoadingEventHandler::create(Box::new(move |webview, _| {
@@ -606,12 +625,6 @@ impl InnerWebView {
           };
 
           on_page_load_handler_(PageLoadEvent::Started, Self::url_from_webview(&webview)?);
-
-          for (script, inject_into_sub_frames) in &scripts {
-            if *inject_into_sub_frames {
-              Self::execute_script(&webview, script.clone(), |_| ())?;
-            }
-          }
 
           Ok(())
         })),
@@ -773,7 +786,6 @@ impl InnerWebView {
       String::from(
         r#"Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: s=> window.chrome.webview.postMessage(s) }) });"#,
       ),
-      true,
     )?;
 
     let ipc_handler = attributes.ipc_handler.take();
@@ -1186,11 +1198,7 @@ impl InnerWebView {
   }
 
   #[inline]
-  fn add_script_to_execute_on_document_created(
-    webview: &ICoreWebView2,
-    js: String,
-    _for_main_only: bool,
-  ) -> Result<()> {
+  fn add_script_to_execute_on_document_created(webview: &ICoreWebView2, js: String) -> Result<()> {
     let webview = webview.clone();
     AddScriptToExecuteOnDocumentCreatedCompletedHandler::wait_for_async_operation(
       Box::new(move |handler| unsafe {
