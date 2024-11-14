@@ -829,7 +829,7 @@ impl InnerWebView {
     attributes: &mut WebViewAttributes,
     token: &mut EventRegistrationToken,
   ) -> Result<()> {
-    for (name, _) in &attributes.custom_protocols {
+    for name in attributes.custom_protocols.keys() {
       // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
       // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
       let filter = HSTRING::from(format!("{scheme}://{name}.*"));
@@ -1093,7 +1093,7 @@ impl InnerWebView {
 
           // adjust for borders
           let mut pt: POINT = unsafe { std::mem::zeroed() };
-          if unsafe { ClientToScreen(hwnd, &mut pt) }.as_bool() == true {
+          if unsafe { ClientToScreen(hwnd, &mut pt) }.as_bool() {
             let mut window_rc: RECT = unsafe { std::mem::zeroed() };
             if unsafe { GetWindowRect(hwnd, &mut window_rc) }.is_ok() {
               let top_b = pt.y - window_rc.top;
@@ -1368,7 +1368,7 @@ impl InnerWebView {
 
     // adjust for borders
     let mut pt: POINT = unsafe { std::mem::zeroed() };
-    if unsafe { ClientToScreen(parent, &mut pt) }.as_bool() == true {
+    if unsafe { ClientToScreen(parent, &mut pt) }.as_bool() {
       let mut window_rc: RECT = unsafe { std::mem::zeroed() };
       if unsafe { GetWindowRect(parent, &mut window_rc) }.is_ok() {
         let top_b = pt.y - window_rc.top;
