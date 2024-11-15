@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.47.1]
+
+- [`59c1eef`](https://github.com/tauri-apps/wry/commit/59c1eef0805ecbb1f70a7c78578ff4e03b09a204) ([#1418](https://github.com/tauri-apps/wry/pull/1418) by [@amrbashir](https://github.com/tauri-apps/wry/../../amrbashir)) Fix initialization scripts running twice on Windows.
+
 ## \[0.47.0]
 
 - [`7221256`](https://github.com/tauri-apps/wry/commit/72212568cb4d815463fc035969f9cac60fe28ba6) ([#1365](https://github.com/tauri-apps/wry/pull/1365) by [@Norbiros](https://github.com/tauri-apps/wry/../../Norbiros)) Add `WebViewBuilder::with_initialization_script_for_main_only` to enable injecting JavaScript code into main frame only or all subframes.
