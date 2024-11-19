@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.47.2]
+
+- [`7bb4f49`](https://github.com/tauri-apps/wry/commit/7bb4f4929eddbde8f36472a55ec3713d6d51c0e3) ([#1421](https://github.com/tauri-apps/wry/pull/1421) by [@SpikeHD](https://github.com/tauri-apps/wry/../../SpikeHD)) Fix extension loading on Windows.
+
 ## \[0.47.1]
 
 - [`59c1eef`](https://github.com/tauri-apps/wry/commit/59c1eef0805ecbb1f70a7c78578ff4e03b09a204) ([#1418](https://github.com/tauri-apps/wry/pull/1418) by [@amrbashir](https://github.com/tauri-apps/wry/../../amrbashir)) Fix initialization scripts running twice on Windows.
