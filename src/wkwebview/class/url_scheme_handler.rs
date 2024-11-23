@@ -261,8 +261,15 @@ extern "C" fn start_task(
                 }))
                 .unwrap();
 
-                webview.remove_custom_task_key(task_key);
-                Ok(())
+                {
+                  let ids = WEBVIEW_IDS.lock().unwrap();
+                  if ids.contains(webview_id) {
+                    webview.remove_custom_task_key(task_key);
+                    Ok(())
+                  } else {
+                    Err(crate::Error::CustomProtocolTaskInvalid)
+                  }
+                }
               }
 
               let _ = response(
