@@ -192,11 +192,11 @@ impl InnerWebView {
       let config = WKWebViewConfiguration::new();
 
       // Incognito mode
-      let os_version = util::operating_system_version();
+      let (os_major_version, _, _) = util::operating_system_version();
       #[cfg(target_os = "macos")]
-      let custom_data_store_available = os_version.0 >= 14;
+      let custom_data_store_available = os_major_version >= 14;
       #[cfg(target_os = "ios")]
-      let custom_data_store_available = os_version.0 >= 17;
+      let custom_data_store_available = os_major_version >= 17;
 
       let data_store = match (
         attributes.incognito,
@@ -521,7 +521,7 @@ r#"Object.defineProperty(window, 'ipc', {
 
         // make sure the window is always on top when we create a new webview
         let app = NSApplication::sharedApplication(mtm);
-        if os_version.0 >= 14 {
+        if os_major_version >= 14 {
           NSApplication::activate(&app);
         } else {
           #[allow(deprecated)]

@@ -21,12 +21,12 @@ fn main() -> wry::Result<()> {
   let mut webviews = HashMap::new();
   let proxy = event_loop.create_proxy();
 
-  let new_window = create_new_window(
+  let (window, webview) = create_new_window(
     format!("Window {}", webviews.len() + 1),
     &event_loop,
     proxy.clone(),
   );
-  webviews.insert(new_window.0.id(), (new_window.0, new_window.1));
+  webviews.insert(window.id(), (window, webview));
 
   event_loop.run(move |event, event_loop, control_flow| {
     *control_flow = ControlFlow::Wait;
@@ -43,12 +43,12 @@ fn main() -> wry::Result<()> {
         }
       }
       Event::UserEvent(UserEvent::NewWindow) => {
-        let new_window = create_new_window(
+        let (window, webview) = create_new_window(
           format!("Window {}", webviews.len() + 1),
           event_loop,
           proxy.clone(),
         );
-        webviews.insert(new_window.0.id(), (new_window.0, new_window.1));
+        webviews.insert(window.id(), (window, webview));
       }
       Event::UserEvent(UserEvent::CloseWindow(id)) => {
         webviews.remove(&id);

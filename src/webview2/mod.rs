@@ -1667,19 +1667,14 @@ unsafe fn set_background_color(
   controller: &ICoreWebView2Controller,
   background_color: RGBA,
 ) -> Result<()> {
-  let mut color = background_color;
-  if is_windows_7() || color.3 != 0 {
-    color.3 = 255;
+  let (R, G, B, mut A) = background_color;
+  if is_windows_7() || A != 0 {
+    A = 255;
   }
 
   let controller2: ICoreWebView2Controller2 = controller.cast()?;
   controller2
-    .SetDefaultBackgroundColor(COREWEBVIEW2_COLOR {
-      R: color.0,
-      G: color.1,
-      B: color.2,
-      A: color.3,
-    })
+    .SetDefaultBackgroundColor(COREWEBVIEW2_COLOR { R, G, B, A })
     .map_err(Into::into)
 }
 

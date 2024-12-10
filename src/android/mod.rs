@@ -232,13 +232,13 @@ impl InnerWebView {
       UnsafeRequestHandler::new(Box::new(
         move |webview_id: &str, mut request, is_document_start_script_enabled| {
           let uri = request.uri().to_string();
-          if let Some(custom_protocol) = custom_protocols.iter().find(|(name, _)| {
+          if let Some((custom_protocol_uri, custom_protocol_closure)) = custom_protocols.iter().find(|(name, _)| {
             uri.starts_with(&format!("{scheme}://{}.", name))
           }) {
             let uri_res = uri
               .replace(
-                &format!("{scheme}://{}.", custom_protocol.0),
-                &format!("{}://", custom_protocol.0),
+                &format!("{scheme}://{}.", custom_protocol_uri),
+                &format!("{}://", custom_protocol_uri),
               )
               .parse();
 
@@ -273,15 +273,15 @@ impl InnerWebView {
                     let mut hashes = Vec::new();
                     with_html_head(&mut document, |head| {
                       // iterate in reverse order since we are prepending each script to the head tag
-                      for script in initialization_scripts.iter().rev() {
+                      for (script, _) in initialization_scripts.iter().rev() {
                         let script_el = NodeRef::new_element(
                           QualName::new(None, ns!(html), "script".into()),
                           None,
                         );
-                        script_el.append(NodeRef::new_text(script.0.as_str()));
+                        script_el.append(NodeRef::new_text(script.as_str()));
                         head.prepend(script_el);
                         if csp.is_some() {
-                          hashes.push(hash_script(script.0.as_str()));
+                          hashes.push(hash_script(script.as_str()));
                         }
                       }
                     });
@@ -304,7 +304,7 @@ impl InnerWebView {
                 tx.send(response).unwrap();
               });
 
-            (custom_protocol.1)(webview_id, request, RequestAsyncResponder { responder });
+            (custom_protocol_closure)(webview_id, request, RequestAsyncResponder { responder });
             return Some(rx.recv_timeout(MAIN_PIPE_TIMEOUT).unwrap());
           }
           None

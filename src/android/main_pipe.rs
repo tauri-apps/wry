@@ -74,11 +74,11 @@ impl<'a> MainPipe<'a> {
             string_class,
             self.env.new_string("")?,
           )?;
-          for (i, script) in initialization_scripts.into_iter().enumerate() {
+          for (i, (script, _)) in initialization_scripts.into_iter().enumerate() {
             self.env.set_object_array_element(
               &initialization_scripts_array,
               i as i32,
-              self.env.new_string(script.0)?,
+              self.env.new_string(script)?,
             )?;
           }
 
