@@ -180,7 +180,7 @@ libc = "0.2"
 
 [dev-dependencies]
 pollster = "0.3.0"
-tao = "0.29"
+tao = "0.31"
 wgpu = "0.19"
 winit = "0.29"
 getrandom = "0.2"
