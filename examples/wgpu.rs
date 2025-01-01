@@ -162,6 +162,12 @@ impl ApplicationHandler for State {
   fn resumed(&mut self, event_loop: &ActiveEventLoop) {
     let mut attributes = Window::default_attributes();
     attributes.transparent = true;
+    #[cfg(windows)]
+    {
+      use winit::platform::windows::WindowAttributesExtWindows;
+      attributes = attributes.with_clip_children(false);
+    }
+
     let window = Arc::new(event_loop.create_window(attributes).unwrap());
 
     let gfx_state = GfxState::new(Arc::clone(&window));
