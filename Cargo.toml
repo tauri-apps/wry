@@ -68,7 +68,7 @@ gdkx11 = { version = "0.18", optional = true }
 percent-encoding = "2.3"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.33"
+webview2-com = "0.34"
 windows-version = "0.1"
 windows-core = "0.58"
 dunce = "1"
