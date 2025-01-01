@@ -15,14 +15,32 @@
 //!
 //! ```no_run
 //! # use wry::{WebViewBuilder, raw_window_handle};
-//! # use winit::{window::WindowBuilder, event_loop::EventLoop};
-//! let event_loop = EventLoop::new().unwrap();
-//! let window = WindowBuilder::new().build(&event_loop).unwrap();
+//! # use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop}, window::{Window, WindowId}};
 //!
-//! let webview = WebViewBuilder::new()
-//!   .with_url("https://tauri.app")
-//!   .build(&window)
-//!   .unwrap();
+//! #[derive(Default)]
+//! struct App {
+//!   window: Option<Window>,
+//!   webview: Option<wry::WebView>,
+//! }
+//!
+//! impl ApplicationHandler for App {
+//!   fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+//!     let window = event_loop.create_window(Window::default_attributes()).unwrap();
+//!     let webview = WebViewBuilder::new()
+//!       .with_url("https://tauri.app")
+//!       .build(&window)
+//!       .unwrap();
+//!
+//!     self.window = Some(window);
+//!     self.webview = Some(webview);
+//!   }
+//!
+//!   fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {}
+//! }
+//!
+//! let event_loop = EventLoop::new().unwrap();
+//! let mut app = App::default();
+//! event_loop.run_app(&mut app).unwrap();
 //! ```
 //!
 //! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::new_gtk`] on Linux.
@@ -53,18 +71,36 @@
 //!
 //! ```no_run
 //! # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
-//! # use winit::{window::WindowBuilder, event_loop::EventLoop};
-//! let event_loop = EventLoop::new().unwrap();
-//! let window = WindowBuilder::new().build(&event_loop).unwrap();
+//! # use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop}, window::{Window, WindowId}};
 //!
-//! let webview = WebViewBuilder::new()
-//!   .with_url("https://tauri.app")
-//!   .with_bounds(Rect {
-//!     position: LogicalPosition::new(100, 100).into(),
-//!     size: LogicalSize::new(200, 200).into(),
-//!   })
-//!   .build_as_child(&window)
-//!   .unwrap();
+//! #[derive(Default)]
+//! struct App {
+//!   window: Option<Window>,
+//!   webview: Option<wry::WebView>,
+//! }
+//!
+//! impl ApplicationHandler for App {
+//!   fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+//!     let window = event_loop.create_window(Window::default_attributes()).unwrap();
+//!     let webview = WebViewBuilder::new()
+//!       .with_url("https://tauri.app")
+//!       .with_bounds(Rect {
+//!         position: LogicalPosition::new(100, 100).into(),
+//!         size: LogicalSize::new(200, 200).into(),
+//!       })
+//!       .build_as_child(&window)
+//!       .unwrap();
+//!
+//!     self.window = Some(window);
+//!     self.webview = Some(webview);
+//!   }
+//!
+//!   fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {}
+//! }
+//!
+//! let event_loop = EventLoop::new().unwrap();
+//! let mut app = App::default();
+//! event_loop.run_app(&mut app).unwrap();
 //! ```
 //!
 //! If you want to support X11 and Wayland at the same time, we recommend using
@@ -107,24 +143,41 @@
 //! your windowing library event loop.
 //!
 //! ```no_run
-//! # use winit::{event_loop::EventLoop, window::Window};
-//! # use wry::{WebView, WebViewAttributes};
-//! #[cfg(target_os = "linux")]
-//! gtk::init().unwrap(); // <----- IMPORTANT
-//! let event_loop = EventLoop::new().unwrap();
+//! # use wry::{WebViewBuilder, raw_window_handle};
+//! # use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop}, window::{Window, WindowId}};
 //!
-//! let window = Window::new(&event_loop).unwrap();
-//! let webview = WebView::new(&window, WebViewAttributes::default());
+//! #[derive(Default)]
+//! struct App {
+//!   window: Option<Window>,
+//!   webview: Option<wry::WebView>,
+//! }
 //!
-//! event_loop.run(|_e, _evl|{
-//!   // process winit events
+//! impl ApplicationHandler for App {
+//!   fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+//!     let window = event_loop.create_window(Window::default_attributes()).unwrap();
+//!     let webview = WebViewBuilder::new()
+//!       .with_url("https://tauri.app")
+//!       .build(&window)
+//!       .unwrap();
 //!
-//!   // then advance gtk event loop  <----- IMPORTANT
-//!   #[cfg(target_os = "linux")]
-//!   while gtk::events_pending() {
-//!     gtk::main_iteration_do(false);
+//!     self.window = Some(window);
+//!     self.webview = Some(webview);
 //!   }
-//! }).unwrap();
+//!
+//!   fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {}
+//!
+//!   // Advance GTK event loop <!----- IMPORTANT
+//!   fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+//!     #[cfg(target_os = "linux")]
+//!     while gtk::events_pending() {
+//!       gtk::main_iteration_do(false);
+//!     }
+//!   }
+//! }
+//!
+//! let event_loop = EventLoop::new().unwrap();
+//! let mut app = App::default();
+//! event_loop.run_app(&mut app).unwrap();
 //! ```
 //!
 //! ## Android
@@ -695,12 +748,7 @@ impl<'a> WebViewBuilder<'a> {
   /// `window.onload`.
   ///
   /// ## Example
-  /// ```no_run
-  /// # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
-  /// # use winit::{window::WindowBuilder, event_loop::EventLoop};
-  /// let event_loop = EventLoop::new().unwrap();
-  /// let window = WindowBuilder::new().build(&event_loop).unwrap();
-  ///
+  /// ```ignore
   /// let webview = WebViewBuilder::new()
   ///   .with_initialization_script("console.log('Running inside main frame only')")
   ///   .with_url("https://tauri.app")
@@ -723,12 +771,7 @@ impl<'a> WebViewBuilder<'a> {
   /// Same as [`with_initialization_script`](Self::with_initialization_script) but with option to inject into main frame only or sub frames.
   ///
   /// ## Example
-  /// ```no_run
-  /// # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
-  /// # use winit::{window::WindowBuilder, event_loop::EventLoop};
-  /// let event_loop = EventLoop::new().unwrap();
-  /// let window = WindowBuilder::new().build(&event_loop).unwrap();
-  ///
+  /// ```ignore
   /// let webview = WebViewBuilder::new()
   ///   .with_initialization_script_for_main_only("console.log('Running inside main frame only')", true)
   ///   .with_initialization_script_for_main_only("console.log('Running  main frame and sub frames')", false)
