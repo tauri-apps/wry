@@ -2,7 +2,7 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.47.2"
+version = "0.48.0"
 authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
