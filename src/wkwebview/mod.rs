@@ -63,8 +63,8 @@ use crate::wkwebview::ios::WKWebView::WKWebView;
 use objc2_web_kit::WKWebView;
 
 use objc2_web_kit::{
-  WKAudiovisualMediaTypes, WKURLSchemeHandler, WKUserContentController, WKUserScript,
-  WKUserScriptInjectionTime, WKWebViewConfiguration, WKWebsiteDataStore,
+  WKAudiovisualMediaTypes, WKInactiveSchedulingPolicy, WKURLSchemeHandler, WKUserContentController,
+  WKUserScript, WKUserScriptInjectionTime, WKWebViewConfiguration, WKWebsiteDataStore,
 };
 use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -346,6 +346,18 @@ impl InnerWebView {
           objc2::msg_send_id![super(webview), initWithFrame:frame configuration:&**config];
         webview
       };
+
+      // disable background throttling if attributes.disable_background_throttling is true
+      // which works for iOS 17.0+,iPadOS 17.0+,Mac Catalyst 17.0+, macOS 14.0+, visionOS 1.0+
+      if attributes.disable_background_throttling {
+        // Set inactive scheduling policy to None enum value (2)
+        _preference.setValue_forKey(
+          Some(&NSNumber::numberWithInt(
+            WKInactiveSchedulingPolicy::None.0.try_into().unwrap(),
+          )),
+          ns_string!("inactiveSchedulingPolicy"),
+        );
+      }
 
       #[cfg(target_os = "macos")]
       {

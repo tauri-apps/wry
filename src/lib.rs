@@ -574,6 +574,18 @@ pub struct WebViewAttributes<'a> {
   /// This is only effective if the webview was created by [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`]
   /// or on Linux, if was created by [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
   pub bounds: Option<Rect>,
+
+  /// Whether background throttling should be disabled.
+  ///
+  /// By default, browsers throttle timers and even unload the whole tab (view) to free resources after roughly 5 minutes when
+  /// a view became minimized or hidden. This will permanently suspend all tasks until the documents visibility state
+  /// changes back from hidden to visible by bringing the view back to the foreground.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux / Windows / Android**: Unsupported yet. But workarounds like a pending WebLock transaction might suffice.
+  /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
+  pub disable_background_throttling: bool,
 }
 
 impl<'a> Default for WebViewAttributes<'a> {
@@ -614,6 +626,7 @@ impl<'a> Default for WebViewAttributes<'a> {
         position: dpi::LogicalPosition::new(0, 0).into(),
         size: dpi::LogicalSize::new(200, 200).into(),
       }),
+      disable_background_throttling: false,
     }
   }
 }
@@ -1177,6 +1190,23 @@ impl<'a> WebViewBuilder<'a> {
   pub fn with_bounds(self, bounds: Rect) -> Self {
     self.and_then(|mut b| {
       b.attrs.bounds = Some(bounds);
+      Ok(b)
+    })
+  }
+
+  /// Set whether background throttling should be disabled.
+  ///
+  /// By default, browsers throttle timers and even unload the whole tab (view) to free resources after roughly 5 minutes when
+  /// a view became minimized or hidden. This will permanently suspend all tasks until the documents visibility state
+  /// changes back from hidden to visible by bringing the view back to the foreground.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux / Windows / Android**: Unsupported yet. But workarounds like a pending WebLock transaction might suffice.
+  /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
+  pub fn with_disable_background_throttling(self, disable: bool) -> Self {
+    self.and_then(|mut b| {
+      b.attrs.disable_background_throttling = disable;
       Ok(b)
     })
   }
