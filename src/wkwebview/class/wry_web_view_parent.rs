@@ -8,9 +8,10 @@ use objc2::{
   declare_class, msg_send_id, mutability::MainThreadOnly, rc::Retained, ClassType, DeclaredClass,
 };
 #[cfg(target_os = "macos")]
-use objc2_app_kit::{NSApplication, NSEvent, NSView};
-use objc2_app_kit::{NSWindow, NSWindowButton};
-use objc2_foundation::{MainThreadMarker, NSRect};
+use objc2_app_kit::{NSApplication, NSEvent, NSView, NSWindow, NSWindowButton};
+use objc2_foundation::MainThreadMarker;
+#[cfg(target_os = "macos")]
+use objc2_foundation::NSRect;
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::UIView as NSView;
 
@@ -69,19 +70,23 @@ impl WryWebViewParent {
   }
 
   pub fn set_traffic_light_inset(&self, ns_window: &NSWindow, position: dpi::Position) {
-    let scale_factor = NSWindow::backingScaleFactor(ns_window);
-    let position = position.to_logical(scale_factor);
-    self
-      .ivars()
-      .traffic_light_inset
-      .replace(Some((position.x, position.y)));
+    #[cfg(target_os = "macos")]
+    {
+      let scale_factor = NSWindow::backingScaleFactor(ns_window);
+      let position = position.to_logical(scale_factor);
+      self
+        .ivars()
+        .traffic_light_inset
+        .replace(Some((position.x, position.y)));
 
-    unsafe {
-      inset_traffic_lights(ns_window, position.x, position.y);
+      unsafe {
+        inset_traffic_lights(ns_window, position.x, position.y);
+      }
     }
   }
 }
 
+#[cfg(target_os = "macos")]
 pub unsafe fn inset_traffic_lights(window: &NSWindow, x: f64, y: f64) {
   let close = window
     .standardWindowButton(NSWindowButton::NSWindowCloseButton)

@@ -156,6 +156,8 @@ objc2-ui-kit = { version = "0.2.2", features = [
 [target."cfg(target_os = \"macos\")".dependencies]
 objc2-app-kit = { version = "0.2.0", features = [
   "NSApplication",
+  "NSButton",
+  "NSControl",
   "NSEvent",
   "NSWindow",
   "NSView",
