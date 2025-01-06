@@ -476,6 +476,7 @@ impl InnerWebView {
         ui_delegate,
         protocol_ptrs,
         is_child,
+        #[cfg(target_os = "macos")]
         parent_view: None,
       };
 
