@@ -1238,6 +1238,7 @@ impl<'a> WebViewBuilder<'a> {
 #[derive(Clone, Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   data_store_identifier: Option<[u8; 16]>,
+  traffic_light_inset: Option<dpi::Position>,
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios",))]
@@ -1247,6 +1248,11 @@ pub trait WebViewBuilderExtDarwin {
   ///
   /// - **macOS / iOS**: Available on macOS >= 14 and iOS >= 17
   fn with_data_store_identifier(self, identifier: [u8; 16]) -> Self;
+  /// Move the window controls to the specified position.
+  /// Normally this is handled by the Window but because `WebViewBuilder::build()` overwrites the window's NSView the controls will flicker on resizing.
+  /// Note: This method has no effects if the WebView is injected via `WebViewBuilder::build_as_child();` and there should be no flickers.
+  /// Note: Do not use this if your chosen window library does not support traffic light insets.
+  fn with_traffic_light_inset<P: Into<dpi::Position>>(self, position: P) -> Self;
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios",))]
@@ -1254,6 +1260,13 @@ impl WebViewBuilderExtDarwin for WebViewBuilder<'_> {
   fn with_data_store_identifier(self, identifier: [u8; 16]) -> Self {
     self.and_then(|mut b| {
       b.platform_specific.data_store_identifier = Some(identifier);
+      Ok(b)
+    })
+  }
+
+  fn with_traffic_light_inset<P: Into<dpi::Position>>(self, position: P) -> Self {
+    self.and_then(|mut b| {
+      b.platform_specific.traffic_light_inset = Some(position.into());
       Ok(b)
     })
   }
@@ -1915,6 +1928,11 @@ pub trait WebViewExtMacOS {
   fn reparent(&self, window: *mut NSWindow) -> Result<()>;
   // Prints with extra options
   fn print_with_options(&self, options: &PrintOptions) -> Result<()>;
+  /// Move the window controls to the specified position.
+  /// Normally this is handled by the Window but because `WebViewBuilder::build()` overwrites the window's NSView the controls will flicker on resizing.
+  /// Note: This method has no effects if the WebView is injected via `WebViewBuilder::build_as_child();` and there should be no flickers.
+  /// Note: Do not use this if your chosen window library does not support traffic light insets.
+  fn set_traffic_light_inset<P: Into<dpi::Position>>(&self, position: P) -> Result<()>;
 }
 
 #[cfg(target_os = "macos")]
@@ -1937,6 +1955,10 @@ impl WebViewExtMacOS for WebView {
 
   fn print_with_options(&self, options: &PrintOptions) -> Result<()> {
     self.webview.print_with_options(options)
+  }
+
+  fn set_traffic_light_inset<P: Into<dpi::Position>>(&self, position: P) -> Result<()> {
+    self.webview.set_traffic_light_inset(position.into())
   }
 }
 
