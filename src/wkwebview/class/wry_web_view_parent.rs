@@ -69,19 +69,17 @@ impl WryWebViewParent {
     unsafe { msg_send_id![super(delegate), init] }
   }
 
+  #[cfg(target_os = "macos")]
   pub fn set_traffic_light_inset(&self, ns_window: &NSWindow, position: dpi::Position) {
-    #[cfg(target_os = "macos")]
-    {
-      let scale_factor = NSWindow::backingScaleFactor(ns_window);
-      let position = position.to_logical(scale_factor);
-      self
-        .ivars()
-        .traffic_light_inset
-        .replace(Some((position.x, position.y)));
+    let scale_factor = NSWindow::backingScaleFactor(ns_window);
+    let position = position.to_logical(scale_factor);
+    self
+      .ivars()
+      .traffic_light_inset
+      .replace(Some((position.x, position.y)));
 
-      unsafe {
-        inset_traffic_lights(ns_window, position.x, position.y);
-      }
+    unsafe {
+      inset_traffic_lights(ns_window, position.x, position.y);
     }
   }
 }

@@ -135,6 +135,7 @@ pub(crate) struct InnerWebView {
   // We need this the keep the reference count
   ui_delegate: Retained<WryWebViewUIDelegate>,
   protocol_ptrs: Vec<*mut Box<dyn Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder)>>,
+  #[cfg(target_os = "macos")]
   // We need this to update the traffic light inset
   parent_view: Option<Retained<WryWebViewParent>>,
 }
@@ -941,12 +942,10 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
+  #[cfg(target_os = "macos")]
   pub(crate) fn set_traffic_light_inset(&self, position: dpi::Position) -> crate::Result<()> {
-    #[cfg(target_os = "macos")]
-    if !self.is_child {
-      if let Some(parent_view) = &self.parent_view {
-        parent_view.set_traffic_light_inset(&self.webview.window().unwrap(), position);
-      }
+    if let Some(parent_view) = &self.parent_view {
+      parent_view.set_traffic_light_inset(&self.webview.window().unwrap(), position);
     }
 
     Ok(())
