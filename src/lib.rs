@@ -1251,7 +1251,8 @@ pub trait WebViewBuilderExtDarwin {
   /// Move the window controls to the specified position.
   /// Normally this is handled by the Window but because `WebViewBuilder::build()` overwrites the window's NSView the controls will flicker on resizing.
   /// Note: This method has no effects if the WebView is injected via `WebViewBuilder::build_as_child();` and there should be no flickers.
-  /// Note: Do not use this if your chosen window library does not support traffic light insets.
+  /// Warning: Do not use this if your chosen window library does not support traffic light insets.
+  /// Warning: Only use this in **decorated** windows with a **hidden titlebar**!
   fn with_traffic_light_inset<P: Into<dpi::Position>>(self, position: P) -> Self;
 }
 
@@ -1931,7 +1932,8 @@ pub trait WebViewExtMacOS {
   /// Move the window controls to the specified position.
   /// Normally this is handled by the Window but because `WebViewBuilder::build()` overwrites the window's NSView the controls will flicker on resizing.
   /// Note: This method has no effects if the WebView is injected via `WebViewBuilder::build_as_child();` and there should be no flickers.
-  /// Note: Do not use this if your chosen window library does not support traffic light insets.
+  /// Warning: Do not use this if your chosen window library does not support traffic light insets.
+  /// Warning: Only use this in **decorated** windows with a **hidden titlebar**!
   fn set_traffic_light_inset<P: Into<dpi::Position>>(&self, position: P) -> Result<()>;
 }
 
