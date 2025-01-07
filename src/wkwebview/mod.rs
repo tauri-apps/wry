@@ -511,15 +511,12 @@ r#"Object.defineProperty(window, 'ipc', {
         } else {
           // inject the webview into the window
           let ns_window = ns_view.window().unwrap();
-          let scale_factor = ns_window.backingScaleFactor();
 
-          let parent_view = WryWebViewParent::new(
-            mtm,
-            pl_attrs
-              .traffic_light_inset
-              .map(|p| p.to_logical(scale_factor))
-              .map(|p| (p.x, p.y)),
-          );
+          let parent_view = WryWebViewParent::new(mtm);
+
+          if let Some(position) = pl_attrs.traffic_light_inset {
+            parent_view.set_traffic_light_inset(&ns_window, position);
+          }
 
           parent_view.setAutoresizingMask(
             NSAutoresizingMaskOptions::NSViewHeightSizable

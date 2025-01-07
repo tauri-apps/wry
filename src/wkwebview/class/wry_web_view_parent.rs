@@ -60,11 +60,11 @@ declare_class!(
 
 impl WryWebViewParent {
   #[allow(dead_code)]
-  pub fn new(mtm: MainThreadMarker, traffic_light_inset: Option<(f64, f64)>) -> Retained<Self> {
+  pub fn new(mtm: MainThreadMarker) -> Retained<Self> {
     let delegate = mtm
       .alloc::<WryWebViewParent>()
       .set_ivars(WryWebViewParentIvars {
-        traffic_light_inset: traffic_light_inset.into(),
+        traffic_light_inset: Default::default(),
       });
     unsafe { msg_send_id![super(delegate), init] }
   }
