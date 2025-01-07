@@ -1,5 +1,5 @@
 ---
-'wry': 'minor:enhance'
+'wry': 'patch:enhance'
 ---
 
 Add an option to disable background throttling (currently for WebKit only).
