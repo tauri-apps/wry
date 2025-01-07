@@ -583,7 +583,9 @@ pub struct WebViewAttributes<'a> {
   ///
   /// ## Platform-specific
   ///
-  /// - **Linux / Windows / Android**: Unsupported yet. But workarounds like a pending WebLock transaction might suffice.
+  /// - **Linux / Windows / Android**: Unsupported. Workarounds like a pending WebLock transaction might suffice.
+  /// - **iOS / macOS**: Supported since version 17.0+.
+  ///
   /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
   pub disable_background_throttling: bool,
 }
@@ -1202,7 +1204,9 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific
   ///
-  /// - **Linux / Windows / Android**: Unsupported yet. But workarounds like a pending WebLock transaction might suffice.
+  /// - **Linux / Windows / Android**: Unsupported. Workarounds like a pending WebLock transaction might suffice.
+  /// - **iOS / macOS**: Supported since version 17.0+.
+  ///
   /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
   pub fn with_disable_background_throttling(self, disable: bool) -> Self {
     self.and_then(|mut b| {

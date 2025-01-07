@@ -349,14 +349,20 @@ impl InnerWebView {
 
       // disable background throttling if attributes.disable_background_throttling is true
       // which works for iOS 17.0+,iPadOS 17.0+,Mac Catalyst 17.0+, macOS 14.0+, visionOS 1.0+
-      if attributes.disable_background_throttling {
-        // Set inactive scheduling policy to None enum value (2)
-        _preference.setValue_forKey(
-          Some(&NSNumber::numberWithInt(
-            WKInactiveSchedulingPolicy::None.0.try_into().unwrap(),
-          )),
-          ns_string!("inactiveSchedulingPolicy"),
-        );
+      #[cfg(any(target_os = "ios", target_os = "macos"))]
+      {
+        let is_supported_os = (cfg!(target_os = "ios") && os_major_version >= 17)
+          || (cfg!(target_os = "macos") && os_major_version >= 14);
+
+        if is_supported_os && attributes.disable_background_throttling {
+          // Set inactive scheduling policy to None enum value (2)
+          _preference.setValue_forKey(
+            Some(&NSNumber::numberWithInt(
+              WKInactiveSchedulingPolicy::None.0.try_into().unwrap(),
+            )),
+            ns_string!("inactiveSchedulingPolicy"),
+          );
+        }
       }
 
       #[cfg(target_os = "macos")]
