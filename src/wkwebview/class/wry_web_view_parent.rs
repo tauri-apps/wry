@@ -16,6 +16,7 @@ use objc2_foundation::NSRect;
 use objc2_ui_kit::UIView as NSView;
 
 pub struct WryWebViewParentIvars {
+  #[cfg(target_os = "macos")]
   traffic_light_inset: Cell<Option<(f64, f64)>>,
 }
 
@@ -64,6 +65,7 @@ impl WryWebViewParent {
     let delegate = mtm
       .alloc::<WryWebViewParent>()
       .set_ivars(WryWebViewParentIvars {
+        #[cfg(target_os = "macos")]
         traffic_light_inset: Default::default(),
       });
     unsafe { msg_send_id![super(delegate), init] }
