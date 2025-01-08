@@ -588,7 +588,7 @@ pub struct WebViewAttributes<'a> {
   /// - **macOS**: Supported since version 14.0+.
   ///
   /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
-  pub disable_background_throttling: bool,
+  pub background_throttling: Option<BackgroundThrottlingPolicy>,
 }
 
 impl<'a> Default for WebViewAttributes<'a> {
@@ -629,7 +629,7 @@ impl<'a> Default for WebViewAttributes<'a> {
         position: dpi::LogicalPosition::new(0, 0).into(),
         size: dpi::LogicalSize::new(200, 200).into(),
       }),
-      disable_background_throttling: false,
+      background_throttling: None,
     }
   }
 }
@@ -1210,9 +1210,9 @@ impl<'a> WebViewBuilder<'a> {
   /// - **macOS**: Supported since version 14.0+.
   ///
   /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
-  pub fn with_disable_background_throttling(self, disable: bool) -> Self {
+  pub fn with_background_throttling(self, policy: Option<BackgroundThrottlingPolicy>) -> Self {
     self.and_then(|mut b| {
-      b.attrs.disable_background_throttling = disable;
+      b.attrs.background_throttling = policy;
       Ok(b)
     })
   }
@@ -2031,6 +2031,17 @@ pub enum PageLoadEvent {
   Started,
   /// Indicates that the page content has finished loading
   Finished,
+}
+
+/// Background throttling policy
+#[derive(Debug, Clone)]
+pub enum BackgroundThrottlingPolicy {
+  /// A policy where background throttling is disabled
+  Disabled,
+  /// A policy where a web view that’s not in a window fully suspends tasks.
+  Suspend,
+  /// A policy where a web view that’s not in a window limits processing, but does not fully suspend tasks.
+  Throttle,
 }
 
 #[cfg(test)]

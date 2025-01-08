@@ -88,7 +88,9 @@ use crate::{
   },
 };
 
-use crate::{Error, Rect, RequestAsyncResponder, Result, WebViewAttributes, RGBA};
+use crate::{
+  BackgroundThrottlingPolicy, Error, Rect, RequestAsyncResponder, Result, WebViewAttributes, RGBA,
+};
 
 use http::Request;
 
@@ -347,21 +349,29 @@ impl InnerWebView {
         webview
       };
 
-      // disable background throttling if attributes.disable_background_throttling is true
+      // change background throttling policy if attributes.background_throttling is set
       // which works for iOS 17.0+,iPadOS 17.0+,Mac Catalyst 17.0+, macOS 14.0+, visionOS 1.0+
       #[cfg(any(target_os = "ios", target_os = "macos"))]
       {
         let is_supported_os = (cfg!(target_os = "ios") && os_major_version >= 17)
           || (cfg!(target_os = "macos") && os_major_version >= 14);
 
-        if is_supported_os && attributes.disable_background_throttling {
-          // Set inactive scheduling policy to None enum value (2)
-          _preference.setValue_forKey(
-            Some(&NSNumber::numberWithInt(
-              WKInactiveSchedulingPolicy::None.0.try_into().unwrap(),
-            )),
-            ns_string!("inactiveSchedulingPolicy"),
-          );
+        if is_supported_os {
+          if let Some(policy) = attributes.background_throttling {
+            let policy_value = match policy {
+              BackgroundThrottlingPolicy::Disabled => WKInactiveSchedulingPolicy::None.0,
+              BackgroundThrottlingPolicy::Suspend => WKInactiveSchedulingPolicy::Suspend.0,
+              BackgroundThrottlingPolicy::Throttle => WKInactiveSchedulingPolicy::Throttle.0,
+            };
+
+            // Convert and set the value
+            if let Ok(policy_number) = policy_value.try_into() {
+              _preference.setValue_forKey(
+                Some(&NSNumber::numberWithInt(policy_number)),
+                ns_string!("inactiveSchedulingPolicy"),
+              );
+            }
+          }
         }
       }
 
