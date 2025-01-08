@@ -1155,7 +1155,7 @@ impl InnerWebView {
         let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
       }
 
-      WM_WINDOWPOSCHANGED => {
+      msg if msg == WM_MOVE || msg == WM_MOVING => {
         let controller = dwrefdata as *mut ICoreWebView2Controller;
         let _ = (*controller).NotifyParentWindowPositionChanged();
       }
