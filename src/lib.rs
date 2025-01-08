@@ -1210,9 +1210,9 @@ impl<'a> WebViewBuilder<'a> {
   /// - **macOS**: Supported since version 14.0+.
   ///
   /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
-  pub fn with_background_throttling(self, policy: Option<BackgroundThrottlingPolicy>) -> Self {
+  pub fn with_background_throttling(self, policy: BackgroundThrottlingPolicy) -> Self {
     self.and_then(|mut b| {
-      b.attrs.background_throttling = policy;
+      b.attrs.background_throttling = Some(policy);
       Ok(b)
     })
   }
