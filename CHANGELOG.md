@@ -1,5 +1,13 @@
 # Changelog
 
+## \[0.48.1]
+
+- [`cbbcccc`](https://github.com/tauri-apps/wry/commit/cbbcccc38af7d900a0f8f7fa5ea5e6667765ed81) ([#1446](https://github.com/tauri-apps/wry/pull/1446) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) Add functionality to set the traffic light inset on macOS. This is required to prevent flickers if the WebView is injected via `build()` instead of `build_as_child()`.
+
+### enhance
+
+- [`26abf63`](https://github.com/tauri-apps/wry/commit/26abf63d79c4a0fcff8ea39d0ff677686f5b546c) ([#1445](https://github.com/tauri-apps/wry/pull/1445) by [@bastiankistner](https://github.com/tauri-apps/wry/../../bastiankistner)) Add an option to change the default background throttling policy (currently for WebKit only).
+
 ## \[0.48.0]
 
 - [`eb0c816`](https://github.com/tauri-apps/wry/commit/eb0c8163f1e2a11115ef1928b5e4bf0a8f083f3b) ([#1423](https://github.com/tauri-apps/wry/pull/1423) by [@SpikeHD](https://github.com/tauri-apps/wry/../../SpikeHD)) Rename `{WebViewBuilderExtWindows, WebViewBuilderExtUnix}::with_extension_path` to `with_extensions_path`.
