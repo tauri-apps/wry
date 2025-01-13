@@ -74,7 +74,7 @@ windows-core = "0.58"
 dunce = "1"
 
 [target."cfg(target_os = \"windows\")".dependencies.windows]
-version = "0.58"
+version = "0.59"
 features = [
   "implement",
   "Win32_Foundation",
