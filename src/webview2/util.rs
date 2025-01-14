@@ -81,7 +81,7 @@ pub unsafe fn hwnd_dpi(hwnd: HWND) -> u32 {
       BASE_DPI
     }
   } else {
-    let hdc = GetDC(hwnd);
+    let hdc = GetDC(Some(hwnd));
     if hdc.is_invalid() {
       return BASE_DPI;
     }
@@ -90,7 +90,7 @@ pub unsafe fn hwnd_dpi(hwnd: HWND) -> u32 {
     if IsProcessDPIAware().as_bool() {
       // If the process is DPI aware, then scaling must be handled by the application using
       // this DPI value.
-      GetDeviceCaps(hdc, LOGPIXELSX) as u32
+      GetDeviceCaps(Some(hdc), LOGPIXELSX) as u32
     } else {
       // If the process is DPI unaware, then scaling is performed by the OS; we thus return
       // 96 (scale factor 1.0) to prevent the window from being re-scaled by both the
