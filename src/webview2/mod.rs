@@ -176,6 +176,16 @@ impl InnerWebView {
       wparam: WPARAM,
       lparam: LPARAM,
     ) -> LRESULT {
+      if msg == WM_SETFOCUS {
+        // Fix https://github.com/DioxusLabs/dioxus/issues/2900
+        // Get the first child window of the window
+        let child = GetWindow(hwnd, GW_CHILD).unwrap_or_default();
+        if child != HWND::default() {
+          // Set focus to the child window(WebView document)
+          let _ = SetFocus(child);
+        }
+      }
+
       DefWindowProcW(hwnd, msg, wparam, lparam)
     }
 
