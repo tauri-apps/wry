@@ -57,7 +57,7 @@ impl DragDropController {
         let closure = &mut *(lparam.0 as *mut c_void as *mut &mut dyn FnMut(HWND) -> bool);
         closure(hwnd).into()
       }
-      let _ = unsafe { EnumChildWindows(hwnd, Some(enumerate_callback), lparam) };
+      let _ = unsafe { EnumChildWindows(Some(hwnd), Some(enumerate_callback), lparam) };
     }
 
     controller
@@ -94,7 +94,10 @@ impl DragDropTarget {
     }
   }
 
-  unsafe fn iterate_filenames<F>(data_obj: Option<&IDataObject>, mut callback: F) -> Option<HDROP>
+  unsafe fn iterate_filenames<F>(
+    data_obj: windows_core::Ref<'_, IDataObject>,
+    mut callback: F,
+  ) -> Option<HDROP>
   where
     F: FnMut(PathBuf),
   {
@@ -157,7 +160,7 @@ impl DragDropTarget {
 impl IDropTarget_Impl for DragDropTarget_Impl {
   fn DragEnter(
     &self,
-    pDataObj: Option<&IDataObject>,
+    pDataObj: windows_core::Ref<'_, IDataObject>,
     _grfKeyState: MODIFIERKEYS_FLAGS,
     pt: &POINTL,
     pdwEffect: *mut DROPEFFECT,
@@ -224,7 +227,7 @@ impl IDropTarget_Impl for DragDropTarget_Impl {
 
   fn Drop(
     &self,
-    pDataObj: Option<&IDataObject>,
+    pDataObj: windows_core::Ref<'_, IDataObject>,
     _grfKeyState: MODIFIERKEYS_FLAGS,
     pt: &POINTL,
     _pdwEffect: *mut DROPEFFECT,

@@ -591,7 +591,7 @@ pub struct WebViewAttributes<'a> {
   pub background_throttling: Option<BackgroundThrottlingPolicy>,
 }
 
-impl<'a> Default for WebViewAttributes<'a> {
+impl Default for WebViewAttributes<'_> {
   fn default() -> Self {
     Self {
       id: Default::default(),

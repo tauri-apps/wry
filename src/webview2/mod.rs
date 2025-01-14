@@ -237,9 +237,9 @@ impl InnerWebView {
         y,
         width,
         height,
-        parent,
-        HMENU::default(),
-        GetModuleHandleW(PCWSTR::null()).unwrap_or_default(),
+        Some(parent),
+        None,
+        GetModuleHandleW(PCWSTR::null()).map(Into::into).ok(),
         None,
       )?
     };
@@ -247,7 +247,7 @@ impl InnerWebView {
     unsafe {
       SetWindowPos(
         hwnd,
-        HWND_TOP,
+        Some(HWND_TOP),
         0,
         0,
         0,
@@ -1040,7 +1040,7 @@ impl InnerWebView {
 
     let raw = Box::into_raw(boxed2);
 
-    let _res = PostMessageW(hwnd, *EXEC_MSG_ID, WPARAM(raw as _), LPARAM(0));
+    let _res = PostMessageW(Some(hwnd), *EXEC_MSG_ID, WPARAM(raw as _), LPARAM(0));
 
     #[cfg(any(debug_assertions, feature = "tracing"))]
     if let Err(err) = _res {
@@ -1067,7 +1067,7 @@ impl InnerWebView {
     if msg == *EXEC_MSG_ID {
       let mut function: Box<Box<dyn FnMut()>> = Box::from_raw(wparam.0 as *mut _);
       function();
-      let _ = RedrawWindow(hwnd, None, HRGN::default(), RDW_INTERNALPAINT);
+      let _ = RedrawWindow(Some(hwnd), None, None, RDW_INTERNALPAINT);
       return LRESULT(0);
     }
 
@@ -1139,7 +1139,7 @@ impl InnerWebView {
           if (*controller).ParentWindow(&mut hwnd).is_ok() {
             let _ = SetWindowPos(
               hwnd,
-              HWND::default(),
+              None,
               0,
               0,
               width,
@@ -1193,12 +1193,7 @@ impl InnerWebView {
 
   #[inline]
   unsafe fn dettach_parent_subclass(parent: HWND) {
-    SendMessageW(
-      parent,
-      PARENT_DESTROY_MESSAGE,
-      WPARAM::default(),
-      LPARAM::default(),
-    );
+    SendMessageW(parent, PARENT_DESTROY_MESSAGE, None, None);
     let _ = RemoveWindowSubclass(
       parent,
       Some(Self::parent_subclass_proc),
@@ -1321,7 +1316,7 @@ impl InnerWebView {
         x: rect.left,
         y: rect.top,
       }];
-      unsafe { MapWindowPoints(self.hwnd, *self.parent.borrow(), position_point) };
+      unsafe { MapWindowPoints(Some(self.hwnd), Some(*self.parent.borrow()), position_point) };
 
       bounds.position = PhysicalPosition::new(position_point[0].x, position_point[0].y).into();
     } else {
@@ -1348,7 +1343,7 @@ impl InnerWebView {
 
       SetWindowPos(
         self.hwnd,
-        HWND::default(),
+        None,
         position.x,
         position.y,
         size.width,
@@ -1436,7 +1431,7 @@ impl InnerWebView {
     unsafe {
       let parent = *self.parent.borrow();
       if parent != HWND::default() {
-        SetFocus(parent)?;
+        SetFocus(Some(parent))?;
       }
     }
 
@@ -1553,7 +1548,7 @@ impl InnerWebView {
     let parent = HWND(parent as _);
 
     unsafe {
-      SetParent(self.hwnd, parent)?;
+      SetParent(self.hwnd, Some(parent))?;
 
       if !self.is_child {
         Self::dettach_parent_subclass(*self.parent.borrow());
