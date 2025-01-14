@@ -179,8 +179,8 @@ impl InnerWebView {
       if msg == WM_SETFOCUS {
         // Fix https://github.com/DioxusLabs/dioxus/issues/2900
         // Get the first child window of the window
-        let child = GetWindow(hwnd, GW_CHILD).unwrap_or_default();
-        if child != HWND::default() {
+        let child = GetWindow(hwnd, GW_CHILD).ok();
+        if child.is_some() {
           // Set focus to the child window(WebView document)
           let _ = SetFocus(child);
         }
@@ -1681,14 +1681,19 @@ unsafe fn set_background_color(
   controller: &ICoreWebView2Controller,
   background_color: RGBA,
 ) -> Result<()> {
-  let (R, G, B, mut A) = background_color;
-  if is_windows_7() || A != 0 {
-    A = 255;
+  let (r, g, b, mut a) = background_color;
+  if is_windows_7() || a != 0 {
+    a = 255;
   }
 
   let controller2: ICoreWebView2Controller2 = controller.cast()?;
   controller2
-    .SetDefaultBackgroundColor(COREWEBVIEW2_COLOR { R, G, B, A })
+    .SetDefaultBackgroundColor(COREWEBVIEW2_COLOR {
+      R: r,
+      G: g,
+      B: b,
+      A: a,
+    })
     .map_err(Into::into)
 }
 
