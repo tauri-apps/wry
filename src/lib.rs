@@ -11,12 +11,11 @@
 //! ## Examples
 //!
 //! This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only).
-//! See the following example using [`winit`].
+//! See the following example using [`winit`]:
 //!
 //! ```no_run
 //! # use wry::{WebViewBuilder, raw_window_handle};
 //! # use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop}, window::{Window, WindowId}};
-//!
 //! #[derive(Default)]
 //! struct App {
 //!   window: Option<Window>,
@@ -44,7 +43,7 @@
 //! ```
 //!
 //! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::new_gtk`] on Linux.
-//! See the following example using [`tao`].
+//! See the following example using [`tao`]:
 //!
 //! ```no_run
 //! # use wry::WebViewBuilder;
@@ -72,7 +71,6 @@
 //! ```no_run
 //! # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
 //! # use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop}, window::{Window, WindowId}};
-//!
 //! #[derive(Default)]
 //! struct App {
 //!   window: Option<Window>,
@@ -138,18 +136,21 @@
 //!
 //! ## Platform Considerations
 //!
-//! Note that on Linux, we use webkit2gtk webviews so if the windowing library doesn't support gtk (as in [`winit`])
+//! Here is the underlying web engine each platform uses, and some dependencies you might need to install.
+//!
+//! ### Linux
+//!
+//! [WebKitGTK](https://webkitgtk.org/) is used to provide webviews on Linux which requires GTK,
+//! so if the windowing library doesn't support GTK (as in [`winit`])
 //! you'll need to call [`gtk::init`] before creating the webview and then call [`gtk::main_iteration_do`] alongside
 //! your windowing library event loop.
 //!
 //! ```no_run
-//! # use wry::{WebViewBuilder, raw_window_handle};
+//! # use wry::{WebView, WebViewBuilder};
 //! # use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop}, window::{Window, WindowId}};
-//!
 //! #[derive(Default)]
 //! struct App {
-//!   window: Option<Window>,
-//!   webview: Option<wry::WebView>,
+//!   webview_window: Option<(Window, WebView)>,
 //! }
 //!
 //! impl ApplicationHandler for App {
@@ -160,8 +161,7 @@
 //!       .build(&window)
 //!       .unwrap();
 //!
-//!     self.window = Some(window);
-//!     self.webview = Some(webview);
+//!     self.webview_window = Some((window, webview));
 //!   }
 //!
 //!   fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {}
@@ -180,7 +180,40 @@
 //! event_loop.run_app(&mut app).unwrap();
 //! ```
 //!
-//! ## Android
+//! #### Linux Dependencies
+//!
+//! ##### Arch Linux / Manjaro:
+//!
+//! ```bash
+//! sudo pacman -S webkit2gtk-4.1
+//! ```
+//!
+//! ##### Debian / Ubuntu:
+//!
+//! ```bash
+//! sudo apt install libwebkit2gtk-4.1-dev
+//! ```
+//!
+//! ##### Fedora
+//!
+//! ```bash
+//! sudo dnf install gtk3-devel webkit2gtk4.1-devel
+//! ```
+//!
+//! ### macOS
+//!
+//! WebKit is native on macOS so everything should be fine.
+//!
+//! If you are cross-compiling for macOS using [osxcross](https://github.com/tpoechtrager/osxcross) and encounter a runtime panic like `Class with name WKWebViewConfiguration could not be found` it's possible that `WebKit.framework` has not been linked correctly, to fix this set the `RUSTFLAGS` environment variable:
+//!
+//! ```bash
+//! RUSTFLAGS="-l framework=WebKit" cargo build --target=x86_64-apple-darwin --release
+//! ```
+//! ### Windows
+//!
+//! WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7, 8, 10 and 11.
+//!
+//! ### Android
 //!
 //! In order for `wry` to be able to create webviews on Android, there is a few requirements that your application needs to uphold:
 //! 1. You need to set a few environment variables that will be used to generate the necessary kotlin
