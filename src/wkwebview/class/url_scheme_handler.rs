@@ -192,9 +192,10 @@ extern "C" fn start_task(
                 return; // If invalid, return early without calling task methods.
               }
 
-              // ...
               unsafe fn response(
+                // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
                 task: &'static ProtocolObject<dyn WKURLSchemeTask>,
+                // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
                 webview: &'static mut WryWebView,
                 task_key: usize,
                 task_uuid: Retained<NSUUID>,
@@ -207,8 +208,11 @@ extern "C" fn start_task(
                 check_task_is_valid(webview, task_key, task_uuid.clone())?;
 
                 let content = sent_response.body();
+                // default: application/octet-stream, but should be provided by the client
                 let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
+                // default to 200
                 let wanted_status_code = sent_response.status().as_u16() as i32;
+                // default to HTTP/1.1
                 let wanted_version = format!("{:#?}", sent_response.version());
 
                 let mut headers = NSMutableDictionary::new();
@@ -223,6 +227,7 @@ extern "C" fn start_task(
                   NSString::from_str(&content.len().to_string()),
                 );
 
+                // add headers
                 for (name, value) in sent_response.headers().iter() {
                   if let Ok(value) = value.to_str() {
                     headers.insert_id(
@@ -252,7 +257,10 @@ extern "C" fn start_task(
                 }))
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
+                // Send data
                 let data = NSData::alloc();
+                // MIGRATE NOTE: we copied the content to the NSData because content will be freed
+                // when out of scope but NSData will also free the content when it's done and cause doube free.
                 let data = NSData::initWithBytes_length(
                   data,
                   content.as_ptr() as *mut c_void,
