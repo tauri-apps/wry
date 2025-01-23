@@ -7,68 +7,64 @@
 [![https://good-labs.github.io/greater-good-affirmation/assets/images/badge.svg](https://good-labs.github.io/greater-good-affirmation/assets/images/badge.svg)](https://good-labs.github.io/greater-good-affirmation)
 [![support](https://img.shields.io/badge/sponsor-Open%20Collective-blue.svg)](https://opencollective.com/tauri)
 
-Cross-platform WebView rendering library in Rust that supports all major desktop platforms like Windows, macOS, and Linux.
+Cross-platform WebView rendering library in Rust that supports all major desktop platforms like Windows, macOS, Linux, Android and iOS.
 
-<div align="center">
-  <a href="https://gfycat.com/needywetelk">
-    <img src="https://thumbs.gfycat.com/NeedyWetElk-size_restricted.gif">
-  </a>
-</div>
+## Examples
 
-## Overview
+This example leverages the `HasWindowHandle` trait from `raw-window-handle` crate and supports Windows, macOS, iOS, Android and Linux (X11 Only).
+See the following example using `winit`.
 
-WRY connects the web engine on each platform and provides easy to use and unified interface to render WebView.
-The webview requires a running event loop and a window type that implements `HasWindowHandle`,
-or a gtk container widget if you need to support X11 and Wayland.
-You can use a windowing library like `tao` or `winit`.
+```rs
+use wry::{WebView, WebViewBuilder};
+use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop}, window::{Window, WindowId}};
 
-## Usage
-
-The minimum example to create a Window and browse a website looks like following:
-
-```rust
-fn main() -> wry::Result<()> {
-  use tao::{
-    event::{Event, StartCause, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
-  };
-  use wry::WebViewBuilder;
-
-  let event_loop = EventLoop::new();
-  let window = WindowBuilder::new()
-    .with_title("Hello World")
-    .build(&event_loop)
-    .unwrap();
-
-  let webview = WebViewBuilder::new()
-    .with_url("https://tauri.app")
-    .build(&window)?;
-
-  event_loop.run(move |event, _, control_flow| {
-    *control_flow = ControlFlow::Wait;
-
-    match event {
-      Event::NewEvents(StartCause::Init) => println!("Wry has started!"),
-      Event::WindowEvent {
-        event: WindowEvent::CloseRequested,
-        ..
-      } => *control_flow = ControlFlow::Exit,
-      _ => (),
-    }
-  });
+#[derive(Default)]
+struct App {
+  webview_window: Option<(Window, WebView)>,
 }
+
+impl ApplicationHandler for App {
+  fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+    let window = event_loop.create_window(Window::default_attributes()).unwrap();
+    let webview = WebViewBuilder::new()
+      .with_url("https://tauri.app")
+      .build(&window)
+      .unwrap();
+
+    self.webview_window = Some((window, webview));
+  }
+
+  fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {}
+}
+
+let event_loop = EventLoop::new().unwrap();
+let mut app = App::default();
+event_loop.run_app(&mut app).unwrap();
 ```
 
-There are also more samples under `examples`, you can enter commands like the following to try them:
+If you also want to support Wayland too, then we recommend you use `WebViewBuilderExtUnix::new_gtk` on Linux.
+See the following example using `tao`.
 
+```rs
+use wry::WebViewBuilder;
+use tao::{window::WindowBuilder, event_loop::EventLoop};
+#[cfg(target_os = "linux")]
+use tao::platform::unix::WindowExtUnix;
+#[cfg(target_os = "linux")]
+use wry::WebViewBuilderExtUnix;
+
+let event_loop = EventLoop::new();
+let window = WindowBuilder::new().build(&event_loop).unwrap();
+
+let builder = WebViewBuilder::new().with_url("https://tauri.app");
+
+#[cfg(not(target_os = "linux"))]
+let webview = builder.build(&window).unwrap();
+#[cfg(target_os = "linux")]
+let webview = builder.build_gtk(window.gtk_window()).unwrap();
 ```
-cargo run --example multiwindow
-```
 
-For more information, please read the documentation below.
-
-## [Documentation](https://docs.rs/wry)
+For more information, please read the crate [documentation](https://docs.rs/wry) .
 
 ## Platform-specific notes
 
@@ -98,40 +94,40 @@ sudo dnf install gtk3-devel webkit2gtk4.1-devel
 
 ### Nix & NixOS
 
- ```Nix
+```Nix
 # shell.nix
 
- let
-    # Unstable Channel | Rolling Release
-    pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
-    packages = with pkgs; [
-      pkg-config
-      webkitgtk_4_1
-    ];
-  in
-  pkgs.mkShell {
-    buildInputs = packages;
-  }
- ```
+let
+   # Unstable Channel | Rolling Release
+   pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
+   packages = with pkgs; [
+     pkg-config
+     webkitgtk_4_1
+   ];
+ in
+ pkgs.mkShell {
+   buildInputs = packages;
+ }
+```
 
- ```sh
- nix-shell shell.nix
- ```
+```sh
+nix-shell shell.nix
+```
 
 #### GUIX
 
- ```scheme
+```scheme
 ;; manifest.scm
 
- (specifications->manifest
-   '("pkg-config"                ; Helper tool used when compiling
-     "webkitgtk"                 ; Web content engine fot GTK+
-  ))
- ```
+(specifications->manifest
+  '("pkg-config"                ; Helper tool used when compiling
+    "webkitgtk"                 ; Web content engine fot GTK+
+ ))
+```
 
 ```sh
 guix shell -m manifest.scm
-````
+```
 
 ### macOS
 

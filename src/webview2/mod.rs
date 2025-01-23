@@ -176,6 +176,16 @@ impl InnerWebView {
       wparam: WPARAM,
       lparam: LPARAM,
     ) -> LRESULT {
+      if msg == WM_SETFOCUS {
+        // Fix https://github.com/DioxusLabs/dioxus/issues/2900
+        // Get the first child window of the window
+        let child = GetWindow(hwnd, GW_CHILD).ok();
+        if child.is_some() {
+          // Set focus to the child window(WebView document)
+          let _ = SetFocus(child);
+        }
+      }
+
       DefWindowProcW(hwnd, msg, wparam, lparam)
     }
 
@@ -237,9 +247,9 @@ impl InnerWebView {
         y,
         width,
         height,
-        parent,
-        HMENU::default(),
-        GetModuleHandleW(PCWSTR::null()).unwrap_or_default(),
+        Some(parent),
+        None,
+        GetModuleHandleW(PCWSTR::null()).map(Into::into).ok(),
         None,
       )?
     };
@@ -247,7 +257,7 @@ impl InnerWebView {
     unsafe {
       SetWindowPos(
         hwnd,
-        HWND_TOP,
+        Some(HWND_TOP),
         0,
         0,
         0,
@@ -1040,11 +1050,20 @@ impl InnerWebView {
 
     let raw = Box::into_raw(boxed2);
 
-    let res = PostMessageW(hwnd, *EXEC_MSG_ID, WPARAM(raw as _), LPARAM(0));
-    assert!(
-      res.is_ok(),
-      "PostMessage failed ; is the messages queue full?"
-    );
+    let _res = PostMessageW(Some(hwnd), *EXEC_MSG_ID, WPARAM(raw as _), LPARAM(0));
+
+    #[cfg(any(debug_assertions, feature = "tracing"))]
+    if let Err(err) = _res {
+      let msg = format!(
+        "PostMessage failed ; is the messages queue full? Error code {} - {}",
+        err.code(),
+        err.message()
+      );
+      #[cfg(feature = "tracing")]
+      tracing::error!("{}", &msg);
+      #[cfg(debug_assertions)]
+      eprintln!("{}", msg);
+    }
   }
 
   unsafe extern "system" fn main_thread_dispatcher_proc(
@@ -1058,7 +1077,7 @@ impl InnerWebView {
     if msg == *EXEC_MSG_ID {
       let mut function: Box<Box<dyn FnMut()>> = Box::from_raw(wparam.0 as *mut _);
       function();
-      let _ = RedrawWindow(hwnd, None, HRGN::default(), RDW_INTERNALPAINT);
+      let _ = RedrawWindow(Some(hwnd), None, None, RDW_INTERNALPAINT);
       return LRESULT(0);
     }
 
@@ -1130,7 +1149,7 @@ impl InnerWebView {
           if (*controller).ParentWindow(&mut hwnd).is_ok() {
             let _ = SetWindowPos(
               hwnd,
-              HWND::default(),
+              None,
               0,
               0,
               width,
@@ -1146,7 +1165,7 @@ impl InnerWebView {
         let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
       }
 
-      WM_WINDOWPOSCHANGED => {
+      msg if msg == WM_MOVE || msg == WM_MOVING => {
         let controller = dwrefdata as *mut ICoreWebView2Controller;
         let _ = (*controller).NotifyParentWindowPositionChanged();
       }
@@ -1184,12 +1203,7 @@ impl InnerWebView {
 
   #[inline]
   unsafe fn dettach_parent_subclass(parent: HWND) {
-    SendMessageW(
-      parent,
-      PARENT_DESTROY_MESSAGE,
-      WPARAM::default(),
-      LPARAM::default(),
-    );
+    SendMessageW(parent, PARENT_DESTROY_MESSAGE, None, None);
     let _ = RemoveWindowSubclass(
       parent,
       Some(Self::parent_subclass_proc),
@@ -1312,7 +1326,7 @@ impl InnerWebView {
         x: rect.left,
         y: rect.top,
       }];
-      unsafe { MapWindowPoints(self.hwnd, *self.parent.borrow(), position_point) };
+      unsafe { MapWindowPoints(Some(self.hwnd), Some(*self.parent.borrow()), position_point) };
 
       bounds.position = PhysicalPosition::new(position_point[0].x, position_point[0].y).into();
     } else {
@@ -1339,7 +1353,7 @@ impl InnerWebView {
 
       SetWindowPos(
         self.hwnd,
-        HWND::default(),
+        None,
         position.x,
         position.y,
         size.width,
@@ -1427,7 +1441,7 @@ impl InnerWebView {
     unsafe {
       let parent = *self.parent.borrow();
       if parent != HWND::default() {
-        SetFocus(parent)?;
+        SetFocus(Some(parent))?;
       }
     }
 
@@ -1544,7 +1558,7 @@ impl InnerWebView {
     let parent = HWND(parent as _);
 
     unsafe {
-      SetParent(self.hwnd, parent)?;
+      SetParent(self.hwnd, Some(parent))?;
 
       if !self.is_child {
         Self::dettach_parent_subclass(*self.parent.borrow());
@@ -1667,14 +1681,19 @@ unsafe fn set_background_color(
   controller: &ICoreWebView2Controller,
   background_color: RGBA,
 ) -> Result<()> {
-  let (R, G, B, mut A) = background_color;
-  if is_windows_7() || A != 0 {
-    A = 255;
+  let (r, g, b, mut a) = background_color;
+  if is_windows_7() || a != 0 {
+    a = 255;
   }
 
   let controller2: ICoreWebView2Controller2 = controller.cast()?;
   controller2
-    .SetDefaultBackgroundColor(COREWEBVIEW2_COLOR { R, G, B, A })
+    .SetDefaultBackgroundColor(COREWEBVIEW2_COLOR {
+      R: r,
+      G: g,
+      B: b,
+      A: a,
+    })
     .map_err(Into::into)
 }
 

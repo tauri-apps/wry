@@ -11,22 +11,39 @@
 //! ## Examples
 //!
 //! This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only).
-//! See the following example using [`winit`].
+//! See the following example using [`winit`]:
 //!
 //! ```no_run
 //! # use wry::{WebViewBuilder, raw_window_handle};
-//! # use winit::{window::WindowBuilder, event_loop::EventLoop};
-//! let event_loop = EventLoop::new().unwrap();
-//! let window = WindowBuilder::new().build(&event_loop).unwrap();
+//! # use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop}, window::{Window, WindowId}};
+//! #[derive(Default)]
+//! struct App {
+//!   window: Option<Window>,
+//!   webview: Option<wry::WebView>,
+//! }
 //!
-//! let webview = WebViewBuilder::new()
-//!   .with_url("https://tauri.app")
-//!   .build(&window)
-//!   .unwrap();
+//! impl ApplicationHandler for App {
+//!   fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+//!     let window = event_loop.create_window(Window::default_attributes()).unwrap();
+//!     let webview = WebViewBuilder::new()
+//!       .with_url("https://tauri.app")
+//!       .build(&window)
+//!       .unwrap();
+//!
+//!     self.window = Some(window);
+//!     self.webview = Some(webview);
+//!   }
+//!
+//!   fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {}
+//! }
+//!
+//! let event_loop = EventLoop::new().unwrap();
+//! let mut app = App::default();
+//! event_loop.run_app(&mut app).unwrap();
 //! ```
 //!
 //! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::new_gtk`] on Linux.
-//! See the following example using [`tao`].
+//! See the following example using [`tao`]:
 //!
 //! ```no_run
 //! # use wry::WebViewBuilder;
@@ -53,18 +70,35 @@
 //!
 //! ```no_run
 //! # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
-//! # use winit::{window::WindowBuilder, event_loop::EventLoop};
-//! let event_loop = EventLoop::new().unwrap();
-//! let window = WindowBuilder::new().build(&event_loop).unwrap();
+//! # use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop}, window::{Window, WindowId}};
+//! #[derive(Default)]
+//! struct App {
+//!   window: Option<Window>,
+//!   webview: Option<wry::WebView>,
+//! }
 //!
-//! let webview = WebViewBuilder::new()
-//!   .with_url("https://tauri.app")
-//!   .with_bounds(Rect {
-//!     position: LogicalPosition::new(100, 100).into(),
-//!     size: LogicalSize::new(200, 200).into(),
-//!   })
-//!   .build_as_child(&window)
-//!   .unwrap();
+//! impl ApplicationHandler for App {
+//!   fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+//!     let window = event_loop.create_window(Window::default_attributes()).unwrap();
+//!     let webview = WebViewBuilder::new()
+//!       .with_url("https://tauri.app")
+//!       .with_bounds(Rect {
+//!         position: LogicalPosition::new(100, 100).into(),
+//!         size: LogicalSize::new(200, 200).into(),
+//!       })
+//!       .build_as_child(&window)
+//!       .unwrap();
+//!
+//!     self.window = Some(window);
+//!     self.webview = Some(webview);
+//!   }
+//!
+//!   fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {}
+//! }
+//!
+//! let event_loop = EventLoop::new().unwrap();
+//! let mut app = App::default();
+//! event_loop.run_app(&mut app).unwrap();
 //! ```
 //!
 //! If you want to support X11 and Wayland at the same time, we recommend using
@@ -102,32 +136,84 @@
 //!
 //! ## Platform Considerations
 //!
-//! Note that on Linux, we use webkit2gtk webviews so if the windowing library doesn't support gtk (as in [`winit`])
+//! Here is the underlying web engine each platform uses, and some dependencies you might need to install.
+//!
+//! ### Linux
+//!
+//! [WebKitGTK](https://webkitgtk.org/) is used to provide webviews on Linux which requires GTK,
+//! so if the windowing library doesn't support GTK (as in [`winit`])
 //! you'll need to call [`gtk::init`] before creating the webview and then call [`gtk::main_iteration_do`] alongside
 //! your windowing library event loop.
 //!
 //! ```no_run
-//! # use winit::{event_loop::EventLoop, window::Window};
-//! # use wry::{WebView, WebViewAttributes};
-//! #[cfg(target_os = "linux")]
-//! gtk::init().unwrap(); // <----- IMPORTANT
-//! let event_loop = EventLoop::new().unwrap();
+//! # use wry::{WebView, WebViewBuilder};
+//! # use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::{ActiveEventLoop, EventLoop}, window::{Window, WindowId}};
+//! #[derive(Default)]
+//! struct App {
+//!   webview_window: Option<(Window, WebView)>,
+//! }
 //!
-//! let window = Window::new(&event_loop).unwrap();
-//! let webview = WebView::new(&window, WebViewAttributes::default());
+//! impl ApplicationHandler for App {
+//!   fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+//!     let window = event_loop.create_window(Window::default_attributes()).unwrap();
+//!     let webview = WebViewBuilder::new()
+//!       .with_url("https://tauri.app")
+//!       .build(&window)
+//!       .unwrap();
 //!
-//! event_loop.run(|_e, _evl|{
-//!   // process winit events
-//!
-//!   // then advance gtk event loop  <----- IMPORTANT
-//!   #[cfg(target_os = "linux")]
-//!   while gtk::events_pending() {
-//!     gtk::main_iteration_do(false);
+//!     self.webview_window = Some((window, webview));
 //!   }
-//! }).unwrap();
+//!
+//!   fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {}
+//!
+//!   // Advance GTK event loop <!----- IMPORTANT
+//!   fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+//!     #[cfg(target_os = "linux")]
+//!     while gtk::events_pending() {
+//!       gtk::main_iteration_do(false);
+//!     }
+//!   }
+//! }
+//!
+//! let event_loop = EventLoop::new().unwrap();
+//! let mut app = App::default();
+//! event_loop.run_app(&mut app).unwrap();
 //! ```
 //!
-//! ## Android
+//! #### Linux Dependencies
+//!
+//! ##### Arch Linux / Manjaro:
+//!
+//! ```bash
+//! sudo pacman -S webkit2gtk-4.1
+//! ```
+//!
+//! ##### Debian / Ubuntu:
+//!
+//! ```bash
+//! sudo apt install libwebkit2gtk-4.1-dev
+//! ```
+//!
+//! ##### Fedora
+//!
+//! ```bash
+//! sudo dnf install gtk3-devel webkit2gtk4.1-devel
+//! ```
+//!
+//! ### macOS
+//!
+//! WebKit is native on macOS so everything should be fine.
+//!
+//! If you are cross-compiling for macOS using [osxcross](https://github.com/tpoechtrager/osxcross) and encounter a runtime panic like `Class with name WKWebViewConfiguration could not be found` it's possible that `WebKit.framework` has not been linked correctly, to fix this set the `RUSTFLAGS` environment variable:
+//!
+//! ```bash
+//! RUSTFLAGS="-l framework=WebKit" cargo build --target=x86_64-apple-darwin --release
+//! ```
+//! ### Windows
+//!
+//! WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7, 8, 10 and 11.
+//!
+//! ### Android
 //!
 //! In order for `wry` to be able to create webviews on Android, there is a few requirements that your application needs to uphold:
 //! 1. You need to set a few environment variables that will be used to generate the necessary kotlin
@@ -521,9 +607,24 @@ pub struct WebViewAttributes<'a> {
   /// This is only effective if the webview was created by [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`]
   /// or on Linux, if was created by [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
   pub bounds: Option<Rect>,
+
+  /// Whether background throttling should be disabled.
+  ///
+  /// By default, browsers throttle timers and even unload the whole tab (view) to free resources after roughly 5 minutes when
+  /// a view became minimized or hidden. This will permanently suspend all tasks until the documents visibility state
+  /// changes back from hidden to visible by bringing the view back to the foreground.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux / Windows / Android**: Unsupported. Workarounds like a pending WebLock transaction might suffice.
+  /// - **iOS**: Supported since version 17.0+.
+  /// - **macOS**: Supported since version 14.0+.
+  ///
+  /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
+  pub background_throttling: Option<BackgroundThrottlingPolicy>,
 }
 
-impl<'a> Default for WebViewAttributes<'a> {
+impl Default for WebViewAttributes<'_> {
   fn default() -> Self {
     Self {
       id: Default::default(),
@@ -561,6 +662,7 @@ impl<'a> Default for WebViewAttributes<'a> {
         position: dpi::LogicalPosition::new(0, 0).into(),
         size: dpi::LogicalSize::new(200, 200).into(),
       }),
+      background_throttling: None,
     }
   }
 }
@@ -695,12 +797,7 @@ impl<'a> WebViewBuilder<'a> {
   /// `window.onload`.
   ///
   /// ## Example
-  /// ```no_run
-  /// # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
-  /// # use winit::{window::WindowBuilder, event_loop::EventLoop};
-  /// let event_loop = EventLoop::new().unwrap();
-  /// let window = WindowBuilder::new().build(&event_loop).unwrap();
-  ///
+  /// ```ignore
   /// let webview = WebViewBuilder::new()
   ///   .with_initialization_script("console.log('Running inside main frame only')")
   ///   .with_url("https://tauri.app")
@@ -723,12 +820,7 @@ impl<'a> WebViewBuilder<'a> {
   /// Same as [`with_initialization_script`](Self::with_initialization_script) but with option to inject into main frame only or sub frames.
   ///
   /// ## Example
-  /// ```no_run
-  /// # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
-  /// # use winit::{window::WindowBuilder, event_loop::EventLoop};
-  /// let event_loop = EventLoop::new().unwrap();
-  /// let window = WindowBuilder::new().build(&event_loop).unwrap();
-  ///
+  /// ```ignore
   /// let webview = WebViewBuilder::new()
   ///   .with_initialization_script_for_main_only("console.log('Running inside main frame only')", true)
   ///   .with_initialization_script_for_main_only("console.log('Running  main frame and sub frames')", false)
@@ -1138,6 +1230,26 @@ impl<'a> WebViewBuilder<'a> {
     })
   }
 
+  /// Set whether background throttling should be disabled.
+  ///
+  /// By default, browsers throttle timers and even unload the whole tab (view) to free resources after roughly 5 minutes when
+  /// a view became minimized or hidden. This will permanently suspend all tasks until the documents visibility state
+  /// changes back from hidden to visible by bringing the view back to the foreground.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux / Windows / Android**: Unsupported. Workarounds like a pending WebLock transaction might suffice.
+  /// - **iOS**: Supported since version 17.0+.
+  /// - **macOS**: Supported since version 14.0+.
+  ///
+  /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
+  pub fn with_background_throttling(self, policy: BackgroundThrottlingPolicy) -> Self {
+    self.and_then(|mut b| {
+      b.attrs.background_throttling = Some(policy);
+      Ok(b)
+    })
+  }
+
   /// Consume the builder and create the [`WebView`] from a type that implements [`HasWindowHandle`].
   ///
   /// # Platform-specific:
@@ -1195,6 +1307,7 @@ impl<'a> WebViewBuilder<'a> {
 #[derive(Clone, Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   data_store_identifier: Option<[u8; 16]>,
+  traffic_light_inset: Option<dpi::Position>,
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios",))]
@@ -1204,6 +1317,12 @@ pub trait WebViewBuilderExtDarwin {
   ///
   /// - **macOS / iOS**: Available on macOS >= 14 and iOS >= 17
   fn with_data_store_identifier(self, identifier: [u8; 16]) -> Self;
+  /// Move the window controls to the specified position.
+  /// Normally this is handled by the Window but because `WebViewBuilder::build()` overwrites the window's NSView the controls will flicker on resizing.
+  /// Note: This method has no effects if the WebView is injected via `WebViewBuilder::build_as_child();` and there should be no flickers.
+  /// Warning: Do not use this if your chosen window library does not support traffic light insets.
+  /// Warning: Only use this in **decorated** windows with a **hidden titlebar**!
+  fn with_traffic_light_inset<P: Into<dpi::Position>>(self, position: P) -> Self;
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios",))]
@@ -1211,6 +1330,13 @@ impl WebViewBuilderExtDarwin for WebViewBuilder<'_> {
   fn with_data_store_identifier(self, identifier: [u8; 16]) -> Self {
     self.and_then(|mut b| {
       b.platform_specific.data_store_identifier = Some(identifier);
+      Ok(b)
+    })
+  }
+
+  fn with_traffic_light_inset<P: Into<dpi::Position>>(self, position: P) -> Self {
+    self.and_then(|mut b| {
+      b.platform_specific.traffic_light_inset = Some(position.into());
       Ok(b)
     })
   }
@@ -1872,6 +1998,12 @@ pub trait WebViewExtMacOS {
   fn reparent(&self, window: *mut NSWindow) -> Result<()>;
   // Prints with extra options
   fn print_with_options(&self, options: &PrintOptions) -> Result<()>;
+  /// Move the window controls to the specified position.
+  /// Normally this is handled by the Window but because `WebViewBuilder::build()` overwrites the window's NSView the controls will flicker on resizing.
+  /// Note: This method has no effects if the WebView is injected via `WebViewBuilder::build_as_child();` and there should be no flickers.
+  /// Warning: Do not use this if your chosen window library does not support traffic light insets.
+  /// Warning: Only use this in **decorated** windows with a **hidden titlebar**!
+  fn set_traffic_light_inset<P: Into<dpi::Position>>(&self, position: P) -> Result<()>;
 }
 
 #[cfg(target_os = "macos")]
@@ -1894,6 +2026,10 @@ impl WebViewExtMacOS for WebView {
 
   fn print_with_options(&self, options: &PrintOptions) -> Result<()> {
     self.webview.print_with_options(options)
+  }
+
+  fn set_traffic_light_inset<P: Into<dpi::Position>>(&self, position: P) -> Result<()> {
+    self.webview.set_traffic_light_inset(position.into())
   }
 }
 
@@ -1952,6 +2088,17 @@ pub enum PageLoadEvent {
   Started,
   /// Indicates that the page content has finished loading
   Finished,
+}
+
+/// Background throttling policy
+#[derive(Debug, Clone)]
+pub enum BackgroundThrottlingPolicy {
+  /// A policy where background throttling is disabled
+  Disabled,
+  /// A policy where a web view that’s not in a window fully suspends tasks.
+  Suspend,
+  /// A policy where a web view that’s not in a window limits processing, but does not fully suspend tasks.
+  Throttle,
 }
 
 #[cfg(test)]
