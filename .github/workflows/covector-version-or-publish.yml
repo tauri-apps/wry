@@ -39,6 +39,13 @@ jobs:
           createRelease: true
           recognizeContributors: true
 
+      - name: install cargo-readme
+        if: steps.covector.outputs.commandRan == 'version'
+        run: cargo install cargo-readme --locked
+
+      - run: cargo readme --no-license > README.md
+        if: steps.covector.outputs.commandRan == 'version'
+
       - name: Create Pull Request With Versions Bumped
         id: cpr
         uses: tauri-apps/create-pull-request@v3
