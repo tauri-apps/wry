@@ -143,7 +143,7 @@ objc2-foundation = { version = "0.2.0", features = [
 ] }
 
 [target."cfg(target_os = \"ios\")".dependencies]
-objc2-ui-kit = { version = "0.2.2", features = [
+objc2-ui-kit = { version = "0.3.0", features = [
   "UIResponder",
   "UIScrollView",
   "UIView",
