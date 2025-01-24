@@ -96,7 +96,7 @@ features = [
 url = "2.5"
 block2 = "0.5"
 objc2 = { version = "0.5", features = ["exception"] }
-objc2-web-kit = { version = "0.2.0", features = [
+objc2-web-kit = { version = "0.3.0", features = [
   "objc2-app-kit",
   "block2",
   "WKWebView",
