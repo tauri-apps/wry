@@ -35,14 +35,15 @@ use objc2::runtime::Bool;
 use objc2::{
   rc::Retained,
   runtime::{AnyObject, NSObject, ProtocolObject},
-  ClassType, DeclaredClass,
+  AllocAnyThread, DeclaredClass, MainThreadOnly, Message,
 };
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSApplication, NSAutoresizingMaskOptions, NSTitlebarSeparatorStyle, NSView};
 #[cfg(target_os = "macos")]
-use objc2_foundation::CGSize;
+use objc2_core_foundation::CGSize;
+use objc2_core_foundation::{CGPoint, CGRect};
 use objc2_foundation::{
-  ns_string, CGPoint, CGRect, MainThreadMarker, NSArray, NSBundle, NSDate, NSError, NSHTTPCookie,
+  ns_string, MainThreadMarker, NSArray, NSBundle, NSDate, NSError, NSHTTPCookie,
   NSHTTPCookieSameSiteLax, NSHTTPCookieSameSiteStrict, NSJSONSerialization, NSMutableURLRequest,
   NSNumber, NSObjectNSKeyValueCoding, NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL,
   NSUUID,
@@ -70,8 +71,8 @@ use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
-  collections::{HashMap, HashSet},
-  ffi::{c_void, CString},
+  collections::HashSet,
+  ffi::{c_void, CStr, CString},
   net::Ipv4Addr,
   os::raw::c_char,
   panic::AssertUnwindSafe,
@@ -114,6 +115,7 @@ pub struct PrintOptions {
 
 pub(crate) struct InnerWebView {
   id: String,
+  mtm: MainThreadMarker,
   pub webview: Retained<WryWebView>,
   pub manager: Retained<WKUserContentController>,
   data_store: Retained<WKWebsiteDataStore>,
@@ -194,7 +196,7 @@ impl InnerWebView {
 
     // Safety: objc runtime calls are unsafe
     unsafe {
-      let config = WKWebViewConfiguration::new();
+      let config = WKWebViewConfiguration::new(mtm);
 
       // Incognito mode
       let (os_major_version, _, _) = util::operating_system_version();
@@ -208,14 +210,14 @@ impl InnerWebView {
         custom_data_store_available,
         pl_attrs.data_store_identifier,
       ) {
-        (true, _, _) => WKWebsiteDataStore::nonPersistentDataStore(),
+        (true, _, _) => WKWebsiteDataStore::nonPersistentDataStore(mtm),
         // if data_store_identifier is given and custom data stores are available, use custom store
         (false, true, Some(data_store)) => {
           let identifier = NSUUID::from_bytes(data_store);
-          WKWebsiteDataStore::dataStoreForIdentifier(&identifier)
+          WKWebsiteDataStore::dataStoreForIdentifier(&identifier, mtm)
         }
         // default data store
-        _ => WKWebsiteDataStore::defaultDataStore(),
+        _ => WKWebsiteDataStore::defaultDataStore(mtm),
       };
 
       // Register Custom Protocols
@@ -226,11 +228,17 @@ impl InnerWebView {
         let function = Box::into_raw(Box::new(function));
         protocol_ptrs.push(function);
 
-        let ivar = (*handler).class().instance_variable("function").unwrap();
+        let ivar = (*handler)
+          .class()
+          .instance_variable(CStr::from_bytes_with_nul(b"function\0").unwrap())
+          .unwrap();
         let ivar_delegate = ivar.load_mut(&mut *handler);
         *ivar_delegate = function as *mut _ as *mut c_void;
 
-        let ivar = (*handler).class().instance_variable("webview_id").unwrap();
+        let ivar = (*handler)
+          .class()
+          .instance_variable(CStr::from_bytes_with_nul(b"webview_id\0").unwrap())
+          .unwrap();
         let ivar_delegate: &mut *mut c_char = ivar.load_mut(&mut *handler);
         *ivar_delegate = CString::new(webview_id.as_bytes()).unwrap().into_raw();
 
@@ -247,7 +255,7 @@ impl InnerWebView {
 
       // WebView and manager
       let manager = config.userContentController();
-      let webview = mtm.alloc::<WryWebView>().set_ivars(WryWebViewIvars {
+      let webview = WryWebView::alloc(mtm).set_ivars(WryWebViewIvars {
         is_child,
         #[cfg(target_os = "macos")]
         drag_drop_handler: match attributes.drag_drop_handler {
@@ -256,7 +264,7 @@ impl InnerWebView {
         },
         #[cfg(target_os = "macos")]
         accept_first_mouse: Bool::new(attributes.accept_first_mouse),
-        custom_protocol_task_ids: HashMap::new(),
+        custom_protocol_task_ids: Default::default(),
       });
 
       config.setWebsiteDataStore(&data_store);
@@ -289,9 +297,7 @@ impl InnerWebView {
       config.setValue_forKey(Some(&_yes), ns_string!("allowsInlineMediaPlayback"));
 
       if attributes.autoplay {
-        config.setMediaTypesRequiringUserActionForPlayback(
-          WKAudiovisualMediaTypes::WKAudiovisualMediaTypeNone,
-        );
+        config.setMediaTypesRequiringUserActionForPlayback(WKAudiovisualMediaTypes::None);
       }
 
       #[cfg(feature = "transparent")]
@@ -341,14 +347,14 @@ impl InnerWebView {
           size: CGSize::new(w as f64, h as f64),
         };
         let webview: Retained<WryWebView> =
-          objc2::msg_send_id![super(webview), initWithFrame:frame configuration:&**config];
+          objc2::msg_send![super(webview), initWithFrame: frame, configuration: &**config];
         webview
       };
       #[cfg(target_os = "ios")]
       let webview = {
         let frame = ns_view.frame();
         let webview: Retained<WryWebView> =
-          objc2::msg_send_id![super(webview), initWithFrame:frame configuration:&**config];
+          objc2::msg_send![super(webview), initWithFrame: frame, configuration: &**config];
         webview
       };
 
@@ -382,12 +388,12 @@ impl InnerWebView {
       {
         if is_child {
           // fixed element
-          webview.setAutoresizingMask(NSAutoresizingMaskOptions::NSViewMinYMargin);
+          webview.setAutoresizingMask(NSAutoresizingMaskOptions::ViewMinYMargin);
         } else {
           // Auto-resize
           webview.setAutoresizingMask(
-            NSAutoresizingMaskOptions::NSViewHeightSizable
-              | NSAutoresizingMaskOptions::NSViewWidthSizable,
+            NSAutoresizingMaskOptions::ViewHeightSizable
+              | NSAutoresizingMaskOptions::ViewWidthSizable,
           );
         }
 
@@ -406,7 +412,7 @@ impl InnerWebView {
         // disable scroll bounce by default
         // https://developer.apple.com/documentation/webkit/wkwebview/1614784-scrollview?language=objc
         // But not exist in objc2-web-kit
-        let scroll_view: Retained<UIScrollView> = objc2::msg_send_id![&webview, scrollView];
+        let scroll_view: Retained<UIScrollView> = objc2::msg_send![&webview, scrollView];
         // let scroll_view: Retained<UIScrollView> = webview.ivars().scrollView; // FIXME: not test yet
         scroll_view.setBounces(false)
       }
@@ -471,12 +477,11 @@ impl InnerWebView {
         mtm,
       );
 
-      let proto_navigation_policy_delegate =
-        ProtocolObject::from_ref(navigation_policy_delegate.as_ref());
+      let proto_navigation_policy_delegate = ProtocolObject::from_ref(&*navigation_policy_delegate);
       webview.setNavigationDelegate(Some(proto_navigation_policy_delegate));
 
       let ui_delegate: Retained<WryWebViewUIDelegate> = WryWebViewUIDelegate::new(mtm);
-      let proto_ui_delegate = ProtocolObject::from_ref(ui_delegate.as_ref());
+      let proto_ui_delegate = ProtocolObject::from_ref(&*ui_delegate);
       webview.setUIDelegate(Some(proto_ui_delegate));
 
       // ns window is required for the print operation
@@ -492,6 +497,7 @@ impl InnerWebView {
 
       let mut w = Self {
         id: webview_id,
+        mtm,
         webview: webview.clone(),
         manager: manager.clone(),
         ns_view: ns_view.retain(),
@@ -547,8 +553,8 @@ r#"Object.defineProperty(window, 'ipc', {
           }
 
           parent_view.setAutoresizingMask(
-            NSAutoresizingMaskOptions::NSViewHeightSizable
-              | NSAutoresizingMaskOptions::NSViewWidthSizable,
+            NSAutoresizingMaskOptions::ViewHeightSizable
+              | NSAutoresizingMaskOptions::ViewWidthSizable,
           );
           parent_view.addSubview(&webview.clone());
 
@@ -607,7 +613,7 @@ r#"Object.defineProperty(window, 'ipc', {
             if !val.is_null() {
               let json_ns_data = NSJSONSerialization::dataWithJSONObject_options_error(
                 &*val,
-                objc2_foundation::NSJSONWritingOptions::NSJSONWritingFragmentsAllowed,
+                objc2_foundation::NSJSONWritingOptions::FragmentsAllowed,
               )
               .unwrap();
               let json_string = NSString::alloc();
@@ -647,7 +653,7 @@ r#"Object.defineProperty(window, 'ipc', {
   fn init(&self, js: &str, for_main_only: bool) {
     // Safety: objc runtime calls are unsafe
     unsafe {
-      let userscript = WKUserScript::alloc();
+      let userscript = WKUserScript::alloc(self.mtm);
       let script = WKUserScript::initWithSource_injectionTime_forMainFrameOnly(
         userscript,
         &NSString::from_str(js),
@@ -675,7 +681,7 @@ r#"Object.defineProperty(window, 'ipc', {
     unsafe {
       let config = self.webview.configuration();
       let store = config.websiteDataStore();
-      let all_data_types = WKWebsiteDataStore::allWebsiteDataTypes();
+      let all_data_types = WKWebsiteDataStore::allWebsiteDataTypes(self.mtm);
       let date = NSDate::dateWithTimeIntervalSince1970(0.0);
       let handler = block2::RcBlock::new(|| {});
       store.removeDataOfTypes_modifiedSince_completionHandler(&all_data_types, &date, &handler);
@@ -687,7 +693,7 @@ r#"Object.defineProperty(window, 'ipc', {
     // Safety: objc runtime calls are unsafe
     unsafe {
       let url = NSURL::URLWithString(&NSString::from_str(url)).unwrap();
-      let mut request = NSMutableURLRequest::requestWithURL(&url);
+      let request = NSMutableURLRequest::requestWithURL(&url);
       if let Some(headers) = headers {
         for (name, value) in headers.iter() {
           let key = NSString::from_str(name.as_str());
@@ -763,7 +769,7 @@ r#"Object.defineProperty(window, 'ipc', {
     #[cfg(target_os = "macos")]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
-      let tool: Retained<AnyObject> = objc2::msg_send_id![&self.webview, _inspector];
+      let tool: Retained<AnyObject> = objc2::msg_send![&self.webview, _inspector];
       let () = objc2::msg_send![&tool, show];
     }
   }
@@ -773,7 +779,7 @@ r#"Object.defineProperty(window, 'ipc', {
     #[cfg(target_os = "macos")]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
-      let tool: Retained<AnyObject> = objc2::msg_send_id![&self.webview, _inspector];
+      let tool: Retained<AnyObject> = objc2::msg_send![&self.webview, _inspector];
       let () = objc2::msg_send![&tool, close];
     }
   }
@@ -783,7 +789,7 @@ r#"Object.defineProperty(window, 'ipc', {
     #[cfg(target_os = "macos")]
     unsafe {
       // taken from <https://github.com/WebKit/WebKit/blob/784f93cb80a386c29186c510bba910b67ce3adc1/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm#L1939>
-      let tool: Retained<AnyObject> = objc2::msg_send_id![&self.webview, _inspector];
+      let tool: Retained<AnyObject> = objc2::msg_send![&self.webview, _inspector];
       let is_visible: bool = objc2::msg_send![&tool, isVisible];
       is_visible
     }
@@ -889,8 +895,8 @@ r#"Object.defineProperty(window, 'ipc', {
 
     let same_site = cookie.sameSitePolicy();
     let same_site = match same_site {
-      Some(policy) if policy.as_ref() == NSHTTPCookieSameSiteLax => cookie::SameSite::Lax,
-      Some(policy) if policy.as_ref() == NSHTTPCookieSameSiteStrict => cookie::SameSite::Strict,
+      Some(policy) if &*policy == NSHTTPCookieSameSiteLax => cookie::SameSite::Lax,
+      Some(policy) if &*policy == NSHTTPCookieSameSiteStrict => cookie::SameSite::Strict,
       _ => cookie::SameSite::None,
     };
     cookie_builder = cookie_builder.same_site(same_site);
@@ -948,7 +954,7 @@ r#"Object.defineProperty(window, 'ipc', {
             let cookies = cookies
               .to_vec()
               .into_iter()
-              .map(|cookie| Self::cookie_from_wkwebview(cookie))
+              .map(|cookie| Self::cookie_from_wkwebview(&cookie))
               .collect();
             let _ = tx.send(cookies);
           },
@@ -1003,7 +1009,7 @@ pub fn platform_webview_version() -> Result<String> {
     let webkit_version = dict
       .objectForKey(&NSString::from_str("CFBundleVersion"))
       .unwrap();
-    let webkit_version = Retained::cast::<NSString>(webkit_version);
+    let webkit_version = webkit_version.downcast::<NSString>().unwrap();
 
     bundle.unload();
     Ok(webkit_version.to_string())

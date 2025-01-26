@@ -6,11 +6,10 @@ use std::ffi::CStr;
 
 use http::Request;
 use objc2::{
-  declare_class, msg_send_id,
-  mutability::MainThreadOnly,
+  define_class, msg_send,
   rc::Retained,
   runtime::{NSObject, ProtocolObject},
-  ClassType, DeclaredClass,
+  DeclaredClass, MainThreadOnly,
 };
 use objc2_foundation::{MainThreadMarker, NSObjectProtocol, NSString};
 use objc2_web_kit::{WKScriptMessage, WKScriptMessageHandler, WKUserContentController};
@@ -22,24 +21,18 @@ pub struct WryWebViewDelegateIvars {
   pub ipc_handler: Box<dyn Fn(Request<String>)>,
 }
 
-declare_class!(
+define_class!(
+  #[unsafe(super(NSObject))]
+  #[name = "WryWebViewDelegate"]
+  #[thread_kind = MainThreadOnly]
+  #[ivars = WryWebViewDelegateIvars]
   pub struct WryWebViewDelegate;
-
-  unsafe impl ClassType for WryWebViewDelegate {
-    type Super = NSObject;
-    type Mutability = MainThreadOnly;
-    const NAME: &'static str = "WryWebViewDelegate";
-  }
-
-  impl DeclaredClass for WryWebViewDelegate {
-    type Ivars = WryWebViewDelegateIvars;
-  }
 
   unsafe impl NSObjectProtocol for WryWebViewDelegate {}
 
   unsafe impl WKScriptMessageHandler for WryWebViewDelegate {
     // Function for ipc handler
-    #[method(userContentController:didReceiveScriptMessage:)]
+    #[unsafe(method(userContentController:didReceiveScriptMessage:))]
     fn did_receive(
       this: &WryWebViewDelegate,
       _controller: &WKUserContentController,
@@ -52,9 +45,7 @@ declare_class!(
 
         let ipc_handler = &this.ivars().ipc_handler;
         let body = msg.body();
-        let is_string = Retained::cast::<NSObject>(body.clone()).isKindOfClass(NSString::class());
-        if is_string {
-          let body = Retained::cast::<NSString>(body);
+        if let Ok(body) = body.downcast::<NSString>() {
           let js_utf8 = body.UTF8String();
 
           let frame_info = msg.frameInfo();
@@ -92,9 +83,9 @@ impl WryWebViewDelegate {
         controller,
       });
 
-    let delegate: Retained<Self> = unsafe { msg_send_id![super(delegate), init] };
+    let delegate: Retained<Self> = unsafe { msg_send![super(delegate), init] };
 
-    let proto_delegate = ProtocolObject::from_ref(delegate.as_ref());
+    let proto_delegate = ProtocolObject::from_ref(&*delegate);
     unsafe {
       // this will increate the retain count of the delegate
       delegate.ivars().controller.addScriptMessageHandler_name(

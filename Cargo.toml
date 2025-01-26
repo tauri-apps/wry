@@ -92,11 +92,13 @@ features = [
   "Win32_UI_Input_KeyboardAndMouse",
 ]
 
-[target."cfg(any(target_os = \"ios\", target_os = \"macos\"))".dependencies]
+[target.'cfg(target_vendor = "apple")'.dependencies]
 url = "2.5"
-block2 = "0.5"
-objc2 = { version = "0.5", features = ["exception"] }
-objc2-web-kit = { version = "0.2.0", features = [
+block2 = "0.6"
+objc2 = { version = "0.6", features = ["exception"] }
+objc2-web-kit = { version = "0.3.0", default-features = false, features = [
+  "std",
+  "objc2-core-foundation",
   "objc2-app-kit",
   "block2",
   "WKWebView",
@@ -122,7 +124,13 @@ objc2-web-kit = { version = "0.2.0", features = [
   "WKUserScript",
   "WKHTTPCookieStore",
 ] }
-objc2-foundation = { version = "0.2.0", features = [
+objc2-core-foundation = { version = "0.3.0", default-features = false, features = [
+  "std",
+  "CFCGTypes",
+] }
+objc2-foundation = { version = "0.3.0", default-features = false, features = [
+  "std",
+  "objc2-core-foundation",
   "NSURLRequest",
   "NSURL",
   "NSString",
@@ -131,6 +139,7 @@ objc2-foundation = { version = "0.2.0", features = [
   "NSDictionary",
   "NSObject",
   "NSData",
+  "NSEnumerator",
   "NSKeyValueObserving",
   "NSThread",
   "NSJSONSerialization",
@@ -142,8 +151,10 @@ objc2-foundation = { version = "0.2.0", features = [
   "NSRunLoop",
 ] }
 
-[target."cfg(target_os = \"ios\")".dependencies]
-objc2-ui-kit = { version = "0.2.2", features = [
+[target.'cfg(target_os = "ios")'.dependencies]
+objc2-ui-kit = { version = "0.3.0", default-features = false, features = [
+  "std",
+  "objc2-core-foundation",
   "UIResponder",
   "UIScrollView",
   "UIView",
@@ -152,8 +163,10 @@ objc2-ui-kit = { version = "0.2.2", features = [
   "UIEvent",
 ] }
 
-[target."cfg(target_os = \"macos\")".dependencies]
-objc2-app-kit = { version = "0.2.0", features = [
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3.0", default-features = false, features = [
+  "std",
+  "objc2-core-foundation",
   "NSApplication",
   "NSButton",
   "NSControl",

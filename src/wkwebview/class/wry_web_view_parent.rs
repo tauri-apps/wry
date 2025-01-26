@@ -4,9 +4,7 @@
 
 use std::cell::Cell;
 
-use objc2::{
-  declare_class, msg_send_id, mutability::MainThreadOnly, rc::Retained, ClassType, DeclaredClass,
-};
+use objc2::{define_class, msg_send, rc::Retained, DefinedClass, MainThreadOnly};
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSApplication, NSEvent, NSView, NSWindow, NSWindowButton};
 use objc2_foundation::MainThreadMarker;
@@ -20,26 +18,17 @@ pub struct WryWebViewParentIvars {
   traffic_light_inset: Cell<Option<(f64, f64)>>,
 }
 
-declare_class!(
+define_class!(
+  #[unsafe(super(NSView))]
+  #[name = "WryWebViewParent"]
+  #[ivars = WryWebViewParentIvars]
   pub struct WryWebViewParent;
 
-  unsafe impl ClassType for WryWebViewParent {
-    type Super = NSView;
-    type Mutability = MainThreadOnly;
-    const NAME: &'static str = "WryWebViewParent";
-  }
-
-  impl DeclaredClass for WryWebViewParent {
-    type Ivars = WryWebViewParentIvars;
-  }
-
-  unsafe impl WryWebViewParent {
+  /// Overridden NSView methods.
+  impl WryWebViewParent {
     #[cfg(target_os = "macos")]
-    #[method(keyDown:)]
-    fn key_down(
-      &self,
-      event: &NSEvent,
-    ) {
+    #[unsafe(method(keyDown:))]
+    fn key_down(&self, event: &NSEvent) {
       let mtm = MainThreadMarker::new().unwrap();
       let app = NSApplication::sharedApplication(mtm);
       unsafe {
@@ -50,10 +39,10 @@ declare_class!(
     }
 
     #[cfg(target_os = "macos")]
-    #[method(drawRect:)]
+    #[unsafe(method(drawRect:))]
     fn draw(&self, _dirty_rect: NSRect) {
       if let Some((x, y)) = self.ivars().traffic_light_inset.get() {
-        unsafe {inset_traffic_lights(&self.window().unwrap(), x, y)};
+        unsafe { inset_traffic_lights(&self.window().unwrap(), x, y) };
       }
     }
   }
@@ -62,13 +51,11 @@ declare_class!(
 impl WryWebViewParent {
   #[allow(dead_code)]
   pub fn new(mtm: MainThreadMarker) -> Retained<Self> {
-    let delegate = mtm
-      .alloc::<WryWebViewParent>()
-      .set_ivars(WryWebViewParentIvars {
-        #[cfg(target_os = "macos")]
-        traffic_light_inset: Default::default(),
-      });
-    unsafe { msg_send_id![super(delegate), init] }
+    let delegate = WryWebViewParent::alloc(mtm).set_ivars(WryWebViewParentIvars {
+      #[cfg(target_os = "macos")]
+      traffic_light_inset: Default::default(),
+    });
+    unsafe { msg_send![super(delegate), init] }
   }
 
   #[cfg(target_os = "macos")]
@@ -89,13 +76,13 @@ impl WryWebViewParent {
 #[cfg(target_os = "macos")]
 pub unsafe fn inset_traffic_lights(window: &NSWindow, x: f64, y: f64) {
   let close = window
-    .standardWindowButton(NSWindowButton::NSWindowCloseButton)
+    .standardWindowButton(NSWindowButton::CloseButton)
     .unwrap();
   let miniaturize = window
-    .standardWindowButton(NSWindowButton::NSWindowMiniaturizeButton)
+    .standardWindowButton(NSWindowButton::MiniaturizeButton)
     .unwrap();
   let zoom = window
-    .standardWindowButton(NSWindowButton::NSWindowZoomButton)
+    .standardWindowButton(NSWindowButton::ZoomButton)
     .unwrap();
 
   let title_bar_container_view = close.superview().unwrap().superview().unwrap();

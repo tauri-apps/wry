@@ -22,7 +22,7 @@ pub(crate) fn navigation_download_action(
 ) {
   unsafe {
     if let Some(delegate) = &this.ivars().download_delegate {
-      let proto_delegate = ProtocolObject::from_ref(delegate.as_ref());
+      let proto_delegate = ProtocolObject::from_ref(&**delegate);
       download.setDelegate(Some(proto_delegate));
     }
   }
@@ -37,7 +37,7 @@ pub(crate) fn navigation_download_response(
 ) {
   unsafe {
     if let Some(delegate) = &this.ivars().download_delegate {
-      let proto_delegate = ProtocolObject::from_ref(delegate.as_ref());
+      let proto_delegate = ProtocolObject::from_ref(&**delegate);
       download.setDelegate(Some(proto_delegate));
     }
   }

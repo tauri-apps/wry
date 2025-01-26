@@ -6,10 +6,7 @@
 use std::ptr::null_mut;
 
 use block2::Block;
-use objc2::{
-  declare_class, msg_send_id, mutability::MainThreadOnly, rc::Retained, runtime::NSObject,
-  ClassType, DeclaredClass,
-};
+use objc2::{define_class, msg_send, rc::Retained, runtime::NSObject, MainThreadOnly};
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSModalResponse, NSModalResponseOK, NSOpenPanel};
 use objc2_foundation::{MainThreadMarker, NSObjectProtocol};
@@ -26,30 +23,24 @@ use crate::WryWebView;
 
 pub struct WryWebViewUIDelegateIvars {}
 
-declare_class!(
+define_class!(
+  #[unsafe(super(NSObject))]
+  #[name = "WryWebViewUIDelegate"]
+  #[thread_kind = MainThreadOnly]
+  #[ivars = WryWebViewUIDelegateIvars]
   pub struct WryWebViewUIDelegate;
-
-  unsafe impl ClassType for WryWebViewUIDelegate {
-    type Super = NSObject;
-    type Mutability = MainThreadOnly;
-    const NAME: &'static str = "WryWebViewUIDelegate";
-  }
-
-  impl DeclaredClass for WryWebViewUIDelegate {
-    type Ivars = WryWebViewUIDelegateIvars;
-  }
 
   unsafe impl NSObjectProtocol for WryWebViewUIDelegate {}
 
   unsafe impl WKUIDelegate for WryWebViewUIDelegate {
     #[cfg(target_os = "macos")]
-    #[method(webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:)]
+    #[unsafe(method(webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:))]
     fn run_file_upload_panel(
       &self,
       _webview: &WryWebView,
       open_panel_params: &WKOpenPanelParameters,
       _frame: &WKFrameInfo,
-      handler: &block2::Block<dyn Fn(*const NSArray<NSURL>)>
+      handler: &block2::Block<dyn Fn(*const NSArray<NSURL>)>,
     ) {
       unsafe {
         if let Some(mtm) = MainThreadMarker::new() {
@@ -70,14 +61,14 @@ declare_class!(
       }
     }
 
-    #[method(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:)]
+    #[unsafe(method(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:))]
     fn request_media_capture_permission(
       &self,
       _webview: &WryWebView,
       _origin: &WKSecurityOrigin,
       _frame: &WKFrameInfo,
       _capture_type: WKMediaCaptureType,
-      decision_handler: &Block<dyn Fn(WKPermissionDecision)>
+      decision_handler: &Block<dyn Fn(WKPermissionDecision)>,
     ) {
       //https://developer.apple.com/documentation/webkit/wkpermissiondecision?language=objc
       (*decision_handler).call((WKPermissionDecision::Grant,));
@@ -90,6 +81,6 @@ impl WryWebViewUIDelegate {
     let delegate = mtm
       .alloc::<WryWebViewUIDelegate>()
       .set_ivars(WryWebViewUIDelegateIvars {});
-    unsafe { msg_send_id![super(delegate), init] }
+    unsafe { msg_send![super(delegate), init] }
   }
 }

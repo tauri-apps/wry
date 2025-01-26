@@ -5,11 +5,10 @@
 use std::{ffi::c_void, ptr::null_mut};
 
 use objc2::{
-  declare_class, msg_send, msg_send_id,
-  mutability::InteriorMutable,
+  define_class, msg_send,
   rc::Retained,
   runtime::{AnyObject, NSObject},
-  ClassType, DeclaredClass,
+  AllocAnyThread, DefinedClass,
 };
 use objc2_foundation::{
   NSDictionary, NSKeyValueChangeKey, NSKeyValueObservingOptions,
@@ -22,21 +21,15 @@ pub struct DocumentTitleChangedObserverIvars {
   pub handler: Box<dyn Fn(String)>,
 }
 
-declare_class!(
+define_class!(
+  #[unsafe(super(NSObject))]
+  #[name = "DocumentTitleChangedObserver"]
+  #[ivars = DocumentTitleChangedObserverIvars]
   pub struct DocumentTitleChangedObserver;
 
-  unsafe impl ClassType for DocumentTitleChangedObserver {
-    type Super = NSObject;
-    type Mutability = InteriorMutable;
-    const NAME: &'static str = "DocumentTitleChangedObserver";
-  }
-
-  impl DeclaredClass for DocumentTitleChangedObserver {
-    type Ivars = DocumentTitleChangedObserverIvars;
-  }
-
-  unsafe impl DocumentTitleChangedObserver {
-    #[method(observeValueForKeyPath:ofObject:change:context:)]
+  /// NSKeyValueObserving.
+  impl DocumentTitleChangedObserver {
+    #[unsafe(method(observeValueForKeyPath:ofObject:change:context:))]
     fn observe_value_for_key_path(
       &self,
       key_path: Option<&NSString>,
@@ -49,8 +42,8 @@ declare_class!(
           unsafe {
             let handler = &self.ivars().handler;
             // if !handler.is_null() {
-              let title: *const NSString = msg_send![object, title];
-              handler((*title).to_string());
+            let title: *const NSString = msg_send![object, title];
+            handler((*title).to_string());
             // }
           }
         }
@@ -68,7 +61,7 @@ impl DocumentTitleChangedObserver {
       handler,
     });
 
-    let observer: Retained<Self> = unsafe { msg_send_id![super(observer), init] };
+    let observer: Retained<Self> = unsafe { msg_send![super(observer), init] };
 
     unsafe {
       observer
@@ -77,7 +70,7 @@ impl DocumentTitleChangedObserver {
         .addObserver_forKeyPath_options_context(
           &observer,
           &NSString::from_str("title"),
-          NSKeyValueObservingOptions::NSKeyValueObservingOptionNew,
+          NSKeyValueObservingOptions::New,
           null_mut(),
         );
     }

@@ -7,7 +7,6 @@ use std::{
   ffi::{c_char, c_void, CStr},
   panic::AssertUnwindSafe,
   ptr::NonNull,
-  slice,
 };
 
 use http::{
@@ -17,7 +16,7 @@ use http::{
 use objc2::{
   rc::Retained,
   runtime::{AnyClass, AnyObject, ClassBuilder, ProtocolObject},
-  ClassType,
+  AllocAnyThread, ClassType,
 };
 use objc2_foundation::{
   NSData, NSHTTPURLResponse, NSMutableDictionary, NSObject, NSObjectProtocol, NSString, NSURL,
@@ -29,12 +28,13 @@ use crate::{wkwebview::WEBVIEW_IDS, RequestAsyncResponder, WryWebView};
 
 pub fn create(name: &str) -> &AnyClass {
   unsafe {
-    let scheme_name = format!("{}URLSchemeHandler", name);
+    let scheme_name = format!("{}URLSchemeHandler\0", name);
+    let scheme_name = CStr::from_bytes_with_nul(scheme_name.as_bytes()).unwrap();
     let cls = ClassBuilder::new(&scheme_name, NSObject::class());
     match cls {
       Some(mut cls) => {
-        cls.add_ivar::<*mut c_void>("function");
-        cls.add_ivar::<*mut c_char>("webview_id");
+        cls.add_ivar::<*mut c_void>(CStr::from_bytes_with_nul(b"function\0").unwrap());
+        cls.add_ivar::<*mut c_char>(CStr::from_bytes_with_nul(b"webview_id\0").unwrap());
         cls.add_method(
           objc2::sel!(webView:startURLSchemeTask:),
           start_task as extern "C" fn(_, _, _, _),
@@ -54,7 +54,7 @@ pub fn create(name: &str) -> &AnyClass {
 extern "C" fn start_task(
   this: &AnyObject,
   _sel: objc2::runtime::Sel,
-  webview: &'static mut WryWebView,
+  webview: &'static WryWebView,
   task: &'static ProtocolObject<dyn WKURLSchemeTask>,
 ) {
   unsafe {
@@ -65,14 +65,20 @@ extern "C" fn start_task(
     let task_key = task.hash(); // hash by task object address
     let task_uuid = webview.add_custom_task_key(task_key);
 
-    let ivar = this.class().instance_variable("webview_id").unwrap();
+    let ivar = this
+      .class()
+      .instance_variable(CStr::from_bytes_with_nul(b"webview_id\0").unwrap())
+      .unwrap();
     let webview_id_ptr: *mut c_char = *ivar.load(this);
     let webview_id = CStr::from_ptr(webview_id_ptr)
       .to_str()
       .ok()
       .unwrap_or_default();
 
-    let ivar = this.class().instance_variable("function").unwrap();
+    let ivar = this
+      .class()
+      .instance_variable(CStr::from_bytes_with_nul(b"function\0").unwrap())
+      .unwrap();
     let function: &*mut c_void = ivar.load(this);
     if !function.is_null() {
       let function = &mut *(*function
@@ -98,9 +104,7 @@ extern "C" fn start_task(
       let body = request.HTTPBody();
       let body_stream = request.HTTPBodyStream();
       if let Some(body) = body {
-        let length = body.length();
-        let data_bytes = body.bytes();
-        sent_form_body = slice::from_raw_parts(data_bytes.as_ptr(), length).to_vec();
+        sent_form_body = body.to_vec();
       } else if let Some(body_stream) = body_stream {
         body_stream.open();
 
@@ -121,7 +125,7 @@ extern "C" fn start_task(
       // get all our headers values and inject them in our request
       if let Some(all_headers) = all_headers {
         for current_header in all_headers.allKeys().to_vec() {
-          let header_value = all_headers.valueForKey(current_header).unwrap();
+          let header_value = all_headers.valueForKey(&current_header).unwrap();
           // inject the header into the request
           http_request = http_request.header(current_header.to_string(), header_value.to_string());
         }
@@ -196,7 +200,7 @@ extern "C" fn start_task(
                 // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
                 task: &'static ProtocolObject<dyn WKURLSchemeTask>,
                 // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
-                webview: &'static mut WryWebView,
+                webview: &'static WryWebView,
                 task_key: usize,
                 task_uuid: Retained<NSUUID>,
                 webview_id: &str,
@@ -215,24 +219,24 @@ extern "C" fn start_task(
                 // default to HTTP/1.1
                 let wanted_version = format!("{:#?}", sent_response.version());
 
-                let mut headers = NSMutableDictionary::new();
+                let headers = NSMutableDictionary::new();
                 if let Some(mime) = wanted_mime {
-                  headers.insert_id(
-                    NSString::from_str(CONTENT_TYPE.as_str()).as_ref(),
-                    NSString::from_str(mime.to_str().unwrap()),
+                  headers.insert(
+                    &*NSString::from_str(CONTENT_TYPE.as_str()),
+                    &*NSString::from_str(mime.to_str().unwrap()),
                   );
                 }
-                headers.insert_id(
-                  NSString::from_str(CONTENT_LENGTH.as_str()).as_ref(),
-                  NSString::from_str(&content.len().to_string()),
+                headers.insert(
+                  &*NSString::from_str(CONTENT_LENGTH.as_str()),
+                  &*NSString::from_str(&content.len().to_string()),
                 );
 
                 // add headers
                 for (name, value) in sent_response.headers().iter() {
                   if let Ok(value) = value.to_str() {
-                    headers.insert_id(
-                      NSString::from_str(name.as_str()).as_ref(),
-                      NSString::from_str(value),
+                    headers.insert(
+                      &*NSString::from_str(name.as_str()),
+                      &*NSString::from_str(value),
                     );
                   }
                 }
@@ -334,7 +338,7 @@ extern "C" fn start_task(
 extern "C" fn stop_task(
   _this: &ProtocolObject<dyn WKURLSchemeHandler>,
   _sel: objc2::runtime::Sel,
-  webview: &mut WryWebView,
+  webview: &WryWebView,
   task: &ProtocolObject<dyn WKURLSchemeTask>,
 ) {
   webview.remove_custom_task_key(task.hash());

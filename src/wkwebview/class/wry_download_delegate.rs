@@ -4,10 +4,7 @@
 
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
-use objc2::{
-  declare_class, msg_send_id, mutability::MainThreadOnly, rc::Retained, runtime::NSObject,
-  ClassType, DeclaredClass,
-};
+use objc2::{define_class, msg_send, rc::Retained, runtime::NSObject, MainThreadOnly};
 use objc2_foundation::{
   MainThreadMarker, NSData, NSError, NSObjectProtocol, NSString, NSURLResponse, NSURL,
 };
@@ -20,23 +17,17 @@ pub struct WryDownloadDelegateIvars {
   pub completed: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
 }
 
-declare_class!(
+define_class!(
+  #[unsafe(super(NSObject))]
+  #[name = "WryDownloadDelegate"]
+  #[thread_kind = MainThreadOnly]
+  #[ivars = WryDownloadDelegateIvars]
   pub struct WryDownloadDelegate;
-
-  unsafe impl ClassType for WryDownloadDelegate {
-    type Super = NSObject;
-    type Mutability = MainThreadOnly;
-    const NAME: &'static str = "WryDownloadDelegate";
-  }
-
-  impl DeclaredClass for WryDownloadDelegate {
-    type Ivars = WryDownloadDelegateIvars;
-  }
 
   unsafe impl NSObjectProtocol for WryDownloadDelegate {}
 
   unsafe impl WKDownloadDelegate for WryDownloadDelegate {
-    #[method(download:decideDestinationUsingResponse:suggestedFilename:completionHandler:)]
+    #[unsafe(method(download:decideDestinationUsingResponse:suggestedFilename:completionHandler:))]
     fn download_policy(
       &self,
       download: &WKDownload,
@@ -47,18 +38,13 @@ declare_class!(
       download_policy(self, download, response, suggested_path, handler);
     }
 
-    #[method(downloadDidFinish:)]
+    #[unsafe(method(downloadDidFinish:))]
     fn download_did_finish(&self, download: &WKDownload) {
       download_did_finish(self, download);
     }
 
-    #[method(download:didFailWithError:resumeData:)]
-    fn download_did_fail(
-      &self,
-      download: &WKDownload,
-      error: &NSError,
-      resume_data: &NSData,
-    ) {
+    #[unsafe(method(download:didFailWithError:resumeData:))]
+    fn download_did_fail(&self, download: &WKDownload, error: &NSError, resume_data: &NSData) {
       download_did_fail(self, download, error, resume_data);
     }
   }
@@ -77,6 +63,6 @@ impl WryDownloadDelegate {
         completed: download_completed_handler,
       });
 
-    unsafe { msg_send_id![super(delegate), init] }
+    unsafe { msg_send![super(delegate), init] }
   }
 }

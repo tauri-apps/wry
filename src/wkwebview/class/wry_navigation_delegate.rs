@@ -4,10 +4,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use objc2::{
-  declare_class, msg_send_id, mutability::MainThreadOnly, rc::Retained, runtime::NSObject,
-  ClassType, DeclaredClass,
-};
+use objc2::{define_class, msg_send, rc::Retained, runtime::NSObject, MainThreadOnly};
 use objc2_foundation::{MainThreadMarker, NSObjectProtocol};
 use objc2_web_kit::{
   WKDownload, WKNavigation, WKNavigationAction, WKNavigationActionPolicy, WKNavigationDelegate,
@@ -40,23 +37,17 @@ pub struct WryNavigationDelegateIvars {
   pub on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent)>>,
 }
 
-declare_class!(
+define_class!(
+  #[unsafe(super(NSObject))]
+  #[name = "WryNavigationDelegate"]
+  #[thread_kind = MainThreadOnly]
+  #[ivars = WryNavigationDelegateIvars]
   pub struct WryNavigationDelegate;
-
-  unsafe impl ClassType for WryNavigationDelegate {
-    type Super = NSObject;
-    type Mutability = MainThreadOnly;
-    const NAME: &'static str = "WryNavigationDelegate";
-  }
-
-  impl DeclaredClass for WryNavigationDelegate {
-    type Ivars = WryNavigationDelegateIvars;
-  }
 
   unsafe impl NSObjectProtocol for WryNavigationDelegate {}
 
   unsafe impl WKNavigationDelegate for WryNavigationDelegate {
-    #[method(webView:decidePolicyForNavigationAction:decisionHandler:)]
+    #[unsafe(method(webView:decidePolicyForNavigationAction:decisionHandler:))]
     fn navigation_policy(
       &self,
       webview: &WKWebView,
@@ -66,7 +57,7 @@ declare_class!(
       navigation_policy(self, webview, action, handler);
     }
 
-    #[method(webView:decidePolicyForNavigationResponse:decisionHandler:)]
+    #[unsafe(method(webView:decidePolicyForNavigationResponse:decisionHandler:))]
     fn navigation_policy_response(
       &self,
       webview: &WKWebView,
@@ -76,25 +67,17 @@ declare_class!(
       navigation_policy_response(self, webview, response, handler);
     }
 
-    #[method(webView:didFinishNavigation:)]
-    fn did_finish_navigation(
-      &self,
-      webview: &WKWebView,
-      navigation: &WKNavigation,
-    ) {
+    #[unsafe(method(webView:didFinishNavigation:))]
+    fn did_finish_navigation(&self, webview: &WKWebView, navigation: &WKNavigation) {
       did_finish_navigation(self, webview, navigation);
     }
 
-    #[method(webView:didCommitNavigation:)]
-    fn did_commit_navigation(
-      &self,
-      webview: &WKWebView,
-      navigation: &WKNavigation,
-    ) {
+    #[unsafe(method(webView:didCommitNavigation:))]
+    fn did_commit_navigation(&self, webview: &WKWebView, navigation: &WKNavigation) {
       did_commit_navigation(self, webview, navigation);
     }
 
-    #[method(webView:navigationAction:didBecomeDownload:)]
+    #[unsafe(method(webView:navigationAction:didBecomeDownload:))]
     fn navigation_download_action(
       &self,
       webview: &WKWebView,
@@ -104,7 +87,7 @@ declare_class!(
       navigation_download_action(self, webview, action, download);
     }
 
-    #[method(webView:navigationResponse:didBecomeDownload:)]
+    #[unsafe(method(webView:navigationResponse:didBecomeDownload:))]
     fn navigation_download_response(
       &self,
       webview: &WKWebView,
@@ -159,6 +142,6 @@ impl WryNavigationDelegate {
         on_page_load_handler,
       });
 
-    unsafe { msg_send_id![super(delegate), init] }
+    unsafe { msg_send![super(delegate), init] }
   }
 }
