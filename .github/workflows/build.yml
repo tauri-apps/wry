@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: install stable
-        uses: dtolnay/rust-toolchain@1.71
+        uses: dtolnay/rust-toolchain@1.77
         with:
           targets: ${{ matrix.platform.target }}
 
