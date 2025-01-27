@@ -11,6 +11,7 @@ readme = "README.md"
 repository = "https://github.com/tauri-apps/wry"
 documentation = "https://docs.rs/wry"
 categories = ["gui"]
+rust-version = "1.77"
 exclude = ["/.changes", "/.github", "/audits", "/wry-logo.svg"]
 
 [package.metadata.docs.rs]
