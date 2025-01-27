@@ -196,7 +196,7 @@ libc = "0.2"
 [dev-dependencies]
 pollster = "0.4.0"
 tao = "0.31"
-wgpu = "23"
+wgpu = "24"
 winit = "0.30"
 getrandom = "0.2"
 http-range = "0.1"
