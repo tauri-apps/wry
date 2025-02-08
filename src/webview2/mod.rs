@@ -1093,6 +1093,48 @@ impl InnerWebView {
     );
   }
 
+  fn parent_bounds(hwnd: HWND) -> Result<(i32, i32)> {
+    let placement = unsafe {
+      let mut placement = WINDOWPLACEMENT {
+        length: std::mem::size_of::<WINDOWPLACEMENT>() as u32,
+        ..std::mem::zeroed()
+      };
+      GetWindowPlacement(hwnd, &mut placement)?;
+      placement
+    };
+
+    let client_rect = unsafe {
+      let mut rect = std::mem::zeroed();
+      GetClientRect(hwnd, &mut rect)?;
+      rect
+    };
+
+    let window_rect = unsafe {
+      let mut rect = std::mem::zeroed();
+      GetWindowRect(hwnd, &mut rect)?;
+      rect
+    };
+
+    let width_offset =
+      (window_rect.right - window_rect.left) - (client_rect.right - client_rect.left);
+    let height_offset =
+      (window_rect.bottom - window_rect.top) - (client_rect.bottom - client_rect.top);
+
+    let rect = placement.rcNormalPosition;
+
+    let left_offset = width_offset / 2;
+    let top_offset = height_offset / 2;
+
+    let right_offset = width_offset - left_offset;
+    let bottom_offset = height_offset - top_offset;
+    let left = rect.left + left_offset;
+    let top = rect.top + top_offset;
+    let right = rect.right - right_offset;
+    let bottom = rect.bottom - bottom_offset;
+
+    Ok((right - left, bottom - top))
+  }
+
   unsafe extern "system" fn parent_subclass_proc(
     hwnd: HWND,
     msg: u32,
@@ -1105,38 +1147,10 @@ impl InnerWebView {
       WM_SIZE => {
         if wparam.0 != SIZE_MINIMIZED as usize {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
-          let mut rect = RECT::default();
-          let _ = GetClientRect(hwnd, &mut rect);
-          let mut width = rect.right - rect.left;
-          let mut height = rect.bottom - rect.top;
 
-          // adjust for borders
-          let mut pt: POINT = unsafe { std::mem::zeroed() };
-          if unsafe { ClientToScreen(hwnd, &mut pt) }.as_bool() {
-            let mut window_rc: RECT = unsafe { std::mem::zeroed() };
-            if unsafe { GetWindowRect(hwnd, &mut window_rc) }.is_ok() {
-              let top_b = pt.y - window_rc.top;
-
-              // this is a hack to check if the window is undecorated
-              // specifically for winit and tao
-              // or any window that uses `WM_NCCALCSIZE` to create undecorated windows
-              //
-              // tao and winit, set the top border to 0 for undecorated
-              // or 1 for undecorated but has shadows
-              //
-              // normal windows should have a top border of around 32 px
-              //
-              // TODO: find a better way to check if a window is decorated or not
-              if top_b <= 1 {
-                let left_b = pt.x - window_rc.left;
-                let right_b = pt.x + width - window_rc.right;
-                let bottom_b = pt.y + height - window_rc.bottom;
-
-                width = width - left_b - right_b;
-                height = height - top_b - bottom_b;
-              }
-            }
-          }
+          let Ok((width, height)) = Self::parent_bounds(hwnd) else {
+            return DefSubclassProc(hwnd, msg, wparam, lparam);
+          };
 
           let _ = (*controller).SetBounds(RECT {
             left: 0,
@@ -1154,7 +1168,7 @@ impl InnerWebView {
               0,
               width,
               height,
-              SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOMOVE,
+              SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOZORDER,
             );
           }
         }
@@ -1375,40 +1389,7 @@ impl InnerWebView {
   }
 
   fn resize_to_parent(&self) -> crate::Result<()> {
-    let mut rect = RECT::default();
-    let parent = *self.parent.borrow();
-    unsafe { GetClientRect(parent, &mut rect)? };
-    let mut width = rect.right - rect.left;
-    let mut height = rect.bottom - rect.top;
-
-    // adjust for borders
-    let mut pt: POINT = unsafe { std::mem::zeroed() };
-    if unsafe { ClientToScreen(parent, &mut pt) }.as_bool() {
-      let mut window_rc: RECT = unsafe { std::mem::zeroed() };
-      if unsafe { GetWindowRect(parent, &mut window_rc) }.is_ok() {
-        let top_b = pt.y - window_rc.top;
-
-        // this is a hack to check if the window is undecorated
-        // specifically for winit and tao
-        // or any window that uses `WM_NCCALCSIZE` to create undecorated windows
-        //
-        // tao and winit, set the top border to 0 for undecorated
-        // or 1 for undecorated but has shadows
-        //
-        // normal windows should have a top border of around 32 px
-        //
-        // TODO: find a better way to check if a window is decorated or not
-        if top_b <= 1 {
-          let left_b = pt.x - window_rc.left;
-          let right_b = pt.x + width - window_rc.right;
-          let bottom_b = pt.y + height - window_rc.bottom;
-
-          width = width - left_b - right_b;
-          height = height - top_b - bottom_b;
-        }
-      }
-    }
-
+    let (width, height) = Self::parent_bounds(*self.parent.borrow())?;
     self.set_bounds_inner((width, height).into(), (0, 0).into())
   }
 
@@ -1566,11 +1547,7 @@ impl InnerWebView {
 
         *self.parent.borrow_mut() = parent;
 
-        let mut rect = RECT::default();
-        GetClientRect(parent, &mut rect)?;
-
-        let width = rect.right - rect.left;
-        let height = rect.bottom - rect.top;
+        let (width, height) = Self::parent_bounds(parent)?;
 
         self.set_bounds_inner((width, height).into(), (0, 0).into())?;
       }
