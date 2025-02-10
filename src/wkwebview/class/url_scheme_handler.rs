@@ -16,7 +16,7 @@ use http::{
 use objc2::{
   rc::Retained,
   runtime::{AnyClass, AnyObject, ClassBuilder, ProtocolObject},
-  AllocAnyThread, ClassType,
+  AllocAnyThread, ClassType, Message,
 };
 use objc2_foundation::{
   NSData, NSHTTPURLResponse, NSMutableDictionary, NSObject, NSObjectProtocol, NSString, NSURL,
@@ -54,8 +54,8 @@ pub fn create(name: &str) -> &AnyClass {
 extern "C" fn start_task(
   this: &AnyObject,
   _sel: objc2::runtime::Sel,
-  webview: &'static WryWebView,
-  task: &'static ProtocolObject<dyn WKURLSchemeTask>,
+  webview: &WryWebView,
+  task: &ProtocolObject<dyn WKURLSchemeTask>,
 ) {
   unsafe {
     #[cfg(feature = "tracing")]
@@ -180,12 +180,14 @@ extern "C" fn start_task(
       // send response
       match http_request.body(sent_form_body) {
         Ok(final_request) => {
+          let webview = webview.retain();
+          let task = task.retain();
           let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
             Box::new(move |sent_response| {
               // Consolidate checks before calling into `did*` methods.
               let validate = || -> crate::Result<()> {
                 check_webview_id_valid(webview_id)?;
-                check_task_is_valid(webview, task_key, task_uuid.clone())?;
+                check_task_is_valid(&webview, task_key, task_uuid.clone())?;
                 Ok(())
               };
 
@@ -198,9 +200,9 @@ extern "C" fn start_task(
 
               unsafe fn response(
                 // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
-                task: &'static ProtocolObject<dyn WKURLSchemeTask>,
+                task: Retained<ProtocolObject<dyn WKURLSchemeTask>>,
                 // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
-                webview: &'static WryWebView,
+                webview: Retained<WryWebView>,
                 task_key: usize,
                 task_uuid: Retained<NSUUID>,
                 webview_id: &str,
@@ -209,7 +211,7 @@ extern "C" fn start_task(
               ) -> crate::Result<()> {
                 // Validate
                 check_webview_id_valid(webview_id)?;
-                check_task_is_valid(webview, task_key, task_uuid.clone())?;
+                check_task_is_valid(&webview, task_key, task_uuid.clone())?;
 
                 let content = sent_response.body();
                 // default: application/octet-stream, but should be provided by the client
@@ -253,7 +255,7 @@ extern "C" fn start_task(
 
                 // Re-validate before calling didReceiveResponse
                 check_webview_id_valid(webview_id)?;
-                check_task_is_valid(webview, task_key, task_uuid.clone())?;
+                check_task_is_valid(&webview, task_key, task_uuid.clone())?;
 
                 // Use map_err to convert Option<Retained<Exception>> to crate::Error
                 objc2::exception::catch(AssertUnwindSafe(|| {
@@ -273,7 +275,7 @@ extern "C" fn start_task(
 
                 // Check validity again
                 check_webview_id_valid(webview_id)?;
-                check_task_is_valid(webview, task_key, task_uuid.clone())?;
+                check_task_is_valid(&webview, task_key, task_uuid.clone())?;
 
                 objc2::exception::catch(AssertUnwindSafe(|| {
                   task.didReceiveData(&data);
@@ -281,7 +283,7 @@ extern "C" fn start_task(
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
                 check_webview_id_valid(webview_id)?;
-                check_task_is_valid(webview, task_key, task_uuid.clone())?;
+                check_task_is_valid(&webview, task_key, task_uuid.clone())?;
 
                 objc2::exception::catch(AssertUnwindSafe(|| {
                   task.didFinish();
