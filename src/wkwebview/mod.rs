@@ -78,7 +78,7 @@ use std::{
   panic::AssertUnwindSafe,
   ptr::{null_mut, NonNull},
   str::{self, FromStr},
-  sync::{Arc, Mutex},
+  sync::{Arc, Mutex}, time::Duration,
 };
 
 #[cfg(feature = "mac-proxy")]
@@ -1054,16 +1054,14 @@ unsafe fn window_position(view: &NSView, x: i32, y: i32, height: f64) -> CGPoint
   CGPoint::new(x as f64, frame.size.height - y as f64 - height)
 }
 
+/// Wait synchronously for the NSRunLoop to run until a receiver has a message.
 unsafe fn wait_for_blocking_operation<T>(rx: std::sync::mpsc::Receiver<T>) -> Result<T> {
-  let interval = 0.0002;
+  let interval = 0.002;
   let limit = 1.;
   let mut elapsed = 0.;
   // run event loop until we get the response back, blocking for at most 3 seconds
   loop {
-    let rl = objc2_foundation::NSRunLoop::mainRunLoop();
-    let d = NSDate::dateWithTimeIntervalSinceNow(interval);
-    rl.runUntilDate(&d);
-    if let Ok(response) = rx.try_recv() {
+    if let Ok(response) = rx.recv_timeout(Duration::from_secs_f64(interval)) {
       return Ok(response);
     }
     elapsed += interval;
@@ -1073,5 +1071,13 @@ unsafe fn wait_for_blocking_operation<T>(rx: std::sync::mpsc::Receiver<T>) -> Re
         "timed out waiting for cookies response",
       )));
     }
+
+    // Go progress the event loop if we didn't get the result
+    let rl = objc2_foundation::NSRunLoop::mainRunLoop();
+    let limit_date = NSDate::dateWithTimeIntervalSinceNow(interval);
+
+    let mode = NSString::from_str("NSDefaultRunLoopMode");
+
+    rl.acceptInputForMode_beforeDate(&mode, &limit_date);
   }
 }
