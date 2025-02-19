@@ -844,11 +844,15 @@ impl InnerWebView {
       // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
       let filter = HSTRING::from(format!("{scheme}://{name}.*"));
 
-      // If WebView2 version is high enough, use the new API to add the filter to allow Shared Workers and 
+      // If WebView2 version is high enough, use the new API to add the filter to allow Shared Workers and
       // iframes to work with custom protocols
       // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/1114
       if let Ok(webview_22) = webview.cast::<ICoreWebView2_22>() {
-        webview_22.AddWebResourceRequestedFilterWithRequestSourceKinds(&filter, COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL, COREWEBVIEW2_WEB_RESOURCE_REQUEST_SOURCE_KINDS_ALL)?;
+        webview_22.AddWebResourceRequestedFilterWithRequestSourceKinds(
+          &filter,
+          COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
+          COREWEBVIEW2_WEB_RESOURCE_REQUEST_SOURCE_KINDS_ALL,
+        )?;
       } else {
         // Fallback to the old API
         webview.AddWebResourceRequestedFilter(&filter, COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL)?;
