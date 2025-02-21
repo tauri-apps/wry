@@ -1,5 +1,19 @@
 # Changelog
 
+## \[0.49.0]
+
+- [`0395df5`](https://github.com/tauri-apps/wry/commit/0395df504ffaea2320d706501c89859a6e319d30) ([#1484](https://github.com/tauri-apps/wry/pull/1484) by [@alexmoon](https://github.com/tauri-apps/wry/../../alexmoon)) Removed `obj-exception` feature.
+- [`c27b4ff`](https://github.com/tauri-apps/wry/commit/c27b4ffc05b6bc9bb3748a1203116342cfec680d) ([#1468](https://github.com/tauri-apps/wry/pull/1468) by [@madsmtm](https://github.com/tauri-apps/wry/../../madsmtm)) Update to `objc2` v0.6.
+
+  This bumps MSRV on macOS/iOS to 1.71.
+- [`95a9319`](https://github.com/tauri-apps/wry/commit/95a9319f24cb62add69d468ec0f60530b608fe6b) ([#1454](https://github.com/tauri-apps/wry/pull/1454) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Updated `webview2-com` to `0.35`, `windows` to `0.59`.
+- [`9df094a`](https://github.com/tauri-apps/wry/commit/9df094aa79210c6743b5d295069931afaee596db) ([#1483](https://github.com/tauri-apps/wry/pull/1483) by [@amrbashir](https://github.com/tauri-apps/wry/../../amrbashir)) On Windows, fix webview slightly larger than the host window causing a pixel or two to be obscured.
+- [`ce98c34`](https://github.com/tauri-apps/wry/commit/ce98c3401d6bc3079900ced9007f212f4f30099c) ([#1480](https://github.com/tauri-apps/wry/pull/1480) by [@ahqsoftwares](https://github.com/tauri-apps/wry/../../ahqsoftwares)) Fixed an issue that could cause `Return type mismatch: expected 'kotlin.String', actual 'kotlin.String?'` errors.
+
+### enhance
+
+- [`0185644`](https://github.com/tauri-apps/wry/commit/0185644040184c43084814cb8692acb4e1004d86) ([#1452](https://github.com/tauri-apps/wry/pull/1452) by [@mzdk100](https://github.com/tauri-apps/wry/../../mzdk100)) Allow the use of TAB to cycle through focus elements in an HTML document.
+
 ## \[0.48.1]
 
 - [`cbbcccc`](https://github.com/tauri-apps/wry/commit/cbbcccc38af7d900a0f8f7fa5ea5e6667765ed81) ([#1446](https://github.com/tauri-apps/wry/pull/1446) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) Add functionality to set the traffic light inset on macOS. This is required to prevent flickers if the WebView is injected via `build()` instead of `build_as_child()`.
