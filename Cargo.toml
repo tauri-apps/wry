@@ -70,11 +70,11 @@ percent-encoding = "2.3"
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.35"
 windows-version = "0.1"
-windows-core = "0.59"
+windows-core = "0.60"
 dunce = "1"
 
 [target."cfg(target_os = \"windows\")".dependencies.windows]
-version = "0.59"
+version = "0.60"
 features = [
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
@@ -204,3 +204,7 @@ percent-encoding = "2.3"
 [lints.rust.unexpected_cfgs]
 level = "warn"
 check-cfg = ["cfg(linux)", "cfg(gtk)"]
+
+[patch.crates-io]
+webview2-com = { git = "https://github.com/Legend-Master/webview2-rs", branch = "windows-0.60-webview2-1.0.3065.39" }
+webview2-com-sys = { git = "https://github.com/Legend-Master/webview2-rs", branch = "windows-0.60-webview2-1.0.3065.39" }
