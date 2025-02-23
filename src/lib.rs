@@ -692,8 +692,8 @@ pub struct WebViewAttributes<'a> {
   /// Whether JavaScript should be disabled.
   ///
   /// ## Platform-specific
-  /// only implemented on macOS and windows for now
-  /// TODO
+  ///
+  /// - **Android:** Not implemented yet.
   pub javascript_disabled: bool,
 }
 
@@ -1326,8 +1326,8 @@ impl<'a> WebViewBuilder<'a> {
   /// Whether JavaScript should be disabled.
   ///
   /// ## Platform-specific
-  /// only implemented on macOS and windows for now
-  /// TODO
+  ///
+  /// - **Android:** Not implemented yet.
   pub fn with_javascript_disabled(self) -> Self {
     self.and_then(|mut b| {
       b.attrs.javascript_disabled = true;

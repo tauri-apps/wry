@@ -396,6 +396,10 @@ impl InnerWebView {
       if attributes.devtools {
         settings.set_enable_developer_extras(true);
       }
+
+      if attributes.javascript_disabled {
+        settings.set_enable_javascript(false);
+      }
     }
   }
 
