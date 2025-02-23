@@ -293,6 +293,9 @@ impl InnerWebView {
         ns_string!("allowsPictureInPictureMediaPlayback"),
       );
 
+      let web_page_preferences = config.defaultWebpagePreferences();
+      web_page_preferences.setAllowsContentJavaScript(!attributes.javascript_disabled);
+
       #[cfg(target_os = "ios")]
       config.setValue_forKey(Some(&_yes), ns_string!("allowsInlineMediaPlayback"));
 
