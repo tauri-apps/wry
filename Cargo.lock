@@ -3469,8 +3469,9 @@ dependencies = [
 
 [[package]]
 name = "webview2-com"
-version = "0.35.0"
-source = "git+https://github.com/Legend-Master/webview2-rs?branch=windows-0.60-webview2-1.0.3065.39#25bebb0a1fc341c5b29e63141561bbe9b5d31ca7"
+version = "0.36.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0d606f600e5272b514dbb66539dd068211cc20155be8d3958201b4b5bd79ed3"
 dependencies = [
  "webview2-com-macros",
  "webview2-com-sys",
@@ -3493,8 +3494,9 @@ dependencies = [
 
 [[package]]
 name = "webview2-com-sys"
-version = "0.35.0"
-source = "git+https://github.com/Legend-Master/webview2-rs?branch=windows-0.60-webview2-1.0.3065.39#25bebb0a1fc341c5b29e63141561bbe9b5d31ca7"
+version = "0.36.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfb27fccd3c27f68e9a6af1bcf48c2d82534b8675b83608a4d81446d095a17ac"
 dependencies = [
  "thiserror 2.0.11",
  "windows 0.60.0",
