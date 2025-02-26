@@ -677,6 +677,13 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
+  /// Reloads the current page.
+  pub fn reload(&self) -> crate::Result<()> {
+    // Safety: objc runtime calls are unsafe
+    unsafe { self.webview.reload() };
+    Ok(())
+  }
+
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     unsafe {
       let config = self.webview.configuration();

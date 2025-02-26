@@ -1862,6 +1862,11 @@ impl WebView {
     self.webview.load_url(url)
   }
 
+  /// Reloads the current page.
+  pub fn reload(&self) -> crate::Result<()> {
+    self.webview.reload()
+  }
+
   /// Navigate to the specified url using the specified headers
   pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) -> Result<()> {
     self.webview.load_url_with_headers(url, headers)
