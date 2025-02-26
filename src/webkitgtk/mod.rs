@@ -691,6 +691,11 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn reload(&self) -> Result<()> {
+    self.webview.reload();
+    Ok(())
+  }
+
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     if let Some(context) = self.webview.context() {
       if let Some(data_manger) = context.website_data_manager() {

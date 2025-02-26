@@ -1332,6 +1332,10 @@ impl InnerWebView {
     unsafe { self.webview.NavigateToString(&html) }.map_err(Into::into)
   }
 
+  pub fn reload(&self) -> Result<()> {
+    unsafe { self.webview.Reload() }.map_err(Into::into)
+  }
+
   pub fn bounds(&self) -> Result<Rect> {
     let mut bounds = Rect::default();
     let mut rect = RECT::default();
