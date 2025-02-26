@@ -232,10 +232,7 @@ impl InnerWebView {
 
       (x, y, width, height)
     } else {
-      let mut rect = RECT::default();
-      unsafe { GetClientRect(parent, &mut rect)? };
-      let width = rect.right - rect.left;
-      let height = rect.bottom - rect.top;
+      let PhysicalSize { width, height } = Self::parent_bounds(parent)?;
       (0, 0, width, height)
     };
 
@@ -1095,46 +1092,13 @@ impl InnerWebView {
     );
   }
 
-  fn parent_bounds(hwnd: HWND) -> Result<(i32, i32)> {
-    let placement = unsafe {
-      let mut placement = WINDOWPLACEMENT {
-        length: std::mem::size_of::<WINDOWPLACEMENT>() as u32,
-        ..std::mem::zeroed()
-      };
-      GetWindowPlacement(hwnd, &mut placement)?;
-      placement
-    };
-
-    let client_rect = unsafe {
-      let mut rect = std::mem::zeroed();
-      GetClientRect(hwnd, &mut rect)?;
-      rect
-    };
-
-    let window_rect = unsafe {
-      let mut rect = std::mem::zeroed();
-      GetWindowRect(hwnd, &mut rect)?;
-      rect
-    };
-
-    let width_offset =
-      (window_rect.right - window_rect.left) - (client_rect.right - client_rect.left);
-    let height_offset =
-      (window_rect.bottom - window_rect.top) - (client_rect.bottom - client_rect.top);
-
-    let rect = placement.rcNormalPosition;
-
-    let left_offset = width_offset / 2;
-    let top_offset = height_offset / 2;
-
-    let right_offset = width_offset - left_offset;
-    let bottom_offset = height_offset - top_offset;
-    let left = rect.left + left_offset;
-    let top = rect.top + top_offset;
-    let right = rect.right - right_offset;
-    let bottom = rect.bottom - bottom_offset;
-
-    Ok((right - left, bottom - top))
+  fn parent_bounds(hwnd: HWND) -> Result<PhysicalSize<i32>> {
+    let mut client_rect = RECT::default();
+    unsafe { GetClientRect(hwnd, &mut client_rect)? };
+    Ok(PhysicalSize::new(
+      client_rect.right - client_rect.left,
+      client_rect.bottom - client_rect.top,
+    ))
   }
 
   unsafe extern "system" fn parent_subclass_proc(
@@ -1150,7 +1114,7 @@ impl InnerWebView {
         if wparam.0 != SIZE_MINIMIZED as usize {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
 
-          let Ok((width, height)) = Self::parent_bounds(hwnd) else {
+          let Ok(PhysicalSize { width, height }) = Self::parent_bounds(hwnd) else {
             return DefSubclassProc(hwnd, msg, wparam, lparam);
           };
 
@@ -1391,8 +1355,8 @@ impl InnerWebView {
   }
 
   fn resize_to_parent(&self) -> crate::Result<()> {
-    let (width, height) = Self::parent_bounds(*self.parent.borrow())?;
-    self.set_bounds_inner((width, height).into(), (0, 0).into())
+    let parent_bounds = Self::parent_bounds(*self.parent.borrow())?;
+    self.set_bounds_inner(parent_bounds, (0, 0).into())
   }
 
   pub fn set_visible(&self, visible: bool) -> Result<()> {
@@ -1549,9 +1513,9 @@ impl InnerWebView {
 
         *self.parent.borrow_mut() = parent;
 
-        let (width, height) = Self::parent_bounds(parent)?;
+        let parent_bounds = Self::parent_bounds(parent)?;
 
-        self.set_bounds_inner((width, height).into(), (0, 0).into())?;
+        self.set_bounds_inner(parent_bounds, (0, 0).into())?;
       }
     }
 
