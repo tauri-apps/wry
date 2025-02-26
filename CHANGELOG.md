@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.50.1]
+
+- [`f9abf6b`](https://github.com/tauri-apps/wry/commit/f9abf6b4464acc91926236366a347f04d741b15d) ([#1501](https://github.com/tauri-apps/wry/pull/1501) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Fix webview not resized with parent when it gets maximized on Windows
+
 ## \[0.50.0]
 
 - [`933de78`](https://github.com/tauri-apps/wry/commit/933de788bc0fbab1914b7c5ce29c209281996b03) ([#1492](https://github.com/tauri-apps/wry/pull/1492) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Updated `webview2-com` to `0.36`, `windows` to `0.60`.
