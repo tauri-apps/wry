@@ -968,6 +968,16 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// When registering a custom protocol with the same name, only the last regisered one will be used.
   ///
+  /// # Warning
+  ///
+  /// Pages loaded from custom protocol will have different Origin on different platforms. And
+  /// servers which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
+  /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
+  /// different Origin headers across platforms:
+  ///
+  /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://path/to/page).
+  /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page`). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`].
+  ///
   /// # Examples
   ///
   /// ```no_run
