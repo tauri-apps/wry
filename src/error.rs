@@ -70,5 +70,5 @@ pub enum Error {
   ContextDuplicateCustomProtocol(String),
   #[error(transparent)]
   #[cfg(any(target_os = "macos", target_os = "ios"))]
-  UrlPrase(#[from] url::ParseError),
+  UrlParse(#[from] url::ParseError),
 }
