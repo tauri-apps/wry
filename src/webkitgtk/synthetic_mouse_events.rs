@@ -1,102 +1,88 @@
 use std::{cell::RefCell, rc::Rc};
 
-use gtk::{
-  gdk::{EventButton, EventMask, ModifierType},
-  prelude::*,
-};
-use webkit2gtk::{WebView, WebViewExt};
+use gtk::{gdk::ModifierType, prelude::*, GestureClick};
+use webkit::{prelude::WebViewExt, WebView};
 
 pub fn setup(webview: &WebView) {
-  webview.add_events(EventMask::BUTTON1_MOTION_MASK | EventMask::BUTTON_PRESS_MASK);
+  let gesture = gtk::GestureClick::new();
 
   let bf_state = BackForwardState(Rc::new(RefCell::new(0)));
 
   let bf_state_c = bf_state.clone();
-  webview.connect_button_press_event(move |webview, event| {
-    let mut inhibit = false;
-    match event.button() {
-      // back button
-      8 => {
-        inhibit = true;
-        bf_state_c.set(BACK);
-        webview.run_javascript(
-          &create_js_mouse_event(event, true, &bf_state_c),
-          None::<&gtk::gio::Cancellable>,
-          |_| {},
-        );
-      }
-      // forward button
-      9 => {
-        inhibit = true;
-        bf_state_c.set(FORWARD);
-        webview.run_javascript(
-          &create_js_mouse_event(event, true, &bf_state_c),
-          None::<&gtk::gio::Cancellable>,
-          |_| {},
-        );
-      }
-      _ => {}
+  gesture.connect_pressed(move |event, n_press, x, y| match event.button() {
+    // back button
+    8 => {
+      bf_state_c.set(BACK);
+      on_gesture_click(event, false, n_press, x, y, &bf_state_c);
     }
-
-    if inhibit {
-      gtk::glib::Propagation::Stop
-    } else {
-      gtk::glib::Propagation::Proceed
+    // forward button
+    9 => {
+      bf_state_c.set(FORWARD);
+      on_gesture_click(event, false, n_press, x, y, &bf_state_c);
     }
+    _ => {}
   });
 
   let bf_state_c = bf_state.clone();
-  webview.connect_button_release_event(move |webview, event| {
-    let mut inhibit = false;
-    match event.button() {
-      // back button
-      8 => {
-        inhibit = true;
-        bf_state_c.remove(BACK);
-        webview.run_javascript(
-          &create_js_mouse_event(event, false, &bf_state_c),
-          None::<&gtk::gio::Cancellable>,
-          |_| {},
-        );
-      }
-      // forward button
-      9 => {
-        inhibit = true;
-        bf_state_c.remove(FORWARD);
-        webview.run_javascript(
-          &create_js_mouse_event(event, false, &bf_state_c),
-          None::<&gtk::gio::Cancellable>,
-          |_| {},
-        );
-      }
-      _ => {}
+  gesture.connect_released(move |event, n_press, x, y| match event.current_button() {
+    // back button
+    8 => {
+      bf_state_c.remove(BACK);
+      on_gesture_click(event, false, n_press, x, y, &bf_state_c);
     }
-    if inhibit {
-      gtk::glib::Propagation::Stop
-    } else {
-      gtk::glib::Propagation::Proceed
+    // forward button
+    9 => {
+      bf_state_c.remove(FORWARD);
+      on_gesture_click(event, false, n_press, x, y, &bf_state_c);
     }
+    _ => {}
   });
+
+  webview.add_controller(gesture);
 }
 
-fn create_js_mouse_event(event: &EventButton, pressed: bool, state: &BackForwardState) -> String {
-  let event_name = if pressed { "mousedown" } else { "mouseup" };
+fn on_gesture_click(
+  event: &GestureClick,
+  pressed: bool,
+  n_press: i32,
+  x: f64,
+  y: f64,
+  state: &BackForwardState,
+) {
+  if let Ok(webview) = event.widget().and_dynamic_cast::<WebView>() {
+    webview.evaluate_javascript(
+      &create_js_mouse_event(event, n_press, x, y, pressed, state),
+      None,
+      None,
+      gtk::gio::Cancellable::NONE,
+      |_| {},
+    );
+  }
+  event.reset();
+}
+
+fn create_js_mouse_event(
+  event: &GestureClick,
+  n_press: i32,
+  x: f64,
+  y: f64,
+  pressed: bool,
+  state: &BackForwardState,
+) -> String {
+  let modifier_state = event.current_event_state();
+  let event_name: &str = if pressed { "mousedown" } else { "mouseup" };
   // js equivalent https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/button
-  let button = if event.button() == 8 { 3 } else { 4 };
-  let (x, y) = event.position();
-  let (x, y) = (x as i32, y as i32);
-  let modifers_state = event.state();
   let mut buttons = 0;
   // left button
-  if modifers_state.contains(ModifierType::BUTTON1_MASK) {
+  if modifier_state.contains(ModifierType::BUTTON1_MASK) {
     buttons += 1;
   }
   // right button
-  if modifers_state.contains(ModifierType::BUTTON3_MASK) {
+  if modifier_state.contains(ModifierType::BUTTON3_MASK) {
     buttons += 2;
   }
   // middle button
-  if modifers_state.contains(ModifierType::BUTTON2_MASK) {
+  if modifier_state.contains(ModifierType::BUTTON2_MASK) {
     buttons += 4;
   }
   // back button
@@ -153,12 +139,12 @@ fn create_js_mouse_event(event: &EventButton, pressed: bool, state: &BackForward
     event_name = event_name,
     x = x,
     y = y,
-    detail = event.click_count().unwrap_or(1),
-    ctrl_key = modifers_state.contains(ModifierType::CONTROL_MASK),
-    alt_key = modifers_state.contains(ModifierType::MOD1_MASK),
-    shift_key = modifers_state.contains(ModifierType::SHIFT_MASK),
-    meta_key = modifers_state.contains(ModifierType::SUPER_MASK),
-    button = button,
+    detail = n_press,
+    ctrl_key = modifier_state.contains(ModifierType::CONTROL_MASK),
+    alt_key = modifier_state.contains(ModifierType::ALT_MASK),
+    shift_key = modifier_state.contains(ModifierType::SHIFT_MASK),
+    meta_key = modifier_state.contains(ModifierType::SUPER_MASK),
+    button = event.current_button(),
     buttons = buttons,
   )
 }

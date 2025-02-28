@@ -194,19 +194,19 @@
 //! ##### Arch Linux / Manjaro:
 //!
 //! ```bash
-//! sudo pacman -S webkit2gtk-4.1
+//! sudo pacman -S webkitgtk-6.0
 //! ```
 //!
 //! ##### Debian / Ubuntu:
 //!
 //! ```bash
-//! sudo apt install libwebkit2gtk-4.1-dev
+//! sudo apt install libwebkitgtk-6.0-dev
 //! ```
 //!
 //! ##### Fedora
 //!
 //! ```bash
-//! sudo dnf install gtk3-devel webkit2gtk4.1-devel
+//! sudo dnf install gtk3-devel webkitgtk6.0-devel
 //! ```
 //!
 //! ##### Nix & NixOS
@@ -219,7 +219,7 @@
 //!    pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
 //!    packages = with pkgs; [
 //!      pkg-config
-//!      webkitgtk_4_1
+//!      webkitgtk_6_0
 //!    ];
 //!  in
 //!  pkgs.mkShell {
@@ -1701,7 +1701,7 @@ pub trait WebViewBuilderExtUnix<'a> {
   /// - Panics if [`gtk::init`] was not called in this thread.
   fn build_gtk<W>(self, widget: &'a W) -> Result<WebView>
   where
-    W: gtk::prelude::IsA<gtk::Container>;
+    W: gtk::prelude::IsA<gtk::Widget>;
 
   /// Set the path from which to load extensions from.
   fn with_extensions_path(self, path: impl Into<PathBuf>) -> Self;
@@ -1717,7 +1717,7 @@ pub trait WebViewBuilderExtUnix<'a> {
 impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
   fn build_gtk<W>(self, widget: &'a W) -> Result<WebView>
   where
-    W: gtk::prelude::IsA<gtk::Container>,
+    W: gtk::prelude::IsA<gtk::Widget>,
   {
     let parts = self.inner?;
 
@@ -2067,33 +2067,33 @@ pub trait WebViewExtUnix: Sized {
   /// - Panics if [`gtk::init`] was not called in this thread.
   fn new_gtk<W>(widget: &W) -> Result<Self>
   where
-    W: gtk::prelude::IsA<gtk::Container>;
+    W: gtk::prelude::IsA<gtk::Widget>;
 
-  /// Returns Webkit2gtk Webview handle
-  fn webview(&self) -> webkit2gtk::WebView;
+  /// Returns Webkitgtk Webview handle
+  fn webview(&self) -> webkit::WebView;
 
   /// Attaches this webview to the given Widget and removes it from the current one.
-  fn reparent<W>(&self, widget: &W) -> Result<()>
+  fn reparent<W>(&mut self, widget: &W) -> Result<()>
   where
-    W: gtk::prelude::IsA<gtk::Container>;
+    W: gtk::prelude::IsA<gtk::Widget>;
 }
 
 #[cfg(gtk)]
 impl WebViewExtUnix for WebView {
   fn new_gtk<W>(widget: &W) -> Result<Self>
   where
-    W: gtk::prelude::IsA<gtk::Container>,
+    W: gtk::prelude::IsA<gtk::Widget>,
   {
     WebViewBuilder::new().build_gtk(widget)
   }
 
-  fn webview(&self) -> webkit2gtk::WebView {
+  fn webview(&self) -> webkit::WebView {
     self.webview.webview.clone()
   }
 
-  fn reparent<W>(&self, widget: &W) -> Result<()>
+  fn reparent<W>(&mut self, widget: &W) -> Result<()>
   where
-    W: gtk::prelude::IsA<gtk::Container>,
+    W: gtk::prelude::IsA<gtk::Widget>,
   {
     self.webview.reparent(widget)
   }
