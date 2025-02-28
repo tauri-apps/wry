@@ -137,8 +137,7 @@
 //!   # use gtk::prelude::*;
 //!   let vbox = window.default_vbox().unwrap(); // tao adds a gtk::Box by default
 //!   let fixed = gtk::Fixed::new();
-//!   fixed.show_all();
-//!   vbox.pack_start(&fixed, true, true, 0);
+//!   vbox.append(&fixed);
 //!   builder.build_gtk(&fixed).unwrap()
 //! };
 //! ```
@@ -151,7 +150,7 @@
 //!
 //! [WebKitGTK](https://webkitgtk.org/) is used to provide webviews on Linux which requires GTK,
 //! so if the windowing library doesn't support GTK (as in [`winit`])
-//! you'll need to call [`gtk::init`] before creating the webview and then call [`gtk::main_iteration_do`] alongside
+//! you'll need to call [`gtk::init`] before creating the webview and then iterate the GTK main context alongside
 //! your windowing library event loop.
 //!
 //! ```no_run
@@ -178,8 +177,8 @@
 //!   // Advance GTK event loop <!----- IMPORTANT
 //!   fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
 //!     #[cfg(target_os = "linux")]
-//!     while gtk::events_pending() {
-//!       gtk::main_iteration_do(false);
+//!     while gtk::glib::MainContext::default().pending() {
+//!       gtk::glib::MainContext::default().iteration(false);
 //!     }
 //!   }
 //! }
@@ -194,19 +193,19 @@
 //! ##### Arch Linux / Manjaro:
 //!
 //! ```bash
-//! sudo pacman -S webkit2gtk-4.1
+//! sudo pacman -S webkitgtk-6.0
 //! ```
 //!
 //! ##### Debian / Ubuntu:
 //!
 //! ```bash
-//! sudo apt install libwebkit2gtk-4.1-dev
+//! sudo apt install libwebkitgtk-6.0-dev
 //! ```
 //!
 //! ##### Fedora
 //!
 //! ```bash
-//! sudo dnf install gtk3-devel webkit2gtk4.1-devel
+//! sudo dnf install gtk4-devel webkitgtk6.0-devel
 //! ```
 //!
 //! ##### Nix & NixOS
@@ -219,7 +218,7 @@
 //!    pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
 //!    packages = with pkgs; [
 //!      pkg-config
-//!      webkitgtk_4_1
+//!      webkitgtk_6_0
 //!    ];
 //!  in
 //!  pkgs.mkShell {
@@ -480,7 +479,7 @@ pub enum NewWindowResponse {
       target_os = "netbsd",
       target_os = "openbsd",
     ))]
-    webview: webkit2gtk::WebView,
+    webview: webkit::WebView,
     #[cfg(windows)]
     webview: ICoreWebView2,
     #[cfg(target_os = "macos")]
@@ -503,7 +502,7 @@ pub struct NewWindowOpener {
     target_os = "netbsd",
     target_os = "openbsd",
   ))]
-  pub webview: webkit2gtk::WebView,
+  pub webview: webkit::WebView,
   /// The instance of the webview that initiated the new window request.
   #[cfg(windows)]
   pub webview: ICoreWebView2,
@@ -1521,8 +1520,8 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewBuilderExtUnix::new_gtk`].
   ///
-  ///   Although this method only needs an X11 window handle, we use webkit2gtk, so you still need to initialize gtk
-  ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
+  ///   Although this method only needs a window handle, WebKitGTK still needs GTK to be initialized
+  ///   and the GTK main context to be iterated alongside your event loop.
   ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
   /// - **Windows**: The webview will auto-resize when the passed handle is resized.
   /// - **Linux (X11)**: Unlike macOS and Windows, the webview will not auto-resize and you'll need to call [`WebView::set_bounds`] manually.
@@ -1547,8 +1546,8 @@ impl<'a> WebViewBuilder<'a> {
   /// - **Linux**: This will create the webview as a child window of the `parent` window. Only X11
   ///   is supported. This method won't work on Wayland.
   ///
-  ///   Although this methods only needs an X11 window handle, you use webkit2gtk, so you still need to initialize gtk
-  ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
+  ///   Although this method only needs a window handle, WebKitGTK still needs GTK to be initialized
+  ///   and the GTK main context to be iterated alongside your event loop.
   ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
   ///
   ///   If you want to support child webviews on X11 and Wayland at the same time,
@@ -2010,7 +2009,7 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
 #[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   extension_path: Option<PathBuf>,
-  related_view: Option<webkit2gtk::WebView>,
+  related_view: Option<webkit::WebView>,
 }
 
 #[cfg(any(
@@ -2023,24 +2022,24 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
 pub trait WebViewBuilderExtUnix<'a> {
   /// Consume the builder and create the webview inside a GTK container widget, such as GTK window.
   ///
-  /// - If the container is [`gtk::Box`], it is added using [`Box::pack_start(webview, true, true, 0)`](gtk::prelude::BoxExt::pack_start).
+  /// - If the container is [`gtk::Box`], it is added using [`Box::append`](gtk::prelude::BoxExt::append).
   /// - If the container is [`gtk::Fixed`], its [size request](gtk::prelude::WidgetExt::set_size_request) will be set using the (width, height) bounds passed in
   ///   and will be added to the container using [`Fixed::put`](gtk::prelude::FixedExt::put) using the (x, y) bounds passed in.
-  /// - For all other containers, it will be added using [`gtk::prelude::ContainerExt::add`]
+  /// - If the container is [`gtk::Window`], it is added using [`Window::set_child`](gtk::prelude::GtkWindowExt::set_child).
   ///
   /// # Panics:
   ///
   /// - Panics if [`gtk::init`] was not called in this thread.
   fn build_gtk<W>(self, widget: &'a W) -> Result<WebView>
   where
-    W: gtk::prelude::IsA<gtk::Container>;
+    W: gtk::prelude::IsA<gtk::Widget>;
 
   /// Set the path from which to load extensions from.
   fn with_extensions_path(self, path: impl Into<PathBuf>) -> Self;
 
   /// Creates a new webview sharing the same web process with the provided webview.
   /// Useful if you need to link a webview to another, for instance when using the [`WebViewBuilder::with_new_window_req_handler`].
-  fn with_related_view(self, webview: webkit2gtk::WebView) -> Self;
+  fn with_related_view(self, webview: webkit::WebView) -> Self;
 }
 
 #[cfg(any(
@@ -2053,7 +2052,7 @@ pub trait WebViewBuilderExtUnix<'a> {
 impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
   fn build_gtk<W>(self, widget: &'a W) -> Result<WebView>
   where
-    W: gtk::prelude::IsA<gtk::Container>,
+    W: gtk::prelude::IsA<gtk::Widget>,
   {
     self.error?;
 
@@ -2066,7 +2065,7 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
     self
   }
 
-  fn with_related_view(mut self, webview: webkit2gtk::WebView) -> Self {
+  fn with_related_view(mut self, webview: webkit::WebView) -> Self {
     self.platform_specific.related_view.replace(webview);
     self
   }
@@ -2406,43 +2405,43 @@ impl WebViewExtWindows for WebView {
 pub trait WebViewExtUnix: Sized {
   /// Create the webview inside a GTK container widget, such as GTK window.
   ///
-  /// - If the container is [`gtk::Box`], it is added using [`Box::pack_start(webview, true, true, 0)`](gtk::prelude::BoxExt::pack_start).
+  /// - If the container is [`gtk::Box`], it is added using [`Box::append`](gtk::prelude::BoxExt::append).
   /// - If the container is [`gtk::Fixed`], its [size request](gtk::prelude::WidgetExt::set_size_request) will be set using the (width, height) bounds passed in
   ///   and will be added to the container using [`Fixed::put`](gtk::prelude::FixedExt::put) using the (x, y) bounds passed in.
-  /// - For all other containers, it will be added using [`gtk::prelude::ContainerExt::add`]
+  /// - If the container is [`gtk::Window`], it is added using [`Window::set_child`](gtk::prelude::GtkWindowExt::set_child).
   ///
   /// # Panics:
   ///
   /// - Panics if [`gtk::init`] was not called in this thread.
   fn new_gtk<W>(widget: &W) -> Result<Self>
   where
-    W: gtk::prelude::IsA<gtk::Container>;
+    W: gtk::prelude::IsA<gtk::Widget>;
 
-  /// Returns Webkit2gtk Webview handle
-  fn webview(&self) -> webkit2gtk::WebView;
+  /// Returns Webkitgtk Webview handle
+  fn webview(&self) -> webkit::WebView;
 
   /// Attaches this webview to the given Widget and removes it from the current one.
-  fn reparent<W>(&self, widget: &W) -> Result<()>
+  fn reparent<W>(&mut self, widget: &W) -> Result<()>
   where
-    W: gtk::prelude::IsA<gtk::Container>;
+    W: gtk::prelude::IsA<gtk::Widget>;
 }
 
 #[cfg(gtk)]
 impl WebViewExtUnix for WebView {
   fn new_gtk<W>(widget: &W) -> Result<Self>
   where
-    W: gtk::prelude::IsA<gtk::Container>,
+    W: gtk::prelude::IsA<gtk::Widget>,
   {
     WebViewBuilder::new().build_gtk(widget)
   }
 
-  fn webview(&self) -> webkit2gtk::WebView {
+  fn webview(&self) -> webkit::WebView {
     self.webview.webview.clone()
   }
 
-  fn reparent<W>(&self, widget: &W) -> Result<()>
+  fn reparent<W>(&mut self, widget: &W) -> Result<()>
   where
-    W: gtk::prelude::IsA<gtk::Container>,
+    W: gtk::prelude::IsA<gtk::Widget>,
   {
     self.webview.reparent(widget)
   }

@@ -238,8 +238,9 @@ impl ApplicationHandler for State {
       target_os = "openbsd",
     ))]
     {
-      while gtk::events_pending() {
-        gtk::main_iteration_do(false);
+      let context = gtk::glib::MainContext::default();
+      while context.pending() {
+        context.iteration(false);
       }
     }
   }

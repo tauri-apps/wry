@@ -117,8 +117,7 @@ let webview = {
   # use gtk::prelude::*;
   let vbox = window.default_vbox().unwrap(); // tao adds a gtk::Box by default
   let fixed = gtk::Fixed::new();
-  fixed.show_all();
-  vbox.pack_start(&fixed, true, true, 0);
+  vbox.append(&fixed);
   builder.build_gtk(&fixed).unwrap()
 };
 ```
@@ -131,7 +130,7 @@ Here is the underlying web engine each platform uses, and some dependencies you 
 
 [WebKitGTK](https://webkitgtk.org/) is used to provide webviews on Linux which requires GTK,
 so if the windowing library doesn't support GTK (as in [`winit`])
-you'll need to call [`gtk::init`] before creating the webview and then call [`gtk::main_iteration_do`] alongside
+you'll need to call [`gtk::init`] before creating the webview and then iterate the default GLib main context alongside
 your windowing library event loop.
 
 ```rust
@@ -156,8 +155,8 @@ impl ApplicationHandler for App {
   // Advance GTK event loop <!----- IMPORTANT
   fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
     #[cfg(target_os = "linux")]
-    while gtk::events_pending() {
-      gtk::main_iteration_do(false);
+    while gtk::glib::MainContext::default().pending() {
+      gtk::glib::MainContext::default().iteration(false);
     }
   }
 }
@@ -172,19 +171,19 @@ event_loop.run_app(&mut app).unwrap();
 ###### Arch Linux / Manjaro:
 
 ```bash
-sudo pacman -S webkit2gtk-4.1
+sudo pacman -S webkitgtk-6.0
 ```
 
 ###### Debian / Ubuntu:
 
 ```bash
-sudo apt install libwebkit2gtk-4.1-dev
+sudo apt install libwebkitgtk-6.0-dev
 ```
 
 ###### Fedora
 
 ```bash
-sudo dnf install gtk3-devel webkit2gtk4.1-devel
+sudo dnf install gtk4-devel webkitgtk6.0-devel
 ```
 
 ###### Nix & NixOS
@@ -197,7 +196,7 @@ let
    pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
    packages = with pkgs; [
      pkg-config
-     webkitgtk_4_1
+     webkitgtk_6_0
    ];
  in
  pkgs.mkShell {

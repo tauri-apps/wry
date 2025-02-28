@@ -72,6 +72,9 @@ fn hit_test(window_size: PhysicalSize<u32>, x: i32, y: i32, scale: f64) -> HitTe
   let bottom = top + window_size.height as i32;
   let right = left + window_size.width as i32;
 
+  let x = x * scale as i32;
+  let y = y * scale as i32;
+
   let inset = (BORDERLESS_RESIZE_INSET * scale) as i32;
 
   #[rustfmt::skip]
@@ -266,7 +269,7 @@ fn main() -> wry::Result<()> {
     builder.build_gtk(vbox)?
   };
 
-  let mut webview = Some(webview);
+  let mut webview: Option<wry::WebView> = Some(webview);
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
