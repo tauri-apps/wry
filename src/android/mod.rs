@@ -208,26 +208,12 @@ impl InnerWebView {
       .map(|id| id.to_string())
       .unwrap_or_else(|| COUNTER.next().to_string());
 
-    MainPipe::send(WebViewMessage::CreateWebView(CreateWebViewAttributes {
-      id: id.clone(),
-      url,
-      html,
-      #[cfg(any(debug_assertions, feature = "devtools"))]
-      devtools,
-      background_color,
-      transparent,
-      headers,
-      on_webview_created,
-      autoplay,
-      user_agent,
-      initialization_scripts: initialization_scripts.clone(),
-    }));
-
     WITH_ASSET_LOADER.replace(Some(with_asset_loader));
     if let Some(domain) = asset_loader_domain {
       ASSET_LOADER_DOMAIN.replace(Some(domain));
     }
 
+    let initialization_scripts_ = initialization_scripts.clone();
     REQUEST_HANDLER.replace(Some(
       UnsafeRequestHandler::new(Box::new(
         move |webview_id: &str, mut request, is_document_start_script_enabled| {
@@ -247,7 +233,7 @@ impl InnerWebView {
             }
 
             let (tx, rx) = channel();
-            let initialization_scripts = initialization_scripts.clone();
+            let initialization_scripts = initialization_scripts_.clone();
             let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
               Box::new(move |mut response| {
                 if !is_document_start_script_enabled {
@@ -327,6 +313,21 @@ impl InnerWebView {
     if let Some(h) = attributes.on_page_load_handler {
       ON_LOAD_HANDLER.replace(Some(UnsafeOnPageLoadHandler::new(h)));
     }
+
+    MainPipe::send(WebViewMessage::CreateWebView(CreateWebViewAttributes {
+      id: id.clone(),
+      url,
+      html,
+      #[cfg(any(debug_assertions, feature = "devtools"))]
+      devtools,
+      background_color,
+      transparent,
+      headers,
+      on_webview_created,
+      autoplay,
+      user_agent,
+      initialization_scripts,
+    }));
 
     Ok(Self { id })
   }
