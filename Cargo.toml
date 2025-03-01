@@ -95,7 +95,13 @@ features = [
 [target.'cfg(target_vendor = "apple")'.dependencies]
 url = "2.5"
 block2 = "0.6"
-objc2 = { version = "0.6", features = ["exception"] }
+objc2 = { version = "0.6", features = [
+    "exception",
+    # because `NSUUID::from_bytes` needs it,
+    # and `WebViewBuilderExtDarwin.with_data_store_identifier` crashes otherwise,
+    # see https://github.com/tauri-apps/tauri/issues/12843
+    "disable-encoding-assertions",
+] }
 objc2-web-kit = { version = "0.3.0", default-features = false, features = [
   "std",
   "objc2-core-foundation",
