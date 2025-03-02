@@ -1,5 +1,11 @@
 # Changelog
 
+## \[0.50.3]
+
+- [`94ecadb`](https://github.com/tauri-apps/wry/commit/94ecadbc73d6357484a4df7358c96e72111ce4be) ([#1496](https://github.com/tauri-apps/wry/pull/1496) by [@Simon-Laux](https://github.com/tauri-apps/wry/../../Simon-Laux)) Add `WebViewBuilder.with_javascript_disabled` api to disable JavaScript.
+- [`5120a5c`](https://github.com/tauri-apps/wry/commit/5120a5cc0fd4b9d1df32812d3df121c632821395) ([#1486](https://github.com/tauri-apps/wry/pull/1486) by [@charrondev](https://github.com/tauri-apps/wry/../../charrondev)) Fix `Webview::cookies` and `Webview::cookies_for_url` deadlock on macOS.
+- [`8dfeb76`](https://github.com/tauri-apps/wry/commit/8dfeb7650213fc10edbf7b03acc9a95107c7e342) ([#1500](https://github.com/tauri-apps/wry/pull/1500) by [@Simon-Laux](https://github.com/tauri-apps/wry/../../Simon-Laux)) feat: add `Webview.reload`
+
 ## \[0.50.2]
 
 - [`cef818f`](https://github.com/tauri-apps/wry/commit/cef818f63f36b9acfc4d31f17b5e9fe7c3058612) ([#1505](https://github.com/tauri-apps/wry/pull/1505) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fix `already mutably borrowed: BorrowError` panic on webview initialization on Android.
