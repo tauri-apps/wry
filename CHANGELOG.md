@@ -1,5 +1,17 @@
 # Changelog
 
+## \[0.50.2]
+
+- [`cef818f`](https://github.com/tauri-apps/wry/commit/cef818f63f36b9acfc4d31f17b5e9fe7c3058612) ([#1505](https://github.com/tauri-apps/wry/pull/1505) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fix `already mutably borrowed: BorrowError` panic on webview initialization on Android.
+
+## \[0.50.1]
+
+- [`f9abf6b`](https://github.com/tauri-apps/wry/commit/f9abf6b4464acc91926236366a347f04d741b15d) ([#1501](https://github.com/tauri-apps/wry/pull/1501) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Fix webview not resized with parent when it gets maximized on Windows
+
+## \[0.50.0]
+
+- [`933de78`](https://github.com/tauri-apps/wry/commit/933de788bc0fbab1914b7c5ce29c209281996b03) ([#1492](https://github.com/tauri-apps/wry/pull/1492) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Updated `webview2-com` to `0.36`, `windows` to `0.60`.
+
 ## \[0.49.0]
 
 - [`0395df5`](https://github.com/tauri-apps/wry/commit/0395df504ffaea2320d706501c89859a6e319d30) ([#1484](https://github.com/tauri-apps/wry/pull/1484) by [@alexmoon](https://github.com/tauri-apps/wry/../../alexmoon)) Removed `obj-exception` feature.

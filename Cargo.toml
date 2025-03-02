@@ -2,7 +2,7 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.49.0"
+version = "0.50.2"
 authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -68,13 +68,13 @@ gdkx11 = { version = "0.18", optional = true }
 percent-encoding = "2.3"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.35"
+webview2-com = "0.36"
 windows-version = "0.1"
-windows-core = "0.59"
+windows-core = "0.60"
 dunce = "1"
 
 [target."cfg(target_os = \"windows\")".dependencies.windows]
-version = "0.59"
+version = "0.60"
 features = [
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
@@ -194,7 +194,7 @@ libc = "0.2"
 
 [dev-dependencies]
 pollster = "0.4.0"
-tao = "0.31"
+tao = "0.32"
 wgpu = "23"
 winit = "0.30"
 getrandom = "0.3"

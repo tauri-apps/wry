@@ -645,9 +645,10 @@ pub struct WebViewAttributes<'a> {
   ///
   /// ## Platform-specific:
   ///
-  /// - Windows: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
+  /// - **Windows**: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
   /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
   /// - **Android:** Unsupported yet.
+  /// - **macOS / iOS**: Uses the nonPersistent DataStore.
   pub incognito: bool,
 
   /// Whether all media can be played without user interaction.
@@ -974,6 +975,16 @@ impl<'a> WebViewBuilder<'a> {
   /// Same as [`Self::with_custom_protocol`] but with an asynchronous responder.
   ///
   /// When registering a custom protocol with the same name, only the last regisered one will be used.
+  ///
+  /// # Warning
+  ///
+  /// Pages loaded from custom protocol will have different Origin on different platforms. And
+  /// servers which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
+  /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
+  /// different Origin headers across platforms:
+  ///
+  /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://path/to/page).
+  /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page`). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`].
   ///
   /// # Examples
   ///
@@ -1401,6 +1412,8 @@ pub trait WebViewBuilderExtDarwin {
   /// Can be used as a replacement for data_directory not being available in WKWebView.
   ///
   /// - **macOS / iOS**: Available on macOS >= 14 and iOS >= 17
+  ///
+  /// Note: Enable incognito mode to use the `nonPersistent` DataStore.
   fn with_data_store_identifier(self, identifier: [u8; 16]) -> Self;
   /// Move the window controls to the specified position.
   /// Normally this is handled by the Window but because `WebViewBuilder::build()` overwrites the window's NSView the controls will flicker on resizing.

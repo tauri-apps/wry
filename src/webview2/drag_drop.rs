@@ -16,9 +16,9 @@ use std::{
 };
 
 use windows::{
-  core::implement,
+  core::{implement, BOOL},
   Win32::{
-    Foundation::{BOOL, DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINT, POINTL},
+    Foundation::{DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINT, POINTL},
     Graphics::Gdi::ScreenToClient,
     System::{
       Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL},

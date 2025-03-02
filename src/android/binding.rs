@@ -106,7 +106,7 @@ fn handle_request(
   request: JObject,
   is_document_start_script_enabled: jboolean,
 ) -> JniResult<jobject> {
-  if let Some(handler) = REQUEST_HANDLER.borrow().as_ref() {
+  if let Some(handler) = REQUEST_HANDLER.lock().unwrap().as_ref() {
     #[cfg(feature = "tracing")]
     let span =
       tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty).entered();
@@ -294,7 +294,8 @@ pub unsafe fn shouldOverride(mut env: JNIEnv, _: JClass, url: JString) -> jboole
     Ok(url) => {
       let url = url.to_string_lossy().to_string();
       URL_LOADING_OVERRIDE
-        .borrow()
+        .lock()
+        .unwrap()
         .as_ref()
         // We negate the result of the function because the logic for the android
         // client is different from how the navigation_handler is defined.
@@ -340,7 +341,7 @@ pub unsafe fn ipc(mut env: JNIEnv, _: JClass, url: JString, body: JString) {
 
       let url = url.to_string_lossy().to_string();
       let body = body.to_string_lossy().to_string();
-      if let Some(ipc) = IPC.borrow().as_ref() {
+      if let Some(ipc) = IPC.lock().unwrap().as_ref() {
         (ipc.handler)(Request::builder().uri(url).body(body).unwrap())
       }
     }
@@ -356,7 +357,7 @@ pub unsafe fn handleReceivedTitle(mut env: JNIEnv, _: JClass, _webview: JObject,
   match env.get_string(&title) {
     Ok(title) => {
       let title = title.to_string_lossy().to_string();
-      if let Some(title_handler) = TITLE_CHANGE_HANDLER.borrow().as_ref() {
+      if let Some(title_handler) = TITLE_CHANGE_HANDLER.lock().unwrap().as_ref() {
         (title_handler.handler)(title)
       }
     }
@@ -369,12 +370,12 @@ pub unsafe fn handleReceivedTitle(mut env: JNIEnv, _: JClass, _webview: JObject,
 
 #[allow(non_snake_case)]
 pub unsafe fn withAssetLoader(_: JNIEnv, _: JClass) -> jboolean {
-  (*WITH_ASSET_LOADER.borrow().as_ref().unwrap_or(&false)).into()
+  (*WITH_ASSET_LOADER.lock().unwrap().as_ref().unwrap_or(&false)).into()
 }
 
 #[allow(non_snake_case)]
 pub unsafe fn assetLoaderDomain(env: JNIEnv, _: JClass) -> jstring {
-  if let Some(domain) = ASSET_LOADER_DOMAIN.borrow().as_ref() {
+  if let Some(domain) = ASSET_LOADER_DOMAIN.lock().unwrap().as_ref() {
     env.new_string(domain).unwrap().as_raw()
   } else {
     env.new_string("wry.assets").unwrap().as_raw()
@@ -386,7 +387,7 @@ pub unsafe fn onPageLoading(mut env: JNIEnv, _: JClass, url: JString) {
   match env.get_string(&url) {
     Ok(url) => {
       let url = url.to_string_lossy().to_string();
-      if let Some(on_load) = ON_LOAD_HANDLER.borrow().as_ref() {
+      if let Some(on_load) = ON_LOAD_HANDLER.lock().unwrap().as_ref() {
         (on_load.handler)(PageLoadEvent::Started, url)
       }
     }
@@ -402,7 +403,7 @@ pub unsafe fn onPageLoaded(mut env: JNIEnv, _: JClass, url: JString) {
   match env.get_string(&url) {
     Ok(url) => {
       let url = url.to_string_lossy().to_string();
-      if let Some(on_load) = ON_LOAD_HANDLER.borrow().as_ref() {
+      if let Some(on_load) = ON_LOAD_HANDLER.lock().unwrap().as_ref() {
         (on_load.handler)(PageLoadEvent::Finished, url)
       }
     }
