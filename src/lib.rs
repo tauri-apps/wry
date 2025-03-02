@@ -689,6 +689,9 @@ pub struct WebViewAttributes<'a> {
   ///
   /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
   pub background_throttling: Option<BackgroundThrottlingPolicy>,
+
+  /// Whether JavaScript should be disabled.
+  pub javascript_disabled: bool,
 }
 
 impl Default for WebViewAttributes<'_> {
@@ -730,6 +733,7 @@ impl Default for WebViewAttributes<'_> {
         size: dpi::LogicalSize::new(200, 200).into(),
       }),
       background_throttling: None,
+      javascript_disabled: false,
     }
   }
 }
@@ -967,6 +971,16 @@ impl<'a> WebViewBuilder<'a> {
   /// Same as [`Self::with_custom_protocol`] but with an asynchronous responder.
   ///
   /// When registering a custom protocol with the same name, only the last regisered one will be used.
+  ///
+  /// # Warning
+  ///
+  /// Pages loaded from custom protocol will have different Origin on different platforms. And
+  /// servers which enforce CORS will need to add exact same Origin header in `Access-Control-Allow-Origin`
+  /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
+  /// different Origin headers across platforms:
+  ///
+  /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://path/to/page).
+  /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page`). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`].
   ///
   /// # Examples
   ///
@@ -1313,6 +1327,13 @@ impl<'a> WebViewBuilder<'a> {
   pub fn with_background_throttling(self, policy: BackgroundThrottlingPolicy) -> Self {
     self.and_then(|mut b| {
       b.attrs.background_throttling = Some(policy);
+      Ok(b)
+    })
+  }
+  /// Whether JavaScript should be disabled.
+  pub fn with_javascript_disabled(self) -> Self {
+    self.and_then(|mut b| {
+      b.attrs.javascript_disabled = true;
       Ok(b)
     })
   }

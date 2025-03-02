@@ -16,6 +16,22 @@ fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
+  #[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  )))]
+  let fixed = {
+    use gtk::prelude::*;
+    use tao::platform::unix::WindowExtUnix;
+    let fixed = gtk::Fixed::new();
+    let vbox = window.default_vbox().unwrap();
+    vbox.pack_start(&fixed, true, true, 0);
+    fixed.show_all();
+    fixed
+  };
+
   let build_webview = |builder: WebViewBuilder<'_>| -> wry::Result<wry::WebView> {
     #[cfg(any(
       target_os = "windows",
@@ -32,14 +48,7 @@ fn main() -> wry::Result<()> {
       target_os = "android"
     )))]
     let webview = {
-      use gtk::prelude::*;
-      use tao::platform::unix::WindowExtUnix;
       use wry::WebViewBuilderExtUnix;
-
-      let fixed = gtk::Fixed::new();
-      let vbox = window.default_vbox().unwrap();
-      vbox.pack_start(&fixed, true, true, 0);
-      fixed.show_all();
       builder.build_gtk(&fixed)?
     };
 
