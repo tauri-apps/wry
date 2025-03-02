@@ -78,7 +78,8 @@ use std::{
   panic::AssertUnwindSafe,
   ptr::{null_mut, NonNull},
   str::{self, FromStr},
-  sync::{Arc, Mutex}, time::Duration,
+  sync::{Arc, Mutex},
+  time::Duration,
 };
 
 #[cfg(feature = "mac-proxy")]
@@ -1056,15 +1057,16 @@ unsafe fn window_position(view: &NSView, x: i32, y: i32, height: f64) -> CGPoint
 
 /// Wait synchronously for the NSRunLoop to run until a receiver has a message.
 unsafe fn wait_for_blocking_operation<T>(rx: std::sync::mpsc::Receiver<T>) -> Result<T> {
-  let interval = 0.002;
+  let interval = Duration::from_millis(2);
+  let interval_as_secs = interval.as_secs_f64();
   let limit = 1.;
   let mut elapsed = 0.;
   // run event loop until we get the response back, blocking for at most 3 seconds
   loop {
-    if let Ok(response) = rx.recv_timeout(Duration::from_secs_f64(interval)) {
+    if let Ok(response) = rx.recv_timeout(interval) {
       return Ok(response);
     }
-    elapsed += interval;
+    elapsed += interval_as_secs;
     if elapsed >= limit {
       return Err(Error::Io(std::io::Error::new(
         std::io::ErrorKind::TimedOut,
@@ -1074,7 +1076,7 @@ unsafe fn wait_for_blocking_operation<T>(rx: std::sync::mpsc::Receiver<T>) -> Re
 
     // Go progress the event loop if we didn't get the result
     let rl = objc2_foundation::NSRunLoop::mainRunLoop();
-    let limit_date = NSDate::dateWithTimeIntervalSinceNow(interval);
+    let limit_date = NSDate::dateWithTimeIntervalSinceNow(interval_as_secs);
 
     let mode = NSString::from_str("NSDefaultRunLoopMode");
 
