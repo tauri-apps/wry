@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.50.2]
+
+- [`cef818f`](https://github.com/tauri-apps/wry/commit/cef818f63f36b9acfc4d31f17b5e9fe7c3058612) ([#1505](https://github.com/tauri-apps/wry/pull/1505) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fix `already mutably borrowed: BorrowError` panic on webview initialization on Android.
+
 ## \[0.50.1]
 
 - [`f9abf6b`](https://github.com/tauri-apps/wry/commit/f9abf6b4464acc91926236366a347f04d741b15d) ([#1501](https://github.com/tauri-apps/wry/pull/1501) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Fix webview not resized with parent when it gets maximized on Windows
