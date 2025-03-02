@@ -87,16 +87,6 @@ class RustWebView(context: Context, val initScripts: Array<String>, val id: Stri
         }
     }
 
-    fun setAutoPlay(enable: Boolean) {
-        val settings = super.getSettings()
-        settings.mediaPlaybackRequiresUserGesture = !enable
-    }
-
-    fun setUserAgent(ua: String) {
-        val settings = super.getSettings()
-        settings.userAgentString = ua
-    }
-
     fun getCookies(url: String): String {
         val cookieManager = CookieManager.getInstance()
         return cookieManager.getCookie(url)

@@ -65,6 +65,7 @@ impl<'a> MainPipe<'a> {
             user_agent,
             initialization_scripts,
             id,
+            javascript_disabled,
             ..
           } = attrs;
 
@@ -100,19 +101,43 @@ impl<'a> MainPipe<'a> {
             ],
           )?;
 
-          // set media autoplay
-          self
+          // get settings
+          let web_settings = self
             .env
-            .call_method(&webview, "setAutoPlay", "(Z)V", &[autoplay.into()])?;
+            .call_method(
+              &webview,
+              "getSettings",
+              "()Landroid/webkit/WebSettings;",
+              &[],
+            )?
+            .l()?;
+
+          // set media autoplay
+          self.env.call_method(
+            &web_settings,
+            "setMediaPlaybackRequiresUserGesture",
+            "(Z)V",
+            &[(!autoplay).into()],
+          )?;
 
           // set user-agent
           if let Some(user_agent) = user_agent {
             let user_agent = self.env.new_string(user_agent)?;
             self.env.call_method(
-              &webview,
-              "setUserAgent",
+              &web_settings,
+              "setUserAgentString",
               "(Ljava/lang/String;)V",
               &[(&user_agent).into()],
+            )?;
+          }
+
+          // disable javascript
+          if javascript_disabled {
+            self.env.call_method(
+              &web_settings,
+              "setJavaScriptEnabled",
+              "(Z)V",
+              &[false.into()],
             )?;
           }
 
@@ -437,6 +462,7 @@ pub(crate) struct CreateWebViewAttributes {
   pub on_webview_created: Option<Box<dyn Fn(super::Context) -> JniResult<()> + Send>>,
   pub user_agent: Option<String>,
   pub initialization_scripts: Vec<(String, bool)>,
+  pub javascript_disabled: bool,
 }
 
 // SAFETY: only use this when you are sure the span will be dropped on the same thread it was entered

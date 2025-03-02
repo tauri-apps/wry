@@ -176,6 +176,7 @@ impl InnerWebView {
       headers,
       autoplay,
       user_agent,
+      javascript_disabled,
       ..
     } = attributes;
 
@@ -336,6 +337,7 @@ impl InnerWebView {
       autoplay,
       user_agent,
       initialization_scripts,
+      javascript_disabled,
     }));
 
     Ok(Self { id })

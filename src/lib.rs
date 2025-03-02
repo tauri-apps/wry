@@ -691,10 +691,6 @@ pub struct WebViewAttributes<'a> {
   pub background_throttling: Option<BackgroundThrottlingPolicy>,
 
   /// Whether JavaScript should be disabled.
-  ///
-  /// ## Platform-specific
-  ///
-  /// - **Android:** Not implemented yet.
   pub javascript_disabled: bool,
 }
 
@@ -1335,10 +1331,6 @@ impl<'a> WebViewBuilder<'a> {
     })
   }
   /// Whether JavaScript should be disabled.
-  ///
-  /// ## Platform-specific
-  ///
-  /// - **Android:** Not implemented yet.
   pub fn with_javascript_disabled(self) -> Self {
     self.and_then(|mut b| {
       b.attrs.javascript_disabled = true;
