@@ -1432,6 +1432,9 @@ impl WebViewBuilderExtDarwin for WebViewBuilder<'_> {
   }
 }
 
+#[cfg(any(target_os = "macos", target_os = "ios",))]
+pub use wkwebview::data_store::{fetch_all_data_store_identifiers, remove_data_store};
+
 #[cfg(windows)]
 #[derive(Clone)]
 pub(crate) struct PlatformSpecificWebViewAttributes {

@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+#[cfg(target_os = "macos")]
+pub(crate) mod data_store;
+
 mod download;
 #[cfg(target_os = "macos")]
 mod drag_drop;
