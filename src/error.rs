@@ -72,6 +72,10 @@ pub enum Error {
   #[cfg(any(target_os = "macos", target_os = "ios"))]
   UrlPrase(#[from] url::ParseError),
   #[cfg(any(target_os = "macos", target_os = "ios"))]
-  #[error(transparent)]
-  ObjcNS(#[from] objc2_foundation::NSError),
+  #[error("NSError (code: {code}) {description}, reason: {reason:?}")]
+  ObjcNS {
+    code: isize,
+    description: String,
+    reason: Option<String>,
+  },
 }

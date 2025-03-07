@@ -1030,7 +1030,12 @@ r#"Object.defineProperty(window, 'ipc', {
       if error.is_null() {
         let _ = tx.send(Ok(()));
       } else {
-        let _ = tx.send(Err(unsafe { error.read() }.into()));
+        let err = unsafe { error.read() };
+        let _ = tx.send(Err(Error::ObjcNS {
+          code: err.code(),
+          description: err.localizedDescription().to_string(),
+          reason: unsafe { err.localizedFailureReason() }.map(|reason| reason.to_string()),
+        }));
       }
     });
 
