@@ -2085,12 +2085,6 @@ impl WebViewExtUnix for WebView {
 pub trait WebViewExtDarwin {
   /// Prints with extra options
   fn print_with_options(&self, options: &PrintOptions) -> Result<()>;
-  /// Move the window controls to the specified position.
-  /// Normally this is handled by the Window but because `WebViewBuilder::build()` overwrites the window's NSView the controls will flicker on resizing.
-  /// Note: This method has no effects if the WebView is injected via `WebViewBuilder::build_as_child();` and there should be no flickers.
-  /// Warning: Do not use this if your chosen window library does not support traffic light insets.
-  /// Warning: Only use this in **decorated** windows with a **hidden titlebar**!
-  fn set_traffic_light_inset<P: Into<dpi::Position>>(&self, position: P) -> Result<()>;
   /// Fetches all Data Store Identifiers of this application
   ///
   /// Needs to run on main thread and needs an event loop to run.
@@ -2105,10 +2099,6 @@ pub trait WebViewExtDarwin {
 impl WebViewExtDarwin for WebView {
   fn print_with_options(&self, options: &PrintOptions) -> Result<()> {
     self.webview.print_with_options(options)
-  }
-
-  fn set_traffic_light_inset<P: Into<dpi::Position>>(&self, position: P) -> Result<()> {
-    self.webview.set_traffic_light_inset(position.into())
   }
 
   fn fetch_data_store_identifiers() -> Result<Vec<[u8; 16]>> {
