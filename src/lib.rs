@@ -2088,11 +2088,11 @@ pub trait WebViewExtDarwin {
   /// Fetches all Data Store Identifiers of this application
   ///
   /// Needs to run on main thread and needs an event loop to run.
-  fn fetch_data_store_identifiers() -> Result<Vec<[u8; 16]>>;
+  fn fetch_data_store_identifiers<F: FnOnce(Vec<[u8; 16]>) + Send + 'static>(cb: F) -> Result<()>;
   /// Deletes a Data Store by an identifier
   ///
   /// Needs to run on main thread and needs an event loop to run.
-  fn remove_data_store(uuid: &[u8; 16]) -> Result<()>;
+  fn remove_data_store<F: FnOnce(Result<()>) + Send + 'static>(uuid: &[u8; 16], cb: F);
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -2101,12 +2101,12 @@ impl WebViewExtDarwin for WebView {
     self.webview.print_with_options(options)
   }
 
-  fn fetch_data_store_identifiers() -> Result<Vec<[u8; 16]>> {
-    wkwebview::InnerWebView::fetch_all_data_store_identifiers()
+  fn fetch_data_store_identifiers<F: FnOnce(Vec<[u8; 16]>) + Send + 'static>(cb: F) -> Result<()> {
+    wkwebview::InnerWebView::fetch_data_store_identifiers(cb)
   }
 
-  fn remove_data_store(uuid: &[u8; 16]) -> Result<()> {
-    wkwebview::InnerWebView::remove_data_store(uuid)
+  fn remove_data_store<F: FnOnce(Result<()>) + Send + 'static>(uuid: &[u8; 16], cb: F) {
+    wkwebview::InnerWebView::remove_data_store(uuid, cb)
   }
 }
 
