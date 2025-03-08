@@ -1,5 +1,13 @@
 # Changelog
 
+## \[0.50.4]
+
+- [`349dfe3`](https://github.com/tauri-apps/wry/commit/349dfe37d25f71ed60143f7ec36153bedc296cfa) ([#1512](https://github.com/tauri-apps/wry/pull/1512) by [@Simon-Laux](https://github.com/tauri-apps/wry/../../Simon-Laux)) Added `WebViewExtDarwin` to expose WebView functions available to both macOS and iOS.
+- [`349dfe3`](https://github.com/tauri-apps/wry/commit/349dfe37d25f71ed60143f7ec36153bedc296cfa) ([#1512](https://github.com/tauri-apps/wry/pull/1512) by [@Simon-Laux](https://github.com/tauri-apps/wry/../../Simon-Laux)) fix: crash when using `WebViewBuilderExtDarwin.with_data_store_identifier`
+- [`349dfe3`](https://github.com/tauri-apps/wry/commit/349dfe37d25f71ed60143f7ec36153bedc296cfa) ([#1512](https://github.com/tauri-apps/wry/pull/1512) by [@Simon-Laux](https://github.com/tauri-apps/wry/../../Simon-Laux)) feat: macOS: add `WebViewExtDarwin::fetch_data_store_identifiers` and `WebViewExtDarwin::remove_data_store`.
+- [`d0b16a7`](https://github.com/tauri-apps/wry/commit/d0b16a7b89dfed084405bd7058020da1a4b6708a) ([#1491](https://github.com/tauri-apps/wry/pull/1491) by [@neilmcguire](https://github.com/tauri-apps/wry/../../neilmcguire)) On Windows, Add support for iframe requests in custom protocols. Requires WebView2 1.0.2365.46 or higher.
+- [`148d7cd`](https://github.com/tauri-apps/wry/commit/148d7cdd23de91aba541f935aa23d2faf5558199) ([#1513](https://github.com/tauri-apps/wry/pull/1513) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) Wry by default now passes `--enable-features=RemoveRedirectionBitmap` to WebView2 to hide the initial white flash of newly created webviews. Only takes effect on WebView2 Runtime versions 134 and above.
+
 ## \[0.50.3]
 
 - [`94ecadb`](https://github.com/tauri-apps/wry/commit/94ecadbc73d6357484a4df7358c96e72111ce4be) ([#1496](https://github.com/tauri-apps/wry/pull/1496) by [@Simon-Laux](https://github.com/tauri-apps/wry/../../Simon-Laux)) Add `WebViewBuilder.with_javascript_disabled` api to disable JavaScript.
