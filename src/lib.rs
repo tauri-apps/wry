@@ -2089,7 +2089,9 @@ pub trait WebViewExtDarwin {
   ///
   /// Needs to run on main thread and needs an event loop to run.
   fn fetch_data_store_identifiers<F: FnOnce(Vec<[u8; 16]>) + Send + 'static>(cb: F) -> Result<()>;
-  /// Deletes a Data Store by an identifier
+  /// Deletes a Data Store by an identifier.
+  ///
+  /// You must drop any WebView instances using the data store before you call this method.
   ///
   /// Needs to run on main thread and needs an event loop to run.
   fn remove_data_store<F: FnOnce(Result<()>) + Send + 'static>(uuid: &[u8; 16], cb: F);
