@@ -263,7 +263,7 @@
 //!
 //! In order for `wry` to be able to create webviews on Android, there is a few requirements that your application needs to uphold:
 //! 1. You need to set a few environment variables that will be used to generate the necessary kotlin
-//! files that you need to include in your Android application for wry to function properly.
+//!     files that you need to include in your Android application for wry to function properly.
 //!     - `WRY_ANDROID_PACKAGE`: which is the reversed domain name of your android project and the app name in snake_case, for example, `com.wry.example.wry_app`
 //!     - `WRY_ANDROID_LIBRARY`: for example, if your cargo project has a lib name `wry_app`, it will generate `libwry_app.so` so you se this env var to `wry_app`
 //!     - `WRY_ANDROID_KOTLIN_FILES_OUT_DIR`: for example, `path/to/app/src/main/kotlin/com/wry/example`
@@ -296,21 +296,21 @@
 //! Wry uses a set of feature flags to toggle several advanced features.
 //!
 //! - `os-webview` (default): Enables the default WebView framework on the platform. This must be enabled
-//! for the crate to work. This feature was added in preparation of other ports like cef and servo.
+//!   for the crate to work. This feature was added in preparation of other ports like cef and servo.
 //! - `protocol` (default): Enables [`WebViewBuilder::with_custom_protocol`] to define custom URL scheme for handling tasks like
-//! loading assets.
+//!   loading assets.
 //! - `drag-drop` (default): Enables [`WebViewBuilder::with_drag_drop_handler`] to control the behaviour when there are files
-//! interacting with the window.
+//!   interacting with the window.
 //! - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
-//! On **macOS**, enabling devtools, requires calling private apis so you should not enable this flag in release
-//! build if your app needs to publish to App Store.
+//!   On **macOS**, enabling devtools, requires calling private apis so you should not enable this flag in release
+//!   build if your app needs to publish to App Store.
 //! - `transparent`: Transparent background on **macOS** requires calling private functions.
-//! Avoid this in release build if your app needs to publish to App Store.
+//!   Avoid this in release build if your app needs to publish to App Store.
 //! - `fullscreen`: Fullscreen video and other media on **macOS** requires calling private functions.
-//! Avoid this in release build if your app needs to publish to App Store.
-//! libraries and prevent from building documentation on doc.rs fails.
+//!   Avoid this in release build if your app needs to publish to App Store.
+//!   libraries and prevent from building documentation on doc.rs fails.
 //! - `linux-body`: Enables body support of custom protocol request on Linux. Requires
-//! webkit2gtk v2.40 or above.
+//!   webkit2gtk v2.40 or above.
 //! - `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler` and `custom_protocols.
 //!
 //! ## Partners
@@ -519,7 +519,7 @@ pub struct WebViewAttributes<'a> {
   /// ## Platform-specific
   ///
   /// - **Android:** The Android WebView does not provide an API for initialization scripts,
-  /// so we prepend them to each HTML head. They are only implemented on custom protocol URLs.
+  ///   so we prepend them to each HTML head. They are only implemented on custom protocol URLs.
   pub initialization_scripts: Vec<(String, bool)>,
 
   /// A list of custom loading protocols with pairs of scheme uri string and a handling
@@ -544,7 +544,7 @@ pub struct WebViewAttributes<'a> {
   /// # Reading assets on mobile
   ///
   /// - Android: Android has `assets` and `resource` path finder to
-  /// locate your files in those directories. For more information, see [Loading in-app content](https://developer.android.com/guide/webapps/load-local-content) page.
+  ///   locate your files in those directories. For more information, see [Loading in-app content](https://developer.android.com/guide/webapps/load-local-content) page.
   /// - iOS: To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   pub custom_protocols:
     HashMap<String, Box<dyn Fn(WebViewId, Request<Vec<u8>>, RequestAsyncResponder)>>,
@@ -592,7 +592,7 @@ pub struct WebViewAttributes<'a> {
   /// ## Platform-specific:
   ///
   /// - **macOS**: The second parameter indicating the path the file was saved to, is always empty,
-  /// due to API limitations.
+  ///   due to API limitations.
   pub download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
 
   /// A new window handler to decide if incoming url is allowed to open in a new window.
@@ -615,7 +615,7 @@ pub struct WebViewAttributes<'a> {
   /// ## Platform-specific
   ///
   /// - macOS: This will call private functions on **macOS**. It is enabled in **debug** builds,
-  /// but requires `devtools` feature flag to actually enable it in **release** builds.
+  ///   but requires `devtools` feature flag to actually enable it in **release** builds.
   /// - Android: Open `chrome://inspect/#devices` in Chrome to get the devtools window. Wry's `WebView` devtools API isn't supported on Android.
   /// - iOS: Open Safari > Develop > [Your Device Name] > [Your WebView] to get the devtools window.
   pub devtools: bool,
@@ -632,7 +632,7 @@ pub struct WebViewAttributes<'a> {
   /// ## Platform-specific:
   ///
   /// - Windows: Setting to `false` does nothing on WebView2 Runtime version before 92.0.902.0,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10902-prerelease
+  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10902-prerelease
   ///
   /// - **Android / iOS:** Unsupported.
   pub back_forward_navigation_gestures: bool,
@@ -646,7 +646,7 @@ pub struct WebViewAttributes<'a> {
   /// ## Platform-specific:
   ///
   /// - **Windows**: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
+  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
   /// - **Android:** Unsupported yet.
   /// - **macOS / iOS**: Uses the nonPersistent DataStore.
   pub incognito: bool,
@@ -766,8 +766,10 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Create a new [`WebViewBuilder`] with a web context that can be shared with multiple [`WebView`]s.
   pub fn with_web_context(web_context: &'a mut WebContext) -> Self {
-    let mut attrs = WebViewAttributes::default();
-    attrs.context = Some(web_context);
+    let attrs = WebViewAttributes {
+      context: Some(web_context),
+      ..Default::default()
+    };
 
     Self {
       inner: Ok(WebviewBuilderParts {
@@ -879,8 +881,8 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// - **Android:** When [addDocumentStartJavaScript] is not supported,
-  /// we prepend them to each HTML head (implementation only supported on custom protocol URLs).
-  /// For remote URLs, we use [onPageStarted] which is not guaranteed to run before other scripts.
+  ///   we prepend them to each HTML head (implementation only supported on custom protocol URLs).
+  ///   For remote URLs, we use [onPageStarted] which is not guaranteed to run before other scripts.
   ///
   /// [addDocumentStartJavaScript]: https://developer.android.com/reference/androidx/webkit/WebViewCompat#addDocumentStartJavaScript(android.webkit.WebView,java.lang.String,java.util.Set%3Cjava.lang.String%3E)
   /// [onPageStarted]: https://developer.android.com/reference/android/webkit/WebViewClient#onPageStarted(android.webkit.WebView,%20java.lang.String,%20android.graphics.Bitmap)
@@ -930,10 +932,10 @@ impl<'a> WebViewBuilder<'a> {
   /// # Reading assets on mobile
   ///
   /// - Android: For loading content from the `assets` folder (which is copied to the Andorid apk) please
-  /// use the function [`with_asset_loader`] from [`WebViewBuilderExtAndroid`] instead.
-  /// This function on Android can only be used to serve assets you can embed in the binary or are
-  /// elsewhere in Android (provided the app has appropriate access), but not from the `assets`
-  /// folder which lives within the apk. For the cases where this can be used, it works the same as in macOS and Linux.
+  ///   use the function [`with_asset_loader`] from [`WebViewBuilderExtAndroid`] instead.
+  ///   This function on Android can only be used to serve assets you can embed in the binary or are
+  ///   elsewhere in Android (provided the app has appropriate access), but not from the `assets`
+  ///   folder which lives within the apk. For the cases where this can be used, it works the same as in macOS and Linux.
   /// - iOS: To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(self, name: String, handler: F) -> Self
@@ -1117,7 +1119,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// - Windows: Requires WebView2 Runtime version 86.0.616.0 or higher, does nothing on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10790-prerelease
+  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10790-prerelease
   pub fn with_user_agent(self, user_agent: impl Into<String>) -> Self {
     self.and_then(|mut b| {
       b.attrs.user_agent = Some(user_agent.into());
@@ -1133,7 +1135,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// - macOS: This will call private functions on **macOS**. It is enabled in **debug** builds,
-  /// but requires `devtools` feature flag to actually enable it in **release** builds.
+  ///   but requires `devtools` feature flag to actually enable it in **release** builds.
   /// - Android: Open `chrome://inspect/#devices` in Chrome to get the devtools window. Wry's `WebView` devtools API isn't supported on Android.
   /// - iOS: Open Safari > Develop > [Your Device Name] > [Your WebView] to get the devtools window.
   pub fn with_devtools(self, devtools: bool) -> Self {
@@ -1148,7 +1150,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// - Windows: Setting to `false` can't disable pinch zoom on WebView2 Runtime version before 91.0.865.0,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10865-prerelease
+  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10865-prerelease
   ///
   /// - **macOS / Linux / Android / iOS**: Unsupported
   pub fn with_hotkeys_zoom(self, zoom: bool) -> Self {
@@ -1171,7 +1173,7 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Set a download started handler to manage incoming downloads.
   ///
-  //// The closure takes two parameters, the first is a `String` representing the url being downloaded from and and the
+  /// The closure takes two parameters, the first is a `String` representing the url being downloaded from and and the
   /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
   /// parameter can be used to set the download location by assigning a new path to it, the assigned path _must_ be
   /// absolute. The closure returns a `bool` to allow or deny the download.
@@ -1197,7 +1199,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific:
   ///
   /// - **macOS**: The second parameter indicating the path the file was saved to, is always empty,
-  /// due to API limitations.
+  ///   due to API limitations.
   pub fn with_download_completed_handler(
     self,
     download_completed_handler: impl Fn(String, Option<PathBuf>, bool) + 'static,
@@ -1256,7 +1258,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific:
   ///
   /// - Windows: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
+  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
   /// - **Android:** Unsupported yet.
   pub fn with_incognito(self, incognito: bool) -> Self {
     self.and_then(|mut b| {
@@ -1367,9 +1369,9 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// - **Windows**: This will create the webview as a child window of the `parent` window.
   /// - **macOS**: This will create the webview as a `NSView` subview of the `parent` window's
-  /// content view.
+  ///   content view.
   /// - **Linux**: This will create the webview as a child window of the `parent` window. Only X11
-  /// is supported. This method won't work on Wayland.
+  ///   is supported. This method won't work on Wayland.
   ///
   ///   Although this methods only needs an X11 window handle, you use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
@@ -1442,6 +1444,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   scroll_bar_style: ScrollBarStyle,
   browser_extensions_enabled: bool,
   extension_path: Option<PathBuf>,
+  default_context_menus: bool,
 }
 
 #[cfg(windows)]
@@ -1450,6 +1453,7 @@ impl Default for PlatformSpecificWebViewAttributes {
     Self {
       additional_browser_args: None,
       browser_accelerator_keys: true, // This is WebView2's default behavior
+      default_context_menus: true,    // This is WebView2's default behavior
       theme: None,
       use_https: false, // To match macOS & Linux behavior in the context of mixed content.
       scroll_bar_style: ScrollBarStyle::default(),
@@ -1481,6 +1485,14 @@ pub trait WebViewBuilderExtWindows {
   ///
   /// <https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2settings#arebrowseracceleratorkeysenabled>
   fn with_browser_accelerator_keys(self, enabled: bool) -> Self;
+
+  /// Determines whether the webview's default context menus are enabled. When this setting is set to `false`,
+  /// it disables all context menus on the webview - menus on the window's native decorations for example are not affected.
+  ///
+  /// The default value is `true` (context menus are enabled).
+  ///
+  /// <https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2settings#aredefaultcontextmenusenabled>
+  fn with_default_context_menus(self, enabled: bool) -> Self;
 
   /// Specifies the theme of webview2. This affects things like `prefers-color-scheme`.
   ///
@@ -1533,6 +1545,13 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
   fn with_browser_accelerator_keys(self, enabled: bool) -> Self {
     self.and_then(|mut b| {
       b.platform_specific.browser_accelerator_keys = enabled;
+      Ok(b)
+    })
+  }
+
+  fn with_default_context_menus(self, enabled: bool) -> Self {
+    self.and_then(|mut b| {
+      b.platform_specific.default_context_menus = enabled;
       Ok(b)
     })
   }
@@ -1753,9 +1772,9 @@ impl WebView {
   ///
   /// - **Windows**: This will create the webview as a child window of the `parent` window.
   /// - **macOS**: This will create the webview as a `NSView` subview of the `parent` window's
-  /// content view.
+  ///   content view.
   /// - **Linux**: This will create the webview as a child window of the `parent` window. Only X11
-  /// is supported. This method won't work on Wayland.
+  ///   is supported. This method won't work on Wayland.
   ///
   ///   Although this methods only needs an X11 window handle, you use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
@@ -2222,9 +2241,9 @@ pub enum PageLoadEvent {
 pub enum BackgroundThrottlingPolicy {
   /// A policy where background throttling is disabled
   Disabled,
-  /// A policy where a web view that’s not in a window fully suspends tasks.
+  /// A policy where a web view that's not in a window fully suspends tasks.
   Suspend,
-  /// A policy where a web view that’s not in a window limits processing, but does not fully suspend tasks.
+  /// A policy where a web view that's not in a window limits processing, but does not fully suspend tasks.
   Throttle,
 }
 
