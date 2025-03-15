@@ -75,15 +75,17 @@ impl WryWebViewParent {
 
 #[cfg(target_os = "macos")]
 pub unsafe fn inset_traffic_lights(window: &NSWindow, x: f64, y: f64) {
-  let close = window
-    .standardWindowButton(NSWindowButton::CloseButton)
-    .unwrap();
-  let miniaturize = window
-    .standardWindowButton(NSWindowButton::MiniaturizeButton)
-    .unwrap();
-  let zoom = window
-    .standardWindowButton(NSWindowButton::ZoomButton)
-    .unwrap();
+  let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) else {
+    #[cfg(feature = "tracing")]
+    tracing::warn!("skipping inset_traffic_lights, close button not found");
+    return;
+  };
+  let Some(miniaturize) = window.standardWindowButton(NSWindowButton::MiniaturizeButton) else {
+    #[cfg(feature = "tracing")]
+    tracing::warn!("skipping inset_traffic_lights, miniaturize button not found");
+    return;
+  };
+  let zoom = window.standardWindowButton(NSWindowButton::ZoomButton);
 
   let title_bar_container_view = close.superview().unwrap().superview().unwrap();
 
@@ -95,7 +97,11 @@ pub unsafe fn inset_traffic_lights(window: &NSWindow, x: f64, y: f64) {
   title_bar_container_view.setFrame(title_bar_rect);
 
   let space_between = NSView::frame(&miniaturize).origin.x - close_rect.origin.x;
-  let window_buttons = vec![close, miniaturize, zoom];
+
+  let mut window_buttons = vec![close, miniaturize];
+  if let Some(zoom) = zoom {
+    window_buttons.push(zoom);
+  }
 
   for (i, button) in window_buttons.into_iter().enumerate() {
     let mut rect = NSView::frame(&button);
