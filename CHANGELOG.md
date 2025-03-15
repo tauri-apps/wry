@@ -1,5 +1,15 @@
 # Changelog
 
+## \[0.50.5]
+
+### enhance
+
+- [`353bd95`](https://github.com/tauri-apps/wry/commit/353bd9573a1ff80aa1e547e82f8c32ab2f984f9f) ([#1517](https://github.com/tauri-apps/wry/pull/1517) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) Added a Windows-only setting to disable all Webview2 context menus.
+
+### bug
+
+- [`4f4ade3`](https://github.com/tauri-apps/wry/commit/4f4ade3c9564bb33b6e54488c228a4c5b054204f) ([#1520](https://github.com/tauri-apps/wry/pull/1520) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fix crash setting macOS traffic light buttons inset when window is undecorated or buttons have been removed.
+
 ## \[0.50.4]
 
 - [`349dfe3`](https://github.com/tauri-apps/wry/commit/349dfe37d25f71ed60143f7ec36153bedc296cfa) ([#1512](https://github.com/tauri-apps/wry/pull/1512) by [@Simon-Laux](https://github.com/tauri-apps/wry/../../Simon-Laux)) Added `WebViewExtDarwin` to expose WebView functions available to both macOS and iOS.
