@@ -541,6 +541,10 @@ impl InnerWebView {
     pl_attrs: &super::PlatformSpecificWebViewAttributes,
   ) -> Result<()> {
     let settings = webview.Settings()?;
+    // We don't use host objects, let's disable them extra for security. See
+    // https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/security#restrict-web-content-functionality
+    // Discussion about adding host objects: https://github.com/tauri-apps/wry/issues/454.
+    settings.SetAreHostObjectsAllowed(false)?;
     settings.SetIsStatusBarEnabled(false)?;
     settings.SetAreDefaultContextMenusEnabled(pl_attrs.default_context_menus)?;
     settings.SetIsZoomControlEnabled(attributes.zoom_hotkeys_enabled)?;
