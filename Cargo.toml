@@ -68,13 +68,13 @@ gdkx11 = { version = "0.18", optional = true }
 percent-encoding = "2.3"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.36"
+webview2-com = "0.37"
 windows-version = "0.1"
-windows-core = "0.60"
+windows-core = "0.61"
 dunce = "1"
 
 [target."cfg(target_os = \"windows\")".dependencies.windows]
-version = "0.60"
+version = "0.61"
 features = [
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
