@@ -2,7 +2,7 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.50.1"
+version = "0.50.5"
 authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -68,13 +68,13 @@ gdkx11 = { version = "0.18", optional = true }
 percent-encoding = "2.3"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.36"
+webview2-com = "0.37"
 windows-version = "0.1"
-windows-core = "0.60"
+windows-core = "0.61"
 dunce = "1"
 
 [target."cfg(target_os = \"windows\")".dependencies.windows]
-version = "0.60"
+version = "0.61"
 features = [
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
@@ -95,7 +95,13 @@ features = [
 [target.'cfg(target_vendor = "apple")'.dependencies]
 url = "2.5"
 block2 = "0.6"
-objc2 = { version = "0.6", features = ["exception"] }
+objc2 = { version = "0.6", features = [
+    "exception",
+    # because `NSUUID::from_bytes` needs it,
+    # and `WebViewBuilderExtDarwin.with_data_store_identifier` crashes otherwise,
+    # see https://github.com/tauri-apps/tauri/issues/12843
+    "disable-encoding-assertions",
+] }
 objc2-web-kit = { version = "0.3.0", default-features = false, features = [
   "std",
   "objc2-core-foundation",

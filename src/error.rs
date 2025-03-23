@@ -71,4 +71,7 @@ pub enum Error {
   #[error(transparent)]
   #[cfg(any(target_os = "macos", target_os = "ios"))]
   UrlParse(#[from] url::ParseError),
+  #[cfg(any(target_os = "macos", target_os = "ios"))]
+  #[error("data store is currently opened")]
+  DataStoreInUse,
 }

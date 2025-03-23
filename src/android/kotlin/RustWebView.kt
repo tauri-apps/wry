@@ -16,7 +16,7 @@ import kotlin.collections.Map
 @SuppressLint("RestrictedApi")
 class RustWebView(context: Context, val initScripts: Array<String>, val id: String): WebView(context) {
     val isDocumentStartScriptEnabled: Boolean
-  
+
     init {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
@@ -85,16 +85,6 @@ class RustWebView(context: Context, val initScripts: Array<String>, val id: Stri
         } catch (ex: Exception) {
             Logger.error("Unable to create temporary media capture file: " + ex.message)
         }
-    }
-
-    fun setAutoPlay(enable: Boolean) {
-        val settings = super.getSettings()
-        settings.mediaPlaybackRequiresUserGesture = !enable
-    }
-
-    fun setUserAgent(ua: String) {
-        val settings = super.getSettings()
-        settings.userAgentString = ua
     }
 
     fun getCookies(url: String): String {

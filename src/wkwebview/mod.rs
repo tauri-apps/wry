@@ -71,6 +71,7 @@ use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
+  cell::RefCell,
   collections::HashSet,
   ffi::{c_void, CStr, CString},
   net::Ipv4Addr,
@@ -79,6 +80,7 @@ use std::{
   ptr::{null_mut, NonNull},
   str::{self, FromStr},
   sync::{Arc, Mutex},
+  time::Duration,
 };
 
 #[cfg(feature = "mac-proxy")]
@@ -292,6 +294,11 @@ impl InnerWebView {
         Some(&_yes),
         ns_string!("allowsPictureInPictureMediaPlayback"),
       );
+
+      if attributes.javascript_disabled {
+        let web_page_preferences = config.defaultWebpagePreferences();
+        web_page_preferences.setAllowsContentJavaScript(false);
+      }
 
       #[cfg(target_os = "ios")]
       config.setValue_forKey(Some(&_yes), ns_string!("allowsInlineMediaPlayback"));
@@ -677,6 +684,13 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
+  /// Reloads the current page.
+  pub fn reload(&self) -> crate::Result<()> {
+    // Safety: objc runtime calls are unsafe
+    unsafe { self.webview.reload() };
+    Ok(())
+  }
+
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     unsafe {
       let config = self.webview.configuration();
@@ -982,6 +996,63 @@ r#"Object.defineProperty(window, 'ipc', {
 
     Ok(())
   }
+
+  /// Fetches all Data Store Identifiers of this application
+  ///
+  /// Needs to run on main thread and needs an event loop to run.
+  pub fn fetch_data_store_identifiers<F: FnOnce(Vec<[u8; 16]>) + Send + 'static>(
+    cb: F,
+  ) -> crate::Result<()> {
+    // make the RcBlock callback be a FnOnce
+    let cb = RefCell::new(Some(cb));
+    let block = block2::RcBlock::new(move |stores: NonNull<NSArray<NSUUID>>| {
+      let uuid_list = unsafe { stores.as_ref() }
+        .to_vec()
+        .iter()
+        .map(|uuid| uuid.as_bytes())
+        .collect();
+      if let Some(cb) = cb.take() {
+        cb(uuid_list);
+      }
+    });
+
+    match MainThreadMarker::new() {
+      Some(mtn) => unsafe {
+        WKWebsiteDataStore::fetchAllDataStoreIdentifiers(&block, mtn);
+        Ok(())
+      },
+      None => Err(Error::NotMainThread),
+    }
+  }
+
+  /// Deletes a Data Store by an identifier
+  ///
+  /// Needs to run on main thread and needs an event loop to run.
+  pub fn remove_data_store<F: FnOnce(crate::Result<()>) + Send + 'static>(uuid: &[u8; 16], cb: F) {
+    let Some(mtm) = MainThreadMarker::new() else {
+      cb(Err(Error::NotMainThread));
+      return;
+    };
+    let identifier = NSUUID::from_bytes(uuid.to_owned());
+
+    // make the RcBlock callback be a FnOnce
+    let cb = RefCell::new(Some(cb));
+    let block = block2::RcBlock::new(move |error: *mut NSError| {
+      if error.is_null() {
+        if let Some(cb) = cb.take() {
+          cb(Ok(()));
+        }
+      } else {
+        if let Some(cb) = cb.take() {
+          cb(Err(Error::DataStoreInUse));
+        }
+      }
+    });
+
+    unsafe {
+      WKWebsiteDataStore::removeDataStoreForIdentifier_completionHandler(&identifier, &block, mtm);
+    }
+  }
 }
 
 pub fn url_from_webview(webview: &WKWebView) -> Result<String> {
@@ -1054,24 +1125,31 @@ unsafe fn window_position(view: &NSView, x: i32, y: i32, height: f64) -> CGPoint
   CGPoint::new(x as f64, frame.size.height - y as f64 - height)
 }
 
+/// Wait synchronously for the NSRunLoop to run until a receiver has a message.
 unsafe fn wait_for_blocking_operation<T>(rx: std::sync::mpsc::Receiver<T>) -> Result<T> {
-  let interval = 0.0002;
+  let interval = Duration::from_millis(2);
+  let interval_as_secs = interval.as_secs_f64();
   let limit = 1.;
   let mut elapsed = 0.;
   // run event loop until we get the response back, blocking for at most 3 seconds
   loop {
-    let rl = objc2_foundation::NSRunLoop::mainRunLoop();
-    let d = NSDate::dateWithTimeIntervalSinceNow(interval);
-    rl.runUntilDate(&d);
-    if let Ok(response) = rx.try_recv() {
+    if let Ok(response) = rx.recv_timeout(interval) {
       return Ok(response);
     }
-    elapsed += interval;
+    elapsed += interval_as_secs;
     if elapsed >= limit {
       return Err(Error::Io(std::io::Error::new(
         std::io::ErrorKind::TimedOut,
         "timed out waiting for cookies response",
       )));
     }
+
+    // Go progress the event loop if we didn't get the result
+    let rl = objc2_foundation::NSRunLoop::mainRunLoop();
+    let limit_date = NSDate::dateWithTimeIntervalSinceNow(interval_as_secs);
+
+    let mode = NSString::from_str("NSDefaultRunLoopMode");
+
+    rl.acceptInputForMode_beforeDate(&mode, &limit_date);
   }
 }

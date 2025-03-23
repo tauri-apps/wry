@@ -35,7 +35,7 @@ jobs:
           CARGO_AUDIT_OPTIONS: ${{ secrets.CARGO_AUDIT_OPTIONS }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          command: 'version-or-publish'
+          command: "version-or-publish"
           createRelease: true
           recognizeContributors: true
 
@@ -46,14 +46,18 @@ jobs:
       - run: cargo readme --no-title --no-license > README.md
         if: steps.covector.outputs.commandRan == 'version'
 
+      - name: Sync Cargo.lock
+        if: steps.covector.outputs.commandRan == 'version'
+        run: cargo tree --depth 0
+
       - name: Create Pull Request With Versions Bumped
         id: cpr
-        uses: tauri-apps/create-pull-request@v3
+        uses: peter-evans/create-pull-request@dd2324fc52d5d43c699a5636bcf19fceaa70c284 # 7.0.7
         if: steps.covector.outputs.commandRan == 'version'
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           title: Apply Version Updates From Current Changes
-          commit-message: 'apply version updates'
-          labels: 'version updates'
-          branch: 'release'
+          commit-message: "apply version updates"
+          labels: "version updates"
+          branch: "release"
           body: ${{ steps.covector.outputs.change }}

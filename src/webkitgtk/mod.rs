@@ -396,6 +396,10 @@ impl InnerWebView {
       if attributes.devtools {
         settings.set_enable_developer_extras(true);
       }
+
+      if attributes.javascript_disabled {
+        settings.set_enable_javascript(false);
+      }
     }
   }
 
@@ -688,6 +692,11 @@ impl InnerWebView {
 
   pub fn load_html(&self, html: &str) -> Result<()> {
     self.webview.load_html(html, None);
+    Ok(())
+  }
+
+  pub fn reload(&self) -> Result<()> {
+    self.webview.reload();
     Ok(())
   }
 

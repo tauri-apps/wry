@@ -283,7 +283,8 @@ impl InnerWebView {
     let additional_browser_args = pl_attrs.additional_browser_args.unwrap_or_else(|| {
       // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
       // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
-      let default_args = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
+      // enable white flicker fix
+      let default_args = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --enable-features=RemoveRedirectionBitmap";
       let mut arguments = String::from(default_args);
 
       if attributes.autoplay {
@@ -541,9 +542,10 @@ impl InnerWebView {
   ) -> Result<()> {
     let settings = webview.Settings()?;
     settings.SetIsStatusBarEnabled(false)?;
-    settings.SetAreDefaultContextMenusEnabled(true)?;
+    settings.SetAreDefaultContextMenusEnabled(pl_attrs.default_context_menus)?;
     settings.SetIsZoomControlEnabled(attributes.zoom_hotkeys_enabled)?;
     settings.SetAreDevToolsEnabled(attributes.devtools)?;
+    settings.SetIsScriptEnabled(!attributes.javascript_disabled)?;
 
     if let Some(user_agent) = &attributes.user_agent {
       if let Ok(settings2) = settings.cast::<ICoreWebView2Settings2>() {
@@ -842,7 +844,20 @@ impl InnerWebView {
       // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
       // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
       let filter = HSTRING::from(format!("{scheme}://{name}.*"));
-      webview.AddWebResourceRequestedFilter(&filter, COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL)?;
+
+      // If WebView2 version is high enough, use the new API to add the filter to allow Shared Workers and
+      // iframes to work with custom protocols
+      // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/1114
+      if let Ok(webview_22) = webview.cast::<ICoreWebView2_22>() {
+        webview_22.AddWebResourceRequestedFilterWithRequestSourceKinds(
+          &filter,
+          COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
+          COREWEBVIEW2_WEB_RESOURCE_REQUEST_SOURCE_KINDS_ALL,
+        )?;
+      } else {
+        // Fallback to the old API
+        webview.AddWebResourceRequestedFilter(&filter, COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL)?;
+      }
     }
 
     let env = env.clone();
@@ -1296,6 +1311,10 @@ impl InnerWebView {
     unsafe { self.webview.NavigateToString(&html) }.map_err(Into::into)
   }
 
+  pub fn reload(&self) -> Result<()> {
+    unsafe { self.webview.Reload() }.map_err(Into::into)
+  }
+
   pub fn bounds(&self) -> Result<Rect> {
     let mut bounds = Rect::default();
     let mut rect = RECT::default();
@@ -1548,7 +1567,7 @@ impl InnerWebView {
   }
 
   pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
-    unsafe { set_background_color(&self.controller, background_color).map_err(Into::into) }
+    unsafe { set_background_color(&self.controller, background_color) }
   }
 
   pub fn set_memory_usage_level(&self, level: MemoryUsageLevel) -> Result<()> {
