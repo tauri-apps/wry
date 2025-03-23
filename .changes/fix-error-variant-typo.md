@@ -2,4 +2,4 @@
 "wry": minor
 ---
 
-fix: typo in `Error` from `Error::UrlPrase` to `Error::UrlParse`
+Renamed `Error::UrlPrase` to `Error::UrlParse` to fix typo.
