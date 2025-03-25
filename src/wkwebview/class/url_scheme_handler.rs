@@ -192,9 +192,9 @@ extern "C" fn start_task(
               };
 
               // Perform an upfront validation
-              if let Err(e) = validate() {
+              if let Err(_e) = validate() {
                 #[cfg(feature = "tracing")]
-                tracing::warn!("Task invalid before sending response: {:?}", e);
+                tracing::warn!("Task invalid before sending response: {:?}", _e);
                 return; // If invalid, return early without calling task methods.
               }
 
@@ -304,7 +304,7 @@ extern "C" fn start_task(
               #[cfg(feature = "tracing")]
               let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
 
-              if let Err(e) = response(
+              if let Err(_e) = response(
                 task,
                 webview,
                 task_key,
@@ -314,7 +314,7 @@ extern "C" fn start_task(
                 sent_response,
               ) {
                 #[cfg(feature = "tracing")]
-                tracing::error!("Error responding to task: {:?}", e);
+                tracing::error!("Error responding to task: {:?}", _e);
               }
             });
 
