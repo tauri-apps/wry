@@ -279,6 +279,7 @@ Wry uses a set of feature flags to toggle several advanced features.
   loading assets.
 - `drag-drop` (default): Enables [`WebViewBuilder::with_drag_drop_handler`] to control the behaviour when there are files
   interacting with the window.
+- `x11` (default): Enables x11 support and dependencies on Linux.
 - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
   On **macOS**, enabling devtools, requires calling private apis so you should not enable this flag in release
   build if your app needs to publish to App Store.

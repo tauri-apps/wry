@@ -2,27 +2,32 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use dpi::{LogicalPosition, LogicalSize};
+#[cfg(feature = "x11")]
+use dpi::LogicalPosition;
+use dpi::LogicalSize;
 use ffi::CookieManageExt;
+#[cfg(feature = "x11")]
 use gdkx11::{
   ffi::{gdk_x11_window_foreign_new_for_display, GdkX11Display},
   X11Display,
 };
+#[cfg(feature = "x11")]
+use gtk::glib::{self, translate::FromGlibPtrFull};
 use gtk::{
   gdk::{self},
   gio::Cancellable,
-  glib::{self, translate::FromGlibPtrFull},
   prelude::*,
 };
 use http::Request;
 use javascriptcore::ValueExt;
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use raw_window_handle::HasWindowHandle;
+#[cfg(feature = "x11")]
+use raw_window_handle::RawWindowHandle;
+#[cfg(feature = "x11")]
+use std::ffi::c_ulong;
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::{
-  ffi::c_ulong,
-  sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use webkit2gtk::WebInspectorExt;
 use webkit2gtk::{
@@ -37,6 +42,7 @@ use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
   webkit_policy_decision_ignore, webkit_policy_decision_use,
 };
+#[cfg(feature = "x11")]
 use x11_dl::xlib::*;
 
 pub use web_context::WebContextImpl;
@@ -54,6 +60,7 @@ mod drag_drop;
 mod synthetic_mouse_events;
 mod web_context;
 
+#[cfg(feature = "x11")]
 struct X11Data {
   is_child: bool,
   xlib: Xlib,
@@ -62,6 +69,7 @@ struct X11Data {
   gtk_window: gtk::Window,
 }
 
+#[cfg(feature = "x11")]
 impl Drop for X11Data {
   fn drop(&mut self) {
     unsafe { (self.xlib.XDestroyWindow)(self.x11_display as _, self.x11_window) };
@@ -77,6 +85,7 @@ pub(crate) struct InnerWebView {
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
   is_in_fixed_parent: bool,
 
+  #[cfg(feature = "x11")]
   x11: Option<X11Data>,
 }
 
@@ -92,7 +101,17 @@ impl InnerWebView {
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
   ) -> Result<Self> {
-    Self::new_x11(window, attributes, pl_attrs, false)
+    #[cfg(feature = "x11")]
+    {
+      Self::new_x11(window, attributes, pl_attrs, false)
+    }
+    #[cfg(not(feature = "x11"))]
+    {
+      let _ = window;
+      let _ = attributes;
+      let _ = pl_attrs;
+      Err(Error::UnsupportedWindowHandle)
+    }
   }
 
   pub fn new_as_child<W: HasWindowHandle>(
@@ -100,9 +119,20 @@ impl InnerWebView {
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
   ) -> Result<Self> {
-    Self::new_x11(parent, attributes, pl_attrs, true)
+    #[cfg(feature = "x11")]
+    {
+      Self::new_x11(parent, attributes, pl_attrs, true)
+    }
+    #[cfg(not(feature = "x11"))]
+    {
+      let _ = parent;
+      let _ = attributes;
+      let _ = pl_attrs;
+      Err(Error::UnsupportedWindowHandle)
+    }
   }
 
+  #[cfg(feature = "x11")]
   fn new_x11<W: HasWindowHandle>(
     window: &W,
     attributes: WebViewAttributes,
@@ -154,6 +184,7 @@ impl InnerWebView {
     })
   }
 
+  #[cfg(feature = "x11")]
   fn create_container_x11_window(
     xlib: &Xlib,
     display: *mut _XDisplay,
@@ -185,6 +216,7 @@ impl InnerWebView {
     window
   }
 
+  #[cfg(feature = "x11")]
   pub fn create_gtk_window(
     raw: *mut GdkX11Display,
     x11_window: c_ulong,
@@ -294,6 +326,7 @@ impl InnerWebView {
       pending_scripts: Arc::new(Mutex::new(Some(Vec::new()))),
 
       is_in_fixed_parent,
+      #[cfg(feature = "x11")]
       x11: None,
 
       #[cfg(any(debug_assertions, feature = "devtools"))]
@@ -718,6 +751,7 @@ impl InnerWebView {
   pub fn bounds(&self) -> Result<Rect> {
     let mut bounds = Rect::default();
 
+    #[cfg(feature = "x11")]
     if let Some(x11_data) = &self.x11 {
       unsafe {
         let attributes: XWindowAttributes = std::mem::zeroed();
@@ -734,10 +768,11 @@ impl InnerWebView {
           bounds.size = LogicalSize::new(attributes.width, attributes.height).into();
         }
       }
-    } else {
-      let (size, _) = self.webview.allocated_size();
-      bounds.size = LogicalSize::new(size.width(), size.height()).into();
+      return Ok(bounds);
     }
+
+    let (size, _) = self.webview.allocated_size();
+    bounds.size = LogicalSize::new(size.width(), size.height()).into();
 
     Ok(bounds)
   }
@@ -747,6 +782,7 @@ impl InnerWebView {
     let (width, height) = bounds.size.to_logical::<i32>(scale_factor).into();
     let (x, y) = bounds.position.to_logical::<i32>(scale_factor).into();
 
+    #[cfg(feature = "x11")]
     if let Some(x11_data) = &self.x11 {
       let window = &x11_data.gtk_window;
       window.move_(x, y);
@@ -765,6 +801,7 @@ impl InnerWebView {
     Ok(())
   }
 
+  #[cfg(feature = "x11")]
   fn set_visible_x11(&self, visible: bool) {
     if let Some(x11_data) = &self.x11 {
       if x11_data.is_child {
@@ -777,6 +814,7 @@ impl InnerWebView {
     }
   }
 
+  #[cfg(feature = "x11")]
   fn set_visible_gtk(&self, visible: bool) {
     if let Some(x11_data) = &self.x11 {
       if x11_data.is_child {
@@ -790,6 +828,7 @@ impl InnerWebView {
   }
 
   pub fn set_visible(&self, visible: bool) -> Result<()> {
+    #[cfg(feature = "x11")]
     self.set_visible_x11(visible);
 
     if visible {
@@ -798,6 +837,7 @@ impl InnerWebView {
       self.webview.hide();
     }
 
+    #[cfg(feature = "x11")]
     self.set_visible_gtk(visible);
 
     Ok(())
@@ -962,8 +1002,9 @@ struct SendEnteredSpan(tracing::span::EnteredSpan);
 #[cfg(feature = "tracing")]
 unsafe impl Send for SendEnteredSpan {}
 
-const BASE_DPI: f64 = 96.0;
+#[cfg(feature = "x11")]
 fn scale_factor_from_x11(xlib: &Xlib, display: *mut _XDisplay, parent: c_ulong) -> f64 {
+  const BASE_DPI: f64 = 96.0;
   let mut attrs = unsafe { std::mem::zeroed() };
   unsafe { (xlib.XGetWindowAttributes)(display, parent, &mut attrs) };
   let scale_factor = unsafe { (*attrs.screen).width as f64 * 25.4 / (*attrs.screen).mwidth as f64 };

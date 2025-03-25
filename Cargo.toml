@@ -26,7 +26,7 @@ rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["drag-drop", "protocol", "os-webview"]
+default = ["drag-drop", "protocol", "os-webview", "x11"]
 serde = ["dpi/serde"]
 drag-drop = []
 protocol = []
@@ -41,6 +41,8 @@ os-webview = [
   "webkit2gtk-sys",
   "dep:gtk",
   "soup3",
+]
+x11 = [
   "x11-dl",
   "gdkx11",
 ]
