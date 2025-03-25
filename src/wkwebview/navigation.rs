@@ -64,7 +64,7 @@ pub(crate) fn navigation_policy(
     let request = action.request();
     let url = request.URL().unwrap().absoluteString().unwrap();
     let target_frame = action.targetFrame();
-    let is_main_frame = target_frame.map_or(false, |frame| frame.isMainFrame());
+    let is_main_frame = target_frame.is_some_and(|frame| frame.isMainFrame());
 
     if should_download {
       let has_download_handler = this.ivars().has_download_handler;

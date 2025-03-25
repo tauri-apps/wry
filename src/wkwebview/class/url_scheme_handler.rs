@@ -30,11 +30,11 @@ pub fn create(name: &str) -> &AnyClass {
   unsafe {
     let scheme_name = format!("{}URLSchemeHandler\0", name);
     let scheme_name = CStr::from_bytes_with_nul(scheme_name.as_bytes()).unwrap();
-    let cls = ClassBuilder::new(&scheme_name, NSObject::class());
+    let cls = ClassBuilder::new(scheme_name, NSObject::class());
     match cls {
       Some(mut cls) => {
-        cls.add_ivar::<*mut c_void>(CStr::from_bytes_with_nul(b"function\0").unwrap());
-        cls.add_ivar::<*mut c_char>(CStr::from_bytes_with_nul(b"webview_id\0").unwrap());
+        cls.add_ivar::<*mut c_void>(c"function");
+        cls.add_ivar::<*mut c_char>(c"webview_id");
         cls.add_method(
           objc2::sel!(webView:startURLSchemeTask:),
           start_task as extern "C" fn(_, _, _, _),
@@ -45,7 +45,7 @@ pub fn create(name: &str) -> &AnyClass {
         );
         cls.register()
       }
-      None => AnyClass::get(&scheme_name).expect("Failed to get the class definition"),
+      None => AnyClass::get(scheme_name).expect("Failed to get the class definition"),
     }
   }
 }
@@ -67,7 +67,7 @@ extern "C" fn start_task(
 
     let ivar = this
       .class()
-      .instance_variable(CStr::from_bytes_with_nul(b"webview_id\0").unwrap())
+      .instance_variable(c"webview_id")
       .unwrap();
     let webview_id_ptr: *mut c_char = *ivar.load(this);
     let webview_id = CStr::from_ptr(webview_id_ptr)
@@ -77,7 +77,7 @@ extern "C" fn start_task(
 
     let ivar = this
       .class()
-      .instance_variable(CStr::from_bytes_with_nul(b"function\0").unwrap())
+      .instance_variable(c"function")
       .unwrap();
     let function: &*mut c_void = ivar.load(this);
     if !function.is_null() {
