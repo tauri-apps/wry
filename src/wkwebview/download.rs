@@ -87,13 +87,13 @@ pub(crate) fn download_did_finish(this: &WryDownloadDelegate, download: &WKDownl
 pub(crate) fn download_did_fail(
   this: &WryDownloadDelegate,
   download: &WKDownload,
-  error: &NSError,
+  _error: &NSError,
   _resume_data: &NSData,
 ) {
   unsafe {
     #[cfg(debug_assertions)]
     {
-      let description = error.localizedDescription().to_string();
+      let description = _error.localizedDescription().to_string();
       eprintln!("Download failed with error: {}", description);
     }
 
