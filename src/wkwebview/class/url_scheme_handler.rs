@@ -65,20 +65,14 @@ extern "C" fn start_task(
     let task_key = task.hash(); // hash by task object address
     let task_uuid = webview.add_custom_task_key(task_key);
 
-    let ivar = this
-      .class()
-      .instance_variable(c"webview_id")
-      .unwrap();
+    let ivar = this.class().instance_variable(c"webview_id").unwrap();
     let webview_id_ptr: *mut c_char = *ivar.load(this);
     let webview_id = CStr::from_ptr(webview_id_ptr)
       .to_str()
       .ok()
       .unwrap_or_default();
 
-    let ivar = this
-      .class()
-      .instance_variable(c"function")
-      .unwrap();
+    let ivar = this.class().instance_variable(c"function").unwrap();
     let function: &*mut c_void = ivar.load(this);
     if !function.is_null() {
       let function = &mut *(*function

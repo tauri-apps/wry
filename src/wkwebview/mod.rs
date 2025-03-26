@@ -230,17 +230,11 @@ impl InnerWebView {
         let function = Box::into_raw(Box::new(function));
         protocol_ptrs.push(function);
 
-        let ivar = (*handler)
-          .class()
-          .instance_variable(c"function")
-          .unwrap();
+        let ivar = (*handler).class().instance_variable(c"function").unwrap();
         let ivar_delegate = ivar.load_mut(&mut *handler);
         *ivar_delegate = function as *mut _ as *mut c_void;
 
-        let ivar = (*handler)
-          .class()
-          .instance_variable(c"webview_id")
-          .unwrap();
+        let ivar = (*handler).class().instance_variable(c"webview_id").unwrap();
         let ivar_delegate: &mut *mut c_char = ivar.load_mut(&mut *handler);
         *ivar_delegate = CString::new(webview_id.as_bytes()).unwrap().into_raw();
 
