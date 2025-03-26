@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use crate::{Error, RGBA};
+use crate::{Error, InitializationScript, RGBA};
 use crossbeam_channel::*;
 use jni::{
   errors::Result as JniResult,
@@ -75,11 +75,11 @@ impl<'a> MainPipe<'a> {
             string_class,
             self.env.new_string("")?,
           )?;
-          for (i, (script, _)) in initialization_scripts.into_iter().enumerate() {
+          for (i, init_script) in initialization_scripts.into_iter().enumerate() {
             self.env.set_object_array_element(
               &initialization_scripts_array,
               i as i32,
-              self.env.new_string(script)?,
+              self.env.new_string(init_script.script)?,
             )?;
           }
 
@@ -472,7 +472,7 @@ pub(crate) struct CreateWebViewAttributes {
   pub autoplay: bool,
   pub on_webview_created: Option<Box<dyn Fn(super::Context) -> JniResult<()> + Send>>,
   pub user_agent: Option<String>,
-  pub initialization_scripts: Vec<(String, bool)>,
+  pub initialization_scripts: Vec<InitializationScript>,
   pub javascript_disabled: bool,
 }
 

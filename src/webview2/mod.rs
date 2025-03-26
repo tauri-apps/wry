@@ -459,12 +459,8 @@ impl InnerWebView {
     }
 
     // Initialize main and subframe scripts
-    for (js, _) in attributes
-      .initialization_scripts
-      .iter()
-      .filter(|(_, for_main)| !*for_main)
-    {
-      Self::add_script_to_execute_on_document_created(&webview, js.clone())?;
+    for init_script in attributes.initialization_scripts {
+      Self::add_script_to_execute_on_document_created(&webview, init_script.script)?;
     }
 
     // Enable clipboard
@@ -607,22 +603,6 @@ impl InnerWebView {
         token,
       )?;
     }
-    let scripts = attributes.initialization_scripts.clone();
-
-    webview.add_ContentLoading(
-      &ContentLoadingEventHandler::create(Box::new(move |webview, _| {
-        let Some(webview) = webview else {
-          return Ok(());
-        };
-
-        for (script, _) in scripts.iter().filter(|(_, for_main)| *for_main) {
-          Self::execute_script(&webview, script.clone(), |_| ())?;
-        }
-
-        Ok(())
-      })),
-      token,
-    )?;
 
     // Page load handler
     if let Some(on_page_load_handler) = attributes.on_page_load_handler.take() {

@@ -518,9 +518,10 @@ pub struct WebViewAttributes<'a> {
   ///
   /// ## Platform-specific
   ///
+  /// - **Windows**: scripts are injected into sub frames.
   /// - **Android:** The Android WebView does not provide an API for initialization scripts,
   ///   so we prepend them to each HTML head. They are only implemented on custom protocol URLs.
-  pub initialization_scripts: Vec<(String, bool)>,
+  pub initialization_scripts: Vec<InitializationScript>,
 
   /// A list of custom loading protocols with pairs of scheme uri string and a handling
   /// closure.
@@ -880,6 +881,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific
   ///
+  /// - **Windows:** scripts are added to subframes as well.
   /// - **Android:** When [addDocumentStartJavaScript] is not supported,
   ///   we prepend them to each HTML head (implementation only supported on custom protocol URLs).
   ///   For remote URLs, we use [onPageStarted] which is not guaranteed to run before other scripts.
@@ -901,12 +903,21 @@ impl<'a> WebViewBuilder<'a> {
   ///   .build(&window)
   ///   .unwrap();
   /// ```
-  pub fn with_initialization_script_for_main_only(self, js: &str, main_only: bool) -> Self {
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows:** scripts are always added to subframes regardless of the option.
+  pub fn with_initialization_script_for_main_only(
+    self,
+    js: &str,
+    for_main_frame_only: bool,
+  ) -> Self {
     self.and_then(|mut b| {
       if !js.is_empty() {
-        b.attrs
-          .initialization_scripts
-          .push((js.to_string(), main_only));
+        b.attrs.initialization_scripts.push(InitializationScript {
+          script: js.to_string(),
+          for_main_frame_only,
+        });
       }
       Ok(b)
     })
@@ -2245,6 +2256,15 @@ pub enum BackgroundThrottlingPolicy {
   Suspend,
   /// A policy where a web view that's not in a window limits processing, but does not fully suspend tasks.
   Throttle,
+}
+
+/// An initialization script
+#[derive(Debug, Clone)]
+pub struct InitializationScript {
+  /// The script to run
+  pub script: String,
+  /// Whether the script should be injected to main frame only
+  pub for_main_frame_only: bool,
 }
 
 #[cfg(test)]

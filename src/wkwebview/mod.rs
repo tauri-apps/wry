@@ -528,8 +528,8 @@ r#"Object.defineProperty(window, 'ipc', {
 });"#,
       true
       );
-      for (js, for_main_only) in attributes.initialization_scripts {
-        w.init(&js, for_main_only);
+      for init_script in attributes.initialization_scripts {
+        w.init(&init_script.js, init_script.for_main_frame_only);
       }
 
       // Set user agent

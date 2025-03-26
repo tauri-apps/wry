@@ -304,8 +304,8 @@ impl InnerWebView {
     w.init("Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })", true)?;
 
     // Initialize scripts
-    for (js, for_main_only) in attributes.initialization_scripts {
-      w.init(&js, for_main_only)?;
+    for init_script in attributes.initialization_scripts {
+      w.init(&init_script.script, init_script.for_main_frame_only)?;
     }
 
     // Run pending webview.eval() scripts once webview loads.

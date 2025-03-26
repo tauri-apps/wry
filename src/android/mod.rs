@@ -260,15 +260,15 @@ impl InnerWebView {
                     let mut hashes = Vec::new();
                     with_html_head(&mut document, |head| {
                       // iterate in reverse order since we are prepending each script to the head tag
-                      for (script, _) in initialization_scripts.iter().rev() {
+                      for init_script in initialization_scripts.iter().rev() {
                         let script_el = NodeRef::new_element(
                           QualName::new(None, ns!(html), "script".into()),
                           None,
                         );
-                        script_el.append(NodeRef::new_text(script.as_str()));
+                        script_el.append(NodeRef::new_text(init_script.script.as_str()));
                         head.prepend(script_el);
                         if csp.is_some() {
-                          hashes.push(hash_script(script.as_str()));
+                          hashes.push(hash_script(init_script.script.as_str()));
                         }
                       }
                     });
