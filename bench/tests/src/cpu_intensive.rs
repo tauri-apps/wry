@@ -24,28 +24,9 @@ fn main() -> wry::Result<()> {
       exit(0);
     }
   };
-  #[cfg(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "android"
-  ))]
-  let builder = WebViewBuilder::new(&window);
 
-  #[cfg(not(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "android"
-  )))]
-  let builder = {
-    use tao::platform::unix::WindowExtUnix;
-    use wry::WebViewBuilderExtUnix;
-    let vbox = window.default_vbox().unwrap();
-    WebViewBuilder::new_gtk(vbox)
-  };
-  let _webview = builder
-    .with_custom_protocol("wrybench".into(), move |request| {
+  let builder = WebViewBuilder::new()
+    .with_custom_protocol("wrybench".into(), move |_id, request| {
       let path = request.uri().to_string();
       let requested_asset_path = path.strip_prefix("wrybench://localhost").unwrap();
       let (data, mimetype): (_, String) = match requested_asset_path {
@@ -73,8 +54,28 @@ fn main() -> wry::Result<()> {
         .unwrap()
     })
     .with_url("wrybench://localhost")
-    .with_ipc_handler(handler)
-    .build()?;
+    .with_ipc_handler(handler);
+
+  #[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  ))]
+  let _webview = builder.build(&window)?;
+
+  #[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  )))]
+  {
+    use tao::platform::unix::WindowExtUnix;
+    use wry::WebViewBuilderExtUnix;
+    let vbox = window.default_vbox().unwrap();
+    let _webview = builder.build_gtk(vbox)?;
+  }
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
