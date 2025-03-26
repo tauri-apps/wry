@@ -10,6 +10,7 @@ use tao::{
 };
 use wry::{http::Request, WebViewBuilder};
 
+#[derive(Debug)]
 enum UserEvent {
   TogglShadows,
 }
@@ -58,12 +59,8 @@ fn main() -> wry::Result<()> {
 
   let proxy = event_loop.create_proxy();
   let handler = move |req: Request<String>| {
-    let body = req.body();
-    match body.as_str() {
-      "toggleShadows" => {
-        let _ = proxy.send_event(UserEvent::TogglShadows);
-      }
-      _ => {}
+    if req.body().as_str() == "toggleShadows" {
+      proxy.send_event(UserEvent::TogglShadows).unwrap();
     }
   };
 
