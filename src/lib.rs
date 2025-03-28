@@ -1394,10 +1394,23 @@ impl<'a> WebViewBuilder<'a> {
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   data_store_identifier: Option<[u8; 16]>,
   traffic_light_inset: Option<dpi::Position>,
+  allow_link_preview: bool,
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+impl Default for PlatformSpecificWebViewAttributes {
+  fn default() -> Self {
+    Self {
+      data_store_identifier: None,
+      traffic_light_inset: None,
+      // platform default for this is true
+      allow_link_preview: true,
+    }
+  }
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -1415,6 +1428,12 @@ pub trait WebViewBuilderExtDarwin {
   /// Warning: Do not use this if your chosen window library does not support traffic light insets.
   /// Warning: Only use this in **decorated** windows with a **hidden titlebar**!
   fn with_traffic_light_inset<P: Into<dpi::Position>>(self, position: P) -> Self;
+  /// Whether to show a link preview when long pressing on links. Available on macOS and iOS only.
+  ///
+  /// Default is true.
+  ///
+  /// See https://docs.rs/objc2-web-kit/latest/objc2_web_kit/struct.WKWebView.html#method.allowsLinkPreview
+  fn allow_link_preview(self, allow_link_preview: bool) -> Self;
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -1429,6 +1448,13 @@ impl WebViewBuilderExtDarwin for WebViewBuilder<'_> {
   fn with_traffic_light_inset<P: Into<dpi::Position>>(self, position: P) -> Self {
     self.and_then(|mut b| {
       b.platform_specific.traffic_light_inset = Some(position.into());
+      Ok(b)
+    })
+  }
+
+  fn allow_link_preview(self, allow_link_preview: bool) -> Self {
+    self.and_then(|mut b| {
+      b.platform_specific.allow_link_preview = allow_link_preview;
       Ok(b)
     })
   }
