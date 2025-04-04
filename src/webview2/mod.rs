@@ -1204,7 +1204,7 @@ impl InnerWebView {
   #[inline]
   fn execute_script(
     webview: &ICoreWebView2,
-    js: String,
+    js: &str,
     callback: impl FnOnce(String) + Send + 'static,
   ) -> windows::core::Result<()> {
     unsafe {
@@ -1261,11 +1261,11 @@ impl InnerWebView {
     js: &str,
     callback: Option<impl FnOnce(String) + Send + 'static>,
   ) -> Result<()> {
-    match callback {
-      Some(callback) => Self::execute_script(&self.webview, js.to_string(), callback)?,
-      None => Self::execute_script(&self.webview, js.to_string(), |_| ())?,
+    if let Some(callback) = callback {
+      Self::execute_script(&self.webview, js, callback)?
+    } else {
+      Self::execute_script(&self.webview, js, |_| ())?
     }
-
     Ok(())
   }
 

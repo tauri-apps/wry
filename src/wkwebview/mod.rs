@@ -73,7 +73,7 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::{
   cell::RefCell,
   collections::HashSet,
-  ffi::{c_void, CStr, CString},
+  ffi::{c_void, CString},
   net::Ipv4Addr,
   os::raw::c_char,
   panic::AssertUnwindSafe,
@@ -230,17 +230,11 @@ impl InnerWebView {
         let function = Box::into_raw(Box::new(function));
         protocol_ptrs.push(function);
 
-        let ivar = (*handler)
-          .class()
-          .instance_variable(CStr::from_bytes_with_nul(b"function\0").unwrap())
-          .unwrap();
+        let ivar = (*handler).class().instance_variable(c"function").unwrap();
         let ivar_delegate = ivar.load_mut(&mut *handler);
         *ivar_delegate = function as *mut _ as *mut c_void;
 
-        let ivar = (*handler)
-          .class()
-          .instance_variable(CStr::from_bytes_with_nul(b"webview_id\0").unwrap())
-          .unwrap();
+        let ivar = (*handler).class().instance_variable(c"webview_id").unwrap();
         let ivar_delegate: &mut *mut c_char = ivar.load_mut(&mut *handler);
         *ivar_delegate = CString::new(webview_id.as_bytes()).unwrap().into_raw();
 
@@ -1042,10 +1036,8 @@ r#"Object.defineProperty(window, 'ipc', {
         if let Some(cb) = cb.take() {
           cb(Ok(()));
         }
-      } else {
-        if let Some(cb) = cb.take() {
-          cb(Err(Error::DataStoreInUse));
-        }
+      } else if let Some(cb) = cb.take() {
+        cb(Err(Error::DataStoreInUse));
       }
     });
 
