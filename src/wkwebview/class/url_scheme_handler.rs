@@ -146,6 +146,13 @@ extern "C" fn start_task(
         task.didFinish();
       };
 
+      fn check_webview_id_valid(webview_id: &str) -> crate::Result<()> {
+        if !WEBVIEW_STATE.with_borrow(|s| s.contains_key(webview_id)) {
+          return Err(crate::Error::CustomProtocolTaskInvalid);
+        }
+        Ok(())
+      }
+
       /// Task may not live longer than async custom protocol handler.
       ///
       /// There are roughly 2 ways to cause segfault:
@@ -177,15 +184,15 @@ extern "C" fn start_task(
             Box::new(move |sent_response| {
               // Consolidate checks before calling into `did*` methods.
               let validate = || -> crate::Result<()> {
-                // check_webview_id_valid(webview_id)?;
+                check_webview_id_valid(webview_id)?;
                 check_task_is_valid(&webview, task_key, task_uuid.clone())?;
                 Ok(())
               };
 
               // Perform an upfront validation
-              if let Err(e) = validate() {
+              if let Err(_e) = validate() {
                 #[cfg(feature = "tracing")]
-                tracing::warn!("Task invalid before sending response: {:?}", e);
+                tracing::warn!("Task invalid before sending response: {:?}", _e);
                 return; // If invalid, return early without calling task methods.
               }
 
@@ -201,7 +208,7 @@ extern "C" fn start_task(
                 sent_response: HttpResponse<Cow<'_, [u8]>>,
               ) -> crate::Result<()> {
                 // Validate
-                // check_webview_id_valid(webview_id)?;
+                check_webview_id_valid(webview_id)?;
                 check_task_is_valid(&webview, task_key, task_uuid.clone())?;
 
                 let content = sent_response.body();
@@ -245,7 +252,7 @@ extern "C" fn start_task(
                 .unwrap();
 
                 // Re-validate before calling didReceiveResponse
-                // check_webview_id_valid(webview_id)?;
+                check_webview_id_valid(webview_id)?;
                 check_task_is_valid(&webview, task_key, task_uuid.clone())?;
 
                 // Use map_err to convert Option<Retained<Exception>> to crate::Error
@@ -265,7 +272,7 @@ extern "C" fn start_task(
                 );
 
                 // Check validity again
-                // check_webview_id_valid(webview_id)?;
+                check_webview_id_valid(webview_id)?;
                 check_task_is_valid(&webview, task_key, task_uuid.clone())?;
 
                 objc2::exception::catch(AssertUnwindSafe(|| {
@@ -273,7 +280,7 @@ extern "C" fn start_task(
                 }))
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
-                // check_webview_id_valid(webview_id)?;
+                check_webview_id_valid(webview_id)?;
                 check_task_is_valid(&webview, task_key, task_uuid.clone())?;
 
                 objc2::exception::catch(AssertUnwindSafe(|| {
@@ -294,7 +301,7 @@ extern "C" fn start_task(
               #[cfg(feature = "tracing")]
               let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
 
-              if let Err(e) = response(
+              if let Err(_e) = response(
                 task,
                 webview,
                 task_key,
@@ -304,7 +311,7 @@ extern "C" fn start_task(
                 sent_response,
               ) {
                 #[cfg(feature = "tracing")]
-                tracing::error!("Error responding to task: {:?}", e);
+                tracing::error!("Error responding to task: {:?}", _e);
               }
             });
 
