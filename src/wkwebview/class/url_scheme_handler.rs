@@ -191,7 +191,17 @@ extern "C" fn start_task(
             return; // If invalid, return early without calling task methods.
           }
 
-          let response = |url: Retained<NSURL>| -> crate::Result<()> {
+          unsafe fn response(
+            // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
+            task: Retained<ProtocolObject<dyn WKURLSchemeTask>>,
+            // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
+            webview: Retained<WryWebView>,
+            task_key: usize,
+            task_uuid: Retained<NSUUID>,
+            webview_id: &str,
+            url: Retained<NSURL>,
+            sent_response: HttpResponse<Cow<'_, [u8]>>,
+          ) -> crate::Result<()> {
             // Validate
             // check_webview_id_valid(webview_id)?;
             check_task_is_valid(&webview, task_key, task_uuid.clone())?;
@@ -278,12 +288,20 @@ extern "C" fn start_task(
                 Err(crate::Error::CustomProtocolTaskInvalid)
               }
             })
-          };
+          }
 
           #[cfg(feature = "tracing")]
           let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
 
-          if let Err(e) = response(url.clone()) {
+          if let Err(e) = response(
+            task,
+            webview,
+            task_key,
+            task_uuid,
+            webview_id,
+            url.clone(),
+            sent_response,
+          ) {
             #[cfg(feature = "tracing")]
             tracing::error!("Error responding to task: {:?}", e);
           }
