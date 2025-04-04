@@ -169,152 +169,156 @@ extern "C" fn start_task(
       }
 
       // send response
-      let Ok(final_request) = http_request.body(sent_form_body) else {
-        return respond_with_404();
-      };
-
-      let webview = webview.retain();
-      let task = task.retain();
-      let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
-        Box::new(move |sent_response| {
-          // Consolidate checks before calling into `did*` methods.
-          let validate = || -> crate::Result<()> {
-            // check_webview_id_valid(webview_id)?;
-            check_task_is_valid(&webview, task_key, task_uuid.clone())?;
-            Ok(())
-          };
-
-          // Perform an upfront validation
-          if let Err(e) = validate() {
-            #[cfg(feature = "tracing")]
-            tracing::warn!("Task invalid before sending response: {:?}", e);
-            return; // If invalid, return early without calling task methods.
-          }
-
-          unsafe fn response(
-            // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
-            task: Retained<ProtocolObject<dyn WKURLSchemeTask>>,
-            // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
-            webview: Retained<WryWebView>,
-            task_key: usize,
-            task_uuid: Retained<NSUUID>,
-            webview_id: &str,
-            url: Retained<NSURL>,
-            sent_response: HttpResponse<Cow<'_, [u8]>>,
-          ) -> crate::Result<()> {
-            // Validate
-            // check_webview_id_valid(webview_id)?;
-            check_task_is_valid(&webview, task_key, task_uuid.clone())?;
-
-            let content = sent_response.body();
-            // default: application/octet-stream, but should be provided by the client
-            let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
-            // default to 200
-            let wanted_status_code = sent_response.status().as_u16() as i32;
-            // default to HTTP/1.1
-            let wanted_version = format!("{:#?}", sent_response.version());
-
-            let headers = NSMutableDictionary::new();
-            if let Some(mime) = wanted_mime {
-              headers.insert(
-                &*NSString::from_str(CONTENT_TYPE.as_str()),
-                &*NSString::from_str(mime.to_str().unwrap()),
-              );
-            }
-            headers.insert(
-              &*NSString::from_str(CONTENT_LENGTH.as_str()),
-              &*NSString::from_str(&content.len().to_string()),
-            );
-
-            // add headers
-            for (name, value) in sent_response.headers().iter() {
-              if let Ok(value) = value.to_str() {
-                headers.insert(
-                  &*NSString::from_str(name.as_str()),
-                  &*NSString::from_str(value),
-                );
-              }
-            }
-
-            let urlresponse = NSHTTPURLResponse::alloc();
-            let response = NSHTTPURLResponse::initWithURL_statusCode_HTTPVersion_headerFields(
-              urlresponse,
-              &url,
-              wanted_status_code.try_into().unwrap(),
-              Some(&NSString::from_str(&wanted_version)),
-              Some(&headers),
-            )
-            .unwrap();
-
-            // Re-validate before calling didReceiveResponse
-            // check_webview_id_valid(webview_id)?;
-            check_task_is_valid(&webview, task_key, task_uuid.clone())?;
-
-            // Use map_err to convert Option<Retained<Exception>> to crate::Error
-            objc2::exception::catch(AssertUnwindSafe(|| {
-              task.didReceiveResponse(&response);
-            }))
-            .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
-
-            // Send data
-            let data = NSData::alloc();
-            // MIGRATE NOTE: we copied the content to the NSData because content will be freed
-            // when out of scope but NSData will also free the content when it's done and cause doube free.
-            let data =
-              NSData::initWithBytes_length(data, content.as_ptr() as *mut c_void, content.len());
-
-            // Check validity again
-            // check_webview_id_valid(webview_id)?;
-            check_task_is_valid(&webview, task_key, task_uuid.clone())?;
-
-            objc2::exception::catch(AssertUnwindSafe(|| {
-              task.didReceiveData(&data);
-            }))
-            .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
-
-            // check_webview_id_valid(webview_id)?;
-            check_task_is_valid(&webview, task_key, task_uuid.clone())?;
-
-            objc2::exception::catch(AssertUnwindSafe(|| {
-              task.didFinish();
-            }))
-            .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
-
-            WEBVIEW_STATE.with_borrow_mut(|ids| {
-              if ids.contains_key(webview_id) {
-                webview.remove_custom_task_key(task_key);
+      match http_request.body(sent_form_body) {
+        Ok(final_request) => {
+          let webview = webview.retain();
+          let task = task.retain();
+          let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
+            Box::new(move |sent_response| {
+              // Consolidate checks before calling into `did*` methods.
+              let validate = || -> crate::Result<()> {
+                // check_webview_id_valid(webview_id)?;
+                check_task_is_valid(&webview, task_key, task_uuid.clone())?;
                 Ok(())
-              } else {
-                Err(crate::Error::CustomProtocolTaskInvalid)
+              };
+
+              // Perform an upfront validation
+              if let Err(e) = validate() {
+                #[cfg(feature = "tracing")]
+                tracing::warn!("Task invalid before sending response: {:?}", e);
+                return; // If invalid, return early without calling task methods.
               }
-            })
-          }
+
+              unsafe fn response(
+                // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
+                task: Retained<ProtocolObject<dyn WKURLSchemeTask>>,
+                // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
+                webview: Retained<WryWebView>,
+                task_key: usize,
+                task_uuid: Retained<NSUUID>,
+                webview_id: &str,
+                url: Retained<NSURL>,
+                sent_response: HttpResponse<Cow<'_, [u8]>>,
+              ) -> crate::Result<()> {
+                // Validate
+                // check_webview_id_valid(webview_id)?;
+                check_task_is_valid(&webview, task_key, task_uuid.clone())?;
+
+                let content = sent_response.body();
+                // default: application/octet-stream, but should be provided by the client
+                let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
+                // default to 200
+                let wanted_status_code = sent_response.status().as_u16() as i32;
+                // default to HTTP/1.1
+                let wanted_version = format!("{:#?}", sent_response.version());
+
+                let headers = NSMutableDictionary::new();
+                if let Some(mime) = wanted_mime {
+                  headers.insert(
+                    &*NSString::from_str(CONTENT_TYPE.as_str()),
+                    &*NSString::from_str(mime.to_str().unwrap()),
+                  );
+                }
+                headers.insert(
+                  &*NSString::from_str(CONTENT_LENGTH.as_str()),
+                  &*NSString::from_str(&content.len().to_string()),
+                );
+
+                // add headers
+                for (name, value) in sent_response.headers().iter() {
+                  if let Ok(value) = value.to_str() {
+                    headers.insert(
+                      &*NSString::from_str(name.as_str()),
+                      &*NSString::from_str(value),
+                    );
+                  }
+                }
+
+                let urlresponse = NSHTTPURLResponse::alloc();
+                let response = NSHTTPURLResponse::initWithURL_statusCode_HTTPVersion_headerFields(
+                  urlresponse,
+                  &url,
+                  wanted_status_code.try_into().unwrap(),
+                  Some(&NSString::from_str(&wanted_version)),
+                  Some(&headers),
+                )
+                .unwrap();
+
+                // Re-validate before calling didReceiveResponse
+                // check_webview_id_valid(webview_id)?;
+                check_task_is_valid(&webview, task_key, task_uuid.clone())?;
+
+                // Use map_err to convert Option<Retained<Exception>> to crate::Error
+                objc2::exception::catch(AssertUnwindSafe(|| {
+                  task.didReceiveResponse(&response);
+                }))
+                .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
+
+                // Send data
+                let data = NSData::alloc();
+                // MIGRATE NOTE: we copied the content to the NSData because content will be freed
+                // when out of scope but NSData will also free the content when it's done and cause doube free.
+                let data = NSData::initWithBytes_length(
+                  data,
+                  content.as_ptr() as *mut c_void,
+                  content.len(),
+                );
+
+                // Check validity again
+                // check_webview_id_valid(webview_id)?;
+                check_task_is_valid(&webview, task_key, task_uuid.clone())?;
+
+                objc2::exception::catch(AssertUnwindSafe(|| {
+                  task.didReceiveData(&data);
+                }))
+                .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
+
+                // check_webview_id_valid(webview_id)?;
+                check_task_is_valid(&webview, task_key, task_uuid.clone())?;
+
+                objc2::exception::catch(AssertUnwindSafe(|| {
+                  task.didFinish();
+                }))
+                .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
+
+                WEBVIEW_STATE.with_borrow_mut(|ids| {
+                  if ids.contains_key(webview_id) {
+                    webview.remove_custom_task_key(task_key);
+                    Ok(())
+                  } else {
+                    Err(crate::Error::CustomProtocolTaskInvalid)
+                  }
+                })
+              }
+
+              #[cfg(feature = "tracing")]
+              let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
+
+              if let Err(e) = response(
+                task,
+                webview,
+                task_key,
+                task_uuid,
+                webview_id,
+                url.clone(),
+                sent_response,
+              ) {
+                #[cfg(feature = "tracing")]
+                tracing::error!("Error responding to task: {:?}", e);
+              }
+            });
 
           #[cfg(feature = "tracing")]
           let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
 
-          if let Err(e) = response(
-            task,
-            webview,
-            task_key,
-            task_uuid,
+          function(
             webview_id,
-            url.clone(),
-            sent_response,
-          ) {
-            #[cfg(feature = "tracing")]
-            tracing::error!("Error responding to task: {:?}", e);
-          }
-        });
-
-      #[cfg(feature = "tracing")]
-      let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
-
-      function(
-        webview_id,
-        final_request,
-        RequestAsyncResponder { responder },
-      );
+            final_request,
+            RequestAsyncResponder { responder },
+          );
+        }
+        Err(_) => respond_with_404(),
+      };
     } else {
       #[cfg(feature = "tracing")]
       tracing::warn!(
