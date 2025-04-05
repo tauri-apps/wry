@@ -1110,11 +1110,17 @@ impl Drop for InnerWebView {
 
 /// Converts from wry screen-coordinates to macOS screen-coordinates.
 /// wry: top-left is (0, 0) and y increasing downwards
-/// macOS: bottom-left is (0, 0) and y increasing upwards
+/// macOS:
+///   Default coordinate system: a bottom-left is (0, 0) and y increasing upwards.
+///   Flipped coordinate system: a top-left is (0, 0) and y increasing downwards.
 #[allow(dead_code)]
 unsafe fn window_position(view: &NSView, x: i32, y: i32, height: f64) -> CGPoint {
-  let frame: CGRect = view.frame();
-  CGPoint::new(x as f64, frame.size.height - y as f64 - height)
+  if view.isFlipped() {
+    CGPoint::new(x as f64, y as f64)
+  } else {
+    let frame: CGRect = view.frame();
+    CGPoint::new(x as f64, frame.size.height - y as f64 - height)
+  }
 }
 
 /// Wait synchronously for the NSRunLoop to run until a receiver has a message.
