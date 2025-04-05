@@ -1115,7 +1115,18 @@ impl Drop for InnerWebView {
 ///   Flipped coordinate system: a top-left is (0, 0) and y increasing downwards.
 #[allow(dead_code)]
 unsafe fn window_position(view: &NSView, x: i32, y: i32, height: f64) -> CGPoint {
-  if view.isFlipped() {
+  let is_flipped = {
+    #[cfg(target_os = "macos")]
+    {
+      view.isFlipped()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+      false
+    }
+  };
+
+  if is_flipped {
     CGPoint::new(x as f64, y as f64)
   } else {
     let frame: CGRect = view.frame();
