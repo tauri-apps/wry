@@ -72,15 +72,15 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
   cell::RefCell,
-  collections::{HashMap, HashSet},
-  ffi::{c_void, CStr, CString},
+  collections::HashMap,
+  ffi::{CStr, CString},
   net::Ipv4Addr,
   os::raw::c_char,
   panic::AssertUnwindSafe,
   ptr::{null_mut, NonNull},
   rc::Rc,
   str::{self, FromStr},
-  sync::{atomic::AtomicBool, Arc, Mutex, RwLock},
+  sync::{Arc, Mutex},
   time::Duration,
 };
 
@@ -230,15 +230,15 @@ impl InnerWebView {
       for (name, function) in attributes.custom_protocols {
         let url_scheme_handler_cls = url_scheme_handler::create(&name);
         let handler: *mut AnyObject = objc2::msg_send![url_scheme_handler_cls, new];
-        let protocol_i = protocol_ptrs.len();
+        let protocol_index = protocol_ptrs.len();
         protocol_ptrs.push(Rc::from(function));
 
         let ivar = (*handler)
           .class()
-          .instance_variable(CStr::from_bytes_with_nul(b"protocol_i\0").unwrap())
+          .instance_variable(CStr::from_bytes_with_nul(b"protocol_index\0").unwrap())
           .unwrap();
         let ivar_delegate: &mut usize = ivar.load_mut(&mut *handler);
-        *ivar_delegate = protocol_i;
+        *ivar_delegate = protocol_index;
 
         let ivar = (*handler).class().instance_variable(c"webview_id").unwrap();
         let ivar_delegate: &mut *mut c_char = ivar.load_mut(&mut *handler);

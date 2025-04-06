@@ -34,7 +34,7 @@ pub fn create(name: &str) -> &AnyClass {
     match cls {
       Some(mut cls) => {
         cls.add_ivar::<*mut c_char>(c"webview_id");
-        cls.add_ivar::<usize>(c"protocol_i");
+        cls.add_ivar::<usize>(c"protocol_index");
         cls.add_method(
           objc2::sel!(webView:startURLSchemeTask:),
           start_task as extern "C" fn(_, _, _, _),
@@ -72,12 +72,12 @@ extern "C" fn start_task(
       .ok()
       .unwrap_or_default();
 
-    let ivar = this.class().instance_variable(c"protocol_i").unwrap();
-    let protocol_i: usize = *ivar.load(this);
+    let ivar = this.class().instance_variable(c"protocol_index").unwrap();
+    let protocol_index: usize = *ivar.load(this);
 
     let function = WEBVIEW_STATE.with_borrow(|v| {
       v.get(webview_id)
-        .and_then(|v| v.protocol_ptrs.get(protocol_i))
+        .and_then(|v| v.protocol_ptrs.get(protocol_index))
         .cloned()
     });
 
