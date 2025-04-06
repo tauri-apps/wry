@@ -1432,8 +1432,8 @@ pub trait WebViewBuilderExtDarwin {
   ///
   /// Default is true.
   ///
-  /// See https://docs.rs/objc2-web-kit/latest/objc2_web_kit/struct.WKWebView.html#method.allowsLinkPreview
-  fn allow_link_preview(self, allow_link_preview: bool) -> Self;
+  /// See https://developer.apple.com/documentation/webkit/wkwebview/allowslinkpreview
+  fn with_allow_link_preview(self, allow_link_preview: bool) -> Self;
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -1452,7 +1452,7 @@ impl WebViewBuilderExtDarwin for WebViewBuilder<'_> {
     })
   }
 
-  fn allow_link_preview(self, allow_link_preview: bool) -> Self {
+  fn with_allow_link_preview(self, allow_link_preview: bool) -> Self {
     self.and_then(|mut b| {
       b.platform_specific.allow_link_preview = allow_link_preview;
       Ok(b)
