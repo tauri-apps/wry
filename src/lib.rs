@@ -513,14 +513,15 @@ pub struct WebViewAttributes<'a> {
   /// When webview load a new page, this initialization code will be executed.
   /// It is guaranteed that code is executed before `window.onload`.
   ///
-  /// Second parameter represents if script should be added to main frame only or sub frames also.
-  /// `true` for main frame only, `false` for sub frames.
-  ///
   /// ## Platform-specific
   ///
-  /// - **Windows**: scripts are injected into sub frames.
-  /// - **Android:** The Android WebView does not provide an API for initialization scripts,
-  ///   so we prepend them to each HTML head. They are only implemented on custom protocol URLs.
+  /// - **Windows**: scripts are always injected into sub frames.
+  /// - **Android:** When [addDocumentStartJavaScript] is not supported,
+  ///   we prepend them to each HTML head (implementation only supported on custom protocol URLs).
+  ///   For remote URLs, we use [onPageStarted] which is not guaranteed to run before other scripts.
+  ///
+  /// [addDocumentStartJavaScript]: https://developer.android.com/reference/androidx/webkit/WebViewCompat#addDocumentStartJavaScript(android.webkit.WebView,java.lang.String,java.util.Set%3Cjava.lang.String%3E)
+  /// [onPageStarted]: https://developer.android.com/reference/android/webkit/WebViewClient#onPageStarted(android.webkit.WebView,%20java.lang.String,%20android.graphics.Bitmap)
   pub initialization_scripts: Vec<InitializationScript>,
 
   /// A list of custom loading protocols with pairs of scheme uri string and a handling
@@ -881,7 +882,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific
   ///
-  /// - **Windows:** scripts are added to subframes as well.
+  ///- **Windows:** scripts are always added to subframes.
   /// - **Android:** When [addDocumentStartJavaScript] is not supported,
   ///   we prepend them to each HTML head (implementation only supported on custom protocol URLs).
   ///   For remote URLs, we use [onPageStarted] which is not guaranteed to run before other scripts.
@@ -906,7 +907,10 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific:
   ///
-  /// - **Windows:** scripts are always added to subframes regardless of the option.
+  /// - **Windows:** scripts are always added to subframes regardless of the `for_main_frame_only` option.
+  /// - **Android**: When [addDocumentStartJavaScript] is not supported, scripts are always injected into main frame only.
+  ///
+  /// [addDocumentStartJavaScript]: https://developer.android.com/reference/androidx/webkit/WebViewCompat#addDocumentStartJavaScript(android.webkit.WebView,java.lang.String,java.util.Set%3Cjava.lang.String%3E)
   pub fn with_initialization_script_for_main_only<S: Into<String>>(
     self,
     js: S,
@@ -2264,7 +2268,17 @@ pub enum BackgroundThrottlingPolicy {
 pub struct InitializationScript {
   /// The script to run
   pub script: String,
-  /// Whether the script should be injected to main frame only
+  /// Whether the script should be injected to main frame only.
+  ///
+  /// When set to false, the script is also injected to subframes.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: scripts are always injected into subframes regardless of this option.
+  ///   This will be the case until Webview2 implements a proper API to inject a script only on the main frame.
+  /// - **Android**: When [addDocumentStartJavaScript] is not supported, scripts are always injected into main frame only.
+  ///
+  /// [addDocumentStartJavaScript]: https://developer.android.com/reference/androidx/webkit/WebViewCompat#addDocumentStartJavaScript(android.webkit.WebView,java.lang.String,java.util.Set%3Cjava.lang.String%3E)
   pub for_main_frame_only: bool,
 }
 
