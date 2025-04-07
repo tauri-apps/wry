@@ -1,5 +1,21 @@
 # Changelog
 
+## \[0.51.0]
+
+- [`f99bbd9`](https://github.com/tauri-apps/wry/commit/f99bbd97c6f46492a2f8b34894532629ce17550d) ([#1507](https://github.com/tauri-apps/wry/pull/1507) by [@Simon-Laux](https://github.com/tauri-apps/wry/../../Simon-Laux)) Renamed `Error::UrlPrase` to `Error::UrlParse` to fix typo.
+- [`2d753c6`](https://github.com/tauri-apps/wry/commit/2d753c64822e05ed28621009ef9383ffb70b1b94) ([#1531](https://github.com/tauri-apps/wry/pull/1531) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) **Breaking Change**: `WebViewAttributes::initialization_scripts` takes `Vec::<InitializationScript>` now instead of `Vec::<(String, bool)>`
+- [`78b83a0`](https://github.com/tauri-apps/wry/commit/78b83a0d8a5db3c58140d7a3f00a52616049251e) ([#1537](https://github.com/tauri-apps/wry/pull/1537) by [@Brendonovich](https://github.com/tauri-apps/wry/../../Brendonovich)) Moved protocol handler functions to a thread local instead of storing them as ivars to prevent a race condition between webview close and custom protocol handling.
+- [`5f1e4ba`](https://github.com/tauri-apps/wry/commit/5f1e4bafeee6aab8cdc1d7ebc5d13bb6cfeb94ad) ([#1538](https://github.com/tauri-apps/wry/pull/1538) by [@syrel](https://github.com/tauri-apps/wry/../../syrel)) macOS: Handle flipped coordinates when adding a WebView as a child
+- [`4ec951a`](https://github.com/tauri-apps/wry/commit/4ec951a7b5d0484e19f2d94665c79380171ec9ba) ([#1526](https://github.com/tauri-apps/wry/pull/1526) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Updated `webview2-com` to `0.37`, `windows` to `0.61`.
+- [`2d753c6`](https://github.com/tauri-apps/wry/commit/2d753c64822e05ed28621009ef9383ffb70b1b94) ([#1531](https://github.com/tauri-apps/wry/pull/1531) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Init scripts are always executed on all frames on Windows WebView2
+- [`2d753c6`](https://github.com/tauri-apps/wry/commit/2d753c64822e05ed28621009ef9383ffb70b1b94) ([#1531](https://github.com/tauri-apps/wry/pull/1531) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Fix init script sometimes get executed too late on Windows WebView2
+
+### feat
+
+- [`ecbced2`](https://github.com/tauri-apps/wry/commit/ecbced25e5e41c6a9f7816ea6517763d30c5b060) ([#1534](https://github.com/tauri-apps/wry/pull/1534) by [@Simon-Laux](https://github.com/tauri-apps/wry/../../Simon-Laux)) macOS/iOS: add option to disable link previews when building a webview (the webkit API has it enabled by default)
+
+  - `WebViewBuilderExtDarwin.with_allow_link_preview(bool)`
+
 ## \[0.50.5]
 
 ### enhance
