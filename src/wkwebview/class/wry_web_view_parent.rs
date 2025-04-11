@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::cell::Cell;
-
-use objc2::{define_class, msg_send, rc::Retained, DefinedClass, MainThreadOnly};
+#[cfg(target_os = "macos")]
+use objc2::DefinedClass;
+use objc2::{define_class, msg_send, rc::Retained, MainThreadOnly};
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSApplication, NSEvent, NSView, NSWindow, NSWindowButton};
 use objc2_foundation::MainThreadMarker;
@@ -15,7 +15,7 @@ use objc2_ui_kit::UIView as NSView;
 
 pub struct WryWebViewParentIvars {
   #[cfg(target_os = "macos")]
-  traffic_light_inset: Cell<Option<(f64, f64)>>,
+  traffic_light_inset: std::cell::Cell<Option<(f64, f64)>>,
 }
 
 define_class!(

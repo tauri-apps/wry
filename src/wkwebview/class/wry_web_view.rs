@@ -29,6 +29,8 @@ pub struct WryWebViewIvars {
   pub(crate) drag_drop_handler: Box<dyn Fn(DragDropEvent) -> bool>,
   #[cfg(target_os = "macos")]
   pub(crate) accept_first_mouse: objc2::runtime::Bool,
+  #[cfg(target_os = "ios")]
+  pub(crate) input_accessory_view_builder: Option<Box<crate::InputAccessoryViewBuilder>>,
   pub(crate) custom_protocol_task_ids: Mutex<HashMap<usize, Retained<NSUUID>>>,
 }
 
@@ -58,6 +60,16 @@ define_class!(
     #[unsafe(method(acceptsFirstMouse:))]
     fn accept_first_mouse(&self, _event: &NSEvent) -> Bool {
       self.ivars().accept_first_mouse
+    }
+
+    #[cfg(target_os = "ios")]
+    #[unsafe(method_id(inputAccessoryView))]
+    fn input_accessory_view(&self) -> Option<Retained<objc2_ui_kit::UIView>> {
+      if let Some(builder) = &self.ivars().input_accessory_view_builder {
+        builder(self)
+      } else {
+        unsafe { objc2::msg_send![super(self), inputAccessoryView] }
+      }
     }
   }
   unsafe impl NSObjectProtocol for WryWebView {}

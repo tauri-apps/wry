@@ -407,6 +407,10 @@ pub use http;
 pub use proxy::{ProxyConfig, ProxyEndpoint};
 pub use web_context::WebContext;
 
+#[cfg(target_os = "ios")]
+pub type InputAccessoryViewBuilder =
+  dyn Fn(&objc2_ui_kit::UIView) -> Option<Retained<objc2_ui_kit::UIView>>;
+
 /// A rectangular region.
 #[derive(Clone, Copy, Debug)]
 pub struct Rect {
@@ -1410,11 +1414,12 @@ impl<'a> WebViewBuilder<'a> {
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-#[derive(Clone)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   data_store_identifier: Option<[u8; 16]>,
   traffic_light_inset: Option<dpi::Position>,
   allow_link_preview: bool,
+  #[cfg(target_os = "ios")]
+  input_accessory_view_builder: Option<Box<InputAccessoryViewBuilder>>,
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -1425,6 +1430,8 @@ impl Default for PlatformSpecificWebViewAttributes {
       traffic_light_inset: None,
       // platform default for this is true
       allow_link_preview: true,
+      #[cfg(target_os = "ios")]
+      input_accessory_view_builder: None,
     }
   }
 }
@@ -1471,6 +1478,40 @@ impl WebViewBuilderExtDarwin for WebViewBuilder<'_> {
   fn with_allow_link_preview(self, allow_link_preview: bool) -> Self {
     self.and_then(|mut b| {
       b.platform_specific.allow_link_preview = allow_link_preview;
+      Ok(b)
+    })
+  }
+}
+
+#[cfg(target_os = "ios")]
+pub trait WebViewBuilderExtIos {
+  /// Allows overriding the the keyboard accessory view on iOS.
+  /// Returning `None` effectively removes the view.
+  ///
+  /// The closure parameter is the webview instance.
+  ///
+  /// The accessory view is the view that appears above the keyboard when a text input element is focused.
+  /// It usually displays a view with "Done", "Next" buttons.
+  fn with_input_accessory_view_builder<
+    F: Fn(&objc2_ui_kit::UIView) -> Option<Retained<objc2_ui_kit::UIView>> + 'static,
+  >(
+    self,
+    builder: F,
+  ) -> Self;
+}
+
+#[cfg(target_os = "ios")]
+impl WebViewBuilderExtIos for WebViewBuilder<'_> {
+  fn with_input_accessory_view_builder<
+    F: Fn(&objc2_ui_kit::UIView) -> Option<Retained<objc2_ui_kit::UIView>> + 'static,
+  >(
+    self,
+    builder: F,
+  ) -> Self {
+    self.and_then(|mut b| {
+      b.platform_specific
+        .input_accessory_view_builder
+        .replace(Box::new(builder));
       Ok(b)
     })
   }

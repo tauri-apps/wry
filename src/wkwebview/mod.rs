@@ -77,7 +77,7 @@ use std::{
   net::Ipv4Addr,
   os::raw::c_char,
   panic::AssertUnwindSafe,
-  ptr::{null_mut, NonNull},
+  ptr::NonNull,
   rc::Rc,
   str::{self, FromStr},
   sync::{Arc, Mutex},
@@ -270,6 +270,8 @@ impl InnerWebView {
         },
         #[cfg(target_os = "macos")]
         accept_first_mouse: Bool::new(attributes.accept_first_mouse),
+        #[cfg(target_os = "ios")]
+        input_accessory_view_builder: pl_attrs.input_accessory_view_builder,
         custom_protocol_task_ids: Default::default(),
       });
 
@@ -282,7 +284,7 @@ impl InnerWebView {
         let proxy_config = match proxy_config {
           ProxyConfig::Http(endpoint) => {
             let nw_endpoint = nw_endpoint_t::try_from(endpoint).unwrap();
-            nw_proxy_config_create_http_connect(nw_endpoint, null_mut())
+            nw_proxy_config_create_http_connect(nw_endpoint, std::ptr::null_mut())
           }
           ProxyConfig::Socks5(endpoint) => {
             let nw_endpoint = nw_endpoint_t::try_from(endpoint).unwrap();
@@ -776,7 +778,7 @@ r#"Object.defineProperty(window, 'ipc', {
           &window,
           None,
           None,
-          null_mut(),
+          std::ptr::null_mut(),
         )
       }
     }
