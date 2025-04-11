@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.51.1]
+
+- [`3e24d6b`](https://github.com/tauri-apps/wry/commit/3e24d6b7b191ce37298ad6be99614ccdf04c7d3f) ([#1543](https://github.com/tauri-apps/wry/pull/1543) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fix async custom protocol not responding.
+
 ## \[0.51.0]
 
 - [`f99bbd9`](https://github.com/tauri-apps/wry/commit/f99bbd97c6f46492a2f8b34894532629ce17550d) ([#1507](https://github.com/tauri-apps/wry/pull/1507) by [@Simon-Laux](https://github.com/tauri-apps/wry/../../Simon-Laux)) Renamed `Error::UrlPrase` to `Error::UrlParse` to fix typo.
