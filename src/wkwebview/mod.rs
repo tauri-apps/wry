@@ -55,6 +55,7 @@ use objc2_ui_kit::{UIScrollView, UIViewAutoresizing};
 use objc2_app_kit::NSWindow;
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::UIView as NSView;
+use once_cell::sync::Lazy;
 // #[cfg(target_os = "ios")]
 // use objc2_ui_kit::UIWindow as NSWindow;
 
@@ -79,7 +80,7 @@ use std::{
   ptr::{null_mut, NonNull},
   rc::Rc,
   str::{self, FromStr},
-  sync::{Arc, LazyLock, Mutex, RwLock},
+  sync::{Arc, Mutex, RwLock},
   time::Duration,
 };
 
@@ -101,8 +102,7 @@ use crate::util::Counter;
 
 static COUNTER: Counter = Counter::new();
 
-static WEBVIEW_STATE: LazyLock<RwLock<HashMap<String, WebViewState>>> =
-  LazyLock::new(Default::default);
+static WEBVIEW_STATE: Lazy<RwLock<HashMap<String, WebViewState>>> = Lazy::new(Default::default);
 
 struct WebViewState {
   pub protocol_ptrs: Vec<Rc<dyn Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder)>>,
