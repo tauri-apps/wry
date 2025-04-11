@@ -75,11 +75,12 @@ extern "C" fn start_task(
     let ivar = this.class().instance_variable(c"protocol_index").unwrap();
     let protocol_index: usize = *ivar.load(this);
 
-    let function = WEBVIEW_STATE.with_borrow(|v| {
-      v.get(webview_id)
-        .and_then(|v| v.protocol_ptrs.get(protocol_index))
-        .cloned()
-    });
+    let function = WEBVIEW_STATE
+      .read()
+      .unwrap()
+      .get(webview_id)
+      .and_then(|v| v.protocol_ptrs.get(protocol_index))
+      .cloned();
 
     if let Some(function) = function {
       // Get url request
@@ -147,7 +148,7 @@ extern "C" fn start_task(
       };
 
       fn check_webview_id_valid(webview_id: &str) -> crate::Result<()> {
-        if !WEBVIEW_STATE.with_borrow(|s| s.contains_key(webview_id)) {
+        if !WEBVIEW_STATE.read().unwrap().contains_key(webview_id) {
           return Err(crate::Error::CustomProtocolTaskInvalid);
         }
         Ok(())
@@ -288,14 +289,12 @@ extern "C" fn start_task(
                 }))
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
-                WEBVIEW_STATE.with_borrow_mut(|ids| {
-                  if ids.contains_key(webview_id) {
-                    webview.remove_custom_task_key(task_key);
-                    Ok(())
-                  } else {
-                    Err(crate::Error::CustomProtocolTaskInvalid)
-                  }
-                })
+                if WEBVIEW_STATE.read().unwrap().contains_key(webview_id) {
+                  webview.remove_custom_task_key(task_key);
+                  Ok(())
+                } else {
+                  Err(crate::Error::CustomProtocolTaskInvalid)
+                }
               }
 
               #[cfg(feature = "tracing")]

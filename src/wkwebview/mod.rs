@@ -55,6 +55,7 @@ use objc2_ui_kit::{UIScrollView, UIViewAutoresizing};
 use objc2_app_kit::NSWindow;
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::UIView as NSView;
+use once_cell::sync::Lazy;
 // #[cfg(target_os = "ios")]
 // use objc2_ui_kit::UIWindow as NSWindow;
 
@@ -67,7 +68,6 @@ use objc2_web_kit::{
   WKAudiovisualMediaTypes, WKInactiveSchedulingPolicy, WKURLSchemeHandler, WKUserContentController,
   WKUserScript, WKUserScriptInjectionTime, WKWebViewConfiguration, WKWebsiteDataStore,
 };
-use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
@@ -80,7 +80,7 @@ use std::{
   ptr::NonNull,
   rc::Rc,
   str::{self, FromStr},
-  sync::{Arc, Mutex},
+  sync::{Arc, Mutex, RwLock},
   time::Duration,
 };
 
@@ -102,13 +102,14 @@ use crate::util::Counter;
 
 static COUNTER: Counter = Counter::new();
 
-thread_local! {
-  static WEBVIEW_STATE: RefCell<HashMap<String, WebViewState>> = Default::default();
-}
+static WEBVIEW_STATE: Lazy<RwLock<HashMap<String, WebViewState>>> = Lazy::new(Default::default);
 
 struct WebViewState {
   pub protocol_ptrs: Vec<Rc<dyn Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder)>>,
 }
+
+unsafe impl Send for WebViewState {}
+unsafe impl Sync for WebViewState {}
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct PrintMargin {
@@ -255,9 +256,10 @@ impl InnerWebView {
         }
       }
 
-      WEBVIEW_STATE.with_borrow_mut(|wv_ids| {
-        wv_ids.insert(webview_id.clone(), WebViewState { protocol_ptrs });
-      });
+      WEBVIEW_STATE
+        .write()
+        .unwrap()
+        .insert(webview_id.clone(), WebViewState { protocol_ptrs });
 
       // WebView and manager
       let manager = config.userContentController();
@@ -1095,7 +1097,7 @@ pub fn platform_webview_version() -> Result<String> {
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
-    WEBVIEW_STATE.with_borrow_mut(|v| v.remove(&self.id));
+    WEBVIEW_STATE.write().unwrap().remove(&self.id);
 
     // We need to drop handler closures here
     unsafe {
