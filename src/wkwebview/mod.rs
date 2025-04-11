@@ -510,6 +510,7 @@ impl InnerWebView {
         }
       }
 
+      #[cfg_attr(target_os = "ios", allow(unused_mut))]
       let mut w = Self {
         id: webview_id,
         mtm,
