@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.51.2]
+
+- [`f7781a7`](https://github.com/tauri-apps/wry/commit/f7781a788dbb0d07bea27f18daf844d70a3958a3) ([#1544](https://github.com/tauri-apps/wry/pull/1544) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Allow modifying or removing the input accessory view on iOS via `WebViewBuilderExtIos::with_input_accessory_view_builder`.
+
 ## \[0.51.1]
 
 - [`3e24d6b`](https://github.com/tauri-apps/wry/commit/3e24d6b7b191ce37298ad6be99614ccdf04c7d3f) ([#1543](https://github.com/tauri-apps/wry/pull/1543) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fix async custom protocol not responding.
