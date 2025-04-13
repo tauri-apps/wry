@@ -5,7 +5,10 @@
 //! Unix platform extensions for [`WebContext`](super::WebContext).
 
 use crate::{Error, RequestAsyncResponder};
-use gtk::glib::{self, MainContext, ObjectExt};
+use gtk::{
+  glib::{self, MainContext},
+  prelude::ObjectExt,
+};
 use http::{header::CONTENT_TYPE, HeaderName, HeaderValue, Request, Response as HttpResponse};
 use soup::{MessageHeaders, MessageHeadersType};
 use std::{
@@ -19,16 +22,15 @@ use std::{
     Mutex,
   },
 };
-use webkit2gtk::{
-  ApplicationInfo, AutomationSessionExt, CookiePersistentStorage, DownloadExt, LoadEvent,
-  SecurityManagerExt, URIRequest, URIRequestExt, URISchemeRequest, URISchemeRequestExt,
-  URISchemeResponse, URISchemeResponseExt, WebContext, WebContextExt as Webkit2gtkContextExt,
-  WebView, WebViewExt,
+use webkit::{
+  prelude::WebViewExt, ApplicationInfo, CookiePersistentStorage, LoadEvent, NetworkSession,
+  URIRequest, URISchemeRequest, URISchemeResponse, WebContext, WebView,
 };
 
 #[derive(Debug)]
 pub struct WebContextImpl {
   context: WebContext,
+  network_session: NetworkSession,
   webview_uri_loader: Rc<WebViewUriLoader>,
   automation: bool,
   app_info: Option<ApplicationInfo>,
@@ -36,33 +38,35 @@ pub struct WebContextImpl {
 
 impl WebContextImpl {
   pub fn new(data_directory: Option<&Path>) -> Self {
-    use webkit2gtk::{CookieManagerExt, WebsiteDataManager, WebsiteDataManagerExt};
-    let mut context_builder = WebContext::builder();
-    if let Some(data_directory) = data_directory {
-      let data_manager = WebsiteDataManager::builder()
-        .base_data_directory(data_directory.to_string_lossy())
-        .build();
-      if let Some(cookie_manager) = data_manager.cookie_manager() {
-        cookie_manager.set_persistent_storage(
-          &data_directory.join("cookies").to_string_lossy(),
-          CookiePersistentStorage::Text,
-        );
-      }
-      context_builder = context_builder.website_data_manager(&data_manager);
-    }
-    let context = context_builder.build();
+    let network_session = match data_directory {
+      Some(data_directory) => {
+        let network_session = NetworkSession::builder()
+          .data_directory(data_directory.to_string_lossy())
+          .build();
 
-    Self::create_context(context)
+        if let Some(cookie_manager) = network_session.cookie_manager() {
+          cookie_manager.set_persistent_storage(
+            &data_directory.join("cookies").to_string_lossy(),
+            CookiePersistentStorage::Text,
+          );
+        }
+        network_session
+      }
+      None => NetworkSession::builder().build(),
+    };
+
+    Self::create_context(network_session)
   }
 
   pub fn new_ephemeral() -> Self {
-    let context = WebContext::new_ephemeral();
+    let network_session = NetworkSession::new_ephemeral();
 
-    Self::create_context(context)
+    Self::create_context(network_session)
   }
 
-  pub fn create_context(context: WebContext) -> Self {
+  pub fn create_context(network_session: NetworkSession) -> Self {
     let automation = false;
+    let context = WebContext::new();
     context.set_automation_allowed(automation);
 
     // e.g. wry 0.9.4
@@ -82,6 +86,7 @@ impl WebContextImpl {
 
     Self {
       context,
+      network_session,
       automation,
       webview_uri_loader: Rc::default(),
       app_info: Some(app_info),
@@ -92,18 +97,15 @@ impl WebContextImpl {
     self.automation = flag;
     self.context.set_automation_allowed(flag);
   }
-
-  pub fn set_web_extensions_directory(&mut self, path: &Path) {
-    self
-      .context
-      .set_web_extensions_directory(&path.to_string_lossy());
-  }
 }
 
 /// [`WebContext`](super::WebContext) items that only matter on unix.
 pub trait WebContextExt {
   /// The GTK [`WebContext`] of all webviews in the context.
   fn context(&self) -> &WebContext;
+
+  /// The GTK [`NetworkSession`] of all webviews in the context.
+  fn network_session(&self) -> &NetworkSession;
 
   /// Register a custom protocol to the web context.
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
@@ -122,7 +124,7 @@ pub trait WebContextExt {
 
   /// If the context allows automation.
   ///
-  /// **Note:** `libwebkit2gtk` only allows 1 automation context at a time.
+  /// **Note:** `libwebkitgtk` only allows 1 automation context at a time.
   fn allows_automation(&self) -> bool;
 
   fn register_automation(&mut self, webview: WebView);
@@ -137,6 +139,10 @@ pub trait WebContextExt {
 impl WebContextExt for super::WebContext {
   fn context(&self) -> &WebContext {
     &self.os.context
+  }
+
+  fn network_session(&self) -> &NetworkSession {
+    &self.os.network_session
   }
 
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
@@ -308,12 +314,12 @@ impl WebContextExt for super::WebContext {
     download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
     download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
   ) {
-    let context = &self.os.context;
+    let network_session = &self.os.network_session;
 
     let download_started_handler = RefCell::new(download_started_handler);
     let failed = Rc::new(RefCell::new(false));
 
-    context.connect_download_started(move |_context, download| {
+    network_session.connect_download_started(move |_network_session, download| {
       if let Some(uri) = download.request().and_then(|req| req.uri()) {
         let uri = uri.to_string();
         let mut download_location = download
@@ -379,7 +385,7 @@ struct WebviewUriRequest {
   headers: Option<http::HeaderMap>,
 }
 
-/// Prevents an unknown concurrency bug with loading multiple URIs at the same time on webkit2gtk.
+/// Prevents an unknown concurrency bug with loading multiple URIs at the same time on webkitgtk.
 ///
 /// Using the queue prevents data race issues with loading uris for multiple [`WebView`]s in the
 /// same context at the same time. Occasionally, the one of the [`WebView`]s will be clobbered
@@ -404,7 +410,7 @@ struct WebviewUriRequest {
 /// because it was triggered twice even through only started once. The content injected will not
 /// be sequential, and often is interjected in the middle of one of the other contents.
 ///
-/// FIXME: We think this may be an underlying concurrency bug in webkit2gtk as the usual ways of
+/// FIXME: We think this may be an underlying concurrency bug in webkitgtk as the usual ways of
 /// fixing threading issues are not working. Ideally, the locks are not needed if we can understand
 /// the true cause of the bug.
 #[derive(Debug, Default)]
@@ -458,7 +464,7 @@ impl WebViewUriLoader {
         });
 
         if let Some(headers) = headers {
-          let req = URIRequest::builder().uri(&uri).build();
+          let req = URIRequest::new(&uri);
 
           if let Some(ref mut req_headers) = req.http_headers() {
             for (header, value) in headers.iter() {

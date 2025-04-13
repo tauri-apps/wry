@@ -12,14 +12,14 @@ pub enum Error {
   #[error(transparent)]
   GlibBoolError(#[from] gtk::glib::BoolError),
   #[cfg(gtk)]
+  #[error("{0} is not a supported webview parent widget.")]
+  UnsupportedParentWidget(String),
+  #[cfg(gtk)]
   #[error("Fail to fetch security manager")]
   MissingManager,
   #[cfg(gtk)]
   #[error("Couldn't find X11 Display")]
   X11DisplayNotFound,
-  #[cfg(gtk)]
-  #[error(transparent)]
-  XlibError(#[from] x11_dl::error::OpenError),
   #[error("Failed to initialize the script")]
   InitScriptError,
   #[error("Bad RPC request: {0} ((1))")]

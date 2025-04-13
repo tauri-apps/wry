@@ -52,7 +52,7 @@ fn main() -> wry::Result<()> {
     target_os = "ios",
     target_os = "android"
   )))]
-  let webview = {
+  let mut webview = {
     use tao::platform::unix::WindowExtUnix;
     let vbox = window.default_vbox().unwrap();
     builder.build_gtk(vbox)?
