@@ -34,17 +34,13 @@ pub struct WebContext {
 impl WebContext {
   /// Create a new [`WebContext`].
   ///
-  /// `cache_directory`:
-  /// * Whether the WebView window should have a custom cache path. This is useful in Windows
-  ///   when a bundled application can't have the webview cache inside `Program Files`.
-  ///
   /// `data_directory`:
   /// * Whether the WebView window should have a custom user data path. This is useful in Windows
   ///   when a bundled application can't have the webview data inside `Program Files`.
-  pub fn new(cache_directory: Option<PathBuf>, data_directory: Option<PathBuf>) -> Self {
+  pub fn new(data_directory: Option<PathBuf>) -> Self {
     Self {
-      os: WebContextImpl::new(cache_directory.as_deref(), data_directory.as_deref()),
-      cache_directory,
+      cache_directory: None,
+      os: WebContextImpl::new(data_directory.as_deref(), None),
       data_directory,
       custom_protocols: Default::default(),
     }
@@ -68,6 +64,11 @@ impl WebContext {
   /// A reference to the data directory the context was created with.
   pub fn data_directory(&self) -> Option<&Path> {
     self.data_directory.as_deref()
+  }
+
+  /// Set the cache directory for the context.
+  pub fn set_cache_directory(&mut self, cache_directory: PathBuf) {
+    self.cache_directory = Some(cache_directory);
   }
 
   #[allow(dead_code)]
@@ -95,7 +96,7 @@ impl WebContext {
 
 impl Default for WebContext {
   fn default() -> Self {
-    Self::new(None, None)
+    Self::new(None)
   }
 }
 
