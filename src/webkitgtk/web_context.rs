@@ -35,14 +35,29 @@ pub struct WebContextImpl {
 }
 
 impl WebContextImpl {
-  pub fn new(data_directory: Option<&Path>) -> Self {
+  pub fn new(cache_directory: Option<&Path>, data_directory: Option<&Path>) -> Self {
     use webkit2gtk::{CookieManagerExt, WebsiteDataManager, WebsiteDataManagerExt};
+
     let mut context_builder = WebContext::builder();
-    if let Some(data_directory) = data_directory {
-      let data_manager = WebsiteDataManager::builder()
-        .base_data_directory(data_directory.to_string_lossy())
-        .build();
-      if let Some(cookie_manager) = data_manager.cookie_manager() {
+
+    if cache_directory.is_some() || data_directory.is_some() {
+      let mut data_manager_builder = WebsiteDataManager::builder();
+
+      if let Some(cache_directory) = cache_directory {
+        data_manager_builder =
+          data_manager_builder.base_cache_directory(cache_directory.to_string_lossy());
+      }
+
+      if let Some(data_directory) = data_directory {
+        data_manager_builder =
+          data_manager_builder.base_data_directory(data_directory.to_string_lossy());
+      }
+
+      let data_manager = data_manager_builder.build();
+
+      if let (Some(data_directory), Some(cookie_manager)) =
+        (data_directory, data_manager.cookie_manager())
+      {
         cookie_manager.set_persistent_storage(
           &data_directory.join("cookies").to_string_lossy(),
           CookiePersistentStorage::Text,
