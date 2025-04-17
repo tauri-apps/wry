@@ -23,7 +23,6 @@ use std::{
 /// [`WebView`]: crate::WebView
 #[derive(Debug)]
 pub struct WebContext {
-  cache_directory: Option<PathBuf>,
   data_directory: Option<PathBuf>,
   #[allow(dead_code)] // It's not needed on Windows and macOS.
   pub(crate) os: WebContextImpl,
@@ -39,7 +38,6 @@ impl WebContext {
   ///   when a bundled application can't have the webview data inside `Program Files`.
   pub fn new(data_directory: Option<PathBuf>) -> Self {
     Self {
-      cache_directory: None,
       os: WebContextImpl::new(data_directory.as_deref(), None),
       data_directory,
       custom_protocols: Default::default(),
@@ -49,26 +47,15 @@ impl WebContext {
   #[cfg(gtk)]
   pub(crate) fn new_ephemeral() -> Self {
     Self {
-      cache_directory: None,
       os: WebContextImpl::new_ephemeral(),
       data_directory: None,
       custom_protocols: Default::default(),
     }
   }
 
-  /// A reference to the cache directory the context was created with.
-  pub fn cache_directory(&self) -> Option<&Path> {
-    self.cache_directory.as_deref()
-  }
-
   /// A reference to the data directory the context was created with.
   pub fn data_directory(&self) -> Option<&Path> {
     self.data_directory.as_deref()
-  }
-
-  /// Set the cache directory for the context.
-  pub fn set_cache_directory(&mut self, cache_directory: PathBuf) {
-    self.cache_directory = Some(cache_directory);
   }
 
   #[allow(dead_code)]
