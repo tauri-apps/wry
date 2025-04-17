@@ -1,8 +1,7 @@
 ---
-"wry": minor
+"wry": patch
 ---
 
-Breaking change: `WebContext::new` now takes a `cache_directory` argument besides `data_directory`.
+Set `WebsiteDataManagerBuilder::base_cache_directory` with the same path as `base_data_directory`.
 
-This change allows users to specify a custom cache directory for the web context,
-instead of using the default one [from WebKitGTK](https://webkitgtk.org/reference/webkit2gtk/stable/property.WebsiteDataManager.base-cache-directory.html).
+This change allows the cache directory to be changed instead of using the default one [from WebKitGTK](https://webkitgtk.org/reference/webkit2gtk/stable/property.WebsiteDataManager.base-cache-directory.html).
