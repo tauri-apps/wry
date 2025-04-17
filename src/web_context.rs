@@ -38,7 +38,7 @@ impl WebContext {
   ///   when a bundled application can't have the webview data inside `Program Files`.
   pub fn new(data_directory: Option<PathBuf>) -> Self {
     Self {
-      os: WebContextImpl::new(data_directory.as_deref(), None),
+      os: WebContextImpl::new(data_directory.as_deref()),
       data_directory,
       custom_protocols: Default::default(),
     }
