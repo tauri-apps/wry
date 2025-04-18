@@ -438,7 +438,7 @@ impl InnerWebView {
     unsafe { Self::attach_ipc_handler(&webview, &mut attributes, &mut token)? };
 
     // Custom protocols handler
-    let scheme = if pl_attrs.use_https { "https" } else { "http" };
+    let http_or_https = if pl_attrs.use_https { "https" } else { "http" };
     let custom_protocols: HashSet<String> = attributes
       .custom_protocols
       .iter()
@@ -451,7 +451,7 @@ impl InnerWebView {
           env,
           hwnd,
           webview_id,
-          scheme,
+          http_or_https,
           &mut attributes,
           &mut token,
         )?
@@ -485,12 +485,11 @@ impl InnerWebView {
 
     // Navigation
     if let Some(mut url) = attributes.url {
-      if let Some(pos) = url.find("://") {
-        let name = &url[..pos];
-        if custom_protocols.contains(name) {
+      if let Some((protocol, _)) = url.split_once("://") {
+        if custom_protocols.contains(protocol) {
           // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
           // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-          url = url.replace(&format!("{name}://"), &format!("{scheme}://{name}."))
+          url = apply_uri_work_around(&url, http_or_https, protocol)
         }
       }
 
@@ -816,14 +815,15 @@ impl InnerWebView {
     env: &ICoreWebView2Environment,
     hwnd: HWND,
     webview_id: String,
-    scheme: &'static str,
+    http_or_https: &'static str,
     attributes: &mut WebViewAttributes,
     token: &mut EventRegistrationToken,
   ) -> Result<()> {
     for name in attributes.custom_protocols.keys() {
       // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
       // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-      let filter = HSTRING::from(format!("{scheme}://{name}.*"));
+      let work_around_uri = work_around_uri_prefix(http_or_https, name);
+      let filter = HSTRING::from(format!("{work_around_uri}*"));
 
       // If WebView2 version is high enough, use the new API to add the filter to allow Shared Workers and
       // iframes to work with custom protocols
@@ -868,9 +868,9 @@ impl InnerWebView {
 
         if let Some((custom_protocol, custom_protocol_handler)) = custom_protocols
           .iter()
-          .find(|(protocol, _)| is_custom_protocol_uri(&uri, scheme, protocol))
+          .find(|(protocol, _)| is_work_around_uri(&uri, http_or_https, protocol))
         {
-          let request = match Self::prepare_request(scheme, custom_protocol, &webview_request, &uri)
+          let request = match Self::prepare_request(http_or_https, custom_protocol, &webview_request, &uri)
           {
             Ok(req) => req,
             Err(e) => {
@@ -931,7 +931,7 @@ impl InnerWebView {
 
   #[inline]
   unsafe fn prepare_request(
-    scheme: &'static str,
+    http_or_https: &'static str,
     custom_protocol: &str,
     webview_request: &ICoreWebView2WebResourceRequest,
     webview_request_uri: &str,
@@ -983,10 +983,7 @@ impl InnerWebView {
     }
 
     // Undo the protocol workaround when giving path to resolver
-    let path = webview_request_uri.replace(
-      &format!("{scheme}://{}.", custom_protocol),
-      &format!("{}://", custom_protocol),
-    );
+    let path = revert_uri_work_around(webview_request_uri, http_or_https, custom_protocol);
 
     let request = request.uri(&path).body(body_sent)?;
 
@@ -1652,20 +1649,30 @@ unsafe fn set_theme(webview: &ICoreWebView2, theme: Theme) -> Result<()> {
     .map_err(Into::into)
 }
 
-#[inline]
-fn is_custom_protocol_uri(uri: &str, scheme: &'static str, protocol: &str) -> bool {
-  let uri_len = uri.len();
-  let scheme_len = scheme.len();
-  let protocol_len = protocol.len();
+fn is_work_around_uri(uri: &str, http_or_https: &str, protocol: &str) -> bool {
+  uri.starts_with(&work_around_uri_prefix(http_or_https, protocol))
+}
 
-  // starts with `http` or `https``
-  &uri[..scheme_len] == scheme
-  // followed by `://`
-  && &uri[scheme_len..scheme_len + 3] == "://"
-  // followed by custom protocol name
-  && scheme_len + 3 + protocol_len < uri_len && &uri[scheme_len + 3.. scheme_len + 3 + protocol_len] == protocol
-  // and a dot
-  && scheme_len + 3 + protocol_len < uri_len && uri.as_bytes()[scheme_len + 3 + protocol_len] == b'.'
+fn apply_uri_work_around(uri: &str, http_or_https: &str, protocol: &str) -> String {
+  uri.replace(
+    &original_uri_prefix(protocol),
+    &work_around_uri_prefix(http_or_https, protocol),
+  )
+}
+
+fn revert_uri_work_around(uri: &str, http_or_https: &str, protocol: &str) -> String {
+  uri.replace(
+    &work_around_uri_prefix(http_or_https, protocol),
+    &original_uri_prefix(protocol),
+  )
+}
+
+fn original_uri_prefix(protocol: &str) -> String {
+  format!("{protocol}://")
+}
+
+fn work_around_uri_prefix(http_or_https: &str, protocol: &str) -> String {
+  format!("{http_or_https}://{protocol}.")
 }
 
 pub fn platform_webview_version() -> Result<String> {
@@ -1683,13 +1690,13 @@ fn is_windows_7() -> bool {
 
 #[cfg(test)]
 mod tests {
-  use super::is_custom_protocol_uri;
+  use super::is_work_around_uri;
 
   #[test]
   fn checks_if_custom_protocol_uri() {
     let scheme = "http";
     let uri = "http://wry.localhost/path/to/page";
-    assert!(is_custom_protocol_uri(uri, scheme, "wry"));
-    assert!(!is_custom_protocol_uri(uri, scheme, "asset"));
+    assert!(is_work_around_uri(uri, scheme, "wry"));
+    assert!(!is_work_around_uri(uri, scheme, "asset"));
   }
 }
