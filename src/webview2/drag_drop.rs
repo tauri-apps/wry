@@ -129,7 +129,7 @@ impl DragDropTarget {
 
           // Fill path_buf with the null-terminated file name
           let mut path_buf = Vec::with_capacity(str_len);
-          DragQueryFileW(hdrop, i, std::mem::transmute(path_buf.spare_capacity_mut()));
+          DragQueryFileW(hdrop, i, Some(&mut path_buf));
           path_buf.set_len(str_len);
 
           callback(OsString::from_wide(&path_buf[0..character_count]).into());

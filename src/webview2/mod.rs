@@ -1435,7 +1435,7 @@ impl InnerWebView {
     cookie.Expires(&mut expires)?;
 
     let expires = match expires {
-      -1.0 | _ if is_session.as_bool() => Some(cookie::Expiration::Session),
+      _ if expires == -1.0 || is_session.as_bool() => Some(cookie::Expiration::Session),
       datetime => cookie::time::OffsetDateTime::from_unix_timestamp(datetime as _)
         .ok()
         .map(cookie::Expiration::DateTime),
