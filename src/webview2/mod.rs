@@ -444,7 +444,7 @@ impl InnerWebView {
       .iter()
       .map(|n| n.0.clone())
       .collect();
-    if !attributes.custom_protocols.is_empty() {
+    if !attributes.custom_protocols.is_empty() || !attributes.async_custom_protocols.is_empty() {
       unsafe {
         Self::attach_custom_protocol_handler(
           &webview,
@@ -840,89 +840,121 @@ impl InnerWebView {
       }
     }
 
+    for name in attributes.async_custom_protocols.keys() {
+      // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
+      // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
+      let filter = HSTRING::from(format!("{scheme}://{name}.*"));
+      webview.AddWebResourceRequestedFilter(&filter, COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL)?;
+    }
+
     let env = env.clone();
     let custom_protocols = std::mem::take(&mut attributes.custom_protocols);
+    let async_custom_protocols = std::mem::take(&mut attributes.async_custom_protocols);
     let main_thread_id = std::thread::current().id();
 
-    webview.add_WebResourceRequested(
-      &WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
-        let Some(args) = args else {
-          return Ok(());
+    let handler = WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
+      let Some(args) = args else {
+        return Ok(());
+      };
+
+      #[cfg(feature = "tracing")]
+      let span = tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty)
+        .entered();
+
+      // Request
+      let webview_request = args.Request()?;
+
+      // Request uri
+      let uri = {
+        let mut uri = PWSTR::null();
+        webview_request.Uri(&mut uri)?;
+        take_pwstr(uri)
+      };
+      #[cfg(feature = "tracing")]
+      span.record("uri", &uri);
+
+      // check if normal custom protocol
+      if let Some((protocol, handler)) = custom_protocols
+        .iter()
+        .find(|(protocol, _)| is_custom_protocol_uri(&uri, scheme, protocol))
+      {
+        let request = match Self::prepare_request(scheme, protocol, &webview_request, &uri) {
+          Ok(req) => req,
+          Err(e) => {
+            let err_response = Self::prepare_web_request_err(&env, e)?;
+            args.SetResponse(&err_response)?;
+            return Ok(());
+          }
         };
 
-        #[cfg(feature = "tracing")]
-        let span = tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty)
-          .entered();
+        let response = handler(&webview_id, request);
 
-        // Request uri
-        let webview_request = args.Request()?;
-
-        // Request uri
-        let uri = {
-          let mut uri = PWSTR::null();
-          webview_request.Uri(&mut uri)?;
-          take_pwstr(uri)
+        match Self::prepare_web_request_response(&env, &response) {
+          Ok(response) => {
+            let _ = args.SetResponse(&response);
+          }
+          Err(e) => {
+            if let Ok(err_response) = Self::prepare_web_request_err(&env, e) {
+              let _ = args.SetResponse(&err_response);
+            }
+          }
+        }
+      } else if let Some((protocol, async_handler)) = async_custom_protocols // then try async protocols
+        .iter()
+        .find(|(protocol, _)| is_custom_protocol_uri(&uri, scheme, protocol))
+      {
+        let request = match Self::prepare_request(scheme, protocol, &webview_request, &uri) {
+          Ok(req) => req,
+          Err(e) => {
+            let err_response = Self::prepare_web_request_err(&env, e)?;
+            args.SetResponse(&err_response)?;
+            return Ok(());
+          }
         };
-        #[cfg(feature = "tracing")]
-        span.record("uri", &uri);
 
-        if let Some((custom_protocol, custom_protocol_handler)) = custom_protocols
-          .iter()
-          .find(|(protocol, _)| is_custom_protocol_uri(&uri, scheme, protocol))
-        {
-          let request = match Self::prepare_request(scheme, custom_protocol, &webview_request, &uri)
-          {
-            Ok(req) => req,
-            Err(e) => {
-              let err_response = Self::prepare_web_request_err(&env, e)?;
-              args.SetResponse(&err_response)?;
-              return Ok(());
+        let env = env.clone();
+        let deferral = args.GetDeferral();
+
+        let async_responder = Box::new(move |sent_response| {
+          let handler = move || {
+            match Self::prepare_web_request_response(&env, &sent_response) {
+              Ok(response) => {
+                let _ = args.SetResponse(&response);
+              }
+              Err(e) => {
+                if let Ok(err_response) = Self::prepare_web_request_err(&env, e) {
+                  let _ = args.SetResponse(&err_response);
+                }
+              }
+            }
+
+            if let Ok(deferral) = &deferral {
+              let _ = deferral.Complete();
             }
           };
 
-          let env = env.clone();
-          let deferral = args.GetDeferral();
+          if std::thread::current().id() == main_thread_id {
+            handler();
+          } else {
+            Self::dispatch_handler(hwnd, handler);
+          }
+        });
 
-          let async_responder = Box::new(move |sent_response| {
-            let handler = move || {
-              match Self::prepare_web_request_response(&env, &sent_response) {
-                Ok(response) => {
-                  let _ = args.SetResponse(&response);
-                }
-                Err(e) => {
-                  if let Ok(err_response) = Self::prepare_web_request_err(&env, e) {
-                    let _ = args.SetResponse(&err_response);
-                  }
-                }
-              }
+        #[cfg(feature = "tracing")]
+        let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
+        async_handler(
+          &webview_id,
+          request,
+          RequestAsyncResponder {
+            responder: async_responder,
+          },
+        );
+      }
 
-              if let Ok(deferral) = &deferral {
-                let _ = deferral.Complete();
-              }
-            };
+      Ok(())
+    }));
 
-            if std::thread::current().id() == main_thread_id {
-              handler();
-            } else {
-              Self::dispatch_handler(hwnd, handler);
-            }
-          });
-
-          #[cfg(feature = "tracing")]
-          let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
-          custom_protocol_handler(
-            &webview_id,
-            request,
-            RequestAsyncResponder {
-              responder: async_responder,
-            },
-          );
-        }
-
-        Ok(())
-      })),
-      token,
-    )?;
+    webview.add_WebResourceRequested(&handler, token)?;
 
     Self::attach_main_thread_dispatcher(hwnd);
 
@@ -1438,7 +1470,7 @@ impl InnerWebView {
     cookie.Expires(&mut expires)?;
 
     let expires = match expires {
-      -1.0 | _ if is_session.as_bool() => Some(cookie::Expiration::Session),
+      datetime if datetime == -1.0 || is_session.as_bool() => Some(cookie::Expiration::Session),
       datetime => cookie::time::OffsetDateTime::from_unix_timestamp(datetime as _)
         .ok()
         .map(cookie::Expiration::DateTime),

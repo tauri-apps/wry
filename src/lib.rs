@@ -553,6 +553,10 @@ pub struct WebViewAttributes<'a> {
   ///   locate your files in those directories. For more information, see [Loading in-app content](https://developer.android.com/guide/webapps/load-local-content) page.
   /// - iOS: To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   pub custom_protocols:
+    HashMap<String, Box<dyn Fn(WebViewId, Request<Vec<u8>>) -> Response<Cow<'static, [u8]>>>>,
+
+  /// Same as [`Self::custom_protocols`] but with an asynchronous responder.
+  pub async_custom_protocols:
     HashMap<String, Box<dyn Fn(WebViewId, Request<Vec<u8>>, RequestAsyncResponder)>>,
 
   /// The IPC handler to receive the message from Javascript on webview
@@ -714,6 +718,7 @@ impl Default for WebViewAttributes<'_> {
       html: None,
       initialization_scripts: Default::default(),
       custom_protocols: Default::default(),
+      async_custom_protocols: Default::default(),
       ipc_handler: None,
       drag_drop_handler: None,
       navigation_handler: None,
@@ -974,17 +979,18 @@ impl<'a> WebViewBuilder<'a> {
         context.register_custom_protocol(name.clone())?;
       }
 
-      if b.attrs.custom_protocols.iter().any(|(n, _)| n == &name) {
+      if b
+        .attrs
+        .custom_protocols
+        .iter()
+        .map(|c| c.0)
+        .chain(b.attrs.async_custom_protocols.iter().map(|c| c.0))
+        .any(|n| n == &name)
+      {
         return Err(Error::DuplicateCustomProtocol(name));
       }
 
-      b.attrs.custom_protocols.insert(
-        name,
-        Box::new(move |id, request, responder| {
-          let http_response = handler(id, request);
-          responder.respond(http_response);
-        }),
-      );
+      b.attrs.custom_protocols.insert(name, Box::new(handler));
 
       Ok(b)
     })
@@ -1036,11 +1042,20 @@ impl<'a> WebViewBuilder<'a> {
         context.register_custom_protocol(name.clone())?;
       }
 
-      if b.attrs.custom_protocols.iter().any(|(n, _)| n == &name) {
+      if b
+        .attrs
+        .custom_protocols
+        .iter()
+        .map(|c| c.0)
+        .chain(b.attrs.async_custom_protocols.iter().map(|c| c.0))
+        .any(|n| n == &name)
+      {
         return Err(Error::DuplicateCustomProtocol(name));
       }
 
-      b.attrs.custom_protocols.insert(name, Box::new(handler));
+      b.attrs
+        .async_custom_protocols
+        .insert(name, Box::new(handler));
 
       Ok(b)
     })
