@@ -1649,8 +1649,13 @@ unsafe fn set_theme(webview: &ICoreWebView2, theme: Theme) -> Result<()> {
     .map_err(Into::into)
 }
 
+/// WebView2 supports non-standard protocols only on Windows 10+, so we have to use a workaround,
+/// conveting `{protocol}://localhost/abc` to `{http_or_https}://{protocol}.localhost/abc`,
+/// and this function tests if the URI starts with `{http_or_https}://{protocol}.`
+///
+/// See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
 fn is_work_around_uri(uri: &str, http_or_https: &str, protocol: &str) -> bool {
-  // Test if it starts with "{http_or_https}://{protocol}."
+  //
   uri
     .strip_prefix(http_or_https)
     .and_then(|rest| rest.strip_prefix("://"))
