@@ -1655,7 +1655,6 @@ unsafe fn set_theme(webview: &ICoreWebView2, theme: Theme) -> Result<()> {
 ///
 /// See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
 fn is_work_around_uri(uri: &str, http_or_https: &str, protocol: &str) -> bool {
-  //
   uri
     .strip_prefix(http_or_https)
     .and_then(|rest| rest.strip_prefix("://"))
