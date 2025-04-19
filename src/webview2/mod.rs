@@ -1650,7 +1650,13 @@ unsafe fn set_theme(webview: &ICoreWebView2, theme: Theme) -> Result<()> {
 }
 
 fn is_work_around_uri(uri: &str, http_or_https: &str, protocol: &str) -> bool {
-  uri.starts_with(&work_around_uri_prefix(http_or_https, protocol))
+  // Test if it starts with "{http_or_https}://{protocol}."
+  uri
+    .strip_prefix(http_or_https)
+    .and_then(|rest| rest.strip_prefix("://"))
+    .and_then(|rest| rest.strip_prefix(protocol))
+    .and_then(|rest| rest.strip_prefix("."))
+    .is_some()
 }
 
 fn apply_uri_work_around(uri: &str, http_or_https: &str, protocol: &str) -> String {
