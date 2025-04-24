@@ -58,7 +58,9 @@ define_class!(
             CStr::from_ptr(url_utf8).to_str(),
             CStr::from_ptr(js_utf8).to_str(),
           ) {
-            ipc_handler(Request::builder().uri(url).body(js.to_string()).unwrap());
+            if let Ok(r) = Request::builder().uri(url).body(js.to_string()) {
+              ipc_handler(r);
+            }
             return;
           }
         }
