@@ -370,6 +370,24 @@ impl InnerWebView {
         let frame = ns_view.frame();
         let webview: Retained<WryWebView> =
           objc2::msg_send![super(webview), initWithFrame: frame, configuration: &**config];
+        if let Some((red, green, blue, alpha)) = attributes.background_color {
+          // This is required first since the webview color is applied too late.
+          webview.setOpaque(false);
+
+          let color = objc2_ui_kit::UIColor::colorWithRed_green_blue_alpha(
+            (red / 255).into(),
+            (green / 255).into(),
+            (blue / 255).into(),
+            (alpha / 255).into(),
+          );
+
+          if !is_child {
+            ns_view.setBackgroundColor(Some(&color));
+          }
+          // This has to be monitored as it may clash with isOpaque = true.
+          // The webview background color may also applied too late so actually not that useful.
+          webview.setBackgroundColor(Some(&color));
+        }
         webview
       };
 
@@ -831,6 +849,25 @@ r#"Object.defineProperty(window, 'ipc', {
   }
 
   pub fn set_background_color(&self, _background_color: RGBA) -> Result<()> {
+    #[cfg(target_os = "ios")]
+    unsafe {
+      let (red, green, blue, alpha) = _background_color;
+
+      let color = objc2_ui_kit::UIColor::colorWithRed_green_blue_alpha(
+        (red / 255).into(),
+        (green / 255).into(),
+        (blue / 255).into(),
+        (alpha / 255).into(),
+      );
+
+      if !self.is_child {
+        self.ns_view.setBackgroundColor(Some(&color));
+      }
+      // This has to be monitored as it may clash with isOpaque = true.
+      // The webview background color may also applied too late so actually not that useful.
+      self.webview.setBackgroundColor(Some(&color));
+    }
+
     Ok(())
   }
 
