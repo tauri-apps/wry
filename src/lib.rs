@@ -1265,7 +1265,7 @@ impl<'a> WebViewBuilder<'a> {
       target_os = "netbsd",
       target_os = "openbsd",
     ))]
-    for protocol_name in &self.attrs.custom_protocols {
+    for protocol_name in &self.attrs.custom_protocols.keys() {
       if let Some(context) = &mut self.attrs.context {
         if context.is_custom_protocol_registered(protocol_name) {
           return Err(crate::Error::ContextDuplicateCustomProtocol(
@@ -1689,7 +1689,7 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
   where
     W: gtk::prelude::IsA<gtk::Container>,
   {
-    self.check_custom_protocol()?;
+    self.check_duplicated_custom_protocol()?;
 
     InnerWebView::new_gtk(widget, self.attrs, self.platform_specific)
       .map(|webview| WebView { webview })
