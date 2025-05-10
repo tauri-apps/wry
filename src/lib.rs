@@ -744,29 +744,23 @@ impl Default for WebViewAttributes<'_> {
   }
 }
 
-struct WebviewBuilderParts<'a> {
-  attrs: WebViewAttributes<'a>,
-  platform_specific: PlatformSpecificWebViewAttributes,
-}
-
 /// Builder type of [`WebView`].
 ///
 /// [`WebViewBuilder`] / [`WebView`] are the basic building blocks to construct WebView contents and
 /// scripts for those who prefer to control fine grained window creation and event handling.
 /// [`WebViewBuilder`] provides ability to setup initialization before web engine starts.
 pub struct WebViewBuilder<'a> {
-  inner: Result<WebviewBuilderParts<'a>>,
+  attrs: WebViewAttributes<'a>,
+  platform_specific: PlatformSpecificWebViewAttributes,
 }
 
 impl<'a> WebViewBuilder<'a> {
   /// Create a new [`WebViewBuilder`].
   pub fn new() -> Self {
     Self {
-      inner: Ok(WebviewBuilderParts {
-        attrs: WebViewAttributes::default(),
-        #[allow(clippy::default_constructed_unit_structs)]
-        platform_specific: PlatformSpecificWebViewAttributes::default(),
-      }),
+      attrs: WebViewAttributes::default(),
+      #[allow(clippy::default_constructed_unit_structs)]
+      platform_specific: PlatformSpecificWebViewAttributes::default(),
     }
   }
 
@@ -778,40 +772,25 @@ impl<'a> WebViewBuilder<'a> {
     };
 
     Self {
-      inner: Ok(WebviewBuilderParts {
-        attrs,
-        #[allow(clippy::default_constructed_unit_structs)]
-        platform_specific: PlatformSpecificWebViewAttributes::default(),
-      }),
+      attrs,
+      #[allow(clippy::default_constructed_unit_structs)]
+      platform_specific: PlatformSpecificWebViewAttributes::default(),
     }
   }
 
   /// Create a new [`WebViewBuilder`] with the given [`WebViewAttributes`]
   pub fn with_attributes(attrs: WebViewAttributes<'a>) -> Self {
     Self {
-      inner: Ok(WebviewBuilderParts {
-        attrs,
-        #[allow(clippy::default_constructed_unit_structs)]
-        platform_specific: PlatformSpecificWebViewAttributes::default(),
-      }),
-    }
-  }
-
-  fn and_then<F>(self, func: F) -> Self
-  where
-    F: FnOnce(WebviewBuilderParts<'a>) -> Result<WebviewBuilderParts<'a>>,
-  {
-    Self {
-      inner: self.inner.and_then(func),
+      attrs,
+      #[allow(clippy::default_constructed_unit_structs)]
+      platform_specific: PlatformSpecificWebViewAttributes::default(),
     }
   }
 
   /// Set an id that will be passed when this webview makes requests in certain callbacks.
-  pub fn with_id(self, id: WebViewId<'a>) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.id = Some(id);
-      Ok(b)
-    })
+  pub fn with_id(mut self, id: WebViewId<'a>) -> Self {
+    self.attrs.id = Some(id);
+    self
   }
 
   /// Indicates whether horizontal swipe gestures trigger backward and forward page navigation.
@@ -819,11 +798,9 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific:
   ///
   /// - **Android / iOS:** Unsupported.
-  pub fn with_back_forward_navigation_gestures(self, gesture: bool) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.back_forward_navigation_gestures = gesture;
-      Ok(b)
-    })
+  pub fn with_back_forward_navigation_gestures(mut self, gesture: bool) -> Self {
+    self.attrs.back_forward_navigation_gestures = gesture;
+    self
   }
 
   /// Sets whether the WebView should be transparent.
@@ -831,11 +808,9 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific:
   ///
   /// **Windows 7**: Not supported.
-  pub fn with_transparent(self, transparent: bool) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.transparent = transparent;
-      Ok(b)
-    })
+  pub fn with_transparent(mut self, transparent: bool) -> Self {
+    self.attrs.transparent = transparent;
+    self
   }
 
   /// Specify the webview background color. This will be ignored if `transparent` is set to `true`.
@@ -848,27 +823,21 @@ impl<'a> WebViewBuilder<'a> {
   /// - **Windows**:
   ///   - on Windows 7, transparency is not supported and the alpha value will be ignored.
   ///   - on Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
-  pub fn with_background_color(self, background_color: RGBA) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.background_color = Some(background_color);
-      Ok(b)
-    })
+  pub fn with_background_color(mut self, background_color: RGBA) -> Self {
+    self.attrs.background_color = Some(background_color);
+    self
   }
 
   /// Sets whether the WebView should be visible or not.
-  pub fn with_visible(self, visible: bool) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.visible = visible;
-      Ok(b)
-    })
+  pub fn with_visible(mut self, visible: bool) -> Self {
+    self.attrs.visible = visible;
+    self
   }
 
   /// Sets whether all media can be played without user interaction.
-  pub fn with_autoplay(self, autoplay: bool) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.autoplay = autoplay;
-      Ok(b)
-    })
+  pub fn with_autoplay(mut self, autoplay: bool) -> Self {
+    self.attrs.autoplay = autoplay;
+    self
   }
 
   /// Initialize javascript code when loading new pages. When webview load a new page, this
@@ -916,20 +885,21 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// [addDocumentStartJavaScript]: https://developer.android.com/reference/androidx/webkit/WebViewCompat#addDocumentStartJavaScript(android.webkit.WebView,java.lang.String,java.util.Set%3Cjava.lang.String%3E)
   pub fn with_initialization_script_for_main_only<S: Into<String>>(
-    self,
+    mut self,
     js: S,
     for_main_frame_only: bool,
   ) -> Self {
-    self.and_then(|mut b| {
-      let script = js.into();
-      if !script.is_empty() {
-        b.attrs.initialization_scripts.push(InitializationScript {
+    let script = js.into();
+    if !script.is_empty() {
+      self
+        .attrs
+        .initialization_scripts
+        .push(InitializationScript {
           script,
           for_main_frame_only,
         });
-      }
-      Ok(b)
-    })
+    }
+    self
   }
 
   /// Register custom loading protocols with pairs of scheme uri string and a handling
@@ -958,36 +928,18 @@ impl<'a> WebViewBuilder<'a> {
   ///   folder which lives within the apk. For the cases where this can be used, it works the same as in macOS and Linux.
   /// - iOS: To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   #[cfg(feature = "protocol")]
-  pub fn with_custom_protocol<F>(self, name: String, handler: F) -> Self
+  pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
     F: Fn(WebViewId, Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> + 'static,
   {
-    self.and_then(|mut b| {
-      #[cfg(any(
-        target_os = "linux",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-      ))]
-      if let Some(context) = &mut b.attrs.context {
-        context.register_custom_protocol(name.clone())?;
-      }
-
-      if b.attrs.custom_protocols.iter().any(|(n, _)| n == &name) {
-        return Err(Error::DuplicateCustomProtocol(name));
-      }
-
-      b.attrs.custom_protocols.insert(
-        name,
-        Box::new(move |id, request, responder| {
-          let http_response = handler(id, request);
-          responder.respond(http_response);
-        }),
-      );
-
-      Ok(b)
-    })
+    self.attrs.custom_protocols.insert(
+      name,
+      Box::new(move |id, request, responder| {
+        let http_response = handler(id, request);
+        responder.respond(http_response);
+      }),
+    );
+    self
   }
 
   /// Same as [`Self::with_custom_protocol`] but with an asynchronous responder.
@@ -1020,30 +972,12 @@ impl<'a> WebViewBuilder<'a> {
   ///   });
   /// ```
   #[cfg(feature = "protocol")]
-  pub fn with_asynchronous_custom_protocol<F>(self, name: String, handler: F) -> Self
+  pub fn with_asynchronous_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
     F: Fn(WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + 'static,
   {
-    self.and_then(|mut b| {
-      #[cfg(any(
-        target_os = "linux",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-      ))]
-      if let Some(context) = &mut b.attrs.context {
-        context.register_custom_protocol(name.clone())?;
-      }
-
-      if b.attrs.custom_protocols.iter().any(|(n, _)| n == &name) {
-        return Err(Error::DuplicateCustomProtocol(name));
-      }
-
-      b.attrs.custom_protocols.insert(name, Box::new(handler));
-
-      Ok(b)
-    })
+    self.attrs.custom_protocols.insert(name, Box::new(handler));
+    self
   }
 
   /// Set the IPC handler to receive the message from Javascript on webview
@@ -1052,14 +986,12 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// - **Linux / Android**: The request URL is not supported on iframes and the main frame URL is used instead.
-  pub fn with_ipc_handler<F>(self, handler: F) -> Self
+  pub fn with_ipc_handler<F>(mut self, handler: F) -> Self
   where
     F: Fn(Request<String>) + 'static,
   {
-    self.and_then(|mut b| {
-      b.attrs.ipc_handler = Some(Box::new(handler));
-      Ok(b)
-    })
+    self.attrs.ipc_handler = Some(Box::new(handler));
+    self
   }
 
   /// Set a handler closure to process incoming [`DragDropEvent`] of the webview.
@@ -1071,14 +1003,12 @@ impl<'a> WebViewBuilder<'a> {
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
   #[cfg(feature = "drag-drop")]
   #[cfg_attr(docsrs, doc(cfg(feature = "drag-drop")))]
-  pub fn with_drag_drop_handler<F>(self, handler: F) -> Self
+  pub fn with_drag_drop_handler<F>(mut self, handler: F) -> Self
   where
     F: Fn(DragDropEvent) -> bool + 'static,
   {
-    self.and_then(|mut b| {
-      b.attrs.drag_drop_handler = Some(Box::new(handler));
-      Ok(b)
-    })
+    self.attrs.drag_drop_handler = Some(Box::new(handler));
+    self
   }
 
   /// Load the provided URL with given headers when the builder calling [`WebViewBuilder::build`] to create the [`WebView`].
@@ -1087,12 +1017,10 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Note
   ///
   /// Data URLs are not supported, use [`html`](Self::with_html) option instead.
-  pub fn with_url_and_headers(self, url: impl Into<String>, headers: http::HeaderMap) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.url = Some(url.into());
-      b.attrs.headers = Some(headers);
-      Ok(b)
-    })
+  pub fn with_url_and_headers(mut self, url: impl Into<String>, headers: http::HeaderMap) -> Self {
+    self.attrs.url = Some(url.into());
+    self.attrs.headers = Some(headers);
+    self
   }
 
   /// Load the provided URL when the builder calling [`WebViewBuilder::build`] to create the [`WebView`].
@@ -1101,20 +1029,16 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Note
   ///
   /// Data URLs are not supported, use [`html`](Self::with_html) option instead.
-  pub fn with_url(self, url: impl Into<String>) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.url = Some(url.into());
-      b.attrs.headers = None;
-      Ok(b)
-    })
+  pub fn with_url(mut self, url: impl Into<String>) -> Self {
+    self.attrs.url = Some(url.into());
+    self.attrs.headers = None;
+    self
   }
 
   /// Set headers used when loading the requested [`url`](Self::with_url).
-  pub fn with_headers(self, headers: http::HeaderMap) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.headers = Some(headers);
-      Ok(b)
-    })
+  pub fn with_headers(mut self, headers: http::HeaderMap) -> Self {
+    self.attrs.headers = Some(headers);
+    self
   }
 
   /// Load the provided HTML string when the builder calling [`WebViewBuilder::build`] to create the [`WebView`].
@@ -1127,11 +1051,9 @@ impl<'a> WebViewBuilder<'a> {
   /// ## PLatform-specific:
   ///
   /// - **Windows:** the string can not be larger than 2 MB (2 * 1024 * 1024 bytes) in total size
-  pub fn with_html(self, html: impl Into<String>) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.html = Some(html.into());
-      Ok(b)
-    })
+  pub fn with_html(mut self, html: impl Into<String>) -> Self {
+    self.attrs.html = Some(html.into());
+    self
   }
 
   /// Set a custom [user-agent](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent) for the WebView.
@@ -1140,11 +1062,9 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// - Windows: Requires WebView2 Runtime version 86.0.616.0 or higher, does nothing on older versions,
   ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10790-prerelease
-  pub fn with_user_agent(self, user_agent: impl Into<String>) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.user_agent = Some(user_agent.into());
-      Ok(b)
-    })
+  pub fn with_user_agent(mut self, user_agent: impl Into<String>) -> Self {
+    self.attrs.user_agent = Some(user_agent.into());
+    self
   }
 
   /// Enable or disable web inspector which is usually called devtools.
@@ -1158,11 +1078,9 @@ impl<'a> WebViewBuilder<'a> {
   ///   but requires `devtools` feature flag to actually enable it in **release** builds.
   /// - Android: Open `chrome://inspect/#devices` in Chrome to get the devtools window. Wry's `WebView` devtools API isn't supported on Android.
   /// - iOS: Open Safari > Develop > [Your Device Name] > [Your WebView] to get the devtools window.
-  pub fn with_devtools(self, devtools: bool) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.devtools = devtools;
-      Ok(b)
-    })
+  pub fn with_devtools(mut self, devtools: bool) -> Self {
+    self.attrs.devtools = devtools;
+    self
   }
 
   /// Whether page zooming by hotkeys or gestures is enabled
@@ -1173,22 +1091,18 @@ impl<'a> WebViewBuilder<'a> {
   ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10865-prerelease
   ///
   /// - **macOS / Linux / Android / iOS**: Unsupported
-  pub fn with_hotkeys_zoom(self, zoom: bool) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.zoom_hotkeys_enabled = zoom;
-      Ok(b)
-    })
+  pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
+    self.attrs.zoom_hotkeys_enabled = zoom;
+    self
   }
 
   /// Set a navigation handler to decide if incoming url is allowed to navigate.
   ///
   /// The closure take a `String` parameter as url and returns a `bool` to determine whether the navigation should happen.
   /// `true` allows to navigate and `false` does not.
-  pub fn with_navigation_handler(self, callback: impl Fn(String) -> bool + 'static) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.navigation_handler = Some(Box::new(callback));
-      Ok(b)
-    })
+  pub fn with_navigation_handler(mut self, callback: impl Fn(String) -> bool + 'static) -> Self {
+    self.attrs.navigation_handler = Some(Box::new(callback));
+    self
   }
 
   /// Set a download started handler to manage incoming downloads.
@@ -1198,13 +1112,11 @@ impl<'a> WebViewBuilder<'a> {
   /// parameter can be used to set the download location by assigning a new path to it, the assigned path _must_ be
   /// absolute. The closure returns a `bool` to allow or deny the download.
   pub fn with_download_started_handler(
-    self,
+    mut self,
     download_started_handler: impl FnMut(String, &mut PathBuf) -> bool + 'static,
   ) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.download_started_handler = Some(Box::new(download_started_handler));
-      Ok(b)
-    })
+    self.attrs.download_started_handler = Some(Box::new(download_started_handler));
+    self
   }
 
   /// Sets a download completion handler to manage downloads that have finished.
@@ -1221,35 +1133,32 @@ impl<'a> WebViewBuilder<'a> {
   /// - **macOS**: The second parameter indicating the path the file was saved to, is always empty,
   ///   due to API limitations.
   pub fn with_download_completed_handler(
-    self,
+    mut self,
     download_completed_handler: impl Fn(String, Option<PathBuf>, bool) + 'static,
   ) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.download_completed_handler = Some(Rc::new(download_completed_handler));
-      Ok(b)
-    })
+    self.attrs.download_completed_handler = Some(Rc::new(download_completed_handler));
+    self
   }
 
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
   ///
   /// macOS doesn't provide such method and is always enabled by default. But your app will still need to add menu
   /// item accelerators to use the clipboard shortcuts.
-  pub fn with_clipboard(self, clipboard: bool) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.clipboard = clipboard;
-      Ok(b)
-    })
+  pub fn with_clipboard(mut self, clipboard: bool) -> Self {
+    self.attrs.clipboard = clipboard;
+    self
   }
 
   /// Set a new window request handler to decide if incoming url is allowed to be opened.
   ///
   /// The closure take a `String` parameter as url and return `bool` to determine whether the window should open.
   /// `true` allows to open and `false` does not.
-  pub fn with_new_window_req_handler(self, callback: impl Fn(String) -> bool + 'static) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.new_window_req_handler = Some(Box::new(callback));
-      Ok(b)
-    })
+  pub fn with_new_window_req_handler(
+    mut self,
+    callback: impl Fn(String) -> bool + 'static,
+  ) -> Self {
+    self.attrs.new_window_req_handler = Some(Box::new(callback));
+    self
   }
 
   /// Sets whether clicking an inactive window also clicks through to the webview. Default is `false`.
@@ -1257,19 +1166,18 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// This configuration only impacts macOS.
-  pub fn with_accept_first_mouse(self, accept_first_mouse: bool) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.accept_first_mouse = accept_first_mouse;
-      Ok(b)
-    })
+  pub fn with_accept_first_mouse(mut self, accept_first_mouse: bool) -> Self {
+    self.attrs.accept_first_mouse = accept_first_mouse;
+    self
   }
 
   /// Set a handler closure to process the change of the webview's document title.
-  pub fn with_document_title_changed_handler(self, callback: impl Fn(String) + 'static) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.document_title_changed_handler = Some(Box::new(callback));
-      Ok(b)
-    })
+  pub fn with_document_title_changed_handler(
+    mut self,
+    callback: impl Fn(String) + 'static,
+  ) -> Self {
+    self.attrs.document_title_changed_handler = Some(Box::new(callback));
+    self
   }
 
   /// Run the WebView with incognito mode. Note that WebContext will be ingored if incognito is
@@ -1280,22 +1188,18 @@ impl<'a> WebViewBuilder<'a> {
   /// - Windows: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
   ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
   /// - **Android:** Unsupported yet.
-  pub fn with_incognito(self, incognito: bool) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.incognito = incognito;
-      Ok(b)
-    })
+  pub fn with_incognito(mut self, incognito: bool) -> Self {
+    self.attrs.incognito = incognito;
+    self
   }
 
   /// Set a handler to process page loading events.
   pub fn with_on_page_load_handler(
-    self,
+    mut self,
     handler: impl Fn(PageLoadEvent, String) + 'static,
   ) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.on_page_load_handler = Some(Box::new(handler));
-      Ok(b)
-    })
+    self.attrs.on_page_load_handler = Some(Box::new(handler));
+    self
   }
 
   /// Set a proxy configuration for the webview.
@@ -1303,11 +1207,9 @@ impl<'a> WebViewBuilder<'a> {
   /// - **macOS**: Requires macOS 14.0+ and the `mac-proxy` feature flag to be enabled. Supports HTTP CONNECT and SOCKSv5 proxies.
   /// - **Windows / Linux**: Supports HTTP CONNECT and SOCKSv5 proxies.
   /// - **Android / iOS:** Not supported.
-  pub fn with_proxy_config(self, configuration: ProxyConfig) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.proxy_config = Some(configuration);
-      Ok(b)
-    })
+  pub fn with_proxy_config(mut self, configuration: ProxyConfig) -> Self {
+    self.attrs.proxy_config = Some(configuration);
+    self
   }
 
   /// Set whether the webview should be focused when created.
@@ -1315,22 +1217,18 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific:
   ///
   /// - **macOS / Android / iOS:** Unsupported.
-  pub fn with_focused(self, focused: bool) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.focused = focused;
-      Ok(b)
-    })
+  pub fn with_focused(mut self, focused: bool) -> Self {
+    self.attrs.focused = focused;
+    self
   }
 
   /// Specify the webview position relative to its parent if it will be created as a child
   /// or if created using [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
   ///
   /// Defaults to `x: 0, y: 0, width: 200, height: 200`.
-  pub fn with_bounds(self, bounds: Rect) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.bounds = Some(bounds);
-      Ok(b)
-    })
+  pub fn with_bounds(mut self, bounds: Rect) -> Self {
+    self.attrs.bounds = Some(bounds);
+    self
   }
 
   /// Set whether background throttling should be disabled.
@@ -1346,18 +1244,37 @@ impl<'a> WebViewBuilder<'a> {
   /// - **macOS**: Supported since version 14.0+.
   ///
   /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
-  pub fn with_background_throttling(self, policy: BackgroundThrottlingPolicy) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.background_throttling = Some(policy);
-      Ok(b)
-    })
+  pub fn with_background_throttling(mut self, policy: BackgroundThrottlingPolicy) -> Self {
+    self.attrs.background_throttling = Some(policy);
+    self
   }
+
   /// Whether JavaScript should be disabled.
-  pub fn with_javascript_disabled(self) -> Self {
-    self.and_then(|mut b| {
-      b.attrs.javascript_disabled = true;
-      Ok(b)
-    })
+  pub fn with_javascript_disabled(mut self) -> Self {
+    self.attrs.javascript_disabled = true;
+    self
+  }
+
+  /// Checks if we have already registered these custom protocol handlers
+  /// in shared web contexts on Linux
+  fn check_duplicated_custom_protocol(&self) -> crate::Result<()> {
+    #[cfg(any(
+      target_os = "linux",
+      target_os = "dragonfly",
+      target_os = "freebsd",
+      target_os = "netbsd",
+      target_os = "openbsd",
+    ))]
+    for protocol_name in &self.attrs.custom_protocols {
+      if let Some(context) = &mut self.attrs.context {
+        if context.is_custom_protocol_registered(protocol_name) {
+          return Err(crate::Error::ContextDuplicateCustomProtocol(
+            protocol_name.to_string(),
+          ));
+        }
+      }
+    }
+    Ok(())
   }
 
   /// Consume the builder and create the [`WebView`] from a type that implements [`HasWindowHandle`].
@@ -1377,10 +1294,9 @@ impl<'a> WebViewBuilder<'a> {
   /// - Panics if the provided handle was not supported or invalid.
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
   pub fn build<W: HasWindowHandle>(self, window: &'a W) -> Result<WebView> {
-    let parts = self.inner?;
+    self.check_duplicated_custom_protocol()?;
 
-    InnerWebView::new(window, parts.attrs, parts.platform_specific)
-      .map(|webview| WebView { webview })
+    InnerWebView::new(window, self.attrs, self.platform_specific).map(|webview| WebView { webview })
   }
 
   /// Consume the builder and create the [`WebView`] as a child window inside the provided [`HasWindowHandle`].
@@ -1406,9 +1322,9 @@ impl<'a> WebViewBuilder<'a> {
   /// - Panics if the provided handle was not support or invalid.
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
   pub fn build_as_child<W: HasWindowHandle>(self, window: &'a W) -> Result<WebView> {
-    let parts = self.inner?;
+    self.check_duplicated_custom_protocol()?;
 
-    InnerWebView::new_as_child(window, parts.attrs, parts.platform_specific)
+    InnerWebView::new_as_child(window, self.attrs, self.platform_specific)
       .map(|webview| WebView { webview })
   }
 }
@@ -1461,25 +1377,19 @@ pub trait WebViewBuilderExtDarwin {
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 impl WebViewBuilderExtDarwin for WebViewBuilder<'_> {
-  fn with_data_store_identifier(self, identifier: [u8; 16]) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific.data_store_identifier = Some(identifier);
-      Ok(b)
-    })
+  fn with_data_store_identifier(mut self, identifier: [u8; 16]) -> Self {
+    self.platform_specific.data_store_identifier = Some(identifier);
+    self
   }
 
-  fn with_traffic_light_inset<P: Into<dpi::Position>>(self, position: P) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific.traffic_light_inset = Some(position.into());
-      Ok(b)
-    })
+  fn with_traffic_light_inset<P: Into<dpi::Position>>(mut self, position: P) -> Self {
+    self.platform_specific.traffic_light_inset = Some(position.into());
+    self
   }
 
-  fn with_allow_link_preview(self, allow_link_preview: bool) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific.allow_link_preview = allow_link_preview;
-      Ok(b)
-    })
+  fn with_allow_link_preview(mut self, allow_link_preview: bool) -> Self {
+    self.platform_specific.allow_link_preview = allow_link_preview;
+    self
   }
 }
 
@@ -1505,15 +1415,14 @@ impl WebViewBuilderExtIos for WebViewBuilder<'_> {
   fn with_input_accessory_view_builder<
     F: Fn(&objc2_ui_kit::UIView) -> Option<Retained<objc2_ui_kit::UIView>> + 'static,
   >(
-    self,
+    mut self,
     builder: F,
   ) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific
-        .input_accessory_view_builder
-        .replace(Box::new(builder));
-      Ok(b)
-    })
+    self
+      .platform_specific
+      .input_accessory_view_builder
+      .replace(Box::new(builder));
+    self
   }
 }
 
@@ -1618,60 +1527,44 @@ pub trait WebViewBuilderExtWindows {
 
 #[cfg(windows)]
 impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
-  fn with_additional_browser_args<S: Into<String>>(self, additional_args: S) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific.additional_browser_args = Some(additional_args.into());
-      Ok(b)
-    })
+  fn with_additional_browser_args<S: Into<String>>(mut self, additional_args: S) -> Self {
+    self.platform_specific.additional_browser_args = Some(additional_args.into());
+    self
   }
 
-  fn with_browser_accelerator_keys(self, enabled: bool) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific.browser_accelerator_keys = enabled;
-      Ok(b)
-    })
+  fn with_browser_accelerator_keys(mut self, enabled: bool) -> Self {
+    self.platform_specific.browser_accelerator_keys = enabled;
+    self
   }
 
-  fn with_default_context_menus(self, enabled: bool) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific.default_context_menus = enabled;
-      Ok(b)
-    })
+  fn with_default_context_menus(mut self, enabled: bool) -> Self {
+    self.platform_specific.default_context_menus = enabled;
+    self
   }
 
-  fn with_theme(self, theme: Theme) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific.theme = Some(theme);
-      Ok(b)
-    })
+  fn with_theme(mut self, theme: Theme) -> Self {
+    self.platform_specific.theme = Some(theme);
+    self
   }
 
-  fn with_https_scheme(self, enabled: bool) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific.use_https = enabled;
-      Ok(b)
-    })
+  fn with_https_scheme(mut self, enabled: bool) -> Self {
+    self.platform_specific.use_https = enabled;
+    self
   }
 
-  fn with_scroll_bar_style(self, style: ScrollBarStyle) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific.scroll_bar_style = style;
-      Ok(b)
-    })
+  fn with_scroll_bar_style(mut self, style: ScrollBarStyle) -> Self {
+    self.platform_specific.scroll_bar_style = style;
+    self
   }
 
-  fn with_browser_extensions_enabled(self, enabled: bool) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific.browser_extensions_enabled = enabled;
-      Ok(b)
-    })
+  fn with_browser_extensions_enabled(mut self, enabled: bool) -> Self {
+    self.platform_specific.browser_extensions_enabled = enabled;
+    self
   }
 
-  fn with_extensions_path(self, path: impl Into<PathBuf>) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific.extension_path = Some(path.into());
-      Ok(b)
-    })
+  fn with_extensions_path(mut self, path: impl Into<PathBuf>) -> Self {
+    self.platform_specific.extension_path = Some(path.into());
+    self
   }
 }
 
@@ -1717,38 +1610,32 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
   fn on_webview_created<
     F: Fn(prelude::Context<'_, '_>) -> std::result::Result<(), jni::errors::Error> + Send + 'static,
   >(
-    self,
+    mut self,
     f: F,
   ) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific.on_webview_created = Some(Box::new(f));
-      Ok(b)
-    })
+    self.platform_specific.on_webview_created = Some(Box::new(f));
+    self
   }
 
   #[cfg(feature = "protocol")]
-  fn with_asset_loader(self, protocol: String) -> Self {
+  fn with_asset_loader(mut self, protocol: String) -> Self {
     // register custom protocol with empty Response return,
     // this is necessary due to the need of fixing a domain
     // in WebViewAssetLoader.
-    self.and_then(|mut b| {
-      b.attrs.custom_protocols.insert(
-        protocol.clone(),
-        Box::new(|_, _, api| {
-          api.respond(Response::builder().body(Vec::new()).unwrap());
-        }),
-      );
-      b.platform_specific.with_asset_loader = true;
-      b.platform_specific.asset_loader_domain = Some(format!("{}.assets", protocol));
-      Ok(b)
-    })
+    self.attrs.custom_protocols.insert(
+      protocol.clone(),
+      Box::new(|_, _, api| {
+        api.respond(Response::builder().body(Vec::new()).unwrap());
+      }),
+    );
+    self.platform_specific.with_asset_loader = true;
+    self.platform_specific.asset_loader_domain = Some(format!("{}.assets", protocol));
+    self
   }
 
-  fn with_https_scheme(self, enabled: bool) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific.https_scheme = enabled;
-      Ok(b)
-    })
+  fn with_https_scheme(mut self, enabled: bool) -> Self {
+    self.platform_specific.https_scheme = enabled;
+    self
   }
 }
 
@@ -1802,17 +1689,15 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
   where
     W: gtk::prelude::IsA<gtk::Container>,
   {
-    let parts = self.inner?;
+    self.check_custom_protocol()?;
 
-    InnerWebView::new_gtk(widget, parts.attrs, parts.platform_specific)
+    InnerWebView::new_gtk(widget, self.attrs, self.platform_specific)
       .map(|webview| WebView { webview })
   }
 
-  fn with_extensions_path(self, path: impl Into<PathBuf>) -> Self {
-    self.and_then(|mut b| {
-      b.platform_specific.extension_path = Some(path.into());
-      Ok(b)
-    })
+  fn with_extensions_path(mut self, path: impl Into<PathBuf>) -> Self {
+    self.platform_specific.extension_path = Some(path.into());
+    self
   }
 }
 

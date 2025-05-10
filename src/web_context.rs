@@ -58,18 +58,9 @@ impl WebContext {
     self.data_directory.as_deref()
   }
 
-  #[allow(dead_code)]
-  pub(crate) fn register_custom_protocol(&mut self, name: String) -> Result<(), crate::Error> {
-    if self.custom_protocols.contains(&name) {
-      return Err(crate::Error::ContextDuplicateCustomProtocol(name));
-    }
-
-    Ok(())
-  }
-
   /// Check if a custom protocol has been registered on this context.
-  pub fn is_custom_protocol_registered(&self, name: String) -> bool {
-    self.custom_protocols.contains(&name)
+  pub fn is_custom_protocol_registered(&self, name: &str) -> bool {
+    self.custom_protocols.contains(name)
   }
 
   /// Set if this context allows automation.
