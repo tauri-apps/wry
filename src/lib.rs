@@ -1265,8 +1265,8 @@ impl<'a> WebViewBuilder<'a> {
       target_os = "netbsd",
       target_os = "openbsd",
     ))]
-    for protocol_name in self.attrs.custom_protocols.keys() {
-      if let Some(context) = &mut self.attrs.context {
+    if let Some(context) = &self.attrs.context {
+      for protocol_name in self.attrs.custom_protocols.keys() {
         if context.is_custom_protocol_registered(protocol_name) {
           return Err(crate::Error::ContextDuplicateCustomProtocol(
             protocol_name.to_string(),
