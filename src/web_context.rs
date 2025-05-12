@@ -69,7 +69,7 @@ impl WebContext {
     if self.is_custom_protocol_registered(&name) {
       return Err(crate::Error::ContextDuplicateCustomProtocol(name));
     }
-    self.register_custom_protocol.insert(name);
+    self.custom_protocols.insert(name);
     Ok(())
   }
 
