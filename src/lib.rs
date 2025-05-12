@@ -938,7 +938,10 @@ impl<'a> WebViewBuilder<'a> {
     F: Fn(WebViewId, Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> + 'static,
   {
     if self.attrs.custom_protocols.contains_key(&name) {
-      self.error = Err(crate::Error::DuplicateCustomProtocol(name));
+      // Only record the error if we don't have one yet
+      if self.error.is_ok() {
+        self.error = Err(crate::Error::DuplicateCustomProtocol(name));
+      }
       return self;
     }
     self.attrs.custom_protocols.insert(
@@ -986,7 +989,10 @@ impl<'a> WebViewBuilder<'a> {
     F: Fn(WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + 'static,
   {
     if self.attrs.custom_protocols.contains_key(&name) {
-      self.error = Err(crate::Error::DuplicateCustomProtocol(name));
+      // Only record the error if we don't have one yet
+      if self.error.is_ok() {
+        self.error = Err(crate::Error::DuplicateCustomProtocol(name));
+      }
       return self;
     }
     self.attrs.custom_protocols.insert(name, Box::new(handler));
