@@ -752,6 +752,8 @@ impl Default for WebViewAttributes<'_> {
 pub struct WebViewBuilder<'a> {
   attrs: WebViewAttributes<'a>,
   platform_specific: PlatformSpecificWebViewAttributes,
+  /// Records errors before the [`WebViewBuilder::build`] is called
+  error: crate::Result<()>,
 }
 
 impl<'a> WebViewBuilder<'a> {
@@ -761,6 +763,7 @@ impl<'a> WebViewBuilder<'a> {
       attrs: WebViewAttributes::default(),
       #[allow(clippy::default_constructed_unit_structs)]
       platform_specific: PlatformSpecificWebViewAttributes::default(),
+      error: Ok(()),
     }
   }
 
@@ -775,6 +778,7 @@ impl<'a> WebViewBuilder<'a> {
       attrs,
       #[allow(clippy::default_constructed_unit_structs)]
       platform_specific: PlatformSpecificWebViewAttributes::default(),
+      error: Ok(()),
     }
   }
 
@@ -784,6 +788,7 @@ impl<'a> WebViewBuilder<'a> {
       attrs,
       #[allow(clippy::default_constructed_unit_structs)]
       platform_specific: PlatformSpecificWebViewAttributes::default(),
+      error: Ok(()),
     }
   }
 
@@ -932,6 +937,10 @@ impl<'a> WebViewBuilder<'a> {
   where
     F: Fn(WebViewId, Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> + 'static,
   {
+    if self.attrs.custom_protocols.contains_key(&name) {
+      self.error = Err(crate::Error::DuplicateCustomProtocol(name));
+      return self;
+    }
     self.attrs.custom_protocols.insert(
       name,
       Box::new(move |id, request, responder| {
@@ -976,6 +985,10 @@ impl<'a> WebViewBuilder<'a> {
   where
     F: Fn(WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + 'static,
   {
+    if self.attrs.custom_protocols.contains_key(&name) {
+      self.error = Err(crate::Error::DuplicateCustomProtocol(name));
+      return self;
+    }
     self.attrs.custom_protocols.insert(name, Box::new(handler));
     self
   }
@@ -1295,6 +1308,7 @@ impl<'a> WebViewBuilder<'a> {
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
   pub fn build<W: HasWindowHandle>(self, window: &'a W) -> Result<WebView> {
     self.check_duplicated_custom_protocol()?;
+    self.error?;
 
     InnerWebView::new(window, self.attrs, self.platform_specific).map(|webview| WebView { webview })
   }
@@ -1323,6 +1337,7 @@ impl<'a> WebViewBuilder<'a> {
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
   pub fn build_as_child<W: HasWindowHandle>(self, window: &'a W) -> Result<WebView> {
     self.check_duplicated_custom_protocol()?;
+    self.error?;
 
     InnerWebView::new_as_child(window, self.attrs, self.platform_specific)
       .map(|webview| WebView { webview })
@@ -1690,6 +1705,7 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
     W: gtk::prelude::IsA<gtk::Container>,
   {
     self.check_duplicated_custom_protocol()?;
+    self.error?;
 
     InnerWebView::new_gtk(widget, self.attrs, self.platform_specific)
       .map(|webview| WebView { webview })
