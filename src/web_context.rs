@@ -58,6 +58,21 @@ impl WebContext {
     self.data_directory.as_deref()
   }
 
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+  ))]
+  pub(crate) fn register_custom_protocol(&mut self, name: String) -> Result<(), crate::Error> {
+    if self.is_custom_protocol_registered(&name) {
+      return Err(crate::Error::ContextDuplicateCustomProtocol(name));
+    }
+    self.register_custom_protocol.insert(name);
+    Ok(())
+  }
+
   /// Check if a custom protocol has been registered on this context.
   pub fn is_custom_protocol_registered(&self, name: &str) -> bool {
     self.custom_protocols.contains(name)
