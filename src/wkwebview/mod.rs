@@ -375,10 +375,10 @@ impl InnerWebView {
           webview.setOpaque(false);
 
           let color = objc2_ui_kit::UIColor::colorWithRed_green_blue_alpha(
-            (red / 255).into(),
-            (green / 255).into(),
-            (blue / 255).into(),
-            (alpha / 255).into(),
+            red as f64 / 255.0,
+            green as f64 / 255.0,
+            blue as f64 / 255.0,
+            alpha as f64 / 255.0,
           );
 
           if !is_child {
@@ -854,10 +854,10 @@ r#"Object.defineProperty(window, 'ipc', {
       let (red, green, blue, alpha) = _background_color;
 
       let color = objc2_ui_kit::UIColor::colorWithRed_green_blue_alpha(
-        (red / 255).into(),
-        (green / 255).into(),
-        (blue / 255).into(),
-        (alpha / 255).into(),
+        red as f64 / 255.0,
+        green as f64 / 255.0,
+        blue as f64 / 255.0,
+        alpha as f64 / 255.0,
       );
 
       if !self.is_child {
