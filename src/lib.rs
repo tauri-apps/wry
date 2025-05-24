@@ -937,13 +937,27 @@ impl<'a> WebViewBuilder<'a> {
   where
     F: Fn(WebViewId, Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> + 'static,
   {
-    if self.attrs.custom_protocols.contains_key(&name) {
-      // Only record the error if we don't have one yet
-      if self.error.is_ok() {
-        self.error = Err(crate::Error::DuplicateCustomProtocol(name));
+    #[cfg(any(
+      target_os = "linux",
+      target_os = "dragonfly",
+      target_os = "freebsd",
+      target_os = "netbsd",
+      target_os = "openbsd",
+    ))]
+    if let Some(context) = &mut self.attrs.context {
+      if context.is_custom_protocol_registered(&name) {
+        let err = Err(crate::Error::DuplicateCustomProtocol(name));
+        self.error = self.error.and(err);
+        return self;
       }
+    }
+
+    if self.attrs.custom_protocols.contains_key(&name) {
+      let err = Err(crate::Error::DuplicateCustomProtocol(name));
+      self.error = self.error.and(err);
       return self;
     }
+
     self.attrs.custom_protocols.insert(
       name,
       Box::new(move |id, request, responder| {
@@ -988,13 +1002,27 @@ impl<'a> WebViewBuilder<'a> {
   where
     F: Fn(WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + 'static,
   {
-    if self.attrs.custom_protocols.contains_key(&name) {
-      // Only record the error if we don't have one yet
-      if self.error.is_ok() {
-        self.error = Err(crate::Error::DuplicateCustomProtocol(name));
+    #[cfg(any(
+      target_os = "linux",
+      target_os = "dragonfly",
+      target_os = "freebsd",
+      target_os = "netbsd",
+      target_os = "openbsd",
+    ))]
+    if let Some(context) = &mut self.attrs.context {
+      if context.is_custom_protocol_registered(&name) {
+        let err = Err(crate::Error::DuplicateCustomProtocol(name));
+        self.error = self.error.and(err);
+        return self;
       }
+    }
+
+    if self.attrs.custom_protocols.contains_key(&name) {
+      let err = Err(crate::Error::DuplicateCustomProtocol(name));
+      self.error = self.error.and(err);
       return self;
     }
+
     self.attrs.custom_protocols.insert(name, Box::new(handler));
     self
   }
@@ -1274,28 +1302,6 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Checks if we have already registered these custom protocol handlers
-  /// in shared web contexts on Linux
-  fn check_duplicated_custom_protocol(&self) -> crate::Result<()> {
-    #[cfg(any(
-      target_os = "linux",
-      target_os = "dragonfly",
-      target_os = "freebsd",
-      target_os = "netbsd",
-      target_os = "openbsd",
-    ))]
-    if let Some(context) = &self.attrs.context {
-      for protocol_name in self.attrs.custom_protocols.keys() {
-        if context.is_custom_protocol_registered(protocol_name) {
-          return Err(crate::Error::ContextDuplicateCustomProtocol(
-            protocol_name.to_string(),
-          ));
-        }
-      }
-    }
-    Ok(())
-  }
-
   /// Consume the builder and create the [`WebView`] from a type that implements [`HasWindowHandle`].
   ///
   /// # Platform-specific:
@@ -1313,7 +1319,6 @@ impl<'a> WebViewBuilder<'a> {
   /// - Panics if the provided handle was not supported or invalid.
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
   pub fn build<W: HasWindowHandle>(self, window: &'a W) -> Result<WebView> {
-    self.check_duplicated_custom_protocol()?;
     self.error?;
 
     InnerWebView::new(window, self.attrs, self.platform_specific).map(|webview| WebView { webview })
@@ -1342,7 +1347,6 @@ impl<'a> WebViewBuilder<'a> {
   /// - Panics if the provided handle was not support or invalid.
   /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
   pub fn build_as_child<W: HasWindowHandle>(self, window: &'a W) -> Result<WebView> {
-    self.check_duplicated_custom_protocol()?;
     self.error?;
 
     InnerWebView::new_as_child(window, self.attrs, self.platform_specific)
@@ -1710,7 +1714,6 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
   where
     W: gtk::prelude::IsA<gtk::Container>,
   {
-    self.check_duplicated_custom_protocol()?;
     self.error?;
 
     InnerWebView::new_gtk(widget, self.attrs, self.platform_specific)
