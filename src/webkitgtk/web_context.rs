@@ -5,7 +5,10 @@
 //! Unix platform extensions for [`WebContext`](super::WebContext).
 
 use crate::{Error, RequestAsyncResponder};
-use gtk::glib::{self, MainContext, ObjectExt};
+use gtk::{
+  glib::{self, MainContext, ObjectExt},
+  traits::WidgetExt,
+};
 use http::{header::CONTENT_TYPE, HeaderName, HeaderValue, Request, Response as HttpResponse};
 use soup::{MessageHeaders, MessageHeadersType};
 use std::{
@@ -451,11 +454,18 @@ impl WebViewUriLoader {
         headers,
       }) = self.pop()
       {
+        // ensure that the lock is released when the webview is destroyed before LoadEvent::Finished is handled
+        let self_c = self.clone();
+        webview.connect_destroy(move |_| {
+          self_c.unlock();
+          self_c.clone().flush();
+        });
         // we do not need to listen to failed events because those will finish the change event anyways
+        let self_c = self.clone();
         webview.connect_load_changed(move |_, event| {
           if let LoadEvent::Finished = event {
-            self.unlock();
-            self.clone().flush();
+            self_c.unlock();
+            self_c.clone().flush();
           };
         });
 
