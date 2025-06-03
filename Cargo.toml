@@ -16,7 +16,7 @@ exclude = ["/.changes", "/.github", "/audits", "/wry-logo.svg"]
 
 [package.metadata.docs.rs]
 no-default-features = true
-features = ["drag-drop", "protocol", "os-webview"]
+features = ["drag-drop", "protocol", "os-webview", "linux-request-queue"]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
@@ -26,7 +26,7 @@ rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["drag-drop", "protocol", "os-webview", "x11"]
+default = ["drag-drop", "protocol", "os-webview", "x11", "linux-request-queue"]
 serde = ["dpi/serde"]
 drag-drop = []
 protocol = []
@@ -34,6 +34,7 @@ devtools = []
 transparent = []
 fullscreen = []
 linux-body = ["webkit2gtk/v2_40", "os-webview"]
+linux-request-queue = []
 mac-proxy = []
 os-webview = [
   "javascriptcore-rs",

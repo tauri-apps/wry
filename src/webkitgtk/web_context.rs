@@ -29,6 +29,7 @@ use webkit2gtk::{
 #[derive(Debug)]
 pub struct WebContextImpl {
   context: WebContext,
+  #[cfg(feature = "linux-request-queue")]
   webview_uri_loader: Rc<WebViewUriLoader>,
   automation: bool,
   app_info: Option<ApplicationInfo>,
@@ -83,6 +84,7 @@ impl WebContextImpl {
     Self {
       context,
       automation,
+      #[cfg(feature = "linux-request-queue")]
       webview_uri_loader: Rc::default(),
       app_info: Some(app_info),
     }
@@ -110,14 +112,20 @@ pub trait WebContextExt {
   where
     F: Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + 'static;
 
+  /// Directly loads a URI for a [`WebView`] bypassing the [`WebViewUriLoader`].
+  #[cfg(not(feature = "linux-request-queue"))]
+  fn load_uri(&self, webview: WebView, url: String, headers: Option<http::HeaderMap>);
+
   /// Add a [`WebView`] to the queue waiting to be opened.
   ///
   /// See the [`WebViewUriLoader`] for more information.
+  #[cfg(feature = "linux-request-queue")]
   fn queue_load_uri(&self, webview: WebView, url: String, headers: Option<http::HeaderMap>);
 
   /// Flush all queued [`WebView`]s waiting to load a uri.
   ///
   /// See the [`WebViewUriLoader`] for more information.
+  #[cfg(feature = "linux-request-queue")]
   fn flush_queue_loader(&self);
 
   /// If the context allows automation.
@@ -275,10 +283,32 @@ impl WebContextExt for super::WebContext {
     Ok(())
   }
 
+  #[cfg(not(feature = "linux-request-queue"))]
+  fn load_uri(&self, webview: WebView, uri: String, headers: Option<http::HeaderMap>) {
+    if let Some(headers) = headers {
+      let req = URIRequest::builder().uri(&uri).build();
+
+      if let Some(ref mut req_headers) = req.http_headers() {
+        for (header, value) in headers.iter() {
+          req_headers.append(
+            header.to_string().as_str(),
+            value.to_str().unwrap_or_default(),
+          );
+        }
+      }
+
+      webview.load_request(&req);
+    } else {
+      webview.load_uri(&uri);
+    }
+  }
+
+  #[cfg(feature = "linux-request-queue")]
   fn queue_load_uri(&self, webview: WebView, url: String, headers: Option<http::HeaderMap>) {
     self.os.webview_uri_loader.push(webview, url, headers)
   }
 
+  #[cfg(feature = "linux-request-queue")]
   fn flush_queue_loader(&self) {
     self.os.webview_uri_loader.clone().flush()
   }
@@ -409,12 +439,14 @@ struct WebviewUriRequest {
 /// FIXME: We think this may be an underlying concurrency bug in webkit2gtk as the usual ways of
 /// fixing threading issues are not working. Ideally, the locks are not needed if we can understand
 /// the true cause of the bug.
+#[cfg(feature = "linux-request-queue")]
 #[derive(Debug, Default)]
 struct WebViewUriLoader {
   lock: AtomicBool,
   queue: Mutex<VecDeque<WebviewUriRequest>>,
 }
 
+#[cfg(feature = "linux-request-queue")]
 impl WebViewUriLoader {
   /// Check if the lock is in use.
   fn is_locked(&self) -> bool {

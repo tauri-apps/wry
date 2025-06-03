@@ -290,6 +290,10 @@ Wry uses a set of feature flags to toggle several advanced features.
   libraries and prevent from building documentation on doc.rs fails.
 - `linux-body`: Enables body support of custom protocol request on Linux. Requires
   webkit2gtk v2.40 or above.
+- `linux-request-queue` (default): Enables a request queue for webviews on Linux.
+  This Prevents an unknown concurrency bug with loading multiple URIs at the same time on webkit2gtk.
+  You might want to disable it because it can affect request performance, lead to a deadlock under certain conditions
+  and it might no longer be needed with newer WebKitGTK versions.
 - `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler` and `custom_protocols.
 
 ### Partners
