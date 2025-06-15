@@ -6,6 +6,7 @@ package {{package}}
 
 import {{package}}.RustWebView
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
@@ -58,6 +59,11 @@ abstract class WryActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         create(this)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        newIntent(intent)
     }
 
     override fun onStart() {
@@ -120,6 +126,7 @@ abstract class WryActivity : AppCompatActivity() {
     }
 
     private external fun create(activity: WryActivity)
+    private external fun newIntent(intent: Intent)
     private external fun start()
     private external fun resume()
     private external fun pause()
