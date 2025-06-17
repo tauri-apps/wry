@@ -255,7 +255,7 @@ impl InnerWebView {
 
                   if should_inject_scripts && !initialization_scripts.is_empty() {
                     let mut document = kuchiki::parse_html()
-                      .one(String::from_utf8_lossy(response.body()).into_owned());
+                      .one(String::from_utf8_lossy(response.body()).as_ref()).document_node;
                     let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
                     let mut hashes = Vec::new();
                     with_html_head(&mut document, |head| {
