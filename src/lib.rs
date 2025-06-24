@@ -1487,7 +1487,7 @@ pub trait WebViewBuilderExtWindows {
   /// ## Warning
   ///
   /// - Webview instances with different browser arguments must also have different [data directories](struct.WebContext.html#method.new).
-  /// - By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --enable-features=RemoveRedirectionBitmap`
+  /// - By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
   ///   `--autoplay-policy=no-user-gesture-required` if autoplay is enabled
   ///   and `--proxy-server=<scheme>://<host>:<port>` if a proxy is set.
   ///   so if you use this method, you have to add these arguments yourself if you want to keep the same behavior.

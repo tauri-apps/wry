@@ -123,8 +123,14 @@ impl InnerWebView {
       .map(|id| id.to_string())
       .unwrap_or_else(|| (hwnd.0 as isize).to_string());
 
+    let background_color = if attributes.transparent {
+      Some((0, 0, 0, 0))
+    } else {
+      attributes.background_color
+    };
+
     let env = Self::create_environment(&attributes, pl_attrs.clone())?;
-    let controller = Self::create_controller(hwnd, &env, attributes.incognito)?;
+    let controller = Self::create_controller(hwnd, &env, attributes.incognito, background_color)?;
     let webview = Self::init_webview(
       parent,
       hwnd,
@@ -284,7 +290,7 @@ impl InnerWebView {
       // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
       // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
       // enable white flicker fix
-      let default_args = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --enable-features=RemoveRedirectionBitmap";
+      let default_args = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
       let mut arguments = String::from(default_args);
 
       if attributes.autoplay {
@@ -355,6 +361,7 @@ impl InnerWebView {
     hwnd: HWND,
     env: &ICoreWebView2Environment,
     incognito: bool,
+    background_color: Option<(u8, u8, u8, u8)>,
   ) -> Result<ICoreWebView2Controller> {
     let (tx, rx) = mpsc::channel();
     let env = env.clone();
@@ -374,6 +381,21 @@ impl InnerWebView {
     unsafe {
       if let Ok(env10) = env10 {
         let controller_opts = env10.CreateCoreWebView2ControllerOptions()?;
+
+        if let Some((r, g, b, mut a)) = background_color {
+          if let Ok(opts3) = controller_opts.cast::<ICoreWebView2ControllerOptions3>() {
+            if a != 0 {
+              a = 255;
+            }
+            opts3.SetDefaultBackgroundColor(COREWEBVIEW2_COLOR {
+              R: r,
+              G: g,
+              B: b,
+              A: a,
+            })?;
+          }
+        }
+
         controller_opts.SetIsInPrivateModeEnabled(incognito)?;
         env10.CreateCoreWebView2ControllerWithOptions(hwnd, &controller_opts, &handler)?;
       } else {
