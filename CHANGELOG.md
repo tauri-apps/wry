@@ -1,5 +1,20 @@
 # Changelog
 
+## \[0.52.0]
+
+- [`5e6b0e6`](https://github.com/tauri-apps/wry/commit/5e6b0e689e38068c817ed1beb87af60b0fcbe0e2) ([#1555](https://github.com/tauri-apps/wry/pull/1555) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) Added iOS support for `set_background_color`.
+- [`99dab51`](https://github.com/tauri-apps/wry/commit/99dab51fef0dfd49647a8e568f383553bbab6551) ([#1570](https://github.com/tauri-apps/wry/pull/1570) by [@renovate](https://github.com/tauri-apps/wry/../../renovate)) Updated `webview2-com` to `0.38`.
+- [`41f4a3a`](https://github.com/tauri-apps/wry/commit/41f4a3a65e0c2ec8e63eedaee9b7fa4d6d3f4fa7) ([#1572](https://github.com/tauri-apps/wry/pull/1572) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) On Windows on systems running WebView2 v137+ wry now uses a new default background color API which should reduce white flashes. The use of the `RemoveRedirectionBitmap` browser flag (v134+) was removed due to crashes on Insider builds.
+- [`eb40ac8`](https://github.com/tauri-apps/wry/commit/eb40ac8b2ab691bbc0e75bc9c27ba53e2f645e03) ([#1528](https://github.com/tauri-apps/wry/pull/1528) by [@aurelj](https://github.com/tauri-apps/wry/../../aurelj)) Added `x11` feature flag (enabled by default).
+
+### breaking
+
+- [`1567635`](https://github.com/tauri-apps/wry/commit/1567635ba5f660827d4ae20f4e226ed7fa595f12) ([#1558](https://github.com/tauri-apps/wry/pull/1558) by [@amrbashir](https://github.com/tauri-apps/wry/../../amrbashir)) Rename `WebViewBuilder` methods for consistency and clarity:
+
+  - Renamed `WebViewBuilder::with_web_context` to `WebViewBuilder::new_with_web_context`
+  - Renamed `WebViewBuilder::with_attributes` to `WebViewBuilder::new_with_attributes`
+- [`f868658`](https://github.com/tauri-apps/wry/commit/f868658d6ffbf0a6b944faebb3b7565726c82f57) ([#1556](https://github.com/tauri-apps/wry/pull/1556) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) `WebContext::is_custom_protocol_registered` now takes `&str` instead of `String`
+
 ## \[0.51.2]
 
 - [`f7781a7`](https://github.com/tauri-apps/wry/commit/f7781a788dbb0d07bea27f18daf844d70a3958a3) ([#1544](https://github.com/tauri-apps/wry/pull/1544) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Allow modifying or removing the input accessory view on iOS via `WebViewBuilderExtIos::with_input_accessory_view_builder`.
