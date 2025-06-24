@@ -1654,7 +1654,7 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
       }),
     );
     self.platform_specific.with_asset_loader = true;
-    self.platform_specific.asset_loader_domain = Some(format!("{}.assets", protocol));
+    self.platform_specific.asset_loader_domain = Some(format!("{protocol}.assets"));
     self
   }
 

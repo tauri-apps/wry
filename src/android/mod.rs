@@ -113,7 +113,7 @@ pub unsafe fn android_setup(
   let webchrome_client = env
     .new_object(
       &rust_webchrome_client_class,
-      &format!("(L{}/WryActivity;)V", PACKAGE.get().unwrap()),
+      format!("(L{}/WryActivity;)V", PACKAGE.get().unwrap()),
       &[activity.as_obj().into()],
     )
     .unwrap();
@@ -217,12 +217,12 @@ impl InnerWebView {
         move |webview_id: &str, mut request, is_document_start_script_enabled| {
           let uri = request.uri().to_string();
           if let Some((custom_protocol_uri, custom_protocol_closure)) = custom_protocols.iter().find(|(name, _)| {
-            uri.starts_with(&format!("{scheme}://{}.", name))
+            uri.starts_with(&format!("{scheme}://{name}."))
           }) {
             let uri_res = uri
               .replace(
-                &format!("{scheme}://{}.", custom_protocol_uri),
-                &format!("{}://", custom_protocol_uri),
+                &format!("{scheme}://{custom_protocol_uri}."),
+                &format!("{custom_protocol_uri}://"),
               )
               .parse();
 
