@@ -46,7 +46,6 @@ pub struct Context<'a, 'b> {
 
 pub(crate) struct StaticValue<T>(Mutex<T>);
 
-unsafe impl<T> Send for StaticValue<T> {}
 unsafe impl<T> Sync for StaticValue<T> {}
 
 impl<T> std::ops::Deref for StaticValue<T> {
@@ -69,9 +68,7 @@ macro_rules! define_static_handlers {
           $($fields,)*
         }
       }
-    }
-    unsafe impl Send for $type_name {}
-    unsafe impl Sync for $type_name {})*
+    })*
   };
 }
 
