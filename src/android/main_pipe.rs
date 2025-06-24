@@ -226,13 +226,13 @@ impl<'a> MainPipe<'a> {
           )?;
 
           if let Some(on_webview_created) = on_webview_created {
-            if let Err(e) = on_webview_created(super::Context {
+            if let Err(_e) = on_webview_created(super::Context {
               env: &mut self.env,
               activity,
               webview: &webview,
             }) {
               #[cfg(feature = "tracing")]
-              tracing::warn!("failed to run webview created hook: {e}");
+              tracing::warn!("failed to run webview created hook: {_e}");
             }
           }
 
