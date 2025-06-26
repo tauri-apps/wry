@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.52.1]
+
+- [`63eaab8`](https://github.com/tauri-apps/wry/commit/63eaab80bad7c5f888893c79690c5b626d015eb3) ([#1573](https://github.com/tauri-apps/wry/pull/1573) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Fix `wry::DragDropEvent::Drop::paths` returns random data on Windows
+
 ## \[0.52.0]
 
 - [`5e6b0e6`](https://github.com/tauri-apps/wry/commit/5e6b0e689e38068c817ed1beb87af60b0fcbe0e2) ([#1555](https://github.com/tauri-apps/wry/pull/1555) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) Added iOS support for `set_background_color`.
