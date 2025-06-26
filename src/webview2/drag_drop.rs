@@ -125,13 +125,11 @@ impl DragDropTarget {
           // Previously, this was using a fixed size array of MAX_PATH length, but the
           // Windows API allows longer paths under certain circumstances.
           let character_count = DragQueryFileW(hdrop, i, None) as usize;
-          let str_len = character_count + 1;
 
           // Fill path_buf with the null-terminated file name
-          let mut path_buf = Vec::with_capacity(str_len);
+          let str_len = character_count + 1;
+          let mut path_buf = vec![0; str_len];
           DragQueryFileW(hdrop, i, Some(&mut path_buf));
-          path_buf.set_len(str_len);
-
           callback(OsString::from_wide(&path_buf[0..character_count]).into());
         }
 
