@@ -61,3 +61,4 @@ jobs:
           labels: "version updates"
           branch: "release"
           body: ${{ steps.covector.outputs.change }}
+          sign-commits: true
