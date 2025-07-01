@@ -45,10 +45,10 @@ use objc2_core_foundation::{CGPoint, CGRect};
 use objc2_foundation::{
   ns_string, MainThreadMarker, NSArray, NSBundle, NSDate, NSError, NSHTTPCookie,
   NSHTTPCookieDomain, NSHTTPCookieExpires, NSHTTPCookieMaximumAge, NSHTTPCookieName,
-  NSHTTPCookiePath, NSHTTPCookiePropertyKey, NSHTTPCookieSameSiteLax, NSHTTPCookieSameSiteStrict,
-  NSHTTPCookieSecure, NSHTTPCookieValue, NSHTTPCookieVersion, NSJSONSerialization,
-  NSMutableDictionary, NSMutableURLRequest, NSNumber, NSObjectNSKeyValueCoding, NSObjectProtocol,
-  NSString, NSUTF8StringEncoding, NSURL, NSUUID,
+  NSHTTPCookiePath, NSHTTPCookiePropertyKey, NSHTTPCookieSameSiteLax, NSHTTPCookieSameSitePolicy,
+  NSHTTPCookieSameSiteStrict, NSHTTPCookieSecure, NSHTTPCookieValue, NSHTTPCookieVersion,
+  NSJSONSerialization, NSMutableDictionary, NSMutableURLRequest, NSNumber,
+  NSObjectNSKeyValueCoding, NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL, NSUUID,
 };
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::{UIScrollView, UIViewAutoresizing};
@@ -1030,6 +1030,18 @@ r#"Object.defineProperty(window, 'ipc', {
       // - <https://stackoverflow.com/a/41697557>
       // - <https://developer.apple.com/forums/thread/701770?answerId=706717022#706717022>
       properties.insert(ns_string!("HttpOnly"), http_only);
+    }
+
+    if let Some(same_site) = cookie.same_site() {
+      match same_site {
+        cookie::SameSite::Lax => {
+          properties.insert(NSHTTPCookieSameSitePolicy, NSHTTPCookieSameSiteLax);
+        }
+        cookie::SameSite::Strict => {
+          properties.insert(NSHTTPCookieSameSitePolicy, NSHTTPCookieSameSiteStrict);
+        }
+        cookie::SameSite::None => {}
+      };
     }
 
     let wkwebview_cookie = NSHTTPCookie::cookieWithProperties(&properties)
