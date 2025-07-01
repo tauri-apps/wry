@@ -45,8 +45,18 @@ fn main() -> wry::Result<()> {
       .inner(),
   )?;
 
+  let cookie_deleted = cookie::Cookie::build(("will_be_deleted", "will_be_deleted"));
+
+  webview.set_cookie(cookie_deleted.inner())?;
+  println!("Setting Cookies:");
   for cookie in webview.cookies()? {
-    println!("{}", cookie);
+    println!("\t{cookie}");
+  }
+
+  println!("After Deleting:");
+  webview.delete_cookie(cookie_deleted.inner())?;
+  for cookie in webview.cookies()? {
+    println!("\t{cookie}");
   }
 
   event_loop.run(move |event, _, control_flow| {
