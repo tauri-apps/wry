@@ -1002,7 +1002,7 @@ r#"Object.defineProperty(window, 'ipc', {
           NSHTTPCookiePath,
           NSHTTPCookieDomain,
         ],
-        &[&*name, &*value, &*path, &*domain],
+        &[&name, &value, &path, &domain],
       );
 
     if let Some(max_age_) = cookie.max_age() {
