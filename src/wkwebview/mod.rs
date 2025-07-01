@@ -44,9 +44,11 @@ use objc2_core_foundation::CGSize;
 use objc2_core_foundation::{CGPoint, CGRect};
 use objc2_foundation::{
   ns_string, MainThreadMarker, NSArray, NSBundle, NSDate, NSError, NSHTTPCookie,
-  NSHTTPCookieSameSiteLax, NSHTTPCookieSameSiteStrict, NSJSONSerialization, NSMutableURLRequest,
-  NSNumber, NSObjectNSKeyValueCoding, NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL,
-  NSUUID,
+  NSHTTPCookieDomain, NSHTTPCookieExpires, NSHTTPCookieMaximumAge, NSHTTPCookieName,
+  NSHTTPCookiePath, NSHTTPCookiePropertyKey, NSHTTPCookieSameSiteLax, NSHTTPCookieSameSiteStrict,
+  NSHTTPCookieSecure, NSHTTPCookieValue, NSHTTPCookieVersion, NSJSONSerialization,
+  NSMutableDictionary, NSMutableURLRequest, NSNumber, NSObjectNSKeyValueCoding, NSObjectProtocol,
+  NSString, NSUTF8StringEncoding, NSURL, NSUUID,
 };
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::{UIScrollView, UIViewAutoresizing};
@@ -979,6 +981,70 @@ r#"Object.defineProperty(window, 'ipc', {
     cookie_builder.build()
   }
 
+  unsafe fn cookie_into_wkwebview(cookie: &cookie::Cookie<'_>) -> Retained<NSHTTPCookie> {
+    let nstring_true: &'static NSString = ns_string!("TRUE");
+    let nstring_false: &'static NSString = ns_string!("FALSE");
+    let nstring_0: &'static NSString = ns_string!("0");
+    let nstring_1: &'static NSString = ns_string!("1");
+
+    let name = NSString::from_str(cookie.name());
+    let value = NSString::from_str(cookie.value());
+    let path = cookie.path().map_or_else(NSString::new, NSString::from_str);
+    let domain = cookie
+      .domain()
+      .map_or_else(NSString::new, NSString::from_str);
+
+    let properties: Retained<NSMutableDictionary<NSHTTPCookiePropertyKey, AnyObject>> =
+      NSMutableDictionary::from_slices(
+        &[
+          NSHTTPCookieName,
+          NSHTTPCookieValue,
+          NSHTTPCookiePath,
+          NSHTTPCookieDomain,
+        ],
+        &[&*name, &*value, &*path, &*domain],
+      );
+
+    if let Some(max_age_) = cookie.max_age() {
+      let max_age = NSString::from_str(&max_age_.whole_seconds().to_string());
+      properties.insert(NSHTTPCookieMaximumAge, &*max_age);
+      properties.insert(NSHTTPCookieVersion, nstring_1);
+    } else if let Some(dt) = cookie.expires_datetime() {
+      let expires = NSDate::dateWithTimeIntervalSince1970(dt.unix_timestamp() as f64);
+      properties.insert(NSHTTPCookieExpires, &*expires);
+      properties.insert(NSHTTPCookieVersion, nstring_0);
+    }
+
+    if let Some(secure) = cookie.secure() {
+      let secure = if secure { nstring_true } else { nstring_false };
+      properties.insert(NSHTTPCookieSecure, secure);
+    }
+
+    if let Some(http_only) = cookie.http_only() {
+      let http_only = if http_only {
+        nstring_true
+      } else {
+        nstring_false
+      };
+      // ref:
+      // - <https://stackoverflow.com/a/41697557>
+      // - <https://developer.apple.com/forums/thread/701770?answerId=706717022#706717022>
+      properties.insert(ns_string!("HttpOnly"), http_only);
+    }
+
+    let wkwebview_cookie = NSHTTPCookie::cookieWithProperties(&properties)
+      .expect("failed to create wkwebview cookie, report this as bug to `wry`");
+
+    // check if `HttpOnly` works as expected
+    debug_assert_eq!(
+      wkwebview_cookie.isHTTPOnly(),
+      cookie.http_only().unwrap_or(false),
+      "HTTPOnly mismatch, report this as bug to `wry`"
+    );
+
+    wkwebview_cookie
+  }
+
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
     let url = url::Url::parse(url)?;
 
@@ -1022,6 +1088,42 @@ r#"Object.defineProperty(window, 'ipc', {
           },
         ));
 
+      wait_for_blocking_operation(rx)
+    }
+  }
+
+  pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    unsafe {
+      let wkwebview_cookie = Self::cookie_into_wkwebview(cookie);
+      self
+        .data_store
+        .httpCookieStore()
+        .setCookie_completionHandler(
+          &wkwebview_cookie,
+          Some(&block2::RcBlock::new(move || {
+            let _ = tx.send(());
+          })),
+        );
+      wait_for_blocking_operation(rx)
+    }
+  }
+
+  pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    unsafe {
+      let wkwebview_cookie = Self::cookie_into_wkwebview(cookie);
+      self
+        .data_store
+        .httpCookieStore()
+        .deleteCookie_completionHandler(
+          &wkwebview_cookie,
+          Some(&block2::RcBlock::new(move || {
+            let _ = tx.send(());
+          })),
+        );
       wait_for_blocking_operation(rx)
     }
   }

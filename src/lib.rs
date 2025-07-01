@@ -1836,11 +1836,19 @@ impl WebView {
   }
 
   /// Set a cookie for the webview.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Android**: Not supported.
   pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
     self.webview.set_cookie(cookie)
   }
 
   /// Delete a cookie for the webview.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Android**: Not supported.
   pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
     self.webview.delete_cookie(cookie)
   }

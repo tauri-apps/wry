@@ -416,6 +416,16 @@ impl InnerWebView {
     rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
   }
 
+  pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    // Unsupported
+    Ok(())
+  }
+
+  pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    // Unsupported
+    Ok(())
+  }
+
   pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {
     Ok(Vec::new())
   }
