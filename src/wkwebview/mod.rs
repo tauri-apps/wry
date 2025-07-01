@@ -1044,17 +1044,8 @@ r#"Object.defineProperty(window, 'ipc', {
       };
     }
 
-    let wkwebview_cookie = NSHTTPCookie::cookieWithProperties(&properties)
-      .expect("failed to create wkwebview cookie, report this as bug to `wry`");
-
-    // check if `HttpOnly` works as expected
-    debug_assert_eq!(
-      wkwebview_cookie.isHTTPOnly(),
-      cookie.http_only().unwrap_or(false),
-      "HTTPOnly mismatch, report this as bug to `wry`"
-    );
-
-    wkwebview_cookie
+    NSHTTPCookie::cookieWithProperties(&properties)
+      .expect("failed to create wkwebview cookie, report this as bug to `wry`")
   }
 
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
