@@ -899,6 +899,49 @@ impl InnerWebView {
     cookie_builder.build()
   }
 
+  fn cookie_into_soup_cookie(cookie: &cookie::Cookie<'_>) -> soup::Cookie {
+    let mut soup_cookie = soup::Cookie::new(
+      cookie.name(),
+      cookie.value(),
+      cookie.domain().unwrap_or(""),
+      cookie.path().unwrap_or(""),
+      cookie
+        .max_age()
+        .map(|d| d.whole_seconds() as i32)
+        .unwrap_or(-1),
+    );
+
+    if let Some(dt) = cookie.expires_datetime() {
+      soup_cookie.set_expires(&glib::DateTime::from_unix_utc(dt.unix_timestamp()).unwrap());
+    }
+
+    if let Some(http_only) = cookie.http_only() {
+      soup_cookie.set_http_only(http_only);
+    }
+
+    if let Some(same_site) = cookie.same_site() {
+      soup_cookie.set_same_site_policy(match same_site {
+        cookie::SameSite::Lax => soup::SameSitePolicy::Lax,
+        cookie::SameSite::Strict => soup::SameSitePolicy::Strict,
+        cookie::SameSite::None => soup::SameSitePolicy::None,
+      });
+    }
+
+    if let Some(secure) = cookie.secure() {
+      soup_cookie.set_secure(secure);
+    }
+
+    if let Some(same_site) = cookie.same_site() {
+      soup_cookie.set_same_site_policy(match same_site {
+        cookie::SameSite::Lax => soup::SameSitePolicy::Lax,
+        cookie::SameSite::Strict => soup::SameSitePolicy::Strict,
+        cookie::SameSite::None => soup::SameSitePolicy::None,
+      })
+    };
+
+    soup_cookie
+  }
+
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
     let (tx, rx) = std::sync::mpsc::channel();
     self
@@ -942,6 +985,50 @@ impl InnerWebView {
           });
           let _ = tx.send(cookies);
         })
+      });
+
+    loop {
+      gtk::main_iteration();
+
+      if let Ok(response) = rx.try_recv() {
+        return response.map_err(Into::into);
+      }
+    }
+  }
+
+  pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    self
+      .webview
+      .website_data_manager()
+      .and_then(|manager| manager.cookie_manager())
+      .map(|cookies_manager| {
+        let mut soup_cookie = Self::cookie_into_soup_cookie(cookie);
+        cookies_manager.add_cookie(&mut soup_cookie, None::<&Cancellable>, move |ret| {
+          let _ = tx.send(ret);
+        });
+      });
+
+    loop {
+      gtk::main_iteration();
+
+      if let Ok(response) = rx.try_recv() {
+        return response.map_err(Into::into);
+      }
+    }
+  }
+
+  pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    self
+      .webview
+      .website_data_manager()
+      .and_then(|manager| manager.cookie_manager())
+      .map(|cookies_manager| {
+        let mut soup_cookie = Self::cookie_into_soup_cookie(cookie);
+        cookies_manager.delete_cookie(&mut soup_cookie, None::<&Cancellable>, move |ret| {
+          let _ = tx.send(ret);
+        });
       });
 
     loop {

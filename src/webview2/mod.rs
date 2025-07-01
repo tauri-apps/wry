@@ -1469,6 +1469,57 @@ impl InnerWebView {
     Ok(cookie_builder.build())
   }
 
+  unsafe fn cookie_into_win32(
+    cookie_manager: &ICoreWebView2CookieManager,
+    cookie: &cookie::Cookie<'_>,
+  ) -> windows::core::Result<ICoreWebView2Cookie> {
+    let name = HSTRING::from(cookie.name());
+    let value = HSTRING::from(cookie.value());
+    let domain = match cookie.domain() {
+      Some(domain) => HSTRING::from(domain),
+      None => HSTRING::new(),
+    };
+    let path = match cookie.path() {
+      Some(path) => HSTRING::from(path),
+      None => HSTRING::new(),
+    };
+
+    let win32_cookie = cookie_manager.CreateCookie(&name, &value, &domain, &path)?;
+
+    let expires = if let Some(max_age) = cookie.max_age() {
+      let expires_ = cookie::time::OffsetDateTime::now_utc()
+        .saturating_add(max_age)
+        .unix_timestamp();
+      Some(expires_)
+    } else if let Some(dt) = cookie.expires_datetime() {
+      Some(dt.unix_timestamp())
+    } else {
+      None
+    };
+    if let Some(expires) = expires {
+      win32_cookie.SetExpires(expires as f64)?;
+    }
+
+    if let Some(http_only) = cookie.http_only() {
+      win32_cookie.SetIsHttpOnly(http_only)?;
+    }
+
+    if let Some(same_site) = cookie.same_site() {
+      let same_site = match same_site {
+        cookie::SameSite::Lax => COREWEBVIEW2_COOKIE_SAME_SITE_KIND_LAX,
+        cookie::SameSite::Strict => COREWEBVIEW2_COOKIE_SAME_SITE_KIND_STRICT,
+        cookie::SameSite::None => COREWEBVIEW2_COOKIE_SAME_SITE_KIND_NONE,
+      };
+      win32_cookie.SetSameSite(same_site)?;
+    }
+
+    if let Some(secure) = cookie.secure() {
+      win32_cookie.SetIsSecure(secure)?;
+    }
+
+    Ok(win32_cookie)
+  }
+
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
     let uri = HSTRING::from(url);
     self.cookies_inner(PCWSTR::from_raw(uri.as_ptr()))
@@ -1517,6 +1568,26 @@ impl InnerWebView {
     }
 
     webview2_com::wait_with_pump(rx).map_err(Into::into)
+  }
+
+  pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    let webview = self.webview.cast::<ICoreWebView2_2>()?;
+    unsafe {
+      let cookie_manager = webview.CookieManager()?;
+      let cookie = Self::cookie_into_win32(&cookie_manager, cookie)?;
+      cookie_manager.AddOrUpdateCookie(&cookie)?;
+    }
+    Ok(())
+  }
+
+  pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    let webview = self.webview.cast::<ICoreWebView2_2>()?;
+    unsafe {
+      let cookie_manager = webview.CookieManager()?;
+      let cookie = Self::cookie_into_win32(&cookie_manager, cookie)?;
+      cookie_manager.DeleteCookie(&cookie)?;
+    }
+    Ok(())
   }
 
   pub fn reparent(&self, parent: isize) -> Result<()> {

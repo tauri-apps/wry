@@ -1835,6 +1835,16 @@ impl WebView {
     self.webview.cookies()
   }
 
+  /// Set a cookie for the webview.
+  pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    self.webview.set_cookie(cookie)
+  }
+
+  /// Delete a cookie for the webview.
+  pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    self.webview.delete_cookie(cookie)
+  }
+
   /// Open the web inspector which is usually called dev tool.
   ///
   /// ## Platform-specific
