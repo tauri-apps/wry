@@ -931,14 +931,6 @@ impl InnerWebView {
       soup_cookie.set_secure(secure);
     }
 
-    if let Some(same_site) = cookie.same_site() {
-      soup_cookie.set_same_site_policy(match same_site {
-        cookie::SameSite::Lax => soup::SameSitePolicy::Lax,
-        cookie::SameSite::Strict => soup::SameSitePolicy::Strict,
-        cookie::SameSite::None => soup::SameSitePolicy::None,
-      })
-    };
-
     soup_cookie
   }
 
