@@ -60,6 +60,9 @@ define_class!(
           ) {
             if let Ok(r) = Request::builder().uri(url).body(js.to_string()) {
               ipc_handler(r);
+            } else {
+              #[cfg(feature = "tracing")]
+              tracing::warn!("WebView received invalid IPC request: {}", js);
             }
             return;
           }
