@@ -7,7 +7,7 @@
 [![https://good-labs.github.io/greater-good-affirmation/assets/images/badge.svg](https://good-labs.github.io/greater-good-affirmation/assets/images/badge.svg)](https://good-labs.github.io/greater-good-affirmation)
 [![support](https://img.shields.io/badge/sponsor-Open%20Collective-blue.svg)](https://opencollective.com/tauri)
 
-Wry is a Cross-platform WebView rendering library.
+Wry is a cross-platform WebView rendering library.
 
 The webview requires a running event loop and a window type that implements [`HasWindowHandle`],
 or a gtk container widget if you need to support X11 and Wayland.
@@ -239,11 +239,11 @@ WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7,
 
 #### Android
 
-In order for `wry` to be able to create webviews on Android, there is a few requirements that your application needs to uphold:
+In order for `wry` to be able to create webviews on Android, there are a few requirements that your application needs to uphold:
 1. You need to set a few environment variables that will be used to generate the necessary kotlin
    files that you need to include in your Android application for wry to function properly.
    - `WRY_ANDROID_PACKAGE`: which is the reversed domain name of your android project and the app name in snake_case, for example, `com.wry.example.wry_app`
-   - `WRY_ANDROID_LIBRARY`: for example, if your cargo project has a lib name `wry_app`, it will generate `libwry_app.so` so you se this env var to `wry_app`
+   - `WRY_ANDROID_LIBRARY`: for example, if your cargo project has a lib name `wry_app`, it will generate `libwry_app.so` so you set this env var to `wry_app`
    - `WRY_ANDROID_KOTLIN_FILES_OUT_DIR`: for example, `path/to/app/src/main/kotlin/com/wry/example`
 2. Your main Android Activity needs to inherit `AppCompatActivity`, preferably it should use the generated `WryActivity` or inherit it.
 3. Your Rust app needs to call `wry::android_setup` function to setup the necessary logic to be able to create webviews later on.
@@ -258,7 +258,7 @@ It is recommended to use [`tao`](https://docs.rs/tao/latest/tao/) crate as it pr
       com_example,
       wry_app,
       WryActivity,
-      wry::android_setup, // pass the wry::android_setup function to tao which will invoke when the event loop is created
+      wry::android_setup, // pass the wry::android_setup function to tao which will be invoked when the event loop is created
       _start_app
   );
   wry::android_binding!(com_example, ttt);
@@ -267,7 +267,7 @@ It is recommended to use [`tao`](https://docs.rs/tao/latest/tao/) crate as it pr
 
 If this feels overwhelming, you can just use the preconfigured template from [`cargo-mobile2`](https://github.com/tauri-apps/cargo-mobile2).
 
-For more inforamtion, checkout [MOBILE.md](https://github.com/tauri-apps/wry/blob/dev/MOBILE.md).
+For more information, check out [MOBILE.md](https://github.com/tauri-apps/wry/blob/dev/MOBILE.md).
 
 ### Feature flags
 
@@ -277,10 +277,10 @@ Wry uses a set of feature flags to toggle several advanced features.
   for the crate to work. This feature was added in preparation of other ports like cef and servo.
 - `protocol` (default): Enables [`WebViewBuilder::with_custom_protocol`] to define custom URL scheme for handling tasks like
   loading assets.
-- `drag-drop` (default): Enables [`WebViewBuilder::with_drag_drop_handler`] to control the behaviour when there are files
+- `drag-drop` (default): Enables [`WebViewBuilder::with_drag_drop_handler`] to control the behavior when there are files
   interacting with the window.
 - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
-  On **macOS**, enabling devtools, requires calling private apis so you should not enable this flag in release
+  On **macOS**, enabling devtools, requires calling private APIs so you should not enable this flag in release
   build if your app needs to publish to App Store.
 - `transparent`: Transparent background on **macOS** requires calling private functions.
   Avoid this in release build if your app needs to publish to App Store.
@@ -288,8 +288,8 @@ Wry uses a set of feature flags to toggle several advanced features.
   Avoid this in release build if your app needs to publish to App Store.
   libraries and prevent from building documentation on doc.rs fails.
 - `linux-body`: Enables body support of custom protocol request on Linux. Requires
-  webkit2gtk v2.40 or above.
-- `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler` and `custom_protocols.
+  WebKit2GTK v2.40 or above.
+- `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler`, and `custom_protocols`.
 
 ### Partners
 
