@@ -233,6 +233,7 @@ If you are cross-compiling for macOS using [osxcross](https://github.com/tpoecht
 ```bash
 RUSTFLAGS="-l framework=WebKit" cargo build --target=x86_64-apple-darwin --release
 ```
+
 #### Windows
 
 WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7, 8, 10 and 11.
@@ -240,6 +241,7 @@ WebView2 provided by Microsoft Edge Chromium is used. So wry supports Windows 7,
 #### Android
 
 In order for `wry` to be able to create webviews on Android, there are a few requirements that your application needs to uphold:
+
 1. You need to set a few environment variables that will be used to generate the necessary kotlin
    files that you need to include in your Android application for wry to function properly.
    - `WRY_ANDROID_PACKAGE`: which is the reversed domain name of your android project and the app name in snake_case, for example, `com.wry.example.wry_app`
@@ -286,7 +288,6 @@ Wry uses a set of feature flags to toggle several advanced features.
   Avoid this in release build if your app needs to publish to App Store.
 - `fullscreen`: Fullscreen video and other media on **macOS** requires calling private functions.
   Avoid this in release build if your app needs to publish to App Store.
-  libraries and prevent from building documentation on doc.rs fails.
 - `linux-body`: Enables body support of custom protocol request on Linux. Requires
   WebKit2GTK v2.40 or above.
 - `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler`, and `custom_protocols`.
