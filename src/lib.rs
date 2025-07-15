@@ -1360,6 +1360,8 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   allow_link_preview: bool,
   #[cfg(target_os = "ios")]
   input_accessory_view_builder: Option<Box<InputAccessoryViewBuilder>>,
+  #[cfg(target_os = "ios")]
+  limit_navigations_to_app_bound_domains: bool,
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -1372,6 +1374,8 @@ impl Default for PlatformSpecificWebViewAttributes {
       allow_link_preview: true,
       #[cfg(target_os = "ios")]
       input_accessory_view_builder: None,
+      #[cfg(target_os = "ios")]
+      limit_navigations_to_app_bound_domains: false,
     }
   }
 }
@@ -1432,6 +1436,30 @@ pub trait WebViewBuilderExtIos {
     self,
     builder: F,
   ) -> Self;
+  /// Whether to limit navigations to App-Bound Domains. This is necessary
+  /// to enable Service Workers on iOS.
+  ///
+  /// Note: If you set limit_navigations to true
+  /// make sure to add the following to Info.plist in the iOS project:
+  /// ```xml
+  /// <plist>
+  /// <dict>
+  /// 	<key>WKAppBoundDomains</key>
+  /// 	<array>
+  /// 		<string>localhost</string>
+  /// 	</array>
+  /// </dict>
+  /// </plist>
+  /// ```
+  /// You should also add any additional domains which your app requests assets from.
+  /// Assets served through custom protocols like Tauri's IPC are added to the
+  /// list automatically. Available on iOS only.
+  ///
+  /// Default is false.
+  ///
+  /// See https://webkit.org/blog/10882/app-bound-domains/ and
+  /// https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/limitsnavigationstoappbounddomains
+  fn with_limit_navigations_to_app_bound_domains(self, limit_navigations: bool) -> Self;
 }
 
 #[cfg(target_os = "ios")]
@@ -1446,6 +1474,12 @@ impl WebViewBuilderExtIos for WebViewBuilder<'_> {
       .platform_specific
       .input_accessory_view_builder
       .replace(Box::new(builder));
+    self
+  }
+  fn with_limit_navigations_to_app_bound_domains(mut self, limit_navigations: bool) -> Self {
+    self
+      .platform_specific
+      .limit_navigations_to_app_bound_domains = limit_navigations;
     self
   }
 }

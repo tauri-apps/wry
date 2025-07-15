@@ -63,6 +63,9 @@ use once_cell::sync::Lazy;
 
 #[cfg(target_os = "ios")]
 use crate::wkwebview::ios::WKWebView::WKWebView;
+#[cfg(target_os = "ios")]
+use crate::wkwebview::util::operating_system_version;
+
 #[cfg(target_os = "macos")]
 use objc2_web_kit::WKWebView;
 
@@ -283,6 +286,12 @@ impl InnerWebView {
       let _preference = config.preferences();
       let _yes = NSNumber::numberWithBool(true);
 
+      #[cfg(target_os = "ios")]
+      {
+        if pl_attrs.limit_navigations_to_app_bound_domains && operating_system_version().0 >= 14 {
+          config.setLimitsNavigationsToAppBoundDomains(true);
+        }
+      }
       #[cfg(feature = "mac-proxy")]
       if let Some(proxy_config) = attributes.proxy_config {
         let proxy_config = match proxy_config {
