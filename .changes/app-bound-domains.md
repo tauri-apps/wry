@@ -1,5 +1,5 @@
 ---
-"wry": "minor"
+"wry": "patch"
 ---
 
 Add `WebViewBuilder::with_limit_navigations_to_app_bound_domains` only on iOS.
