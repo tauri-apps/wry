@@ -347,7 +347,12 @@
 
 mod error;
 mod proxy;
-#[cfg(any(target_os = "macos", target_os = "android", target_os = "ios"))]
+#[cfg(any(
+  target_os = "macos",
+  target_os = "android",
+  target_os = "ios",
+  target_env = "ohos"
+))]
 mod util;
 mod web_context;
 
@@ -394,6 +399,13 @@ pub use self::webview2::ScrollBarStyle;
 use self::webview2::*;
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
+
+#[cfg(target_env = "ohos")]
+use openharmony_ability::OpenHarmonyApp;
+#[cfg(target_env = "ohos")]
+pub(crate) mod ohos;
+#[cfg(target_env = "ohos")]
+pub use ohos::*;
 
 use std::{borrow::Cow, collections::HashMap, path::PathBuf, rc::Rc};
 
@@ -936,12 +948,15 @@ impl<'a> WebViewBuilder<'a> {
   where
     F: Fn(WebViewId, Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> + 'static,
   {
-    #[cfg(any(
-      target_os = "linux",
-      target_os = "dragonfly",
-      target_os = "freebsd",
-      target_os = "netbsd",
-      target_os = "openbsd",
+    #[cfg(all(
+      any(
+        target_os = "linux",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+      ),
+      not(target_env = "ohos")
     ))]
     if let Some(context) = &mut self.attrs.context {
       if context.is_custom_protocol_registered(&name) {
@@ -1697,24 +1712,40 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
   }
 }
 
-#[cfg(any(
-  target_os = "linux",
-  target_os = "dragonfly",
-  target_os = "freebsd",
-  target_os = "netbsd",
-  target_os = "openbsd",
+#[cfg(target_env = "ohos")]
+#[derive(Default)]
+pub struct PlatformSpecificWebViewAttributes {}
+
+#[cfg(target_env = "ohos")]
+pub trait WebViewBuilderExtOhos {}
+
+#[cfg(target_env = "ohos")]
+impl WebViewBuilderExtOhos for WebViewBuilder<'_> {}
+
+#[cfg(all(
+  any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+  ),
+  not(target_env = "ohos")
 ))]
 #[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   extension_path: Option<PathBuf>,
 }
 
-#[cfg(any(
-  target_os = "linux",
-  target_os = "dragonfly",
-  target_os = "freebsd",
-  target_os = "netbsd",
-  target_os = "openbsd",
+#[cfg(all(
+  any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+  ),
+  not(target_env = "ohos")
 ))]
 pub trait WebViewBuilderExtUnix<'a> {
   /// Consume the builder and create the webview inside a GTK container widget, such as GTK window.
@@ -1735,12 +1766,15 @@ pub trait WebViewBuilderExtUnix<'a> {
   fn with_extensions_path(self, path: impl Into<PathBuf>) -> Self;
 }
 
-#[cfg(any(
-  target_os = "linux",
-  target_os = "dragonfly",
-  target_os = "freebsd",
-  target_os = "netbsd",
-  target_os = "openbsd",
+#[cfg(all(
+  any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+  ),
+  not(target_env = "ohos")
 ))]
 impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
   fn build_gtk<W>(self, widget: &'a W) -> Result<WebView>

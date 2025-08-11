@@ -74,4 +74,8 @@ pub enum Error {
   #[cfg(any(target_os = "macos", target_os = "ios"))]
   #[error("data store is currently opened")]
   DataStoreInUse,
+  #[error("Failed to initialize OpenHarmony webview: {0}")]
+  OpenHarmonyInitError(String),
+  #[error("Failed to execute: {0}")]
+  OpenHarmonyWebviewError(String),
 }

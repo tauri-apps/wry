@@ -42,7 +42,7 @@ os-webview = [
   "dep:gtk",
   "soup3",
 ]
-x11 = ["x11-dl", "gdkx11", "tao/x11"]
+x11 = ["x11-dl", "gdkx11"]
 tracing = ["dep:tracing"]
 
 [dependencies]
@@ -54,7 +54,7 @@ raw-window-handle = { version = "0.6", features = ["std"] }
 dpi = "0.1"
 cookie = "0.18"
 
-[target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
+[target.'cfg(all(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"), not(target_env = "ohos")))'.dependencies]
 javascriptcore-rs = { version = "=1.1.2", features = [
   "v2_28",
 ], optional = true }
@@ -197,6 +197,11 @@ jni = "0.21"
 ndk = "0.9"
 tao-macros = "0.1"
 libc = "0.2"
+
+[target.'cfg(target_env = "ohos")'.dependencies]
+openharmony-ability = { version = "0.2", features = ["webview"] }
+openharmony-ability-derive = { version = "0.2" }
+
 
 [dev-dependencies]
 pollster = "0.4.0"
