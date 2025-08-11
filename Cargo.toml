@@ -39,7 +39,7 @@ os-webview = [
   "dep:gtk",
   "soup3",
 ]
-x11 = ["x11-dl", "gdkx11"]
+x11 = ["x11-dl", "gdkx11", "tao/x11"]
 tracing = ["dep:tracing"]
 
 [dependencies]
