@@ -329,7 +329,7 @@ impl WebContextExt for super::WebContext {
             let suggested_filename = if uri.starts_with("data:") {
               // for data: downloads webkitgtk will suggest to use the data as the filename
               // for example `"data:attachment/text," + encodeURI("some text")` will result in `text,some text`
-              "unknown"
+              "Unknown"
             } else {
               suggested_filename
             };
