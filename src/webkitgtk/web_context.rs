@@ -326,25 +326,32 @@ impl WebContextExt for super::WebContext {
             let mut download_location =
               dirs::download_dir().unwrap_or_else(|| current_dir().unwrap_or_default());
 
-            let suggested_filename = if uri.starts_with("data:") {
-              // for data: downloads webkitgtk will suggest to use the data as the filename
-              // for example `"data:attachment/text," + encodeURI("some text")` will result in `text,some text`
-              "Unknown"
-            } else {
-              suggested_filename
-            };
+            let (mut suggested_filename, mut ext) = suggested_filename
+              .split_once('.')
+              .map(|(base, ext)| (base, format!(".{ext}")))
+              .unwrap_or((suggested_filename, "".to_string()));
 
-            download_location.push(suggested_filename);
+            // Weird bug but webkitgtk sets the extension to `.jpe` for JPEG files in these cases:
+            // <a href="data:image/jpeg;base64,..." download="" />
+            // <a href="/some-img.jpeg" download="some-name" />
+            //
+            // Other 4 character extensions like avif,webp seem to be set correctly.
+            if ext == ".jpe" {
+              ext = ".jpeg".to_string();
+            }
+
+            // for `data:` downloads, webkitgtk will suggest to use the raw data as the filename
+            // for example `"data:attachment/text,sometext"` will result in `text,sometext`
+            if uri.starts_with("data:") {
+              suggested_filename = "Unknown";
+            }
+
+            download_location.push(format!("{suggested_filename}{ext}"));
 
             // WebView2 does not overwrite files but appends numbers
             let mut counter = 1;
             while download_location.exists() {
-              let (base, ext) = suggested_filename
-                .split_once('.')
-                .map(|(base, ext)| (base, format!(".{ext}")))
-                .unwrap_or((suggested_filename, "".to_string()));
-
-              download_location.set_file_name(format!("{base} ({counter}){ext}"));
+              download_location.set_file_name(format!("{suggested_filename} ({counter}){ext}"));
               counter += 1;
             }
 
