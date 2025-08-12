@@ -515,7 +515,6 @@ impl InnerWebView {
         pending_scripts.clone(),
         has_download_handler,
         attributes.navigation_handler,
-        attributes.new_window_req_handler,
         download_delegate.clone(),
         attributes.on_page_load_handler,
         mtm,
@@ -524,7 +523,8 @@ impl InnerWebView {
       let proto_navigation_policy_delegate = ProtocolObject::from_ref(&*navigation_policy_delegate);
       webview.setNavigationDelegate(Some(proto_navigation_policy_delegate));
 
-      let ui_delegate: Retained<WryWebViewUIDelegate> = WryWebViewUIDelegate::new(mtm);
+      let ui_delegate: Retained<WryWebViewUIDelegate> =
+        WryWebViewUIDelegate::new(mtm, attributes.new_window_req_handler);
       let proto_ui_delegate = ProtocolObject::from_ref(&*ui_delegate);
       webview.setUIDelegate(Some(proto_ui_delegate));
 
