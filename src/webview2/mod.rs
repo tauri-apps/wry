@@ -29,8 +29,8 @@ use windows::{
 use self::drag_drop::DragDropController;
 use super::Theme;
 use crate::{
-  proxy::ProxyConfig, Error, MemoryUsageLevel, NewWindowFeatures, NewWindowResponse, PageLoadEvent,
-  Rect, RequestAsyncResponder, Result, WebViewAttributes, RGBA,
+  proxy::ProxyConfig, Error, MemoryUsageLevel, NewWindowFeatures, NewWindowOpener,
+  NewWindowResponse, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebViewAttributes, RGBA,
 };
 
 type EventRegistrationToken = i64;
@@ -459,7 +459,7 @@ impl InnerWebView {
     unsafe { Self::set_webview_settings(&webview, &attributes, &pl_attrs)? };
 
     // Webview handlers
-    unsafe { Self::attach_handlers(hwnd, &webview, &mut attributes, &mut token)? };
+    unsafe { Self::attach_handlers(hwnd, &webview, &mut attributes, &mut token, env)? };
 
     // IPC handler
     unsafe { Self::attach_ipc_handler(&webview, &mut attributes, &mut token)? };
@@ -602,6 +602,7 @@ impl InnerWebView {
     webview: &ICoreWebView2,
     attributes: &mut WebViewAttributes,
     token: &mut EventRegistrationToken,
+    env: &ICoreWebView2Environment,
   ) -> Result<()> {
     // Close container HWND when `window.close` is called in JS
     webview.add_WindowCloseRequested(
@@ -685,14 +686,16 @@ impl InnerWebView {
     }
 
     let new_window_req_handler = attributes.new_window_req_handler.take();
+    let env_ = env.clone();
     // New window handler
     webview.add_NewWindowRequested(
-      &NewWindowRequestedEventHandler::create(Box::new(move |_, args| {
+      &NewWindowRequestedEventHandler::create(Box::new(move |webview, args| {
         let Some(args) = args else {
           return Ok(());
         };
 
         if let Some(new_window_req_handler) = &new_window_req_handler {
+          let webview = webview.unwrap();
           let uri = {
             let mut uri = PWSTR::null();
             args.Uri(&mut uri)?;
@@ -726,9 +729,23 @@ impl InnerWebView {
                 size.replace(dpi::LogicalSize::new(width as f64, height as f64));
               }
 
-              NewWindowFeatures { position, size }
+              NewWindowFeatures {
+                position,
+                size,
+                opener: NewWindowOpener {
+                  webview: webview.clone(),
+                  environment: env_.clone(),
+                },
+              }
             })
-            .unwrap_or_default();
+            .unwrap_or_else(|_| NewWindowFeatures {
+              position: None,
+              size: None,
+              opener: NewWindowOpener {
+                webview: webview.clone(),
+                environment: env_.clone(),
+              },
+            });
 
           match new_window_req_handler(uri, features) {
             NewWindowResponse::Allow => {

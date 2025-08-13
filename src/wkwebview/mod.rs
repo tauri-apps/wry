@@ -207,10 +207,16 @@ impl InnerWebView {
 
     // Safety: objc runtime calls are unsafe
     unsafe {
+      #[cfg(target_os = "macos")]
       let using_existing_config = pl_attrs.webview_configuration.is_some();
+      #[cfg(target_os = "ios")]
+      let using_existing_config = false;
+      #[cfg(target_os = "macos")]
       let config = pl_attrs
         .webview_configuration
         .unwrap_or_else(|| WKWebViewConfiguration::new(mtm));
+      #[cfg(target_os = "ios")]
+      let config = WKWebViewConfiguration::new(mtm);
 
       // Incognito mode
       let (os_major_version, _, _) = util::operating_system_version();

@@ -464,6 +464,7 @@ pub enum NewWindowResponse {
   ///
   /// **Linux**: The webview must be related to the caller webview. See [`WebViewBuilderExtUnix::with_related_view`].
   /// **Windows**: The webview must use the same environment as the caller webview. See [`WebViewBuilderExtWindows::with_environment`].
+  /// **macOS**: The webview must use the same configuration as the caller webview. See [`WebViewBuilderExtMacos::with_webview_configuration`].
   #[cfg(not(any(target_os = "android", target_os = "ios")))]
   Create {
     #[cfg(any(
@@ -483,6 +484,38 @@ pub enum NewWindowResponse {
   Deny,
 }
 
+/// Information about the webview that initiated a new window request.
+#[derive(Debug)]
+pub struct NewWindowOpener {
+  /// The instance of the webview that initiated the new window request.
+  ///
+  /// This must be set as the related view of the new webview. See [`WebViewBuilderExtUnix::with_related_view`].
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+  ))]
+  pub webview: webkit2gtk::WebView,
+  /// The instance of the webview that initiated the new window request.
+  #[cfg(windows)]
+  pub webview: ICoreWebView2,
+  /// The environment of the webview that initiated the new window request.
+  ///
+  /// The target webview environment **MUST** match the environment of the opener webview. See [`WebViewBuilderExtWindows::with_environment`].
+  #[cfg(windows)]
+  pub environment: ICoreWebView2Environment,
+  /// The instance of the webview that initiated the new window request.
+  #[cfg(target_os = "macos")]
+  pub webview: Retained<objc2_web_kit::WKWebView>,
+  /// Configuration of the target webview.
+  ///
+  /// This **MUST** be used when creating the target webview. See [`WebViewBuilderExtMacos::with_webview_configuration`].
+  #[cfg(target_os = "macos")]
+  pub target_configuration: Retained<objc2_web_kit::WKWebViewConfiguration>,
+}
+
 /// Window features of a window requested to open.
 #[non_exhaustive]
 #[derive(Debug)]
@@ -493,9 +526,8 @@ pub struct NewWindowFeatures {
   /// Specifies the position of the window relative to the work area
   /// as defined by the user's operating system where the new window will be generated.
   pub position: Option<dpi::LogicalPosition<f64>>,
-  /// Webview configuration that must be used to create the new webview.
-  #[cfg(target_os = "macos")]
-  pub webview_configuration: Retained<objc2_web_kit::WKWebViewConfiguration>,
+  /// Information about the webview opener containing data that must be used when creating the new webview.
+  pub opener: NewWindowOpener,
 }
 
 /// An id for a webview

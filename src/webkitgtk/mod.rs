@@ -52,8 +52,8 @@ use x11_dl::xlib::*;
 pub use web_context::WebContextImpl;
 
 use crate::{
-  proxy::ProxyConfig, web_context::WebContext, Error, NewWindowFeatures, NewWindowResponse,
-  PageLoadEvent, Rect, Result, WebViewAttributes, RGBA,
+  proxy::ProxyConfig, web_context::WebContext, Error, NewWindowFeatures, NewWindowOpener,
+  NewWindowResponse, PageLoadEvent, Rect, Result, WebViewAttributes, RGBA,
 };
 
 use self::web_context::WebContextExt;
@@ -494,6 +494,9 @@ impl InnerWebView {
           NewWindowFeatures {
             size: None,
             position: None,
+            opener: NewWindowOpener {
+              webview: webview.clone(),
+            },
           },
         ) {
           NewWindowResponse::Allow => {

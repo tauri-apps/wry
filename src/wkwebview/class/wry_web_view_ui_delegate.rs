@@ -21,9 +21,7 @@ use objc2_web_kit::{
   WKFrameInfo, WKMediaCaptureType, WKPermissionDecision, WKSecurityOrigin, WKUIDelegate,
 };
 
-use crate::WryWebView;
-#[cfg(target_os = "macos")]
-use crate::{NewWindowFeatures, NewWindowResponse};
+use crate::{NewWindowFeatures, NewWindowResponse, WryWebView};
 
 #[cfg(target_os = "macos")]
 struct NewWindow {
@@ -175,7 +173,10 @@ define_class!(
             } else {
               None
             },
-            webview_configuration: configuration.into(),
+            opener: crate::NewWindowOpener {
+              webview: webview.into(),
+              target_configuration: configuration.into(),
+            },
           },
         ) {
           NewWindowResponse::Allow => {
