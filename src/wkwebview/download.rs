@@ -1,4 +1,4 @@
-use std::{env::current_dir ptr::null_mut};
+use std::{env::current_dir, ptr::null_mut};
 
 use objc2::{rc::Retained, runtime::ProtocolObject, DeclaredClass};
 use objc2_foundation::{NSData, NSError, NSString, NSURLResponse, NSURL};
