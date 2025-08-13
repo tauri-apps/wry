@@ -52,8 +52,8 @@ use x11_dl::xlib::*;
 pub use web_context::WebContextImpl;
 
 use crate::{
-  proxy::ProxyConfig, web_context::WebContext, Error, PageLoadEvent, Rect, Result,
-  WebViewAttributes, RGBA,
+  proxy::ProxyConfig, web_context::WebContext, Error, NewWindowFeatures, NewWindowResponse,
+  PageLoadEvent, Rect, Result, WebViewAttributes, RGBA,
 };
 
 use self::web_context::WebContextExt;
@@ -489,44 +489,46 @@ impl InnerWebView {
           .request()
           .and_then(|request| request.uri())
           .map(|uri| uri.as_str().to_string())?;
-        if new_window_req_handler(url.clone()) {
-          let related_webviews = related_webviews.clone();
-          let toplevel = webview.toplevel().unwrap();
-          let window = toplevel.downcast::<gtk::ApplicationWindow>().unwrap();
-          let id = window.id();
-          let app = window.application().unwrap();
+        match new_window_req_handler(url.clone(), NewWindowFeatures::default()) {
+          NewWindowResponse::Allow => {
+            let related_webviews = related_webviews.clone();
+            let toplevel = webview.toplevel().unwrap();
+            let window = toplevel.downcast::<gtk::ApplicationWindow>().unwrap();
+            let id = window.id();
+            let app = window.application().unwrap();
 
-          let window = gtk::ApplicationWindow::builder()
-            .application(&app)
-            .title(&url)
-            .build();
-          let box_ = gtk::Box::new(gtk::Orientation::Vertical, 0);
-          window.add(&box_);
+            let window = gtk::ApplicationWindow::builder()
+              .application(&app)
+              .title(&url)
+              .build();
+            let box_ = gtk::Box::new(gtk::Orientation::Vertical, 0);
+            window.add(&box_);
 
-          let related_webviews_ = related_webviews.clone();
-          window.connect_destroy(move |_| {
-            related_webviews_.lock().unwrap().remove(&id);
-          });
+            let related_webviews_ = related_webviews.clone();
+            window.connect_destroy(move |_| {
+              related_webviews_.lock().unwrap().remove(&id);
+            });
 
-          window.show_all();
-          Self::new_gtk(
-            &box_,
-            WebViewAttributes {
-              ..Default::default()
-            },
-            super::PlatformSpecificWebViewAttributes {
-              related_view: Some(webview.clone()),
-              ..Default::default()
-            },
-          )
-          .map(|webview| {
-            let widget = webview.webview.upcast_ref::<gtk::Widget>().clone();
-            related_webviews.lock().unwrap().insert(id, webview);
-            widget
-          })
-          .ok()
-        } else {
-          None
+            window.show_all();
+            Self::new_gtk(
+              &box_,
+              WebViewAttributes {
+                ..Default::default()
+              },
+              super::PlatformSpecificWebViewAttributes {
+                related_view: Some(webview.clone()),
+                ..Default::default()
+              },
+            )
+            .map(|webview| {
+              let widget = webview.webview.upcast_ref::<gtk::Widget>().clone();
+              related_webviews.lock().unwrap().insert(id, webview);
+              widget
+            })
+            .ok()
+          }
+          NewWindowResponse::Create { webview } => Some(webview.upcast::<gtk::Widget>()),
+          NewWindowResponse::Deny => None,
         }
       });
     }

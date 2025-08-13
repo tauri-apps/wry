@@ -94,7 +94,7 @@ pub(crate) fn download_did_fail(
     #[cfg(debug_assertions)]
     {
       let description = error.localizedDescription().to_string();
-      eprintln!("Download failed with error: {}", description);
+      eprintln!("Download failed with error: {description}");
     }
 
     let original_request = download.originalRequest().unwrap();

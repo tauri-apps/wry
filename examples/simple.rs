@@ -15,9 +15,9 @@ fn main() -> wry::Result<()> {
 
   let builder = WebViewBuilder::new()
     .with_url("http://tauri.app")
-    .with_new_window_req_handler(|url| {
-      println!("new window req: {url}");
-      true
+    .with_new_window_req_handler(|url, features| {
+      println!("new window req: {url} {features:?}");
+      wry::NewWindowResponse::Allow
     })
     .with_drag_drop_handler(|e| {
       match e {

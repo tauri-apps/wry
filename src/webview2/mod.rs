@@ -29,8 +29,8 @@ use windows::{
 use self::drag_drop::DragDropController;
 use super::Theme;
 use crate::{
-  proxy::ProxyConfig, Error, MemoryUsageLevel, PageLoadEvent, Rect, RequestAsyncResponder, Result,
-  WebViewAttributes, RGBA,
+  proxy::ProxyConfig, Error, MemoryUsageLevel, NewWindowFeatures, NewWindowResponse, PageLoadEvent,
+  Rect, RequestAsyncResponder, Result, WebViewAttributes, RGBA,
 };
 
 type EventRegistrationToken = i64;
@@ -59,7 +59,7 @@ pub(crate) struct InnerWebView {
   is_child: bool,
   pub controller: ICoreWebView2Controller,
   webview: ICoreWebView2,
-  env: ICoreWebView2Environment,
+  pub env: ICoreWebView2Environment,
   // Store FileDropController in here to make sure it gets dropped when
   // the webview gets dropped, otherwise we'll have a memory leak
   #[allow(dead_code)]
@@ -129,7 +129,11 @@ impl InnerWebView {
       attributes.background_color
     };
 
-    let env = Self::create_environment(&attributes, pl_attrs.clone())?;
+    let env = if let Some(env) = &pl_attrs.environment {
+      env.clone()
+    } else {
+      Self::create_environment(&attributes, pl_attrs.clone())?
+    };
     let controller = Self::create_controller(hwnd, &env, attributes.incognito, background_color)?;
     let webview = Self::init_webview(
       parent,
@@ -406,6 +410,7 @@ impl InnerWebView {
     webview2_com::wait_with_pump(rx)?.map_err(Into::into)
   }
 
+  #[allow(clippy::too_many_arguments)]
   #[inline]
   fn init_webview(
     parent: HWND,
@@ -679,28 +684,72 @@ impl InnerWebView {
       )?;
     }
 
+    let new_window_req_handler = attributes.new_window_req_handler.take();
     // New window handler
-    if let Some(new_window_req_handler) = attributes.new_window_req_handler.take() {
-      webview.add_NewWindowRequested(
-        &NewWindowRequestedEventHandler::create(Box::new(move |_, args| {
-          let Some(args) = args else {
-            return Ok(());
-          };
+    webview.add_NewWindowRequested(
+      &NewWindowRequestedEventHandler::create(Box::new(move |_, args| {
+        let Some(args) = args else {
+          return Ok(());
+        };
 
+        if let Some(new_window_req_handler) = &new_window_req_handler {
           let uri = {
             let mut uri = PWSTR::null();
             args.Uri(&mut uri)?;
             take_pwstr(uri)
           };
 
-          let allow = new_window_req_handler(uri);
-          args.SetHandled(!allow)?;
+          let features = args
+            .WindowFeatures()
+            .map(|f| {
+              let mut position = None;
+              let mut size = None;
 
-          Ok(())
-        })),
-        token,
-      )?;
-    }
+              let mut has_position: BOOL = false.into();
+              let _ = f.HasPosition(&mut has_position);
+
+              if has_position.as_bool() {
+                let mut left = 0;
+                let _ = f.Left(&mut left);
+                let mut top = 0;
+                let _ = f.Top(&mut top);
+                position.replace(dpi::LogicalPosition::new(left as f64, top as f64));
+              }
+
+              let mut has_size: BOOL = false.into();
+              let _ = f.HasSize(&mut has_size);
+              if has_size.as_bool() {
+                let mut width = 0;
+                let _ = f.Width(&mut width);
+                let mut height = 0;
+                let _ = f.Height(&mut height);
+                size.replace(dpi::LogicalSize::new(width as f64, height as f64));
+              }
+
+              NewWindowFeatures { position, size }
+            })
+            .unwrap_or_default();
+
+          match new_window_req_handler(uri, features) {
+            NewWindowResponse::Allow => {
+              args.SetHandled(false)?;
+            }
+            NewWindowResponse::Create { webview } => {
+              args.SetNewWindow(&webview)?;
+              args.SetHandled(true)?
+            }
+            NewWindowResponse::Deny => {
+              args.SetHandled(true)?;
+            }
+          }
+        } else {
+          args.SetHandled(true)?;
+        }
+
+        Ok(())
+      })),
+      token,
+    )?;
 
     // Download handler
     if attributes.download_started_handler.is_some()
@@ -1491,10 +1540,8 @@ impl InnerWebView {
         .saturating_add(max_age)
         .unix_timestamp();
       Some(expires_)
-    } else if let Some(dt) = cookie.expires_datetime() {
-      Some(dt.unix_timestamp())
     } else {
-      None
+      cookie.expires_datetime().map(|dt| dt.unix_timestamp())
     };
     if let Some(expires) = expires {
       win32_cookie.SetExpires(expires as f64)?;

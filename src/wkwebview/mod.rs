@@ -78,7 +78,7 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::{
   cell::RefCell,
   collections::HashMap,
-  ffi::{CStr, CString},
+  ffi::CString,
   net::Ipv4Addr,
   os::raw::c_char,
   panic::AssertUnwindSafe,
@@ -241,7 +241,7 @@ impl InnerWebView {
 
         let ivar = (*handler)
           .class()
-          .instance_variable(CStr::from_bytes_with_nul(b"protocol_index\0").unwrap())
+          .instance_variable(c"protocol_index")
           .unwrap();
         let ivar_delegate: &mut usize = ivar.load_mut(&mut *handler);
         *ivar_delegate = protocol_index;

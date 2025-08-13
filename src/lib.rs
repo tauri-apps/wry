@@ -395,7 +395,9 @@ pub use self::webview2::ScrollBarStyle;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
 #[cfg(target_os = "windows")]
-use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
+use webview2_com::Microsoft::Web::WebView2::Win32::{
+  ICoreWebView2, ICoreWebView2Controller, ICoreWebView2Environment,
+};
 
 use std::{borrow::Cow, collections::HashMap, path::PathBuf, rc::Rc};
 
@@ -448,6 +450,49 @@ impl RequestAsyncResponder {
     let (parts, body) = response.into_parts();
     (self.responder)(Response::from_parts(parts, body.into()))
   }
+}
+
+/// Response for the new window request handler.
+///
+/// See [`WebViewBuilder::with_new_window_req_handler`].
+pub enum NewWindowResponse {
+  /// Allow the window to be opened with the default implementation.
+  Allow,
+  /// Allow the window to be opened, with the given platform webview instance.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// **Linux**: The webview must be related to the caller webview. See [`WebViewBuilderExtUnix::with_related_view`].
+  /// **Windows**: The webview must use the same environment as the caller webview. See [`WebViewBuilderExtWindows::with_environment`].
+  #[cfg(not(any(target_os = "android", target_os = "ios")))]
+  Create {
+    #[cfg(any(
+      target_os = "linux",
+      target_os = "dragonfly",
+      target_os = "freebsd",
+      target_os = "netbsd",
+      target_os = "openbsd",
+    ))]
+    webview: webkit2gtk::WebView,
+    #[cfg(windows)]
+    webview: ICoreWebView2,
+    #[cfg(target_os = "macos")]
+    webview: Retained<objc2_web_kit::WKWebView>,
+  },
+  /// Deny the window from being opened.
+  Deny,
+}
+
+/// Window features of a window requested to open.
+#[non_exhaustive]
+#[derive(Debug, Default)]
+pub struct NewWindowFeatures {
+  /// Specifies the size of the content area
+  /// as defined by the user's operating system where the new window will be generated.
+  pub size: Option<dpi::LogicalSize<f64>>,
+  /// Specifies the position of the window relative to the work area
+  /// as defined by the user's operating system where the new window will be generated.
+  pub position: Option<dpi::LogicalPosition<f64>>,
 }
 
 /// An id for a webview
@@ -602,11 +647,14 @@ pub struct WebViewAttributes<'a> {
   ///   due to API limitations.
   pub download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
 
-  /// A new window handler to decide if incoming url is allowed to open in a new window.
+  /// A new window request handler to decide if incoming url is allowed to be opened.
   ///
-  /// The closure take a `String` parameter as url and return `bool` to determine whether the window should open.
-  /// `true` allows to open and `false` does not.
-  pub new_window_req_handler: Option<Box<dyn Fn(String) -> bool>>,
+  /// A new window is requested to be opened by the [window.open] API.
+  ///
+  /// The closure take the URL to open and the window features object and returns [`NewWindowResponse`] to determine whether the window should open.
+  ///
+  /// [window.open]: https://developer.mozilla.org/en-US/docs/Web/API/Window/open
+  pub new_window_req_handler: Option<Box<dyn Fn(String, NewWindowFeatures) -> NewWindowResponse>>,
 
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
   ///
@@ -1199,11 +1247,14 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Set a new window request handler to decide if incoming url is allowed to be opened.
   ///
-  /// The closure take a `String` parameter as url and return `bool` to determine whether the window should open.
-  /// `true` allows to open and `false` does not.
+  /// A new window is requested to be opened by the [window.open] API.
+  ///
+  /// The closure take the URL to open and the window features object and returns [`NewWindowResponse`] to determine whether the window should open.
+  ///
+  /// [window.open]: https://developer.mozilla.org/en-US/docs/Web/API/Window/open
   pub fn with_new_window_req_handler(
     mut self,
-    callback: impl Fn(String) -> bool + 'static,
+    callback: impl Fn(String, NewWindowFeatures) -> NewWindowResponse + 'static,
   ) -> Self {
     self.attrs.new_window_req_handler = Some(Box::new(callback));
     self
@@ -1497,6 +1548,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   browser_extensions_enabled: bool,
   extension_path: Option<PathBuf>,
   default_context_menus: bool,
+  environment: Option<ICoreWebView2Environment>,
 }
 
 #[cfg(windows)]
@@ -1511,6 +1563,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       scroll_bar_style: ScrollBarStyle::default(),
       browser_extensions_enabled: false,
       extension_path: None,
+      environment: None,
     }
   }
 }
@@ -1583,6 +1636,10 @@ pub trait WebViewBuilderExtWindows {
   ///
   /// Does nothing if browser extensions are disabled. See [`with_browser_extensions_enabled`](Self::with_browser_extensions_enabled)
   fn with_extensions_path(self, path: impl Into<PathBuf>) -> Self;
+
+  /// Set the environment for the webview.
+  /// Useful if you need to share the same environment, for instance when using the [`WebViewBuilder::with_new_window_req_handler`].
+  fn with_environment(self, environment: ICoreWebView2Environment) -> Self;
 }
 
 #[cfg(windows)]
@@ -1624,6 +1681,11 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 
   fn with_extensions_path(mut self, path: impl Into<PathBuf>) -> Self {
     self.platform_specific.extension_path = Some(path.into());
+    self
+  }
+
+  fn with_environment(mut self, environment: ICoreWebView2Environment) -> Self {
+    self.platform_specific.environment.replace(environment);
     self
   }
 }
@@ -1738,6 +1800,7 @@ pub trait WebViewBuilderExtUnix<'a> {
   fn with_extensions_path(self, path: impl Into<PathBuf>) -> Self;
 
   /// Creates a new webview sharing the same web process with the provided webview.
+  /// Useful if you need to link a webview to another, for instance when using the [`WebViewBuilder::with_new_window_req_handler`].
   fn with_related_view(self, webview: webkit2gtk::WebView) -> Self;
 }
 
@@ -2064,6 +2127,8 @@ pub trait WebViewExtWindows {
   /// Returns WebView2 Controller
   fn controller(&self) -> ICoreWebView2Controller;
 
+  fn environment(&self) -> ICoreWebView2Environment;
+
   /// Changes the webview2 theme.
   ///
   /// Requires WebView2 Runtime version 101.0.1210.39 or higher, returns error on older versions,
@@ -2092,6 +2157,10 @@ pub trait WebViewExtWindows {
 impl WebViewExtWindows for WebView {
   fn controller(&self) -> ICoreWebView2Controller {
     self.webview.controller.clone()
+  }
+
+  fn environment(&self) -> ICoreWebView2Environment {
+    self.webview.env.clone()
   }
 
   fn set_theme(&self, theme: Theme) -> Result<()> {

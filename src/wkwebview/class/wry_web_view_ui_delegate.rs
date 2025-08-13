@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 #[cfg(target_os = "macos")]
-use std::{cell::RefCell, ptr::null_mut, sync::Arc};
+use std::{cell::RefCell, ptr::null_mut, rc::Rc};
 
 use block2::Block;
 #[cfg(target_os = "macos")]
@@ -22,6 +22,8 @@ use objc2_web_kit::{
 };
 
 use crate::WryWebView;
+#[cfg(target_os = "macos")]
+use crate::{NewWindowFeatures, NewWindowResponse};
 
 #[cfg(target_os = "macos")]
 struct NewWindow {
@@ -82,9 +84,9 @@ impl WryNSWindowDelegate {
 
 pub struct WryWebViewUIDelegateIvars {
   #[cfg(target_os = "macos")]
-  new_window_req_handler: Option<Box<dyn Fn(String) -> bool>>,
+  new_window_req_handler: Option<Box<dyn Fn(String, NewWindowFeatures) -> NewWindowResponse>>,
   #[cfg(target_os = "macos")]
-  new_windows: Arc<RefCell<Vec<NewWindow>>>,
+  new_windows: Rc<RefCell<Vec<NewWindow>>>,
 }
 
 define_class!(
@@ -150,86 +152,108 @@ define_class!(
       if let Some(new_window_req_handler) = &self.ivars().new_window_req_handler {
         let request = action.request();
         let url = request.URL().unwrap().absoluteString().unwrap();
-        let create = new_window_req_handler(url.to_string());
-        if create {
-          let mtm = MainThreadMarker::new().unwrap();
 
-          let current_window = webview.window().unwrap();
-          let screen = current_window.screen().unwrap();
-          let screen_frame = screen.frame();
-          let defaults = current_window.frame();
-          let size = objc2_foundation::NSSize::new(
-            window_features
-              .width()
-              .map_or(defaults.size.width, |width| width.doubleValue()),
-            window_features
-              .height()
-              .map_or(defaults.size.height, |height| height.doubleValue()),
-          );
-          let position = objc2_foundation::NSPoint::new(
-            window_features
-              .x()
-              .map_or(defaults.origin.x, |x| x.doubleValue()),
-            window_features.y().map_or(defaults.origin.y, |y| {
-              screen_frame.size.height - y.doubleValue() - size.height
-            }),
-          );
-          let rect = objc2_foundation::NSRect::new(position, size);
+        let current_window = webview.window().unwrap();
+        let screen = current_window.screen().unwrap();
+        let screen_frame = screen.frame();
 
-          let mut flags = objc2_app_kit::NSWindowStyleMask::Titled
-            | objc2_app_kit::NSWindowStyleMask::Closable
-            | objc2_app_kit::NSWindowStyleMask::Miniaturizable;
-          let resizable = window_features
-            .allowsResizing()
-            .map_or(true, |resizable| resizable.boolValue());
-          if resizable {
-            flags |= objc2_app_kit::NSWindowStyleMask::Resizable;
+        match new_window_req_handler(
+          url.to_string(),
+          NewWindowFeatures {
+            size: if let (Some(width), Some(height)) =
+              (window_features.width(), window_features.height())
+            {
+              Some(dpi::LogicalSize::new(
+                width.doubleValue(),
+                height.doubleValue(),
+              ))
+            } else {
+              None
+            },
+            position: if let (Some(x), Some(y)) = (window_features.x(), window_features.y()) {
+              Some(dpi::LogicalPosition::new(x.doubleValue(), y.doubleValue()))
+            } else {
+              None
+            },
+          },
+        ) {
+          NewWindowResponse::Allow => {
+            let mtm = MainThreadMarker::new().unwrap();
+
+            let defaults = current_window.frame();
+            let size = objc2_foundation::NSSize::new(
+              window_features
+                .width()
+                .map_or(defaults.size.width, |width| width.doubleValue()),
+              window_features
+                .height()
+                .map_or(defaults.size.height, |height| height.doubleValue()),
+            );
+            let position = objc2_foundation::NSPoint::new(
+              window_features
+                .x()
+                .map_or(defaults.origin.x, |x| x.doubleValue()),
+              window_features.y().map_or(defaults.origin.y, |y| {
+                screen_frame.size.height - y.doubleValue() - size.height
+              }),
+            );
+            let rect = objc2_foundation::NSRect::new(position, size);
+
+            let mut flags = objc2_app_kit::NSWindowStyleMask::Titled
+              | objc2_app_kit::NSWindowStyleMask::Closable
+              | objc2_app_kit::NSWindowStyleMask::Miniaturizable;
+            let resizable = window_features
+              .allowsResizing()
+              .map_or(true, |resizable| resizable.boolValue());
+            if resizable {
+              flags |= objc2_app_kit::NSWindowStyleMask::Resizable;
+            }
+
+            let window = objc2_app_kit::NSWindow::initWithContentRect_styleMask_backing_defer(
+              mtm.alloc::<objc2_app_kit::NSWindow>(),
+              rect,
+              flags,
+              objc2_app_kit::NSBackingStoreType::Buffered,
+              false,
+            );
+
+            // SAFETY: Disable auto-release when closing windows.
+            // This is required when creating `NSWindow` outside a window
+            // controller.
+            window.setReleasedWhenClosed(false);
+
+            let webview = objc2_web_kit::WKWebView::initWithFrame_configuration(
+              mtm.alloc::<objc2_web_kit::WKWebView>(),
+              window.frame(),
+              configuration,
+            );
+
+            let new_windows = self.ivars().new_windows.clone();
+            let window_id = Retained::as_ptr(&window) as usize;
+            let delegate = WryNSWindowDelegate::new(
+              mtm,
+              Box::new(move || {
+                let new_windows = new_windows.clone();
+                new_windows
+                  .borrow_mut()
+                  .retain(|window| Retained::as_ptr(&window.ns_window) as usize != window_id);
+              }),
+            );
+            window.setDelegate(Some(objc2::runtime::ProtocolObject::from_ref(&*delegate)));
+
+            window.setContentView(Some(&webview));
+            window.makeKeyAndOrderFront(None);
+
+            self.ivars().new_windows.borrow_mut().push(NewWindow {
+              ns_window: window,
+              webview: webview.clone(),
+              delegate,
+            });
+
+            Some(webview)
           }
-
-          let window = objc2_app_kit::NSWindow::initWithContentRect_styleMask_backing_defer(
-            mtm.alloc::<objc2_app_kit::NSWindow>(),
-            rect,
-            flags,
-            objc2_app_kit::NSBackingStoreType::Buffered,
-            false,
-          );
-
-          // SAFETY: Disable auto-release when closing windows.
-          // This is required when creating `NSWindow` outside a window
-          // controller.
-          window.setReleasedWhenClosed(false);
-
-          let webview = objc2_web_kit::WKWebView::initWithFrame_configuration(
-            mtm.alloc::<objc2_web_kit::WKWebView>(),
-            window.frame(),
-            configuration,
-          );
-
-          let new_windows = self.ivars().new_windows.clone();
-          let window_id = Retained::as_ptr(&window) as usize;
-          let delegate = WryNSWindowDelegate::new(
-            mtm,
-            Box::new(move || {
-              let new_windows = new_windows.clone();
-              new_windows
-                .borrow_mut()
-                .retain(|window| Retained::as_ptr(&window.ns_window) as usize != window_id);
-            }),
-          );
-          window.setDelegate(Some(objc2::runtime::ProtocolObject::from_ref(&*delegate)));
-
-          window.setContentView(Some(&webview));
-          window.makeKeyAndOrderFront(None);
-
-          self.ivars().new_windows.borrow_mut().push(NewWindow {
-            ns_window: window,
-            webview: webview.clone(),
-            delegate,
-          });
-
-          Some(webview)
-        } else {
-          None
+          NewWindowResponse::Create { webview } => Some(webview),
+          NewWindowResponse::Deny => None,
         }
       } else {
         None
@@ -241,7 +265,7 @@ define_class!(
 impl WryWebViewUIDelegate {
   pub fn new(
     mtm: MainThreadMarker,
-    new_window_req_handler: Option<Box<dyn Fn(String) -> bool>>,
+    new_window_req_handler: Option<Box<dyn Fn(String, NewWindowFeatures) -> NewWindowResponse>>,
   ) -> Retained<Self> {
     #[cfg(target_os = "ios")]
     let _new_window_req_handler = new_window_req_handler;
@@ -252,7 +276,7 @@ impl WryWebViewUIDelegate {
         #[cfg(target_os = "macos")]
         new_window_req_handler,
         #[cfg(target_os = "macos")]
-        new_windows: Arc::new(RefCell::new(vec![])),
+        new_windows: Rc::new(RefCell::new(vec![])),
       });
     unsafe { msg_send![super(delegate), init] }
   }
