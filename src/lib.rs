@@ -1709,6 +1709,7 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
 #[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   extension_path: Option<PathBuf>,
+  related_view: Option<webkit2gtk::WebView>,
 }
 
 #[cfg(any(
@@ -1735,6 +1736,9 @@ pub trait WebViewBuilderExtUnix<'a> {
 
   /// Set the path from which to load extensions from.
   fn with_extensions_path(self, path: impl Into<PathBuf>) -> Self;
+
+  /// Creates a new webview sharing the same web process with the provided webview.
+  fn with_related_view(self, webview: webkit2gtk::WebView) -> Self;
 }
 
 #[cfg(any(
@@ -1757,6 +1761,11 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
 
   fn with_extensions_path(mut self, path: impl Into<PathBuf>) -> Self {
     self.platform_specific.extension_path = Some(path.into());
+    self
+  }
+
+  fn with_related_view(mut self, webview: webkit2gtk::WebView) -> Self {
+    self.platform_specific.related_view.replace(webview);
     self
   }
 }

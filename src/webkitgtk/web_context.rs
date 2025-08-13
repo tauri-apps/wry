@@ -144,7 +144,7 @@ impl WebContextExt for super::WebContext {
   where
     F: Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + 'static,
   {
-    self.register_custom_protocol(name.to_owned());
+    self.register_custom_protocol(name.to_owned())?;
 
     // Enable secure context
     self
@@ -326,7 +326,7 @@ impl WebContextExt for super::WebContext {
             let mut download_location =
               dirs::download_dir().unwrap_or_else(|| current_dir().unwrap_or_default());
 
-            let (mut suggested_filename, mut ext) = suggested_filename
+            let (mut suggested_filename, ext) = suggested_filename
               .split_once('.')
               .map(|(base, ext)| (base, format!(".{ext}")))
               .unwrap_or((suggested_filename, "".to_string()));
