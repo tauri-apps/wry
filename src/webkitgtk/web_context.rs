@@ -323,10 +323,10 @@ impl WebContextExt for super::WebContext {
           let uri = uri.to_string();
 
           if let Some(download_started_handler) = download_started_handler.borrow_mut().as_mut() {
-            let mut download_location =
+            let mut download_destination =
               dirs::download_dir().unwrap_or_else(|| current_dir().unwrap_or_default());
 
-            let (mut suggested_filename, mut ext) = suggested_filename
+            let (mut suggested_filename, ext) = suggested_filename
               .split_once('.')
               .map(|(base, ext)| (base, format!(".{ext}")))
               .unwrap_or((suggested_filename, "".to_string()));
@@ -337,17 +337,17 @@ impl WebContextExt for super::WebContext {
               suggested_filename = "Unknown";
             }
 
-            download_location.push(format!("{suggested_filename}{ext}"));
+            download_destination.push(format!("{suggested_filename}{ext}"));
 
             // WebView2 does not overwrite files but appends numbers
             let mut counter = 1;
-            while download_location.exists() {
-              download_location.set_file_name(format!("{suggested_filename} ({counter}){ext}"));
+            while download_destination.exists() {
+              download_destination.set_file_name(format!("{suggested_filename} ({counter}){ext}"));
               counter += 1;
             }
 
-            if download_started_handler(uri, &mut download_location) {
-              download.set_destination(&download_location.to_string_lossy());
+            if download_started_handler(uri, &mut download_destination) {
+              download.set_destination(&download_destination.to_string_lossy());
             } else {
               download.cancel();
             }
