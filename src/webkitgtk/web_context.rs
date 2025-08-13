@@ -331,15 +331,6 @@ impl WebContextExt for super::WebContext {
               .map(|(base, ext)| (base, format!(".{ext}")))
               .unwrap_or((suggested_filename, "".to_string()));
 
-            // Weird bug but webkitgtk sets the extension to `.jpe` for JPEG files in these cases:
-            // <a href="data:image/jpeg;base64,..." download="" />
-            // <a href="/some-img.jpeg" download="some-name" />
-            //
-            // Other 4 character extensions like avif,webp seem to be set correctly.
-            if ext == ".jpe" {
-              ext = ".jpeg".to_string();
-            }
-
             // for `data:` downloads, webkitgtk will suggest to use the raw data as the filename
             // for example `"data:attachment/text,sometext"` will result in `text,sometext`
             if uri.starts_with("data:") {
