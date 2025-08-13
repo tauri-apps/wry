@@ -1,5 +1,12 @@
 # Changelog
 
+## \[0.52.2]
+
+- [`43e78ff`](https://github.com/tauri-apps/wry/commit/43e78ff6b09fe9cac84ff7d73460f170a8c32081) ([#1588](https://github.com/tauri-apps/wry/pull/1588) by [@zphrs](https://github.com/tauri-apps/wry/../../zphrs)) Add `WebViewBuilder::with_limit_navigations_to_app_bound_domains` only on iOS.
+  Function is a no-op if iOS version is less than iOS 14.
+- [`60dba38`](https://github.com/tauri-apps/wry/commit/60dba38ddcc01c428feccea2957adf69128373ef) ([#1569](https://github.com/tauri-apps/wry/pull/1569) by [@WSH032](https://github.com/tauri-apps/wry/../../WSH032)) Add `WebView::set_cookie` and `WebView::delete_cookie` APIs.
+- [`78634b3`](https://github.com/tauri-apps/wry/commit/78634b3d4dd31651f9e6a3959cbb5f994502a92b) ([#1594](https://github.com/tauri-apps/wry/pull/1594) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) On Linux, the `download_started_handler` will now get the correct suggested destination path.
+
 ## \[0.52.1]
 
 - [`63eaab8`](https://github.com/tauri-apps/wry/commit/63eaab80bad7c5f888893c79690c5b626d015eb3) ([#1573](https://github.com/tauri-apps/wry/pull/1573) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Fix `wry::DragDropEvent::Drop::paths` returns random data on Windows
