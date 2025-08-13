@@ -94,6 +94,7 @@ features = [
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 url = "2.5"
+dirs = "6"
 block2 = "0.6"
 objc2 = { version = "0.6", features = [
   "exception",

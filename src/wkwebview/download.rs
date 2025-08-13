@@ -1,4 +1,4 @@
-use std::{path::PathBuf, ptr::null_mut};
+use std::{env::current_dir ptr::null_mut};
 
 use objc2::{rc::Retained, runtime::ProtocolObject, DeclaredClass};
 use objc2_foundation::{NSData, NSError, NSString, NSURLResponse, NSURL};
@@ -47,13 +47,14 @@ pub(crate) fn download_policy(
   this: &WryDownloadDelegate,
   download: &WKDownload,
   _response: &NSURLResponse,
-  suggested_path: &NSString,
+  suggested_filename: &NSString,
   completion_handler: &block2::Block<dyn Fn(*const NSURL)>,
 ) {
   unsafe {
     let request = download.originalRequest().unwrap();
     let url = request.URL().unwrap().absoluteString().unwrap();
-    let mut path = PathBuf::from(suggested_path.to_string());
+    let mut path = dirs::download_dir().unwrap_or_else(|| current_dir().unwrap_or_default());
+    path.push(suggested_filename.to_string());
 
     let started_fn = &this.ivars().started;
     if let Some(started_fn) = started_fn {
