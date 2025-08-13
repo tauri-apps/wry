@@ -1,4 +1,4 @@
-use std::{path::PathBuf, ptr::null_mut};
+use std::{env::current_dir, ptr::null_mut};
 
 use objc2::{rc::Retained, runtime::ProtocolObject, DeclaredClass};
 use objc2_foundation::{NSData, NSError, NSString, NSURLResponse, NSURL};
@@ -47,20 +47,36 @@ pub(crate) fn download_policy(
   this: &WryDownloadDelegate,
   download: &WKDownload,
   _response: &NSURLResponse,
-  suggested_path: &NSString,
+  suggested_filename: &NSString,
   completion_handler: &block2::Block<dyn Fn(*const NSURL)>,
 ) {
   unsafe {
     let request = download.originalRequest().unwrap();
     let url = request.URL().unwrap().absoluteString().unwrap();
-    let mut path = PathBuf::from(suggested_path.to_string());
+    let suggested_filename = suggested_filename.to_string();
+    let mut download_destination =
+      dirs::download_dir().unwrap_or_else(|| current_dir().unwrap_or_default());
+
+    download_destination.push(&suggested_filename);
+
+    let (suggested_filename, ext) = suggested_filename
+      .split_once('.')
+      .map(|(base, ext)| (base, format!(".{ext}")))
+      .unwrap_or((&suggested_filename, "".to_string()));
+
+    // WebView2 does not overwrite files but appends numbers
+    let mut counter = 1;
+    while download_destination.exists() {
+      download_destination.set_file_name(format!("{suggested_filename} ({counter}){ext}"));
+      counter += 1;
+    }
 
     let started_fn = &this.ivars().started;
     if let Some(started_fn) = started_fn {
       let mut started_fn = started_fn.borrow_mut();
-      match started_fn(url.to_string().to_string(), &mut path) {
+      match started_fn(url.to_string().to_string(), &mut download_destination) {
         true => {
-          let path = NSString::from_str(&path.display().to_string());
+          let path = NSString::from_str(&download_destination.display().to_string());
           let ns_url = NSURL::fileURLWithPath_isDirectory(&path, false);
           (*completion_handler).call((Retained::as_ptr(&ns_url),))
         }
