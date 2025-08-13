@@ -207,7 +207,10 @@ impl InnerWebView {
 
     // Safety: objc runtime calls are unsafe
     unsafe {
-      let config = WKWebViewConfiguration::new(mtm);
+      let using_existing_config = pl_attrs.webview_configuration.is_some();
+      let config = pl_attrs
+        .webview_configuration
+        .unwrap_or_else(|| WKWebViewConfiguration::new(mtm));
 
       // Incognito mode
       let (os_major_version, _, _) = util::operating_system_version();
@@ -234,6 +237,17 @@ impl InnerWebView {
       // Register Custom Protocols
       let mut protocol_ptrs = Vec::new();
       for (name, function) in attributes.custom_protocols {
+        let already_registered = using_existing_config
+          && config
+            .urlSchemeHandlerForURLScheme(&NSString::from_str(&name))
+            .is_some();
+
+        if already_registered {
+          #[cfg(feature = "tracing")]
+          tracing::debug!("Custom protocol {} already registered", name);
+          continue;
+        }
+
         let url_scheme_handler_cls = url_scheme_handler::create(&name);
         let handler: *mut AnyObject = objc2::msg_send![url_scheme_handler_cls, new];
         let protocol_index = protocol_ptrs.len();

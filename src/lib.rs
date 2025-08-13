@@ -485,7 +485,7 @@ pub enum NewWindowResponse {
 
 /// Window features of a window requested to open.
 #[non_exhaustive]
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct NewWindowFeatures {
   /// Specifies the size of the content area
   /// as defined by the user's operating system where the new window will be generated.
@@ -493,6 +493,9 @@ pub struct NewWindowFeatures {
   /// Specifies the position of the window relative to the work area
   /// as defined by the user's operating system where the new window will be generated.
   pub position: Option<dpi::LogicalPosition<f64>>,
+  /// Webview configuration that must be used to create the new webview.
+  #[cfg(target_os = "macos")]
+  pub webview_configuration: Retained<objc2_web_kit::WKWebViewConfiguration>,
 }
 
 /// An id for a webview
@@ -1415,6 +1418,8 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   input_accessory_view_builder: Option<Box<InputAccessoryViewBuilder>>,
   #[cfg(target_os = "ios")]
   limit_navigations_to_app_bound_domains: bool,
+  #[cfg(target_os = "macos")]
+  webview_configuration: Option<Retained<objc2_web_kit::WKWebViewConfiguration>>,
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -1429,6 +1434,8 @@ impl Default for PlatformSpecificWebViewAttributes {
       input_accessory_view_builder: None,
       #[cfg(target_os = "ios")]
       limit_navigations_to_app_bound_domains: false,
+      #[cfg(target_os = "macos")]
+      webview_configuration: None,
     }
   }
 }
@@ -1470,6 +1477,29 @@ impl WebViewBuilderExtDarwin for WebViewBuilder<'_> {
 
   fn with_allow_link_preview(mut self, allow_link_preview: bool) -> Self {
     self.platform_specific.allow_link_preview = allow_link_preview;
+    self
+  }
+}
+
+#[cfg(target_os = "macos")]
+pub trait WebViewBuilderExtMacos {
+  /// Set the webview configuration that must be used to create the new webview.
+  fn with_webview_configuration(
+    self,
+    configuration: Retained<objc2_web_kit::WKWebViewConfiguration>,
+  ) -> Self;
+}
+
+#[cfg(target_os = "macos")]
+impl WebViewBuilderExtMacos for WebViewBuilder<'_> {
+  fn with_webview_configuration(
+    mut self,
+    configuration: Retained<objc2_web_kit::WKWebViewConfiguration>,
+  ) -> Self {
+    self
+      .platform_specific
+      .webview_configuration
+      .replace(configuration);
     self
   }
 }

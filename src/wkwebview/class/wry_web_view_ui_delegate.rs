@@ -175,6 +175,7 @@ define_class!(
             } else {
               None
             },
+            webview_configuration: configuration.into(),
           },
         ) {
           NewWindowResponse::Allow => {

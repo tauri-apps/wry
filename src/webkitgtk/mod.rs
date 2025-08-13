@@ -489,7 +489,13 @@ impl InnerWebView {
           .request()
           .and_then(|request| request.uri())
           .map(|uri| uri.as_str().to_string())?;
-        match new_window_req_handler(url.clone(), NewWindowFeatures::default()) {
+        match new_window_req_handler(
+          url.clone(),
+          NewWindowFeatures {
+            size: None,
+            position: None,
+          },
+        ) {
           NewWindowResponse::Allow => {
             let related_webviews = related_webviews.clone();
             let toplevel = webview.toplevel().unwrap();
