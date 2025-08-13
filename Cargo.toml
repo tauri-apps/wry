@@ -186,6 +186,7 @@ objc2-app-kit = { version = "0.3.0", default-features = false, features = [
   "NSOpenPanel",
   "NSSavePanel",
   "NSMenu",
+  "NSGraphics",
 ] }
 
 [target."cfg(target_os = \"android\")".dependencies]
