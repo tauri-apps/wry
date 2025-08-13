@@ -154,25 +154,27 @@ define_class!(
         if create {
           let mtm = MainThreadMarker::new().unwrap();
 
-          let defaults = webview.window().unwrap().frame();
-          let rect = objc2_foundation::NSRect::new(
-            objc2_foundation::NSPoint::new(
-              window_features
-                .x()
-                .map_or(defaults.origin.x, |x| x.doubleValue()),
-              window_features
-                .y()
-                .map_or(defaults.origin.y, |y| y.doubleValue()),
-            ),
-            objc2_foundation::NSSize::new(
-              window_features
-                .width()
-                .map_or(defaults.size.width, |width| width.doubleValue()),
-              window_features
-                .height()
-                .map_or(defaults.size.height, |height| height.doubleValue()),
-            ),
+          let current_window = webview.window().unwrap();
+          let screen = current_window.screen().unwrap();
+          let screen_frame = screen.frame();
+          let defaults = current_window.frame();
+          let size = objc2_foundation::NSSize::new(
+            window_features
+              .width()
+              .map_or(defaults.size.width, |width| width.doubleValue()),
+            window_features
+              .height()
+              .map_or(defaults.size.height, |height| height.doubleValue()),
           );
+          let position = objc2_foundation::NSPoint::new(
+            window_features
+              .x()
+              .map_or(defaults.origin.x, |x| x.doubleValue()),
+            window_features.y().map_or(defaults.origin.y, |y| {
+              screen_frame.size.height - y.doubleValue() - size.height
+            }),
+          );
+          let rect = objc2_foundation::NSRect::new(position, size);
 
           let mut flags = objc2_app_kit::NSWindowStyleMask::Titled
             | objc2_app_kit::NSWindowStyleMask::Closable
