@@ -58,7 +58,7 @@ pub(crate) struct InnerWebView {
   hwnd: HWND,
   is_child: bool,
   pub controller: ICoreWebView2Controller,
-  webview: ICoreWebView2,
+  pub webview: ICoreWebView2,
   pub env: ICoreWebView2Environment,
   // Store FileDropController in here to make sure it gets dropped when
   // the webview gets dropped, otherwise we'll have a memory leak

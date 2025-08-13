@@ -2124,10 +2124,14 @@ pub enum MemoryUsageLevel {
 /// Additional methods on `WebView` that are specific to Windows.
 #[cfg(target_os = "windows")]
 pub trait WebViewExtWindows {
-  /// Returns WebView2 Controller
+  /// Returns the WebView2 controller.
   fn controller(&self) -> ICoreWebView2Controller;
 
+  /// Webview environment.
   fn environment(&self) -> ICoreWebView2Environment;
+
+  /// Webview instance.
+  fn webview(&self) -> ICoreWebView2;
 
   /// Changes the webview2 theme.
   ///
@@ -2161,6 +2165,10 @@ impl WebViewExtWindows for WebView {
 
   fn environment(&self) -> ICoreWebView2Environment {
     self.webview.env.clone()
+  }
+
+  fn webview(&self) -> ICoreWebView2 {
+    self.webview.webview.clone()
   }
 
   fn set_theme(&self, theme: Theme) -> Result<()> {
