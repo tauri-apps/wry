@@ -685,7 +685,10 @@ impl InnerWebView {
       )?;
     }
 
-    let new_window_req_handler = attributes.new_window_req_handler.take();
+    let new_window_req_handler = attributes
+      .new_window_req_handler
+      .take()
+      .map(std::sync::Arc::new);
     let env_ = env.clone();
     // New window handler
     webview.add_NewWindowRequested(
@@ -747,18 +750,29 @@ impl InnerWebView {
               },
             });
 
-          match new_window_req_handler(uri, features) {
+          let new_window_req_handler = new_window_req_handler.clone();
+          let deferral = args.GetDeferral()?;
+          let deferral = UnsafeSend(deferral);
+          let args = UnsafeSend(args);
+          let hwnd = UnsafeSend(hwnd.clone());
+          std::thread::spawn(move || match new_window_req_handler(uri, features) {
             NewWindowResponse::Allow => {
-              args.SetHandled(false)?;
+              let _ = args.take().SetHandled(false);
+              let _ = deferral.take().Complete();
             }
             NewWindowResponse::Create { webview } => {
-              args.SetNewWindow(&webview)?;
-              args.SetHandled(true)?
+              Self::dispatch_handler(hwnd.take(), move || {
+                let args = args.take();
+                let _ = args.SetHandled(true);
+                let _ = args.SetNewWindow(&webview);
+                let _ = deferral.take().Complete();
+              });
             }
             NewWindowResponse::Deny => {
-              args.SetHandled(true)?;
+              let _ = args.take().SetHandled(true);
+              let _ = deferral.take().Complete();
             }
-          }
+          });
         } else {
           args.SetHandled(true)?;
         }
@@ -1121,11 +1135,11 @@ impl InnerWebView {
   #[inline]
   unsafe fn dispatch_handler<F>(hwnd: HWND, function: F)
   where
-    F: FnMut() + 'static,
+    F: FnOnce() + 'static,
   {
     // We double-box because the first box is a fat pointer.
-    let boxed = Box::new(function) as Box<dyn FnMut()>;
-    let boxed2: Box<Box<dyn FnMut()>> = Box::new(boxed);
+    let boxed = Box::new(function) as Box<dyn FnOnce()>;
+    let boxed2: Box<Box<dyn FnOnce()>> = Box::new(boxed);
 
     let raw = Box::into_raw(boxed2);
 
@@ -1154,7 +1168,7 @@ impl InnerWebView {
     _dwrefdata: usize,
   ) -> LRESULT {
     if msg == *EXEC_MSG_ID {
-      let mut function: Box<Box<dyn FnMut()>> = Box::from_raw(wparam.0 as *mut _);
+      let function: Box<Box<dyn FnOnce()>> = Box::from_raw(wparam.0 as *mut _);
       function();
       let _ = RedrawWindow(Some(hwnd), None, None, RDW_INTERNALPAINT);
       return LRESULT(0);
@@ -1853,6 +1867,15 @@ fn is_windows_7() -> bool {
   let v = windows_version::OsVersion::current();
   // windows 7 is 6.1
   v.major == 6 && v.minor == 1
+}
+
+struct UnsafeSend<T>(T);
+unsafe impl<T> Send for UnsafeSend<T> {}
+
+impl<T> UnsafeSend<T> {
+  fn take(self) -> T {
+    self.0
+  }
 }
 
 #[cfg(test)]

@@ -516,6 +516,9 @@ pub struct NewWindowOpener {
   pub target_configuration: Retained<objc2_web_kit::WKWebViewConfiguration>,
 }
 
+unsafe impl Send for NewWindowOpener {}
+unsafe impl Sync for NewWindowOpener {}
+
 /// Window features of a window requested to open.
 #[non_exhaustive]
 #[derive(Debug)]
@@ -688,8 +691,13 @@ pub struct WebViewAttributes<'a> {
   ///
   /// The closure take the URL to open and the window features object and returns [`NewWindowResponse`] to determine whether the window should open.
   ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows**: The closure is executed on a separate thread to prevent a deadlock.
+  ///
   /// [window.open]: https://developer.mozilla.org/en-US/docs/Web/API/Window/open
-  pub new_window_req_handler: Option<Box<dyn Fn(String, NewWindowFeatures) -> NewWindowResponse>>,
+  pub new_window_req_handler:
+    Option<Box<dyn Fn(String, NewWindowFeatures) -> NewWindowResponse + Send + Sync>>,
 
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
   ///
@@ -1286,10 +1294,14 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// The closure take the URL to open and the window features object and returns [`NewWindowResponse`] to determine whether the window should open.
   ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows**: The closure is executed on a separate thread to prevent a deadlock.
+  ///
   /// [window.open]: https://developer.mozilla.org/en-US/docs/Web/API/Window/open
   pub fn with_new_window_req_handler(
     mut self,
-    callback: impl Fn(String, NewWindowFeatures) -> NewWindowResponse + 'static,
+    callback: impl Fn(String, NewWindowFeatures) -> NewWindowResponse + Send + Sync + 'static,
   ) -> Self {
     self.attrs.new_window_req_handler = Some(Box::new(callback));
     self
