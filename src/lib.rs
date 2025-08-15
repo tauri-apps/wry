@@ -585,6 +585,8 @@ pub struct WebViewAttributes<'a> {
   /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
   /// parameter can be used to set the download location by assigning a new path to it, the assigned path _must_ be
   /// absolute. The closure returns a `bool` to allow or deny the download.
+  ///
+  /// [`Self::default()`] sets a handler allowing all downloads to match browser behavior.
   pub download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool + 'static>>,
 
   /// A download completion handler to manage downloads that have finished.
@@ -718,7 +720,7 @@ impl Default for WebViewAttributes<'_> {
       ipc_handler: None,
       drag_drop_handler: None,
       navigation_handler: None,
-      download_started_handler: None,
+      download_started_handler: Some(Box::new(|_, _| true)),
       download_completed_handler: None,
       new_window_req_handler: None,
       clipboard: false,
@@ -1159,6 +1161,8 @@ impl<'a> WebViewBuilder<'a> {
   /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
   /// parameter can be used to set the download location by assigning a new path to it, the assigned path _must_ be
   /// absolute. The closure returns a `bool` to allow or deny the download.
+  ///
+  /// By default a handler that allows all downloads is set to match browser behavior.
   pub fn with_download_started_handler(
     mut self,
     download_started_handler: impl FnMut(String, &mut PathBuf) -> bool + 'static,
