@@ -3,19 +3,18 @@
 // SPDX-License-Identifier: MIT
 
 fn main() -> wry::Result<()> {
-  unimplemented!()
+  imp::main()
 }
 
 #[cfg(not(feature = "protocol"))]
 mod imp {
   pub fn main() -> wry::Result<()> {
-    eprintln!("this example requires the `protocol` feature");
+    unimplemented!()
   }
 }
 
 #[cfg(feature = "protocol")]
 mod imp {
-
   use std::path::PathBuf;
 
   use tao::{
