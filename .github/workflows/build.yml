@@ -19,7 +19,10 @@ jobs:
           - { target: x86_64-apple-darwin, os: macos-latest }
           - { target: aarch64-linux-android, os: ubuntu-latest }
         features:
-          - { args: --no-default-features, key: no-default }
+          - {
+              args: --no-default-features --features os-webview,
+              key: no-default,
+            }
           - { args: --all-features, key: all }
 
     runs-on: ${{ matrix.platform.os }}

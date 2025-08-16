@@ -18,22 +18,24 @@ fn main() -> wry::Result<()> {
     .with_new_window_req_handler(|url, features| {
       println!("new window req: {url} {features:?}");
       wry::NewWindowResponse::Allow
-    })
-    .with_drag_drop_handler(|e| {
-      match e {
-        wry::DragDropEvent::Enter { paths, position } => {
-          println!("DragEnter: {position:?} {paths:?} ")
-        }
-        wry::DragDropEvent::Over { position } => println!("DragOver: {position:?} "),
-        wry::DragDropEvent::Drop { paths, position } => {
-          println!("DragDrop: {position:?} {paths:?} ")
-        }
-        wry::DragDropEvent::Leave => println!("DragLeave"),
-        _ => {}
-      }
-
-      true
     });
+
+  #[cfg(feature = "drag-drop")]
+  let builder = builder.with_drag_drop_handler(|e| {
+    match e {
+      wry::DragDropEvent::Enter { paths, position } => {
+        println!("DragEnter: {position:?} {paths:?} ")
+      }
+      wry::DragDropEvent::Over { position } => println!("DragOver: {position:?} "),
+      wry::DragDropEvent::Drop { paths, position } => {
+        println!("DragDrop: {position:?} {paths:?} ")
+      }
+      wry::DragDropEvent::Leave => println!("DragLeave"),
+      _ => {}
+    }
+
+    true
+  });
 
   #[cfg(any(
     target_os = "windows",

@@ -2178,6 +2178,8 @@ pub enum DragDropEvent {
 }
 
 /// Get WebView/Webkit version on current platform.
+#[cfg(feature = "os-webview")]
+#[cfg_attr(docsrs, doc(cfg(feature = "os-webview")))]
 pub fn webview_version() -> Result<String> {
   platform_webview_version()
 }
