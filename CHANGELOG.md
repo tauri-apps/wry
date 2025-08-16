@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.53.1]
+
+- [`ccdf912`](https://github.com/tauri-apps/wry/commit/ccdf912621f5e12698bdb2cb75af81dd794ab751) ([#1603](https://github.com/tauri-apps/wry/pull/1603) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fix the build when not enabling the `x11` feature.
+
 ## \[0.53.0]
 
 - [`1456f8e`](https://github.com/tauri-apps/wry/commit/1456f8e33ad3d05239c2ee71f64e49ef32d48f03) ([#1602](https://github.com/tauri-apps/wry/pull/1602) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) Enabled all downloads by default to match WebView2 and browser behavior on all platforms. To disable this, provide a custom `download_started_handler`.
