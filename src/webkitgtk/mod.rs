@@ -980,7 +980,7 @@ impl InnerWebView {
     );
 
     if let Some(dt) = cookie.expires_datetime() {
-      soup_cookie.set_expires(&glib::DateTime::from_unix_utc(dt.unix_timestamp()).unwrap());
+      soup_cookie.set_expires(&gtk::glib::DateTime::from_unix_utc(dt.unix_timestamp()).unwrap());
     }
 
     if let Some(http_only) = cookie.http_only() {
