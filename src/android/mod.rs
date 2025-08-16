@@ -44,7 +44,7 @@ pub struct Context<'a, 'b> {
   pub webview: &'a JObject<'b>,
 }
 
-pub(crate) struct StaticValue<T>(Mutex<T>);
+struct StaticValue<T>(Mutex<T>);
 
 unsafe impl<T> Sync for StaticValue<T> {}
 
@@ -58,12 +58,12 @@ impl<T> std::ops::Deref for StaticValue<T> {
 
 macro_rules! define_static_handlers {
   ($($var:ident = $type_name:ident { $($fields:ident:$types:ty),+ $(,)? });+ $(;)?) => {
-    $(pub static $var: StaticValue<Option<$type_name>> = StaticValue(Mutex::new(None));
-    pub struct $type_name {
+    $(static $var: StaticValue<Option<$type_name>> = StaticValue(Mutex::new(None));
+    struct $type_name {
       $($fields: $types,)*
     }
     impl $type_name {
-      pub fn new($($fields: $types,)*) -> Self {
+      fn new($($fields: $types,)*) -> Self {
         Self {
           $($fields,)*
         }
@@ -80,15 +80,15 @@ define_static_handlers! {
   ON_LOAD_HANDLER = UnsafeOnPageLoadHandler { handler: Box<dyn Fn(PageLoadEvent, String)> };
 }
 
-pub static WITH_ASSET_LOADER: StaticValue<Option<bool>> = StaticValue(Mutex::new(None));
-pub static ASSET_LOADER_DOMAIN: StaticValue<Option<String>> = StaticValue(Mutex::new(None));
+static WITH_ASSET_LOADER: Mutex<Option<bool>> = Mutex::new(None);
+static ASSET_LOADER_DOMAIN: Mutex<Option<String>> = Mutex::new(None);
 
-pub(crate) static PACKAGE: OnceCell<String> = OnceCell::new();
+static PACKAGE: OnceCell<String> = OnceCell::new();
 
 type EvalCallback = Box<dyn Fn(String) + Send + 'static>;
 
-pub static EVAL_ID_GENERATOR: Counter = Counter::new();
-pub static EVAL_CALLBACKS: OnceCell<Mutex<HashMap<i32, EvalCallback>>> = OnceCell::new();
+static EVAL_ID_GENERATOR: Counter = Counter::new();
+static EVAL_CALLBACKS: OnceCell<Mutex<HashMap<i32, EvalCallback>>> = OnceCell::new();
 
 /// Sets up the necessary logic for wry to be able to create the webviews later.
 ///
