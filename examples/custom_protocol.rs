@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use imp::main;
+fn main() -> wry::Result<()> {
+  unimplemented!()
+}
 
 #[cfg(not(feature = "protocol"))]
 mod imp {
-  pub fn main() {
+  pub fn main() -> wry::Result<()> {
     eprintln!("this example requires the `protocol` feature");
   }
 }
