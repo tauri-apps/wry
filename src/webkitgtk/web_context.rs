@@ -478,19 +478,35 @@ impl WebViewUriLoader {
       }) = self.pop()
       {
         // ensure that the lock is released when the webview is destroyed before LoadEvent::Finished is handled
-        let self_c = self.clone();
-        webview.connect_destroy(move |_| {
-          self_c.unlock();
-          self_c.clone().flush();
+        let self_ = self.clone();
+        let destroy_id = webview.connect_destroy(move |_| {
+          self_.unlock();
+          self_.clone().flush();
         });
-        // we do not need to listen to failed events because those will finish the change event anyways
-        let self_c = self.clone();
-        webview.connect_load_changed(move |_, event| {
+        let destroy_id_guard = Mutex::new(Some(destroy_id));
+
+        let load_changed_id_guard = Rc::new(Mutex::new(None));
+        let load_changed_id_guard_ = load_changed_id_guard.clone();
+        let self_ = self.clone();
+        // noet: we do not need to listen to failed events because those will finish the change event anyways
+        let load_changed_id = webview.connect_load_changed(move |w, event| {
           if let LoadEvent::Finished = event {
-            self_c.unlock();
-            self_c.clone().flush();
+            self_.unlock();
+            self_.clone().flush();
+
+            // unregister listeners
+            if let Some(id) = destroy_id_guard.lock().unwrap().take() {
+              w.disconnect(id);
+            }
+            if let Some(id) = load_changed_id_guard_.lock().unwrap().take() {
+              w.disconnect(id);
+            }
           };
         });
+        load_changed_id_guard
+          .lock()
+          .unwrap()
+          .replace(load_changed_id);
 
         if let Some(headers) = headers {
           let req = URIRequest::builder().uri(&uri).build();
