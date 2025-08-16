@@ -255,7 +255,7 @@ impl InnerWebView {
 
                   if should_inject_scripts && !initialization_scripts.is_empty() {
                     let mut document = kuchiki::parse_html()
-                      .one(String::from_utf8_lossy(response.body()).into_owned());
+                      .one(String::from_utf8_lossy(response.body()).as_ref()).document_node;
                     let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
                     let mut hashes = Vec::new();
                     with_html_head(&mut document, |head| {
@@ -414,6 +414,16 @@ impl InnerWebView {
     let (tx, rx) = bounded(1);
     MainPipe::send(WebViewMessage::GetCookies(tx, url.to_string()));
     rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
+  }
+
+  pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    // Unsupported
+    Ok(())
+  }
+
+  pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    // Unsupported
+    Ok(())
   }
 
   pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {

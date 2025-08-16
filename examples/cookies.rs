@@ -13,27 +13,7 @@ fn main() -> wry::Result<()> {
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-  let builder = WebViewBuilder::new()
-    .with_url("http://tauri.app")
-    .with_new_window_req_handler(|url, features| {
-      println!("new window req: {url} {features:?}");
-      wry::NewWindowResponse::Allow
-    })
-    .with_drag_drop_handler(|e| {
-      match e {
-        wry::DragDropEvent::Enter { paths, position } => {
-          println!("DragEnter: {position:?} {paths:?} ")
-        }
-        wry::DragDropEvent::Over { position } => println!("DragOver: {position:?} "),
-        wry::DragDropEvent::Drop { paths, position } => {
-          println!("DragDrop: {position:?} {paths:?} ")
-        }
-        wry::DragDropEvent::Leave => println!("DragLeave"),
-        _ => {}
-      }
-
-      true
-    });
+  let builder = WebViewBuilder::new().with_url("https://www.httpbin.org/cookies/set?foo=bar");
 
   #[cfg(any(
     target_os = "windows",
@@ -41,19 +21,43 @@ fn main() -> wry::Result<()> {
     target_os = "ios",
     target_os = "android"
   ))]
-  let _webview = builder.build(&window)?;
+  let webview = builder.build(&window)?;
   #[cfg(not(any(
     target_os = "windows",
     target_os = "macos",
     target_os = "ios",
     target_os = "android"
   )))]
-  let _webview = {
+  let webview = {
     use tao::platform::unix::WindowExtUnix;
     use wry::WebViewBuilderExtUnix;
     let vbox = window.default_vbox().unwrap();
     builder.build_gtk(vbox)?
   };
+
+  webview.set_cookie(
+    cookie::Cookie::build(("foo1", "bar1"))
+      .domain("www.httpbin.org")
+      .path("/")
+      .secure(true)
+      .http_only(true)
+      .max_age(cookie::time::Duration::seconds(10))
+      .inner(),
+  )?;
+
+  let cookie_deleted = cookie::Cookie::build(("will_be_deleted", "will_be_deleted"));
+
+  webview.set_cookie(cookie_deleted.inner())?;
+  println!("Setting Cookies:");
+  for cookie in webview.cookies()? {
+    println!("\t{cookie}");
+  }
+
+  println!("After Deleting:");
+  webview.delete_cookie(cookie_deleted.inner())?;
+  for cookie in webview.cookies()? {
+    println!("\t{cookie}");
+  }
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

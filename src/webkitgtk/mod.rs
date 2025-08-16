@@ -27,7 +27,11 @@ use raw_window_handle::RawWindowHandle;
 use std::ffi::c_ulong;
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::{
+  collections::HashMap,
+  rc::Rc,
+  sync::{Arc, Mutex},
+};
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use webkit2gtk::WebInspectorExt;
 use webkit2gtk::{
@@ -48,8 +52,8 @@ use x11_dl::xlib::*;
 pub use web_context::WebContextImpl;
 
 use crate::{
-  proxy::ProxyConfig, web_context::WebContext, Error, PageLoadEvent, Rect, Result,
-  WebViewAttributes, RGBA,
+  proxy::ProxyConfig, web_context::WebContext, Error, NewWindowFeatures, NewWindowOpener,
+  NewWindowResponse, PageLoadEvent, Rect, Result, WebViewAttributes, RGBA,
 };
 
 use self::web_context::WebContextExt;
@@ -275,11 +279,11 @@ impl InnerWebView {
     }
 
     // Extension loading
-    if let Some(extension_path) = pl_attrs.extension_path {
-      web_context.os.set_web_extensions_directory(&extension_path);
+    if let Some(extension_path) = &pl_attrs.extension_path {
+      web_context.os.set_web_extensions_directory(extension_path);
     }
 
-    let webview = Self::create_webview(web_context, &attributes);
+    let webview = Self::create_webview(web_context, &attributes, &pl_attrs);
 
     // Transparent
     if attributes.transparent {
@@ -379,10 +383,13 @@ impl InnerWebView {
     Ok(w)
   }
 
-  fn create_webview(web_context: &WebContext, attributes: &WebViewAttributes) -> WebView {
+  fn create_webview(
+    web_context: &WebContext,
+    attributes: &WebViewAttributes,
+    pl_attrs: &super::PlatformSpecificWebViewAttributes,
+  ) -> WebView {
     let mut builder = WebView::builder()
       .user_content_manager(&UserContentManager::new())
-      .web_context(web_context.context())
       .is_controlled_by_automation(web_context.allows_automation());
 
     if attributes.autoplay {
@@ -391,6 +398,12 @@ impl InnerWebView {
           .autoplay(AutoplayPolicy::Allow)
           .build(),
       );
+    }
+
+    if let Some(related_view) = &pl_attrs.related_view {
+      builder = builder.related_view(related_view);
+    } else {
+      builder = builder.web_context(web_context.context());
     }
 
     builder.build()
@@ -468,35 +481,90 @@ impl InnerWebView {
       });
     }
 
-    // Navigation handler && New window handler
-    if attributes.navigation_handler.is_some() || attributes.new_window_req_handler.is_some() {
-      let new_window_req_handler = attributes.new_window_req_handler.take();
-      let navigation_handler = attributes.navigation_handler.take();
+    // window creation handler
+    if let Some(new_window_req_handler) = attributes.new_window_req_handler.take() {
+      let related_webviews = Rc::new(Mutex::new(HashMap::new()));
+      webview.connect_create(move |webview, action| {
+        let url = action
+          .request()
+          .and_then(|request| request.uri())
+          .map(|uri| uri.as_str().to_string())?;
+        match new_window_req_handler(
+          url.clone(),
+          NewWindowFeatures {
+            size: None,
+            position: None,
+            opener: NewWindowOpener {
+              webview: webview.clone(),
+            },
+          },
+        ) {
+          NewWindowResponse::Allow => {
+            let related_webviews = related_webviews.clone();
+            let toplevel = webview.toplevel().unwrap();
+            let window = toplevel.downcast::<gtk::ApplicationWindow>().unwrap();
+            let id = window.id();
+            let app = window.application().unwrap();
 
+            let window = gtk::ApplicationWindow::builder()
+              .application(&app)
+              .title(&url)
+              .build();
+            let box_ = gtk::Box::new(gtk::Orientation::Vertical, 0);
+            window.add(&box_);
+
+            let related_webviews_ = related_webviews.clone();
+            window.connect_destroy(move |_| {
+              related_webviews_.lock().unwrap().remove(&id);
+            });
+
+            window.show_all();
+            Self::new_gtk(
+              &box_,
+              WebViewAttributes {
+                ..Default::default()
+              },
+              super::PlatformSpecificWebViewAttributes {
+                related_view: Some(webview.clone()),
+                ..Default::default()
+              },
+            )
+            .map(|webview| {
+              let widget = webview.webview.upcast_ref::<gtk::Widget>().clone();
+              related_webviews.lock().unwrap().insert(id, webview);
+              widget
+            })
+            .ok()
+          }
+          NewWindowResponse::Create { webview } => Some(webview.upcast::<gtk::Widget>()),
+          NewWindowResponse::Deny => None,
+        }
+      });
+    }
+
+    // Navigation handler
+    if let Some(navigation_handler) = attributes.navigation_handler.take() {
       webview.connect_decide_policy(move |_webview, policy_decision, policy_type| {
         let handler = match policy_type {
           PolicyDecisionType::NavigationAction => &navigation_handler,
-          PolicyDecisionType::NewWindowAction => &new_window_req_handler,
           _ => return false,
         };
 
-        if let Some(handler) = handler {
-          if let Some(policy) = policy_decision.dynamic_cast_ref::<NavigationPolicyDecision>() {
-            if let Some(nav_action) = policy.navigation_action() {
-              if let Some(uri_req) = nav_action.request() {
-                if let Some(uri) = uri_req.uri() {
-                  let allow = handler(uri.to_string());
-                  let pointer = policy_decision.as_ptr();
-                  unsafe {
-                    if allow {
-                      webkit_policy_decision_use(pointer)
-                    } else {
-                      webkit_policy_decision_ignore(pointer)
-                    }
+        if let Some(policy) = policy_decision.dynamic_cast_ref::<NavigationPolicyDecision>() {
+          if let Some(nav_action) = policy.navigation_action() {
+            if let Some(uri_req) = nav_action.request() {
+              if let Some(uri) = uri_req.uri() {
+                let allow = handler(uri.to_string());
+                let pointer = policy_decision.as_ptr();
+                unsafe {
+                  if allow {
+                    webkit_policy_decision_use(pointer)
+                  } else {
+                    webkit_policy_decision_ignore(pointer)
                   }
-
-                  return true;
                 }
+
+                return true;
               }
             }
           }
@@ -899,23 +967,58 @@ impl InnerWebView {
     cookie_builder.build()
   }
 
+  fn cookie_into_soup_cookie(cookie: &cookie::Cookie<'_>) -> soup::Cookie {
+    let mut soup_cookie = soup::Cookie::new(
+      cookie.name(),
+      cookie.value(),
+      cookie.domain().unwrap_or(""),
+      cookie.path().unwrap_or(""),
+      cookie
+        .max_age()
+        .map(|d| d.whole_seconds() as i32)
+        .unwrap_or(-1),
+    );
+
+    if let Some(dt) = cookie.expires_datetime() {
+      soup_cookie.set_expires(&glib::DateTime::from_unix_utc(dt.unix_timestamp()).unwrap());
+    }
+
+    if let Some(http_only) = cookie.http_only() {
+      soup_cookie.set_http_only(http_only);
+    }
+
+    if let Some(same_site) = cookie.same_site() {
+      soup_cookie.set_same_site_policy(match same_site {
+        cookie::SameSite::Lax => soup::SameSitePolicy::Lax,
+        cookie::SameSite::Strict => soup::SameSitePolicy::Strict,
+        cookie::SameSite::None => soup::SameSitePolicy::None,
+      });
+    }
+
+    if let Some(secure) = cookie.secure() {
+      soup_cookie.set_secure(secure);
+    }
+
+    soup_cookie
+  }
+
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
     let (tx, rx) = std::sync::mpsc::channel();
-    self
+    if let Some(cookies_manager) = self
       .webview
       .website_data_manager()
       .and_then(|manager| manager.cookie_manager())
-      .map(|cookies_manager| {
-        cookies_manager.cookies(url, None::<&Cancellable>, move |cookies| {
-          let cookies = cookies.map(|cookies| {
-            cookies
-              .into_iter()
-              .map(Self::cookie_from_soup_cookie)
-              .collect()
-          });
-          let _ = tx.send(cookies);
-        })
-      });
+    {
+      cookies_manager.cookies(url, None::<&Cancellable>, move |cookies| {
+        let cookies = cookies.map(|cookies| {
+          cookies
+            .into_iter()
+            .map(Self::cookie_from_soup_cookie)
+            .collect()
+        });
+        let _ = tx.send(cookies);
+      })
+    }
 
     loop {
       gtk::main_iteration();
@@ -928,21 +1031,65 @@ impl InnerWebView {
 
   pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {
     let (tx, rx) = std::sync::mpsc::channel();
-    self
+    if let Some(cookies_manager) = self
       .webview
       .website_data_manager()
       .and_then(|manager| manager.cookie_manager())
-      .map(|cookies_manager| {
-        cookies_manager.all_cookies(None::<&Cancellable>, move |cookies| {
-          let cookies = cookies.map(|cookies| {
-            cookies
-              .into_iter()
-              .map(Self::cookie_from_soup_cookie)
-              .collect()
-          });
-          let _ = tx.send(cookies);
-        })
+    {
+      cookies_manager.all_cookies(None::<&Cancellable>, move |cookies| {
+        let cookies = cookies.map(|cookies| {
+          cookies
+            .into_iter()
+            .map(Self::cookie_from_soup_cookie)
+            .collect()
+        });
+        let _ = tx.send(cookies);
+      })
+    }
+
+    loop {
+      gtk::main_iteration();
+
+      if let Ok(response) = rx.try_recv() {
+        return response.map_err(Into::into);
+      }
+    }
+  }
+
+  pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    if let Some(cookies_manager) = self
+      .webview
+      .website_data_manager()
+      .and_then(|manager| manager.cookie_manager())
+    {
+      let mut soup_cookie = Self::cookie_into_soup_cookie(cookie);
+      cookies_manager.add_cookie(&mut soup_cookie, None::<&Cancellable>, move |ret| {
+        let _ = tx.send(ret);
       });
+    }
+
+    loop {
+      gtk::main_iteration();
+
+      if let Ok(response) = rx.try_recv() {
+        return response.map_err(Into::into);
+      }
+    }
+  }
+
+  pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    if let Some(cookies_manager) = self
+      .webview
+      .website_data_manager()
+      .and_then(|manager| manager.cookie_manager())
+    {
+      let mut soup_cookie = Self::cookie_into_soup_cookie(cookie);
+      cookies_manager.delete_cookie(&mut soup_cookie, None::<&Cancellable>, move |ret| {
+        let _ = tx.send(ret);
+      });
+    }
 
     loop {
       gtk::main_iteration();

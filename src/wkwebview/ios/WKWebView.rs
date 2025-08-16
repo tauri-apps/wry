@@ -2,13 +2,15 @@
 #![allow(warnings)]
 #![allow(clippy::all)]
 
-use std::ffi::c_double;
-use std::ptr::NonNull;
+use std::{ffi::c_double, ptr::NonNull};
 
-use objc2::encode::{Encode, Encoding, RefEncode};
-use objc2::rc::{Allocated, Retained};
-use objc2::runtime::{AnyObject, ProtocolObject};
-use objc2::{extern_class, extern_methods, MainThreadOnly};
+use objc2::{
+  encode::{Encode, Encoding, RefEncode},
+  extern_class, extern_methods,
+  rc::{Allocated, Retained},
+  runtime::{AnyObject, ProtocolObject},
+  MainThreadOnly,
+};
 use objc2_core_foundation::*;
 use objc2_foundation::*;
 use objc2_ui_kit::*;

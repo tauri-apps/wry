@@ -2,7 +2,7 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.51.2"
+version = "0.52.1"
 authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -42,10 +42,7 @@ os-webview = [
   "dep:gtk",
   "soup3",
 ]
-x11 = [
-  "x11-dl",
-  "gdkx11",
-]
+x11 = ["x11-dl", "gdkx11", "tao/x11"]
 tracing = ["dep:tracing"]
 
 [dependencies]
@@ -68,9 +65,10 @@ soup3 = { version = "0.5", optional = true }
 x11-dl = { version = "2.21", optional = true }
 gdkx11 = { version = "0.18", optional = true }
 percent-encoding = "2.3"
+dirs = "6"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.37"
+webview2-com = "0.38"
 windows-version = "0.1"
 windows-core = "0.61"
 dunce = "1"
@@ -96,13 +94,14 @@ features = [
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 url = "2.5"
+dirs = "6"
 block2 = "0.6"
 objc2 = { version = "0.6", features = [
-    "exception",
-    # because `NSUUID::from_bytes` needs it,
-    # and `WebViewBuilderExtDarwin.with_data_store_identifier` crashes otherwise,
-    # see https://github.com/tauri-apps/tauri/issues/12843
-    "disable-encoding-assertions",
+  "exception",
+  # because `NSUUID::from_bytes` needs it,
+  # and `WebViewBuilderExtDarwin.with_data_store_identifier` crashes otherwise,
+  # see https://github.com/tauri-apps/tauri/issues/12843
+  "disable-encoding-assertions",
 ] }
 objc2-web-kit = { version = "0.3.0", default-features = false, features = [
   "std",
@@ -131,6 +130,7 @@ objc2-web-kit = { version = "0.3.0", default-features = false, features = [
   "WKNavigationResponse",
   "WKUserScript",
   "WKHTTPCookieStore",
+  "WKWindowFeatures",
 ] }
 objc2-core-foundation = { version = "0.3.0", default-features = false, features = [
   "std",
@@ -169,7 +169,7 @@ objc2-ui-kit = { version = "0.3.0", default-features = false, features = [
   "UIWindow",
   "UIApplication",
   "UIEvent",
-  "UIColor"
+  "UIColor",
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -188,12 +188,14 @@ objc2-app-kit = { version = "0.3.0", default-features = false, features = [
   "NSOpenPanel",
   "NSSavePanel",
   "NSMenu",
+  "NSGraphics",
+  "NSScreen",
 ] }
 
 [target."cfg(target_os = \"android\")".dependencies]
 crossbeam-channel = "0.5"
-html5ever = "0.26"
-kuchiki = { package = "kuchikiki", version = "0.8" }
+html5ever = "0.29"
+kuchiki = { package = "kuchikiki", version = "=0.8.8-speedreader" }
 sha2 = "0.10"
 base64 = "0.22"
 jni = "0.21"
@@ -203,7 +205,7 @@ libc = "0.2"
 
 [dev-dependencies]
 pollster = "0.4.0"
-tao = "0.33"
+tao = "0.34"
 wgpu = "23"
 winit = "0.30"
 getrandom = "0.3"

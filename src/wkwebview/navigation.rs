@@ -63,8 +63,6 @@ pub(crate) fn navigation_policy(
     };
     let request = action.request();
     let url = request.URL().unwrap().absoluteString().unwrap();
-    let target_frame = action.targetFrame();
-    let is_main_frame = target_frame.is_some_and(|frame| frame.isMainFrame());
 
     if should_download {
       let has_download_handler = this.ivars().has_download_handler;
@@ -75,7 +73,7 @@ pub(crate) fn navigation_policy(
       }
     } else {
       let function = &this.ivars().navigation_policy_function;
-      match function(url.to_string(), is_main_frame) {
+      match function(url.to_string()) {
         true => (*handler).call((WKNavigationActionPolicy::Allow,)),
         false => (*handler).call((WKNavigationActionPolicy::Cancel,)),
       };

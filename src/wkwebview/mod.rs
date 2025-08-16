@@ -44,9 +44,11 @@ use objc2_core_foundation::CGSize;
 use objc2_core_foundation::{CGPoint, CGRect};
 use objc2_foundation::{
   ns_string, MainThreadMarker, NSArray, NSBundle, NSDate, NSError, NSHTTPCookie,
-  NSHTTPCookieSameSiteLax, NSHTTPCookieSameSiteStrict, NSJSONSerialization, NSMutableURLRequest,
-  NSNumber, NSObjectNSKeyValueCoding, NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL,
-  NSUUID,
+  NSHTTPCookieDomain, NSHTTPCookieExpires, NSHTTPCookieMaximumAge, NSHTTPCookieName,
+  NSHTTPCookiePath, NSHTTPCookiePropertyKey, NSHTTPCookieSameSiteLax, NSHTTPCookieSameSitePolicy,
+  NSHTTPCookieSameSiteStrict, NSHTTPCookieSecure, NSHTTPCookieValue, NSHTTPCookieVersion,
+  NSJSONSerialization, NSMutableDictionary, NSMutableURLRequest, NSNumber,
+  NSObjectNSKeyValueCoding, NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL, NSUUID,
 };
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::{UIScrollView, UIViewAutoresizing};
@@ -61,6 +63,9 @@ use once_cell::sync::Lazy;
 
 #[cfg(target_os = "ios")]
 use crate::wkwebview::ios::WKWebView::WKWebView;
+#[cfg(target_os = "ios")]
+use crate::wkwebview::util::operating_system_version;
+
 #[cfg(target_os = "macos")]
 use objc2_web_kit::WKWebView;
 
@@ -73,7 +78,7 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::{
   cell::RefCell,
   collections::HashMap,
-  ffi::{CStr, CString},
+  ffi::CString,
   net::Ipv4Addr,
   os::raw::c_char,
   panic::AssertUnwindSafe,
@@ -202,6 +207,15 @@ impl InnerWebView {
 
     // Safety: objc runtime calls are unsafe
     unsafe {
+      #[cfg(target_os = "macos")]
+      let using_existing_config = pl_attrs.webview_configuration.is_some();
+      #[cfg(target_os = "ios")]
+      let using_existing_config = false;
+      #[cfg(target_os = "macos")]
+      let config = pl_attrs
+        .webview_configuration
+        .unwrap_or_else(|| WKWebViewConfiguration::new(mtm));
+      #[cfg(target_os = "ios")]
       let config = WKWebViewConfiguration::new(mtm);
 
       // Incognito mode
@@ -229,6 +243,17 @@ impl InnerWebView {
       // Register Custom Protocols
       let mut protocol_ptrs = Vec::new();
       for (name, function) in attributes.custom_protocols {
+        let already_registered = using_existing_config
+          && config
+            .urlSchemeHandlerForURLScheme(&NSString::from_str(&name))
+            .is_some();
+
+        if already_registered {
+          #[cfg(feature = "tracing")]
+          tracing::debug!("Custom protocol {} already registered", name);
+          continue;
+        }
+
         let url_scheme_handler_cls = url_scheme_handler::create(&name);
         let handler: *mut AnyObject = objc2::msg_send![url_scheme_handler_cls, new];
         let protocol_index = protocol_ptrs.len();
@@ -236,7 +261,7 @@ impl InnerWebView {
 
         let ivar = (*handler)
           .class()
-          .instance_variable(CStr::from_bytes_with_nul(b"protocol_index\0").unwrap())
+          .instance_variable(c"protocol_index")
           .unwrap();
         let ivar_delegate: &mut usize = ivar.load_mut(&mut *handler);
         *ivar_delegate = protocol_index;
@@ -281,6 +306,12 @@ impl InnerWebView {
       let _preference = config.preferences();
       let _yes = NSNumber::numberWithBool(true);
 
+      #[cfg(target_os = "ios")]
+      {
+        if pl_attrs.limit_navigations_to_app_bound_domains && operating_system_version().0 >= 14 {
+          config.setLimitsNavigationsToAppBoundDomains(true);
+        }
+      }
       #[cfg(feature = "mac-proxy")]
       if let Some(proxy_config) = attributes.proxy_config {
         let proxy_config = match proxy_config {
@@ -504,7 +535,6 @@ impl InnerWebView {
         pending_scripts.clone(),
         has_download_handler,
         attributes.navigation_handler,
-        attributes.new_window_req_handler,
         download_delegate.clone(),
         attributes.on_page_load_handler,
         mtm,
@@ -513,7 +543,8 @@ impl InnerWebView {
       let proto_navigation_policy_delegate = ProtocolObject::from_ref(&*navigation_policy_delegate);
       webview.setNavigationDelegate(Some(proto_navigation_policy_delegate));
 
-      let ui_delegate: Retained<WryWebViewUIDelegate> = WryWebViewUIDelegate::new(mtm);
+      let ui_delegate: Retained<WryWebViewUIDelegate> =
+        WryWebViewUIDelegate::new(mtm, attributes.new_window_req_handler);
       let proto_ui_delegate = ProtocolObject::from_ref(&*ui_delegate);
       webview.setUIDelegate(Some(proto_ui_delegate));
 
@@ -979,6 +1010,73 @@ r#"Object.defineProperty(window, 'ipc', {
     cookie_builder.build()
   }
 
+  unsafe fn cookie_into_wkwebview(cookie: &cookie::Cookie<'_>) -> Retained<NSHTTPCookie> {
+    let nstring_true: &'static NSString = ns_string!("TRUE");
+    let nstring_false: &'static NSString = ns_string!("FALSE");
+    let nstring_0: &'static NSString = ns_string!("0");
+    let nstring_1: &'static NSString = ns_string!("1");
+
+    let name = NSString::from_str(cookie.name());
+    let value = NSString::from_str(cookie.value());
+    let path = cookie.path().map_or_else(NSString::new, NSString::from_str);
+    let domain = cookie
+      .domain()
+      .map_or_else(NSString::new, NSString::from_str);
+
+    let properties: Retained<NSMutableDictionary<NSHTTPCookiePropertyKey, AnyObject>> =
+      NSMutableDictionary::from_slices(
+        &[
+          NSHTTPCookieName,
+          NSHTTPCookieValue,
+          NSHTTPCookiePath,
+          NSHTTPCookieDomain,
+        ],
+        &[&name, &value, &path, &domain],
+      );
+
+    if let Some(max_age_) = cookie.max_age() {
+      let max_age = NSString::from_str(&max_age_.whole_seconds().to_string());
+      properties.insert(NSHTTPCookieMaximumAge, &*max_age);
+      properties.insert(NSHTTPCookieVersion, nstring_1);
+    } else if let Some(dt) = cookie.expires_datetime() {
+      let expires = NSDate::dateWithTimeIntervalSince1970(dt.unix_timestamp() as f64);
+      properties.insert(NSHTTPCookieExpires, &*expires);
+      properties.insert(NSHTTPCookieVersion, nstring_0);
+    }
+
+    if let Some(secure) = cookie.secure() {
+      let secure = if secure { nstring_true } else { nstring_false };
+      properties.insert(NSHTTPCookieSecure, secure);
+    }
+
+    if let Some(http_only) = cookie.http_only() {
+      let http_only = if http_only {
+        nstring_true
+      } else {
+        nstring_false
+      };
+      // ref:
+      // - <https://stackoverflow.com/a/41697557>
+      // - <https://developer.apple.com/forums/thread/701770?answerId=706717022#706717022>
+      properties.insert(ns_string!("HttpOnly"), http_only);
+    }
+
+    if let Some(same_site) = cookie.same_site() {
+      match same_site {
+        cookie::SameSite::Lax => {
+          properties.insert(NSHTTPCookieSameSitePolicy, NSHTTPCookieSameSiteLax);
+        }
+        cookie::SameSite::Strict => {
+          properties.insert(NSHTTPCookieSameSitePolicy, NSHTTPCookieSameSiteStrict);
+        }
+        cookie::SameSite::None => {}
+      };
+    }
+
+    NSHTTPCookie::cookieWithProperties(&properties)
+      .expect("failed to create wkwebview cookie, report this as bug to `wry`")
+  }
+
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
     let url = url::Url::parse(url)?;
 
@@ -1022,6 +1120,42 @@ r#"Object.defineProperty(window, 'ipc', {
           },
         ));
 
+      wait_for_blocking_operation(rx)
+    }
+  }
+
+  pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    unsafe {
+      let wkwebview_cookie = Self::cookie_into_wkwebview(cookie);
+      self
+        .data_store
+        .httpCookieStore()
+        .setCookie_completionHandler(
+          &wkwebview_cookie,
+          Some(&block2::RcBlock::new(move || {
+            let _ = tx.send(());
+          })),
+        );
+      wait_for_blocking_operation(rx)
+    }
+  }
+
+  pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    unsafe {
+      let wkwebview_cookie = Self::cookie_into_wkwebview(cookie);
+      self
+        .data_store
+        .httpCookieStore()
+        .deleteCookie_completionHandler(
+          &wkwebview_cookie,
+          Some(&block2::RcBlock::new(move || {
+            let _ = tx.send(());
+          })),
+        );
       wait_for_blocking_operation(rx)
     }
   }
