@@ -251,7 +251,7 @@ In order for `wry` to be able to create webviews on Android, there are a few req
 3. Your Rust app needs to call `wry::android_setup` function to setup the necessary logic to be able to create webviews later on.
 4. Your Rust app needs to call `wry::android_binding!` macro to setup the JNI functions that will be called by `WryActivity` and various other places.
 
-It is recommended to use [`tao`](https://docs.rs/tao/latest/tao/) crate as it provides maximum compatibility with `wry`
+It is recommended to use the [`tao`](https://docs.rs/tao/latest/tao/) crate as it provides maximum compatibility with `wry`.
 
 ```rust
 #[cfg(target_os = "android")]

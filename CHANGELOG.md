@@ -1,5 +1,19 @@
 # Changelog
 
+## \[0.53.0]
+
+- [`1456f8e`](https://github.com/tauri-apps/wry/commit/1456f8e33ad3d05239c2ee71f64e49ef32d48f03) ([#1602](https://github.com/tauri-apps/wry/pull/1602) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) Enabled all downloads by default to match WebView2 and browser behavior on all platforms. To disable this, provide a custom `download_started_handler`.
+- [`43e78ff`](https://github.com/tauri-apps/wry/commit/43e78ff6b09fe9cac84ff7d73460f170a8c32081) ([#1588](https://github.com/tauri-apps/wry/pull/1588) by [@zphrs](https://github.com/tauri-apps/wry/../../zphrs)) Add `WebViewBuilder::with_limit_navigations_to_app_bound_domains` only on iOS.
+  Function is a no-op if iOS version is less than iOS 14.
+- [`60dba38`](https://github.com/tauri-apps/wry/commit/60dba38ddcc01c428feccea2957adf69128373ef) ([#1569](https://github.com/tauri-apps/wry/pull/1569) by [@WSH032](https://github.com/tauri-apps/wry/../../WSH032)) Add `WebView::set_cookie` and `WebView::delete_cookie` APIs.
+- [`88cbb01`](https://github.com/tauri-apps/wry/commit/88cbb019a8d38fbcf7ad015d5f34f9a838a88f98) ([#1561](https://github.com/tauri-apps/wry/pull/1561) by [@dgerhardt](https://github.com/tauri-apps/wry/../../dgerhardt)) On Linux, fix a deadlock, which could occur when destroying a WebView before loading has finished.
+- [`eb562ca`](https://github.com/tauri-apps/wry/commit/eb562ca99346fabf2c28d65252d176e2612f3178) ([#1596](https://github.com/tauri-apps/wry/pull/1596) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Do not fire `new_window_req_handler` on navigation events on macOS and iOS.
+- [`78634b3`](https://github.com/tauri-apps/wry/commit/78634b3d4dd31651f9e6a3959cbb5f994502a92b) ([#1594](https://github.com/tauri-apps/wry/pull/1594) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) On Linux, macOS and iOS, the `download_started_handler` will now get the correct suggested destination path.
+- [`5399823`](https://github.com/tauri-apps/wry/commit/5399823a1ecfca4476e7c585c694380c41951766) ([#1600](https://github.com/tauri-apps/wry/pull/1600) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fixes `new_window_req_handler` not creating the webview on Linux when executing `window.open()`.
+- [`eb562ca`](https://github.com/tauri-apps/wry/commit/eb562ca99346fabf2c28d65252d176e2612f3178) ([#1596](https://github.com/tauri-apps/wry/pull/1596) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fixes `new_window_req_handler` not fired on macOS when executing `window.open()`.
+- [`3f978d3`](https://github.com/tauri-apps/wry/commit/3f978d3290aa5cebd6b5feea506557ac0f6e07a7) ([#1601](https://github.com/tauri-apps/wry/pull/1601) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Refactor `WebViewBuilder::with_new_window_req_handler` to allow creating the webview manually.
+- [`3f978d3`](https://github.com/tauri-apps/wry/commit/3f978d3290aa5cebd6b5feea506557ac0f6e07a7) ([#1601](https://github.com/tauri-apps/wry/pull/1601) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Disable new window creation by default on Windows to match behavior of other platforms. Use `WebViewBuilder::with_new_window_req_handler` to enable.
+
 ## \[0.52.1]
 
 - [`63eaab8`](https://github.com/tauri-apps/wry/commit/63eaab80bad7c5f888893c79690c5b626d015eb3) ([#1573](https://github.com/tauri-apps/wry/pull/1573) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Fix `wry::DragDropEvent::Drop::paths` returns random data on Windows
