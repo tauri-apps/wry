@@ -366,8 +366,7 @@ impl InnerWebView {
 
     // Navigation
     if let Some(url) = attributes.url {
-      web_context.queue_load_uri(w.webview.clone(), url, attributes.headers);
-      web_context.flush_queue_loader();
+      web_context.load_uri(w.webview.clone(), url, attributes.headers);
     } else if let Some(html) = attributes.html {
       w.webview.load_html(&html, None);
     }

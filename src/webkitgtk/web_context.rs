@@ -5,23 +5,15 @@
 //! Unix platform extensions for [`WebContext`](super::WebContext).
 
 use crate::{Error, RequestAsyncResponder};
-use gtk::{
-  glib::{self, MainContext, ObjectExt},
-  traits::WidgetExt,
-};
+use gtk::glib::{self, MainContext, ObjectExt};
 use http::{header::CONTENT_TYPE, HeaderName, HeaderValue, Request, Response as HttpResponse};
 use soup::{MessageHeaders, MessageHeadersType};
 use std::{
   borrow::Cow,
   cell::RefCell,
-  collections::VecDeque,
   env::current_dir,
   path::{Path, PathBuf},
   rc::Rc,
-  sync::{
-    atomic::{AtomicBool, Ordering::SeqCst},
-    Mutex,
-  },
 };
 use webkit2gtk::{
   ApplicationInfo, AutomationSessionExt, CookiePersistentStorage, DownloadExt, LoadEvent,
@@ -33,7 +25,6 @@ use webkit2gtk::{
 #[derive(Debug)]
 pub struct WebContextImpl {
   context: WebContext,
-  webview_uri_loader: Rc<WebViewUriLoader>,
   automation: bool,
   app_info: Option<ApplicationInfo>,
 }
@@ -87,7 +78,6 @@ impl WebContextImpl {
     Self {
       context,
       automation,
-      webview_uri_loader: Rc::default(),
       app_info: Some(app_info),
     }
   }
@@ -114,15 +104,8 @@ pub trait WebContextExt {
   where
     F: Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + 'static;
 
-  /// Add a [`WebView`] to the queue waiting to be opened.
-  ///
-  /// See the [`WebViewUriLoader`] for more information.
-  fn queue_load_uri(&self, webview: WebView, url: String, headers: Option<http::HeaderMap>);
-
-  /// Flush all queued [`WebView`]s waiting to load a uri.
-  ///
-  /// See the [`WebViewUriLoader`] for more information.
-  fn flush_queue_loader(&self);
+  /// Loads a URI for a [`WebView`].
+  fn load_uri(&self, webview: WebView, url: String, headers: Option<http::HeaderMap>);
 
   /// If the context allows automation.
   ///
@@ -279,12 +262,23 @@ impl WebContextExt for super::WebContext {
     Ok(())
   }
 
-  fn queue_load_uri(&self, webview: WebView, url: String, headers: Option<http::HeaderMap>) {
-    self.os.webview_uri_loader.push(webview, url, headers)
-  }
+  fn load_uri(&self, webview: WebView, uri: String, headers: Option<http::HeaderMap>) {
+    if let Some(headers) = headers {
+      let req = URIRequest::builder().uri(&uri).build();
 
-  fn flush_queue_loader(&self) {
-    self.os.webview_uri_loader.clone().flush()
+      if let Some(ref mut req_headers) = req.http_headers() {
+        for (header, value) in headers.iter() {
+          req_headers.append(
+            header.to_string().as_str(),
+            value.to_str().unwrap_or_default(),
+          );
+        }
+      }
+
+      webview.load_request(&req);
+    } else {
+      webview.load_uri(&uri);
+    }
   }
 
   fn allows_automation(&self) -> bool {
@@ -399,134 +393,3 @@ impl MainThreadRequest {
 
 unsafe impl Send for MainThreadRequest {}
 unsafe impl Sync for MainThreadRequest {}
-
-#[derive(Debug)]
-struct WebviewUriRequest {
-  webview: WebView,
-  uri: String,
-  headers: Option<http::HeaderMap>,
-}
-
-/// Prevents an unknown concurrency bug with loading multiple URIs at the same time on webkit2gtk.
-///
-/// Using the queue prevents data race issues with loading uris for multiple [`WebView`]s in the
-/// same context at the same time. Occasionally, the one of the [`WebView`]s will be clobbered
-/// and it's content will be injected into a different [`WebView`].
-///
-/// Example of `webview-c` clobbering `webview-b` while `webview-a` is okay:
-/// ```text
-/// webview-a triggers load-change::started
-/// URISchemeRequestCallback triggered with webview-a
-/// webview-a triggers load-change::committed
-/// webview-a triggers load-change::finished
-/// webview-b triggers load-change::started
-/// webview-c triggers load-change::started
-/// URISchemeRequestCallback triggered with webview-c
-/// URISchemeRequestCallback triggered with webview-c
-/// webview-c triggers load-change::committed
-/// webview-c triggers load-change::finished
-/// ```
-///
-/// In that example, `webview-a` will load fine. `webview-b` will remain empty as the uri was
-/// never loaded. `webview-c` will contain the content of both `webview-b` and `webview-c`
-/// because it was triggered twice even through only started once. The content injected will not
-/// be sequential, and often is interjected in the middle of one of the other contents.
-///
-/// FIXME: We think this may be an underlying concurrency bug in webkit2gtk as the usual ways of
-/// fixing threading issues are not working. Ideally, the locks are not needed if we can understand
-/// the true cause of the bug.
-#[derive(Debug, Default)]
-struct WebViewUriLoader {
-  lock: AtomicBool,
-  queue: Mutex<VecDeque<WebviewUriRequest>>,
-}
-
-impl WebViewUriLoader {
-  /// Check if the lock is in use.
-  fn is_locked(&self) -> bool {
-    self.lock.swap(true, SeqCst)
-  }
-
-  /// Unlock the lock.
-  fn unlock(&self) {
-    self.lock.store(false, SeqCst)
-  }
-
-  /// Add a [`WebView`] to the queue.
-  fn push(&self, webview: WebView, uri: String, headers: Option<http::HeaderMap>) {
-    let mut queue = self.queue.lock().expect("poisoned load queue");
-    queue.push_back(WebviewUriRequest {
-      webview,
-      uri,
-      headers,
-    })
-  }
-
-  /// Remove a [`WebView`] from the queue and return it.
-  fn pop(&self) -> Option<WebviewUriRequest> {
-    let mut queue = self.queue.lock().expect("poisoned load queue");
-    queue.pop_front()
-  }
-
-  /// Load the next uri to load if the lock is not engaged.
-  fn flush(self: Rc<Self>) {
-    if !self.is_locked() {
-      if let Some(WebviewUriRequest {
-        webview,
-        uri,
-        headers,
-      }) = self.pop()
-      {
-        // ensure that the lock is released when the webview is destroyed before LoadEvent::Finished is handled
-        let self_ = self.clone();
-        let destroy_id = webview.connect_destroy(move |_| {
-          self_.unlock();
-          self_.clone().flush();
-        });
-        let destroy_id_guard = Mutex::new(Some(destroy_id));
-
-        let load_changed_id_guard = Rc::new(Mutex::new(None));
-        let load_changed_id_guard_ = load_changed_id_guard.clone();
-        let self_ = self.clone();
-        // noet: we do not need to listen to failed events because those will finish the change event anyways
-        let load_changed_id = webview.connect_load_changed(move |w, event| {
-          if let LoadEvent::Finished = event {
-            self_.unlock();
-            self_.clone().flush();
-
-            // unregister listeners
-            if let Some(id) = destroy_id_guard.lock().unwrap().take() {
-              w.disconnect(id);
-            }
-            if let Some(id) = load_changed_id_guard_.lock().unwrap().take() {
-              w.disconnect(id);
-            }
-          };
-        });
-        load_changed_id_guard
-          .lock()
-          .unwrap()
-          .replace(load_changed_id);
-
-        if let Some(headers) = headers {
-          let req = URIRequest::builder().uri(&uri).build();
-
-          if let Some(ref mut req_headers) = req.http_headers() {
-            for (header, value) in headers.iter() {
-              req_headers.append(
-                header.to_string().as_str(),
-                value.to_str().unwrap_or_default(),
-              );
-            }
-          }
-
-          webview.load_request(&req);
-        } else {
-          webview.load_uri(&uri);
-        }
-      } else {
-        self.unlock();
-      }
-    }
-  }
-}
