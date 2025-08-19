@@ -409,8 +409,6 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{
 };
 
 #[cfg(target_env = "ohos")]
-use openharmony_ability::OpenHarmonyApp;
-#[cfg(target_env = "ohos")]
 pub(crate) mod ohos;
 #[cfg(target_env = "ohos")]
 pub use ohos::*;
@@ -483,12 +481,15 @@ pub enum NewWindowResponse {
   /// **macOS**: The webview must use the same configuration as the caller webview. See [`WebViewBuilderExtMacos::with_webview_configuration`].
   #[cfg(not(any(target_os = "android", target_os = "ios")))]
   Create {
-    #[cfg(any(
-      target_os = "linux",
-      target_os = "dragonfly",
-      target_os = "freebsd",
-      target_os = "netbsd",
-      target_os = "openbsd",
+    #[cfg(all(
+      any(
+        target_os = "linux",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd"
+      ),
+      not(target_env = "ohos")
     ))]
     webview: webkit2gtk::WebView,
     #[cfg(windows)]
@@ -506,12 +507,15 @@ pub struct NewWindowOpener {
   /// The instance of the webview that initiated the new window request.
   ///
   /// This must be set as the related view of the new webview. See [`WebViewBuilderExtUnix::with_related_view`].
-  #[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
+  #[cfg(all(
+    any(
+      target_os = "linux",
+      target_os = "dragonfly",
+      target_os = "freebsd",
+      target_os = "netbsd",
+      target_os = "openbsd"
+    ),
+    not(target_env = "ohos")
   ))]
   pub webview: webkit2gtk::WebView,
   /// The instance of the webview that initiated the new window request.
