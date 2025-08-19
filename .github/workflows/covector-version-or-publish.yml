@@ -59,6 +59,6 @@ jobs:
           title: Apply Version Updates From Current Changes
           commit-message: "apply version updates"
           labels: "version updates"
-          branch: "release"
+          branch: "ci/pending-release"
           body: ${{ steps.covector.outputs.change }}
           sign-commits: true

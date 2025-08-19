@@ -29,8 +29,8 @@ use windows::{
 use self::drag_drop::DragDropController;
 use super::Theme;
 use crate::{
-  proxy::ProxyConfig, Error, MemoryUsageLevel, PageLoadEvent, Rect, RequestAsyncResponder, Result,
-  WebViewAttributes, RGBA,
+  proxy::ProxyConfig, Error, MemoryUsageLevel, NewWindowFeatures, NewWindowOpener,
+  NewWindowResponse, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebViewAttributes, RGBA,
 };
 
 type EventRegistrationToken = i64;
@@ -58,8 +58,8 @@ pub(crate) struct InnerWebView {
   hwnd: HWND,
   is_child: bool,
   pub controller: ICoreWebView2Controller,
-  webview: ICoreWebView2,
-  env: ICoreWebView2Environment,
+  pub webview: ICoreWebView2,
+  pub env: ICoreWebView2Environment,
   // Store FileDropController in here to make sure it gets dropped when
   // the webview gets dropped, otherwise we'll have a memory leak
   #[allow(dead_code)]
@@ -129,7 +129,11 @@ impl InnerWebView {
       attributes.background_color
     };
 
-    let env = Self::create_environment(&attributes, pl_attrs.clone())?;
+    let env = if let Some(env) = &pl_attrs.environment {
+      env.clone()
+    } else {
+      Self::create_environment(&attributes, pl_attrs.clone())?
+    };
     let controller = Self::create_controller(hwnd, &env, attributes.incognito, background_color)?;
     let webview = Self::init_webview(
       parent,
@@ -406,6 +410,7 @@ impl InnerWebView {
     webview2_com::wait_with_pump(rx)?.map_err(Into::into)
   }
 
+  #[allow(clippy::too_many_arguments)]
   #[inline]
   fn init_webview(
     parent: HWND,
@@ -454,7 +459,7 @@ impl InnerWebView {
     unsafe { Self::set_webview_settings(&webview, &attributes, &pl_attrs)? };
 
     // Webview handlers
-    unsafe { Self::attach_handlers(hwnd, &webview, &mut attributes, &mut token)? };
+    unsafe { Self::attach_handlers(hwnd, &webview, &mut attributes, &mut token, env)? };
 
     // IPC handler
     unsafe { Self::attach_ipc_handler(&webview, &mut attributes, &mut token)? };
@@ -597,6 +602,7 @@ impl InnerWebView {
     webview: &ICoreWebView2,
     attributes: &mut WebViewAttributes,
     token: &mut EventRegistrationToken,
+    env: &ICoreWebView2Environment,
   ) -> Result<()> {
     // Close container HWND when `window.close` is called in JS
     webview.add_WindowCloseRequested(
@@ -679,28 +685,102 @@ impl InnerWebView {
       )?;
     }
 
+    let new_window_req_handler = attributes
+      .new_window_req_handler
+      .take()
+      .map(std::sync::Arc::new);
+    let env_ = env.clone();
     // New window handler
-    if let Some(new_window_req_handler) = attributes.new_window_req_handler.take() {
-      webview.add_NewWindowRequested(
-        &NewWindowRequestedEventHandler::create(Box::new(move |_, args| {
-          let Some(args) = args else {
-            return Ok(());
-          };
+    webview.add_NewWindowRequested(
+      &NewWindowRequestedEventHandler::create(Box::new(move |webview, args| {
+        let Some(args) = args else {
+          return Ok(());
+        };
 
+        if let Some(new_window_req_handler) = &new_window_req_handler {
+          let webview = webview.unwrap();
           let uri = {
             let mut uri = PWSTR::null();
             args.Uri(&mut uri)?;
             take_pwstr(uri)
           };
 
-          let allow = new_window_req_handler(uri);
-          args.SetHandled(!allow)?;
+          let features = args
+            .WindowFeatures()
+            .map(|f| {
+              let mut position = None;
+              let mut size = None;
 
-          Ok(())
-        })),
-        token,
-      )?;
-    }
+              let mut has_position: BOOL = false.into();
+              let _ = f.HasPosition(&mut has_position);
+
+              if has_position.as_bool() {
+                let mut left = 0;
+                let _ = f.Left(&mut left);
+                let mut top = 0;
+                let _ = f.Top(&mut top);
+                position.replace(dpi::LogicalPosition::new(left as f64, top as f64));
+              }
+
+              let mut has_size: BOOL = false.into();
+              let _ = f.HasSize(&mut has_size);
+              if has_size.as_bool() {
+                let mut width = 0;
+                let _ = f.Width(&mut width);
+                let mut height = 0;
+                let _ = f.Height(&mut height);
+                size.replace(dpi::LogicalSize::new(width as f64, height as f64));
+              }
+
+              NewWindowFeatures {
+                position,
+                size,
+                opener: NewWindowOpener {
+                  webview: webview.clone(),
+                  environment: env_.clone(),
+                },
+              }
+            })
+            .unwrap_or_else(|_| NewWindowFeatures {
+              position: None,
+              size: None,
+              opener: NewWindowOpener {
+                webview: webview.clone(),
+                environment: env_.clone(),
+              },
+            });
+
+          let new_window_req_handler = new_window_req_handler.clone();
+          let deferral = args.GetDeferral()?;
+          let deferral = UnsafeSend(deferral);
+          let args = UnsafeSend(args);
+          let hwnd = UnsafeSend(hwnd.clone());
+          std::thread::spawn(move || match new_window_req_handler(uri, features) {
+            NewWindowResponse::Allow => {
+              let _ = args.take().SetHandled(false);
+              let _ = deferral.take().Complete();
+            }
+            NewWindowResponse::Create { webview } => {
+              Self::dispatch_handler(hwnd.take(), move || {
+                let args = args.take();
+                let _ = args.SetHandled(true);
+                let _ = args.SetNewWindow(&webview);
+                let _ = deferral.take().Complete();
+              });
+            }
+            NewWindowResponse::Deny => {
+              let _ = args.take().SetHandled(true);
+              let _ = deferral.take().Complete();
+            }
+          });
+        } else {
+          args.SetHandled(true)?;
+        }
+
+        Ok(())
+      })),
+      token,
+    )?;
 
     // Download handler
     if attributes.download_started_handler.is_some()
@@ -1055,11 +1135,11 @@ impl InnerWebView {
   #[inline]
   unsafe fn dispatch_handler<F>(hwnd: HWND, function: F)
   where
-    F: FnMut() + 'static,
+    F: FnOnce() + 'static,
   {
     // We double-box because the first box is a fat pointer.
-    let boxed = Box::new(function) as Box<dyn FnMut()>;
-    let boxed2: Box<Box<dyn FnMut()>> = Box::new(boxed);
+    let boxed = Box::new(function) as Box<dyn FnOnce()>;
+    let boxed2: Box<Box<dyn FnOnce()>> = Box::new(boxed);
 
     let raw = Box::into_raw(boxed2);
 
@@ -1088,7 +1168,7 @@ impl InnerWebView {
     _dwrefdata: usize,
   ) -> LRESULT {
     if msg == *EXEC_MSG_ID {
-      let mut function: Box<Box<dyn FnMut()>> = Box::from_raw(wparam.0 as *mut _);
+      let function: Box<Box<dyn FnOnce()>> = Box::from_raw(wparam.0 as *mut _);
       function();
       let _ = RedrawWindow(Some(hwnd), None, None, RDW_INTERNALPAINT);
       return LRESULT(0);
@@ -1491,10 +1571,8 @@ impl InnerWebView {
         .saturating_add(max_age)
         .unix_timestamp();
       Some(expires_)
-    } else if let Some(dt) = cookie.expires_datetime() {
-      Some(dt.unix_timestamp())
     } else {
-      None
+      cookie.expires_datetime().map(|dt| dt.unix_timestamp())
     };
     if let Some(expires) = expires {
       win32_cookie.SetExpires(expires as f64)?;
@@ -1789,6 +1867,15 @@ fn is_windows_7() -> bool {
   let v = windows_version::OsVersion::current();
   // windows 7 is 6.1
   v.major == 6 && v.minor == 1
+}
+
+struct UnsafeSend<T>(T);
+unsafe impl<T> Send for UnsafeSend<T> {}
+
+impl<T> UnsafeSend<T> {
+  fn take(self) -> T {
+    self.0
+  }
 }
 
 #[cfg(test)]

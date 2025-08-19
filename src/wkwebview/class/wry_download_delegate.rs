@@ -32,10 +32,10 @@ define_class!(
       &self,
       download: &WKDownload,
       response: &NSURLResponse,
-      suggested_path: &NSString,
+      suggested_filename: &NSString,
       handler: &block2::Block<dyn Fn(*const NSURL)>,
     ) {
-      download_policy(self, download, response, suggested_path, handler);
+      download_policy(self, download, response, suggested_filename, handler);
     }
 
     #[unsafe(method(downloadDidFinish:))]

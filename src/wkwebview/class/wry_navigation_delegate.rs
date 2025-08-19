@@ -32,7 +32,7 @@ use super::wry_download_delegate::WryDownloadDelegate;
 pub struct WryNavigationDelegateIvars {
   pub pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
   pub has_download_handler: bool,
-  pub navigation_policy_function: Box<dyn Fn(String, bool) -> bool>,
+  pub navigation_policy_function: Box<dyn Fn(String) -> bool>,
   pub download_delegate: Option<Retained<WryDownloadDelegate>>,
   pub on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent)>>,
 }
@@ -106,21 +106,14 @@ impl WryNavigationDelegate {
     pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
     has_download_handler: bool,
     navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
-    new_window_req_handler: Option<Box<dyn Fn(String) -> bool>>,
     download_delegate: Option<Retained<WryDownloadDelegate>>,
     on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
     mtm: MainThreadMarker,
   ) -> Retained<Self> {
-    let navigation_policy_function = Box::new(move |url: String, is_main_frame: bool| -> bool {
-      if is_main_frame {
-        navigation_handler
-          .as_ref()
-          .map_or(true, |navigation_handler| (navigation_handler)(url))
-      } else {
-        new_window_req_handler
-          .as_ref()
-          .map_or(true, |new_window_req_handler| (new_window_req_handler)(url))
-      }
+    let navigation_policy_function = Box::new(move |url: String| -> bool {
+      navigation_handler
+        .as_ref()
+        .map_or(true, |navigation_handler| (navigation_handler)(url))
     });
 
     let on_page_load_handler = if let Some(handler) = on_page_load_handler {

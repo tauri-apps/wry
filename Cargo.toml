@@ -2,7 +2,7 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.52.1"
+version = "0.53.1"
 authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -65,6 +65,10 @@ soup3 = { version = "0.5", optional = true }
 x11-dl = { version = "2.21", optional = true }
 gdkx11 = { version = "0.18", optional = true }
 percent-encoding = "2.3"
+dirs = "6"
+
+[target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dev-dependencies]
+x11-dl = { version = "2.21" }
 
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.38"
@@ -93,6 +97,7 @@ features = [
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 url = "2.5"
+dirs = "6"
 block2 = "0.6"
 objc2 = { version = "0.6", features = [
   "exception",
@@ -128,6 +133,7 @@ objc2-web-kit = { version = "0.3.0", default-features = false, features = [
   "WKNavigationResponse",
   "WKUserScript",
   "WKHTTPCookieStore",
+  "WKWindowFeatures",
 ] }
 objc2-core-foundation = { version = "0.3.0", default-features = false, features = [
   "std",
@@ -185,6 +191,8 @@ objc2-app-kit = { version = "0.3.0", default-features = false, features = [
   "NSOpenPanel",
   "NSSavePanel",
   "NSMenu",
+  "NSGraphics",
+  "NSScreen",
 ] }
 
 [target."cfg(target_os = \"android\")".dependencies]

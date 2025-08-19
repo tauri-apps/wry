@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::ffi::CStr;
+use std::{ffi::CStr, panic::AssertUnwindSafe};
 
 use http::Request;
 use objc2::{
@@ -92,11 +92,13 @@ impl WryWebViewDelegate {
 
     let proto_delegate = ProtocolObject::from_ref(&*delegate);
     unsafe {
-      // this will increate the retain count of the delegate
-      delegate.ivars().controller.addScriptMessageHandler_name(
-        proto_delegate,
-        &NSString::from_str(IPC_MESSAGE_HANDLER_NAME),
-      );
+      // this will increase the retain count of the delegate
+      let _res = objc2::exception::catch(AssertUnwindSafe(|| {
+        delegate.ivars().controller.addScriptMessageHandler_name(
+          proto_delegate,
+          &NSString::from_str(IPC_MESSAGE_HANDLER_NAME),
+        );
+      }));
     }
 
     delegate
