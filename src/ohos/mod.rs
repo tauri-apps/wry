@@ -69,12 +69,11 @@ impl InnerWebView {
       .url(u)
       .javascript_enabled(!javascript_disabled)
       .autoplay(autoplay)
-      .initialization_scripts(
-        initialization_scripts
-          .iter()
-          .map(|s| s.script.clone())
-          .collect(),
-      )
+      .initialization_scripts(vec![initialization_scripts
+        .iter()
+        .map(|s| s.script.clone())
+        .collect::<Vec<_>>()
+        .join("\n")])
       .devtools(devtools)
       .transparent(transparent);
 
