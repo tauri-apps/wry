@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::mpsc::channel, time::Duration};
+use std::borrow::Cow;
 
 use super::WebViewAttributes;
 use crate::{Error, Rect, RequestAsyncResponder, Result, RGBA};
@@ -10,7 +10,6 @@ use raw_window_handle::HasWindowHandle;
 use crate::util::Counter;
 
 static COUNTER: Counter = Counter::new();
-const MAIN_PIPE_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct InnerWebView {
   id: String,
@@ -97,7 +96,7 @@ impl InnerWebView {
     webview
       .on_controller_attach(move || {
         let _builder = WebProxyBuilder::new(current_id.clone(), "ipc".to_string())
-          .add_method("postMessage", |_, params| {
+          .add_method("postMessage", |_frame, params| {
             if let Some(ipc_handler) = &ipc_handler {
               let message = params.get(0).unwrap_or(&"".to_string()).to_owned();
               ipc_handler(Request::new(message));
@@ -112,16 +111,12 @@ impl InnerWebView {
 
     for (protocol, callback) in custom_protocols {
       webview
-        .custom_protocol(protocol, move |web, req, _flag| {
-          let (tx, rx) = channel();
-
+        .custom_protocol_async(protocol, move |web, req, _is_on_main_frame, responder| {
           let responder: Box<dyn FnOnce(Response<Cow<'static, [u8]>>)> = Box::new(move |resp| {
-            tx.send(resp).unwrap();
+            responder.respond(resp);
           });
 
           (callback)(web, req, RequestAsyncResponder { responder });
-
-          Some(rx.recv_timeout(MAIN_PIPE_TIMEOUT).unwrap())
         })
         .unwrap();
     }

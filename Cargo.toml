@@ -204,8 +204,8 @@ libc = "0.2"
 dom_query = { version = "0.28.0", default-features = false }
 
 [target.'cfg(target_env = "ohos")'.dependencies]
-openharmony-ability = { version = "0.2", features = ["webview"] }
-openharmony-ability-derive = { version = "0.2" }
+openharmony-ability = { version = "0.2.2", features = ["webview"] }
+openharmony-ability-derive = { version = "0.2.2" }
 
 
 [dev-dependencies]
