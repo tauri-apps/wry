@@ -110,13 +110,14 @@ impl InnerWebView {
       })?;
 
     for (protocol, callback) in custom_protocols {
+      let webview_id = id.clone();
       webview
-        .custom_protocol_async(protocol, move |web, req, _is_on_main_frame, responder| {
+        .custom_protocol_async(protocol, move |_web, req, _is_on_main_frame, responder| {
           let responder: Box<dyn FnOnce(Response<Cow<'static, [u8]>>)> = Box::new(move |resp| {
             responder.respond(resp);
           });
 
-          (callback)(web, req, RequestAsyncResponder { responder });
+          (callback)(&webview_id, req, RequestAsyncResponder { responder });
         })
         .unwrap();
     }
