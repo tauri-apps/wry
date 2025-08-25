@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.53.2]
+
+- [`1743e7f`](https://github.com/tauri-apps/wry/commit/1743e7f9c1113db1639d544f1f12b8835f91e20b) ([#1608](https://github.com/tauri-apps/wry/pull/1608) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fix new_window_req_handler craashing when creating new window for webview that has a custom data_store_identifier.
+
 ## \[0.53.1]
 
 - [`ccdf912`](https://github.com/tauri-apps/wry/commit/ccdf912621f5e12698bdb2cb75af81dd794ab751) ([#1603](https://github.com/tauri-apps/wry/pull/1603) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fix the build when not enabling the `x11` feature.
