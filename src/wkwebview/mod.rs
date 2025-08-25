@@ -225,19 +225,25 @@ impl InnerWebView {
       #[cfg(target_os = "ios")]
       let custom_data_store_available = os_major_version >= 17;
 
-      let data_store = match (
-        attributes.incognito,
-        custom_data_store_available,
-        pl_attrs.data_store_identifier,
-      ) {
-        (true, _, _) => WKWebsiteDataStore::nonPersistentDataStore(mtm),
-        // if data_store_identifier is given and custom data stores are available, use custom store
-        (false, true, Some(data_store)) => {
-          let identifier = NSUUID::from_bytes(data_store);
-          WKWebsiteDataStore::dataStoreForIdentifier(&identifier, mtm)
-        }
-        // default data store
-        _ => WKWebsiteDataStore::defaultDataStore(mtm),
+      let data_store = if using_existing_config {
+        config.websiteDataStore()
+      } else {
+        let data_store = match (
+          attributes.incognito,
+          custom_data_store_available,
+          pl_attrs.data_store_identifier,
+        ) {
+          (true, _, _) => WKWebsiteDataStore::nonPersistentDataStore(mtm),
+          // if data_store_identifier is given and custom data stores are available, use custom store
+          (false, true, Some(data_store)) => {
+            let identifier = NSUUID::from_bytes(data_store);
+            WKWebsiteDataStore::dataStoreForIdentifier(&identifier, mtm)
+          }
+          // default data store
+          _ => WKWebsiteDataStore::defaultDataStore(mtm),
+        };
+        config.setWebsiteDataStore(&data_store);
+        data_store
       };
 
       // Register Custom Protocols
@@ -302,7 +308,6 @@ impl InnerWebView {
         custom_protocol_task_ids: Default::default(),
       });
 
-      config.setWebsiteDataStore(&data_store);
       let _preference = config.preferences();
       let _yes = NSNumber::numberWithBool(true);
 
