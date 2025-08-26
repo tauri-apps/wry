@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use super::WebViewAttributes;
 use crate::{Error, Rect, RequestAsyncResponder, Result, RGBA};
 use cookie::Cookie;
-use http::{Request, Response};
+use http::{Request, Response, Uri};
 use openharmony_ability::{native_web::WebProxyBuilder, WebViewBuilder, WebViewStyle, Webview};
 use raw_window_handle::HasWindowHandle;
 
@@ -93,13 +93,20 @@ impl InnerWebView {
       .map_err(|e| Error::OpenHarmonyInitError(e.to_string()))?;
 
     let current_id = id.clone();
+    let ipc_webview = webview.clone();
     webview
       .on_controller_attach(move || {
         let _builder = WebProxyBuilder::new(current_id.clone(), "ipc".to_string())
           .add_method("postMessage", |_frame, params| {
             if let Some(ipc_handler) = &ipc_handler {
               let message = params.get(0).unwrap_or(&"".to_string()).to_owned();
-              ipc_handler(Request::new(message));
+              // when load html, url will be base64 and uri parse will failed, so we use about:blank avoid panic
+              let url = ipc_webview.url().unwrap_or("about:blank".to_string());
+              let uri = url
+                .parse::<Uri>()
+                .unwrap_or(Uri::from_static("about:blank"));
+
+              ipc_handler(Request::builder().uri(uri).body(message).unwrap());
             }
           })
           .build()
