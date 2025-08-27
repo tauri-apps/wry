@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.53.3]
+
+- [`6aa5854`](https://github.com/tauri-apps/wry/commit/6aa5854b0371a4828638cd722e18d9b1ab235a8b) ([#1609](https://github.com/tauri-apps/wry/pull/1609) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Enhance error handling of the `webview_version` function on macOS.
+
 ## \[0.53.2]
 
 - [`1743e7f`](https://github.com/tauri-apps/wry/commit/1743e7f9c1113db1639d544f1f12b8835f91e20b) ([#1608](https://github.com/tauri-apps/wry/pull/1608) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Fix new_window_req_handler craashing when creating new window for webview that has a custom data_store_identifier.
