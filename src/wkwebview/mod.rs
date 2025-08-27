@@ -1260,12 +1260,33 @@ pub fn url_from_webview(webview: &WKWebView) -> Result<String> {
 
 pub fn platform_webview_version() -> Result<String> {
   unsafe {
-    let bundle = NSBundle::bundleWithIdentifier(&NSString::from_str("com.apple.WebKit")).unwrap();
-    let dict = bundle.infoDictionary().unwrap();
-    let webkit_version = dict
-      .objectForKey(&NSString::from_str("CFBundleVersion"))
-      .unwrap();
-    let webkit_version = webkit_version.downcast::<NSString>().unwrap();
+    let Some(bundle) = NSBundle::bundleWithIdentifier(&NSString::from_str("com.apple.WebKit"))
+    else {
+      return Err(Error::Io(std::io::Error::new(
+        std::io::ErrorKind::Other,
+        "failed to locate com.apple.WebKit bundle",
+      )));
+    };
+    let Some(dict) = bundle.infoDictionary() else {
+      return Err(Error::Io(std::io::Error::new(
+        std::io::ErrorKind::Other,
+        "failed to get WebKit info dictionary",
+      )));
+    };
+
+    let Some(webkit_version) = dict.objectForKey(&NSString::from_str("CFBundleVersion")) else {
+      return Err(Error::Io(std::io::Error::new(
+        std::io::ErrorKind::Other,
+        "failed to get WebKit version",
+      )));
+    };
+
+    let Ok(webkit_version) = webkit_version.downcast::<NSString>() else {
+      return Err(Error::Io(std::io::Error::new(
+        std::io::ErrorKind::Other,
+        "failed to parse WebKit version",
+      )));
+    };
 
     bundle.unload();
     Ok(webkit_version.to_string())
