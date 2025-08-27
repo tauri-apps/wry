@@ -669,7 +669,7 @@ impl InnerWebView {
     is_inspector_open
   }
 
-  pub fn id(&self) -> crate::WebViewId {
+  pub fn id(&self) -> crate::WebViewId<'_> {
     &self.id
   }
 

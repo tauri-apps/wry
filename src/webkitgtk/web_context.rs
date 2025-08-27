@@ -16,10 +16,9 @@ use std::{
   rc::Rc,
 };
 use webkit2gtk::{
-  ApplicationInfo, AutomationSessionExt, CookiePersistentStorage, DownloadExt, LoadEvent,
-  SecurityManagerExt, URIRequest, URIRequestExt, URISchemeRequest, URISchemeRequestExt,
-  URISchemeResponse, URISchemeResponseExt, WebContext, WebContextExt as Webkit2gtkContextExt,
-  WebView, WebViewExt,
+  ApplicationInfo, AutomationSessionExt, CookiePersistentStorage, DownloadExt, SecurityManagerExt,
+  URIRequest, URIRequestExt, URISchemeRequest, URISchemeRequestExt, URISchemeResponse,
+  URISchemeResponseExt, WebContext, WebContextExt as Webkit2gtkContextExt, WebView, WebViewExt,
 };
 
 #[derive(Debug)]

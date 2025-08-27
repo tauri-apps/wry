@@ -1971,7 +1971,7 @@ impl WebView {
   }
 
   /// Returns the id of this webview.
-  pub fn id(&self) -> WebViewId {
+  pub fn id(&self) -> WebViewId<'_> {
     self.webview.id()
   }
 
