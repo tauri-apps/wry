@@ -327,10 +327,18 @@ impl WebContextExt for super::WebContext {
               .map(|(base, ext)| (base, format!(".{ext}")))
               .unwrap_or((suggested_filename, "".to_string()));
 
-            // for `data:` downloads, webkitgtk will suggest to use the raw data as the filename
-            // for example `"data:attachment/text,sometext"` will result in `text,sometext`
+            // For `data:` downloads, webkitgtk will suggest to use the raw data as the filename if the dev provided no name,
+            // for example `"data:attachment/text,sometext"` will result in `text,sometext` but longer data URLs will
+            // result in a cut-off filename, which makes it hard to predict reliably.
+            // TODO: If this keeps causing problems, just remove it and use whatever file name webkitgtk suggests.
             if uri.starts_with("data:") {
-              suggested_filename = "Unknown";
+              if let Some((_, uri_stripped)) = uri.split_once('/') {
+                if let Some((uri_stripped, _)) = uri_stripped.split_once(',') {
+                  if suggested_filename.starts_with(&format!("{uri_stripped},")) {
+                    suggested_filename = "Unknown";
+                  }
+                }
+              }
             }
 
             download_destination.push(format!("{suggested_filename}{ext}"));
