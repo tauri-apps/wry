@@ -1495,7 +1495,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       #[cfg(target_os = "macos")]
       webview_configuration: None,
       #[cfg(target_os = "macos")]
-      display_capture_decision_handler: None,
+      display_capture_decision_handler: Some(Box::new(|_| WKDisplayCapturePermissionDecision::ScreenPrompt)),
     }
   }
 }

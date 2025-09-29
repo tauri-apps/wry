@@ -64,8 +64,6 @@ use once_cell::sync::Lazy;
 
 #[cfg(target_os = "ios")]
 use crate::wkwebview::ios::WKWebView::WKWebView;
-#[cfg(target_os = "ios")]
-use crate::wkwebview::util::operating_system_version;
 
 #[cfg(target_os = "macos")]
 use objc2_web_kit::WKWebView;
@@ -104,6 +102,7 @@ use crate::{
 use http::Request;
 
 use crate::util::Counter;
+use crate::wkwebview::util::operating_system_version;
 
 static COUNTER: Counter = Counter::new();
 
@@ -549,7 +548,8 @@ impl InnerWebView {
       webview.setNavigationDelegate(Some(proto_navigation_policy_delegate));
       
       #[cfg(target_os = "macos")]
-      let display_capture_decision_handler = pl_attrs.display_capture_decision_handler;
+      let display_capture_decision_handler = pl_attrs.display_capture_decision_handler
+          .filter(|_| operating_system_version().0 >= 13);
       #[cfg(not(target_os = "macos"))]
       let display_capture_decision_handler = None;
 
