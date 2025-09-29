@@ -294,6 +294,9 @@ impl WryWebViewUIDelegate {
     new_window_req_handler: Option<
       Box<dyn Fn(String, NewWindowFeatures) -> NewWindowResponse + Send + Sync>,
     >,
+    display_capture_decision_handler: Option<
+      Box<dyn Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision>
+    >,
   ) -> Retained<Self> {
     #[cfg(target_os = "ios")]
     let _new_window_req_handler = new_window_req_handler;
@@ -305,7 +308,8 @@ impl WryWebViewUIDelegate {
         new_window_req_handler,
         #[cfg(target_os = "macos")]
         new_windows: Rc::new(RefCell::new(vec![])),
-        display_capture_decision_handler: RefCell::new(None),
+        #[cfg(target_os = "macos")]
+        display_capture_decision_handler: RefCell::new(display_capture_decision_handler),
       });
     unsafe { msg_send![super(delegate), init] }
   }

@@ -27,6 +27,7 @@ impl From<isize> for WKDisplayCapturePermissionDecision {
     }
 }
 
+#[cfg(target_os = "macos")]
 pub(crate) fn set_decision_handler(
     webview: &WryWebView,
     handler: Option<Box<dyn Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision + 'static>>,

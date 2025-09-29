@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-#[cfg(target_os = "macos")]
 mod display_capture;
 mod download;
 #[cfg(target_os = "macos")]
@@ -548,9 +547,14 @@ impl InnerWebView {
 
       let proto_navigation_policy_delegate = ProtocolObject::from_ref(&*navigation_policy_delegate);
       webview.setNavigationDelegate(Some(proto_navigation_policy_delegate));
+      
+      #[cfg(target_os = "macos")]
+      let display_capture_decision_handler = pl_attrs.display_capture_decision_handler;
+      #[cfg(not(target_os = "macos"))]
+      let display_capture_decision_handler = None;
 
       let ui_delegate: Retained<WryWebViewUIDelegate> =
-        WryWebViewUIDelegate::new(mtm, attributes.new_window_req_handler);
+        WryWebViewUIDelegate::new(mtm, attributes.new_window_req_handler, display_capture_decision_handler);
       let proto_ui_delegate = ProtocolObject::from_ref(&*ui_delegate);
       webview.setUIDelegate(Some(proto_ui_delegate));
 
