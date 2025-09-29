@@ -14,7 +14,7 @@ fn main() -> wry::Result<()> {
   let window = WindowBuilder::new().build(&event_loop).unwrap();
 
   let builder = WebViewBuilder::new()
-    .with_url("http://tauri.app")
+    .with_url("https://webrtc.github.io/samples/src/content/getusermedia/getdisplaymedia/")
     .with_new_window_req_handler(|url, features| {
       println!("new window req: {url} {features:?}");
       wry::NewWindowResponse::Allow
@@ -39,11 +39,18 @@ fn main() -> wry::Result<()> {
 
   #[cfg(any(
     target_os = "windows",
-    target_os = "macos",
     target_os = "ios",
     target_os = "android"
   ))]
   let _webview = builder.build(&window)?;
+  #[cfg(target_os = "macos")]
+  let _webview = {
+    use wry::WebViewBuilderExtMacos;
+    builder.with_display_capture_decision_handler(|_capture_type| {
+      wry::WKDisplayCapturePermissionDecision::ScreenPrompt
+    }).build(&window)?
+  };
+
   #[cfg(not(any(
     target_os = "windows",
     target_os = "macos",
@@ -56,6 +63,14 @@ fn main() -> wry::Result<()> {
     let vbox = window.default_vbox().unwrap();
     builder.build_gtk(vbox)?
   };
+
+  #[cfg(target_os = "macos")]
+  {
+    use wry::WebViewExtMacOS;
+    _webview.set_display_capture_decision_handler(|_capture_type| {
+      wry::WKDisplayCapturePermissionDecision::ScreenPrompt
+    });
+  }
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

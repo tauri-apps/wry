@@ -21,7 +21,7 @@ use objc2_web_kit::{
   WKFrameInfo, WKMediaCaptureType, WKPermissionDecision, WKSecurityOrigin, WKUIDelegate,
 };
 
-use crate::{NewWindowFeatures, NewWindowResponse, WryWebView};
+use crate::{NewWindowFeatures, NewWindowResponse, WKDisplayCapturePermissionDecision, WryWebView};
 
 #[cfg(target_os = "macos")]
 struct NewWindow {
@@ -86,6 +86,8 @@ pub struct WryWebViewUIDelegateIvars {
     Option<Box<dyn Fn(String, NewWindowFeatures) -> NewWindowResponse + Send + Sync>>,
   #[cfg(target_os = "macos")]
   new_windows: Rc<RefCell<Vec<NewWindow>>>,
+  #[cfg(target_os = "macos")]
+  pub(crate) display_capture_decision_handler: RefCell<Option<Box<dyn Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision + 'static>>>,
 }
 
 define_class!(
@@ -263,6 +265,27 @@ define_class!(
       }
     }
   }
+
+  impl WryWebViewUIDelegate {
+    // This might fail to compile on macOS 12 and below.
+    #[unsafe(method(_webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:withSystemAudio:decisionHandler:))]
+    fn request_display_capture_permission(
+      &self,
+      _webview: &WryWebView,
+      _origin: &WKSecurityOrigin,
+      _frame: &WKFrameInfo,
+      capture_type: WKMediaCaptureType,
+      decision_handler: &Block<dyn Fn(WKDisplayCapturePermissionDecision)>,
+    ) {
+      let function = &self.ivars().display_capture_decision_handler;
+      if let Some(function) = &*function.borrow() {
+        let decision = (*function)(capture_type);
+        (*decision_handler).call((decision,));
+      } else {
+        (*decision_handler).call((WKDisplayCapturePermissionDecision::Deny,));
+      }
+    }
+  }
 );
 
 impl WryWebViewUIDelegate {
@@ -282,6 +305,7 @@ impl WryWebViewUIDelegate {
         new_window_req_handler,
         #[cfg(target_os = "macos")]
         new_windows: Rc::new(RefCell::new(vec![])),
+        display_capture_decision_handler: RefCell::new(None),
       });
     unsafe { msg_send![super(delegate), init] }
   }

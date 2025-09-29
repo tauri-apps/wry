@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+#[cfg(target_os = "macos")]
+mod display_capture;
 mod download;
 #[cfg(target_os = "macos")]
 mod drag_drop;
@@ -68,11 +70,10 @@ use crate::wkwebview::util::operating_system_version;
 
 #[cfg(target_os = "macos")]
 use objc2_web_kit::WKWebView;
+#[cfg(target_os = "macos")]
+pub use display_capture::{WKDisplayCapturePermissionDecision};
 
-use objc2_web_kit::{
-  WKAudiovisualMediaTypes, WKInactiveSchedulingPolicy, WKURLSchemeHandler, WKUserContentController,
-  WKUserScript, WKUserScriptInjectionTime, WKWebViewConfiguration, WKWebsiteDataStore,
-};
+use objc2_web_kit::{WKAudiovisualMediaTypes, WKInactiveSchedulingPolicy, WKMediaCaptureType, WKURLSchemeHandler, WKUserContentController, WKUserScript, WKUserScriptInjectionTime, WKWebViewConfiguration, WKWebsiteDataStore};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
@@ -1237,6 +1238,14 @@ r#"Object.defineProperty(window, 'ipc', {
     unsafe {
       WKWebsiteDataStore::removeDataStoreForIdentifier_completionHandler(&identifier, &block, mtm);
     }
+  }
+
+  #[cfg(target_os = "macos")]
+  pub fn set_display_capture_decision_handler<F>(&self, handler: F)
+  where
+      F: Fn(WKMediaCaptureType) -> WKDisplayCapturePermissionDecision + 'static,
+  {
+    display_capture::set_decision_handler(&self.webview, Some(Box::new(handler)));
   }
 }
 
