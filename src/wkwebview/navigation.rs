@@ -103,9 +103,6 @@ pub(crate) fn navigation_policy_response(
   }
 }
 
-pub(crate) fn web_content_process_termination(
-  this: &WryNavigationDelegate,
-  webview: &WKWebView,
-) {
+pub(crate) fn web_content_process_termination(webview: &WKWebView) {
   unsafe { webview.reload() };
 }

@@ -100,7 +100,7 @@ define_class!(
 
     #[unsafe(method(webViewWebContentProcessDidTerminate:))]
     fn web_content_process_termination(&self, webview: &WKWebView) {
-      web_content_process_termination(self, webview);
+      web_content_process_termination(webview);
     }
   }
 );
