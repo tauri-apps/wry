@@ -22,7 +22,7 @@ use crate::{
     download::{navigation_download_action, navigation_download_response},
     navigation::{
       did_commit_navigation, did_finish_navigation, navigation_policy, navigation_policy_response,
-      web_content_process_termination,
+      web_content_process_did_terminate,
     },
   },
   PageLoadEvent, WryWebView,
@@ -99,8 +99,8 @@ define_class!(
     }
 
     #[unsafe(method(webViewWebContentProcessDidTerminate:))]
-    fn web_content_process_termination(&self, webview: &WKWebView) {
-      web_content_process_termination(webview);
+    fn web_content_process_did_terminate(&self, webview: &WKWebView) {
+      web_content_process_did_terminate(self, webview);
     }
   }
 );
