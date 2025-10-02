@@ -102,3 +102,10 @@ pub(crate) fn navigation_policy_response(
     (*handler).call((WKNavigationResponsePolicy::Allow,));
   }
 }
+
+pub(crate) fn web_content_process_termination(
+  this: &WryNavigationDelegate,
+  webview: &WKWebView,
+) {
+  unsafe { webview.reload() };
+}
