@@ -792,6 +792,13 @@ pub struct WebViewAttributes<'a> {
 
   /// Whether JavaScript should be disabled.
   pub javascript_disabled: bool,
+
+  /// Set a handler closure to respond to web content process termination.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Linux / Windows / Android**: Unsupported.
+  pub on_web_content_process_terminate_handler: Option<Box<dyn Fn()>>,
 }
 
 impl Default for WebViewAttributes<'_> {
@@ -834,6 +841,7 @@ impl Default for WebViewAttributes<'_> {
       }),
       background_throttling: None,
       javascript_disabled: false,
+      on_web_content_process_terminate_handler: None,
     }
   }
 }
@@ -1402,6 +1410,15 @@ impl<'a> WebViewBuilder<'a> {
   /// Whether JavaScript should be disabled.
   pub fn with_javascript_disabled(mut self) -> Self {
     self.attrs.javascript_disabled = true;
+    self
+  }
+
+  /// Set a handler to respond to web content process termination.
+  pub fn with_on_web_content_process_terminate_handler(
+    mut self,
+    handler: impl Fn() + 'static,
+  ) -> Self {
+    self.attrs.on_web_content_process_terminate_handler = Some(Box::new(handler));
     self
   }
 

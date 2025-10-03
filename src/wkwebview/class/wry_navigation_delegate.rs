@@ -36,6 +36,7 @@ pub struct WryNavigationDelegateIvars {
   pub navigation_policy_function: Box<dyn Fn(String) -> bool>,
   pub download_delegate: Option<Retained<WryDownloadDelegate>>,
   pub on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent)>>,
+  pub on_web_content_process_terminate_handler: Option<Box<dyn Fn()>>,
 }
 
 define_class!(
@@ -114,6 +115,7 @@ impl WryNavigationDelegate {
     navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
     download_delegate: Option<Retained<WryDownloadDelegate>>,
     on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
+    on_web_content_process_terminate_handler: Option<Box<dyn Fn()>>,
     mtm: MainThreadMarker,
   ) -> Retained<Self> {
     let navigation_policy_function = Box::new(move |url: String| -> bool {
@@ -131,6 +133,15 @@ impl WryNavigationDelegate {
       None
     };
 
+    let on_web_content_process_terminate_handler = if let Some(handler) = on_web_content_process_terminate_handler {
+      let custom_handler = Box::new(move || {
+        handler();
+      }) as Box<dyn Fn()>;
+      Some(custom_handler)
+    } else {
+      None
+    };
+
     let delegate = mtm
       .alloc::<WryNavigationDelegate>()
       .set_ivars(WryNavigationDelegateIvars {
@@ -139,6 +150,7 @@ impl WryNavigationDelegate {
         has_download_handler,
         download_delegate,
         on_page_load_handler,
+        on_web_content_process_terminate_handler,
       });
 
     unsafe { msg_send![super(delegate), init] }
