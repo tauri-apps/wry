@@ -1,5 +1,13 @@
 # Changelog
 
+## \[0.53.4]
+
+- [`093856a`](https://github.com/tauri-apps/wry/commit/093856a2a53a6fc1aaa759e048c7e1fe31bb09fa) ([#1622](https://github.com/tauri-apps/wry/pull/1622) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Add flag to opt out of automatic back navigation handling on Android via `WryActivity#handleBackNavigation`.
+- [`0f51d67`](https://github.com/tauri-apps/wry/commit/0f51d67485d84fd9c72391379a67567eea3cbbfe) ([#1605](https://github.com/tauri-apps/wry/pull/1605) by [@dgerhardt](https://github.com/tauri-apps/wry/../../dgerhardt)) On Linux, removed a workaround which forced inital requests for multiple webviews to be handled sequentially.
+  The workaround was intended to fix a concurrency bug with loading multiple URIs at the same time on WebKitGTK.
+  But it prevented parallelization and could cause a deadlock in certain situations.
+  It is no longer needed with newer WebKitGTK versions.
+
 ## \[0.53.3]
 
 - [`6aa5854`](https://github.com/tauri-apps/wry/commit/6aa5854b0371a4828638cd722e18d9b1ab235a8b) ([#1609](https://github.com/tauri-apps/wry/pull/1609) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Enhance error handling of the `webview_version` function on macOS.
