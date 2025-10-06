@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity
 
 abstract class WryActivity : AppCompatActivity() {
     private lateinit var mWebView: RustWebView
+    open val handleBackNavigation: Boolean = true
 
     open fun onWebViewCreate(webView: WebView) { }
 
@@ -102,7 +103,7 @@ abstract class WryActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK && mWebView.canGoBack()) {
+        if (handleBackNavigation && keyCode == KeyEvent.KEYCODE_BACK && mWebView.canGoBack()) {
             mWebView.goBack()
             return true
         }
