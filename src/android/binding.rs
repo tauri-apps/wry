@@ -161,12 +161,13 @@ fn handle_request(
     let body = env.get_string(&body)?;
     let body = body.to_str().ok().unwrap_or_default();
     let body = match body.chars().next() {
-      Some('s') => {
-        body.chars().skip(1).map(|c| c as u8).collect()
-      }
+      Some('s') => body.chars().skip(1).map(|c| c as u8).collect(),
       Some('a') => {
         let array_str = body.chars().skip(1).collect::<String>();
-        array_str.split(',').map(|s| s.parse::<u8>().unwrap()).collect()
+        array_str
+          .split(',')
+          .map(|s| s.parse::<u8>().unwrap())
+          .collect()
       }
       None => Vec::new(),
       _ => panic!("unexpected Android body format: {body}"),
