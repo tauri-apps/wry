@@ -39,8 +39,11 @@ class RustWebViewClient(context: Context): WebViewClient() {
         return if (withAssetLoader()) {
             assetLoader.shouldInterceptRequest(request.url)
         } else {
-            val rustWebview = view as RustWebView;
-            val response = handleRequest(rustWebview.id, request, rustWebview.isDocumentStartScriptEnabled)
+            val rustWebview = view as RustWebView
+            val interceptedRequest = rustWebview.requestInterceptor.removeInterceptedRequest(
+                request.requestHeaders.remove(RequestInterceptor.REQUEST_ID_HEADER_NAME) ?: request.url.toString().removeSuffix("/")
+            )
+            val response = handleRequest(rustWebview.id, request, interceptedRequest?.body ?: "", rustWebview.isDocumentStartScriptEnabled)
             interceptedState[request.url.toString()] = response != null
             return response
         }
@@ -96,7 +99,7 @@ class RustWebViewClient(context: Context): WebViewClient() {
 
     private external fun assetLoaderDomain(): String
     private external fun withAssetLoader(): Boolean
-    private external fun handleRequest(webviewId: String, request: WebResourceRequest, isDocumentStartScriptEnabled: Boolean): WebResourceResponse?
+    private external fun handleRequest(webviewId: String, request: WebResourceRequest, body: String, isDocumentStartScriptEnabled: Boolean): WebResourceResponse?
     private external fun shouldOverride(url: String): Boolean
     private external fun onPageLoading(url: String)
     private external fun onPageLoaded(url: String)

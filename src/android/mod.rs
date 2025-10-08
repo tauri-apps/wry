@@ -347,7 +347,7 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn id(&self) -> crate::WebViewId {
+  pub fn id(&self) -> crate::WebViewId<'_> {
     &self.id
   }
 
@@ -416,12 +416,12 @@ impl InnerWebView {
     rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
   }
 
-  pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+  pub fn set_cookie(&self, _cookie: &cookie::Cookie<'_>) -> Result<()> {
     // Unsupported
     Ok(())
   }
 
-  pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+  pub fn delete_cookie(&self, _cookie: &cookie::Cookie<'_>) -> Result<()> {
     // Unsupported
     Ok(())
   }

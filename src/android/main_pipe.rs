@@ -63,11 +63,16 @@ impl<'a> MainPipe<'a> {
             on_webview_created,
             autoplay,
             user_agent,
-            initialization_scripts,
+            mut initialization_scripts,
             id,
             javascript_disabled,
             ..
           } = attrs;
+
+          initialization_scripts.push(InitializationScript {
+            script: include_str!("request-interceptor.js").to_string(),
+            for_main_frame_only: false,
+          });
 
           let string_class = self.env.find_class("java/lang/String")?;
           let initialization_scripts_array = self.env.new_object_array(
@@ -226,13 +231,13 @@ impl<'a> MainPipe<'a> {
           )?;
 
           if let Some(on_webview_created) = on_webview_created {
-            if let Err(e) = on_webview_created(super::Context {
+            if let Err(_e) = on_webview_created(super::Context {
               env: &mut self.env,
               activity,
               webview: &webview,
             }) {
               #[cfg(feature = "tracing")]
-              tracing::warn!("failed to run webview created hook: {e}");
+              tracing::warn!("failed to run webview created hook: {_e}");
             }
           }
 

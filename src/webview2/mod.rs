@@ -1351,7 +1351,7 @@ impl InnerWebView {
 
 /// Public APIs
 impl InnerWebView {
-  pub fn id(&self) -> crate::WebViewId {
+  pub fn id(&self) -> crate::WebViewId<'_> {
     &self.id
   }
 
