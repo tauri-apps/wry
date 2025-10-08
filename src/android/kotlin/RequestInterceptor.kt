@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 // taken from https://github.com/acsbendi/Android-Request-Inspector-WebView
+// Copyright 2022 Bendegúz Ács
 
 @file:Suppress("unused")
 
