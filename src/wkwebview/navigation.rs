@@ -102,3 +102,12 @@ pub(crate) fn navigation_policy_response(
     (*handler).call((WKNavigationResponsePolicy::Allow,));
   }
 }
+
+pub(crate) fn web_content_process_did_terminate(
+  this: &WryNavigationDelegate,
+  _webview: &WKWebView,
+) {
+  if let Some(on_web_content_process_terminate) = &this.ivars().on_web_content_process_terminate_handler {
+    on_web_content_process_terminate();
+  }
+}
