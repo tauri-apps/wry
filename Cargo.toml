@@ -22,8 +22,6 @@ targets = [
   "x86_64-pc-windows-msvc",
   "x86_64-apple-darwin",
 ]
-rustc-args = ["--cfg", "docsrs"]
-rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["drag-drop", "protocol", "os-webview", "x11"]
