@@ -133,14 +133,15 @@ impl WryNavigationDelegate {
       None
     };
 
-    let on_web_content_process_terminate_handler = if let Some(handler) = on_web_content_process_terminate_handler {
-      let custom_handler = Box::new(move || {
-        handler();
-      }) as Box<dyn Fn()>;
-      Some(custom_handler)
-    } else {
-      None
-    };
+    let on_web_content_process_terminate_handler =
+      if let Some(handler) = on_web_content_process_terminate_handler {
+        let custom_handler = Box::new(move || {
+          handler();
+        }) as Box<dyn Fn()>;
+        Some(custom_handler)
+      } else {
+        None
+      };
 
     let delegate = mtm
       .alloc::<WryNavigationDelegate>()

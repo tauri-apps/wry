@@ -1533,7 +1533,9 @@ impl WebViewBuilderExtDarwin for WebViewBuilder<'_> {
   }
 
   fn with_on_web_content_process_terminate_handler(mut self, handler: impl Fn() + 'static) -> Self {
-    self.platform_specific.on_web_content_process_terminate_handler = Some(Box::new(handler));
+    self
+      .platform_specific
+      .on_web_content_process_terminate_handler = Some(Box::new(handler));
     self
   }
 }
