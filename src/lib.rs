@@ -792,14 +792,6 @@ pub struct WebViewAttributes<'a> {
 
   /// Whether JavaScript should be disabled.
   pub javascript_disabled: bool,
-
-
-  /// Set a handler closure to respond to web content process termination.
-  ///
-  /// ## Platform-specific:
-  ///
-  /// - **Linux / Windows / Android**: Unsupported.
-  pub on_web_content_process_terminate_handler: Option<Box<dyn Fn()>>,
 }
 
 impl Default for WebViewAttributes<'_> {
@@ -842,7 +834,6 @@ impl Default for WebViewAttributes<'_> {
       }),
       background_throttling: None,
       javascript_disabled: false,
-      on_web_content_process_terminate_handler: None,
     }
   }
 }
@@ -1414,15 +1405,6 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set a handler to respond to web content process termination.
-  pub fn with_on_web_content_process_terminate_handler(
-    mut self,
-    handler: impl Fn() + 'static,
-  ) -> Self {
-    self.attrs.on_web_content_process_terminate_handler = Some(Box::new(handler));
-    self
-  }
-
   /// Consume the builder and create the [`WebView`] from a type that implements [`HasWindowHandle`].
   ///
   /// # Platform-specific:
@@ -1480,6 +1462,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   data_store_identifier: Option<[u8; 16]>,
   traffic_light_inset: Option<dpi::Position>,
   allow_link_preview: bool,
+  on_web_content_process_terminate_handler: Option<Box<dyn Fn()>>,
   #[cfg(target_os = "ios")]
   input_accessory_view_builder: Option<Box<InputAccessoryViewBuilder>>,
   #[cfg(target_os = "ios")]
@@ -1496,6 +1479,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       traffic_light_inset: None,
       // platform default for this is true
       allow_link_preview: true,
+      on_web_content_process_terminate_handler: None,
       #[cfg(target_os = "ios")]
       input_accessory_view_builder: None,
       #[cfg(target_os = "ios")]
@@ -1527,6 +1511,8 @@ pub trait WebViewBuilderExtDarwin {
   ///
   /// See https://developer.apple.com/documentation/webkit/wkwebview/allowslinkpreview
   fn with_allow_link_preview(self, allow_link_preview: bool) -> Self;
+  /// Set a handler closure to respond to web content process termination. Available on macOS and iOS only.
+  fn with_on_web_content_process_terminate_handler(self, handler: impl Fn() + 'static) -> Self;
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -1543,6 +1529,11 @@ impl WebViewBuilderExtDarwin for WebViewBuilder<'_> {
 
   fn with_allow_link_preview(mut self, allow_link_preview: bool) -> Self {
     self.platform_specific.allow_link_preview = allow_link_preview;
+    self
+  }
+
+  fn with_on_web_content_process_terminate_handler(mut self, handler: impl Fn() + 'static) -> Self {
+    self.platform_specific.on_web_content_process_terminate_handler = Some(Box::new(handler));
     self
   }
 }
