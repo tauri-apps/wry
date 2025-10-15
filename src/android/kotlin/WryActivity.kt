@@ -22,7 +22,7 @@ abstract class WryActivity : AppCompatActivity() {
     fun setWebView(webView: RustWebView) {
         mWebView = webView
 
-        if handleBackNavigation {
+        if (handleBackNavigation) {
             val callback = object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
                     if (this@WryActivity.mWebView.canGoBack()) {
