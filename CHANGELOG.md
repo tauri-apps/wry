@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.53.5]
+
+- [#1622](https://github.com/tauri-apps/wry/pull/1626) Fixed an issue that caused docs.rs builds to fail. No user facing changes.
+
 ## \[0.53.4]
 
 - [`093856a`](https://github.com/tauri-apps/wry/commit/093856a2a53a6fc1aaa759e048c7e1fe31bb09fa) ([#1622](https://github.com/tauri-apps/wry/pull/1622) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Add flag to opt out of automatic back navigation handling on Android via `WryActivity#handleBackNavigation`.
