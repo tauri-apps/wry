@@ -203,6 +203,7 @@ jni = "0.21"
 ndk = "0.9"
 tao-macros = "0.1"
 libc = "0.2"
+lazy_static = "1"
 
 [dev-dependencies]
 pollster = "0.4.0"

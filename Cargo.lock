@@ -4146,6 +4146,7 @@ dependencies = [
  "javascriptcore-rs",
  "jni",
  "kuchikiki",
+ "lazy_static",
  "libc",
  "ndk",
  "objc2 0.6.0",

@@ -50,13 +50,13 @@ class RustWebView(context: Context, val initScripts: Array<String>, val id: Stri
     }
 
     override fun loadUrl(url: String) {
-        if (!shouldOverride(url)) {
+        if (!Rust.shouldOverride(id, url)) {
             super.loadUrl(url);
         }
     }
 
     override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
-        if (!shouldOverride(url)) {
+        if (!Rust.shouldOverride(id, url)) {
             super.loadUrl(url, additionalHttpHeaders);
         }
     }
@@ -70,7 +70,7 @@ class RustWebView(context: Context, val initScripts: Array<String>, val id: Stri
     fun evalScript(id: Int, script: String) {
         post {
             super.evaluateJavascript(script) { result ->
-                onEval(id, result)
+                Rust.onEval(this.id, id, result)
             }
         }
     }
@@ -91,9 +91,6 @@ class RustWebView(context: Context, val initScripts: Array<String>, val id: Stri
         val cookieManager = CookieManager.getInstance()
         return cookieManager.getCookie(url)
     }
-
-    private external fun shouldOverride(url: String): Boolean
-    private external fun onEval(id: Int, result: String)
 
     {{class-extension}}
 }
