@@ -27,6 +27,7 @@ object Rust {
     @JvmStatic external fun pause()
     @JvmStatic external fun stop()
 
+    @JvmStatic external fun wryCreate()
     @JvmStatic external fun onWebviewDestroy(activity: WryActivity, webviewId: String)
     
     @JvmStatic external fun ipc(webviewId: String, url: String, message: String)

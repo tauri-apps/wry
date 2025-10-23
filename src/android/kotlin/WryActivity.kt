@@ -5,6 +5,7 @@
 package {{package}}
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
@@ -20,6 +21,7 @@ object WryLifecycleObserver : DefaultLifecycleObserver {
     override fun onCreate(owner: LifecycleOwner) {
         super.onCreate(owner)
         Rust.create()
+        Rust.wryCreate()
     }
 
     override fun onStart(owner: LifecycleOwner) {
@@ -90,7 +92,7 @@ abstract class WryActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        id = savedInstanceState?.getInt(ACTIVITY_ID_KEY) ?: hashCode()
+        id = savedInstanceState?.getInt(ACTIVITY_ID_KEY) ?: intent.extras?.getInt(ACTIVITY_ID_KEY) ?: hashCode()
         ProcessLifecycleOwner.get().lifecycle.addObserver(WryLifecycleObserver)
         Rust.onActivityCreate(this)
     }
@@ -127,6 +129,14 @@ abstract class WryActivity : AppCompatActivity() {
 
     fun getAppClass(name: String): Class<*> {
         return Class.forName(name)
+    }
+
+    fun startActivity(cls: Class<*>): Int {
+        val intent = Intent(this, cls)
+        val id = kotlin.random.Random.nextInt()
+        intent.putExtra(ACTIVITY_ID_KEY, id)
+        startActivity(intent)
+        return id
     }
 
     {{class-extension}}

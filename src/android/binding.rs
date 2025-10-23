@@ -14,8 +14,11 @@ pub use jni::{
   JNIEnv,
 };
 pub use ndk;
+use ndk::looper::{FdEvent, ThreadLooper};
+use std::os::fd::{AsFd, AsRawFd};
 
 use super::{
+  main_pipe::{MainPipe, MAIN_PIPE},
   ASSET_LOADER_DOMAIN, EVAL_CALLBACKS, IPC, ON_LOAD_HANDLER, REQUEST_HANDLER, TITLE_CHANGE_HANDLER,
   URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
 };
@@ -32,6 +35,7 @@ macro_rules! android_binding {
   ($domain:ident, $package:ident, $wry:path) => {{
     use $wry::{android_setup as _, prelude::*};
 
+    android_fn!($domain, $package, Rust, wryCreate, []);
     android_fn!(
       $domain,
       $package,
@@ -244,6 +248,27 @@ fn handle_request(
   }
 
   Ok(*JObject::null())
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn wryCreate(env: JNIEnv, _: JClass) {
+  let mut main_pipe = MainPipe { env };
+
+  let looper = ThreadLooper::for_thread().unwrap();
+
+  looper
+    .add_fd_with_callback(MAIN_PIPE[0].as_fd(), FdEvent::INPUT, move |fd, _event| {
+      let size = std::mem::size_of::<bool>();
+      let mut wake = false;
+      if libc::read(fd.as_raw_fd(), &mut wake as *mut _ as *mut _, size) == size as libc::ssize_t {
+        // unregister itself on errors
+        main_pipe.recv().is_ok()
+      } else {
+        // unregister itself
+        false
+      }
+    })
+    .unwrap();
 }
 
 #[allow(non_snake_case)]

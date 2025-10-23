@@ -7,10 +7,12 @@ use crossbeam_channel::*;
 use jni::{
   errors::Result as JniResult,
   objects::{GlobalRef, JMap, JObject, JString},
-  JNIEnv,
+  JNIEnv, JavaVM,
 };
+use once_cell::sync::Lazy;
 use std::{
   collections::BTreeMap,
+  ffi::c_void,
   os::unix::prelude::*,
   sync::{Arc, Mutex},
 };
@@ -19,27 +21,40 @@ use super::{find_class, EvalCallback, WebviewId, EVAL_CALLBACKS, EVAL_ID_GENERAT
 
 pub type ActivityId = i32;
 
+static CHANNEL: Lazy<(
+  Sender<(ActivityId, WebViewMessage)>,
+  Receiver<(ActivityId, WebViewMessage)>,
+)> = Lazy::new(|| bounded(8));
+pub static MAIN_PIPE: Lazy<[OwnedFd; 2]> = Lazy::new(|| {
+  let mut pipe: [RawFd; 2] = Default::default();
+  unsafe { libc::pipe(pipe.as_mut_ptr()) };
+  unsafe { pipe.map(|fd| OwnedFd::from_raw_fd(fd)) }
+});
+
 #[derive(Clone)]
 pub struct ActivityProxy {
-  pub channel: (Sender<WebViewMessage>, Receiver<WebViewMessage>),
-  pub pipe: Arc<[OwnedFd; 2]>,
   pub activity: GlobalRef,
+  pub window_manager: GlobalRef,
   pub webview: Option<GlobalRef>,
   pub webchrome_client: GlobalRef,
+  pub java_vm: *mut c_void,
 }
 
+unsafe impl Send for ActivityProxy {}
+
 impl ActivityProxy {
-  pub fn new(activity: GlobalRef, webchrome_client: GlobalRef) -> Self {
-    let mut pipe: [RawFd; 2] = Default::default();
-    unsafe { libc::pipe(pipe.as_mut_ptr()) };
-    let pipe = unsafe { pipe.map(|fd| OwnedFd::from_raw_fd(fd)) };
-    let channel = bounded(8);
+  pub fn new(
+    vm: JavaVM,
+    activity: GlobalRef,
+    window_manager: GlobalRef,
+    webchrome_client: GlobalRef,
+  ) -> Self {
     Self {
-      channel,
-      pipe: Arc::new(pipe),
       activity,
+      window_manager,
       webview: None,
       webchrome_client,
+      java_vm: vm.get_java_vm_pointer() as *mut _,
     }
   }
 }
@@ -54,24 +69,42 @@ pub fn activity_proxy(id: ActivityId) -> Option<ActivityProxy> {
 }
 
 pub fn register_activity_proxy(
+  vm: JavaVM,
   id: ActivityId,
   activity: GlobalRef,
+  window_manager: GlobalRef,
   webchrome_client: GlobalRef,
-) -> ActivityProxy {
+) {
   let mut activity_proxy = ACTIVITY_PROXY.lock().unwrap();
   if let Some(proxy) = activity_proxy.get_mut(&id) {
     proxy.activity = activity;
+    proxy.window_manager = window_manager;
     proxy.webchrome_client = webchrome_client;
-    proxy.clone()
+    proxy.java_vm = vm.get_java_vm_pointer() as *mut _;
   } else {
-    let proxy = ActivityProxy::new(activity, webchrome_client);
+    let proxy = ActivityProxy::new(vm, activity, window_manager, webchrome_client);
     activity_proxy.insert(id, proxy.clone());
-    proxy
   }
 }
 
-pub fn last_activity_id() -> Option<ActivityId> {
-  ACTIVITY_PROXY.lock().unwrap().keys().next_back().cloned()
+pub fn activity_id_for_window_manager(window_manager: JObject) -> Option<ActivityId> {
+  for (activity_id, proxy) in ACTIVITY_PROXY.lock().unwrap().iter() {
+    let vm = unsafe { JavaVM::from_raw(proxy.java_vm.cast()) }.unwrap();
+    let mut env = vm.attach_current_thread_as_daemon().unwrap();
+    let equals = env
+      .call_method(
+        proxy.window_manager.as_obj(),
+        "equals",
+        "(Ljava/lang/Object;)Z",
+        &[(&window_manager).into()],
+      )
+      .and_then(|v| v.z())
+      .unwrap_or_default();
+    if equals {
+      return Some(*activity_id);
+    }
+  }
+  None
 }
 
 pub fn first_activity_id() -> Option<ActivityId> {
@@ -89,28 +122,17 @@ pub fn get_webview(activity_id: ActivityId) -> Option<GlobalRef> {
     .cloned()
 }
 
-pub enum MainPipeState {
-  Alive,
-  Destroyed,
-}
-
 pub struct MainPipe<'a> {
   pub env: JNIEnv<'a>,
-  pub activity_id: ActivityId,
 }
 
 impl<'a> MainPipe<'a> {
   pub(crate) fn send(activity_id: ActivityId, message: WebViewMessage) {
     let size = std::mem::size_of::<bool>();
-    let Some(proxy) = activity_proxy(activity_id) else {
-      #[cfg(debug_assertions)]
-      eprintln!("no activity proxy found for activity id: {activity_id}");
-      return;
-    };
-    if let Ok(()) = proxy.channel.0.send(message) {
+    if CHANNEL.0.send((activity_id, message)).is_ok() {
       unsafe {
         libc::write(
-          proxy.pipe[1].as_raw_fd(),
+          MAIN_PIPE[1].as_raw_fd(),
           &true as *const _ as *const _,
           size,
         )
@@ -118,25 +140,16 @@ impl<'a> MainPipe<'a> {
     }
   }
 
-  pub fn recv(&mut self) -> JniResult<MainPipeState> {
-    let Some(proxy) = activity_proxy(self.activity_id) else {
-      #[cfg(debug_assertions)]
-      eprintln!(
-        "no activity proxy found for activity id: {}",
-        self.activity_id
-      );
-      return Ok(MainPipeState::Destroyed);
-    };
-    let rx = proxy.channel.1;
-    if let Ok(message) = rx.recv() {
+  pub fn recv(&mut self) -> JniResult<()> {
+    if let Ok((activity_id, message)) = CHANNEL.1.recv() {
       match message {
         WebViewMessage::CreateWebView(attrs) => {
-          let Some((activity, web_chrome_client)) = activity_proxy(self.activity_id)
-            .map(|p| (p.activity.clone(), p.webchrome_client.clone()))
+          let Some((activity, web_chrome_client)) =
+            activity_proxy(activity_id).map(|p| (p.activity.clone(), p.webchrome_client.clone()))
           else {
             #[cfg(debug_assertions)]
-            eprintln!("no activity found for activity id: {}", self.activity_id);
-            return Ok(MainPipeState::Destroyed);
+            eprintln!("no activity found for activity id: {}", activity_id);
+            return Ok(());
           };
           let CreateWebViewAttributes {
             url,
@@ -318,13 +331,13 @@ impl<'a> MainPipe<'a> {
           ACTIVITY_PROXY
             .lock()
             .unwrap()
-            .get_mut(&self.activity_id)
+            .get_mut(&activity_id)
             .unwrap()
             .webview
             .replace(webview);
         }
         WebViewMessage::Eval(script, callback) => {
-          if let Some(webview) = get_webview(self.activity_id) {
+          if let Some(webview) = get_webview(activity_id) {
             let id = EVAL_ID_GENERATOR.next() as i32;
 
             #[cfg(feature = "tracing")]
@@ -358,12 +371,12 @@ impl<'a> MainPipe<'a> {
           }
         }
         WebViewMessage::SetBackgroundColor(background_color) => {
-          if let Some(webview) = get_webview(self.activity_id) {
+          if let Some(webview) = get_webview(activity_id) {
             set_background_color(&mut self.env, webview.as_obj(), background_color)?;
           }
         }
         WebViewMessage::GetWebViewVersion(tx) => {
-          if let Some(activity) = activity_proxy(self.activity_id).map(|p| p.activity.clone()) {
+          if let Some(activity) = activity_proxy(activity_id).map(|p| p.activity.clone()) {
             match self
               .env
               .call_method(activity, "getVersion", "()Ljava/lang/String;", &[])
@@ -385,7 +398,7 @@ impl<'a> MainPipe<'a> {
           }
         }
         WebViewMessage::GetUrl(tx) => {
-          if let Some(webview) = get_webview(self.activity_id) {
+          if let Some(webview) = get_webview(activity_id) {
             let url = self
               .env
               .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String;", &[])
@@ -403,7 +416,7 @@ impl<'a> MainPipe<'a> {
           }
         }
         WebViewMessage::Jni(f) => {
-          match activity_proxy(self.activity_id).map(|p| (p.activity.clone(), p.webview.clone())) {
+          match activity_proxy(activity_id).map(|p| (p.activity.clone(), p.webview.clone())) {
             Some((activity, Some(webview))) => {
               f(&mut self.env, &activity, webview.as_obj());
             }
@@ -416,31 +429,31 @@ impl<'a> MainPipe<'a> {
           }
         }
         WebViewMessage::LoadUrl(url, headers) => {
-          if let Some(webview) = get_webview(self.activity_id) {
+          if let Some(webview) = get_webview(activity_id) {
             let url = self.env.new_string(url)?;
             load_url(&mut self.env, webview.as_obj(), &url, headers, false)?;
           }
         }
         WebViewMessage::ClearAllBrowsingData => {
-          if let Some(webview) = get_webview(self.activity_id) {
+          if let Some(webview) = get_webview(activity_id) {
             self
               .env
               .call_method(webview, "clearAllBrowsingData", "()V", &[])?;
           }
         }
         WebViewMessage::LoadHtml(html) => {
-          if let Some(webview) = get_webview(self.activity_id) {
+          if let Some(webview) = get_webview(activity_id) {
             let html = self.env.new_string(html)?;
             load_html(&mut self.env, webview.as_obj(), &html)?;
           }
         }
         WebViewMessage::Reload => {
-          if let Some(webview) = get_webview(self.activity_id) {
+          if let Some(webview) = get_webview(activity_id) {
             reload(&mut self.env, webview.as_obj())?;
           }
         }
         WebViewMessage::GetCookies(tx, url) => {
-          if let Some(webview) = get_webview(self.activity_id) {
+          if let Some(webview) = get_webview(activity_id) {
             let url = self.env.new_string(url)?;
             let cookies = self
               .env
@@ -478,12 +491,11 @@ impl<'a> MainPipe<'a> {
           // e.g. rotation, multi-window mode change, etc
           if !is_changing_configurations {
             super::destroy_webview(activity_id, &webview_id);
-            return Ok(MainPipeState::Destroyed);
           }
         }
       }
     }
-    Ok(MainPipeState::Alive)
+    Ok(())
   }
 }
 

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use super::{PageLoadEvent, WebViewAttributes, RGBA};
-use crate::{RequestAsyncResponder, Result};
+use crate::{Error, RequestAsyncResponder, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
 use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
@@ -17,14 +17,13 @@ use jni::{
   JNIEnv,
 };
 use kuchiki::NodeRef;
-use ndk::looper::{FdEvent, ThreadLooper};
+use ndk::looper::ThreadLooper;
 use once_cell::sync::OnceCell;
 use raw_window_handle::HasWindowHandle;
 use sha2::{Digest, Sha256};
 use std::{
   borrow::Cow,
   collections::HashMap,
-  os::fd::{AsFd as _, AsRawFd as _},
   sync::{mpsc::channel, Mutex},
   time::Duration,
 };
@@ -32,8 +31,8 @@ use std::{
 pub(crate) mod binding;
 mod main_pipe;
 use main_pipe::{
-  first_activity_id, last_activity_id, register_activity_proxy, ActivityId,
-  CreateWebViewAttributes, MainPipe, MainPipeState, WebViewMessage,
+  activity_id_for_window_manager, first_activity_id, register_activity_proxy, ActivityId,
+  CreateWebViewAttributes, MainPipe, WebViewMessage,
 };
 
 use crate::util::Counter;
@@ -113,16 +112,30 @@ pub fn destroy_webview(activity_id: ActivityId, webview_id: &WebviewId) {
 pub unsafe fn android_setup(
   package: &str,
   mut env: JNIEnv,
-  looper: &ThreadLooper,
+  _looper: &ThreadLooper,
   activity: GlobalRef,
 ) {
   PACKAGE.get_or_init(move || package.to_string());
+
+  let vm = env.get_java_vm().unwrap();
 
   let activity_id = env
     .call_method(activity.as_obj(), "getId", "()I", &[])
     .unwrap()
     .i()
     .unwrap();
+
+  let window_manager = env
+    .call_method(
+      &activity,
+      "getWindowManager",
+      "()Landroid/view/WindowManager;",
+      &[],
+    )
+    .unwrap()
+    .l()
+    .unwrap();
+  let window_manager = env.new_global_ref(window_manager).unwrap();
 
   // we must create the WebChromeClient here because it calls `registerForActivityResult`,
   // which gives an `LifecycleOwners must call register before they are STARTED.` error when called outside the onCreate hook
@@ -142,36 +155,13 @@ pub unsafe fn android_setup(
 
   let webchrome_client = env.new_global_ref(webchrome_client).unwrap();
 
-  let activity_proxy = register_activity_proxy(activity_id, activity, webchrome_client);
+  register_activity_proxy(vm, activity_id, activity, window_manager, webchrome_client);
 
   if let Some(webview_attributes) = WEBVIEW_ATTRIBUTES.lock().unwrap().get(&activity_id) {
     MainPipe::send(
       activity_id,
       WebViewMessage::CreateWebView(webview_attributes.clone()),
     );
-  } else {
-    let mut main_pipe = MainPipe { env, activity_id };
-
-    looper
-      .add_fd_with_callback(
-        activity_proxy.pipe[0].as_fd(),
-        FdEvent::INPUT,
-        move |fd, _event| {
-          let size = std::mem::size_of::<bool>();
-          let mut wake = false;
-          if libc::read(fd.as_raw_fd(), &mut wake as *mut _ as *mut _, size)
-            == size as libc::ssize_t
-          {
-            let res = main_pipe.recv();
-            // unregister itself on errors or destroy event
-            matches!(res, Ok(MainPipeState::Alive))
-          } else {
-            // unregister itself
-            false
-          }
-        },
-      )
-      .unwrap();
   }
 }
 
@@ -182,19 +172,27 @@ pub(crate) struct InnerWebView {
 
 impl InnerWebView {
   pub fn new_as_child(
-    _window: &impl HasWindowHandle,
+    window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
   ) -> Result<Self> {
-    Self::new(_window, attributes, pl_attrs)
+    Self::new(window, attributes, pl_attrs)
   }
 
   pub fn new(
-    _window: &impl HasWindowHandle,
+    window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
   ) -> Result<Self> {
-    let activity_id = last_activity_id().expect("no available activity");
+    let window_manager = match window.window_handle()?.as_raw() {
+      raw_window_handle::RawWindowHandle::AndroidNdk(window_manager) => {
+        window_manager.a_native_window
+      }
+      _ => return Err(Error::UnsupportedWindowHandle),
+    };
+    let window_manager = unsafe { JObject::from_raw(window_manager.as_ptr().cast()) };
+    let activity_id =
+      activity_id_for_window_manager(window_manager).expect("no available activity");
     let WebViewAttributes {
       url,
       html,
