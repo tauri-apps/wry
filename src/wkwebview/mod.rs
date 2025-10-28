@@ -474,9 +474,9 @@ impl InnerWebView {
       }
       #[cfg(target_os = "ios")]
       {
-        // set all autoresizingmasks
-        webview.setAutoresizingMask(UIViewAutoresizing::from_bits(31).unwrap());
-        // let () = msg_send![webview, setAutoresizingMask: 31];
+        webview.setAutoresizingMask(
+          UIViewAutoresizing::FlexibleWidth | UIViewAutoresizing::FlexibleHeight,
+        );
 
         // disable scroll bounce by default
         // https://developer.apple.com/documentation/webkit/wkwebview/1614784-scrollview?language=objc
