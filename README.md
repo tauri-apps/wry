@@ -189,24 +189,8 @@ sudo dnf install gtk3-devel webkit2gtk4.1-devel
 
 ###### Nix & NixOS
 
-```nix
-# shell.nix
-
-let
-   # Unstable Channel | Rolling Release
-   pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
-   packages = with pkgs; [
-     pkg-config
-     webkitgtk_4_1
-   ];
- in
- pkgs.mkShell {
-   buildInputs = packages;
- }
-```
-
 ```sh
-nix-shell shell.nix
+nix-shell -p pkg-config webkitgtk_4_1
 ```
 
 ###### GUIX
