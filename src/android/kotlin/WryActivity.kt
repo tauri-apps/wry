@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
 import android.view.KeyEvent
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -54,6 +55,24 @@ abstract class WryActivity : AppCompatActivity() {
 
     fun setWebView(webView: RustWebView) {
         mWebView = webView
+
+        if (handleBackNavigation) {
+            val callback = object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (::this@WryActivity.mWebView.isInitialized) {
+                        if (this@WryActivity.mWebView.canGoBack()) {
+                            this@WryActivity.mWebView.goBack()
+                        } else {
+                            this.isEnabled = false
+                            this@WryActivity.onBackPressed()
+                            this.isEnabled = true
+                        }
+                    }
+                }
+            }
+            onBackPressedDispatcher.addCallback(this, callback)
+        }
+
         onWebViewCreate(webView)
     }
 
@@ -117,14 +136,6 @@ abstract class WryActivity : AppCompatActivity() {
     override fun onLowMemory() {
         super.onLowMemory()
         Rust.onActivityLowMemory()
-    }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (handleBackNavigation && keyCode == KeyEvent.KEYCODE_BACK && if (::mWebView.isInitialized) { mWebView.canGoBack() } else { false }) {
-            mWebView.goBack()
-            return true
-        }
-        return super.onKeyDown(keyCode, event)
     }
 
     fun getAppClass(name: String): Class<*> {
