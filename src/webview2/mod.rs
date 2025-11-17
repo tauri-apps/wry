@@ -424,6 +424,37 @@ impl InnerWebView {
   ) -> Result<ICoreWebView2> {
     let webview = unsafe { controller.CoreWebView2()? };
 
+    let mut token_process_failed = EventRegistrationToken::default();
+    unsafe {
+      webview.add_ProcessFailed(
+        &ProcessFailedEventHandler::create(Box::new(|_, args| {
+          let Some(args) = args else { return Ok(()) };
+          let args = args.cast::<ICoreWebView2ProcessFailedEventArgs2>().unwrap();
+
+          let mut kind = COREWEBVIEW2_PROCESS_FAILED_KIND(-99);
+          let _ = args.ProcessFailedKind(&mut kind);
+          eprintln!("ProcessFailedKind: {kind:?}");
+
+          let mut code = 0;
+          let _ = args.ExitCode(&mut code);
+          eprintln!("ExitCode: {code}");
+
+          let mut desc = PWSTR::null();
+          let _ = args.ProcessDescription(&mut desc);
+          if let Ok(desc) = desc.to_string() {
+            eprintln!("ProcessDescription: {desc}");
+          }
+
+          let mut reason = COREWEBVIEW2_PROCESS_FAILED_REASON(-99);
+          let _ = args.Reason(&mut reason);
+          eprintln!("ProcessFailedREASON: {reason:?}");
+
+          Ok(())
+        })),
+        &mut token_process_failed,
+      )?;
+    };
+
     // Theme
     if let Some(theme) = pl_attrs.theme {
       if let Err(error) = unsafe { set_theme(&webview, theme) } {
