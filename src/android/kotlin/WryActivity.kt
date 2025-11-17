@@ -119,6 +119,11 @@ abstract class WryActivity : AppCompatActivity() {
         Rust.onActivityLowMemory()
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        Rust.onNewIntent(intent)
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (handleBackNavigation && keyCode == KeyEvent.KEYCODE_BACK && if (::mWebView.isInitialized) { mWebView.canGoBack() } else { false }) {
             mWebView.goBack()

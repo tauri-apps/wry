@@ -6,6 +6,7 @@
 
 package {{package}}
 
+import android.content.Intent
 import android.webkit.WebView
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -20,6 +21,7 @@ object Rust {
     @JvmStatic external fun onActivitySaveInstanceState()
     @JvmStatic external fun onActivityLowMemory()
     @JvmStatic external fun onWindowFocusChanged(activity: WryActivity, focus: Boolean)
+    @JvmStatic external fun onNewIntent(intent: Intent)
 
     @JvmStatic external fun create()
     @JvmStatic external fun start()
