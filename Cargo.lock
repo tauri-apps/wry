@@ -1807,7 +1807,6 @@ dependencies = [
  "napi-sys-ohos",
  "nohash-hasher",
  "rustc-hash 2.1.1",
- "tokio",
 ]
 
 [[package]]
@@ -2317,21 +2316,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ohos-display-soloist-binding"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b26e7a334db10af3d3b71cc0cddfd923030421e719031d8d75ca8ffb431614dd"
-dependencies = [
- "ohos-display-soloist-sys",
-]
-
-[[package]]
-name = "ohos-display-soloist-sys"
-version = "0.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b6f9ced0cbe82574a06d95cf5ffa35eee07b13e0631c8abd421feb03aa16b0a"
-
-[[package]]
 name = "ohos-display-sys"
 version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2441,16 +2425,15 @@ checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
 
 [[package]]
 name = "openharmony-ability"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "093954c2aac0c1d403d321aa76db7943539a461a78aab91954bd0cbd0449b4a8"
+checksum = "b68b0a56a8968f31a85024951451a2bb084ecdf08814e77011b47fb957478c7e"
 dependencies = [
  "http",
  "napi-derive-ohos",
  "napi-ohos",
  "ohos-arkui-binding",
  "ohos-display-binding",
- "ohos-display-soloist-binding",
  "ohos-ime-binding",
  "ohos-web-binding",
  "ohos-xcomponent-binding",
@@ -2458,9 +2441,9 @@ dependencies = [
 
 [[package]]
 name = "openharmony-ability-derive"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1a491cb7715f066faf375cb66156961466611824ddfa11556a384b1383d77d5"
+checksum = "da80e8fd70a5f6ebf88a804f969e299672ec6f39b259afcd5d39d23c12f12227"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -3361,15 +3344,6 @@ checksum = "9117f5d4db391c1cf6927e7bea3db74b9a1c1add8f7eda9ffd5364f40f57b82f"
 dependencies = [
  "displaydoc",
  "zerovec",
-]
-
-[[package]]
-name = "tokio"
-version = "1.52.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fc7f01b389ac15039e4dc9531aa973a135d7a4135281b12d7c1bc79fd57fffe"
-dependencies = [
- "pin-project-lite",
 ]
 
 [[package]]
