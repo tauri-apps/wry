@@ -59,7 +59,7 @@ abstract class WryActivity : AppCompatActivity() {
         if (handleBackNavigation) {
             val callback = object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    if (::this@WryActivity.mWebView.isInitialized) {
+                    if (this@WryActivity::mWebView.isInitialized) {
                         if (this@WryActivity.mWebView.canGoBack()) {
                             this@WryActivity.mWebView.goBack()
                         } else {
