@@ -68,6 +68,10 @@ pub fn activity_proxy(id: ActivityId) -> Option<ActivityProxy> {
   ACTIVITY_PROXY.lock().unwrap().get(&id).cloned()
 }
 
+fn remove_activity_proxy(id: ActivityId) {
+  ACTIVITY_PROXY.lock().unwrap().remove(&id);
+}
+
 pub fn register_activity_proxy(
   vm: JavaVM,
   id: ActivityId,
@@ -491,6 +495,7 @@ impl<'a> MainPipe<'a> {
           // e.g. rotation, multi-window mode change, etc
           if !is_changing_configurations {
             super::destroy_webview(activity_id, &webview_id);
+            remove_activity_proxy(activity_id);
           }
         }
       }
