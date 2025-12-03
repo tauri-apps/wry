@@ -127,6 +127,20 @@ abstract class WryActivity : AppCompatActivity() {
         Rust.onActivitySaveInstanceState()
     }
 
+    override fun onPause() {
+        super.onPause()
+        if (::mWebView.isInitialized) {
+            mWebView.onPause()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::mWebView.isInitialized) {
+            mWebView.onResume()
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         Rust.onActivityDestroy(this)
