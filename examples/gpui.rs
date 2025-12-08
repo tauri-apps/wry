@@ -1,8 +1,8 @@
 use gpui::{
   canvas, div, px, rgb, size, App, AppContext as _, Application, Bounds, Context, DismissEvent,
   Element, ElementId, Entity, EventEmitter, FocusHandle, Focusable, GlobalElementId,
-  InteractiveElement, IntoElement, LayoutId, ParentElement as _, Pixels, Render, Size, Style,
-  Styled as _, Window, WindowBounds, WindowKind, WindowOptions,
+  InspectorElementId, InteractiveElement, IntoElement, LayoutId, ParentElement as _, Pixels,
+  Render, Size, Style, Styled as _, Window, WindowBounds, WindowKind, WindowOptions,
 };
 use raw_window_handle::HasWindowHandle;
 use std::{ops::Deref, rc::Rc};
@@ -158,9 +158,14 @@ impl Element for WebViewElement {
     None
   }
 
+  fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
+    None
+  }
+
   fn request_layout(
     &mut self,
     _: Option<&GlobalElementId>,
+    _: Option<&InspectorElementId>,
     window: &mut Window,
     cx: &mut App,
   ) -> (LayoutId, Self::RequestLayoutState) {
@@ -178,6 +183,7 @@ impl Element for WebViewElement {
   fn prepaint(
     &mut self,
     _: Option<&GlobalElementId>,
+    _: Option<&InspectorElementId>,
     bounds: Bounds<Pixels>,
     _: &mut Self::RequestLayoutState,
     _: &mut Window,
@@ -187,8 +193,8 @@ impl Element for WebViewElement {
       .view
       .set_bounds(Rect {
         size: dpi::Size::Logical(LogicalSize {
-          width: (bounds.size.width.0).into(),
-          height: (bounds.size.height.0).into(),
+          width: bounds.size.width.into(),
+          height: bounds.size.height.into(),
         }),
         position: dpi::Position::Logical(dpi::LogicalPosition::new(
           bounds.origin.x.into(),
@@ -201,6 +207,7 @@ impl Element for WebViewElement {
   fn paint(
     &mut self,
     _: Option<&GlobalElementId>,
+    _: Option<&InspectorElementId>,
     _: Bounds<Pixels>,
     _: &mut Self::RequestLayoutState,
     _: &mut Self::PrepaintState,
@@ -218,30 +225,27 @@ fn main() {
     }
 
     let bounds = Bounds::centered(None, size(px(1200.0), px(800.0)), cx);
-    let window = cx
-      .open_window(
-        WindowOptions {
-          window_bounds: Some(WindowBounds::Windowed(bounds)),
-          kind: WindowKind::Normal,
-          ..Default::default()
-        },
-        |window, cx| cx.new(|cx| WebViewWindow::new(window, cx)),
-      )
-      .unwrap();
-
-    cx.spawn(|mut cx| async move {
-      window
-        .update(&mut cx, |_, window, cx| {
-          window.activate_window();
-          window.set_window_title("WebView Example");
+    cx.open_window(
+      WindowOptions {
+        window_bounds: Some(WindowBounds::Windowed(bounds)),
+        kind: WindowKind::Normal,
+        ..Default::default()
+      },
+      |window, cx| {
+        cx.new(|cx| {
           cx.on_release(|_, _app| {
             // exit app
             std::process::exit(0);
           })
           .detach();
+
+          window.activate_window();
+          window.set_window_title("WebView Example");
+
+          WebViewWindow::new(window, cx)
         })
-        .unwrap();
-    })
-    .detach();
+      },
+    )
+    .unwrap();
   });
 }
