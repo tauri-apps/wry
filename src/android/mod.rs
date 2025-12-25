@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use super::{PageLoadEvent, WebViewAttributes, RGBA};
-use crate::{RequestAsyncResponder, Result};
+use crate::{custom_protocol_workaround, RequestAsyncResponder, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
 use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
@@ -187,14 +187,12 @@ impl InnerWebView {
       https_scheme,
     } = pl_attrs;
 
-    let scheme = if https_scheme { "https" } else { "http" };
+    let http_or_https = if https_scheme { "https" } else { "http" };
 
     let url = if let Some(mut url) = url {
-      if let Some(pos) = url.find("://") {
-        let name = &url[..pos];
-        let is_custom_protocol = custom_protocols.iter().any(|(n, _)| n == name);
-        if is_custom_protocol {
-          url = url.replace(&format!("{name}://"), &format!("{scheme}://{name}."))
+      if let Some((protocol, _)) = url.split_once("://") {
+        if custom_protocols.contains_key(protocol) {
+          url = custom_protocol_workaround::apply_uri_work_around(&url, http_or_https, protocol)
         }
       }
 
@@ -219,15 +217,16 @@ impl InnerWebView {
       UnsafeRequestHandler::new(Box::new(
         move |webview_id: &str, mut request, is_document_start_script_enabled| {
           let uri = request.uri().to_string();
-          if let Some((custom_protocol_uri, custom_protocol_closure)) = custom_protocols.iter().find(|(name, _)| {
-            uri.starts_with(&format!("{scheme}://{}.", name))
-          }) {
-            let uri_res = uri
-              .replace(
-                &format!("{scheme}://{}.", custom_protocol_uri),
-                &format!("{}://", custom_protocol_uri),
-              )
-              .parse();
+          if let Some((custom_protocol, custom_protocol_handler)) = custom_protocols
+            .iter()
+            .find(|(protocol, _)| custom_protocol_workaround::is_work_around_uri(&uri, http_or_https, protocol))
+          {
+            let uri_res = custom_protocol_workaround::revert_uri_work_around(
+              &uri,
+              http_or_https,
+              custom_protocol,
+            )
+            .parse();
 
             if let Ok(uri) = uri_res {
               *request.uri_mut() = uri;
@@ -291,7 +290,7 @@ impl InnerWebView {
                 tx.send(response).unwrap();
               });
 
-            (custom_protocol_closure)(webview_id, request, RequestAsyncResponder { responder });
+            (custom_protocol_handler)(webview_id, request, RequestAsyncResponder { responder });
             return Some(rx.recv_timeout(MAIN_PIPE_TIMEOUT).unwrap());
           }
           None
@@ -347,7 +346,7 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn id(&self) -> crate::WebViewId {
+  pub fn id(&self) -> crate::WebViewId<'_> {
     &self.id
   }
 

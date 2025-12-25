@@ -658,7 +658,7 @@ r#"Object.defineProperty(window, 'ipc', {
     }
   }
 
-  pub fn id(&self) -> crate::WebViewId {
+  pub fn id(&self) -> crate::WebViewId<'_> {
     &self.id
   }
 

@@ -29,8 +29,9 @@ use windows::{
 use self::drag_drop::DragDropController;
 use super::Theme;
 use crate::{
-  proxy::ProxyConfig, Error, MemoryUsageLevel, NewWindowFeatures, NewWindowOpener,
-  NewWindowResponse, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebViewAttributes, RGBA,
+  custom_protocol_workaround, proxy::ProxyConfig, Error, MemoryUsageLevel, NewWindowFeatures,
+  NewWindowOpener, NewWindowResponse, PageLoadEvent, Rect, RequestAsyncResponder, Result,
+  WebViewAttributes, RGBA,
 };
 
 type EventRegistrationToken = i64;
@@ -516,7 +517,7 @@ impl InnerWebView {
         if custom_protocols.contains(protocol) {
           // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
           // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-          url = apply_uri_work_around(&url, http_or_https, protocol)
+          url = custom_protocol_workaround::apply_uri_work_around(&url, http_or_https, protocol)
         }
       }
 
@@ -754,7 +755,7 @@ impl InnerWebView {
           let deferral = args.GetDeferral()?;
           let deferral = UnsafeSend(deferral);
           let args = UnsafeSend(args);
-          let hwnd = UnsafeSend(hwnd.clone());
+          let hwnd = UnsafeSend(hwnd);
           std::thread::spawn(move || match new_window_req_handler(uri, features) {
             NewWindowResponse::Allow => {
               let _ = args.take().SetHandled(false);
@@ -924,7 +925,7 @@ impl InnerWebView {
     for name in attributes.custom_protocols.keys() {
       // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
       // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-      let work_around_uri = work_around_uri_prefix(http_or_https, name);
+      let work_around_uri = custom_protocol_workaround::work_around_uri_prefix(http_or_https, name);
       let filter = HSTRING::from(format!("{work_around_uri}*"));
 
       // If WebView2 version is high enough, use the new API to add the filter to allow Shared Workers and
@@ -970,7 +971,7 @@ impl InnerWebView {
 
         if let Some((custom_protocol, custom_protocol_handler)) = custom_protocols
           .iter()
-          .find(|(protocol, _)| is_work_around_uri(&uri, http_or_https, protocol))
+          .find(|(protocol, _)| custom_protocol_workaround::is_work_around_uri(&uri, http_or_https, protocol))
         {
           let request = match Self::prepare_request(http_or_https, custom_protocol, &webview_request, &uri)
           {
@@ -1085,7 +1086,11 @@ impl InnerWebView {
     }
 
     // Undo the protocol workaround when giving path to resolver
-    let path = revert_uri_work_around(webview_request_uri, http_or_https, custom_protocol);
+    let path = custom_protocol_workaround::revert_uri_work_around(
+      webview_request_uri,
+      http_or_https,
+      custom_protocol,
+    );
 
     let request = request.uri(&path).body(body_sent)?;
 
@@ -1351,7 +1356,7 @@ impl InnerWebView {
 
 /// Public APIs
 impl InnerWebView {
-  pub fn id(&self) -> crate::WebViewId {
+  pub fn id(&self) -> crate::WebViewId<'_> {
     &self.id
   }
 
@@ -1820,42 +1825,6 @@ unsafe fn set_theme(webview: &ICoreWebView2, theme: Theme) -> Result<()> {
     .map_err(Into::into)
 }
 
-/// WebView2 supports non-standard protocols only on Windows 10+, so we have to use a workaround,
-/// conveting `{protocol}://localhost/abc` to `{http_or_https}://{protocol}.localhost/abc`,
-/// and this function tests if the URI starts with `{http_or_https}://{protocol}.`
-///
-/// See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-fn is_work_around_uri(uri: &str, http_or_https: &str, protocol: &str) -> bool {
-  uri
-    .strip_prefix(http_or_https)
-    .and_then(|rest| rest.strip_prefix("://"))
-    .and_then(|rest| rest.strip_prefix(protocol))
-    .and_then(|rest| rest.strip_prefix("."))
-    .is_some()
-}
-
-fn apply_uri_work_around(uri: &str, http_or_https: &str, protocol: &str) -> String {
-  uri.replace(
-    &original_uri_prefix(protocol),
-    &work_around_uri_prefix(http_or_https, protocol),
-  )
-}
-
-fn revert_uri_work_around(uri: &str, http_or_https: &str, protocol: &str) -> String {
-  uri.replace(
-    &work_around_uri_prefix(http_or_https, protocol),
-    &original_uri_prefix(protocol),
-  )
-}
-
-fn original_uri_prefix(protocol: &str) -> String {
-  format!("{protocol}://")
-}
-
-fn work_around_uri_prefix(http_or_https: &str, protocol: &str) -> String {
-  format!("{http_or_https}://{protocol}.")
-}
-
 pub fn platform_webview_version() -> Result<String> {
   let mut versioninfo = PWSTR::null();
   unsafe { GetAvailableCoreWebView2BrowserVersionString(PCWSTR::null(), &mut versioninfo) }?;
@@ -1875,18 +1844,5 @@ unsafe impl<T> Send for UnsafeSend<T> {}
 impl<T> UnsafeSend<T> {
   fn take(self) -> T {
     self.0
-  }
-}
-
-#[cfg(test)]
-mod tests {
-  use super::is_work_around_uri;
-
-  #[test]
-  fn checks_if_custom_protocol_uri() {
-    let scheme = "http";
-    let uri = "http://wry.localhost/path/to/page";
-    assert!(is_work_around_uri(uri, scheme, "wry"));
-    assert!(!is_work_around_uri(uri, scheme, "asset"));
   }
 }

@@ -347,6 +347,8 @@
 // #[macro_use]
 // extern crate objc;
 
+#[cfg(any(target_os = "windows", target_os = "android"))]
+mod custom_protocol_workaround;
 mod error;
 mod proxy;
 #[cfg(any(target_os = "macos", target_os = "android", target_os = "ios"))]
@@ -592,7 +594,7 @@ pub struct WebViewAttributes<'a> {
   ///
   /// The Page loaded from html string will have `null` origin.
   ///
-  /// ## PLatform-specific:
+  /// ## Platform-specific:
   ///
   /// - **Windows:** the string can not be larger than 2 MB (2 * 1024 * 1024 bytes) in total size
   pub html: Option<String>,
@@ -1158,6 +1160,12 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Note
   ///
   /// Data URLs are not supported, use [`html`](Self::with_html) option instead.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows and Android:** if the URL's scheme is a registered custom protocol,
+  ///   a work around is used that changes the URL this navigates to
+  ///   from `{protocol}://localhost/abc` to `{http_or_https}://{protocol}.localhost/abc`
   pub fn with_url_and_headers(mut self, url: impl Into<String>, headers: http::HeaderMap) -> Self {
     self.attrs.url = Some(url.into());
     self.attrs.headers = Some(headers);
@@ -1170,6 +1178,12 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Note
   ///
   /// Data URLs are not supported, use [`html`](Self::with_html) option instead.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows and Android:** if the URL's scheme is a registered custom protocol,
+  ///   a work around is used that changes the URL this navigates to
+  ///   from `{protocol}://localhost/abc` to `{http_or_https}://{protocol}.localhost/abc`
   pub fn with_url(mut self, url: impl Into<String>) -> Self {
     self.attrs.url = Some(url.into());
     self.attrs.headers = None;
@@ -1189,7 +1203,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// The Page loaded from html string will have `null` origin.
   ///
-  /// ## PLatform-specific:
+  /// ## Platform-specific:
   ///
   /// - **Windows:** the string can not be larger than 2 MB (2 * 1024 * 1024 bytes) in total size
   pub fn with_html(mut self, html: impl Into<String>) -> Self {
