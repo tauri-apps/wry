@@ -1263,28 +1263,24 @@ pub fn platform_webview_version() -> Result<String> {
   unsafe {
     let Some(bundle) = NSBundle::bundleWithIdentifier(&NSString::from_str("com.apple.WebKit"))
     else {
-      return Err(Error::Io(std::io::Error::new(
-        std::io::ErrorKind::Other,
+      return Err(Error::Io(std::io::Error::other(
         "failed to locate com.apple.WebKit bundle",
       )));
     };
     let Some(dict) = bundle.infoDictionary() else {
-      return Err(Error::Io(std::io::Error::new(
-        std::io::ErrorKind::Other,
+      return Err(Error::Io(std::io::Error::other(
         "failed to get WebKit info dictionary",
       )));
     };
 
     let Some(webkit_version) = dict.objectForKey(&NSString::from_str("CFBundleVersion")) else {
-      return Err(Error::Io(std::io::Error::new(
-        std::io::ErrorKind::Other,
+      return Err(Error::Io(std::io::Error::other(
         "failed to get WebKit version",
       )));
     };
 
     let Ok(webkit_version) = webkit_version.downcast::<NSString>() else {
-      return Err(Error::Io(std::io::Error::new(
-        std::io::ErrorKind::Other,
+      return Err(Error::Io(std::io::Error::other(
         "failed to parse WebKit version",
       )));
     };
