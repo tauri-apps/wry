@@ -570,7 +570,7 @@ impl InnerWebView {
         id: webview_id,
         mtm,
         webview: webview.clone(),
-        manager: manager.clone(),
+        manager,
         ns_view: ns_view.retain(),
         data_store,
         pending_scripts,
@@ -629,7 +629,7 @@ r#"Object.defineProperty(window, 'ipc', {
             NSAutoresizingMaskOptions::ViewHeightSizable
               | NSAutoresizingMaskOptions::ViewWidthSizable,
           );
-          parent_view.addSubview(&webview.clone());
+          parent_view.addSubview(&webview);
 
           // Tell the webview receive keyboard events in the window.
           // See https://github.com/tauri-apps/wry/issues/739

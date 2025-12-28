@@ -282,7 +282,7 @@ extern "C" fn start_task(
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
                 check_webview_id_valid(webview_id)?;
-                check_task_is_valid(&webview, task_key, task_uuid.clone())?;
+                check_task_is_valid(&webview, task_key, task_uuid)?;
 
                 objc2::exception::catch(AssertUnwindSafe(|| {
                   task.didFinish();

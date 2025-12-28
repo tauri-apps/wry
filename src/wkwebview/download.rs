@@ -74,7 +74,7 @@ pub(crate) fn download_policy(
     let started_fn = &this.ivars().started;
     if let Some(started_fn) = started_fn {
       let mut started_fn = started_fn.borrow_mut();
-      match started_fn(url.to_string().to_string(), &mut download_destination) {
+      match started_fn(url.to_string(), &mut download_destination) {
         true => {
           let path = NSString::from_str(&download_destination.display().to_string());
           let ns_url = NSURL::fileURLWithPath_isDirectory(&path, false);

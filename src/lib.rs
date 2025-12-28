@@ -2386,7 +2386,7 @@ impl WebViewExtMacOS for WebView {
   }
 
   fn ns_window(&self) -> Retained<NSWindow> {
-    self.webview.webview.window().unwrap().clone()
+    self.webview.webview.window().unwrap()
   }
 
   fn reparent(&self, window: *mut NSWindow) -> Result<()> {
