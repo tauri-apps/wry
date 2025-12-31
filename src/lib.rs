@@ -804,10 +804,10 @@ pub struct WebViewAttributes<'a> {
   ///
   /// - **Windows**: Supported. On Windows, WebView2's autofill feature (called
   ///   "Suggestions") may not honor `autocomplete="off"` attributes on input
-  ///   elements in some cases. When this option is `Some(false)`, that autofill
+  ///   elements in some cases. When this option is `false`, that autofill
   ///   behavior will be disabled.
   /// - **macOS / Linux / Android / iOS**: Unsupported and ignored.
-  pub general_autofill_enabled: Option<bool>,
+  pub general_autofill_enabled: bool,
 }
 
 impl Default for WebViewAttributes<'_> {
@@ -850,7 +850,7 @@ impl Default for WebViewAttributes<'_> {
       }),
       background_throttling: None,
       javascript_disabled: false,
-      general_autofill_enabled: None,
+      general_autofill_enabled: true,
     }
   }
 }
@@ -1433,11 +1433,11 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// - **Windows**: Supported. On Windows, WebView2's autofill feature (called
   ///   "Suggestions") may not honor `autocomplete="off"` attributes on input
-  ///   elements in some cases. When this option is `Some(false)`, that autofill
+  ///   elements in some cases. When this option is `false`, that autofill
   ///   behavior will be disabled.
   /// - **macOS / Linux / Android / iOS**: Unsupported and ignored.
   pub fn with_general_autofill_enabled(mut self, enabled: bool) -> Self {
-    self.attrs.general_autofill_enabled = Some(enabled);
+    self.attrs.general_autofill_enabled = enabled;
     self
   }
 
