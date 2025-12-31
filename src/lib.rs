@@ -792,6 +792,22 @@ pub struct WebViewAttributes<'a> {
 
   /// Whether JavaScript should be disabled.
   pub javascript_disabled: bool,
+
+  /// Controls the WebView's browser-level general autofill behavior.
+  ///
+  /// When enabled, the WebView may automatically populate form fields using
+  /// previously stored data such as addresses or contact information.
+  ///
+  /// If set to `None`, the default platform behavior is preserved.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported. On Windows, WebView2's autofill feature (called
+  ///   "Suggestions") may not honor `autocomplete="off"` attributes on input
+  ///   elements in some cases. When this option is `Some(false)`, that autofill
+  ///   behavior will be disabled.
+  /// - **macOS / Linux / Android / iOS**: Unsupported and ignored.
+  pub general_autofill_enabled: Option<bool>,
 }
 
 impl Default for WebViewAttributes<'_> {
@@ -834,6 +850,7 @@ impl Default for WebViewAttributes<'_> {
       }),
       background_throttling: None,
       javascript_disabled: false,
+      general_autofill_enabled: None,
     }
   }
 }
@@ -1402,6 +1419,25 @@ impl<'a> WebViewBuilder<'a> {
   /// Whether JavaScript should be disabled.
   pub fn with_javascript_disabled(mut self) -> Self {
     self.attrs.javascript_disabled = true;
+    self
+  }
+
+  /// Controls the WebView's browser-level general autofill behavior.
+  ///
+  /// When enabled, the WebView may automatically populate form fields using
+  /// previously stored data such as addresses or contact information.
+  ///
+  /// If set to `None`, the default platform behavior is preserved.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported. On Windows, WebView2's autofill feature (called
+  ///   "Suggestions") may not honor `autocomplete="off"` attributes on input
+  ///   elements in some cases. When this option is `Some(false)`, that autofill
+  ///   behavior will be disabled.
+  /// - **macOS / Linux / Android / iOS**: Unsupported and ignored.
+  pub fn with_general_autofill_enabled(mut self, enabled: bool) -> Self {
+    self.attrs.general_autofill_enabled = Some(enabled);
     self
   }
 
