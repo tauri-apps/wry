@@ -123,7 +123,7 @@ extern "C" fn start_task(
 
       // get all our headers values and inject them in our request
       if let Some(all_headers) = all_headers {
-        for current_header in all_headers.allKeys().to_vec() {
+        for current_header in all_headers.allKeys().iter() {
           let header_value = all_headers.valueForKey(&current_header).unwrap();
           // inject the header into the request
           http_request = http_request.header(current_header.to_string(), header_value.to_string());
@@ -166,11 +166,10 @@ extern "C" fn start_task(
         current_uuid: Retained<NSUUID>,
       ) -> crate::Result<()> {
         let latest_task_uuid = webview.get_custom_task_uuid(task_key);
-        if let Some(latest_uuid) = latest_task_uuid {
-          if latest_uuid != current_uuid {
-            return Err(crate::Error::CustomProtocolTaskInvalid);
-          }
-        } else {
+        let Some(latest_uuid) = latest_task_uuid else {
+          return Err(crate::Error::CustomProtocolTaskInvalid);
+        };
+        if latest_uuid != current_uuid {
           return Err(crate::Error::CustomProtocolTaskInvalid);
         }
         Ok(())
@@ -216,7 +215,7 @@ extern "C" fn start_task(
                 // default: application/octet-stream, but should be provided by the client
                 let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
                 // default to 200
-                let wanted_status_code = sent_response.status().as_u16() as i32;
+                let wanted_status_code = sent_response.status().as_u16();
                 // default to HTTP/1.1
                 let wanted_version = format!("{:#?}", sent_response.version());
 
@@ -306,7 +305,7 @@ extern "C" fn start_task(
                 task_key,
                 task_uuid,
                 webview_id,
-                url.clone(),
+                url,
                 sent_response,
               ) {
                 #[cfg(feature = "tracing")]

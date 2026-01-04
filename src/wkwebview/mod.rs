@@ -1261,8 +1261,7 @@ pub fn url_from_webview(webview: &WKWebView) -> Result<String> {
 
 pub fn platform_webview_version() -> Result<String> {
   unsafe {
-    let Some(bundle) = NSBundle::bundleWithIdentifier(&NSString::from_str("com.apple.WebKit"))
-    else {
+    let Some(bundle) = NSBundle::bundleWithIdentifier(ns_string!("com.apple.WebKit")) else {
       return Err(Error::Io(std::io::Error::other(
         "failed to locate com.apple.WebKit bundle",
       )));
@@ -1273,7 +1272,7 @@ pub fn platform_webview_version() -> Result<String> {
       )));
     };
 
-    let Some(webkit_version) = dict.objectForKey(&NSString::from_str("CFBundleVersion")) else {
+    let Some(webkit_version) = dict.objectForKey(ns_string!("CFBundleVersion")) else {
       return Err(Error::Io(std::io::Error::other(
         "failed to get WebKit version",
       )));

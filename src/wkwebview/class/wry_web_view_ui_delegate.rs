@@ -236,7 +236,6 @@ define_class!(
             let delegate = WryNSWindowDelegate::new(
               mtm,
               Box::new(move || {
-                let new_windows = new_windows.clone();
                 new_windows
                   .borrow_mut()
                   .retain(|window| Retained::as_ptr(&window.ns_window) as usize != window_id);

@@ -11,7 +11,7 @@ use objc2::{
   runtime::{NSObject, ProtocolObject},
   DeclaredClass, MainThreadOnly,
 };
-use objc2_foundation::{MainThreadMarker, NSObjectProtocol, NSString};
+use objc2_foundation::{ns_string, MainThreadMarker, NSObjectProtocol, NSString};
 use objc2_web_kit::{WKScriptMessage, WKScriptMessageHandler, WKUserContentController};
 
 pub const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
@@ -94,10 +94,10 @@ impl WryWebViewDelegate {
     unsafe {
       // this will increase the retain count of the delegate
       let _res = objc2::exception::catch(AssertUnwindSafe(|| {
-        delegate.ivars().controller.addScriptMessageHandler_name(
-          proto_delegate,
-          &NSString::from_str(IPC_MESSAGE_HANDLER_NAME),
-        );
+        delegate
+          .ivars()
+          .controller
+          .addScriptMessageHandler_name(proto_delegate, ns_string!(IPC_MESSAGE_HANDLER_NAME));
       }));
     }
 
