@@ -45,9 +45,8 @@ use objc2_core_foundation::{CGPoint, CGRect};
 use objc2_foundation::{
   ns_string, MainThreadMarker, NSArray, NSBundle, NSDate, NSError, NSHTTPCookie,
   NSHTTPCookieDomain, NSHTTPCookieExpires, NSHTTPCookieMaximumAge, NSHTTPCookieName,
-  NSHTTPCookiePath, NSHTTPCookiePropertyKey, NSHTTPCookieSameSiteLax, NSHTTPCookieSameSitePolicy,
-  NSHTTPCookieSameSiteStrict, NSHTTPCookieSecure, NSHTTPCookieValue, NSHTTPCookieVersion,
-  NSJSONSerialization, NSMutableDictionary, NSMutableURLRequest, NSNumber,
+  NSHTTPCookiePath, NSHTTPCookiePropertyKey, NSHTTPCookieSecure, NSHTTPCookieValue,
+  NSHTTPCookieVersion, NSJSONSerialization, NSMutableDictionary, NSMutableURLRequest, NSNumber,
   NSObjectNSKeyValueCoding, NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL, NSUUID,
 };
 #[cfg(target_os = "ios")]
@@ -1031,13 +1030,17 @@ r#"Object.defineProperty(window, 'ipc', {
     let secure = cookie.isSecure();
     cookie_builder = cookie_builder.secure(secure);
 
-    let same_site = cookie.sameSitePolicy();
-    let same_site = match same_site {
-      Some(policy) if &*policy == NSHTTPCookieSameSiteLax => cookie::SameSite::Lax,
-      Some(policy) if &*policy == NSHTTPCookieSameSiteStrict => cookie::SameSite::Strict,
-      _ => cookie::SameSite::None,
-    };
-    cookie_builder = cookie_builder.same_site(same_site);
+    // Using string comparison because of https://github.com/tauri-apps/wry/issues/1616
+    let (major, minor, _) = util::operating_system_version();
+    if major > 10 || (major == 10 && minor >= 15) {
+      let same_site = cookie.sameSitePolicy();
+      let same_site = match same_site {
+        Some(policy) if policy.to_string() == "lax" => cookie::SameSite::Lax,
+        Some(policy) if policy.to_string() == "strict" => cookie::SameSite::Strict,
+        _ => cookie::SameSite::None,
+      };
+      cookie_builder = cookie_builder.same_site(same_site);
+    }
 
     let expires = cookie.expiresDate();
     let expires = match expires {
@@ -1106,13 +1109,17 @@ r#"Object.defineProperty(window, 'ipc', {
       properties.insert(ns_string!("HttpOnly"), http_only);
     }
 
+    // Using strings because of https://github.com/tauri-apps/wry/issues/1616
     if let Some(same_site) = cookie.same_site() {
+      let key = ns_string!("SameSite");
+      let lax = ns_string!("lax");
+      let strict = ns_string!("strict");
       match same_site {
         cookie::SameSite::Lax => {
-          properties.insert(NSHTTPCookieSameSitePolicy, NSHTTPCookieSameSiteLax);
+          properties.insert(key, lax);
         }
         cookie::SameSite::Strict => {
-          properties.insert(NSHTTPCookieSameSitePolicy, NSHTTPCookieSameSiteStrict);
+          properties.insert(key, strict);
         }
         cookie::SameSite::None => {}
       };
