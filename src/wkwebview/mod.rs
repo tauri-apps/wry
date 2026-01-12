@@ -354,7 +354,20 @@ impl InnerWebView {
       if attributes.transparent || attributes.background_color.is_some() {
         let no = NSNumber::numberWithBool(false);
         // Equivalent Obj-C:
-        config.setValue_forKey(Some(&no), ns_string!("drawsBackground"));
+        // drawsBackground is only available on macOS 10.14+
+        #[cfg(target_os = "macos")]
+        {
+          let version = util::operating_system_version();
+          if version.0 > 10 || (version.0 == 10 && version.1 >= 14) {
+            // Equivalent Obj-C:
+            config.setValue_forKey(Some(&no), ns_string!("drawsBackground"));
+          }
+        }
+        #[cfg(target_os = "ios")]
+        {
+          // Equivalent Obj-C:
+          config.setValue_forKey(Some(&no), ns_string!("drawsBackground"));
+        }
       }
 
       #[cfg(feature = "fullscreen")]
