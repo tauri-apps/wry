@@ -215,7 +215,7 @@ extern "C" fn start_task(
                 // default: application/octet-stream, but should be provided by the client
                 let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
                 // default to 200
-                let wanted_status_code = sent_response.status().as_u16();
+                let wanted_status_code = sent_response.status().as_u16() as i32;
                 // default to HTTP/1.1
                 let wanted_version = format!("{:#?}", sent_response.version());
 

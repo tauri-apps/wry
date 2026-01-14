@@ -498,8 +498,8 @@ impl InnerWebView {
           webview.setInspectable(true);
         }
         // this cannot be on an `else` statement, it does not work on macOS :(
-        let dev = NSString::from_str("developerExtrasEnabled");
-        _preference.setValue_forKey(Some(&_yes), &dev);
+        let dev = ns_string!("developerExtrasEnabled");
+        _preference.setValue_forKey(Some(&_yes), dev);
       }
 
       // Message handler
@@ -1296,12 +1296,12 @@ impl Drop for InnerWebView {
     // We need to drop handler closures here
     unsafe {
       if let Some(ipc_handler) = self.ipc_handler_delegate.take() {
-        let ipc = NSString::from_str(IPC_MESSAGE_HANDLER_NAME);
+        let ipc = ns_string!(IPC_MESSAGE_HANDLER_NAME);
         // this will decrease the retain count of the ipc handler and trigger the drop
         ipc_handler
           .ivars()
           .controller
-          .removeScriptMessageHandlerForName(&ipc);
+          .removeScriptMessageHandlerForName(ipc);
       }
 
       // Remove webview from window's NSView before dropping.
@@ -1361,8 +1361,8 @@ unsafe fn wait_for_blocking_operation<T>(rx: std::sync::mpsc::Receiver<T>) -> Re
     let rl = objc2_foundation::NSRunLoop::mainRunLoop();
     let limit_date = NSDate::dateWithTimeIntervalSinceNow(interval_as_secs);
 
-    let mode = NSString::from_str("NSDefaultRunLoopMode");
+    let mode = ns_string!("NSDefaultRunLoopMode");
 
-    rl.acceptInputForMode_beforeDate(&mode, &limit_date);
+    rl.acceptInputForMode_beforeDate(mode, &limit_date);
   }
 }
