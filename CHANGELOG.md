@@ -1,5 +1,17 @@
 # Changelog
 
+## \[0.54.0]
+
+- [`5fdd1a9`](https://github.com/tauri-apps/wry/commit/5fdd1a9840e24ce77ea4a57ce3746c3dbee28c9c) ([#1625](https://github.com/tauri-apps/wry/pull/1625)) Use OnBackPressedCallback instead of the deprecated onKeyDown for back navigation on Android.
+- [`51d06d0`](https://github.com/tauri-apps/wry/commit/51d06d0cecdf69652a0ae636b1b875e427534bc3) ([#1646](https://github.com/tauri-apps/wry/pull/1646)) Remove redundant clones in WebView and download handling. No user facing changes.
+- [`7b77322`](https://github.com/tauri-apps/wry/commit/7b77322f886c440d035674b8efa586671dc0a3db) ([#1647](https://github.com/tauri-apps/wry/pull/1647)) Fix clippy io_other_error. No user facing changes.
+- [`ff8876d`](https://github.com/tauri-apps/wry/commit/ff8876d92b9681b139d6637220cefe3248b7d3fb) ([#1652](https://github.com/tauri-apps/wry/pull/1652)) Improve wkwebview performance. No user-facing changes.
+- [`27ba73f`](https://github.com/tauri-apps/wry/commit/27ba73f07720b80a21b6b876f1229cad8871aa33) Add handler for web content process termination.
+- [`4fcff14`](https://github.com/tauri-apps/wry/commit/4fcff147b5022af3ee006ed077759b1648b32aa6) ([#1547](https://github.com/tauri-apps/wry/pull/1547)) Set `WebsiteDataManagerBuilder::base_cache_directory` with the same path as `base_data_directory`.
+
+  This change allows the cache directory to be changed instead of using the default one [from WebKitGTK](https://webkitgtk.org/reference/webkit2gtk/stable/property.WebsiteDataManager.base-cache-directory.html).
+- [`64d9296`](https://github.com/tauri-apps/wry/commit/64d92960b960a4b2fdf9205b6188f55650ddd62f) ([#1640](https://github.com/tauri-apps/wry/pull/1640)) Update webkit2gtk-rs crates to `2.0.2`.
+
 ## \[0.53.5]
 
 - [#1622](https://github.com/tauri-apps/wry/pull/1626) Fixed an issue that caused docs.rs builds to fail. No user facing changes.
