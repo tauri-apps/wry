@@ -417,7 +417,7 @@ pub type InputAccessoryViewBuilder =
   dyn Fn(&objc2_ui_kit::UIView) -> Option<Retained<objc2_ui_kit::UIView>>;
 
 /// A rectangular region.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rect {
   /// Rect position.
   pub position: dpi::Position,
