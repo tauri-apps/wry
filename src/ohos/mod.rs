@@ -73,8 +73,12 @@ impl InnerWebView {
         .map(|s| s.script.clone())
         .collect::<Vec<_>>()
         .join("\n")])
-      .devtools(devtools)
       .transparent(transparent);
+
+    #[cfg(any(debug_assertions, feature = "devtools"))]
+    {
+      webview_builder = webview_builder.devtools(devtools);
+    }
 
     if let Some(html) = html {
       webview_builder = webview_builder.html(html);
