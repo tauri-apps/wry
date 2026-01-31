@@ -689,7 +689,7 @@ impl InnerWebView {
     let new_window_req_handler = attributes
       .new_window_req_handler
       .take()
-      .map(std::sync::Arc::new);
+      .map(std::rc::Rc::new);
     let env_ = env.clone();
     // New window handler
     webview.add_NewWindowRequested(
@@ -753,25 +753,19 @@ impl InnerWebView {
 
           let new_window_req_handler = new_window_req_handler.clone();
           let deferral = args.GetDeferral()?;
-          let deferral = UnsafeSend(deferral);
-          let args = UnsafeSend(args);
-          let hwnd = UnsafeSend(hwnd);
-          std::thread::spawn(move || match new_window_req_handler(uri, features) {
+          Self::dispatch_handler(hwnd, move || match new_window_req_handler(uri, features) {
             NewWindowResponse::Allow => {
-              let _ = args.take().SetHandled(false);
-              let _ = deferral.take().Complete();
+              let _ = args.SetHandled(false);
+              let _ = deferral.Complete();
             }
             NewWindowResponse::Create { webview } => {
-              Self::dispatch_handler(hwnd.take(), move || {
-                let args = args.take();
-                let _ = args.SetHandled(true);
-                let _ = args.SetNewWindow(&webview);
-                let _ = deferral.take().Complete();
-              });
+              let _ = args.SetHandled(true);
+              let _ = args.SetNewWindow(&webview);
+              let _ = deferral.Complete();
             }
             NewWindowResponse::Deny => {
-              let _ = args.take().SetHandled(true);
-              let _ = deferral.take().Complete();
+              let _ = args.SetHandled(true);
+              let _ = deferral.Complete();
             }
           });
         } else {
@@ -782,6 +776,7 @@ impl InnerWebView {
       })),
       token,
     )?;
+    Self::attach_main_thread_dispatcher(hwnd);
 
     // Download handler
     if attributes.download_started_handler.is_some()
@@ -1158,9 +1153,9 @@ impl InnerWebView {
         err.message()
       );
       #[cfg(feature = "tracing")]
-      tracing::error!("{}", &msg);
+      tracing::error!("{msg}");
       #[cfg(debug_assertions)]
-      eprintln!("{}", msg);
+      eprintln!("{msg}");
     }
   }
 
@@ -1836,13 +1831,4 @@ fn is_windows_7() -> bool {
   let v = windows_version::OsVersion::current();
   // windows 7 is 6.1
   v.major == 6 && v.minor == 1
-}
-
-struct UnsafeSend<T>(T);
-unsafe impl<T> Send for UnsafeSend<T> {}
-
-impl<T> UnsafeSend<T> {
-  fn take(self) -> T {
-    self.0
-  }
 }
