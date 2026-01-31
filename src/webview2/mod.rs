@@ -753,6 +753,9 @@ impl InnerWebView {
 
           let new_window_req_handler = new_window_req_handler.clone();
           let deferral = args.GetDeferral()?;
+          // Use `dispatch_handler` to schedule the run on the message loop after this callback completes,
+          // this is needed for `new_window_req_handler` to create new webviews for `NewWindowResponse::Create`
+          // or it will deadlock, see https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/threading-model#reentrancy
           Self::dispatch_handler(hwnd, move || match new_window_req_handler(uri, features) {
             NewWindowResponse::Allow => {
               let _ = args.SetHandled(false);
@@ -1132,6 +1135,13 @@ impl InnerWebView {
     env.CreateWebResourceResponse(None, status_code as i32, &status, &error)
   }
 
+  /// Send `function` to run on `hwnd`'s thread
+  ///
+  /// ## SAFETY:
+  ///
+  /// This function doesn't force a `Send` to make it easier to use,
+  /// the caller must call this function on the same thread as `hwnd`
+  /// or ensure the function is can be `Send`
   #[inline]
   unsafe fn dispatch_handler<F>(hwnd: HWND, function: F)
   where
