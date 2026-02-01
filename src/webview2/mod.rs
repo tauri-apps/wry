@@ -1141,7 +1141,7 @@ impl InnerWebView {
   ///
   /// This function doesn't force a `Send` to make it easier to use,
   /// the caller must call this function on the same thread as `hwnd`
-  /// or ensure the function is safe to `Send`
+  /// or ensure the function is safe to send to and called on `hwnd`'s thread
   #[inline]
   unsafe fn dispatch_handler<F>(hwnd: HWND, function: F)
   where
