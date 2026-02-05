@@ -352,19 +352,9 @@ impl InnerWebView {
       }
 
       #[cfg(feature = "transparent")]
-      if attributes.transparent {
+      if attributes.transparent || attributes.background_color.is_some() {
         let no = NSNumber::numberWithBool(false);
         // Equivalent Obj-C:
-        config.setValue_forKey(Some(&no), ns_string!("drawsBackground"));
-      }
-
-      // On macOS, disable the default white WKWebView background when a custom
-      // background color is specified. Applied to the config before initWithFrame
-      // so the WKWebView never renders a white frame.
-      // Uses the same `drawsBackground` KVC key as the `transparent` feature above.
-      #[cfg(target_os = "macos")]
-      if attributes.background_color.is_some() {
-        let no = NSNumber::numberWithBool(false);
         config.setValue_forKey(Some(&no), ns_string!("drawsBackground"));
       }
 
@@ -929,7 +919,7 @@ r#"Object.defineProperty(window, 'ipc', {
       self.webview.setBackgroundColor(Some(&color));
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(all(target_os = "macos", feature = "transparent"))]
     unsafe {
       let (red, green, blue, alpha) = _background_color;
 
