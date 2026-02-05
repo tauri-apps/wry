@@ -564,7 +564,8 @@ pub struct WebViewAttributes<'a> {
   ///
   /// ## Platform-specific:
   ///
-  /// - **macOS**: Not implemented.
+  /// - **macOS**: Disables the default white WKWebView background via the `drawsBackground` KVC key
+  ///   (same as the `transparent` feature) and sets `underPageBackgroundColor` (macOS 12+) for overscroll areas.
   /// - **Windows**:
   ///   - On Windows 7, transparency is not supported and the alpha value will be ignored.
   ///   - On Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
@@ -920,7 +921,8 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platfrom-specific:
   ///
-  /// - **macOS**: Not implemented.
+  /// - **macOS**: Disables the default white WKWebView background via the `drawsBackground` KVC key
+  ///   (same as the `transparent` feature) and sets `underPageBackgroundColor` (macOS 12+) for overscroll areas.
   /// - **Windows**:
   ///   - on Windows 7, transparency is not supported and the alpha value will be ignored.
   ///   - on Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
@@ -2110,7 +2112,8 @@ impl WebView {
   ///
   /// ## Platfrom-specific:
   ///
-  /// - **macOS**: Not implemented.
+  /// - **macOS**: Disables the default white WKWebView background via the `drawsBackground` KVC key
+  ///   (same as the `transparent` feature) and sets `underPageBackgroundColor` (macOS 12+) for overscroll areas.
   /// - **Windows**:
   ///   - On Windows 7, transparency is not supported and the alpha value will be ignored.
   ///   - On Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
