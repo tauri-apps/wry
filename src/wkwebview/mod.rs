@@ -403,14 +403,16 @@ impl InnerWebView {
         // Set the under-page background color for overscroll areas (public API, macOS 12+).
         // drawsBackground is already disabled on the config above, so the window background
         // shows through. This handles the color visible when scrolling past page bounds.
-        if let Some((red, green, blue, alpha)) = attributes.background_color {
-          let color = objc2_app_kit::NSColor::colorWithSRGBRed_green_blue_alpha(
-            red as f64 / 255.0,
-            green as f64 / 255.0,
-            blue as f64 / 255.0,
-            alpha as f64 / 255.0,
-          );
-          webview.setUnderPageBackgroundColor(Some(&color));
+        if os_major_version >= 12 {
+          if let Some((red, green, blue, alpha)) = attributes.background_color {
+            let color = objc2_app_kit::NSColor::colorWithSRGBRed_green_blue_alpha(
+              red as f64 / 255.0,
+              green as f64 / 255.0,
+              blue as f64 / 255.0,
+              alpha as f64 / 255.0,
+            );
+            webview.setUnderPageBackgroundColor(Some(&color));
+          }
         }
 
         webview
@@ -930,13 +932,16 @@ r#"Object.defineProperty(window, 'ipc', {
         .webview
         .setValue_forKey(Some(&no), ns_string!("drawsBackground"));
 
-      let color = objc2_app_kit::NSColor::colorWithSRGBRed_green_blue_alpha(
-        red as f64 / 255.0,
-        green as f64 / 255.0,
-        blue as f64 / 255.0,
-        alpha as f64 / 255.0,
-      );
-      self.webview.setUnderPageBackgroundColor(Some(&color));
+      let (os_major_version, _, _) = util::operating_system_version();
+      if os_major_version >= 12 {
+        let color = objc2_app_kit::NSColor::colorWithSRGBRed_green_blue_alpha(
+          red as f64 / 255.0,
+          green as f64 / 255.0,
+          blue as f64 / 255.0,
+          alpha as f64 / 255.0,
+        );
+        self.webview.setUnderPageBackgroundColor(Some(&color));
+      }
     }
 
     Ok(())
