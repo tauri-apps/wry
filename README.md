@@ -216,7 +216,7 @@ nix-shell shell.nix
 
 (specifications->manifest
   '("pkg-config"                ; Helper tool used when compiling
-    "webkitgtk"                 ; Web content engine for GTK+
+    "webkitgtk"                 ; Web content engine fot GTK+
  ))
 ```
 

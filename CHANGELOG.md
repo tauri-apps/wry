@@ -1,5 +1,11 @@
 # Changelog
 
+## \[0.54.2]
+
+- [`1d1b870`](https://github.com/tauri-apps/wry/commit/1d1b8707665b4638e040dde7a88cd33d77ba2ebc) ([#1662](https://github.com/tauri-apps/wry/pull/1662) by [@JSKitty](https://github.com/tauri-apps/wry/../../JSKitty)) On macOS, implement `background_color` support for WKWebView behind the `transparent` feature. Disables the default white background via the `drawsBackground` KVC key at init and applies `underPageBackgroundColor` on macOS 12+ for both initial creation and runtime `set_background_color` calls.
+- [`e3761e5`](https://github.com/tauri-apps/wry/commit/e3761e5e5ab684ae277dfa7df931ed9ff4c5bc38) ([#1668](https://github.com/tauri-apps/wry/pull/1668) by [@zeta-gundam](https://github.com/tauri-apps/wry/../../zeta-gundam)) Fixed an issue that caused "Symbol not found: \_NSHTTPCookieSameSite..." panics on macOS `10.13` & `10.14`.
+- [`e3761e5`](https://github.com/tauri-apps/wry/commit/e3761e5e5ab684ae277dfa7df931ed9ff4c5bc38) ([#1668](https://github.com/tauri-apps/wry/pull/1668) by [@zeta-gundam](https://github.com/tauri-apps/wry/../../zeta-gundam)) Fixed an issue that caused "\[\<WKWebViewConfiguration 0x6000003f4d00> setValue:forUndefinedKey:]: this class is not key value coding-compliant for the key drawsBackground." panics on macOS `10.13`
+
 ## \[0.54.1]
 
 - [`6704b20`](https://github.com/tauri-apps/wry/commit/6704b207ac985e968be0b5c26b898ca152ae47d9) ([#1655](https://github.com/tauri-apps/wry/pull/1655)) Adds a `PartialEq` derive to `Rect`.
