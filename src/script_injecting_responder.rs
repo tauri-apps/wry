@@ -1,0 +1,248 @@
+// Copyright 2020-2023 Tauri Programme within The Commons Conservancy
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
+
+//! Internal module for creating script-injecting responders.
+//!
+//! This module provides a factory function to create a `RequestAsyncResponder` that
+//! automatically injects initialization scripts into HTML responses with proper
+//! Content Security Policy (CSP) handling.
+//!
+//! This is an internal implementation detail used by the Android backend to inject
+//! initialization scripts when `addDocumentStartJavaScript` is not supported.
+
+use base64::{engine::general_purpose, Engine};
+use dom_query::Document;
+use http::{
+  header::{HeaderValue, CONTENT_SECURITY_POLICY, CONTENT_TYPE},
+  Response as HttpResponse,
+};
+use sha2::{Digest, Sha256};
+use std::{
+  borrow::Cow,
+  sync::mpsc::{channel, Receiver},
+};
+
+use crate::RequestAsyncResponder;
+
+/// Creates an [`RequestAsyncResponder`] that injects scripts into HTML responses.
+pub fn create_script_injecting_responder(
+  scripts: Vec<String>,
+) -> (
+  RequestAsyncResponder,
+  Receiver<HttpResponse<Cow<'static, [u8]>>>,
+) {
+  let (tx, rx) = channel();
+
+  let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> = Box::new(move |response| {
+    let response = inject_scripts_into_html(response, &scripts);
+    let _ = tx.send(response);
+  });
+
+  (RequestAsyncResponder { responder }, rx)
+}
+
+fn inject_scripts_into_html(
+  mut response: HttpResponse<Cow<'static, [u8]>>,
+  scripts: &[String],
+) -> HttpResponse<Cow<'static, [u8]>> {
+  if scripts.is_empty() {
+    return response;
+  }
+
+  let should_inject_scripts = response
+    .headers()
+    .get(CONTENT_TYPE)
+    // Content-Type must begin with the media type, but is case-insensitive.
+    // It may also be followed by any number of semicolon-delimited key value pairs.
+    // We don't care about these here.
+    // source: https://httpwg.org/specs/rfc9110.html#rfc.section.8.3.1
+    .and_then(|content_type| content_type.to_str().ok())
+    .map(|content_type_str| content_type_str.to_lowercase().starts_with("text/html"))
+    .unwrap_or_default();
+
+  if !should_inject_scripts {
+    return response;
+  }
+
+  let mut document = Document::from(String::from_utf8_lossy(response.body()).as_ref());
+  let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
+  let mut hashes = Vec::new();
+
+  // Get or create head element
+  let head = document.select_single("head");
+  let head = if head.length() > 0 {
+    head
+  } else {
+    let html = document.select_single("html");
+    if html.length() > 0 {
+      html.append_html("<head></head>" as &str);
+      document.select_single("head")
+    } else {
+      // If no html tag exists, create the structure
+      let new_html = format!("<html><head></head><body>{}</body></html>", document.html());
+      document = Document::from(new_html.as_str());
+      document.select_single("head")
+    }
+  };
+
+  // Iterate in reverse order since we are prepending each script to the head tag
+  for script in scripts.iter().rev() {
+    let script_html = format!("<script>{}</script>", script);
+    head.prepend_html(script_html.as_str());
+    if csp.is_some() {
+      hashes.push(hash_script(script));
+    }
+  }
+
+  if let Some(csp) = csp {
+    let csp_string = csp.to_str().unwrap().to_string();
+    let csp_string = if csp_string.contains("script-src") {
+      csp_string.replace("script-src", &format!("script-src {}", hashes.join(" ")))
+    } else {
+      format!("{} script-src {}", csp_string, hashes.join(" "))
+    };
+    *csp = HeaderValue::from_str(&csp_string).unwrap();
+  }
+
+  *response.body_mut() = Cow::Owned(document.html().as_bytes().to_vec());
+  response
+}
+
+fn hash_script(script: &str) -> String {
+  let mut hasher = Sha256::new();
+  hasher.update(script);
+  let hash = hasher.finalize();
+  format!("'sha256-{}'", general_purpose::STANDARD.encode(hash))
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use http::StatusCode;
+
+  #[test]
+  fn test_no_scripts_returns_original_response() {
+    let body = "<html><head></head><body>Test</body></html>";
+
+    let result = run(body, "text/html", vec![]);
+
+    assert_eq!(result, body);
+  }
+
+  #[test]
+  fn test_non_html_response_not_modified() {
+    let body = r#"{"key": "value"}"#;
+    let scripts = vec!["console.log('test');".to_string()];
+
+    let result = run(body, "application/json", scripts);
+
+    assert_eq!(result, body);
+  }
+
+  #[test]
+  fn test_inject_single_script() {
+    let body = "<html><head></head><body>Content</body></html>";
+    let scripts = vec!["console.log('injected');".to_string()];
+
+    let result = run(body, "text/html", scripts);
+
+    assert_eq!(
+      result,
+      "<html><head><script>console.log('injected');</script></head><body>Content</body></html>"
+    );
+  }
+
+  #[test]
+  fn test_inject_multiple_scripts() {
+    let body = "<html><head></head><body>Content</body></html>";
+    let scripts = vec![
+      "var first = 1;".to_string(),
+      "var second = 2;".to_string(),
+      "var third = 3;".to_string(),
+    ];
+
+    let result = run(body, "text/html", scripts);
+
+    assert_eq!(
+      result,
+      "<html><head><script>var first = 1;</script><script>var second = 2;</script><script>var third = 3;</script></head><body>Content</body></html>"
+    );
+  }
+
+  #[test]
+  fn test_inject_script_creates_head_if_missing() {
+    let body = "<html><body>Content</body></html>";
+    let scripts = vec!["console.log('test');".to_string()];
+
+    let result = run(body, "text/html", scripts);
+
+    assert_eq!(
+      result,
+      "<html><head><script>console.log('test');</script></head><body>Content</body></html>"
+    );
+  }
+
+  #[test]
+  fn test_inject_script_creates_html_structure_if_missing() {
+    let body = "Just some text";
+    let scripts = vec!["console.log('test');".to_string()];
+
+    let result = run(body, "text/html", scripts);
+
+    assert_eq!(
+      result,
+      "<html><head><script>console.log('test');</script></head><body>Just some text</body></html>"
+    );
+  }
+
+  #[test]
+  fn test_csp_header_updated_with_script_hashes() {
+    let body = "<html><head></head><body>Content</body></html>";
+    let mut response = create_response(body, "text/html");
+    response.headers_mut().insert(
+      CONTENT_SECURITY_POLICY,
+      HeaderValue::from_static("default-src 'self'"),
+    );
+
+    let script_code = "console.log('test');";
+    let scripts = vec![script_code.to_string()];
+
+    let (responder, rx) = create_script_injecting_responder(scripts);
+    responder.respond(response);
+    let result = rx.recv().unwrap();
+    let result_body = String::from_utf8_lossy(result.body()).to_string();
+    let csp = result.headers().get(CONTENT_SECURITY_POLICY).unwrap();
+    let csp_str = csp.to_str().unwrap();
+
+    assert_eq!(
+      result_body,
+      "<html><head><script>console.log('test');</script></head><body>Content</body></html>"
+    );
+    assert_eq!(
+      csp_str,
+      "default-src 'self' script-src 'sha256-3x8DE279hr8o/Aq0dEdH4WApIwn5rbRKhugPzn6Bofw='"
+    );
+  }
+
+  fn create_response(body: &str, content_type: &'static str) -> HttpResponse<Cow<'static, [u8]>> {
+    let mut response = HttpResponse::builder()
+      .status(StatusCode::OK)
+      .body(Cow::Owned(body.as_bytes().to_vec()))
+      .unwrap();
+    response
+      .headers_mut()
+      .insert(CONTENT_TYPE, HeaderValue::from_static(content_type));
+
+    response
+  }
+
+  /// Helper function to create a response, inject scripts, and return the body as a string
+  fn run(body: &str, content_type: &'static str, scripts: Vec<String>) -> String {
+    let response = create_response(body, content_type);
+    let (responder, rx) = create_script_injecting_responder(scripts);
+    responder.respond(response);
+    let result = rx.recv().unwrap();
+    String::from_utf8_lossy(result.body()).to_string()
+  }
+}

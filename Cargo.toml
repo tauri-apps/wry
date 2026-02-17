@@ -211,6 +211,9 @@ winit = "0.30"
 getrandom = "0.3"
 http-range = "0.1"
 percent-encoding = "2.3"
+base64 = "0.22"
+sha2 = "0.10"
+dom_query = "0.25.1"
 
 [lints.rust.unexpected_cfgs]
 level = "warn"
