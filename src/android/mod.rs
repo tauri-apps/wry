@@ -6,7 +6,8 @@ use super::{PageLoadEvent, WebViewAttributes, RGBA};
 use crate::{custom_protocol_workaround, RequestAsyncResponder, Result};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
-use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
+
+use dom_query::Document;
 use http::{
   header::{HeaderValue, CONTENT_SECURITY_POLICY, CONTENT_TYPE},
   Request, Response as HttpResponse,
@@ -16,7 +17,6 @@ use jni::{
   objects::{GlobalRef, JClass, JObject},
   JNIEnv,
 };
-use kuchiki::NodeRef;
 use ndk::looper::{FdEvent, ThreadLooper};
 use once_cell::sync::OnceCell;
 use raw_window_handle::HasWindowHandle;
@@ -253,24 +253,33 @@ impl InnerWebView {
                     .unwrap_or_default();
 
                   if should_inject_scripts && !initialization_scripts.is_empty() {
-                    let mut document = kuchiki::parse_html()
-                      .one(String::from_utf8_lossy(response.body()).as_ref()).document_node;
+                    let mut document = Document::from(String::from_utf8_lossy(response.body()).as_ref());
                     let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
                     let mut hashes = Vec::new();
-                    with_html_head(&mut document, |head| {
-                      // iterate in reverse order since we are prepending each script to the head tag
-                      for init_script in initialization_scripts.iter().rev() {
-                        let script_el = NodeRef::new_element(
-                          QualName::new(None, ns!(html), "script".into()),
-                          None,
-                        );
-                        script_el.append(NodeRef::new_text(init_script.script.as_str()));
-                        head.prepend(script_el);
-                        if csp.is_some() {
-                          hashes.push(hash_script(init_script.script.as_str()));
-                        }
+
+                    // Get or create head element
+                    let head = if document.select_single("head").is_ok() {
+                      document.select_single("head").unwrap()
+                    } else {
+                      let html = document.select_single("html").ok();
+                      if let Some(html_node) = html {
+                        html_node.append_html("<head></head>");
+                        document.select_single("head").unwrap()
+                      } else {
+                        // If no html tag exists, create the structure
+                        document = Document::from(&format!("<html><head></head><body>{}</body></html>", document.html()));
+                        document.select_single("head").unwrap()
                       }
-                    });
+                    };
+
+                    // iterate in reverse order since we are prepending each script to the head tag
+                    for init_script in initialization_scripts.iter().rev() {
+                      let script_html = format!("<script>{}</script>", init_script.script.as_str());
+                      head.prepend_html(&script_html);
+                      if csp.is_some() {
+                        hashes.push(hash_script(init_script.script.as_str()));
+                      }
+                    }
 
                     if let Some(csp) = csp {
                       let csp_string = csp.to_str().unwrap().to_string();
@@ -283,7 +292,7 @@ impl InnerWebView {
                       *csp = HeaderValue::from_str(&csp_string).unwrap();
                     }
 
-                    *response.body_mut() = document.to_string().into_bytes().into();
+                    *response.body_mut() = document.html().into_bytes().into();
                   }
                 }
 
@@ -472,19 +481,6 @@ pub fn platform_webview_version() -> Result<String> {
   let (tx, rx) = bounded(1);
   MainPipe::send(WebViewMessage::GetWebViewVersion(tx));
   rx.recv_timeout(MAIN_PIPE_TIMEOUT).unwrap()
-}
-
-fn with_html_head<F: FnOnce(&NodeRef)>(document: &mut NodeRef, f: F) {
-  if let Ok(ref node) = document.select_first("head") {
-    f(node.as_node())
-  } else {
-    let node = NodeRef::new_element(
-      QualName::new(None, ns!(html), LocalName::from("head")),
-      None,
-    );
-    f(&node);
-    document.prepend(node)
-  }
 }
 
 fn hash_script(script: &str) -> String {
