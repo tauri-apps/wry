@@ -174,17 +174,14 @@ mod tests {
     let script_code = "console.log('test');";
     let scripts = vec![script_code.to_string()];
 
-    let (responder, rx) = new(
-      scripts
-        .into_iter()
-        .map(|script| InitializationScript {
-          script,
-          for_main_frame_only: true,
-        })
-        .collect(),
-    );
-    responder.respond(response);
-    let result = rx.recv().unwrap();
+    let scripts: Vec<InitializationScript> = scripts
+      .into_iter()
+      .map(|script| InitializationScript {
+        script,
+        for_main_frame_only: true,
+      })
+      .collect();
+    let result = inject_scripts_into_html(response, &scripts);
     let result_body = String::from_utf8_lossy(result.body()).to_string();
     let csp = result.headers().get(CONTENT_SECURITY_POLICY).unwrap();
     let csp_str = csp.to_str().unwrap();
@@ -214,17 +211,14 @@ mod tests {
   /// Helper function to create a response, inject scripts, and return the body as a string
   fn run(body: &str, content_type: &'static str, scripts: Vec<String>) -> String {
     let response = create_response(body, content_type);
-    let (responder, rx) = new(
-      scripts
-        .into_iter()
-        .map(|script| InitializationScript {
-          script,
-          for_main_frame_only: true,
-        })
-        .collect(),
-    );
-    responder.respond(response);
-    let result = rx.recv().unwrap();
+    let scripts: Vec<InitializationScript> = scripts
+      .into_iter()
+      .map(|script| InitializationScript {
+        script,
+        for_main_frame_only: true,
+      })
+      .collect();
+    let result = inject_scripts_into_html(response, &scripts);
     String::from_utf8_lossy(result.body()).to_string()
   }
 }
