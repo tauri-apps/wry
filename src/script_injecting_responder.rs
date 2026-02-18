@@ -18,31 +18,11 @@ use http::{
   Response as HttpResponse,
 };
 use sha2::{Digest, Sha256};
-use std::{
-  borrow::Cow,
-  sync::mpsc::{channel, Receiver},
-};
+use std::borrow::Cow;
 
-use crate::{InitializationScript, RequestAsyncResponder};
+use crate::InitializationScript;
 
-/// Creates an [`RequestAsyncResponder`] that injects scripts into HTML responses.
-pub fn new(
-  scripts: Vec<InitializationScript>,
-) -> (
-  RequestAsyncResponder,
-  Receiver<HttpResponse<Cow<'static, [u8]>>>,
-) {
-  let (tx, rx) = channel();
-
-  let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> = Box::new(move |response| {
-    let response = inject_scripts_into_html(response, &scripts);
-    let _ = tx.send(response);
-  });
-
-  (RequestAsyncResponder { responder }, rx)
-}
-
-fn inject_scripts_into_html(
+pub fn inject_scripts_into_html(
   mut response: HttpResponse<Cow<'static, [u8]>>,
   scripts: &[InitializationScript],
 ) -> HttpResponse<Cow<'static, [u8]>> {

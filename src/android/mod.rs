@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: MIT
 
 use super::{PageLoadEvent, WebViewAttributes, RGBA};
-use crate::{custom_protocol_workaround, RequestAsyncResponder, Result};
+use crate::{
+  custom_protocol_workaround, script_injecting_responder::inject_scripts_into_html,
+  RequestAsyncResponder, Result,
+};
 use crossbeam_channel::*;
 
 use http::{Request, Response as HttpResponse};
@@ -19,7 +22,7 @@ use std::{
   borrow::Cow,
   collections::HashMap,
   os::fd::{AsFd as _, AsRawFd as _},
-  sync::{mpsc::channel, Mutex},
+  sync::Mutex,
   time::Duration,
 };
 
@@ -228,16 +231,19 @@ impl InnerWebView {
               *request.uri_mut() = uri;
             }
 
-            let (responder, rx) = if !is_document_start_script_enabled {
-              #[cfg(feature = "tracing")]
-              tracing::info!("`addDocumentStartJavaScript` is not supported; injecting initialization scripts via custom protocol handler");
+            let (tx, rx) = std::sync::mpsc::channel();
+            let initialization_scripts = initialization_scripts_.clone();
+            let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
+              Box::new(move |mut response| {
+                if !is_document_start_script_enabled {
+                  #[cfg(feature = "tracing")]
+                  tracing::info!("`addDocumentStartJavaScript` is not supported; injecting initialization scripts via custom protocol handler");
+                  response = inject_scripts_into_html(response, &initialization_scripts);
+                }
+                let _ = tx.send(response);
+              });
 
-              crate::script_injecting_responder::new(initialization_scripts.clone())
-            } else {
-                RequestAsyncResponder::passthrough()
-            };
-
-            (custom_protocol_handler)(webview_id, request, responder);
+            (custom_protocol_handler)(webview_id, request, RequestAsyncResponder { responder });
             return Some(rx.recv_timeout(MAIN_PIPE_TIMEOUT).unwrap());
           }
           None
@@ -361,12 +367,12 @@ impl InnerWebView {
     rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
   }
 
-  pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+  pub fn set_cookie(&self, #[allow(unused)] cookie: &cookie::Cookie<'_>) -> Result<()> {
     // Unsupported
     Ok(())
   }
 
-  pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+  pub fn delete_cookie(&self, #[allow(unused)] cookie: &cookie::Cookie<'_>) -> Result<()> {
     // Unsupported
     Ok(())
   }
