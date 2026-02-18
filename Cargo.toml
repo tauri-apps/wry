@@ -201,7 +201,7 @@ jni = "0.21"
 ndk = "0.9"
 tao-macros = "0.1"
 libc = "0.2"
-dom_query = "0.25.1"
+dom_query = { version = "0.25.1", default-features = false }
 
 [dev-dependencies]
 pollster = "0.4.0"
