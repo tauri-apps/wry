@@ -228,25 +228,13 @@ impl InnerWebView {
               *request.uri_mut() = uri;
             }
 
-            let initialization_scripts = initialization_scripts_.clone();
-
             let (responder, rx) = if !is_document_start_script_enabled {
               #[cfg(feature = "tracing")]
               tracing::info!("`addDocumentStartJavaScript` is not supported; injecting initialization scripts via custom protocol handler");
 
-              // Convert InitializationScript to Vec<String>
-              let scripts: Vec<String> = initialization_scripts
-                .iter()
-                .map(|s| s.script.clone())
-                .collect();
-
-              crate::script_injecting_responder::create_script_injecting_responder(scripts)
+              crate::script_injecting_responder::new(initialization_scripts.clone())
             } else {
-              let (tx, rx) = channel();
-              let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> = Box::new(move |response| {
-                let _ = tx.send(response);
-              });
-              (RequestAsyncResponder { responder }, rx)
+                RequestAsyncResponder::passthrough()
             };
 
             (custom_protocol_handler)(webview_id, request, responder);

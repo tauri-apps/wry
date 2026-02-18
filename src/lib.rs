@@ -449,6 +449,19 @@ pub struct RequestAsyncResponder {
 unsafe impl Send for RequestAsyncResponder {}
 
 impl RequestAsyncResponder {
+  #[cfg(target_os = "android")]
+  pub(crate) fn passthrough() -> (
+    Self,
+    std::sync::mpsc::Receiver<Response<Cow<'static, [u8]>>>,
+  ) {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let responder: Box<dyn FnOnce(Response<Cow<'static, [u8]>>)> = Box::new(move |response| {
+      let _ = tx.send(response);
+    });
+
+    (RequestAsyncResponder { responder }, rx)
+  }
+
   /// Resolves the request with the given response.
   pub fn respond<T: Into<Cow<'static, [u8]>>>(self, response: Response<T>) {
     let (parts, body) = response.into_parts();

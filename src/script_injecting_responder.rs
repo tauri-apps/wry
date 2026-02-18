@@ -23,11 +23,11 @@ use std::{
   sync::mpsc::{channel, Receiver},
 };
 
-use crate::RequestAsyncResponder;
+use crate::{InitializationScript, RequestAsyncResponder};
 
 /// Creates an [`RequestAsyncResponder`] that injects scripts into HTML responses.
-pub fn create_script_injecting_responder(
-  scripts: Vec<String>,
+pub fn new(
+  scripts: Vec<InitializationScript>,
 ) -> (
   RequestAsyncResponder,
   Receiver<HttpResponse<Cow<'static, [u8]>>>,
@@ -44,7 +44,7 @@ pub fn create_script_injecting_responder(
 
 fn inject_scripts_into_html(
   mut response: HttpResponse<Cow<'static, [u8]>>,
-  scripts: &[String],
+  scripts: &[InitializationScript],
 ) -> HttpResponse<Cow<'static, [u8]>> {
   if scripts.is_empty() {
     return response;
@@ -87,7 +87,7 @@ fn inject_scripts_into_html(
   };
 
   // Iterate in reverse order since we are prepending each script to the head tag
-  for script in scripts.iter().rev() {
+  for script in scripts.iter().rev().map(|s| &s.script) {
     let script_html = format!("<script>{}</script>", script);
     head.prepend_html(script_html.as_str());
     if csp.is_some() {
@@ -208,7 +208,15 @@ mod tests {
     let script_code = "console.log('test');";
     let scripts = vec![script_code.to_string()];
 
-    let (responder, rx) = create_script_injecting_responder(scripts);
+    let (responder, rx) = new(
+      scripts
+        .into_iter()
+        .map(|script| InitializationScript {
+          script,
+          for_main_frame_only: true,
+        })
+        .collect(),
+    );
     responder.respond(response);
     let result = rx.recv().unwrap();
     let result_body = String::from_utf8_lossy(result.body()).to_string();
@@ -240,7 +248,15 @@ mod tests {
   /// Helper function to create a response, inject scripts, and return the body as a string
   fn run(body: &str, content_type: &'static str, scripts: Vec<String>) -> String {
     let response = create_response(body, content_type);
-    let (responder, rx) = create_script_injecting_responder(scripts);
+    let (responder, rx) = new(
+      scripts
+        .into_iter()
+        .map(|script| InitializationScript {
+          script,
+          for_main_frame_only: true,
+        })
+        .collect(),
+    );
     responder.respond(response);
     let result = rx.recv().unwrap();
     String::from_utf8_lossy(result.body()).to_string()
