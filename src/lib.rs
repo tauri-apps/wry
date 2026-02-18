@@ -350,6 +350,8 @@
 #[cfg(any(target_os = "windows", target_os = "android"))]
 mod custom_protocol_workaround;
 mod error;
+#[cfg(any(target_os = "android", test))]
+mod inject_initialization_scripts;
 mod proxy;
 #[cfg(any(target_os = "macos", target_os = "android", target_os = "ios"))]
 mod util;

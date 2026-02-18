@@ -4,7 +4,7 @@
 
 use super::{PageLoadEvent, WebViewAttributes, RGBA};
 use crate::{
-  android::inject_initialization_scripts::inject_scripts_into_html, custom_protocol_workaround,
+  custom_protocol_workaround, inject_initialization_scripts::inject_scripts_into_html,
   RequestAsyncResponder, Result,
 };
 use crossbeam_channel::*;
@@ -27,7 +27,6 @@ use std::{
 };
 
 pub(crate) mod binding;
-mod inject_initialization_scripts;
 mod main_pipe;
 use main_pipe::{CreateWebViewAttributes, MainPipe, MainPipeState, WebViewMessage, MAIN_PIPE};
 
