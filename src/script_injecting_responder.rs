@@ -2,12 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-//! Internal module for creating script-injecting responders.
-//!
-//! This module provides a factory function to create a `RequestAsyncResponder` that
-//! automatically injects initialization scripts into HTML responses with proper
-//! Content Security Policy (CSP) handling.
-//!
 //! This is an internal implementation detail used by the Android backend to inject
 //! initialization scripts when `addDocumentStartJavaScript` is not supported.
 

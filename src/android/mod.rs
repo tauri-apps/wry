@@ -22,7 +22,7 @@ use std::{
   borrow::Cow,
   collections::HashMap,
   os::fd::{AsFd as _, AsRawFd as _},
-  sync::Mutex,
+  sync::{mpsc::channel, Mutex},
   time::Duration,
 };
 
@@ -231,7 +231,7 @@ impl InnerWebView {
               *request.uri_mut() = uri;
             }
 
-            let (tx, rx) = std::sync::mpsc::channel();
+            let (tx, rx) = channel();
             let initialization_scripts = initialization_scripts_.clone();
             let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
               Box::new(move |mut response| {
