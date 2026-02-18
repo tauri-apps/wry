@@ -45,31 +45,23 @@ pub fn inject_scripts_into_html(
     return response;
   }
 
-  let mut document = Document::from(String::from_utf8_lossy(response.body()).as_ref());
+  let document = Document::from(String::from_utf8_lossy(response.body()).as_ref());
   let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
-  let mut hashes = Vec::new();
 
   // Get or create head element
-  let head = document.select_single("head");
-  let head = if head.length() > 0 {
+  let head = document.head().unwrap_or_else(|| {
+    let html = document.html_root();
+    let head = document.tree.new_element("head");
+    html.prepend_child(&head);
     head
-  } else {
-    let html = document.select_single("html");
-    if html.length() > 0 {
-      html.append_html("<head></head>" as &str);
-      document.select_single("head")
-    } else {
-      // If no html tag exists, create the structure
-      let new_html = format!("<html><head></head><body>{}</body></html>", document.html());
-      document = Document::from(new_html.as_str());
-      document.select_single("head")
-    }
-  };
+  });
 
   // Iterate in reverse order since we are prepending each script to the head tag
+  let mut hashes = Vec::new();
   for script in scripts.iter().rev().map(|s| &s.script) {
-    let script_html = format!("<script>{}</script>", script);
-    head.prepend_html(script_html.as_str());
+    let script_tag = document.tree.new_element("script");
+    script_tag.set_text(script.as_str());
+    head.prepend_child(&script_tag);
     if csp.is_some() {
       hashes.push(hash_script(script));
     }
@@ -80,7 +72,7 @@ pub fn inject_scripts_into_html(
     let csp_string = if csp_string.contains("script-src") {
       csp_string.replace("script-src", &format!("script-src {}", hashes.join(" ")))
     } else {
-      format!("{} script-src {}", csp_string, hashes.join(" "))
+      format!("{csp_string} script-src {}", hashes.join(" "))
     };
     *csp = HeaderValue::from_str(&csp_string).unwrap();
   }
