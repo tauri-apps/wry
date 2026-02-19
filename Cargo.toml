@@ -199,7 +199,7 @@ html5ever = "0.29"
 kuchiki = { package = "kuchikiki", version = "=0.8.8-speedreader" }
 sha2 = "0.10"
 base64 = "0.22"
-jni = "0.21"
+jni = "0.22"
 ndk = "0.9"
 tao-macros = "0.1"
 libc = "0.2"
