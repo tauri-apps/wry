@@ -1709,6 +1709,7 @@ impl InnerWebView {
       let Some(stream) = SHCreateMemStream(None) else {
         return Err(Error::from(windows::core::Error::from(E_POINTER)));
       };
+      let stream_for_handler = stream.clone();
 
       self.webview.CapturePreview(
         COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG,
@@ -1718,12 +1719,12 @@ impl InnerWebView {
             res?;
 
             let mut bytes = Vec::new();
-            stream.Seek(0, STREAM_SEEK_SET, None)?;
+            stream_for_handler.Seek(0, STREAM_SEEK_SET, None)?;
 
             let mut buffer = [0u8; 4096];
             loop {
               let mut cb_read = 0;
-              stream
+              stream_for_handler
                 .Read(
                   buffer.as_mut_ptr() as *mut _,
                   buffer.len() as u32,
