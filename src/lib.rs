@@ -801,7 +801,6 @@ pub struct WebViewAttributes<'a> {
   /// previously stored data such as addresses or contact information.
   ///
   /// If not specified, this is `true` by default.
-  /// Setting this to `false` preserves the default platform behavior.
   ///
   /// ## Platform-specific
   ///
@@ -1433,7 +1432,6 @@ impl<'a> WebViewBuilder<'a> {
   /// previously stored data such as addresses or contact information.
   ///
   /// If not specified, this is `true` by default.
-  /// Setting this to `false` preserves the default platform behavior.
   ///
   /// ## Platform-specific
   ///
