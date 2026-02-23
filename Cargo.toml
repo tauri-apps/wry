@@ -130,6 +130,7 @@ objc2-web-kit = { version = "0.3.0", default-features = false, features = [
   "WKWebpagePreferences",
   "WKNavigationResponse",
   "WKUserScript",
+  "WKSnapshotConfiguration",
   "WKHTTPCookieStore",
   "WKWindowFeatures",
 ] }
@@ -190,6 +191,9 @@ objc2-app-kit = { version = "0.3.0", default-features = false, features = [
   "NSSavePanel",
   "NSMenu",
   "NSGraphics",
+  "NSImage",
+  "NSImageRep",
+  "NSBitmapImageRep",
   "NSScreen",
 ] }
 

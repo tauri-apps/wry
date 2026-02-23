@@ -29,6 +29,7 @@ use std::ffi::c_ulong;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
   collections::HashMap,
+  convert::TryFrom,
   rc::Rc,
   sync::{Arc, Mutex},
 };
@@ -37,10 +38,10 @@ use webkit2gtk::WebInspectorExt;
 use webkit2gtk::{
   AutoplayPolicy, CookieManagerExt, InputMethodContextExt, LoadEvent, NavigationPolicyDecision,
   NavigationPolicyDecisionExt, NetworkProxyMode, NetworkProxySettings, PolicyDecisionType,
-  PrintOperationExt, SettingsExt, URIRequest, URIRequestExt, UserContentInjectedFrames,
-  UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime,
-  WebContextExt as Webkit2gtkWeContextExt, WebView, WebViewExt, WebsiteDataManagerExt,
-  WebsiteDataManagerExtManual, WebsitePolicies,
+  PrintOperationExt, SettingsExt, SnapshotOptions, SnapshotRegion, URIRequest, URIRequestExt,
+  UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserScript,
+  UserScriptInjectionTime, WebContextExt as Webkit2gtkWeContextExt, WebView, WebViewExt,
+  WebsiteDataManagerExt, WebsiteDataManagerExtManual, WebsitePolicies,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -676,6 +677,44 @@ impl InnerWebView {
   pub fn print(&self) -> Result<()> {
     let print = webkit2gtk::PrintOperation::new(&self.webview);
     print.run_dialog(None::<&gtk::Window>);
+    Ok(())
+  }
+
+  pub fn screenshot<F>(&self, handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) + 'static + Send,
+  {
+    let cancellable: Option<&Cancellable> = None;
+    let cb = move |result: std::result::Result<gtk::cairo::Surface, gtk::glib::Error>| match result
+    {
+      Ok(surface) => match gtk::cairo::ImageSurface::try_from(surface) {
+        Ok(image) => {
+          let width = image.width();
+          let height = image.height();
+          match gdk::pixbuf_get_from_surface(&image, 0, 0, width, height) {
+            Some(pixbuf) => match pixbuf.save_to_bufferv("png", &[]) {
+              Ok(bytes) => handler(Ok(bytes)),
+              Err(err) => handler(Err(Error::GlibError(err))),
+            },
+            None => handler(Err(Error::CairoError(
+              gtk::cairo::Error::SurfaceTypeMismatch,
+            ))),
+          }
+        }
+        Err(_) => handler(Err(Error::CairoError(
+          gtk::cairo::Error::SurfaceTypeMismatch,
+        ))),
+      },
+      Err(err) => handler(Err(Error::GlibError(err))),
+    };
+
+    self.webview.snapshot(
+      SnapshotRegion::Visible,
+      SnapshotOptions::NONE,
+      cancellable,
+      cb,
+    );
+
     Ok(())
   }
 

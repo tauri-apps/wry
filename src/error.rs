@@ -17,6 +17,9 @@ pub enum Error {
   #[cfg(gtk)]
   #[error("Couldn't find X11 Display")]
   X11DisplayNotFound,
+  #[cfg(gtk)]
+  #[error(transparent)]
+  CairoError(#[from] gtk::cairo::Error),
   #[cfg(all(gtk, feature = "x11"))]
   #[error(transparent)]
   XlibError(#[from] x11_dl::error::OpenError),
@@ -74,4 +77,7 @@ pub enum Error {
   #[cfg(any(target_os = "macos", target_os = "ios"))]
   #[error("data store is currently opened")]
   DataStoreInUse,
+  #[cfg(any(target_os = "macos", target_os = "ios"))]
+  #[error("Could not obtain screenshot from webview")]
+  NilScreenshot,
 }

@@ -346,6 +346,14 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn screenshot<F>(&self, _handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) + 'static + Send,
+  {
+    // Unsupported
+    Ok(())
+  }
+
   pub fn id(&self) -> crate::WebViewId<'_> {
     &self.id
   }

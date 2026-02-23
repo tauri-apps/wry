@@ -38,12 +38,15 @@ use objc2::{
   AllocAnyThread, DeclaredClass, MainThreadOnly, Message,
 };
 #[cfg(target_os = "macos")]
-use objc2_app_kit::{NSApplication, NSAutoresizingMaskOptions, NSTitlebarSeparatorStyle, NSView};
+use objc2_app_kit::{
+  NSApplication, NSAutoresizingMaskOptions, NSBitmapImageFileType, NSBitmapImageRep,
+  NSBitmapImageRepPropertyKey, NSImage, NSTitlebarSeparatorStyle, NSView,
+};
 #[cfg(target_os = "macos")]
 use objc2_core_foundation::CGSize;
 use objc2_core_foundation::{CGPoint, CGRect};
 use objc2_foundation::{
-  ns_string, MainThreadMarker, NSArray, NSBundle, NSDate, NSError, NSHTTPCookie,
+  ns_string, MainThreadMarker, NSArray, NSBundle, NSDate, NSDictionary, NSError, NSHTTPCookie,
   NSHTTPCookieDomain, NSHTTPCookieExpires, NSHTTPCookieMaximumAge, NSHTTPCookieName,
   NSHTTPCookiePath, NSHTTPCookiePropertyKey, NSHTTPCookieSecure, NSHTTPCookieValue,
   NSHTTPCookieVersion, NSJSONSerialization, NSMutableDictionary, NSMutableURLRequest, NSNumber,
@@ -69,8 +72,9 @@ use crate::wkwebview::util::operating_system_version;
 use objc2_web_kit::WKWebView;
 
 use objc2_web_kit::{
-  WKAudiovisualMediaTypes, WKInactiveSchedulingPolicy, WKURLSchemeHandler, WKUserContentController,
-  WKUserScript, WKUserScriptInjectionTime, WKWebViewConfiguration, WKWebsiteDataStore,
+  WKAudiovisualMediaTypes, WKInactiveSchedulingPolicy, WKSnapshotConfiguration, WKURLSchemeHandler,
+  WKUserContentController, WKUserScript, WKUserScriptInjectionTime, WKWebViewConfiguration,
+  WKWebsiteDataStore,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
@@ -834,6 +838,51 @@ r#"Object.defineProperty(window, 'ipc', {
 
   pub fn print(&self) -> crate::Result<()> {
     self.print_with_options(&PrintOptions::default())
+  }
+
+  pub fn screenshot<F>(&self, handler: F) -> crate::Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) + 'static + Send,
+  {
+    #[cfg(target_os = "macos")]
+    unsafe {
+      let config = WKSnapshotConfiguration::new(self.mtm);
+      config.setAfterScreenUpdates(true);
+
+      let callback = block2::RcBlock::new(move |image: *mut NSImage, _err: *mut NSError| {
+        let Some(image) = image.as_ref() else {
+          handler(Err(Error::NilScreenshot));
+          return;
+        };
+
+        let Some(tiff) = image.TIFFRepresentation() else {
+          handler(Err(Error::NilScreenshot));
+          return;
+        };
+
+        let Some(bitmap) = NSBitmapImageRep::imageRepWithData(&tiff) else {
+          handler(Err(Error::NilScreenshot));
+          return;
+        };
+
+        let props: Retained<NSDictionary<NSBitmapImageRepPropertyKey, AnyObject>> =
+          NSDictionary::new();
+        let png = bitmap.representationUsingType_properties(NSBitmapImageFileType::PNG, &props);
+        match png {
+          Some(data) => handler(Ok(data.to_vec())),
+          None => handler(Err(Error::NilScreenshot)),
+        }
+      });
+
+      self
+        .webview
+        .takeSnapshotWithConfiguration_completionHandler(Some(&config), &callback);
+    }
+
+    #[cfg(target_os = "ios")]
+    let _ = handler;
+
+    Ok(())
   }
 
   pub fn print_with_options(&self, _options: &PrintOptions) -> crate::Result<()> {
