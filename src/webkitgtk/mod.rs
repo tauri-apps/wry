@@ -13,6 +13,7 @@ use gdkx11::{
 };
 #[cfg(feature = "x11")]
 use gtk::glib::{self, translate::FromGlibPtrFull};
+use gtk::glib::{Cast, IsA};
 use gtk::{
   gdk::{self},
   gio::Cancellable,
@@ -36,9 +37,10 @@ use std::{
 use webkit2gtk::WebInspectorExt;
 use webkit2gtk::{
   AutoplayPolicy, CookieManagerExt, InputMethodContextExt, LoadEvent, NavigationPolicyDecision,
-  NavigationPolicyDecisionExt, NetworkProxyMode, NetworkProxySettings, PolicyDecisionType,
-  PrintOperationExt, SettingsExt, URIRequest, URIRequestExt, UserContentInjectedFrames,
-  UserContentManager, UserContentManagerExt, UserScript, UserScriptInjectionTime,
+  NavigationPolicyDecisionExt, NetworkProxyMode, NetworkProxySettings, PermissionRequestExt,
+  PolicyDecisionType, PrintOperationExt, SettingsExt, URIRequest, URIRequestExt,
+  UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserMediaPermissionRequest,
+  UserMediaPermissionRequestExt, UserScript, UserScriptInjectionTime,
   WebContextExt as Webkit2gtkWeContextExt, WebView, WebViewExt, WebsiteDataManagerExt,
   WebsiteDataManagerExtManual, WebsitePolicies,
 };
@@ -53,7 +55,8 @@ pub use web_context::WebContextImpl;
 
 use crate::{
   proxy::ProxyConfig, web_context::WebContext, Error, NewWindowFeatures, NewWindowOpener,
-  NewWindowResponse, PageLoadEvent, Rect, Result, WebViewAttributes, RGBA,
+  NewWindowResponse, PageLoadEvent, PermissionKind, PermissionResponse, Rect, Result,
+  WebViewAttributes, RGBA,
 };
 
 use self::web_context::WebContextExt;
@@ -570,6 +573,51 @@ impl InnerWebView {
         }
 
         false
+      });
+    }
+
+    // Permission handler
+    if let Some(permission_handler) = attributes.permission_handler.take() {
+      webview.connect_permission_request(move |_webview, request| {
+        // Determine permission kind
+        let permission_kind =
+          if let Some(media_request) = request.downcast_ref::<UserMediaPermissionRequest>() {
+            if media_request.is_for_audio_device() {
+              PermissionKind::Microphone
+            } else if media_request.is_for_video_device() {
+              PermissionKind::Camera
+            } else {
+              // On WebKitGTK < 2.42, there's no is_for_display_device()
+              // but screen sharing requests come through UserMediaPermissionRequest
+              PermissionKind::DisplayCapture
+            }
+          } else if request.type_().name() == "WebKitGeolocationPermissionRequest" {
+            PermissionKind::Geolocation
+          } else if request.type_().name() == "WebKitNotificationPermissionRequest" {
+            PermissionKind::Notifications
+          } else if request.type_().name() == "WebKitPointerLockPermissionRequest" {
+            PermissionKind::PointerLock
+          } else {
+            PermissionKind::Other
+          };
+
+        // Call user's permission handler
+        let response = permission_handler(permission_kind);
+
+        // Apply the response
+        match response {
+          PermissionResponse::Allow => {
+            request.allow();
+            true // handled
+          }
+          PermissionResponse::Deny => {
+            request.deny();
+            true // handled
+          }
+          PermissionResponse::Default | PermissionResponse::Prompt => {
+            false // not handled, let WebKitGTK show default prompt
+          }
+        }
       });
     }
 

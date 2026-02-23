@@ -92,6 +92,24 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
   }
 
   override fun onPermissionRequest(request: PermissionRequest) {
+    val response = onPermissionRequestNative(request.resources)
+    when (response) {
+      0 -> { // Allow
+        request.grant(request.resources)
+        return
+      }
+      1 -> { // Deny
+        request.deny()
+        return
+      }
+      2 -> { // Default
+        // Continue with default logic
+      }
+      3 -> { // Prompt
+        // Continue with default logic (which prompts)
+      }
+    }
+
     val isRequestPermissionRequired = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
     val permissionList: MutableList<String> = ArrayList()
     if (listOf(*request.resources).contains("android.webkit.resource.VIDEO_CAPTURE")) {
@@ -117,6 +135,8 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
       request.grant(request.resources)
     }
   }
+
+  private external fun onPermissionRequestNative(resources: Array<String>): Int
 
   /**
    * Show the browser alert modal
@@ -482,12 +502,15 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
     return File.createTempFile(imageFileName, ".jpg", storageDir)
   }
 
-  override fun onReceivedTitle(
-      view: WebView,
-      title: String
-  ) {
-    handleReceivedTitle(view, title)
+  override fun onPermissionRequest(request: PermissionRequest) {
+    val result = onPermissionRequestNative(request.resources)
+    when (result) {
+      0 -> request.grant(request.resources)
+      1 -> request.deny()
+      else -> super.onPermissionRequest(request)
+    }
   }
 
+  private external fun onPermissionRequestNative(resources: Array<String>): Int
   private external fun handleReceivedTitle(webview: WebView, title: String)
 }

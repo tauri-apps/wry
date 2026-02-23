@@ -16,11 +16,11 @@ pub use jni::{
 pub use ndk;
 
 use super::{
-  ASSET_LOADER_DOMAIN, EVAL_CALLBACKS, IPC, ON_LOAD_HANDLER, REQUEST_HANDLER, TITLE_CHANGE_HANDLER,
-  URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
+  ASSET_LOADER_DOMAIN, EVAL_CALLBACKS, IPC, ON_LOAD_HANDLER, PERMISSION_HANDLER, REQUEST_HANDLER,
+  TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
 };
 
-use crate::PageLoadEvent;
+use crate::{PageLoadEvent, PermissionKind, PermissionResponse};
 
 #[macro_export]
 macro_rules! android_binding {
@@ -96,6 +96,14 @@ macro_rules! android_binding {
       RustWebChromeClient,
       handleReceivedTitle,
       [JObject, JString],
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebChromeClient,
+      onPermissionRequestNative,
+      [jni::objects::JObjectArray],
+      jint
     );
   }};
 }
@@ -411,5 +419,53 @@ pub unsafe fn onPageLoaded(mut env: JNIEnv, _: JClass, url: JString) {
       #[cfg(feature = "tracing")]
       tracing::warn!("Failed to parse JString: {}", e)
     }
+  }
+}
+
+pub unsafe fn onPermissionRequestNative(
+  mut env: JNIEnv,
+  _: JClass,
+  resources: jni::objects::JObjectArray,
+) -> jint {
+  let mut allowed = false;
+  let mut denied = false;
+  let mut prompt = false;
+
+  if let Ok(size) = env.get_array_length(&resources) {
+    for i in 0..size {
+      if let Ok(resource) = env.get_object_array_element(&resources, i) {
+        if let Ok(resource_str) = env.get_string(&resource.into()) {
+          let resource_str = resource_str.to_string_lossy();
+
+          let kind = match resource_str.as_ref() {
+            "android.webkit.resource.AUDIO_CAPTURE" => PermissionKind::Microphone,
+            "android.webkit.resource.VIDEO_CAPTURE" => PermissionKind::Camera,
+            "android.webkit.resource.PROTECTED_MEDIA_ID" => PermissionKind::MediaKeySystemAccess,
+            "android.webkit.resource.MIDI_SYSEX" => PermissionKind::Midi,
+            _ => PermissionKind::Other,
+          };
+
+          if let Some(handler) = &*PERMISSION_HANDLER.lock().unwrap() {
+            match (handler.handler)(kind) {
+              PermissionResponse::Allow => allowed = true,
+              PermissionResponse::Deny => denied = true,
+              PermissionResponse::Prompt => prompt = true,
+              PermissionResponse::Default => {}
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Consolidated decision logic
+  if denied {
+    1 // Deny
+  } else if allowed {
+    0 // Allow
+  } else if prompt {
+    3 // Prompt
+  } else {
+    2 // Default
   }
 }

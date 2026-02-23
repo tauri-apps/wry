@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: MIT
 
 use super::{PageLoadEvent, WebViewAttributes, RGBA};
-use crate::{custom_protocol_workaround, RequestAsyncResponder, Result};
+use crate::{
+  custom_protocol_workaround, PermissionKind, PermissionResponse, RequestAsyncResponder, Result,
+};
 use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
 use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
@@ -81,6 +83,7 @@ define_static_handlers! {
   TITLE_CHANGE_HANDLER = UnsafeTitleHandler { handler: Box<dyn Fn(String)> };
   URL_LOADING_OVERRIDE = UnsafeUrlLoadingOverride { handler: Box<dyn Fn(String) -> bool> };
   ON_LOAD_HANDLER = UnsafeOnPageLoadHandler { handler: Box<dyn Fn(PageLoadEvent, String)> };
+  PERMISSION_HANDLER = UnsafePermissionHandler { handler: Box<dyn Fn(PermissionKind) -> PermissionResponse> };
 }
 
 pub static WITH_ASSET_LOADER: StaticValue<Option<bool>> = StaticValue(Mutex::new(None));
