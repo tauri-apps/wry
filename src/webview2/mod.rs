@@ -582,9 +582,7 @@ impl InnerWebView {
     }
 
     if let Ok(settings4) = settings.cast::<ICoreWebView2Settings4>() {
-      settings4.SetIsGeneralAutofillEnabled(
-      attributes.general_autofill_enabled,
-      )?;
+      settings4.SetIsGeneralAutofillEnabled(attributes.general_autofill_enabled)?;
     }
 
     if let Ok(settings5) = settings.cast::<ICoreWebView2Settings5>() {

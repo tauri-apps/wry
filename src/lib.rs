@@ -795,10 +795,13 @@ pub struct WebViewAttributes<'a> {
 
   /// Controls the WebView's browser-level general autofill behavior.
   ///
+  /// **This option does not disable password or credit card autofill.**
+  ///
   /// When enabled, the WebView may automatically populate form fields using
   /// previously stored data such as addresses or contact information.
   ///
-  /// If set to `None`, the default platform behavior is preserved.
+  /// If not specified, this is `true` by default.
+  /// Setting this to `false` preserves the default platform behavior.
   ///
   /// ## Platform-specific
   ///
@@ -1424,10 +1427,13 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Controls the WebView's browser-level general autofill behavior.
   ///
+  /// **This option does not disable password or credit card autofill.**
+  ///
   /// When enabled, the WebView may automatically populate form fields using
   /// previously stored data such as addresses or contact information.
   ///
-  /// If set to `None`, the default platform behavior is preserved.
+  /// If not specified, this is `true` by default.
+  /// Setting this to `false` preserves the default platform behavior.
   ///
   /// ## Platform-specific
   ///
