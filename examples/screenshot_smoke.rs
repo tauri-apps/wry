@@ -115,22 +115,33 @@ fn main() -> wry::Result<()> {
         ..
       } => *control_flow = ControlFlow::Exit,
       Event::UserEvent(UserEvent::Capture) => {
-        let proxy = proxy.clone();
-        webview
-          .screenshot(move |result| {
-            match result {
-              Ok(bytes) => {
-                if let Err(err) = std::fs::write("screenshot.png", bytes) {
-                  eprintln!("failed to write screenshot.png: {err}");
-                } else {
-                  println!("wrote screenshot.png");
+        // screenshot is not supported on Android or iOS; the handler would
+        // never be called, so we exit immediately on those platforms.
+        #[cfg(any(target_os = "android", target_os = "ios"))]
+        {
+          let _ = proxy.send_event(UserEvent::Exit);
+          return;
+        }
+
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        {
+          let proxy = proxy.clone();
+          webview
+            .screenshot(move |result| {
+              match result {
+                Ok(bytes) => {
+                  if let Err(err) = std::fs::write("screenshot.png", bytes) {
+                    eprintln!("failed to write screenshot.png: {err}");
+                  } else {
+                    println!("wrote screenshot.png");
+                  }
                 }
+                Err(err) => eprintln!("screenshot failed: {err}"),
               }
-              Err(err) => eprintln!("screenshot failed: {err}"),
-            }
-            let _ = proxy.send_event(UserEvent::Exit);
-          })
-          .expect("failed to request screenshot");
+              let _ = proxy.send_event(UserEvent::Exit);
+            })
+            .expect("failed to request screenshot");
+        }
       }
       Event::UserEvent(UserEvent::Exit) => *control_flow = ControlFlow::Exit,
       _ => {}

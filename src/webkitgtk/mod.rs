@@ -29,7 +29,6 @@ use std::ffi::c_ulong;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
   collections::HashMap,
-  convert::TryFrom,
   rc::Rc,
   sync::{Arc, Mutex},
 };
@@ -696,9 +695,7 @@ impl InnerWebView {
               Ok(bytes) => handler(Ok(bytes)),
               Err(err) => handler(Err(Error::GlibError(err))),
             },
-            None => handler(Err(Error::CairoError(
-              gtk::cairo::Error::SurfaceTypeMismatch,
-            ))),
+            None => handler(Err(Error::PixbufConversionFailed)),
           }
         }
         Err(_) => handler(Err(Error::CairoError(

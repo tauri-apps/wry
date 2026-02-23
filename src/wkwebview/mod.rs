@@ -844,6 +844,7 @@ r#"Object.defineProperty(window, 'ipc', {
   where
     F: Fn(Result<Vec<u8>>) + 'static + Send,
   {
+    // Safety: objc runtime calls are unsafe
     #[cfg(target_os = "macos")]
     unsafe {
       let config = WKSnapshotConfiguration::new(self.mtm);
@@ -880,7 +881,10 @@ r#"Object.defineProperty(window, 'ipc', {
     }
 
     #[cfg(target_os = "ios")]
-    let _ = handler;
+    {
+      // Unsupported
+      let _ = handler;
+    }
 
     Ok(())
   }

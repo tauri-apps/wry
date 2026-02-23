@@ -2040,7 +2040,7 @@ impl WebView {
   /// ## Platform-specific
   ///
   /// - **Linux / macOS / Windows**: Implemented (visible region only).
-  /// - **Android / iOS**: Unsupported.
+  /// - **Android / iOS**: Not supported; `handler` will never be called.
   pub fn screenshot<F>(&self, handler: F) -> Result<()>
   where
     F: Fn(Result<Vec<u8>>) + 'static + Send,
