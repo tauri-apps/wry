@@ -36,8 +36,9 @@ use std::{
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use webkit2gtk::WebInspectorExt;
 use webkit2gtk::{
-  AutoplayPolicy, CookieManagerExt, InputMethodContextExt, LoadEvent, NavigationPolicyDecision,
-  NavigationPolicyDecisionExt, NetworkProxyMode, NetworkProxySettings, PermissionRequestExt,
+  AutoplayPolicy, CookieManagerExt, GeolocationPermissionRequest, InputMethodContextExt, LoadEvent,
+  NavigationPolicyDecision, NavigationPolicyDecisionExt, NetworkProxyMode, NetworkProxySettings,
+  NotificationPermissionRequest, PermissionRequestExt, PointerLockPermissionRequest,
   PolicyDecisionType, PrintOperationExt, SettingsExt, URIRequest, URIRequestExt,
   UserContentInjectedFrames, UserContentManager, UserContentManagerExt, UserMediaPermissionRequest,
   UserMediaPermissionRequestExt, UserScript, UserScriptInjectionTime,
@@ -591,11 +592,11 @@ impl InnerWebView {
               // but screen sharing requests come through UserMediaPermissionRequest
               PermissionKind::DisplayCapture
             }
-          } else if request.type_().name() == "WebKitGeolocationPermissionRequest" {
+          } else if request.is::<GeolocationPermissionRequest>() {
             PermissionKind::Geolocation
-          } else if request.type_().name() == "WebKitNotificationPermissionRequest" {
+          } else if request.is::<NotificationPermissionRequest>() {
             PermissionKind::Notifications
-          } else if request.type_().name() == "WebKitPointerLockPermissionRequest" {
+          } else if request.is::<PointerLockPermissionRequest>() {
             PermissionKind::PointerLock
           } else {
             PermissionKind::Other
