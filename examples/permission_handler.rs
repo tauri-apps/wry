@@ -22,7 +22,7 @@ fn main() -> wry::Result<()> {
     .build(&event_loop)
     .unwrap();
 
-  let _webview = WebViewBuilder::new()
+  let builder = WebViewBuilder::new()
     .with_url("https://permission.site/")
     .with_permission_handler(|kind| {
       let response = match kind {
@@ -31,8 +31,27 @@ fn main() -> wry::Result<()> {
       };
       println!("[permission] {kind} → {response}");
       response
-    })
-    .build(&window)?;
+    });
+
+  #[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  ))]
+  let _webview = builder.build(&window)?;
+  #[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  )))]
+  let _webview = {
+    use tao::platform::unix::WindowExtUnix;
+    use wry::WebViewBuilderExtUnix;
+    let vbox = window.default_vbox().unwrap();
+    builder.build_gtk(vbox)?
+  };
 
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
