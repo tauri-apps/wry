@@ -548,34 +548,84 @@ pub enum PermissionKind {
   /// Geolocation access permission.
   Geolocation,
   /// Notifications permission.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_NOTIFICATIONS`.
+  /// - **Linux**: Supported via `NotificationPermissionRequest`.
+  /// - **macOS / Android / iOS**: Not yet supported by platform backends.
   Notifications,
   /// Clipboard read permission.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ`.
+  /// - **macOS / Linux / Android / iOS**: Not yet supported by platform backends.
   ClipboardRead,
   /// Display capture permission (for getDisplayMedia).
   DisplayCapture,
   /// Midi access permission.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_MIDI_SYSTEM_EXCLUSIVE_MESSAGES`.
+  /// - **Android**: Supported via `android.webkit.resource.MIDI_SYSEX`.
+  /// - **macOS / Linux / iOS**: Not yet supported by platform backends.
   Midi,
   /// Sensors (accelerometer, gyroscope, etc.) access permission.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_OTHER_SENSORS`.
+  /// - **macOS / Linux / Android / iOS**: Not yet supported by platform backends.
   Sensors,
   /// Media key system access permission.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Android**: Supported via `android.webkit.resource.PROTECTED_MEDIA_ID`.
+  /// - **Windows / macOS / Linux / iOS**: Not yet supported by platform backends.
   MediaKeySystemAccess,
   /// Local fonts access permission.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_LOCAL_FONTS`.
+  /// - **macOS / Linux / Android / iOS**: Not yet supported by platform backends.
   LocalFonts,
   /// Window management permission.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_WINDOW_MANAGEMENT`.
+  /// - **macOS / Linux / Android / iOS**: Not yet supported by platform backends.
   WindowManagement,
   /// Pointer lock permission.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_FILE_READ_WRITE`.
+  /// - **Linux**: Supported via `PointerLockPermissionRequest`.
+  /// - **macOS / Android / iOS**: Not yet supported by platform backends.
   PointerLock,
   /// Automatic downloads permission (multiple downloads without user interaction).
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_MULTIPLE_AUTOMATIC_DOWNLOADS`.
+  /// - **macOS / Linux / Android / iOS**: Not yet supported by platform backends.
   AutomaticDownloads,
   /// File system access permission (read/write via File System Access API).
   ///
   /// ## Platform-specific
+  ///
   /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_FILE_READ_WRITE`.
   /// - **macOS / Linux / Android / iOS**: Not yet supported by platform backends.
   FileSystemAccess,
   /// Media autoplay permission.
   ///
   /// ## Platform-specific
+  ///
   /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_AUTOPLAY`.
   /// - **macOS / Linux / Android / iOS**: Not yet supported by platform backends.
   Autoplay,
