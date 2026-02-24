@@ -616,7 +616,7 @@ impl InnerWebView {
             true // handled
           }
           PermissionResponse::Default | PermissionResponse::Prompt => {
-            false // not handled, let WebKitGTK show default prompt
+            false // not handled, `PermissionResponse::Prompt` is not supported yet
           }
         }
       });

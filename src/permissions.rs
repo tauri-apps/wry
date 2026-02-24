@@ -129,9 +129,17 @@ pub enum PermissionResponse {
   /// Deny the permission.
   Deny,
   /// Use default behavior (show system prompt).
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux**: The default behavior is [`Self::Deny`]
   #[default]
   Default,
   /// Explicitly prompt the user (system dialog).
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux**: Not supported, same as [`Self::Deny`]
   Prompt,
 }
 
