@@ -7,3 +7,12 @@ gh-pages
 .DS_Store
 examples/test_video.mp4
 .vscode/
+.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.qoder
+.shared
