@@ -140,6 +140,18 @@ define_class!(
     }
 
     #[cfg(target_os = "macos")]
+    #[unsafe(method(webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:decisionHandler:))]
+    fn request_display_capture_permission(
+      &self,
+      _webview: &WryWebView,
+      _origin: &WKSecurityOrigin,
+      _frame: &WKFrameInfo,
+      decision_handler: &Block<dyn Fn(WKPermissionDecision)>,
+    ) {
+      (*decision_handler).call((WKPermissionDecision::Grant,));
+    }
+
+    #[cfg(target_os = "macos")]
     #[unsafe(method_id(webView:createWebViewWithConfiguration:forNavigationAction:windowFeatures:))]
     unsafe fn create_web_view_for_navigation_action(
       &self,
