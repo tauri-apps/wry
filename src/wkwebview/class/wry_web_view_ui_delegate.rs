@@ -139,13 +139,15 @@ define_class!(
       (*decision_handler).call((WKPermissionDecision::Grant,));
     }
 
+    // 注意：这是正确 selector（带 withSystemAudio）
     #[cfg(target_os = "macos")]
-    #[unsafe(method(webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:decisionHandler:))]
+    #[unsafe(method(webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:withSystemAudio:decisionHandler:))]
     fn request_display_capture_permission(
       &self,
       _webview: &WryWebView,
       _origin: &WKSecurityOrigin,
       _frame: &WKFrameInfo,
+      _with_system_audio: bool,
       decision_handler: &Block<dyn Fn(WKPermissionDecision)>,
     ) {
       (*decision_handler).call((WKPermissionDecision::Grant,));
