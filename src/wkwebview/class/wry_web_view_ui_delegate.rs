@@ -54,7 +54,6 @@ struct WryNSWindowDelegateIvars {
 #[cfg(target_os = "macos")]
 define_class!(
   #[unsafe(super(NSObject))]
-  #[name = "WryNSWindowDelegate"]
   #[thread_kind = MainThreadOnly]
   #[ivars = WryNSWindowDelegateIvars]
   struct WryNSWindowDelegate;
@@ -90,7 +89,6 @@ pub struct WryWebViewUIDelegateIvars {
 
 define_class!(
   #[unsafe(super(NSObject))]
-  #[name = "WryWebViewUIDelegate"]
   #[thread_kind = MainThreadOnly]
   #[ivars = WryWebViewUIDelegateIvars]
   pub struct WryWebViewUIDelegate;

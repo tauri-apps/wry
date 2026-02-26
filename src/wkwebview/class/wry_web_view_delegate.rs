@@ -23,7 +23,6 @@ pub struct WryWebViewDelegateIvars {
 
 define_class!(
   #[unsafe(super(NSObject))]
-  #[name = "WryWebViewDelegate"]
   #[thread_kind = MainThreadOnly]
   #[ivars = WryWebViewDelegateIvars]
   pub struct WryWebViewDelegate;

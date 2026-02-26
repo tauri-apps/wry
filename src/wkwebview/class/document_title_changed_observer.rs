@@ -23,7 +23,6 @@ pub struct DocumentTitleChangedObserverIvars {
 
 define_class!(
   #[unsafe(super(NSObject))]
-  #[name = "DocumentTitleChangedObserver"]
   #[ivars = DocumentTitleChangedObserverIvars]
   pub struct DocumentTitleChangedObserver;
 

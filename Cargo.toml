@@ -97,7 +97,7 @@ features = [
 url = "2.5"
 dirs = "6"
 block2 = "0.6"
-objc2 = { version = "0.6", features = [
+objc2 = { version = "0.6.4", features = [
   "exception",
   # because `NSUUID::from_bytes` needs it,
   # and `WebViewBuilderExtDarwin.with_data_store_identifier` crashes otherwise,
