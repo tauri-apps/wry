@@ -28,7 +28,10 @@ use crate::{wkwebview::WEBVIEW_STATE, RequestAsyncResponder, WryWebView};
 
 pub fn create(name: &str) -> &AnyClass {
   unsafe {
-    let scheme_name = format!("{name}URLSchemeHandler\0");
+    // Include the address of WEBVIEW_STATE in the class name so that each dylib in the process
+    // gets its own ObjC class with method pointers into its own code and data segments.
+    let unique_id = std::ptr::addr_of!(WEBVIEW_STATE) as usize;
+    let scheme_name = format!("{name}URLSchemeHandler_{unique_id:x}\0");
     let scheme_name = CStr::from_bytes_with_nul(scheme_name.as_bytes()).unwrap();
     let cls = ClassBuilder::new(scheme_name, NSObject::class());
     match cls {
