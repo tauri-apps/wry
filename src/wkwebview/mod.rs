@@ -236,9 +236,10 @@ impl InnerWebView {
           // if data_store_identifier is given and custom data stores are available, use custom store
           (false, true, Some(data_store)) => {
             let identifier = NSUUID::from_bytes(data_store);
+            // <https://developer.apple.com/documentation/webkit/wkwebsitedatastore/init(foridentifier:)>
+            // Available: macOS 14+, iOS 17+
             WKWebsiteDataStore::dataStoreForIdentifier(&identifier, mtm)
           }
-          // default data store
           _ => WKWebsiteDataStore::defaultDataStore(mtm),
         };
         config.setWebsiteDataStore(&data_store);
@@ -248,6 +249,8 @@ impl InnerWebView {
       // Register Custom Protocols
       let mut protocol_ptrs = Vec::new();
       for (name, function) in attributes.custom_protocols {
+        // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/urlschemehandler(forurlscheme:)>
+        // Available: macOS 10.13+, iOS 11+
         let already_registered = using_existing_config
           && config
             .urlSchemeHandlerForURLScheme(&NSString::from_str(&name))
@@ -276,6 +279,8 @@ impl InnerWebView {
         *ivar_delegate = CString::new(webview_id.as_bytes()).unwrap().into_raw();
 
         let set_result = objc2::exception::catch(AssertUnwindSafe(|| {
+          // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/seturlschemehandler(_:forurlscheme:)>
+          // Available: macOS 10.13+, iOS 11+
           config.setURLSchemeHandler_forURLScheme(
             Some(&*(handler.cast::<ProtocolObject<dyn WKURLSchemeHandler>>())),
             &NSString::from_str(&name),
@@ -312,6 +317,8 @@ impl InnerWebView {
 
       #[cfg(target_os = "ios")]
       {
+        // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/limitsnavigationstoappbounddomains>
+        // Available: macOS 11+, iOS 14+
         if pl_attrs.limit_navigations_to_app_bound_domains && operating_system_version().0 >= 14 {
           config.setLimitsNavigationsToAppBoundDomains(true);
         }
@@ -333,13 +340,18 @@ impl InnerWebView {
         data_store.setValue_forKey(Some(&proxies), ns_string!("proxyConfigurations"));
       }
 
+      // NOTE: Private API — `allowsPictureInPictureMediaPlayback` is a private KVC key on WKPreferences.
       _preference.setValue_forKey(
         Some(&_yes),
         ns_string!("allowsPictureInPictureMediaPlayback"),
       );
 
       if attributes.javascript_disabled {
+        // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/defaultwebpagepreferences>
+        // Available: macOS 10.15+, iOS 13+
         let web_page_preferences = config.defaultWebpagePreferences();
+        // <https://developer.apple.com/documentation/webkit/wkwebpagepreferences/allowscontentjavascript>
+        // Available: macOS 10.15+, iOS 13+
         web_page_preferences.setAllowsContentJavaScript(false);
       }
 
@@ -347,31 +359,32 @@ impl InnerWebView {
       config.setValue_forKey(Some(&_yes), ns_string!("allowsInlineMediaPlayback"));
 
       if attributes.autoplay {
+        // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/mediatypesrequiringuseractionforplayback>
+        // Available: macOS 10.12+, iOS 10+
         config.setMediaTypesRequiringUserActionForPlayback(WKAudiovisualMediaTypes::None);
       }
 
       #[cfg(feature = "transparent")]
       if attributes.transparent || attributes.background_color.is_some() {
         let no = NSNumber::numberWithBool(false);
-        // Equivalent Obj-C:
-        // drawsBackground is only available on macOS 10.14+
         #[cfg(target_os = "macos")]
         {
           let version = util::operating_system_version();
           if version.0 > 10 || (version.0 == 10 && version.1 >= 14) {
-            // Equivalent Obj-C:
+            // NOTE: Private API — `drawsBackground`.
+            // Available: macOS 10.14+ (no public doc).
             config.setValue_forKey(Some(&no), ns_string!("drawsBackground"));
           }
         }
         #[cfg(target_os = "ios")]
         {
-          // Equivalent Obj-C:
+          // NOTE: Private API — `drawsBackground`.
           config.setValue_forKey(Some(&no), ns_string!("drawsBackground"));
         }
       }
 
       #[cfg(feature = "fullscreen")]
-      // Equivalent Obj-C:
+      // NOTE: Private API — `fullScreenEnabled` is a private KVC key on WKPreferences.
       _preference.setValue_forKey(Some(&_yes), ns_string!("fullScreenEnabled"));
 
       #[cfg(target_os = "macos")]
@@ -423,6 +436,8 @@ impl InnerWebView {
               blue as f64 / 255.0,
               alpha as f64 / 255.0,
             );
+            // <https://developer.apple.com/documentation/webkit/wkwebview/underpagebackgroundcolor>
+            // Available: macOS 12+, iOS 15+
             webview.setUnderPageBackgroundColor(Some(&color));
           }
         }
@@ -470,8 +485,9 @@ impl InnerWebView {
               BackgroundThrottlingPolicy::Throttle => WKInactiveSchedulingPolicy::Throttle.0,
             };
 
-            // Convert and set the value
             if let Ok(policy_number) = policy_value.try_into() {
+              // <https://developer.apple.com/documentation/webkit/wkpreferences/inactiveschedulingpolicy>
+              // Available: macOS 14+, iOS 17+
               _preference.setValue_forKey(
                 Some(&NSNumber::numberWithInt(policy_number)),
                 ns_string!("inactiveSchedulingPolicy"),
@@ -494,10 +510,10 @@ impl InnerWebView {
           );
         }
 
-        // allowsBackForwardNavigation
         webview.setAllowsBackForwardNavigationGestures(attributes.back_forward_navigation_gestures);
 
-        // tabFocusesLinks
+        // <https://developer.apple.com/documentation/webkit/wkpreferences/tabfocuseslinks>
+        // Available: macOS 12+
         _preference.setValue_forKey(Some(&_yes), ns_string!("tabFocusesLinks"));
       }
       #[cfg(target_os = "ios")]
@@ -520,11 +536,14 @@ impl InnerWebView {
 
       #[cfg(any(debug_assertions, feature = "devtools"))]
       if attributes.devtools {
+        // <https://developer.apple.com/documentation/webkit/wkwebview/isinspectable>
+        // Available: macOS 13.3+, iOS 16.4+
         let has_inspectable_property: bool =
           NSObject::respondsToSelector(&webview, objc2::sel!(setInspectable:));
         if has_inspectable_property {
           webview.setInspectable(true);
         }
+        // NOTE: Private API — `developerExtrasEnabled` is a private KVC key on WKPreferences.
         // this cannot be on an `else` statement, it does not work on macOS :(
         let dev = ns_string!("developerExtrasEnabled");
         _preference.setValue_forKey(Some(&_yes), dev);
@@ -586,6 +605,8 @@ impl InnerWebView {
       #[cfg(target_os = "macos")]
       {
         let ns_window = ns_view.window().unwrap();
+        // <https://developer.apple.com/documentation/appkit/nswindow/titlebarseparatorstyle>
+        // Available: macOS 11+
         let can_set_titlebar_style =
           ns_window.respondsToSelector(objc2::sel!(setTitlebarSeparatorStyle:));
         if can_set_titlebar_style {
@@ -670,6 +691,8 @@ r#"Object.defineProperty(window, 'ipc', {
         // make sure the window is always on top when we create a new webview
         let app = NSApplication::sharedApplication(mtm);
         if os_major_version >= 14 {
+          // <https://developer.apple.com/documentation/appkit/nsapplication/activate()>
+          // Available: macOS 14+
           NSApplication::activate(&app);
         } else {
           #[allow(deprecated)]
@@ -840,6 +863,8 @@ r#"Object.defineProperty(window, 'ipc', {
     // Safety: objc runtime calls are unsafe
     #[cfg(target_os = "macos")]
     unsafe {
+      // <https://developer.apple.com/documentation/webkit/wkwebview/printoperation(with:)>
+      // Available: macOS 11+
       let can_print = self
         .webview
         .respondsToSelector(objc2::sel!(printOperationWithPrintInfo:));
@@ -907,6 +932,8 @@ r#"Object.defineProperty(window, 'ipc', {
 
   pub fn zoom(&self, scale_factor: f64) -> crate::Result<()> {
     unsafe {
+      // <https://developer.apple.com/documentation/webkit/wkwebview/pagezoom>
+      // Available: macOS 11+, iOS 14+
       self.webview.setPageZoom(scale_factor);
     }
 
@@ -939,6 +966,7 @@ r#"Object.defineProperty(window, 'ipc', {
 
       // Disable the default white background using the same drawsBackground KVC key
       // as the `transparent` feature. On the webview instance (vs config) for runtime changes.
+      // NOTE: Private API — `drawsBackground` is a private KVC key on WKWebView instance.
       let no = NSNumber::numberWithBool(false);
       self
         .webview
@@ -952,6 +980,8 @@ r#"Object.defineProperty(window, 'ipc', {
           blue as f64 / 255.0,
           alpha as f64 / 255.0,
         );
+        // <https://developer.apple.com/documentation/webkit/wkwebview/underpagebackgroundcolor>
+        // Available: macOS 12+, iOS 15+
         self.webview.setUnderPageBackgroundColor(Some(&color));
       }
     }
@@ -1046,6 +1076,8 @@ r#"Object.defineProperty(window, 'ipc', {
     // Using string comparison because of https://github.com/tauri-apps/wry/issues/1616
     let (major, minor, _) = util::operating_system_version();
     if major > 10 || (major == 10 && minor >= 15) {
+      // <https://developer.apple.com/documentation/foundation/httpcookie/samesitepolicy>
+      // Available: macOS 10.15+, iOS 13+
       let same_site = cookie.sameSitePolicy();
       let same_site = match same_site {
         Some(policy) if policy.to_string() == "lax" => cookie::SameSite::Lax,
@@ -1170,6 +1202,9 @@ r#"Object.defineProperty(window, 'ipc', {
     let (tx, rx) = std::sync::mpsc::channel();
 
     unsafe {
+      // <https://developer.apple.com/documentation/webkit/wkwebsitedatastore/httpcookiestore>
+      // <https://developer.apple.com/documentation/webkit/wkhttpcookiestore/getallcookies(_:)>
+      // Available: macOS 10.13+, iOS 11+
       self
         .data_store
         .httpCookieStore()
@@ -1194,6 +1229,9 @@ r#"Object.defineProperty(window, 'ipc', {
 
     unsafe {
       let wkwebview_cookie = Self::cookie_into_wkwebview(cookie);
+      // <https://developer.apple.com/documentation/webkit/wkwebsitedatastore/httpcookiestore>
+      // <https://developer.apple.com/documentation/webkit/wkhttpcookiestore/setcookie(_:completionhandler:)>
+      // Available: macOS 10.13+, iOS 11+
       self
         .data_store
         .httpCookieStore()
@@ -1212,6 +1250,9 @@ r#"Object.defineProperty(window, 'ipc', {
 
     unsafe {
       let wkwebview_cookie = Self::cookie_into_wkwebview(cookie);
+      // <https://developer.apple.com/documentation/webkit/wkwebsitedatastore/httpcookiestore>
+      // <https://developer.apple.com/documentation/webkit/wkhttpcookiestore/deletecookie(_:completionhandler:)>
+      // Available: macOS 10.13+, iOS 11+
       self
         .data_store
         .httpCookieStore()
@@ -1265,6 +1306,8 @@ r#"Object.defineProperty(window, 'ipc', {
 
     match MainThreadMarker::new() {
       Some(mtn) => unsafe {
+        // <https://developer.apple.com/documentation/webkit/wkwebsitedatastore/fetchalldatastoreidentifiers(_:)>
+        // Available: macOS 14+, iOS 17+
         WKWebsiteDataStore::fetchAllDataStoreIdentifiers(&block, mtn);
         Ok(())
       },
@@ -1295,6 +1338,8 @@ r#"Object.defineProperty(window, 'ipc', {
     });
 
     unsafe {
+      // <https://developer.apple.com/documentation/webkit/wkwebsitedatastore/remove(foridentifier:completionhandler:)>
+      // Available: macOS 14+, iOS 17+
       WKWebsiteDataStore::removeDataStoreForIdentifier_completionHandler(&identifier, &block, mtm);
     }
   }
