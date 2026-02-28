@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MIT
 
 use std::cell::RefCell;
-use std::ffi::CString;
 use std::rc::Rc;
 use tao::{
   event::{Event, WindowEvent},
@@ -57,15 +56,29 @@ fn main() -> wry::Result<()> {
       }
 
       let gl = unsafe {
-        let lib = Box::leak(Box::new(
-          libloading::Library::new("libepoxy.so.0").expect("Failed to load libepoxy"),
-        ));
-        glow::Context::from_loader_function_unsafe(|s| {
-          let name = CString::new(s).unwrap();
-          let get_proc_address: libloading::Symbol<
-            unsafe extern "C" fn(*const i8) -> *const std::ffi::c_void,
-          > = lib.get(b"epoxy_get_proc_address\0").unwrap();
-          get_proc_address(name.as_ptr())
+        glow::Context::from_loader_function(|s| {
+          let mut ptr = std::ptr::null();
+          let name = std::ffi::CString::new(s).unwrap();
+
+          if let Ok(lib) = libloading::Library::new("libGL.so.1") {
+            if let Ok(sym) = lib.get::<unsafe extern "C" fn(*const i8) -> *const std::ffi::c_void>(
+              b"glXGetProcAddress\0",
+            ) {
+              ptr = sym(name.as_ptr());
+            }
+          }
+          if ptr.is_null() {
+            if let Ok(lib) = libloading::Library::new("libEGL.so.1") {
+              if let Ok(sym) = lib
+                .get::<unsafe extern "C" fn(*const i8) -> *const std::ffi::c_void>(
+                  b"eglGetProcAddress\0",
+                )
+              {
+                ptr = sym(name.as_ptr());
+              }
+            }
+          }
+          ptr
         })
       };
 
@@ -129,7 +142,7 @@ fn main() -> wry::Result<()> {
     });
 
     let state_render = state.clone();
-    gl_area.connect_render(move |gl_area, _gl_context| {
+    gl_area.connect_render(move |_gl_area, _gl_context| {
       if let Some(state) = state_render.borrow().as_ref() {
         unsafe {
           use glow::HasContext as _;
@@ -141,7 +154,7 @@ fn main() -> wry::Result<()> {
           state.gl.draw_arrays(glow::TRIANGLES, 0, 3);
         }
       }
-      gtk::Inhibit(false)
+      gtk::glib::Propagation::Proceed
     });
 
     gl_area.connect_unrealize(move |gl_area| {
@@ -170,7 +183,7 @@ fn main() -> wry::Result<()> {
     .with_transparent(true)
     .with_html(
       r#"<html>
-          <body style="background-color:rgba(87,87,87,0.5); color: white; display: flex; justify-content: center; align-items: center;">
+          <body>
             <h1>Webview Overlay Layer</h1>
           </body>
       </html>"#,
