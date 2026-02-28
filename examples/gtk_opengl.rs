@@ -28,12 +28,13 @@ fn main() -> wry::Result<()> {
     target_os = "ios",
     target_os = "android"
   )))]
-  let (fixed, gl_area) = {
+  let (fixed, _) = {
     use gtk::prelude::*;
     use tao::platform::unix::WindowExtUnix;
-    let fixed = gtk::Fixed::new();
+
+    let overlay = gtk::Overlay::new();
     let vbox = window.default_vbox().unwrap();
-    vbox.pack_start(&fixed, true, true, 0);
+    vbox.pack_start(&overlay, true, true, 0);
 
     let gl_area = gtk::GLArea::new();
     gl_area.set_has_alpha(true);
@@ -168,10 +169,12 @@ fn main() -> wry::Result<()> {
       }
     });
 
-    gl_area.set_size_request(800, 600);
-    fixed.put(&gl_area, 0, 0);
+    overlay.add(&gl_area);
 
-    fixed.show_all();
+    let fixed = gtk::Fixed::new();
+    overlay.add_overlay(&fixed);
+
+    overlay.show_all();
     (fixed, gl_area)
   };
 
@@ -184,7 +187,7 @@ fn main() -> wry::Result<()> {
     .with_html(
       r#"<html>
           <body>
-            <h1>Webview Overlay Layer</h1>
+            <h1 style="color: white;">Hello World!</h1>
           </body>
       </html>"#,
     );
@@ -227,17 +230,6 @@ fn main() -> wry::Result<()> {
             .into(),
           })
           .unwrap();
-
-        #[cfg(not(any(
-          target_os = "windows",
-          target_os = "macos",
-          target_os = "ios",
-          target_os = "android"
-        )))]
-        {
-          use gtk::prelude::*;
-          gl_area.set_size_request(size.width as i32, size.height as i32);
-        }
       }
       Event::WindowEvent {
         event: WindowEvent::CloseRequested,
