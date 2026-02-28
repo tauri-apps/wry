@@ -212,6 +212,8 @@ winit = "0.30"
 getrandom = "0.3"
 http-range = "0.1"
 percent-encoding = "2.3"
+glow = "0.16.0"
+libloading = "0.8.9"
 
 [lints.rust.unexpected_cfgs]
 level = "warn"
