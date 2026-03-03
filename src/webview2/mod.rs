@@ -389,8 +389,7 @@ impl InnerWebView {
 
     unsafe {
       if let Ok(env10) = env.cast::<ICoreWebView2Environment10>() {
-        let controller_opts: ICoreWebView2ControllerOptions =
-          env10.CreateCoreWebView2ControllerOptions()?;
+        let controller_opts = env10.CreateCoreWebView2ControllerOptions()?;
 
         if let Some((r, g, b, mut a)) = background_color {
           if let Ok(opts3) = controller_opts.cast::<ICoreWebView2ControllerOptions3>() {
