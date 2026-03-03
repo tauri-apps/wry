@@ -350,15 +350,18 @@ impl InnerWebView {
         // by manually creating the callback handler and use webview2_com::with_with_bump
         &CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
           move |error_code, environment| {
-            error_code?;
-            tx.send(environment.ok_or_else(|| windows::core::Error::from(E_POINTER)))
+            let result = (|| {
+              error_code?;
+              environment.ok_or_else(|| windows::core::Error::from(E_POINTER).into())
+            })();
+            tx.send(result)
               .map_err(|_| windows::core::Error::from(E_UNEXPECTED))
           },
         )),
       )?;
     }
 
-    webview2_com::wait_with_pump(rx)?.map_err(Into::into)
+    webview2_com::wait_with_pump(rx)?
   }
 
   #[inline]
@@ -369,23 +372,25 @@ impl InnerWebView {
     background_color: Option<(u8, u8, u8, u8)>,
   ) -> Result<ICoreWebView2Controller> {
     let (tx, rx) = mpsc::channel();
-    let env = env.clone();
-    let env10 = env.cast::<ICoreWebView2Environment10>();
 
     // we don't use CreateCoreWebView2ControllerCompletedHandler::wait_for_async
     // as it uses an mspc::channel under the hood, so we can avoid using two channels
     // by manually creating the callback handler and use webview2_com::with_with_bump
     let handler = CreateCoreWebView2ControllerCompletedHandler::create(Box::new(
       move |error_code, controller| {
-        error_code?;
-        tx.send(controller.ok_or_else(|| windows::core::Error::from(E_POINTER)))
+        let result = (|| {
+          error_code?;
+          controller.ok_or_else(|| windows::core::Error::from(E_POINTER).into())
+        })();
+        tx.send(result)
           .map_err(|_| windows::core::Error::from(E_UNEXPECTED))
       },
     ));
 
     unsafe {
-      if let Ok(env10) = env10 {
-        let controller_opts = env10.CreateCoreWebView2ControllerOptions()?;
+      if let Ok(env10) = env.cast::<ICoreWebView2Environment10>() {
+        let controller_opts: ICoreWebView2ControllerOptions =
+          env10.CreateCoreWebView2ControllerOptions()?;
 
         if let Some((r, g, b, mut a)) = background_color {
           if let Ok(opts3) = controller_opts.cast::<ICoreWebView2ControllerOptions3>() {
@@ -408,7 +413,7 @@ impl InnerWebView {
       }
     }
 
-    webview2_com::wait_with_pump(rx)?.map_err(Into::into)
+    webview2_com::wait_with_pump(rx)?
   }
 
   #[allow(clippy::too_many_arguments)]
@@ -1627,34 +1632,37 @@ impl InnerWebView {
         // as it uses an mspc::channel under the hood, so we can avoid using two channels
         // by manually creating the callback handler and use webview2_com::with_with_bump
         &GetCookiesCompletedHandler::create(Box::new(move |error_code, cookies| {
-          error_code?;
+          let result = (move || {
+            error_code?;
 
-          let cookies = if let Some(cookies) = cookies {
-            let mut count = 0;
-            cookies.Count(&mut count)?;
+            let cookies = if let Some(cookies) = cookies {
+              let mut count = 0;
+              cookies.Count(&mut count)?;
 
-            let mut out = Vec::with_capacity(count as _);
+              let mut out = Vec::with_capacity(count as _);
 
-            for idx in 0..count {
-              let cookie = cookies.GetValueAtIndex(idx)?;
+              for idx in 0..count {
+                let cookie = cookies.GetValueAtIndex(idx)?;
 
-              if let Ok(cookie) = Self::cookie_from_win32(cookie) {
-                out.push(cookie)
+                if let Ok(cookie) = Self::cookie_from_win32(cookie) {
+                  out.push(cookie)
+                }
               }
-            }
 
-            out
-          } else {
-            Vec::new()
-          };
+              out
+            } else {
+              Vec::new()
+            };
+            Ok(cookies)
+          })();
 
-          tx.send(cookies)
+          tx.send(result)
             .map_err(|_| windows::core::Error::from(E_UNEXPECTED))
         })),
       )?;
     }
 
-    webview2_com::wait_with_pump(rx).map_err(Into::into)
+    webview2_com::wait_with_pump(rx)?
   }
 
   pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
