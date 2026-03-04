@@ -1769,14 +1769,22 @@ pub trait WebViewBuilderExtWindows {
   ///
   /// Requires WebView2 Runtime version 125.0.2535.41 or higher, does nothing on older versions,
   /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/?tabs=dotnetcsharp#10253541
+  ///
+  /// ## Warning
+  ///
+  /// Webview instances with different scroll bar styles must also have different [data directories](struct.WebContext.html#method.new).
   fn with_scroll_bar_style(self, style: ScrollBarStyle) -> Self;
 
   /// Determines whether the ability to install and enable extensions is enabled.
   ///
   /// By default, extensions are disabled.
   ///
-  /// Requires WebView2 Runtime version 1.0.2210.55 or higher, does nothing on older versions,
+  /// Requires WebView2 Runtime version 120.0.2210.55 or higher, does nothing on older versions,
   /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10221055
+  ///
+  /// ## Warning
+  ///
+  /// Webview instances with different browser extensions enabled settings must also have different [data directories](struct.WebContext.html#method.new).
   fn with_browser_extensions_enabled(self, enabled: bool) -> Self;
 
   /// Set the path from which to load extensions from. Extensions stored in this path should be unpacked.

@@ -294,7 +294,6 @@ impl InnerWebView {
     let additional_browser_args = pl_attrs.additional_browser_args.unwrap_or_else(|| {
       // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
       // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
-      // enable white flicker fix
       let default_args = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
       let mut arguments = String::from(default_args);
 
