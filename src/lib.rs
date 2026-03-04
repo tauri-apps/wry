@@ -74,7 +74,7 @@
 //!
 //! ## Child webviews
 //!
-//! You can use [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`] to create the webview as a child inside another window. This is supported on
+//! You can use [`WebView::new_as_child`] or [`WebViewBuilder::build_as_child`] to create the webview as a child inside another window. This is supported on
 //! macOS, Windows and Linux (X11 Only).
 //!
 //! ```no_run
@@ -737,7 +737,7 @@ pub struct WebViewAttributes<'a> {
   /// ## Platform-specific:
   ///
   /// - Windows: Setting to `false` does nothing on WebView2 Runtime version before 92.0.902.0,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10902-prerelease
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10902-prerelease>
   ///
   /// - **Android / iOS:** Unsupported.
   pub back_forward_navigation_gestures: bool,
@@ -751,7 +751,7 @@ pub struct WebViewAttributes<'a> {
   /// ## Platform-specific:
   ///
   /// - **Windows**: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039>
   /// - **Android:** Unsupported yet.
   /// - **macOS / iOS**: Uses the nonPersistent DataStore.
   pub incognito: bool,
@@ -792,7 +792,7 @@ pub struct WebViewAttributes<'a> {
   /// - **iOS**: Supported since version 17.0+.
   /// - **macOS**: Supported since version 14.0+.
   ///
-  /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
+  /// see <https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578>
   pub background_throttling: Option<BackgroundThrottlingPolicy>,
 
   /// Whether JavaScript should be disabled.
@@ -1239,7 +1239,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// - Windows: Requires WebView2 Runtime version 86.0.616.0 or higher, does nothing on older versions,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10790-prerelease
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10790-prerelease>
   pub fn with_user_agent(mut self, user_agent: impl Into<String>) -> Self {
     self.attrs.user_agent = Some(user_agent.into());
     self
@@ -1266,7 +1266,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// - Windows: Setting to `false` can't disable pinch zoom on WebView2 Runtime version before 91.0.865.0,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10865-prerelease
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10865-prerelease>
   ///
   /// - **macOS / Linux / Android / iOS**: Unsupported
   pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
@@ -1373,7 +1373,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific:
   ///
   /// - Windows: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039>
   /// - **Android:** Unsupported yet.
   pub fn with_incognito(mut self, incognito: bool) -> Self {
     self.attrs.incognito = incognito;
@@ -1430,7 +1430,7 @@ impl<'a> WebViewBuilder<'a> {
   /// - **iOS**: Supported since version 17.0+.
   /// - **macOS**: Supported since version 14.0+.
   ///
-  /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
+  /// see <https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578>
   pub fn with_background_throttling(mut self, policy: BackgroundThrottlingPolicy) -> Self {
     self.attrs.background_throttling = Some(policy);
     self
@@ -1721,7 +1721,7 @@ pub trait WebViewBuilderExtWindows {
   ///
   /// ## Warning
   ///
-  /// - Webview instances with different browser arguments must also have different [data directories](struct.WebContext.html#method.new).
+  /// - Webview instances with different browser arguments must also have different [data directories](WebContext::new).
   /// - By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
   ///   `--autoplay-policy=no-user-gesture-required` if autoplay is enabled
   ///   and `--proxy-server=<scheme>://<host>:<port>` if a proxy is set.
@@ -1733,7 +1733,7 @@ pub trait WebViewBuilderExtWindows {
   /// The default value is `true`. See the following link to know more details.
   ///
   /// Setting to `false` does nothing on WebView2 Runtime version before 92.0.902.0,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10824-prerelease
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10824-prerelease>
   ///
   /// <https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2settings#arebrowseracceleratorkeysenabled>
   fn with_browser_accelerator_keys(self, enabled: bool) -> Self;
@@ -1751,7 +1751,7 @@ pub trait WebViewBuilderExtWindows {
   /// Defaults to [`Theme::Auto`] which will follow the OS defaults.
   ///
   /// Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039>
   fn with_theme(self, theme: Theme) -> Self;
 
   /// Determines whether the custom protocols should use `https://<scheme>.path/to/page` instead of the default `http://<scheme>.path/to/page`.
@@ -1765,14 +1765,14 @@ pub trait WebViewBuilderExtWindows {
   /// Specifies the native scrollbar style to use with webview2.
   /// CSS styles that modify the scrollbar are applied on top of the native appearance configured here.
   ///
-  /// Defaults to [`ScrollbarStyle::Default`] which is the browser default used by Microsoft Edge.
+  /// Defaults to [`ScrollBarStyle::Default`] which is the browser default used by Microsoft Edge.
   ///
   /// Requires WebView2 Runtime version 125.0.2535.41 or higher, does nothing on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/?tabs=dotnetcsharp#10253541
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/?tabs=dotnetcsharp#10253541>
   ///
   /// ## Warning
   ///
-  /// Webview instances with different scroll bar styles must also have different [data directories](struct.WebContext.html#method.new).
+  /// Webview instances with different scroll bar styles must also have different [data directories](WebContext::new).
   fn with_scroll_bar_style(self, style: ScrollBarStyle) -> Self;
 
   /// Determines whether the ability to install and enable extensions is enabled.
@@ -1780,11 +1780,11 @@ pub trait WebViewBuilderExtWindows {
   /// By default, extensions are disabled.
   ///
   /// Requires WebView2 Runtime version 120.0.2210.55 or higher, does nothing on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10221055
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10221055>
   ///
   /// ## Warning
   ///
-  /// Webview instances with different browser extensions enabled settings must also have different [data directories](struct.WebContext.html#method.new).
+  /// Webview instances with different browser extensions enabled settings must also have different [data directories](WebContext::new).
   fn with_browser_extensions_enabled(self, enabled: bool) -> Self;
 
   /// Set the path from which to load extensions from. Extensions stored in this path should be unpacked.
@@ -2294,7 +2294,7 @@ pub trait WebViewExtWindows {
   /// Changes the webview2 theme.
   ///
   /// Requires WebView2 Runtime version 101.0.1210.39 or higher, returns error on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039>
   fn set_theme(&self, theme: Theme) -> Result<()>;
 
   /// Sets the [memory usage target level][1].
