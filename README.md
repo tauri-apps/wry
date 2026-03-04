@@ -62,7 +62,7 @@ let webview = builder.build_gtk(window.gtk_window()).unwrap();
 
 ### Child webviews
 
-You can use [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`] to create the webview as a child inside another window. This is supported on
+You can use [`WebView::new_as_child`] or [`WebViewBuilder::build_as_child`] to create the webview as a child inside another window. This is supported on
 macOS, Windows and Linux (X11 Only).
 
 ```rust
