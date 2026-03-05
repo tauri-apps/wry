@@ -83,4 +83,11 @@ pub enum Error {
   #[cfg(target_os = "macos")]
   #[error("Could not obtain screenshot from webview")]
   NilScreenshot,
+  #[cfg(target_os = "macos")]
+  #[error("Screenshot failed ({domain}:{code}): {description}")]
+  MacOsScreenshotError {
+    domain: String,
+    code: isize,
+    description: String,
+  },
 }

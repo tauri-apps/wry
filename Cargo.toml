@@ -194,7 +194,9 @@ objc2-app-kit = { version = "0.3.0", default-features = false, features = [
   "NSImage",
   "NSImageRep",
   "NSBitmapImageRep",
+  "NSGraphicsContext",
   "NSScreen",
+  "objc2-core-graphics",
 ] }
 
 [target."cfg(target_os = \"android\")".dependencies]

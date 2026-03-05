@@ -72,7 +72,7 @@ use crate::wkwebview::util::operating_system_version;
 use objc2_web_kit::WKWebView;
 
 use objc2_web_kit::{
-  WKAudiovisualMediaTypes, WKInactiveSchedulingPolicy, WKSnapshotConfiguration, WKURLSchemeHandler,
+  WKAudiovisualMediaTypes, WKInactiveSchedulingPolicy, WKURLSchemeHandler,
   WKUserContentController, WKUserScript, WKUserScriptInjectionTime, WKWebViewConfiguration,
   WKWebsiteDataStore,
 };
@@ -847,24 +847,32 @@ r#"Object.defineProperty(window, 'ipc', {
     // Safety: objc runtime calls are unsafe
     #[cfg(target_os = "macos")]
     unsafe {
-      let config = WKSnapshotConfiguration::new(self.mtm);
-      config.setAfterScreenUpdates(true);
+      let callback = block2::RcBlock::new(move |image: *mut NSImage, err: *mut NSError| {
+        if let Some(err) = err.as_ref() {
+          handler(Err(Error::MacOsScreenshotError {
+            domain: err.domain().to_string(),
+            code: err.code(),
+            description: err.localizedDescription().to_string(),
+          }));
+          return;
+        }
 
-      let callback = block2::RcBlock::new(move |image: *mut NSImage, _err: *mut NSError| {
         let Some(image) = image.as_ref() else {
           handler(Err(Error::NilScreenshot));
           return;
         };
 
-        let Some(tiff) = image.TIFFRepresentation() else {
+        let Some(cg_image) = image.CGImageForProposedRect_context_hints(
+          std::ptr::null_mut(),
+          None,
+          None,
+        ) else {
           handler(Err(Error::NilScreenshot));
           return;
         };
 
-        let Some(bitmap) = NSBitmapImageRep::imageRepWithData(&tiff) else {
-          handler(Err(Error::NilScreenshot));
-          return;
-        };
+        let bitmap = NSBitmapImageRep::initWithCGImage(NSBitmapImageRep::alloc(), &cg_image);
+        bitmap.setSize(image.size());
 
         let props: Retained<NSDictionary<NSBitmapImageRepPropertyKey, AnyObject>> =
           NSDictionary::new();
@@ -877,7 +885,7 @@ r#"Object.defineProperty(window, 'ipc', {
 
       self
         .webview
-        .takeSnapshotWithConfiguration_completionHandler(Some(&config), &callback);
+        .takeSnapshotWithConfiguration_completionHandler(None, &callback);
     }
 
     #[cfg(target_os = "ios")]
