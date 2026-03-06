@@ -3,24 +3,21 @@
 // SPDX-License-Identifier: MIT
 
 use super::{PageLoadEvent, WebViewAttributes, RGBA};
-use crate::{custom_protocol_workaround, RequestAsyncResponder, Result};
-use base64::{engine::general_purpose, Engine};
-use crossbeam_channel::*;
-use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
-use http::{
-  header::{HeaderValue, CONTENT_SECURITY_POLICY, CONTENT_TYPE},
-  Request, Response as HttpResponse,
+use crate::{
+  custom_protocol_workaround, inject_initialization_scripts::inject_scripts_into_html,
+  RequestAsyncResponder, Result,
 };
+use crossbeam_channel::*;
+
+use http::{Request, Response as HttpResponse};
 use jni::{
   errors::Result as JniResult,
   objects::{GlobalRef, JClass, JObject},
   JNIEnv,
 };
-use kuchiki::NodeRef;
 use ndk::looper::{FdEvent, ThreadLooper};
 use once_cell::sync::OnceCell;
 use raw_window_handle::HasWindowHandle;
-use sha2::{Digest, Sha256};
 use std::{
   borrow::Cow,
   collections::HashMap,
@@ -212,14 +209,16 @@ impl InnerWebView {
     }
 
     let initialization_scripts_ = initialization_scripts.clone();
-    REQUEST_HANDLER.lock()
-        .unwrap().replace(
-      UnsafeRequestHandler::new(Box::new(
+    REQUEST_HANDLER
+      .lock()
+      .unwrap()
+      .replace(UnsafeRequestHandler::new(Box::new(
         move |webview_id: &str, mut request, is_document_start_script_enabled| {
           let uri = request.uri().to_string();
-          if let Some((custom_protocol, custom_protocol_handler)) = custom_protocols
-            .iter()
-            .find(|(protocol, _)| custom_protocol_workaround::is_work_around_uri(&uri, http_or_https, protocol))
+          if let Some((custom_protocol, custom_protocol_handler)) =
+            custom_protocols.iter().find(|(protocol, _)| {
+              custom_protocol_workaround::is_work_around_uri(&uri, http_or_https, protocol)
+            })
           {
             let uri_res = custom_protocol_workaround::revert_uri_work_around(
               &uri,
@@ -239,55 +238,9 @@ impl InnerWebView {
                 if !is_document_start_script_enabled {
                   #[cfg(feature = "tracing")]
                   tracing::info!("`addDocumentStartJavaScript` is not supported; injecting initialization scripts via custom protocol handler");
-                  let should_inject_scripts = response
-                    .headers()
-                    .get(CONTENT_TYPE)
-                    // Content-Type must begin with the media type, but is case-insensitive.
-                    // It may also be followed by any number of semicolon-delimited key value pairs.
-                    // We don't care about these here.
-                    // source: https://httpwg.org/specs/rfc9110.html#rfc.section.8.3.1
-                    .and_then(|content_type| content_type.to_str().ok())
-                    .map(|content_type_str| {
-                      content_type_str.to_lowercase().starts_with("text/html")
-                    })
-                    .unwrap_or_default();
-
-                  if should_inject_scripts && !initialization_scripts.is_empty() {
-                    let mut document = kuchiki::parse_html()
-                      .one(String::from_utf8_lossy(response.body()).as_ref()).document_node;
-                    let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
-                    let mut hashes = Vec::new();
-                    with_html_head(&mut document, |head| {
-                      // iterate in reverse order since we are prepending each script to the head tag
-                      for init_script in initialization_scripts.iter().rev() {
-                        let script_el = NodeRef::new_element(
-                          QualName::new(None, ns!(html), "script".into()),
-                          None,
-                        );
-                        script_el.append(NodeRef::new_text(init_script.script.as_str()));
-                        head.prepend(script_el);
-                        if csp.is_some() {
-                          hashes.push(hash_script(init_script.script.as_str()));
-                        }
-                      }
-                    });
-
-                    if let Some(csp) = csp {
-                      let csp_string = csp.to_str().unwrap().to_string();
-                      let csp_string = if csp_string.contains("script-src") {
-                        csp_string
-                          .replace("script-src", &format!("script-src {}", hashes.join(" ")))
-                      } else {
-                        format!("{} script-src {}", csp_string, hashes.join(" "))
-                      };
-                      *csp = HeaderValue::from_str(&csp_string).unwrap();
-                    }
-
-                    *response.body_mut() = document.to_string().into_bytes().into();
-                  }
+                  response = inject_scripts_into_html(response, &initialization_scripts);
                 }
-
-                tx.send(response).unwrap();
+                let _ = tx.send(response);
               });
 
             (custom_protocol_handler)(webview_id, request, RequestAsyncResponder { responder });
@@ -295,8 +248,7 @@ impl InnerWebView {
           }
           None
         },
-      )
-    ));
+      )));
 
     if let Some(i) = ipc_handler {
       IPC.lock().unwrap().replace(UnsafeIpc::new(Box::new(i)));
@@ -415,12 +367,12 @@ impl InnerWebView {
     rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
   }
 
-  pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+  pub fn set_cookie(&self, #[allow(unused)] cookie: &cookie::Cookie<'_>) -> Result<()> {
     // Unsupported
     Ok(())
   }
 
-  pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+  pub fn delete_cookie(&self, #[allow(unused)] cookie: &cookie::Cookie<'_>) -> Result<()> {
     // Unsupported
     Ok(())
   }
@@ -472,26 +424,6 @@ pub fn platform_webview_version() -> Result<String> {
   let (tx, rx) = bounded(1);
   MainPipe::send(WebViewMessage::GetWebViewVersion(tx));
   rx.recv_timeout(MAIN_PIPE_TIMEOUT).unwrap()
-}
-
-fn with_html_head<F: FnOnce(&NodeRef)>(document: &mut NodeRef, f: F) {
-  if let Ok(ref node) = document.select_first("head") {
-    f(node.as_node())
-  } else {
-    let node = NodeRef::new_element(
-      QualName::new(None, ns!(html), LocalName::from("head")),
-      None,
-    );
-    f(&node);
-    document.prepend(node)
-  }
-}
-
-fn hash_script(script: &str) -> String {
-  let mut hasher = Sha256::new();
-  hasher.update(script);
-  let hash = hasher.finalize();
-  format!("'sha256-{}'", general_purpose::STANDARD.encode(hash))
 }
 
 /// Finds a class in the project scope.
