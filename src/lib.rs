@@ -540,6 +540,29 @@ pub struct NewWindowFeatures {
 /// An id for a webview
 pub type WebViewId<'a> = &'a str;
 
+/// # Stability
+///
+/// We might add new fields in patch versions, so prefer [`WebViewBuilder`] when possible
+///
+/// If you do decide to use this, to avoid breakage,
+/// [ignore unknown fields when destructuring] with the `{ id, context, .. }` pattern,
+/// and create the struct with the [Struct Update Syntax] (`..Default::default()`), which may need a
+/// `#[allow(clippy::needless_update)]` attribute if you are declaring all fields.
+///
+/// ```no_run
+/// let attributes = WebViewAttributes {
+///   visible: false,
+///   ..Default::default()
+/// }
+///
+/// let WebViewAttributes {
+///   visible,
+///   ..
+/// } = attributes;
+/// ```
+///
+/// [ignore unknown fields when destructuring]: https://doc.rust-lang.org/book/ch18-03-pattern-syntax.html#ignoring-remaining-parts-of-a-value-with-
+/// [Struct Update Syntax]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#creating-instances-from-other-instances-with-struct-update-syntax
 pub struct WebViewAttributes<'a> {
   /// An id that will be passed when this webview makes requests in certain callbacks.
   pub id: Option<WebViewId<'a>>,
