@@ -549,11 +549,13 @@ pub type WebViewId<'a> = &'a str;
 /// and create the struct with the [Struct Update Syntax] (`..Default::default()`), which may need a
 /// `#[allow(clippy::needless_update)]` attribute if you are declaring all fields.
 ///
-/// ```no_run
+/// ```
+/// # use wry::WebViewAttributes;
+///
 /// let attributes = WebViewAttributes {
 ///   visible: false,
 ///   ..Default::default()
-/// }
+/// };
 ///
 /// let WebViewAttributes {
 ///   visible,
