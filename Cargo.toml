@@ -16,7 +16,7 @@ exclude = ["/.changes", "/.github", "/audits", "/wry-logo.svg"]
 
 [package.metadata.docs.rs]
 no-default-features = true
-features = ["drag-drop", "protocol", "os-webview"]
+features = ["protocol", "os-webview"]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
@@ -24,9 +24,8 @@ targets = [
 ]
 
 [features]
-default = ["drag-drop", "protocol", "os-webview", "x11"]
+default = ["protocol", "os-webview", "x11"]
 serde = ["dpi/serde"]
-drag-drop = []
 protocol = []
 devtools = []
 transparent = []

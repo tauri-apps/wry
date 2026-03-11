@@ -655,11 +655,7 @@ pub struct WebViewAttributes<'a> {
   ///
   /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
-  #[cfg(feature = "drag-drop")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "drag-drop")))]
   pub drag_drop_handler: Option<Box<dyn Fn(DragDropEvent) -> bool>>,
-  #[cfg(not(feature = "drag-drop"))]
-  drag_drop_handler: Option<Box<dyn Fn(DragDropEvent) -> bool>>,
 
   /// A navigation handler to decide if incoming url is allowed to navigate.
   ///
@@ -1167,8 +1163,6 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
-  #[cfg(feature = "drag-drop")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "drag-drop")))]
   pub fn with_drag_drop_handler<F>(mut self, handler: F) -> Self
   where
     F: Fn(DragDropEvent) -> bool + 'static,
