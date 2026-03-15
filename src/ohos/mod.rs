@@ -50,7 +50,6 @@ impl InnerWebView {
 
     let initial_url = url;
     let initial_headers = headers;
-    let should_load_initial_url = html.is_none();
 
     let id = id
       .map(|id| id.to_string())
@@ -83,6 +82,11 @@ impl InnerWebView {
 
     if let Some(html) = html {
       webview_builder = webview_builder.html(html);
+    } else if let Some(url) = initial_url {
+      webview_builder = webview_builder.url(url);
+      if let Some(headers) = initial_headers {
+        webview_builder = webview_builder.headers(headers);
+      }
     }
 
     if let Some(user_agent) = user_agent {
@@ -128,20 +132,6 @@ impl InnerWebView {
           (callback)(&webview_id, req, RequestAsyncResponder { responder });
         })
         .unwrap();
-    }
-
-    if should_load_initial_url {
-      if let Some(url) = initial_url.as_deref() {
-        if let Some(headers) = initial_headers {
-          webview
-            .load_url_with_headers(url, headers)
-            .map_err(|e| Error::OpenHarmonyInitError(format!("Failed to load initial url with headers: {}", e)))?;
-        } else {
-          webview
-            .load_url(url)
-            .map_err(|e| Error::OpenHarmonyInitError(format!("Failed to load initial url: {}", e)))?;
-        }
-      }
     }
 
     Ok(Self { id, webview })
