@@ -5,7 +5,7 @@
 //! This is an internal implementation detail used by the Android backend to inject
 //! initialization scripts when `addDocumentStartJavaScript` is not supported.
 
-use base64::{engine::general_purpose, Engine};
+use base64::{prelude::BASE64_STANDARD, Engine};
 use dom_query::Document;
 use http::{
   header::{HeaderValue, CONTENT_SECURITY_POLICY, CONTENT_TYPE},
@@ -79,7 +79,7 @@ fn hash_script(script: &str) -> String {
   let mut hasher = Sha256::new();
   hasher.update(script);
   let hash = hasher.finalize();
-  format!("'sha256-{}'", general_purpose::STANDARD.encode(hash))
+  format!("'sha256-{}'", BASE64_STANDARD.encode(hash))
 }
 
 #[cfg(test)]
@@ -123,16 +123,17 @@ mod tests {
   fn test_inject_multiple_scripts() {
     let body = "<html><head></head><body>Content</body></html>";
     let scripts = vec![
-      "var first = 1;".to_string(),
-      "var second = 2;".to_string(),
-      "var third = 3;".to_string(),
+      "var first = 1;".to_owned(),
+      "let second = 2;".to_owned(),
+      "const third = 3;".to_owned(),
+      "window.test = () => console.log('test');".to_owned(),
     ];
 
     let result = run(body, "text/html", scripts);
 
     assert_eq!(
       result,
-      "<html><head><script>var first = 1;</script><script>var second = 2;</script><script>var third = 3;</script></head><body>Content</body></html>"
+      "<html><head><script>var first = 1;</script><script>let second = 2;</script><script>const third = 3;</script><script>window.test = () => console.log('test');</script></head><body>Content</body></html>"
     );
   }
 

@@ -219,3 +219,6 @@ dom_query = { version = "0.26.0", default-features = false }
 [lints.rust.unexpected_cfgs]
 level = "warn"
 check-cfg = ["cfg(linux)", "cfg(gtk)"]
+
+[patch.crates-io]
+dom_query = { git = "https://github.com/niklak/dom_query.git" }
