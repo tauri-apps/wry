@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.54.4]
+
+- [`47d9470`](https://github.com/tauri-apps/wry/commit/47d9470e40160af8209da094364141917ec677a7) ([#1693](https://github.com/tauri-apps/wry/pull/1693) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Updated dependency dom_query to 0.27.0, this fixed a bug where initialization scripts were escaped incorrectly on Android
+- [`1540788`](https://github.com/tauri-apps/wry/commit/1540788a0161235e1b89c70912725fd2f18cb813) ([#1692](https://github.com/tauri-apps/wry/pull/1692) by [@Sbenazar](https://github.com/tauri-apps/wry/../../Sbenazar)) fix(webkitgtk): normalize background color values to 0.0–1.0
+
 ## \[0.54.3]
 
 - [`40a7032`](https://github.com/tauri-apps/wry/commit/40a703214d3e66942edf6f6a96074580798d5046) ([#1677](https://github.com/tauri-apps/wry/pull/1677) by [@russellmcc](https://github.com/tauri-apps/wry/../../russellmcc)) Fix bug where wry would crash when loaded by multiple dylibs in the same process on macOS.
