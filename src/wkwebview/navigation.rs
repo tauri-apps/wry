@@ -54,7 +54,8 @@ pub(crate) fn navigation_policy(
   handler: &block2::Block<dyn Fn(WKNavigationActionPolicy)>,
 ) {
   unsafe {
-    // shouldPerformDownload is only available on macOS 11.3+
+    // <https://developer.apple.com/documentation/webkit/wknavigationaction/shouldperformdownload>
+    // Available: macOS 11.3+, iOS 14.5+
     let can_download = action.respondsToSelector(objc2::sel!(shouldPerformDownload));
     let should_download: bool = if can_download {
       action.shouldPerformDownload()
@@ -100,5 +101,16 @@ pub(crate) fn navigation_policy_response(
     }
 
     (*handler).call((WKNavigationResponsePolicy::Allow,));
+  }
+}
+
+pub(crate) fn web_content_process_did_terminate(
+  this: &WryNavigationDelegate,
+  _webview: &WKWebView,
+) {
+  if let Some(on_web_content_process_terminate) =
+    &this.ivars().on_web_content_process_terminate_handler
+  {
+    on_web_content_process_terminate();
   }
 }

@@ -54,7 +54,6 @@ struct WryNSWindowDelegateIvars {
 #[cfg(target_os = "macos")]
 define_class!(
   #[unsafe(super(NSObject))]
-  #[name = "WryNSWindowDelegate"]
   #[thread_kind = MainThreadOnly]
   #[ivars = WryNSWindowDelegateIvars]
   struct WryNSWindowDelegate;
@@ -90,7 +89,6 @@ pub struct WryWebViewUIDelegateIvars {
 
 define_class!(
   #[unsafe(super(NSObject))]
-  #[name = "WryWebViewUIDelegate"]
   #[thread_kind = MainThreadOnly]
   #[ivars = WryWebViewUIDelegateIvars]
   pub struct WryWebViewUIDelegate;
@@ -236,7 +234,6 @@ define_class!(
             let delegate = WryNSWindowDelegate::new(
               mtm,
               Box::new(move || {
-                let new_windows = new_windows.clone();
                 new_windows
                   .borrow_mut()
                   .retain(|window| Retained::as_ptr(&window.ns_window) as usize != window_id);

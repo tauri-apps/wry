@@ -34,6 +34,8 @@ impl WebContextImpl {
     let mut context_builder = WebContext::builder();
     if let Some(data_directory) = data_directory {
       let data_manager = WebsiteDataManager::builder()
+        // TODO: Consider taking a cache_directory so this can be in XDG_CACHE_HOME.
+        .base_cache_directory(data_directory.to_string_lossy())
         .base_data_directory(data_directory.to_string_lossy())
         .build();
       if let Some(cookie_manager) = data_manager.cookie_manager() {
