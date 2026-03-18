@@ -74,7 +74,7 @@
 //!
 //! ## Child webviews
 //!
-//! You can use [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`] to create the webview as a child inside another window. This is supported on
+//! You can use [`WebView::new_as_child`] or [`WebViewBuilder::build_as_child`] to create the webview as a child inside another window. This is supported on
 //! macOS, Windows and Linux (X11 Only).
 //!
 //! ```no_run
@@ -347,7 +347,11 @@
 // #[macro_use]
 // extern crate objc;
 
+#[cfg(any(target_os = "windows", target_os = "android"))]
+mod custom_protocol_workaround;
 mod error;
+#[cfg(any(target_os = "android", test))]
+mod inject_initialization_scripts;
 mod proxy;
 #[cfg(any(target_os = "macos", target_os = "android", target_os = "ios"))]
 mod util;
@@ -415,7 +419,7 @@ pub type InputAccessoryViewBuilder =
   dyn Fn(&objc2_ui_kit::UIView) -> Option<Retained<objc2_ui_kit::UIView>>;
 
 /// A rectangular region.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rect {
   /// Rect position.
   pub position: dpi::Position,
@@ -562,7 +566,8 @@ pub struct WebViewAttributes<'a> {
   ///
   /// ## Platform-specific:
   ///
-  /// - **macOS**: Not implemented.
+  /// - **macOS**: Disables the default white WKWebView background via the `drawsBackground` KVC key
+  ///   (same as the `transparent` feature) and sets `underPageBackgroundColor` (macOS 12+) for overscroll areas.
   /// - **Windows**:
   ///   - On Windows 7, transparency is not supported and the alpha value will be ignored.
   ///   - On Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
@@ -592,7 +597,7 @@ pub struct WebViewAttributes<'a> {
   ///
   /// The Page loaded from html string will have `null` origin.
   ///
-  /// ## PLatform-specific:
+  /// ## Platform-specific:
   ///
   /// - **Windows:** the string can not be larger than 2 MB (2 * 1024 * 1024 bytes) in total size
   pub html: Option<String>,
@@ -629,7 +634,7 @@ pub struct WebViewAttributes<'a> {
   /// different Origin headers across platforms:
   ///
   /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://path/to/page/`).
-  /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`].
+  /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page`). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`].
   ///
   /// # Reading assets on mobile
   ///
@@ -732,7 +737,7 @@ pub struct WebViewAttributes<'a> {
   /// ## Platform-specific:
   ///
   /// - Windows: Setting to `false` does nothing on WebView2 Runtime version before 92.0.902.0,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10902-prerelease
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10902-prerelease>
   ///
   /// - **Android / iOS:** Unsupported.
   pub back_forward_navigation_gestures: bool,
@@ -746,7 +751,7 @@ pub struct WebViewAttributes<'a> {
   /// ## Platform-specific:
   ///
   /// - **Windows**: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039>
   /// - **Android:** Unsupported yet.
   /// - **macOS / iOS**: Uses the nonPersistent DataStore.
   pub incognito: bool,
@@ -787,11 +792,29 @@ pub struct WebViewAttributes<'a> {
   /// - **iOS**: Supported since version 17.0+.
   /// - **macOS**: Supported since version 14.0+.
   ///
-  /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
+  /// see <https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578>
   pub background_throttling: Option<BackgroundThrottlingPolicy>,
 
   /// Whether JavaScript should be disabled.
   pub javascript_disabled: bool,
+
+  /// Controls the WebView's browser-level general autofill behavior.
+  ///
+  /// **This option does not disable password or credit card autofill.**
+  ///
+  /// When enabled, the WebView may automatically populate form fields using
+  /// previously stored data such as addresses or contact information.
+  ///
+  /// If not specified, this is `true` by default.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported. On Windows, WebView2's autofill feature (called
+  ///   "Suggestions") may not honor `autocomplete="off"` attributes on input
+  ///   elements in some cases. When this option is `false`, that autofill
+  ///   behavior will be disabled.
+  /// - **macOS / Linux / Android / iOS**: Unsupported and ignored.
+  pub general_autofill_enabled: bool,
 }
 
 impl Default for WebViewAttributes<'_> {
@@ -834,6 +857,7 @@ impl Default for WebViewAttributes<'_> {
       }),
       background_throttling: None,
       javascript_disabled: false,
+      general_autofill_enabled: true,
     }
   }
 }
@@ -918,7 +942,8 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platfrom-specific:
   ///
-  /// - **macOS**: Not implemented.
+  /// - **macOS**: Disables the default white WKWebView background via the `drawsBackground` KVC key
+  ///   (same as the `transparent` feature) and sets `underPageBackgroundColor` (macOS 12+) for overscroll areas.
   /// - **Windows**:
   ///   - on Windows 7, transparency is not supported and the alpha value will be ignored.
   ///   - on Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
@@ -1158,6 +1183,12 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Note
   ///
   /// Data URLs are not supported, use [`html`](Self::with_html) option instead.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows and Android:** if the URL's scheme is a registered custom protocol,
+  ///   a work around is used that changes the URL this navigates to
+  ///   from `{protocol}://localhost/abc` to `{http_or_https}://{protocol}.localhost/abc`
   pub fn with_url_and_headers(mut self, url: impl Into<String>, headers: http::HeaderMap) -> Self {
     self.attrs.url = Some(url.into());
     self.attrs.headers = Some(headers);
@@ -1170,6 +1201,12 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Note
   ///
   /// Data URLs are not supported, use [`html`](Self::with_html) option instead.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows and Android:** if the URL's scheme is a registered custom protocol,
+  ///   a work around is used that changes the URL this navigates to
+  ///   from `{protocol}://localhost/abc` to `{http_or_https}://{protocol}.localhost/abc`
   pub fn with_url(mut self, url: impl Into<String>) -> Self {
     self.attrs.url = Some(url.into());
     self.attrs.headers = None;
@@ -1189,7 +1226,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// The Page loaded from html string will have `null` origin.
   ///
-  /// ## PLatform-specific:
+  /// ## Platform-specific:
   ///
   /// - **Windows:** the string can not be larger than 2 MB (2 * 1024 * 1024 bytes) in total size
   pub fn with_html(mut self, html: impl Into<String>) -> Self {
@@ -1202,7 +1239,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// - Windows: Requires WebView2 Runtime version 86.0.616.0 or higher, does nothing on older versions,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10790-prerelease
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10790-prerelease>
   pub fn with_user_agent(mut self, user_agent: impl Into<String>) -> Self {
     self.attrs.user_agent = Some(user_agent.into());
     self
@@ -1229,7 +1266,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// - Windows: Setting to `false` can't disable pinch zoom on WebView2 Runtime version before 91.0.865.0,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10865-prerelease
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10865-prerelease>
   ///
   /// - **macOS / Linux / Android / iOS**: Unsupported
   pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
@@ -1336,7 +1373,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific:
   ///
   /// - Windows: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039>
   /// - **Android:** Unsupported yet.
   pub fn with_incognito(mut self, incognito: bool) -> Self {
     self.attrs.incognito = incognito;
@@ -1393,7 +1430,7 @@ impl<'a> WebViewBuilder<'a> {
   /// - **iOS**: Supported since version 17.0+.
   /// - **macOS**: Supported since version 14.0+.
   ///
-  /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
+  /// see <https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578>
   pub fn with_background_throttling(mut self, policy: BackgroundThrottlingPolicy) -> Self {
     self.attrs.background_throttling = Some(policy);
     self
@@ -1402,6 +1439,27 @@ impl<'a> WebViewBuilder<'a> {
   /// Whether JavaScript should be disabled.
   pub fn with_javascript_disabled(mut self) -> Self {
     self.attrs.javascript_disabled = true;
+    self
+  }
+
+  /// Controls the WebView's browser-level general autofill behavior.
+  ///
+  /// **This option does not disable password or credit card autofill.**
+  ///
+  /// When enabled, the WebView may automatically populate form fields using
+  /// previously stored data such as addresses or contact information.
+  ///
+  /// If not specified, this is `true` by default.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported. On Windows, WebView2's autofill feature (called
+  ///   "Suggestions") may not honor `autocomplete="off"` attributes on input
+  ///   elements in some cases. When this option is `false`, that autofill
+  ///   behavior will be disabled.
+  /// - **macOS / Linux / Android / iOS**: Unsupported and ignored.
+  pub fn with_general_autofill_enabled(mut self, enabled: bool) -> Self {
+    self.attrs.general_autofill_enabled = enabled;
     self
   }
 
@@ -1663,7 +1721,7 @@ pub trait WebViewBuilderExtWindows {
   ///
   /// ## Warning
   ///
-  /// - Webview instances with different browser arguments must also have different [data directories](struct.WebContext.html#method.new).
+  /// - Webview instances with different browser arguments must also have different [data directories](WebContext::new).
   /// - By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
   ///   `--autoplay-policy=no-user-gesture-required` if autoplay is enabled
   ///   and `--proxy-server=<scheme>://<host>:<port>` if a proxy is set.
@@ -1675,7 +1733,7 @@ pub trait WebViewBuilderExtWindows {
   /// The default value is `true`. See the following link to know more details.
   ///
   /// Setting to `false` does nothing on WebView2 Runtime version before 92.0.902.0,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10824-prerelease
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10824-prerelease>
   ///
   /// <https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2settings#arebrowseracceleratorkeysenabled>
   fn with_browser_accelerator_keys(self, enabled: bool) -> Self;
@@ -1693,7 +1751,7 @@ pub trait WebViewBuilderExtWindows {
   /// Defaults to [`Theme::Auto`] which will follow the OS defaults.
   ///
   /// Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039>
   fn with_theme(self, theme: Theme) -> Self;
 
   /// Determines whether the custom protocols should use `https://<scheme>.path/to/page` instead of the default `http://<scheme>.path/to/page`.
@@ -1707,18 +1765,26 @@ pub trait WebViewBuilderExtWindows {
   /// Specifies the native scrollbar style to use with webview2.
   /// CSS styles that modify the scrollbar are applied on top of the native appearance configured here.
   ///
-  /// Defaults to [`ScrollbarStyle::Default`] which is the browser default used by Microsoft Edge.
+  /// Defaults to [`ScrollBarStyle::Default`] which is the browser default used by Microsoft Edge.
   ///
   /// Requires WebView2 Runtime version 125.0.2535.41 or higher, does nothing on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/?tabs=dotnetcsharp#10253541
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/?tabs=dotnetcsharp#10253541>
+  ///
+  /// ## Warning
+  ///
+  /// Webview instances with different scroll bar styles must also have different [data directories](WebContext::new).
   fn with_scroll_bar_style(self, style: ScrollBarStyle) -> Self;
 
   /// Determines whether the ability to install and enable extensions is enabled.
   ///
   /// By default, extensions are disabled.
   ///
-  /// Requires WebView2 Runtime version 1.0.2210.55 or higher, does nothing on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10221055
+  /// Requires WebView2 Runtime version 120.0.2210.55 or higher, does nothing on older versions,
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10221055>
+  ///
+  /// ## Warning
+  ///
+  /// Webview instances with different browser extensions enabled settings must also have different [data directories](WebContext::new).
   fn with_browser_extensions_enabled(self, enabled: bool) -> Self;
 
   /// Set the path from which to load extensions from. Extensions stored in this path should be unpacked.
@@ -2108,7 +2174,8 @@ impl WebView {
   ///
   /// ## Platfrom-specific:
   ///
-  /// - **macOS**: Not implemented.
+  /// - **macOS**: Disables the default white WKWebView background via the `drawsBackground` KVC key
+  ///   (same as the `transparent` feature) and sets `underPageBackgroundColor` (macOS 12+) for overscroll areas.
   /// - **Windows**:
   ///   - On Windows 7, transparency is not supported and the alpha value will be ignored.
   ///   - On Windows higher than 7: translucent colors are not supported so any alpha value other than `0` will be replaced by `255`
@@ -2239,7 +2306,7 @@ pub trait WebViewExtWindows {
   /// Changes the webview2 theme.
   ///
   /// Requires WebView2 Runtime version 101.0.1210.39 or higher, returns error on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039>
   fn set_theme(&self, theme: Theme) -> Result<()>;
 
   /// Sets the [memory usage target level][1].
@@ -2398,7 +2465,7 @@ impl WebViewExtMacOS for WebView {
   }
 
   fn ns_window(&self) -> Retained<NSWindow> {
-    self.webview.webview.window().unwrap().clone()
+    self.webview.webview.window().unwrap()
   }
 
   fn reparent(&self, window: *mut NSWindow) -> Result<()> {

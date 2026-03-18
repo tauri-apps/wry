@@ -62,7 +62,7 @@ let webview = builder.build_gtk(window.gtk_window()).unwrap();
 
 ### Child webviews
 
-You can use [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`] to create the webview as a child inside another window. This is supported on
+You can use [`WebView::new_as_child`] or [`WebViewBuilder::build_as_child`] to create the webview as a child inside another window. This is supported on
 macOS, Windows and Linux (X11 Only).
 
 ```rust
@@ -189,8 +189,24 @@ sudo dnf install gtk3-devel webkit2gtk4.1-devel
 
 ###### Nix & NixOS
 
+```nix
+# shell.nix
+
+let
+   # Unstable Channel | Rolling Release
+   pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
+   packages = with pkgs; [
+     pkg-config
+     webkitgtk_4_1
+   ];
+ in
+ pkgs.mkShell {
+   buildInputs = packages;
+ }
+```
+
 ```sh
-nix-shell -p pkg-config webkitgtk_4_1
+nix-shell shell.nix
 ```
 
 ###### GUIX

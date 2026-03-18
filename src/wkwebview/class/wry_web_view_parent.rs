@@ -20,7 +20,6 @@ pub struct WryWebViewParentIvars {
 
 define_class!(
   #[unsafe(super(NSView))]
-  #[name = "WryWebViewParent"]
   #[ivars = WryWebViewParentIvars]
   pub struct WryWebViewParent;
 

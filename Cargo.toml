@@ -2,7 +2,7 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.53.5"
+version = "0.54.4"
 authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -56,8 +56,8 @@ cookie = "0.18"
 javascriptcore-rs = { version = "=1.1.2", features = [
   "v2_28",
 ], optional = true }
-webkit2gtk = { version = "=2.0.1", features = ["v2_38"], optional = true }
-webkit2gtk-sys = { version = "=2.0.1", optional = true }
+webkit2gtk = { version = "=2.0.2", features = ["v2_38"], optional = true }
+webkit2gtk-sys = { version = "=2.0.2", optional = true }
 gtk = { version = "0.18", optional = true }
 soup3 = { version = "0.5", optional = true }
 x11-dl = { version = "2.21", optional = true }
@@ -97,7 +97,7 @@ features = [
 url = "2.5"
 dirs = "6"
 block2 = "0.6"
-objc2 = { version = "0.6", features = [
+objc2 = { version = "0.6.4", features = [
   "exception",
   # because `NSUUID::from_bytes` needs it,
   # and `WebViewBuilderExtDarwin.with_data_store_identifier` crashes otherwise,
@@ -195,15 +195,13 @@ objc2-app-kit = { version = "0.3.0", default-features = false, features = [
 
 [target."cfg(target_os = \"android\")".dependencies]
 crossbeam-channel = "0.5"
-html5ever = "0.29"
-kuchiki = { package = "kuchikiki", version = "=0.8.8-speedreader" }
 sha2 = "0.10"
 base64 = "0.22"
 jni = "0.21"
 ndk = "0.9"
 tao-macros = "0.1"
 libc = "0.2"
-lazy_static = "1"
+dom_query = { version = "0.27.0", default-features = false }
 
 [dev-dependencies]
 pollster = "0.4.0"
@@ -213,6 +211,12 @@ winit = "0.30"
 getrandom = "0.3"
 http-range = "0.1"
 percent-encoding = "2.3"
+glow = "0.16.0"
+libloading = "0.8.9"
+# For unit testing `inject_initialization_scripts` since we can't do it easily on Android
+sha2 = "0.10"
+base64 = "0.22"
+dom_query = { version = "0.27.0", default-features = false }
 
 [lints.rust.unexpected_cfgs]
 level = "warn"
