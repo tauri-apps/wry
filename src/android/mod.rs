@@ -4,7 +4,7 @@
 
 use super::{PageLoadEvent, WebViewAttributes, RGBA};
 use crate::{
-  custom_protocol_workaround, inject_initialization_scripts::inject_scripts_into_html,
+  custom_protocol_workaround, inject_initialization_scripts::inject_scripts_into_html, Error,
   RequestAsyncResponder, Result,
 };
 use crossbeam_channel::*;
@@ -16,7 +16,7 @@ use jni::{
   JNIEnv,
 };
 use ndk::looper::{FdEvent, ThreadLooper};
-use once_cell::sync::OnceCell;
+use once_cell::sync::{Lazy, OnceCell};
 use raw_window_handle::HasWindowHandle;
 use std::{
   borrow::Cow,
@@ -47,15 +47,12 @@ type WebviewId = String;
 
 macro_rules! define_static_handlers {
   ($($key: ident, $var:ident = $type_name:ident);+ $(;)?) => {
-    $(lazy_static::lazy_static! {
-      static ref $var: Mutex<HashMap<$key, $type_name>> = Mutex::new(HashMap::new());
-    })*
+    $(static $var: Lazy<Mutex<HashMap<$key, $type_name>>> = Lazy::new(||Mutex::new(HashMap::new()));)*
   };
 
   ($($var:ident = $type_name:ident { $($fields:ident:$types:ty),+ $(,)? });+ $(;)?) => {
-    $(lazy_static::lazy_static! {
-      static ref $var: Mutex<HashMap<WebviewId, $type_name>> = Mutex::new(HashMap::new());
-    }
+    $(
+    static $var: Lazy<Mutex<HashMap<WebviewId, $type_name>>> = Lazy::new(||Mutex::new(HashMap::new()));
     pub struct $type_name {
       $($fields: $types,)*
     }
