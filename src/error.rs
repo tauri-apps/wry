@@ -17,6 +17,12 @@ pub enum Error {
   #[cfg(gtk)]
   #[error("Couldn't find X11 Display")]
   X11DisplayNotFound,
+  #[cfg(gtk)]
+  #[error(transparent)]
+  CairoError(#[from] gtk::cairo::Error),
+  #[cfg(gtk)]
+  #[error("Failed to convert WebView snapshot to a Pixbuf")]
+  PixbufConversionFailed,
   #[cfg(all(gtk, feature = "x11"))]
   #[error(transparent)]
   XlibError(#[from] x11_dl::error::OpenError),
@@ -74,4 +80,14 @@ pub enum Error {
   #[cfg(any(target_os = "macos", target_os = "ios"))]
   #[error("data store is currently opened")]
   DataStoreInUse,
+  #[cfg(target_os = "macos")]
+  #[error("Could not obtain screenshot from webview")]
+  NilScreenshot,
+  #[cfg(target_os = "macos")]
+  #[error("Screenshot failed ({domain}:{code}): {description}")]
+  MacOsScreenshotError {
+    domain: String,
+    code: isize,
+    description: String,
+  },
 }

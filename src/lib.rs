@@ -2083,6 +2083,21 @@ impl WebView {
     self.webview.print()
   }
 
+  /// Capture a PNG screenshot of the currently visible webview contents.
+  ///
+  /// The screenshot is returned asynchronously via `handler`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux / macOS / Windows**: Implemented (visible region only).
+  /// - **Android / iOS**: Not supported; `handler` will never be called.
+  pub fn screenshot<F>(&self, handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) + 'static + Send,
+  {
+    self.webview.screenshot(handler)
+  }
+
   /// Get a list of cookies for specific url.
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
     self.webview.cookies_for_url(url)

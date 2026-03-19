@@ -1711,6 +1711,60 @@ impl InnerWebView {
     )
   }
 
+  pub fn screenshot<F>(&self, handler: F) -> Result<()>
+  where
+    F: Fn(Result<Vec<u8>>) + 'static + Send,
+  {
+    unsafe {
+      let Some(stream) = SHCreateMemStream(None) else {
+        return Err(Error::from(windows::core::Error::from(E_POINTER)));
+      };
+      let stream_for_handler = stream.clone();
+
+      self.webview.CapturePreview(
+        COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG,
+        &stream,
+        &CapturePreviewCompletedHandler::create(Box::new(move |res| {
+          let result = (|| -> windows::core::Result<Vec<u8>> {
+            res?;
+
+            let mut bytes = Vec::new();
+            stream_for_handler.Seek(0, STREAM_SEEK_SET, None)?;
+
+            let mut buffer = [0u8; 4096];
+            loop {
+              let mut cb_read = 0;
+              stream_for_handler
+                .Read(
+                  buffer.as_mut_ptr() as *mut _,
+                  buffer.len() as u32,
+                  Some(&mut cb_read),
+                )
+                .ok()?;
+
+              if cb_read == 0 {
+                break;
+              }
+
+              bytes.extend_from_slice(&buffer[..cb_read as usize]);
+            }
+
+            Ok(bytes)
+          })();
+
+          match result {
+            Ok(bytes) => handler(Ok(bytes)),
+            Err(err) => handler(Err(err.into())),
+          }
+
+          Ok(())
+        })),
+      )?;
+    }
+
+    Ok(())
+  }
+
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     unsafe {
       self
