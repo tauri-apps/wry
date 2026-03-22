@@ -156,6 +156,7 @@ abstract class WryActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         Rust.onNewIntent(intent)
     }
+
     fun getAppClass(name: String): Class<*> {
         return Class.forName(name)
     }
