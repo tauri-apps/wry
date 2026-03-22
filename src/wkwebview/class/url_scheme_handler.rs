@@ -28,7 +28,10 @@ use crate::{wkwebview::WEBVIEW_STATE, RequestAsyncResponder, WryWebView};
 
 pub fn create(name: &str) -> &AnyClass {
   unsafe {
-    let scheme_name = format!("{name}URLSchemeHandler\0");
+    // Include the address of WEBVIEW_STATE in the class name so that each dylib in the process
+    // gets its own ObjC class with method pointers into its own code and data segments.
+    let unique_id = std::ptr::addr_of!(WEBVIEW_STATE) as usize;
+    let scheme_name = format!("{name}URLSchemeHandler_{unique_id:x}\0");
     let scheme_name = CStr::from_bytes_with_nul(scheme_name.as_bytes()).unwrap();
     let cls = ClassBuilder::new(scheme_name, NSObject::class());
     match cls {
@@ -123,7 +126,7 @@ extern "C" fn start_task(
 
       // get all our headers values and inject them in our request
       if let Some(all_headers) = all_headers {
-        for current_header in all_headers.allKeys().to_vec() {
+        for current_header in all_headers.allKeys().iter() {
           let header_value = all_headers.valueForKey(&current_header).unwrap();
           // inject the header into the request
           http_request = http_request.header(current_header.to_string(), header_value.to_string());
@@ -166,11 +169,10 @@ extern "C" fn start_task(
         current_uuid: Retained<NSUUID>,
       ) -> crate::Result<()> {
         let latest_task_uuid = webview.get_custom_task_uuid(task_key);
-        if let Some(latest_uuid) = latest_task_uuid {
-          if latest_uuid != current_uuid {
-            return Err(crate::Error::CustomProtocolTaskInvalid);
-          }
-        } else {
+        let Some(latest_uuid) = latest_task_uuid else {
+          return Err(crate::Error::CustomProtocolTaskInvalid);
+        };
+        if latest_uuid != current_uuid {
           return Err(crate::Error::CustomProtocolTaskInvalid);
         }
         Ok(())
@@ -282,7 +284,7 @@ extern "C" fn start_task(
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
                 check_webview_id_valid(webview_id)?;
-                check_task_is_valid(&webview, task_key, task_uuid.clone())?;
+                check_task_is_valid(&webview, task_key, task_uuid)?;
 
                 objc2::exception::catch(AssertUnwindSafe(|| {
                   task.didFinish();
@@ -306,7 +308,7 @@ extern "C" fn start_task(
                 task_key,
                 task_uuid,
                 webview_id,
-                url.clone(),
+                url,
                 sent_response,
               ) {
                 #[cfg(feature = "tracing")]

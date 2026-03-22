@@ -54,7 +54,6 @@ struct WryNSWindowDelegateIvars {
 #[cfg(target_os = "macos")]
 define_class!(
   #[unsafe(super(NSObject))]
-  #[name = "WryNSWindowDelegate"]
   #[thread_kind = MainThreadOnly]
   #[ivars = WryNSWindowDelegateIvars]
   struct WryNSWindowDelegate;
@@ -82,15 +81,13 @@ impl WryNSWindowDelegate {
 
 pub struct WryWebViewUIDelegateIvars {
   #[cfg(target_os = "macos")]
-  new_window_req_handler:
-    Option<Box<dyn Fn(String, NewWindowFeatures) -> NewWindowResponse + Send + Sync>>,
+  new_window_req_handler: Option<Box<dyn Fn(String, NewWindowFeatures) -> NewWindowResponse>>,
   #[cfg(target_os = "macos")]
   new_windows: Rc<RefCell<Vec<NewWindow>>>,
 }
 
 define_class!(
   #[unsafe(super(NSObject))]
-  #[name = "WryWebViewUIDelegate"]
   #[thread_kind = MainThreadOnly]
   #[ivars = WryWebViewUIDelegateIvars]
   pub struct WryWebViewUIDelegate;
@@ -236,7 +233,6 @@ define_class!(
             let delegate = WryNSWindowDelegate::new(
               mtm,
               Box::new(move || {
-                let new_windows = new_windows.clone();
                 new_windows
                   .borrow_mut()
                   .retain(|window| Retained::as_ptr(&window.ns_window) as usize != window_id);
@@ -268,9 +264,7 @@ define_class!(
 impl WryWebViewUIDelegate {
   pub fn new(
     mtm: MainThreadMarker,
-    new_window_req_handler: Option<
-      Box<dyn Fn(String, NewWindowFeatures) -> NewWindowResponse + Send + Sync>,
-    >,
+    new_window_req_handler: Option<Box<dyn Fn(String, NewWindowFeatures) -> NewWindowResponse>>,
   ) -> Retained<Self> {
     #[cfg(target_os = "ios")]
     let _new_window_req_handler = new_window_req_handler;

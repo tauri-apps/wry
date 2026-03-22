@@ -29,8 +29,9 @@ use windows::{
 use self::drag_drop::DragDropController;
 use super::Theme;
 use crate::{
-  proxy::ProxyConfig, Error, MemoryUsageLevel, NewWindowFeatures, NewWindowOpener,
-  NewWindowResponse, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebViewAttributes, RGBA,
+  custom_protocol_workaround, proxy::ProxyConfig, Error, MemoryUsageLevel, NewWindowFeatures,
+  NewWindowOpener, NewWindowResponse, PageLoadEvent, Rect, RequestAsyncResponder, Result,
+  WebViewAttributes, RGBA,
 };
 
 type EventRegistrationToken = i64;
@@ -293,7 +294,6 @@ impl InnerWebView {
     let additional_browser_args = pl_attrs.additional_browser_args.unwrap_or_else(|| {
       // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
       // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
-      // enable white flicker fix
       let default_args = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
       let mut arguments = String::from(default_args);
 
@@ -349,15 +349,18 @@ impl InnerWebView {
         // by manually creating the callback handler and use webview2_com::with_with_bump
         &CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
           move |error_code, environment| {
-            error_code?;
-            tx.send(environment.ok_or_else(|| windows::core::Error::from(E_POINTER)))
+            let result = (|| {
+              error_code?;
+              environment.ok_or_else(|| windows::core::Error::from(E_POINTER).into())
+            })();
+            tx.send(result)
               .map_err(|_| windows::core::Error::from(E_UNEXPECTED))
           },
         )),
       )?;
     }
 
-    webview2_com::wait_with_pump(rx)?.map_err(Into::into)
+    webview2_com::wait_with_pump(rx)?
   }
 
   #[inline]
@@ -368,22 +371,23 @@ impl InnerWebView {
     background_color: Option<(u8, u8, u8, u8)>,
   ) -> Result<ICoreWebView2Controller> {
     let (tx, rx) = mpsc::channel();
-    let env = env.clone();
-    let env10 = env.cast::<ICoreWebView2Environment10>();
 
     // we don't use CreateCoreWebView2ControllerCompletedHandler::wait_for_async
     // as it uses an mspc::channel under the hood, so we can avoid using two channels
     // by manually creating the callback handler and use webview2_com::with_with_bump
     let handler = CreateCoreWebView2ControllerCompletedHandler::create(Box::new(
       move |error_code, controller| {
-        error_code?;
-        tx.send(controller.ok_or_else(|| windows::core::Error::from(E_POINTER)))
+        let result = (|| {
+          error_code?;
+          controller.ok_or_else(|| windows::core::Error::from(E_POINTER).into())
+        })();
+        tx.send(result)
           .map_err(|_| windows::core::Error::from(E_UNEXPECTED))
       },
     ));
 
     unsafe {
-      if let Ok(env10) = env10 {
+      if let Ok(env10) = env.cast::<ICoreWebView2Environment10>() {
         let controller_opts = env10.CreateCoreWebView2ControllerOptions()?;
 
         if let Some((r, g, b, mut a)) = background_color {
@@ -407,7 +411,7 @@ impl InnerWebView {
       }
     }
 
-    webview2_com::wait_with_pump(rx)?.map_err(Into::into)
+    webview2_com::wait_with_pump(rx)?
   }
 
   #[allow(clippy::too_many_arguments)]
@@ -516,7 +520,7 @@ impl InnerWebView {
         if custom_protocols.contains(protocol) {
           // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
           // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-          url = apply_uri_work_around(&url, http_or_https, protocol)
+          url = custom_protocol_workaround::apply_uri_work_around(&url, http_or_https, protocol)
         }
       }
 
@@ -579,6 +583,10 @@ impl InnerWebView {
       if let Ok(settings3) = settings.cast::<ICoreWebView2Settings3>() {
         settings3.SetAreBrowserAcceleratorKeysEnabled(false)?;
       }
+    }
+
+    if let Ok(settings4) = settings.cast::<ICoreWebView2Settings4>() {
+      settings4.SetIsGeneralAutofillEnabled(attributes.general_autofill_enabled)?;
     }
 
     if let Ok(settings5) = settings.cast::<ICoreWebView2Settings5>() {
@@ -688,7 +696,7 @@ impl InnerWebView {
     let new_window_req_handler = attributes
       .new_window_req_handler
       .take()
-      .map(std::sync::Arc::new);
+      .map(std::rc::Rc::new);
     let env_ = env.clone();
     // New window handler
     webview.add_NewWindowRequested(
@@ -752,25 +760,22 @@ impl InnerWebView {
 
           let new_window_req_handler = new_window_req_handler.clone();
           let deferral = args.GetDeferral()?;
-          let deferral = UnsafeSend(deferral);
-          let args = UnsafeSend(args);
-          let hwnd = UnsafeSend(hwnd.clone());
-          std::thread::spawn(move || match new_window_req_handler(uri, features) {
+          // Use `dispatch_handler` to schedule the run on the message loop after this callback completes,
+          // this is needed for `new_window_req_handler` to create new webviews for `NewWindowResponse::Create`
+          // or it will deadlock, see https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/threading-model#reentrancy
+          Self::dispatch_handler(hwnd, move || match new_window_req_handler(uri, features) {
             NewWindowResponse::Allow => {
-              let _ = args.take().SetHandled(false);
-              let _ = deferral.take().Complete();
+              let _ = args.SetHandled(false);
+              let _ = deferral.Complete();
             }
             NewWindowResponse::Create { webview } => {
-              Self::dispatch_handler(hwnd.take(), move || {
-                let args = args.take();
-                let _ = args.SetHandled(true);
-                let _ = args.SetNewWindow(&webview);
-                let _ = deferral.take().Complete();
-              });
+              let _ = args.SetHandled(true);
+              let _ = args.SetNewWindow(&webview);
+              let _ = deferral.Complete();
             }
             NewWindowResponse::Deny => {
-              let _ = args.take().SetHandled(true);
-              let _ = deferral.take().Complete();
+              let _ = args.SetHandled(true);
+              let _ = deferral.Complete();
             }
           });
         } else {
@@ -781,6 +786,7 @@ impl InnerWebView {
       })),
       token,
     )?;
+    Self::attach_main_thread_dispatcher(hwnd);
 
     // Download handler
     if attributes.download_started_handler.is_some()
@@ -924,7 +930,7 @@ impl InnerWebView {
     for name in attributes.custom_protocols.keys() {
       // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
       // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-      let work_around_uri = work_around_uri_prefix(http_or_https, name);
+      let work_around_uri = custom_protocol_workaround::work_around_uri_prefix(http_or_https, name);
       let filter = HSTRING::from(format!("{work_around_uri}*"));
 
       // If WebView2 version is high enough, use the new API to add the filter to allow Shared Workers and
@@ -970,7 +976,7 @@ impl InnerWebView {
 
         if let Some((custom_protocol, custom_protocol_handler)) = custom_protocols
           .iter()
-          .find(|(protocol, _)| is_work_around_uri(&uri, http_or_https, protocol))
+          .find(|(protocol, _)| custom_protocol_workaround::is_work_around_uri(&uri, http_or_https, protocol))
         {
           let request = match Self::prepare_request(http_or_https, custom_protocol, &webview_request, &uri)
           {
@@ -1085,7 +1091,11 @@ impl InnerWebView {
     }
 
     // Undo the protocol workaround when giving path to resolver
-    let path = revert_uri_work_around(webview_request_uri, http_or_https, custom_protocol);
+    let path = custom_protocol_workaround::revert_uri_work_around(
+      webview_request_uri,
+      http_or_https,
+      custom_protocol,
+    );
 
     let request = request.uri(&path).body(body_sent)?;
 
@@ -1132,6 +1142,13 @@ impl InnerWebView {
     env.CreateWebResourceResponse(None, status_code as i32, &status, &error)
   }
 
+  /// Send `function` to run on `hwnd`'s thread
+  ///
+  /// ## SAFETY:
+  ///
+  /// This function doesn't force a `Send` to make it easier to use,
+  /// the caller must call this function on the same thread as `hwnd`
+  /// or ensure the function is safe to send to and called on `hwnd`'s thread
   #[inline]
   unsafe fn dispatch_handler<F>(hwnd: HWND, function: F)
   where
@@ -1153,9 +1170,9 @@ impl InnerWebView {
         err.message()
       );
       #[cfg(feature = "tracing")]
-      tracing::error!("{}", &msg);
+      tracing::error!("{msg}");
       #[cfg(debug_assertions)]
-      eprintln!("{}", msg);
+      eprintln!("{msg}");
     }
   }
 
@@ -1351,7 +1368,7 @@ impl InnerWebView {
 
 /// Public APIs
 impl InnerWebView {
-  pub fn id(&self) -> crate::WebViewId {
+  pub fn id(&self) -> crate::WebViewId<'_> {
     &self.id
   }
 
@@ -1618,34 +1635,37 @@ impl InnerWebView {
         // as it uses an mspc::channel under the hood, so we can avoid using two channels
         // by manually creating the callback handler and use webview2_com::with_with_bump
         &GetCookiesCompletedHandler::create(Box::new(move |error_code, cookies| {
-          error_code?;
+          let result = (move || {
+            error_code?;
 
-          let cookies = if let Some(cookies) = cookies {
-            let mut count = 0;
-            cookies.Count(&mut count)?;
+            let cookies = if let Some(cookies) = cookies {
+              let mut count = 0;
+              cookies.Count(&mut count)?;
 
-            let mut out = Vec::with_capacity(count as _);
+              let mut out = Vec::with_capacity(count as _);
 
-            for idx in 0..count {
-              let cookie = cookies.GetValueAtIndex(idx)?;
+              for idx in 0..count {
+                let cookie = cookies.GetValueAtIndex(idx)?;
 
-              if let Ok(cookie) = Self::cookie_from_win32(cookie) {
-                out.push(cookie)
+                if let Ok(cookie) = Self::cookie_from_win32(cookie) {
+                  out.push(cookie)
+                }
               }
-            }
 
-            out
-          } else {
-            Vec::new()
-          };
+              out
+            } else {
+              Vec::new()
+            };
+            Ok(cookies)
+          })();
 
-          tx.send(cookies)
+          tx.send(result)
             .map_err(|_| windows::core::Error::from(E_UNEXPECTED))
         })),
       )?;
     }
 
-    webview2_com::wait_with_pump(rx).map_err(Into::into)
+    webview2_com::wait_with_pump(rx)?
   }
 
   pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
@@ -1820,42 +1840,6 @@ unsafe fn set_theme(webview: &ICoreWebView2, theme: Theme) -> Result<()> {
     .map_err(Into::into)
 }
 
-/// WebView2 supports non-standard protocols only on Windows 10+, so we have to use a workaround,
-/// conveting `{protocol}://localhost/abc` to `{http_or_https}://{protocol}.localhost/abc`,
-/// and this function tests if the URI starts with `{http_or_https}://{protocol}.`
-///
-/// See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-fn is_work_around_uri(uri: &str, http_or_https: &str, protocol: &str) -> bool {
-  uri
-    .strip_prefix(http_or_https)
-    .and_then(|rest| rest.strip_prefix("://"))
-    .and_then(|rest| rest.strip_prefix(protocol))
-    .and_then(|rest| rest.strip_prefix("."))
-    .is_some()
-}
-
-fn apply_uri_work_around(uri: &str, http_or_https: &str, protocol: &str) -> String {
-  uri.replace(
-    &original_uri_prefix(protocol),
-    &work_around_uri_prefix(http_or_https, protocol),
-  )
-}
-
-fn revert_uri_work_around(uri: &str, http_or_https: &str, protocol: &str) -> String {
-  uri.replace(
-    &work_around_uri_prefix(http_or_https, protocol),
-    &original_uri_prefix(protocol),
-  )
-}
-
-fn original_uri_prefix(protocol: &str) -> String {
-  format!("{protocol}://")
-}
-
-fn work_around_uri_prefix(http_or_https: &str, protocol: &str) -> String {
-  format!("{http_or_https}://{protocol}.")
-}
-
 pub fn platform_webview_version() -> Result<String> {
   let mut versioninfo = PWSTR::null();
   unsafe { GetAvailableCoreWebView2BrowserVersionString(PCWSTR::null(), &mut versioninfo) }?;
@@ -1867,26 +1851,4 @@ fn is_windows_7() -> bool {
   let v = windows_version::OsVersion::current();
   // windows 7 is 6.1
   v.major == 6 && v.minor == 1
-}
-
-struct UnsafeSend<T>(T);
-unsafe impl<T> Send for UnsafeSend<T> {}
-
-impl<T> UnsafeSend<T> {
-  fn take(self) -> T {
-    self.0
-  }
-}
-
-#[cfg(test)]
-mod tests {
-  use super::is_work_around_uri;
-
-  #[test]
-  fn checks_if_custom_protocol_uri() {
-    let scheme = "http";
-    let uri = "http://wry.localhost/path/to/page";
-    assert!(is_work_around_uri(uri, scheme, "wry"));
-    assert!(!is_work_around_uri(uri, scheme, "asset"));
-  }
 }

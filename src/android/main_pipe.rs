@@ -59,10 +59,8 @@ impl ActivityProxy {
   }
 }
 
-lazy_static::lazy_static! {
-  static ref ACTIVITY_PROXY: Mutex<BTreeMap<ActivityId, ActivityProxy>> =
-    Mutex::new(BTreeMap::new());
-}
+static ACTIVITY_PROXY: once_cell::sync::Lazy<Mutex<BTreeMap<ActivityId, ActivityProxy>>> =
+  Lazy::new(|| Mutex::new(BTreeMap::new()));
 
 pub fn activity_proxy(id: ActivityId) -> Option<ActivityProxy> {
   ACTIVITY_PROXY.lock().unwrap().get(&id).cloned()
