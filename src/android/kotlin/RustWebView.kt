@@ -16,6 +16,7 @@ import kotlin.collections.Map
 @SuppressLint("RestrictedApi")
 class RustWebView(context: Context, val initScripts: Array<String>, val id: String): WebView(context) {
     val isDocumentStartScriptEnabled: Boolean
+    val requestInterceptor: RequestInterceptor
 
     init {
         settings.javaScriptEnabled = true
@@ -33,6 +34,9 @@ class RustWebView(context: Context, val initScripts: Array<String>, val id: Stri
         } else {
           isDocumentStartScriptEnabled = false
         }
+
+        requestInterceptor = RequestInterceptor()
+        addJavascriptInterface(requestInterceptor, RequestInterceptor.INTERFACE_NAME)
 
         {{class-init}}
     }
