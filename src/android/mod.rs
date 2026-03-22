@@ -7,20 +7,15 @@ use crate::{
   custom_protocol_workaround, inject_initialization_scripts::inject_scripts_into_html, Error,
   RequestAsyncResponder, Result,
 };
+use crossbeam_channel::*;
 
-use base64::{engine::general_purpose, Engine};
-use crossbeam_channel::*;
-use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
-use http::{
-  header::{HeaderValue, CONTENT_SECURITY_POLICY, CONTENT_TYPE},
-  Request, Response as HttpResponse,
-use crossbeam_channel::*;
+use http::{Request, Response as HttpResponse};
 use jni::{
   errors::Result as JniResult,
   objects::{GlobalRef, JClass, JObject},
   JNIEnv,
 };
-use ndk::looper::{FdEvent, ThreadLooper};
+use ndk::looper::ThreadLooper;
 use once_cell::sync::{Lazy, OnceCell};
 use raw_window_handle::HasWindowHandle;
 use std::{
