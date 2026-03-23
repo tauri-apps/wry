@@ -205,7 +205,7 @@ dom_query = { version = "0.27.0", default-features = false }
 [dev-dependencies]
 pollster = "0.4.0"
 tao = "0.35"
-wgpu = "23"
+wgpu = "29"
 winit = "0.30"
 getrandom = "0.3"
 http-range = "0.1"
