@@ -279,7 +279,9 @@ impl InnerWebView {
                 });
 
               (custom_protocol_handler)(webview_id, request, RequestAsyncResponder { responder });
-              return Some(rx.recv_timeout(MAIN_PIPE_TIMEOUT).unwrap());
+              // 3x the timeout while we monitor https://github.com/tauri-apps/wry/issues/1551
+              // TODO: Remove timeout
+              return rx.recv_timeout(MAIN_PIPE_TIMEOUT * 3).inspect_err(|e| {eprintln!("custom protocol timed out: {e}");}).ok();
             }
             None
           },
@@ -493,7 +495,7 @@ pub fn platform_webview_version() -> Result<String> {
     }
   };
   MainPipe::send(activity_id, WebViewMessage::GetWebViewVersion(tx));
-  rx.recv_timeout(MAIN_PIPE_TIMEOUT).unwrap()
+  rx.recv_timeout(MAIN_PIPE_TIMEOUT)?
 }
 
 /// Finds a class in the project scope.
