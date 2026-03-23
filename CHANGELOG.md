@@ -1,5 +1,14 @@
 # Changelog
 
+## \[0.55.0]
+
+- [`a535fd9`](https://github.com/tauri-apps/wry/commit/a535fd95025d126dd1d6ad10b101b81ed9ae40fe) ([#1699](https://github.com/tauri-apps/wry/pull/1699) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) On Android, fixed panics on custom protocol timeouts. Increased timeout for non-internal requests to 30 seconds.
+- [`781f371`](https://github.com/tauri-apps/wry/commit/781f371893d58c9dc81f2adce84adfad9e390833) ([#1633](https://github.com/tauri-apps/wry/pull/1633) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Update to latest tao to support multi-window on Android and iOS.
+- [`848aff7`](https://github.com/tauri-apps/wry/commit/848aff722a72cc30be01c992734000933f74c2d0) ([#1660](https://github.com/tauri-apps/wry/pull/1660) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Run `new_window_req_handler` on main thread and remove the `Send + Sync` restriction on it
+- [`92114b2`](https://github.com/tauri-apps/wry/commit/92114b2efb531ec8191734817ebcda952e204210) ([#1634](https://github.com/tauri-apps/wry/pull/1634) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Call `onNewIntent` for tao's 0.35 Opened event.
+- [`05440b8`](https://github.com/tauri-apps/wry/commit/05440b80ed79a84faa264a91dbcd952d9e77f78f) ([#1688](https://github.com/tauri-apps/wry/pull/1688) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Removed `drag-drop` feature, previously gated `WebViewAttributes::drag_drop_handler` and `WebViewBuilder::with_drag_drop_handler` are now always available
+- [`222c63d`](https://github.com/tauri-apps/wry/commit/222c63d69f03639bbd1f456ae2d9d2f26a2d549c) ([#1698](https://github.com/tauri-apps/wry/pull/1698) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) Remove `WebViewAttributes`, `WebView::new` and `WebView::new_as_child` from public API. Use `WebViewBuilder` instead.
+
 ## \[0.54.4]
 
 - [`47d9470`](https://github.com/tauri-apps/wry/commit/47d9470e40160af8209da094364141917ec677a7) ([#1693](https://github.com/tauri-apps/wry/pull/1693) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Updated dependency dom_query to 0.27.0, this fixed a bug where initialization scripts were escaped incorrectly on Android
