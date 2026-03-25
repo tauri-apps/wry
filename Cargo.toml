@@ -194,7 +194,7 @@ objc2-app-kit = { version = "0.3.0", default-features = false, features = [
 
 [target."cfg(target_os = \"android\")".dependencies]
 crossbeam-channel = "0.5"
-sha2 = "0.10"
+sha2 = "0.11"
 base64 = "0.22"
 jni = "0.21"
 ndk = "0.9"
@@ -213,7 +213,7 @@ percent-encoding = "2.3"
 glow = "0.16.0"
 libloading = "0.8.9"
 # For unit testing `inject_initialization_scripts` since we can't do it easily on Android
-sha2 = "0.10"
+sha2 = "0.11"
 base64 = "0.22"
 dom_query = { version = "0.27.0", default-features = false }
 
