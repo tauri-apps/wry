@@ -11,7 +11,7 @@ on:
 
 jobs:
   audit-rust:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
       - name: rust audit

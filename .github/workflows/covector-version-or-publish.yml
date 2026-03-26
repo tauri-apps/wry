@@ -8,7 +8,7 @@ on:
 
 jobs:
   version-or-publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 65
     outputs:
       change: ${{ steps.covector.outputs.change }}
