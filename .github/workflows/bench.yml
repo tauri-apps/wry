@@ -8,7 +8,7 @@ on:
 
 env:
   RUST_BACKTRACE: 1
-  CARGO_PROFILE_DEV_DEBUG: 0 # This would add unnecessary bloat to the target folder, decreasing cache efficiency.
+  CARGO_PROFILE_DEV_DEBUG: 0
   LC_ALL: en_US.UTF-8 # This prevents strace from changing it's number format to use commas.
 
 concurrency:
@@ -22,12 +22,12 @@ jobs:
       matrix:
         rust: [nightly]
         platform:
-          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-22.04 }
 
     runs-on: ${{ matrix.platform.os }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
       - name: install ${{ matrix.rust }}
         uses: actions-rs/toolchain@v1
         with:
@@ -51,12 +51,6 @@ jobs:
           sudo dpkg -i hyperfine_1.11.0_amd64.deb
           pip install memory_profiler
 
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            .
-            bench/tests
-
       - name: run benchmarks
         run: |
           cargo +nightly build --release -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --target ${{ matrix.platform.target }} --manifest-path bench/tests/Cargo.toml
@@ -64,7 +58,7 @@ jobs:
 
       - name: clone benchmarks_results
         if: github.repository == 'tauri-apps/wry' && github.ref == 'refs/heads/dev'
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.BENCH_PAT }}
           path: gh-pages

@@ -16,9 +16,9 @@ use std::{
 };
 use url::Url;
 use webkit2gtk::{
-  traits::*, LoadEvent, NavigationPolicyDecision, PolicyDecisionType, URIRequest,
-  UserContentInjectedFrames, UserContentManager, UserScript, UserScriptInjectionTime, WebView,
-  WebViewBuilder,
+  LoadEvent, NavigationPolicyDecision, NavigationPolicyDecisionExt, PolicyDecisionType,
+  SettingsExt, URIRequest, URIRequestExt, UserContentInjectedFrames, UserContentManager,
+  UserContentManagerExt, UserScript, UserScriptInjectionTime, WebView, WebViewBuilder, WebViewExt,
 };
 use webkit2gtk_sys::{
   webkit_get_major_version, webkit_get_micro_version, webkit_get_minor_version,
@@ -323,6 +323,8 @@ impl InnerWebView {
     let is_inspector_open = {
       let is_inspector_open = Arc::new(AtomicBool::default());
       if let Some(inspector) = WebViewExt::inspector(&*webview) {
+        use webkit2gtk::WebInspectorExt;
+
         let is_inspector_open_ = is_inspector_open.clone();
         inspector.connect_bring_to_front(move |_| {
           is_inspector_open_.store(true, Ordering::Relaxed);
@@ -441,6 +443,8 @@ impl InnerWebView {
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn open_devtools(&self) {
     if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
+      use webkit2gtk::WebInspectorExt;
+
       inspector.show();
       // `bring-to-front` is not received in this case
       self.is_inspector_open.store(true, Ordering::Relaxed);
@@ -450,6 +454,8 @@ impl InnerWebView {
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn close_devtools(&self) {
     if let Some(inspector) = WebViewExt::inspector(&*self.webview) {
+      use webkit2gtk::WebInspectorExt;
+
       inspector.close();
     }
   }
