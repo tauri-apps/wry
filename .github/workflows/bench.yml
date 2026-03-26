@@ -51,12 +51,6 @@ jobs:
           sudo dpkg -i hyperfine_1.11.0_amd64.deb
           pip install memory_profiler
 
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            .
-            bench/tests
-
       - name: run benchmarks
         run: |
           cargo +nightly build --release -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --target ${{ matrix.platform.target }} --manifest-path bench/tests/Cargo.toml
