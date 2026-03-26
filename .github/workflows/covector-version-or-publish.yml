@@ -18,13 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # required for use of git history
+
       - name: cargo login
         run: cargo login ${{ secrets.ORG_CRATES_IO_TOKEN }}
+
       - name: git config
         run: |
           git config --global user.name "${{ github.event.pusher.name }}"
           git config --global user.email "${{ github.event.pusher.email }}"
+
       - name: covector version or publish (publish when no change files present)
         uses: jbolda/covector/packages/action@covector-v0
         id: covector
@@ -32,19 +35,20 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           CARGO_AUDIT_OPTIONS: ${{ secrets.CARGO_AUDIT_OPTIONS }}
         with:
-          command: "version-or-publish"
           token: ${{ secrets.GITHUB_TOKEN }}
+          command: "version-or-publish"
           createRelease: true
           recognizeContributors: true
 
       - name: Create Pull Request With Versions Bumped
         id: cpr
-        uses: tauri-apps/create-pull-request@v3
+        uses: peter-evans/create-pull-request@dd2324fc52d5d43c699a5636bcf19fceaa70c284 # 7.0.7
         if: steps.covector.outputs.commandRan == 'version'
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          title: "Publish New Versions (0.24.x)"
-          commit-message: "publish new versions"
+          title: Apply Version Updates From Current Changes
+          commit-message: "apply version updates"
           labels: "version updates"
-          branch: "release-0-24"
+          branch: "ci/pending-release"
           body: ${{ steps.covector.outputs.change }}
+          sign-commits: true
