@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.24.12]
+
+- [`ee1fab7`](https://github.com/tauri-apps/wry/commit/ee1fab7234bd767d4511fe5a7726b86a9fdeee3e) ([#1703](https://github.com/tauri-apps/wry/pull/1703) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) Fixed a compile error about missing Ext traits when building wry 0.24 / tauri v1 apps with Rust 1.94.
+
 ## \[0.24.11]
 
 - [`3937421`](https://github.com/tauri-apps/wry/commit/39374211f95e84a68620e9527c6d1f797829b471) ([#1325](https://github.com/tauri-apps/wry/pull/1325) by [@ollpu](https://github.com/tauri-apps/wry/../../ollpu)) Fix Linux IPC handler and initialization scripts when sharing a WebContext between multiple WebViews.
