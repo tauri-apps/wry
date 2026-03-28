@@ -808,6 +808,39 @@ struct WebViewAttributes<'a> {
   ///   behavior will be disabled.
   /// - **macOS / Linux / Android / iOS**: Unsupported and ignored.
   pub general_autofill_enabled: bool,
+
+  /// PKCS#12 client certificate data for mTLS (mutual TLS) authentication.
+  ///
+  /// When set, the WebView will present this client certificate during TLS handshakes
+  /// that request client authentication. The data should be a valid PKCS#12 (.p12/.pfx)
+  /// bundle containing the client certificate and private key.
+  ///
+  /// The certificate is extracted in memory via platform-specific APIs during
+  /// authentication challenges. No keychain or certificate store access is needed.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **macOS / iOS**: Uses `SecPKCS12Import` in the `WKNavigationDelegate`.
+  /// - **Windows / Linux / Android**: Not yet supported.
+  pub client_certificate_p12: Option<Vec<u8>>,
+
+  /// Password for the PKCS#12 client certificate bundle.
+  ///
+  /// Required when [`client_certificate_p12`](Self::client_certificate_p12) is set.
+  /// Use an empty string if the bundle has no password.
+  pub client_certificate_password: Option<String>,
+
+  /// DER-encoded CA certificate for server trust pinning.
+  ///
+  /// When set, the WebView will trust servers presenting certificates signed by this CA,
+  /// even if the CA is not in the system trust store. This is useful for self-signed
+  /// certificates without requiring system-level certificate installation or user prompts.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **macOS / iOS**: Uses `SecTrustSetAnchorCertificates` in the `WKNavigationDelegate`.
+  /// - **Windows / Linux / Android**: Not yet supported.
+  pub trusted_ca_certificate: Option<Vec<u8>>,
 }
 
 impl Default for WebViewAttributes<'_> {
@@ -851,6 +884,9 @@ impl Default for WebViewAttributes<'_> {
       background_throttling: None,
       javascript_disabled: false,
       general_autofill_enabled: true,
+      client_certificate_p12: None,
+      client_certificate_password: None,
+      trusted_ca_certificate: None,
     }
   }
 }
@@ -1441,6 +1477,42 @@ impl<'a> WebViewBuilder<'a> {
   /// - **macOS / Linux / Android / iOS**: Unsupported and ignored.
   pub fn with_general_autofill_enabled(mut self, enabled: bool) -> Self {
     self.attrs.general_autofill_enabled = enabled;
+    self
+  }
+
+  /// Set a PKCS#12 (.p12/.pfx) client certificate for mTLS authentication.
+  ///
+  /// The WebView will present this certificate when a server requests client
+  /// authentication during the TLS handshake. The bundle should contain the
+  /// client certificate and its private key. The certificate is extracted
+  /// in memory; no keychain or certificate store access is needed.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **macOS / iOS**: Handled via `SecPKCS12Import` in the navigation delegate.
+  /// - **Windows / Linux / Android**: Not yet supported, data is stored for future use.
+  pub fn with_client_certificate(
+    mut self,
+    p12_data: impl Into<Vec<u8>>,
+    password: impl Into<String>,
+  ) -> Self {
+    self.attrs.client_certificate_p12 = Some(p12_data.into());
+    self.attrs.client_certificate_password = Some(password.into());
+    self
+  }
+
+  /// Set a DER-encoded CA certificate for server trust pinning.
+  ///
+  /// The WebView will trust servers presenting certificates signed by this CA,
+  /// even if the CA is not in the system trust store. This avoids the need for
+  /// system-level certificate installation or user authentication prompts.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **macOS / iOS**: Handled via `SecTrustSetAnchorCertificates` in the navigation delegate.
+  /// - **Windows / Linux / Android**: Not yet supported, data is stored for future use.
+  pub fn with_trusted_ca(mut self, der_data: impl Into<Vec<u8>>) -> Self {
+    self.attrs.trusted_ca_certificate = Some(der_data.into());
     self
   }
 

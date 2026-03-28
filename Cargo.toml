@@ -157,6 +157,11 @@ objc2-foundation = { version = "0.3.0", default-features = false, features = [
   "NSValue",
   "NSRange",
   "NSRunLoop",
+  "NSURLAuthenticationChallenge",
+  "NSURLCredential",
+  "NSURLProtectionSpace",
+  "NSURLSession",
+  "NSArray",
 ] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
