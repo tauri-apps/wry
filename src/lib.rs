@@ -2012,8 +2012,6 @@ impl WebView {
   /// serialized into a JSON string and passed to the callback function.
   ///
   /// Exception is ignored because of the limitation on windows. You can catch it yourself and return as string as a workaround.
-  ///
-  /// - ** Android:** Not implemented yet.
   pub fn evaluate_script_with_callback(
     &self,
     js: &str,
