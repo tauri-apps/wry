@@ -580,19 +580,66 @@ impl InnerWebView {
     // Permission handler
     if let Some(permission_handler) = attributes.permission_handler.take() {
       webview.connect_permission_request(move |_webview, request| {
-        // Determine permission kind
-        let permission_kind =
-          if let Some(media_request) = request.downcast_ref::<UserMediaPermissionRequest>() {
-            if media_request.is_for_audio_device() {
-              PermissionKind::Microphone
-            } else if media_request.is_for_video_device() {
-              PermissionKind::Camera
-            } else {
-              // On WebKitGTK < 2.42, there's no is_for_display_device()
-              // but screen sharing requests come through UserMediaPermissionRequest
-              PermissionKind::DisplayCapture
+        if let Some(media_request) = request.downcast_ref::<UserMediaPermissionRequest>() {
+          let is_audio = media_request.is_for_audio_device();
+          let is_video = media_request.is_for_video_device();
+
+          #[cfg(feature = "v2_42")]
+          let is_display = media_request.is_for_display_device();
+          #[cfg(not(feature = "v2_42"))]
+          let is_display = !is_audio && !is_video;
+
+          if is_display {
+            // Screen sharing request
+            let response = permission_handler(PermissionKind::DisplayCapture);
+            return match response {
+              PermissionResponse::Allow => {
+                request.allow();
+                true
+              }
+              PermissionResponse::Deny => {
+                request.deny();
+                true
+              }
+              PermissionResponse::Default | PermissionResponse::Prompt => false,
+            };
+          }
+
+          // For combined audio+video requests, check each individually.
+          // Deny wins: if either is denied, deny the whole request.
+          let mut allow = true;
+          let mut handled = false;
+
+          if is_audio {
+            handled = true;
+            match permission_handler(PermissionKind::Microphone) {
+              PermissionResponse::Allow => {}
+              PermissionResponse::Deny => allow = false,
+              PermissionResponse::Default | PermissionResponse::Prompt => handled = false,
             }
-          } else if request.is::<GeolocationPermissionRequest>() {
+          }
+
+          if is_video && allow {
+            handled = true;
+            match permission_handler(PermissionKind::Camera) {
+              PermissionResponse::Allow => {}
+              PermissionResponse::Deny => allow = false,
+              PermissionResponse::Default | PermissionResponse::Prompt => handled = false,
+            }
+          }
+
+          if handled {
+            if allow {
+              request.allow();
+            } else {
+              request.deny();
+            }
+            true
+          } else {
+            false // let WebKitGTK show default prompt
+          }
+        } else {
+          let permission_kind = if request.is::<GeolocationPermissionRequest>() {
             PermissionKind::Geolocation
           } else if request.is::<NotificationPermissionRequest>() {
             PermissionKind::Notifications
@@ -602,21 +649,16 @@ impl InnerWebView {
             PermissionKind::Other
           };
 
-        // Call user's permission handler
-        let response = permission_handler(permission_kind);
-
-        // Apply the response
-        match response {
-          PermissionResponse::Allow => {
-            request.allow();
-            true // handled
-          }
-          PermissionResponse::Deny => {
-            request.deny();
-            true // handled
-          }
-          PermissionResponse::Default | PermissionResponse::Prompt => {
-            false // not handled, `PermissionResponse::Prompt` is not supported yet
+          match permission_handler(permission_kind) {
+            PermissionResponse::Allow => {
+              request.allow();
+              true
+            }
+            PermissionResponse::Deny => {
+              request.deny();
+              true
+            }
+            PermissionResponse::Default | PermissionResponse::Prompt => false,
           }
         }
       });
