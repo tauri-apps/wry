@@ -2,7 +2,7 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.54.2"
+version = "0.55.0"
 authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -16,7 +16,7 @@ exclude = ["/.changes", "/.github", "/audits", "/wry-logo.svg"]
 
 [package.metadata.docs.rs]
 no-default-features = true
-features = ["drag-drop", "protocol", "os-webview"]
+features = ["protocol", "os-webview"]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
@@ -24,9 +24,8 @@ targets = [
 ]
 
 [features]
-default = ["drag-drop", "protocol", "os-webview", "x11"]
+default = ["protocol", "os-webview", "x11"]
 serde = ["dpi/serde"]
-drag-drop = []
 protocol = []
 devtools = []
 transparent = []
@@ -97,7 +96,7 @@ features = [
 url = "2.5"
 dirs = "6"
 block2 = "0.6"
-objc2 = { version = "0.6", features = [
+objc2 = { version = "0.6.4", features = [
   "exception",
   # because `NSUUID::from_bytes` needs it,
   # and `WebViewBuilderExtDarwin.with_data_store_identifier` crashes otherwise,
@@ -195,23 +194,28 @@ objc2-app-kit = { version = "0.3.0", default-features = false, features = [
 
 [target."cfg(target_os = \"android\")".dependencies]
 crossbeam-channel = "0.5"
-html5ever = "0.29"
-kuchiki = { package = "kuchikiki", version = "=0.8.8-speedreader" }
 sha2 = "0.10"
 base64 = "0.22"
 jni = "0.21"
 ndk = "0.9"
 tao-macros = "0.1"
 libc = "0.2"
+dom_query = { version = "0.27.0", default-features = false }
 
 [dev-dependencies]
 pollster = "0.4.0"
-tao = "0.34"
+tao = "0.35"
 wgpu = "23"
 winit = "0.30"
 getrandom = "0.3"
 http-range = "0.1"
 percent-encoding = "2.3"
+glow = "0.16.0"
+libloading = "0.8.9"
+# For unit testing `inject_initialization_scripts` since we can't do it easily on Android
+sha2 = "0.10"
+base64 = "0.22"
+dom_query = { version = "0.27.0", default-features = false }
 
 [lints.rust.unexpected_cfgs]
 level = "warn"

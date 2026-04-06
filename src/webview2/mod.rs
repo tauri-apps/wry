@@ -294,7 +294,6 @@ impl InnerWebView {
     let additional_browser_args = pl_attrs.additional_browser_args.unwrap_or_else(|| {
       // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
       // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
-      // enable white flicker fix
       let default_args = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
       let mut arguments = String::from(default_args);
 
@@ -350,15 +349,18 @@ impl InnerWebView {
         // by manually creating the callback handler and use webview2_com::with_with_bump
         &CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
           move |error_code, environment| {
-            error_code?;
-            tx.send(environment.ok_or_else(|| windows::core::Error::from(E_POINTER)))
+            let result = (|| {
+              error_code?;
+              environment.ok_or_else(|| windows::core::Error::from(E_POINTER).into())
+            })();
+            tx.send(result)
               .map_err(|_| windows::core::Error::from(E_UNEXPECTED))
           },
         )),
       )?;
     }
 
-    webview2_com::wait_with_pump(rx)?.map_err(Into::into)
+    webview2_com::wait_with_pump(rx)?
   }
 
   #[inline]
@@ -369,22 +371,23 @@ impl InnerWebView {
     background_color: Option<(u8, u8, u8, u8)>,
   ) -> Result<ICoreWebView2Controller> {
     let (tx, rx) = mpsc::channel();
-    let env = env.clone();
-    let env10 = env.cast::<ICoreWebView2Environment10>();
 
     // we don't use CreateCoreWebView2ControllerCompletedHandler::wait_for_async
     // as it uses an mspc::channel under the hood, so we can avoid using two channels
     // by manually creating the callback handler and use webview2_com::with_with_bump
     let handler = CreateCoreWebView2ControllerCompletedHandler::create(Box::new(
       move |error_code, controller| {
-        error_code?;
-        tx.send(controller.ok_or_else(|| windows::core::Error::from(E_POINTER)))
+        let result = (|| {
+          error_code?;
+          controller.ok_or_else(|| windows::core::Error::from(E_POINTER).into())
+        })();
+        tx.send(result)
           .map_err(|_| windows::core::Error::from(E_UNEXPECTED))
       },
     ));
 
     unsafe {
-      if let Ok(env10) = env10 {
+      if let Ok(env10) = env.cast::<ICoreWebView2Environment10>() {
         let controller_opts = env10.CreateCoreWebView2ControllerOptions()?;
 
         if let Some((r, g, b, mut a)) = background_color {
@@ -408,7 +411,7 @@ impl InnerWebView {
       }
     }
 
-    webview2_com::wait_with_pump(rx)?.map_err(Into::into)
+    webview2_com::wait_with_pump(rx)?
   }
 
   #[allow(clippy::too_many_arguments)]
@@ -745,7 +748,7 @@ impl InnerWebView {
     let new_window_req_handler = attributes
       .new_window_req_handler
       .take()
-      .map(std::sync::Arc::new);
+      .map(std::rc::Rc::new);
     let env_ = env.clone();
     // New window handler
     webview.add_NewWindowRequested(
@@ -809,25 +812,22 @@ impl InnerWebView {
 
           let new_window_req_handler = new_window_req_handler.clone();
           let deferral = args.GetDeferral()?;
-          let deferral = UnsafeSend(deferral);
-          let args = UnsafeSend(args);
-          let hwnd = UnsafeSend(hwnd);
-          std::thread::spawn(move || match new_window_req_handler(uri, features) {
+          // Use `dispatch_handler` to schedule the run on the message loop after this callback completes,
+          // this is needed for `new_window_req_handler` to create new webviews for `NewWindowResponse::Create`
+          // or it will deadlock, see https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/threading-model#reentrancy
+          Self::dispatch_handler(hwnd, move || match new_window_req_handler(uri, features) {
             NewWindowResponse::Allow => {
-              let _ = args.take().SetHandled(false);
-              let _ = deferral.take().Complete();
+              let _ = args.SetHandled(false);
+              let _ = deferral.Complete();
             }
             NewWindowResponse::Create { webview } => {
-              Self::dispatch_handler(hwnd.take(), move || {
-                let args = args.take();
-                let _ = args.SetHandled(true);
-                let _ = args.SetNewWindow(&webview);
-                let _ = deferral.take().Complete();
-              });
+              let _ = args.SetHandled(true);
+              let _ = args.SetNewWindow(&webview);
+              let _ = deferral.Complete();
             }
             NewWindowResponse::Deny => {
-              let _ = args.take().SetHandled(true);
-              let _ = deferral.take().Complete();
+              let _ = args.SetHandled(true);
+              let _ = deferral.Complete();
             }
           });
         } else {
@@ -838,6 +838,7 @@ impl InnerWebView {
       })),
       token,
     )?;
+    Self::attach_main_thread_dispatcher(hwnd);
 
     // Download handler
     if attributes.download_started_handler.is_some()
@@ -1193,6 +1194,13 @@ impl InnerWebView {
     env.CreateWebResourceResponse(None, status_code as i32, &status, &error)
   }
 
+  /// Send `function` to run on `hwnd`'s thread
+  ///
+  /// ## SAFETY:
+  ///
+  /// This function doesn't force a `Send` to make it easier to use,
+  /// the caller must call this function on the same thread as `hwnd`
+  /// or ensure the function is safe to send to and called on `hwnd`'s thread
   #[inline]
   unsafe fn dispatch_handler<F>(hwnd: HWND, function: F)
   where
@@ -1214,9 +1222,9 @@ impl InnerWebView {
         err.message()
       );
       #[cfg(feature = "tracing")]
-      tracing::error!("{}", &msg);
+      tracing::error!("{msg}");
       #[cfg(debug_assertions)]
-      eprintln!("{}", msg);
+      eprintln!("{msg}");
     }
   }
 
@@ -1679,34 +1687,37 @@ impl InnerWebView {
         // as it uses an mspc::channel under the hood, so we can avoid using two channels
         // by manually creating the callback handler and use webview2_com::with_with_bump
         &GetCookiesCompletedHandler::create(Box::new(move |error_code, cookies| {
-          error_code?;
+          let result = (move || {
+            error_code?;
 
-          let cookies = if let Some(cookies) = cookies {
-            let mut count = 0;
-            cookies.Count(&mut count)?;
+            let cookies = if let Some(cookies) = cookies {
+              let mut count = 0;
+              cookies.Count(&mut count)?;
 
-            let mut out = Vec::with_capacity(count as _);
+              let mut out = Vec::with_capacity(count as _);
 
-            for idx in 0..count {
-              let cookie = cookies.GetValueAtIndex(idx)?;
+              for idx in 0..count {
+                let cookie = cookies.GetValueAtIndex(idx)?;
 
-              if let Ok(cookie) = Self::cookie_from_win32(cookie) {
-                out.push(cookie)
+                if let Ok(cookie) = Self::cookie_from_win32(cookie) {
+                  out.push(cookie)
+                }
               }
-            }
 
-            out
-          } else {
-            Vec::new()
-          };
+              out
+            } else {
+              Vec::new()
+            };
+            Ok(cookies)
+          })();
 
-          tx.send(cookies)
+          tx.send(result)
             .map_err(|_| windows::core::Error::from(E_UNEXPECTED))
         })),
       )?;
     }
 
-    webview2_com::wait_with_pump(rx).map_err(Into::into)
+    webview2_com::wait_with_pump(rx)?
   }
 
   pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
@@ -1892,13 +1903,4 @@ fn is_windows_7() -> bool {
   let v = windows_version::OsVersion::current();
   // windows 7 is 6.1
   v.major == 6 && v.minor == 1
-}
-
-struct UnsafeSend<T>(T);
-unsafe impl<T> Send for UnsafeSend<T> {}
-
-impl<T> UnsafeSend<T> {
-  fn take(self) -> T {
-    self.0
-  }
 }

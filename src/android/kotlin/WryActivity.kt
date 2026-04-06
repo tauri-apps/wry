@@ -4,17 +4,51 @@
 
 package {{package}}
 
-import {{package}}.RustWebView
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
 import android.view.KeyEvent
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
+
+private val ACTIVITY_ID_KEY = "__wryActivityId"
+
+object WryLifecycleObserver : DefaultLifecycleObserver {
+    override fun onCreate(owner: LifecycleOwner) {
+        super.onCreate(owner)
+        Rust.create()
+        Rust.wryCreate()
+    }
+
+    override fun onStart(owner: LifecycleOwner) {
+        super.onStart(owner)
+        Rust.start()
+    }
+
+    override fun onResume(owner: LifecycleOwner) {
+        super.onResume(owner)
+        Rust.resume()
+    }
+
+    override fun onPause(owner: LifecycleOwner) {
+        super.onPause(owner)
+        Rust.pause()
+    }
+
+    override fun onStop(owner: LifecycleOwner) {
+        super.onStop(owner)
+        Rust.stop()
+    }
+}
 
 abstract class WryActivity : AppCompatActivity() {
     private lateinit var mWebView: RustWebView
+    var id: Int = 0
     open val handleBackNavigation: Boolean = true
 
     open fun onWebViewCreate(webView: WebView) { }
@@ -25,12 +59,14 @@ abstract class WryActivity : AppCompatActivity() {
         if (handleBackNavigation) {
             val callback = object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    if (this@WryActivity.mWebView.canGoBack()) {
-                        this@WryActivity.mWebView.goBack()
-                    } else {
-                        this.isEnabled = false
-                        this@WryActivity.onBackPressed()
-                        this.isEnabled = true
+                    if (this@WryActivity::mWebView.isInitialized) {
+                        if (this@WryActivity.mWebView.canGoBack()) {
+                            this@WryActivity.mWebView.goBack()
+                        } else {
+                            this.isEnabled = false
+                            this@WryActivity.onBackPressed()
+                            this.isEnabled = true
+                        }
                     }
                 }
             }
@@ -75,70 +111,63 @@ abstract class WryActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        create(this)
-    }
-
-    override fun onStart() {
-        super.onStart()
-        start()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        resume()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        pause()
-    }
-
-    override fun onStop() {
-        super.onStop()
-        stop()
+        id = savedInstanceState?.getInt(ACTIVITY_ID_KEY) ?: intent.extras?.getInt(ACTIVITY_ID_KEY) ?: hashCode()
+        ProcessLifecycleOwner.get().lifecycle.addObserver(WryLifecycleObserver)
+        Rust.onActivityCreate(this)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        focus(hasFocus)
+        Rust.onWindowFocusChanged(this, hasFocus)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        save()
+        outState.putInt(ACTIVITY_ID_KEY, id)
+        Rust.onActivitySaveInstanceState()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (::mWebView.isInitialized) {
+            mWebView.onPause()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::mWebView.isInitialized) {
+            mWebView.onResume()
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        destroy()
-        onActivityDestroy()
+        Rust.onActivityDestroy(this)
+        Rust.onWebviewDestroy(this, if (::mWebView.isInitialized) { mWebView.id } else { "" })
     }
 
     override fun onLowMemory() {
         super.onLowMemory()
-        memory()
+        Rust.onActivityLowMemory()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        Rust.onNewIntent(intent)
     }
 
     fun getAppClass(name: String): Class<*> {
         return Class.forName(name)
     }
 
-    companion object {
-        init {
-            System.loadLibrary("{{library}}")
-        }
+    fun startActivity(cls: Class<*>): Int {
+        val intent = Intent(this, cls)
+        val id = kotlin.random.Random.nextInt()
+        intent.putExtra(ACTIVITY_ID_KEY, id)
+        startActivity(intent)
+        return id
     }
-
-    private external fun create(activity: WryActivity)
-    private external fun start()
-    private external fun resume()
-    private external fun pause()
-    private external fun stop()
-    private external fun save()
-    private external fun destroy()
-    private external fun onActivityDestroy()
-    private external fun memory()
-    private external fun focus(focus: Boolean)
 
     {{class-extension}}
 }

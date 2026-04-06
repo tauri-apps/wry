@@ -4,36 +4,33 @@
 
 use super::{PageLoadEvent, WebViewAttributes, RGBA};
 use crate::{
-  custom_protocol_workaround, PermissionKind, PermissionResponse, RequestAsyncResponder, Result,
+  custom_protocol_workaround, inject_initialization_scripts::inject_scripts_into_html, Error,
+  PermissionKind, PermissionResponse, RequestAsyncResponder, Result,
 };
-use base64::{engine::general_purpose, Engine};
 use crossbeam_channel::*;
-use html5ever::{interface::QualName, namespace_url, ns, tendril::TendrilSink, LocalName};
-use http::{
-  header::{HeaderValue, CONTENT_SECURITY_POLICY, CONTENT_TYPE},
-  Request, Response as HttpResponse,
-};
+
+use http::{Request, Response as HttpResponse};
 use jni::{
   errors::Result as JniResult,
   objects::{GlobalRef, JClass, JObject},
   JNIEnv,
 };
-use kuchiki::NodeRef;
-use ndk::looper::{FdEvent, ThreadLooper};
-use once_cell::sync::OnceCell;
+use ndk::looper::ThreadLooper;
+use once_cell::sync::{Lazy, OnceCell};
 use raw_window_handle::HasWindowHandle;
-use sha2::{Digest, Sha256};
 use std::{
   borrow::Cow,
   collections::HashMap,
-  os::fd::{AsFd as _, AsRawFd as _},
   sync::{mpsc::channel, Mutex},
   time::Duration,
 };
 
 pub(crate) mod binding;
 mod main_pipe;
-use main_pipe::{CreateWebViewAttributes, MainPipe, MainPipeState, WebViewMessage, MAIN_PIPE};
+use main_pipe::{
+  activity_id_for_window_manager, first_activity_id, register_activity_proxy, ActivityId,
+  CreateWebViewAttributes, MainPipe, WebViewMessage,
+};
 
 use crate::util::Counter;
 
@@ -46,22 +43,16 @@ pub struct Context<'a, 'b> {
   pub webview: &'a JObject<'b>,
 }
 
-pub(crate) struct StaticValue<T>(Mutex<T>);
-
-unsafe impl<T> Send for StaticValue<T> {}
-unsafe impl<T> Sync for StaticValue<T> {}
-
-impl<T> std::ops::Deref for StaticValue<T> {
-  type Target = Mutex<T>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.0
-  }
-}
+type WebviewId = String;
 
 macro_rules! define_static_handlers {
+  ($($key: ident, $var:ident = $type_name:ident);+ $(;)?) => {
+    $(static $var: Lazy<Mutex<HashMap<$key, $type_name>>> = Lazy::new(||Mutex::new(HashMap::new()));)*
+  };
+
   ($($var:ident = $type_name:ident { $($fields:ident:$types:ty),+ $(,)? });+ $(;)?) => {
-    $(pub static $var: StaticValue<Option<$type_name>> = StaticValue(Mutex::new(None));
+    $(
+    static $var: Lazy<Mutex<HashMap<WebviewId, $type_name>>> = Lazy::new(||Mutex::new(HashMap::new()));
     pub struct $type_name {
       $($fields: $types,)*
     }
@@ -78,16 +69,18 @@ macro_rules! define_static_handlers {
 }
 
 define_static_handlers! {
-  IPC =  UnsafeIpc { handler: Box<dyn Fn(Request<String>)> };
+  IPC = UnsafeIpc { handler: Box<dyn Fn(Request<String>)> };
   REQUEST_HANDLER = UnsafeRequestHandler { handler:  Box<dyn Fn(&str, Request<Vec<u8>>, bool) -> Option<HttpResponse<Cow<'static, [u8]>>>> };
   TITLE_CHANGE_HANDLER = UnsafeTitleHandler { handler: Box<dyn Fn(String)> };
   URL_LOADING_OVERRIDE = UnsafeUrlLoadingOverride { handler: Box<dyn Fn(String) -> bool> };
   ON_LOAD_HANDLER = UnsafeOnPageLoadHandler { handler: Box<dyn Fn(PageLoadEvent, String)> };
   PERMISSION_HANDLER = UnsafePermissionHandler { handler: Box<dyn Fn(PermissionKind) -> PermissionResponse> };
 }
-
-pub static WITH_ASSET_LOADER: StaticValue<Option<bool>> = StaticValue(Mutex::new(None));
-pub static ASSET_LOADER_DOMAIN: StaticValue<Option<String>> = StaticValue(Mutex::new(None));
+define_static_handlers! {
+  WebviewId, WITH_ASSET_LOADER = bool;
+  WebviewId, ASSET_LOADER_DOMAIN = String;
+  ActivityId, WEBVIEW_ATTRIBUTES = CreateWebViewAttributes;
+}
 
 pub(crate) static PACKAGE: OnceCell<String> = OnceCell::new();
 
@@ -96,6 +89,17 @@ type EvalCallback = Box<dyn Fn(String) + Send + 'static>;
 pub static EVAL_ID_GENERATOR: Counter = Counter::new();
 pub static EVAL_CALLBACKS: OnceCell<Mutex<HashMap<i32, EvalCallback>>> = OnceCell::new();
 
+pub fn destroy_webview(activity_id: ActivityId, webview_id: &WebviewId) {
+  WEBVIEW_ATTRIBUTES.lock().unwrap().remove(&activity_id);
+  IPC.lock().unwrap().remove(webview_id);
+  REQUEST_HANDLER.lock().unwrap().remove(webview_id);
+  TITLE_CHANGE_HANDLER.lock().unwrap().remove(webview_id);
+  URL_LOADING_OVERRIDE.lock().unwrap().remove(webview_id);
+  ON_LOAD_HANDLER.lock().unwrap().remove(webview_id);
+  WITH_ASSET_LOADER.lock().unwrap().remove(webview_id);
+  ASSET_LOADER_DOMAIN.lock().unwrap().remove(webview_id);
+}
+
 /// Sets up the necessary logic for wry to be able to create the webviews later.
 ///
 /// This function must be run on the thread where the [`JNIEnv`] is registered and the looper is local,
@@ -103,10 +107,30 @@ pub static EVAL_CALLBACKS: OnceCell<Mutex<HashMap<i32, EvalCallback>>> = OnceCel
 pub unsafe fn android_setup(
   package: &str,
   mut env: JNIEnv,
-  looper: &ThreadLooper,
+  _looper: &ThreadLooper,
   activity: GlobalRef,
 ) {
   PACKAGE.get_or_init(move || package.to_string());
+
+  let vm = env.get_java_vm().unwrap();
+
+  let activity_id = env
+    .call_method(activity.as_obj(), "getId", "()I", &[])
+    .unwrap()
+    .i()
+    .unwrap();
+
+  let window_manager = env
+    .call_method(
+      &activity,
+      "getWindowManager",
+      "()Landroid/view/WindowManager;",
+      &[],
+    )
+    .unwrap()
+    .l()
+    .unwrap();
+  let window_manager = env.new_global_ref(window_manager).unwrap();
 
   // we must create the WebChromeClient here because it calls `registerForActivityResult`,
   // which gives an `LifecycleOwners must call register before they are STARTED.` error when called outside the onCreate hook
@@ -119,53 +143,51 @@ pub unsafe fn android_setup(
   let webchrome_client = env
     .new_object(
       &rust_webchrome_client_class,
-      &format!("(L{}/WryActivity;)V", PACKAGE.get().unwrap()),
+      format!("(L{}/WryActivity;)V", PACKAGE.get().unwrap()),
       &[activity.as_obj().into()],
     )
     .unwrap();
 
   let webchrome_client = env.new_global_ref(webchrome_client).unwrap();
-  let mut main_pipe = MainPipe {
-    env,
-    activity,
-    webview: None,
-    webchrome_client,
-  };
 
-  looper
-    .add_fd_with_callback(MAIN_PIPE[0].as_fd(), FdEvent::INPUT, move |fd, _event| {
-      let size = std::mem::size_of::<bool>();
-      let mut wake = false;
-      if libc::read(fd.as_raw_fd(), &mut wake as *mut _ as *mut _, size) == size as libc::ssize_t {
-        let res = main_pipe.recv();
-        // unregister itself on errors or destroy event
-        matches!(res, Ok(MainPipeState::Alive))
-      } else {
-        // unregister itself
-        false
-      }
-    })
-    .unwrap();
+  register_activity_proxy(vm, activity_id, activity, window_manager, webchrome_client);
+
+  if let Some(webview_attributes) = WEBVIEW_ATTRIBUTES.lock().unwrap().get(&activity_id) {
+    MainPipe::send(
+      activity_id,
+      WebViewMessage::CreateWebView(webview_attributes.clone()),
+    );
+  }
 }
 
 pub(crate) struct InnerWebView {
   id: String,
+  pub activity_id: ActivityId,
 }
 
 impl InnerWebView {
   pub fn new_as_child(
-    _window: &impl HasWindowHandle,
+    window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
   ) -> Result<Self> {
-    Self::new(_window, attributes, pl_attrs)
+    Self::new(window, attributes, pl_attrs)
   }
 
   pub fn new(
-    _window: &impl HasWindowHandle,
+    window: &impl HasWindowHandle,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
   ) -> Result<Self> {
+    let window_manager = match window.window_handle()?.as_raw() {
+      raw_window_handle::RawWindowHandle::AndroidNdk(window_manager) => {
+        window_manager.a_native_window
+      }
+      _ => return Err(Error::UnsupportedWindowHandle),
+    };
+    let window_manager = unsafe { JObject::from_raw(window_manager.as_ptr().cast()) };
+    let activity_id =
+      activity_id_for_window_manager(window_manager).expect("no available activity");
     let WebViewAttributes {
       url,
       html,
@@ -209,124 +231,92 @@ impl InnerWebView {
       .map(|id| id.to_string())
       .unwrap_or_else(|| COUNTER.next().to_string());
 
-    WITH_ASSET_LOADER.lock().unwrap().replace(with_asset_loader);
+    WITH_ASSET_LOADER
+      .lock()
+      .unwrap()
+      .insert(id.clone(), with_asset_loader);
     if let Some(domain) = asset_loader_domain {
-      ASSET_LOADER_DOMAIN.lock().unwrap().replace(domain);
+      ASSET_LOADER_DOMAIN
+        .lock()
+        .unwrap()
+        .insert(id.clone(), domain);
     }
 
     let initialization_scripts_ = initialization_scripts.clone();
-    REQUEST_HANDLER.lock()
-        .unwrap().replace(
-      UnsafeRequestHandler::new(Box::new(
-        move |webview_id: &str, mut request, is_document_start_script_enabled| {
-          let uri = request.uri().to_string();
-          if let Some((custom_protocol, custom_protocol_handler)) = custom_protocols
-            .iter()
-            .find(|(protocol, _)| custom_protocol_workaround::is_work_around_uri(&uri, http_or_https, protocol))
-          {
-            let uri_res = custom_protocol_workaround::revert_uri_work_around(
-              &uri,
-              http_or_https,
-              custom_protocol,
-            )
-            .parse();
+    REQUEST_HANDLER
+      .lock()
+      .unwrap()
+      .insert(
+        id.clone(),
+        UnsafeRequestHandler::new(Box::new(
+          move |webview_id: &str, mut request, is_document_start_script_enabled| {
+            let uri = request.uri().to_string();
+            if let Some((custom_protocol, custom_protocol_handler)) =
+              custom_protocols.iter().find(|(protocol, _)| {
+                custom_protocol_workaround::is_work_around_uri(&uri, http_or_https, protocol)
+              })
+            {
+              let uri_res = custom_protocol_workaround::revert_uri_work_around(
+                &uri,
+                http_or_https,
+                custom_protocol,
+              )
+              .parse();
 
-            if let Ok(uri) = uri_res {
-              *request.uri_mut() = uri;
-            }
-
-            let (tx, rx) = channel();
-            let initialization_scripts = initialization_scripts_.clone();
-            let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
-              Box::new(move |mut response| {
-                if !is_document_start_script_enabled {
-                  #[cfg(feature = "tracing")]
-                  tracing::info!("`addDocumentStartJavaScript` is not supported; injecting initialization scripts via custom protocol handler");
-                  let should_inject_scripts = response
-                    .headers()
-                    .get(CONTENT_TYPE)
-                    // Content-Type must begin with the media type, but is case-insensitive.
-                    // It may also be followed by any number of semicolon-delimited key value pairs.
-                    // We don't care about these here.
-                    // source: https://httpwg.org/specs/rfc9110.html#rfc.section.8.3.1
-                    .and_then(|content_type| content_type.to_str().ok())
-                    .map(|content_type_str| {
-                      content_type_str.to_lowercase().starts_with("text/html")
-                    })
-                    .unwrap_or_default();
-
-                  if should_inject_scripts && !initialization_scripts.is_empty() {
-                    let mut document = kuchiki::parse_html()
-                      .one(String::from_utf8_lossy(response.body()).as_ref()).document_node;
-                    let csp = response.headers_mut().get_mut(CONTENT_SECURITY_POLICY);
-                    let mut hashes = Vec::new();
-                    with_html_head(&mut document, |head| {
-                      // iterate in reverse order since we are prepending each script to the head tag
-                      for init_script in initialization_scripts.iter().rev() {
-                        let script_el = NodeRef::new_element(
-                          QualName::new(None, ns!(html), "script".into()),
-                          None,
-                        );
-                        script_el.append(NodeRef::new_text(init_script.script.as_str()));
-                        head.prepend(script_el);
-                        if csp.is_some() {
-                          hashes.push(hash_script(init_script.script.as_str()));
-                        }
-                      }
-                    });
-
-                    if let Some(csp) = csp {
-                      let csp_string = csp.to_str().unwrap().to_string();
-                      let csp_string = if csp_string.contains("script-src") {
-                        csp_string
-                          .replace("script-src", &format!("script-src {}", hashes.join(" ")))
-                      } else {
-                        format!("{} script-src {}", csp_string, hashes.join(" "))
-                      };
-                      *csp = HeaderValue::from_str(&csp_string).unwrap();
-                    }
-
-                    *response.body_mut() = document.to_string().into_bytes().into();
-                  }
+                if let Ok(uri) = uri_res {
+                  *request.uri_mut() = uri;
                 }
 
-                tx.send(response).unwrap();
-              });
+              let (tx, rx) = channel();
+              let initialization_scripts = initialization_scripts_.clone();
+              let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
+                Box::new(move |mut response| {
+                  if !is_document_start_script_enabled {
+                    #[cfg(feature = "tracing")]
+                    tracing::info!("`addDocumentStartJavaScript` is not supported; injecting initialization scripts via custom protocol handler");
+                    response = inject_scripts_into_html(response, &initialization_scripts);
+                  }
+                  let _ = tx.send(response);
+                });
 
-            (custom_protocol_handler)(webview_id, request, RequestAsyncResponder { responder });
-            return Some(rx.recv_timeout(MAIN_PIPE_TIMEOUT).unwrap());
-          }
-          None
-        },
-      )
-    ));
+              (custom_protocol_handler)(webview_id, request, RequestAsyncResponder { responder });
+              // 3x the timeout while we monitor https://github.com/tauri-apps/wry/issues/1551
+              // TODO: Remove timeout
+              return rx.recv_timeout(MAIN_PIPE_TIMEOUT * 3).inspect_err(|e| {eprintln!("custom protocol timed out: {e}");}).ok();
+            }
+            None
+          },
+      )));
 
     if let Some(i) = ipc_handler {
-      IPC.lock().unwrap().replace(UnsafeIpc::new(Box::new(i)));
+      IPC
+        .lock()
+        .unwrap()
+        .insert(id.clone(), UnsafeIpc::new(Box::new(i)));
     }
 
     if let Some(i) = attributes.document_title_changed_handler {
       TITLE_CHANGE_HANDLER
         .lock()
         .unwrap()
-        .replace(UnsafeTitleHandler::new(i));
+        .insert(id.clone(), UnsafeTitleHandler::new(i));
     }
 
     if let Some(i) = attributes.navigation_handler {
       URL_LOADING_OVERRIDE
         .lock()
         .unwrap()
-        .replace(UnsafeUrlLoadingOverride::new(i));
+        .insert(id.clone(), UnsafeUrlLoadingOverride::new(i));
     }
 
     if let Some(h) = attributes.on_page_load_handler {
       ON_LOAD_HANDLER
         .lock()
         .unwrap()
-        .replace(UnsafeOnPageLoadHandler::new(h));
+        .insert(id.clone(), UnsafeOnPageLoadHandler::new(h));
     }
 
-    MainPipe::send(WebViewMessage::CreateWebView(CreateWebViewAttributes {
+    let attributes = CreateWebViewAttributes {
       id: id.clone(),
       url,
       html,
@@ -340,9 +330,16 @@ impl InnerWebView {
       user_agent,
       initialization_scripts,
       javascript_disabled,
-    }));
+    };
 
-    Ok(Self { id })
+    WEBVIEW_ATTRIBUTES
+      .lock()
+      .unwrap()
+      .insert(activity_id, attributes.clone());
+
+    MainPipe::send(activity_id, WebViewMessage::CreateWebView(attributes));
+
+    Ok(Self { id, activity_id })
   }
 
   pub fn print(&self) -> crate::Result<()> {
@@ -355,15 +352,18 @@ impl InnerWebView {
 
   pub fn url(&self) -> crate::Result<String> {
     let (tx, rx) = bounded(1);
-    MainPipe::send(WebViewMessage::GetUrl(tx));
+    MainPipe::send(self.activity_id, WebViewMessage::GetUrl(tx));
     rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
   }
 
   pub fn eval(&self, js: &str, callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {
-    MainPipe::send(WebViewMessage::Eval(
-      js.into(),
-      callback.map(|c| Box::new(c) as Box<dyn Fn(String) + Send + 'static>),
-    ));
+    MainPipe::send(
+      self.activity_id,
+      WebViewMessage::Eval(
+        js.into(),
+        callback.map(|c| Box::new(c) as Box<dyn Fn(String) + Send + 'static>),
+      ),
+    );
     Ok(())
   }
 
@@ -383,47 +383,59 @@ impl InnerWebView {
   }
 
   pub fn set_background_color(&self, background_color: RGBA) -> Result<()> {
-    MainPipe::send(WebViewMessage::SetBackgroundColor(background_color));
+    MainPipe::send(
+      self.activity_id,
+      WebViewMessage::SetBackgroundColor(background_color),
+    );
     Ok(())
   }
 
   pub fn load_url(&self, url: &str) -> Result<()> {
-    MainPipe::send(WebViewMessage::LoadUrl(url.to_string(), None));
+    MainPipe::send(
+      self.activity_id,
+      WebViewMessage::LoadUrl(url.to_string(), None),
+    );
     Ok(())
   }
 
   pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) -> Result<()> {
-    MainPipe::send(WebViewMessage::LoadUrl(url.to_string(), Some(headers)));
+    MainPipe::send(
+      self.activity_id,
+      WebViewMessage::LoadUrl(url.to_string(), Some(headers)),
+    );
     Ok(())
   }
 
   pub fn load_html(&self, html: &str) -> Result<()> {
-    MainPipe::send(WebViewMessage::LoadHtml(html.to_string()));
+    MainPipe::send(self.activity_id, WebViewMessage::LoadHtml(html.to_string()));
     Ok(())
   }
 
   pub fn reload(&self) -> Result<()> {
-    MainPipe::send(WebViewMessage::Reload);
+    MainPipe::send(self.activity_id, WebViewMessage::Reload);
     Ok(())
   }
 
   pub fn clear_all_browsing_data(&self) -> Result<()> {
-    MainPipe::send(WebViewMessage::ClearAllBrowsingData);
+    MainPipe::send(self.activity_id, WebViewMessage::ClearAllBrowsingData);
     Ok(())
   }
 
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
     let (tx, rx) = bounded(1);
-    MainPipe::send(WebViewMessage::GetCookies(tx, url.to_string()));
+    MainPipe::send(
+      self.activity_id,
+      WebViewMessage::GetCookies(tx, url.to_string()),
+    );
     rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
   }
 
-  pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+  pub fn set_cookie(&self, #[allow(unused)] cookie: &cookie::Cookie<'_>) -> Result<()> {
     // Unsupported
     Ok(())
   }
 
-  pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+  pub fn delete_cookie(&self, #[allow(unused)] cookie: &cookie::Cookie<'_>) -> Result<()> {
     // Unsupported
     Ok(())
   }
@@ -458,7 +470,9 @@ impl InnerWebView {
 }
 
 #[derive(Clone, Copy)]
-pub struct JniHandle;
+pub struct JniHandle {
+  pub(crate) activity_id: ActivityId,
+}
 
 impl JniHandle {
   /// Execute jni code on the thread of the webview.
@@ -467,34 +481,22 @@ impl JniHandle {
   where
     F: FnOnce(&mut JNIEnv, &JObject, &JObject) + Send + 'static,
   {
-    MainPipe::send(WebViewMessage::Jni(Box::new(func)));
+    MainPipe::send(self.activity_id, WebViewMessage::Jni(Box::new(func)));
   }
 }
 
 pub fn platform_webview_version() -> Result<String> {
   let (tx, rx) = bounded(1);
-  MainPipe::send(WebViewMessage::GetWebViewVersion(tx));
-  rx.recv_timeout(MAIN_PIPE_TIMEOUT).unwrap()
-}
-
-fn with_html_head<F: FnOnce(&NodeRef)>(document: &mut NodeRef, f: F) {
-  if let Ok(ref node) = document.select_first("head") {
-    f(node.as_node())
-  } else {
-    let node = NodeRef::new_element(
-      QualName::new(None, ns!(html), LocalName::from("head")),
-      None,
-    );
-    f(&node);
-    document.prepend(node)
-  }
-}
-
-fn hash_script(script: &str) -> String {
-  let mut hasher = Sha256::new();
-  hasher.update(script);
-  let hash = hasher.finalize();
-  format!("'sha256-{}'", general_purpose::STANDARD.encode(hash))
+  let activity_id = loop {
+    match first_activity_id() {
+      Some(id) => break id,
+      None => {
+        std::thread::sleep(Duration::from_millis(100));
+      }
+    }
+  };
+  MainPipe::send(activity_id, WebViewMessage::GetWebViewVersion(tx));
+  rx.recv_timeout(MAIN_PIPE_TIMEOUT)?
 }
 
 /// Finds a class in the project scope.
@@ -522,5 +524,8 @@ pub fn dispatch<F>(func: F)
 where
   F: FnOnce(&mut JNIEnv, &JObject, &JObject) + Send + 'static,
 {
-  MainPipe::send(WebViewMessage::Jni(Box::new(func)));
+  MainPipe::send(
+    first_activity_id().expect("no available activity"),
+    WebViewMessage::Jni(Box::new(func)),
+  );
 }

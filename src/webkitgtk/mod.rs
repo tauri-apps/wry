@@ -296,7 +296,10 @@ impl InnerWebView {
       // background color
       if let Some((red, green, blue, alpha)) = attributes.background_color {
         webview.set_background_color(&gtk::gdk::RGBA::new(
-          red as _, green as _, blue as _, alpha as _,
+          red as f64 / 255.0,
+          green as f64 / 255.0,
+          blue as f64 / 255.0,
+          alpha as f64 / 255.0,
         ));
       }
     }
@@ -854,7 +857,10 @@ impl InnerWebView {
 
   pub fn set_background_color(&self, (red, green, blue, alpha): RGBA) -> Result<()> {
     self.webview.set_background_color(&gtk::gdk::RGBA::new(
-      red as _, green as _, blue as _, alpha as _,
+      red as f64 / 255.0,
+      green as f64 / 255.0,
+      blue as f64 / 255.0,
+      alpha as f64 / 255.0,
     ));
     Ok(())
   }

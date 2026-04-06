@@ -502,15 +502,10 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
     return File.createTempFile(imageFileName, ".jpg", storageDir)
   }
 
-  override fun onPermissionRequest(request: PermissionRequest) {
-    val result = onPermissionRequestNative(request.resources)
-    when (result) {
-      0 -> request.grant(request.resources)
-      1 -> request.deny()
-      else -> super.onPermissionRequest(request)
-    }
+  override fun onReceivedTitle(
+      view: WebView,
+      title: String
+  ) {
+    Rust.handleReceivedTitle((view as RustWebView).id, title)
   }
-
-  private external fun onPermissionRequestNative(resources: Array<String>): Int
-  private external fun handleReceivedTitle(webview: WebView, title: String)
 }

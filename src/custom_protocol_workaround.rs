@@ -1,5 +1,5 @@
 //! - WebView2 supports non-standard protocols only on Windows 10+, so we have to use a workaround.
-//!   See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
+//!   See <https://github.com/MicrosoftEdge/WebView2Feedback/issues/73>
 //! - On Android, there's no API for registering custom protocols, so this workaround is also used.
 //!
 //! The process looks like this:

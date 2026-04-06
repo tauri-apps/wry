@@ -12,14 +12,14 @@ import android.os.Handler
 import android.os.Looper
 import androidx.webkit.WebViewAssetLoader
 
-class RustWebViewClient(context: Context): WebViewClient() {
+class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient() {
     private val interceptedState = mutableMapOf<String, Boolean>()
     var currentUrl: String = "about:blank"
     private var lastInterceptedUrl: Uri? = null
     private var pendingUrlRedirect: String? = null
 
     private val assetLoader = WebViewAssetLoader.Builder()
-        .setDomain(assetLoaderDomain())
+        .setDomain(Rust.assetLoaderDomain(webView.id))
         .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(context))
         .build()
 
@@ -36,11 +36,17 @@ class RustWebViewClient(context: Context): WebViewClient() {
         }
 
         lastInterceptedUrl = request.url
-        return if (withAssetLoader()) {
+        return if (Rust.withAssetLoader((view as RustWebView).id)) {
             assetLoader.shouldInterceptRequest(request.url)
         } else {
-            val rustWebview = view as RustWebView;
-            val response = handleRequest(rustWebview.id, request, rustWebview.isDocumentStartScriptEnabled)
+            val response = Rust.handleRequest(view.id, request, view.isDocumentStartScriptEnabled)
+            if (response != null) {
+                if (response.responseHeaders != null) {
+                    response.responseHeaders["Cache-Control"] = "no-store"
+                } else {
+                    response.responseHeaders = mapOf("Cache-Control" to "no-store")
+                }
+            }
             interceptedState[request.url.toString()] = response != null
             return response
         }
@@ -50,7 +56,7 @@ class RustWebViewClient(context: Context): WebViewClient() {
         view: WebView,
         request: WebResourceRequest
     ): Boolean {
-        return shouldOverride(request.url.toString())
+        return Rust.shouldOverride((view as RustWebView).id, request.url.toString())
     }
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
@@ -61,11 +67,11 @@ class RustWebViewClient(context: Context): WebViewClient() {
                 view.evaluateJavascript(script, null)
             }
         }
-        return onPageLoading(url)
+        return Rust.onPageLoading((view as RustWebView).id, url)
     }
 
     override fun onPageFinished(view: WebView, url: String) {
-        onPageLoaded(url)
+        Rust.onPageLoaded((view as RustWebView).id, url)
     }
 
     override fun onReceivedError(
@@ -87,19 +93,6 @@ class RustWebViewClient(context: Context): WebViewClient() {
             super.onReceivedError(view, request, error)
         }
     }
-
-    companion object {
-        init {
-            System.loadLibrary("{{library}}")
-        }
-    }
-
-    private external fun assetLoaderDomain(): String
-    private external fun withAssetLoader(): Boolean
-    private external fun handleRequest(webviewId: String, request: WebResourceRequest, isDocumentStartScriptEnabled: Boolean): WebResourceResponse?
-    private external fun shouldOverride(url: String): Boolean
-    private external fun onPageLoading(url: String)
-    private external fun onPageLoaded(url: String)
 
     {{class-extension}}
 }

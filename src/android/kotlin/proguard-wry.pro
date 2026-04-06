@@ -12,6 +12,7 @@
   void setWebView({{package-unescaped}}.RustWebView);
   java.lang.Class getAppClass(...);
   java.lang.String getVersion();
+  int startActivity(...);
 }
 
 -keep class {{package-unescaped}}.Ipc {

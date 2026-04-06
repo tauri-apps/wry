@@ -74,7 +74,7 @@
 //!
 //! ## Child webviews
 //!
-//! You can use [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`] to create the webview as a child inside another window. This is supported on
+//! You can use [`WebViewBuilder::build_as_child`] to create the webview as a child inside another window. This is supported on
 //! macOS, Windows and Linux (X11 Only).
 //!
 //! ```no_run
@@ -351,6 +351,8 @@
 mod custom_protocol_workaround;
 mod error;
 mod permissions;
+#[cfg(any(target_os = "android", test))]
+mod inject_initialization_scripts;
 mod proxy;
 #[cfg(any(target_os = "macos", target_os = "android", target_os = "ios"))]
 mod util;
@@ -540,11 +542,13 @@ pub struct NewWindowFeatures {
 /// An id for a webview
 pub type WebViewId<'a> = &'a str;
 
-pub struct WebViewAttributes<'a> {
+// WebViewAttributes is not stable enough to be pub.
+struct WebViewAttributes<'a> {
   /// An id that will be passed when this webview makes requests in certain callbacks.
   pub id: Option<WebViewId<'a>>,
 
   /// Web context to be shared with this webview.
+  #[allow(unused)]
   pub context: Option<&'a mut WebContext>,
 
   /// Whether the WebView should have a custom user-agent.
@@ -655,11 +659,7 @@ pub struct WebViewAttributes<'a> {
   ///
   /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
-  #[cfg(feature = "drag-drop")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "drag-drop")))]
   pub drag_drop_handler: Option<Box<dyn Fn(DragDropEvent) -> bool>>,
-  #[cfg(not(feature = "drag-drop"))]
-  drag_drop_handler: Option<Box<dyn Fn(DragDropEvent) -> bool>>,
 
   /// A navigation handler to decide if incoming url is allowed to navigate.
   ///
@@ -698,13 +698,8 @@ pub struct WebViewAttributes<'a> {
   ///
   /// The closure take the URL to open and the window features object and returns [`NewWindowResponse`] to determine whether the window should open.
   ///
-  /// ## Platform-specific:
-  ///
-  /// - **Windows**: The closure is executed on a separate thread to prevent a deadlock.
-  ///
   /// [window.open]: https://developer.mozilla.org/en-US/docs/Web/API/Window/open
-  pub new_window_req_handler:
-    Option<Box<dyn Fn(String, NewWindowFeatures) -> NewWindowResponse + Send + Sync>>,
+  pub new_window_req_handler: Option<Box<dyn Fn(String, NewWindowFeatures) -> NewWindowResponse>>,
 
   /// Enables clipboard access for the page rendered on **Linux** and **Windows**.
   ///
@@ -737,7 +732,7 @@ pub struct WebViewAttributes<'a> {
   /// ## Platform-specific:
   ///
   /// - Windows: Setting to `false` does nothing on WebView2 Runtime version before 92.0.902.0,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10902-prerelease
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10902-prerelease>
   ///
   /// - **Android / iOS:** Unsupported.
   pub back_forward_navigation_gestures: bool,
@@ -751,7 +746,7 @@ pub struct WebViewAttributes<'a> {
   /// ## Platform-specific:
   ///
   /// - **Windows**: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039>
   /// - **Android:** Unsupported yet.
   /// - **macOS / iOS**: Uses the nonPersistent DataStore.
   pub incognito: bool,
@@ -776,7 +771,7 @@ pub struct WebViewAttributes<'a> {
   pub focused: bool,
 
   /// The webview bounds. Defaults to `x: 0, y: 0, width: 200, height: 200`.
-  /// This is only effective if the webview was created by [`WebView::new_as_child`] or [`WebViewBuilder::new_as_child`]
+  /// This is only effective if the webview was created by [`WebViewBuilder::new_as_child`]
   /// or on Linux, if was created by [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
   pub bounds: Option<Rect>,
 
@@ -792,7 +787,7 @@ pub struct WebViewAttributes<'a> {
   /// - **iOS**: Supported since version 17.0+.
   /// - **macOS**: Supported since version 14.0+.
   ///
-  /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
+  /// see <https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578>
   pub background_throttling: Option<BackgroundThrottlingPolicy>,
 
   /// Whether JavaScript should be disabled.
@@ -924,16 +919,6 @@ impl<'a> WebViewBuilder<'a> {
       ..Default::default()
     };
 
-    Self {
-      attrs,
-      #[allow(clippy::default_constructed_unit_structs)]
-      platform_specific: PlatformSpecificWebViewAttributes::default(),
-      error: Ok(()),
-    }
-  }
-
-  /// Create a new [`WebViewBuilder`] with the given [`WebViewAttributes`]
-  pub fn new_with_attributes(attrs: WebViewAttributes<'a>) -> Self {
     Self {
       attrs,
       #[allow(clippy::default_constructed_unit_structs)]
@@ -1199,8 +1184,6 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
-  #[cfg(feature = "drag-drop")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "drag-drop")))]
   pub fn with_drag_drop_handler<F>(mut self, handler: F) -> Self
   where
     F: Fn(DragDropEvent) -> bool + 'static,
@@ -1271,7 +1254,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// - Windows: Requires WebView2 Runtime version 86.0.616.0 or higher, does nothing on older versions,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10790-prerelease
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10790-prerelease>
   pub fn with_user_agent(mut self, user_agent: impl Into<String>) -> Self {
     self.attrs.user_agent = Some(user_agent.into());
     self
@@ -1298,7 +1281,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// - Windows: Setting to `false` can't disable pinch zoom on WebView2 Runtime version before 91.0.865.0,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10865-prerelease
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10865-prerelease>
   ///
   /// - **macOS / Linux / Android / iOS**: Unsupported
   pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
@@ -1412,7 +1395,7 @@ impl<'a> WebViewBuilder<'a> {
   /// [window.open]: https://developer.mozilla.org/en-US/docs/Web/API/Window/open
   pub fn with_new_window_req_handler(
     mut self,
-    callback: impl Fn(String, NewWindowFeatures) -> NewWindowResponse + Send + Sync + 'static,
+    callback: impl Fn(String, NewWindowFeatures) -> NewWindowResponse + 'static,
   ) -> Self {
     self.attrs.new_window_req_handler = Some(Box::new(callback));
     self
@@ -1443,7 +1426,7 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific:
   ///
   /// - Windows: Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
-  ///   see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039>
   /// - **Android:** Unsupported yet.
   pub fn with_incognito(mut self, incognito: bool) -> Self {
     self.attrs.incognito = incognito;
@@ -1500,7 +1483,7 @@ impl<'a> WebViewBuilder<'a> {
   /// - **iOS**: Supported since version 17.0+.
   /// - **macOS**: Supported since version 14.0+.
   ///
-  /// see https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578
+  /// see <https://github.com/tauri-apps/tauri/issues/5250#issuecomment-2569380578>
   pub fn with_background_throttling(mut self, policy: BackgroundThrottlingPolicy) -> Self {
     self.attrs.background_throttling = Some(policy);
     self
@@ -1791,7 +1774,7 @@ pub trait WebViewBuilderExtWindows {
   ///
   /// ## Warning
   ///
-  /// - Webview instances with different browser arguments must also have different [data directories](struct.WebContext.html#method.new).
+  /// - Webview instances with different browser arguments must also have different [data directories](WebContext::new).
   /// - By default wry passes `--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection`
   ///   `--autoplay-policy=no-user-gesture-required` if autoplay is enabled
   ///   and `--proxy-server=<scheme>://<host>:<port>` if a proxy is set.
@@ -1803,7 +1786,7 @@ pub trait WebViewBuilderExtWindows {
   /// The default value is `true`. See the following link to know more details.
   ///
   /// Setting to `false` does nothing on WebView2 Runtime version before 92.0.902.0,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10824-prerelease
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10824-prerelease>
   ///
   /// <https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2settings#arebrowseracceleratorkeysenabled>
   fn with_browser_accelerator_keys(self, enabled: bool) -> Self;
@@ -1821,7 +1804,7 @@ pub trait WebViewBuilderExtWindows {
   /// Defaults to [`Theme::Auto`] which will follow the OS defaults.
   ///
   /// Requires WebView2 Runtime version 101.0.1210.39 or higher, does nothing on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039>
   fn with_theme(self, theme: Theme) -> Self;
 
   /// Determines whether the custom protocols should use `https://<scheme>.path/to/page` instead of the default `http://<scheme>.path/to/page`.
@@ -1835,18 +1818,26 @@ pub trait WebViewBuilderExtWindows {
   /// Specifies the native scrollbar style to use with webview2.
   /// CSS styles that modify the scrollbar are applied on top of the native appearance configured here.
   ///
-  /// Defaults to [`ScrollbarStyle::Default`] which is the browser default used by Microsoft Edge.
+  /// Defaults to [`ScrollBarStyle::Default`] which is the browser default used by Microsoft Edge.
   ///
   /// Requires WebView2 Runtime version 125.0.2535.41 or higher, does nothing on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/?tabs=dotnetcsharp#10253541
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/?tabs=dotnetcsharp#10253541>
+  ///
+  /// ## Warning
+  ///
+  /// Webview instances with different scroll bar styles must also have different [data directories](WebContext::new).
   fn with_scroll_bar_style(self, style: ScrollBarStyle) -> Self;
 
   /// Determines whether the ability to install and enable extensions is enabled.
   ///
   /// By default, extensions are disabled.
   ///
-  /// Requires WebView2 Runtime version 1.0.2210.55 or higher, does nothing on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10221055
+  /// Requires WebView2 Runtime version 120.0.2210.55 or higher, does nothing on older versions,
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10221055>
+  ///
+  /// ## Warning
+  ///
+  /// Webview instances with different browser extensions enabled settings must also have different [data directories](WebContext::new).
   fn with_browser_extensions_enabled(self, enabled: bool) -> Self;
 
   /// Set the path from which to load extensions from. Extensions stored in this path should be unpacked.
@@ -1910,8 +1901,14 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 #[cfg(target_os = "android")]
 #[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
-  on_webview_created:
-    Option<Box<dyn Fn(prelude::Context) -> std::result::Result<(), jni::errors::Error> + Send>>,
+  on_webview_created: Option<
+    std::sync::Arc<
+      dyn Fn(prelude::Context) -> std::result::Result<(), jni::errors::Error>
+        + Send
+        + Sync
+        + 'static,
+    >,
+  >,
   with_asset_loader: bool,
   asset_loader_domain: Option<String>,
   https_scheme: bool,
@@ -1920,7 +1917,10 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
 #[cfg(target_os = "android")]
 pub trait WebViewBuilderExtAndroid {
   fn on_webview_created<
-    F: Fn(prelude::Context<'_, '_>) -> std::result::Result<(), jni::errors::Error> + Send + 'static,
+    F: Fn(prelude::Context<'_, '_>) -> std::result::Result<(), jni::errors::Error>
+      + Send
+      + Sync
+      + 'static,
   >(
     self,
     f: F,
@@ -1947,12 +1947,15 @@ pub trait WebViewBuilderExtAndroid {
 #[cfg(target_os = "android")]
 impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
   fn on_webview_created<
-    F: Fn(prelude::Context<'_, '_>) -> std::result::Result<(), jni::errors::Error> + Send + 'static,
+    F: Fn(prelude::Context<'_, '_>) -> std::result::Result<(), jni::errors::Error>
+      + Send
+      + Sync
+      + 'static,
   >(
     mut self,
     f: F,
   ) -> Self {
-    self.platform_specific.on_webview_created = Some(Box::new(f));
+    self.platform_specific.on_webview_created = Some(std::sync::Arc::new(f));
     self
   }
 
@@ -2060,55 +2063,6 @@ pub struct WebView {
 }
 
 impl WebView {
-  /// Create a [`WebView`] from from a type that implements [`HasWindowHandle`].
-  /// Note that calling this directly loses
-  /// abilities to initialize scripts, add ipc handler, and many more before starting WebView. To
-  /// benefit from above features, create a [`WebViewBuilder`] instead.
-  ///
-  /// # Platform-specific:
-  ///
-  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewExtUnix::new_gtk`].
-  ///
-  ///   Although this methods only needs an X11 window handle, you use webkit2gtk, so you still need to initialize gtk
-  ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
-  ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
-  /// - **macOS / Windows**: The webview will auto-resize when the passed handle is resized.
-  /// - **Linux (X11)**: Unlike macOS and Windows, the webview will not auto-resize and you'll need to call [`WebView::set_bounds`] manually.
-  ///
-  /// # Panics:
-  ///
-  /// - Panics if the provided handle was not supported or invalid.
-  /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
-  pub fn new(window: &impl HasWindowHandle, attrs: WebViewAttributes) -> Result<Self> {
-    WebViewBuilder::new_with_attributes(attrs).build(window)
-  }
-
-  /// Create [`WebViewBuilder`] as a child window inside the provided [`HasWindowHandle`].
-  ///
-  /// ## Platform-specific
-  ///
-  /// - **Windows**: This will create the webview as a child window of the `parent` window.
-  /// - **macOS**: This will create the webview as a `NSView` subview of the `parent` window's
-  ///   content view.
-  /// - **Linux**: This will create the webview as a child window of the `parent` window. Only X11
-  ///   is supported. This method won't work on Wayland.
-  ///
-  ///   Although this methods only needs an X11 window handle, you use webkit2gtk, so you still need to initialize gtk
-  ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
-  ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
-  ///
-  ///   If you want to support child webviews on X11 and Wayland at the same time,
-  ///   we recommend using [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
-  /// - **Android/iOS:** Unsupported.
-  ///
-  /// # Panics:
-  ///
-  /// - Panics if the provided handle was not support or invalid.
-  /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
-  pub fn new_as_child(parent: &impl HasWindowHandle, attrs: WebViewAttributes) -> Result<Self> {
-    WebViewBuilder::new_with_attributes(attrs).build_as_child(parent)
-  }
-
   /// Returns the id of this webview.
   pub fn id(&self) -> WebViewId<'_> {
     self.webview.id()
@@ -2130,8 +2084,6 @@ impl WebView {
   /// serialized into a JSON string and passed to the callback function.
   ///
   /// Exception is ignored because of the limitation on windows. You can catch it yourself and return as string as a workaround.
-  ///
-  /// - ** Android:** Not implemented yet.
   pub fn evaluate_script_with_callback(
     &self,
     js: &str,
@@ -2356,7 +2308,7 @@ pub trait WebViewExtWindows {
   /// Changes the webview2 theme.
   ///
   /// Requires WebView2 Runtime version 101.0.1210.39 or higher, returns error on older versions,
-  /// see https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10121039>
   fn set_theme(&self, theme: Theme) -> Result<()>;
 
   /// Sets the [memory usage target level][1].
@@ -2560,7 +2512,9 @@ pub trait WebViewExtAndroid {
 #[cfg(target_os = "android")]
 impl WebViewExtAndroid for WebView {
   fn handle(&self) -> JniHandle {
-    JniHandle
+    JniHandle {
+      activity_id: self.webview.activity_id,
+    }
   }
 }
 

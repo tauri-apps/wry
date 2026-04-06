@@ -20,7 +20,6 @@ fn main() -> wry::Result<()> {
       wry::NewWindowResponse::Allow
     });
 
-  #[cfg(feature = "drag-drop")]
   let builder = builder.with_drag_drop_handler(|e| {
     match e {
       wry::DragDropEvent::Enter { paths, position } => {
