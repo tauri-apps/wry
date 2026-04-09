@@ -808,7 +808,9 @@ struct WebViewAttributes<'a> {
   /// - **Windows**: Fully supported via WebView2's PermissionRequested event.
   /// - **macOS / iOS**: Fully supported via WKUIDelegate's requestMediaCapturePermission.
   /// - **Linux**: Fully supported via WebKitGTK's permission-request signal.
-  /// - **Android**: Supported via JNI bridge with some limitations (WIP).
+  /// - **Android**: Supported via JNI bridge for geolocation, microphone, camera,
+  ///   protected media, and MIDI requests. Android runtime permissions may still
+  ///   trigger native OS prompts before access is granted.
   ///
   /// ## Example
   ///

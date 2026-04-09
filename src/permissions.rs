@@ -9,6 +9,13 @@ pub enum PermissionKind {
   /// Camera access permission.
   Camera,
   /// Geolocation access permission.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION`.
+  /// - **Linux**: Supported via `GeolocationPermissionRequest`.
+  /// - **Android**: Supported via `WebChromeClient.onGeolocationPermissionsShowPrompt`.
+  /// - **macOS / iOS**: Not yet supported by platform backends.
   Geolocation,
   /// Notifications permission.
   ///

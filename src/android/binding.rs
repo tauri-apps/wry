@@ -95,6 +95,14 @@ macro_rules! android_binding {
       [JString, jni::objects::JObjectArray],
       jint
     );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebChromeClient,
+      onGeolocationPermissionRequestNative,
+      [JString, JString],
+      jint
+    );
   }};
 }
 
@@ -543,5 +551,29 @@ pub unsafe fn onPermissionRequestNative(
     3 // Prompt
   } else {
     2 // Default
+  }
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn onGeolocationPermissionRequestNative(
+  mut env: JNIEnv,
+  _: JClass,
+  webview_id: JString,
+  _origin: JString,
+) -> jint {
+  let Ok(webview_id) = env.get_string(&webview_id) else {
+    return 2;
+  };
+  let webview_id = webview_id.to_str().ok().unwrap_or_default();
+  let permission_handlers = PERMISSION_HANDLER.lock().unwrap();
+  let Some(handler) = permission_handlers.get(webview_id) else {
+    return 2;
+  };
+
+  match (handler.handler)(PermissionKind::Geolocation) {
+    PermissionResponse::Allow => 0,
+    PermissionResponse::Deny => 1,
+    PermissionResponse::Default => 2,
+    PermissionResponse::Prompt => 3,
   }
 }

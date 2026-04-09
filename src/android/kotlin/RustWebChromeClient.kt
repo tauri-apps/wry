@@ -92,10 +92,15 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
   }
 
   override fun onPermissionRequest(request: PermissionRequest) {
+    val requestedResources = safePermissionRequestResources(request.resources)
     val response = onPermissionRequestNative(activity.currentWebViewId(), request.resources)
     when (response) {
       0 -> { // Allow
-        request.grant(request.resources)
+        if (requestedResources.isNotEmpty()) {
+          request.grant(requestedResources)
+        } else {
+          request.deny()
+        }
         return
       }
       1 -> { // Deny
@@ -112,19 +117,21 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
 
     val isRequestPermissionRequired = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
     val permissionList: MutableList<String> = ArrayList()
-    if (listOf(*request.resources).contains("android.webkit.resource.VIDEO_CAPTURE")) {
+    if (requestedResources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
       permissionList.add(Manifest.permission.CAMERA)
     }
-    if (listOf(*request.resources).contains("android.webkit.resource.AUDIO_CAPTURE")) {
+    if (requestedResources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
       permissionList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS)
       permissionList.add(Manifest.permission.RECORD_AUDIO)
     }
-    if (permissionList.isNotEmpty() && isRequestPermissionRequired) {
+    if (requestedResources.isEmpty()) {
+      request.deny()
+    } else if (permissionList.isNotEmpty() && isRequestPermissionRequired) {
       val permissions = permissionList.toTypedArray()
       permissionListener = object : PermissionListener {
         override fun onPermissionSelect(isGranted: Boolean?) {
           if (isGranted == true) {
-            request.grant(request.resources)
+            request.grant(requestedResources)
           } else {
             request.deny()
           }
@@ -132,11 +139,12 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
       }
       permissionLauncher.launch(permissions)
     } else {
-      request.grant(request.resources)
+      request.grant(requestedResources)
     }
   }
 
   private external fun onPermissionRequestNative(webviewId: String, resources: Array<String>): Int
+  private external fun onGeolocationPermissionRequestNative(webviewId: String, origin: String): Int
 
   /**
    * Show the browser alert modal
@@ -260,9 +268,20 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
     callback: GeolocationPermissions.Callback
   ) {
     super.onGeolocationPermissionsShowPrompt(origin, callback)
+    when (onGeolocationPermissionRequestNative(activity.currentWebViewId(), origin)) {
+      1 -> {
+        callback.invoke(origin, false, false)
+        return
+      }
+    }
+
     Logger.debug("onGeolocationPermissionsShowPrompt: DOING IT HERE FOR ORIGIN: $origin")
-    val geoPermissions =
-      arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)
+    val geoPermissions = definedGeolocationPermissions()
+    if (geoPermissions.isEmpty()) {
+      callback.invoke(origin, false, false)
+      return
+    }
+
     if (!PermissionHelper.hasPermissions(activity, geoPermissions)) {
       permissionListener = object : PermissionListener {
         override fun onPermissionSelect(isGranted: Boolean?) {
@@ -287,6 +306,26 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
       callback.invoke(origin, true, false)
       Logger.debug("onGeolocationPermissionsShowPrompt: has required permission")
     }
+  }
+
+  private fun safePermissionRequestResources(resources: Array<String>): Array<String> {
+    return resources.filter {
+      it == PermissionRequest.RESOURCE_AUDIO_CAPTURE ||
+        it == PermissionRequest.RESOURCE_VIDEO_CAPTURE ||
+        it == PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID ||
+        it == PermissionRequest.RESOURCE_MIDI_SYSEX
+    }.toTypedArray()
+  }
+
+  private fun definedGeolocationPermissions(): Array<String> {
+    val permissions = ArrayList<String>()
+    if (PermissionHelper.hasDefinedPermission(activity, Manifest.permission.ACCESS_COARSE_LOCATION)) {
+      permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+    }
+    if (PermissionHelper.hasDefinedPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION)) {
+      permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
+    }
+    return permissions.toTypedArray()
   }
 
   override fun onShowFileChooser(
