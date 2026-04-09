@@ -96,6 +96,7 @@ pub fn destroy_webview(activity_id: ActivityId, webview_id: &WebviewId) {
   TITLE_CHANGE_HANDLER.lock().unwrap().remove(webview_id);
   URL_LOADING_OVERRIDE.lock().unwrap().remove(webview_id);
   ON_LOAD_HANDLER.lock().unwrap().remove(webview_id);
+  PERMISSION_HANDLER.lock().unwrap().remove(webview_id);
   WITH_ASSET_LOADER.lock().unwrap().remove(webview_id);
   ASSET_LOADER_DOMAIN.lock().unwrap().remove(webview_id);
 }
@@ -314,6 +315,15 @@ impl InnerWebView {
         .lock()
         .unwrap()
         .insert(id.clone(), UnsafeOnPageLoadHandler::new(h));
+    }
+
+    if let Some(permission_handler) = attributes.permission_handler {
+      let permission_handler: Box<dyn Fn(PermissionKind) -> PermissionResponse> =
+        permission_handler;
+      PERMISSION_HANDLER
+        .lock()
+        .unwrap()
+        .insert(id.clone(), UnsafePermissionHandler::new(permission_handler));
     }
 
     let attributes = CreateWebViewAttributes {

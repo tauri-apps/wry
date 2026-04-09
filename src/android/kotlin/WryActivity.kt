@@ -76,6 +76,10 @@ abstract class WryActivity : AppCompatActivity() {
         onWebViewCreate(webView)
     }
 
+    fun currentWebViewId(): String {
+        return if (::mWebView.isInitialized) mWebView.id else ""
+    }
+
     val version: String
         @SuppressLint("WebViewApiAvailability", "ObsoleteSdkInt")
         get() {

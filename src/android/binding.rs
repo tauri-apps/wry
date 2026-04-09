@@ -92,7 +92,7 @@ macro_rules! android_binding {
       $package,
       RustWebChromeClient,
       onPermissionRequestNative,
-      [jni::objects::JObjectArray],
+      [JString, jni::objects::JObjectArray],
       jint
     );
   }};
@@ -490,14 +490,24 @@ pub unsafe fn onPageLoaded(mut env: JNIEnv, _: JClass, webview_id: JString, url:
   }
 }
 
+#[allow(non_snake_case)]
 pub unsafe fn onPermissionRequestNative(
   mut env: JNIEnv,
   _: JClass,
+  webview_id: JString,
   resources: jni::objects::JObjectArray,
 ) -> jint {
   let mut allowed = false;
   let mut denied = false;
   let mut prompt = false;
+  let Ok(webview_id) = env.get_string(&webview_id) else {
+    return 2;
+  };
+  let webview_id = webview_id.to_str().ok().unwrap_or_default();
+  let permission_handlers = PERMISSION_HANDLER.lock().unwrap();
+  let Some(handler) = permission_handlers.get(webview_id) else {
+    return 2;
+  };
 
   if let Ok(size) = env.get_array_length(&resources) {
     for i in 0..size {
@@ -513,13 +523,11 @@ pub unsafe fn onPermissionRequestNative(
             _ => PermissionKind::Other,
           };
 
-          if let Some(handler) = &*PERMISSION_HANDLER.lock().unwrap() {
-            match (handler.handler)(kind) {
-              PermissionResponse::Allow => allowed = true,
-              PermissionResponse::Deny => denied = true,
-              PermissionResponse::Prompt => prompt = true,
-              PermissionResponse::Default => {}
-            }
+          match (handler.handler)(kind) {
+            PermissionResponse::Allow => allowed = true,
+            PermissionResponse::Deny => denied = true,
+            PermissionResponse::Prompt => prompt = true,
+            PermissionResponse::Default => {}
           }
         }
       }

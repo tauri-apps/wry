@@ -92,7 +92,7 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
   }
 
   override fun onPermissionRequest(request: PermissionRequest) {
-    val response = onPermissionRequestNative(request.resources)
+    val response = onPermissionRequestNative(activity.currentWebViewId(), request.resources)
     when (response) {
       0 -> { // Allow
         request.grant(request.resources)
@@ -136,7 +136,7 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
     }
   }
 
-  private external fun onPermissionRequestNative(resources: Array<String>): Int
+  private external fun onPermissionRequestNative(webviewId: String, resources: Array<String>): Int
 
   /**
    * Show the browser alert modal
