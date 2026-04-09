@@ -2168,11 +2168,6 @@ impl WebView {
   pub fn focus_parent(&self) -> Result<()> {
     self.webview.focus_parent()
   }
-
-  /// Returns the HWND of this webview.
-  pub fn webview_hwnd(&self) -> windows::Win32::Foundation::HWND {
-    self.webview.hwnd()
-  }
 }
 
 /// An event describing drag and drop operations on the webview.
@@ -2260,6 +2255,8 @@ pub trait WebViewExtWindows {
 
   /// Attaches this webview to the given HWND and removes it from the current one.
   fn reparent(&self, hwnd: isize) -> Result<()>;
+
+  fn webview_hwnd(&self) -> windows::Win32::Foundation::HWND;
 }
 
 #[cfg(target_os = "windows")]
@@ -2286,6 +2283,11 @@ impl WebViewExtWindows for WebView {
 
   fn reparent(&self, hwnd: isize) -> Result<()> {
     self.webview.reparent(hwnd)
+  }
+
+  /// Returns the child HWND hosting this webview.
+  fn webview_hwnd(&self) -> windows::Win32::Foundation::HWND {
+    self.webview.hwnd()
   }
 }
 
