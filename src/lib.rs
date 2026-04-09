@@ -2168,6 +2168,11 @@ impl WebView {
   pub fn focus_parent(&self) -> Result<()> {
     self.webview.focus_parent()
   }
+
+  /// Returns the HWND of this webview.
+  pub fn webview_hwnd(&self) -> windows::Win32::Foundation::HWND {
+    self.webview.hwnd()
+  }
 }
 
 /// An event describing drag and drop operations on the webview.
