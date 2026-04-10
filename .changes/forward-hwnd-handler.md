@@ -2,4 +2,4 @@
 "wry": patch
 ---
 
-Add getter for HWND property for **WebViewExtWindows** and **InnerWebView** Structs
+On Windows, Add `WebViewExtWindows::hwnd` getter to access the child HWND containing the webview.
