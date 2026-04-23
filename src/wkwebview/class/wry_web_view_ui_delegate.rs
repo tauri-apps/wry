@@ -8,7 +8,7 @@ use std::{cell::RefCell, ptr::null_mut, rc::Rc};
 use block2::Block;
 #[cfg(target_os = "macos")]
 use objc2::DefinedClass;
-use objc2::{define_class, msg_send, rc::Retained, runtime::NSObject, MainThreadOnly};
+use objc2::{define_class, msg_send, rc::Retained, runtime::NSObject, ClassType, MainThreadOnly};
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSModalResponse, NSModalResponseOK, NSOpenPanel, NSWindowDelegate};
 use objc2_foundation::{MainThreadMarker, NSObjectProtocol};
@@ -106,8 +106,16 @@ define_class!(
       handler: &block2::Block<dyn Fn(*const NSArray<NSURL>)>,
     ) {
       unsafe {
-        if let Some(mtm) = MainThreadMarker::new() {
-          let open_panel = NSOpenPanel::openPanel(mtm);
+        if let Some(_mtm) = MainThreadMarker::new() {
+          // NSOpenPanel::openPanel() can return nil in rare macOS edge cases
+          // (e.g. code-signature mismatch after in-place app update, or system
+          // wake transient). The typed objc2 binding panics on nil, so we use
+          // a raw msg_send to handle it gracefully by cancelling the picker.
+          let ptr: *mut NSOpenPanel = msg_send![NSOpenPanel::class(), openPanel];
+          let Some(open_panel) = Retained::retain(ptr) else {
+            (*handler).call((null_mut(),));
+            return;
+          };
           open_panel.setCanChooseFiles(true);
           let allow_multi = open_panel_params.allowsMultipleSelection();
           open_panel.setAllowsMultipleSelection(allow_multi);
