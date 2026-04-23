@@ -93,45 +93,50 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
 
   override fun onPermissionRequest(request: PermissionRequest) {
     val requestedResources = safePermissionRequestResources(request.resources)
-    val response = onPermissionRequestNative(activity.currentWebViewId(), request.resources)
-    when (response) {
-      0 -> { // Allow
-        if (requestedResources.isNotEmpty()) {
-          request.grant(requestedResources)
-        } else {
+    if (requestedResources.isEmpty()) {
+      request.deny()
+      return
+    }
+
+    val grantedResources = ArrayList<String>()
+    val defaultResources = ArrayList<String>()
+
+    for (resource in requestedResources) {
+      when (onPermissionRequestNative(activity.currentWebViewId(), arrayOf(resource))) {
+        0 -> grantedResources.add(resource)
+        1 -> {
           request.deny()
+          return
         }
-        return
-      }
-      1 -> { // Deny
-        request.deny()
-        return
-      }
-      2 -> { // Default
-        // Continue with default logic
-      }
-      3 -> { // Prompt
-        // Continue with default logic (which prompts)
+        2, 3 -> defaultResources.add(resource)
       }
     }
 
-    val isRequestPermissionRequired = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-    val permissionList: MutableList<String> = ArrayList()
-    if (requestedResources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
-      permissionList.add(Manifest.permission.CAMERA)
+    if (grantedResources.isNotEmpty()) {
+      // Android PermissionRequest can only be completed once. When the handler
+      // explicitly allows a subset and leaves the rest as default/prompt, grant
+      // only the handled subset and let the remaining resources be denied.
+      grantPermissionRequest(request, grantedResources.toTypedArray())
+      return
     }
-    if (requestedResources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
-      permissionList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS)
-      permissionList.add(Manifest.permission.RECORD_AUDIO)
-    }
-    if (requestedResources.isEmpty()) {
+
+    grantPermissionRequest(request, defaultResources.toTypedArray())
+  }
+
+  private fun grantPermissionRequest(request: PermissionRequest, resources: Array<String>) {
+    if (resources.isEmpty()) {
       request.deny()
-    } else if (permissionList.isNotEmpty() && isRequestPermissionRequired) {
+      return
+    }
+
+    val isRequestPermissionRequired = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+    val permissionList = androidPermissionsForResources(resources)
+    if (permissionList.isNotEmpty() && isRequestPermissionRequired) {
       val permissions = permissionList.toTypedArray()
       permissionListener = object : PermissionListener {
         override fun onPermissionSelect(isGranted: Boolean?) {
           if (isGranted == true) {
-            request.grant(requestedResources)
+            request.grant(resources)
           } else {
             request.deny()
           }
@@ -139,8 +144,20 @@ class RustWebChromeClient(appActivity: WryActivity) : WebChromeClient() {
       }
       permissionLauncher.launch(permissions)
     } else {
-      request.grant(requestedResources)
+      request.grant(resources)
     }
+  }
+
+  private fun androidPermissionsForResources(resources: Array<String>): MutableList<String> {
+    val permissionList: MutableList<String> = ArrayList()
+    if (resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
+      permissionList.add(Manifest.permission.CAMERA)
+    }
+    if (resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+      permissionList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS)
+      permissionList.add(Manifest.permission.RECORD_AUDIO)
+    }
+    return permissionList
   }
 
   private external fun onPermissionRequestNative(webviewId: String, resources: Array<String>): Int
