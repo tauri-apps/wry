@@ -341,7 +341,7 @@ pub unsafe fn shouldOverride(
       let Ok(webview_id) = env.get_string(&webview_id) else {
         return false.into();
       };
-      let webview_id = webview_id.to_str().ok().unwrap_or_default();
+      let webview_id = webview_id.to_str().unwrap_or_default();
 
       URL_LOADING_OVERRIDE
         .lock()
@@ -429,7 +429,7 @@ pub unsafe fn withAssetLoader(mut env: JNIEnv, _: JClass, webview_id: JString) -
   let Ok(webview_id) = env.get_string(&webview_id) else {
     return false.into();
   };
-  let webview_id = webview_id.to_str().ok().unwrap_or_default();
+  let webview_id = webview_id.to_str().unwrap_or_default();
   (*WITH_ASSET_LOADER
     .lock()
     .unwrap()
@@ -443,7 +443,7 @@ pub unsafe fn assetLoaderDomain(mut env: JNIEnv, _: JClass, webview_id: JString)
   let Ok(webview_id) = env.get_string(&webview_id) else {
     return env.new_string("wry.assets").unwrap().as_raw();
   };
-  let webview_id = webview_id.to_str().ok().unwrap_or_default();
+  let webview_id = webview_id.to_str().unwrap_or_default();
   if let Some(domain) = ASSET_LOADER_DOMAIN.lock().unwrap().get(webview_id) {
     env.new_string(domain).unwrap().as_raw()
   } else {
