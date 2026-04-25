@@ -277,14 +277,13 @@ impl<'a> MainPipe<'a> {
             &activity,
             format!("{}/RustWebChromeClient", PACKAGE.get().unwrap()),
           )?;
-          let webview_id = self.env.new_string(&id)?;
           let web_chrome_client = self.env.new_object(
             &rust_webchrome_client_class,
             format!(
               "(L{}/WryActivity;Ljava/lang/String;)V",
               PACKAGE.get().unwrap()
             ),
-            &[(&activity).into(), (&webview_id).into()],
+            &[(&activity).into(), (&id).into()],
           )?;
           self.env.call_method(
             &webview,
