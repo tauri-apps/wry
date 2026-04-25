@@ -74,9 +74,8 @@ pub enum PermissionKind {
   ///
   /// ## Platform-specific
   ///
-  /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_FILE_READ_WRITE`.
   /// - **Linux**: Supported via `PointerLockPermissionRequest`.
-  /// - **macOS / Android / iOS**: Not yet supported by platform backends.
+  /// - **Windows / macOS / Android / iOS**: Not yet supported by platform backends.
   PointerLock,
   /// Automatic downloads permission (multiple downloads without user interaction).
   ///

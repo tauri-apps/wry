@@ -11,6 +11,10 @@ import android.os.Bundle
 import android.webkit.WebView
 import android.view.KeyEvent
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.ActivityResultCallback
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -48,10 +52,24 @@ object WryLifecycleObserver : DefaultLifecycleObserver {
 
 abstract class WryActivity : AppCompatActivity() {
     private lateinit var mWebView: RustWebView
+    private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
+    private lateinit var activityLauncher: ActivityResultLauncher<Intent>
+    private var permissionListener: ((Boolean?) -> Unit)? = null
+    private var activityListener: ((ActivityResult?) -> Unit)? = null
     var id: Int = 0
     open val handleBackNavigation: Boolean = true
 
     open fun onWebViewCreate(webView: WebView) { }
+
+    fun requestPermissions(permissions: Array<String>, listener: (Boolean?) -> Unit) {
+        permissionListener = listener
+        permissionLauncher.launch(permissions)
+    }
+
+    fun launchActivityForResult(intent: Intent, listener: (ActivityResult?) -> Unit) {
+        activityListener = listener
+        activityLauncher.launch(intent)
+    }
 
     fun setWebView(webView: RustWebView) {
         mWebView = webView
@@ -74,10 +92,6 @@ abstract class WryActivity : AppCompatActivity() {
         }
 
         onWebViewCreate(webView)
-    }
-
-    fun currentWebViewId(): String {
-        return if (::mWebView.isInitialized) mWebView.id else ""
     }
 
     val version: String
@@ -116,6 +130,23 @@ abstract class WryActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         id = savedInstanceState?.getInt(ACTIVITY_ID_KEY) ?: intent.extras?.getInt(ACTIVITY_ID_KEY) ?: hashCode()
+        val permissionCallback =
+            ActivityResultCallback { isGranted: Map<String, Boolean> ->
+                permissionListener?.let {
+                    var granted = true
+                    for ((_, value) in isGranted) {
+                        if (!value) granted = false
+                    }
+                    it(granted)
+                }
+            }
+        permissionLauncher =
+            registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions(), permissionCallback)
+        activityLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            activityListener?.invoke(result)
+        }
         ProcessLifecycleOwner.get().lifecycle.addObserver(WryLifecycleObserver)
         Rust.onActivityCreate(this)
     }

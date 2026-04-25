@@ -133,25 +133,7 @@ pub unsafe fn android_setup(
     .unwrap();
   let window_manager = env.new_global_ref(window_manager).unwrap();
 
-  // we must create the WebChromeClient here because it calls `registerForActivityResult`,
-  // which gives an `LifecycleOwners must call register before they are STARTED.` error when called outside the onCreate hook
-  let rust_webchrome_client_class = find_class(
-    &mut env,
-    activity.as_obj(),
-    format!("{}/RustWebChromeClient", PACKAGE.get().unwrap()),
-  )
-  .unwrap();
-  let webchrome_client = env
-    .new_object(
-      &rust_webchrome_client_class,
-      format!("(L{}/WryActivity;)V", PACKAGE.get().unwrap()),
-      &[activity.as_obj().into()],
-    )
-    .unwrap();
-
-  let webchrome_client = env.new_global_ref(webchrome_client).unwrap();
-
-  register_activity_proxy(vm, activity_id, activity, window_manager, webchrome_client);
+  register_activity_proxy(vm, activity_id, activity, window_manager);
 
   if let Some(webview_attributes) = WEBVIEW_ATTRIBUTES.lock().unwrap().get(&activity_id) {
     MainPipe::send(

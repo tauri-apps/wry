@@ -36,24 +36,17 @@ pub struct ActivityProxy {
   pub activity: GlobalRef,
   pub window_manager: GlobalRef,
   pub webview: Option<GlobalRef>,
-  pub webchrome_client: GlobalRef,
   pub java_vm: *mut c_void,
 }
 
 unsafe impl Send for ActivityProxy {}
 
 impl ActivityProxy {
-  pub fn new(
-    vm: JavaVM,
-    activity: GlobalRef,
-    window_manager: GlobalRef,
-    webchrome_client: GlobalRef,
-  ) -> Self {
+  pub fn new(vm: JavaVM, activity: GlobalRef, window_manager: GlobalRef) -> Self {
     Self {
       activity,
       window_manager,
       webview: None,
-      webchrome_client,
       java_vm: vm.get_java_vm_pointer() as *mut _,
     }
   }
@@ -75,16 +68,14 @@ pub fn register_activity_proxy(
   id: ActivityId,
   activity: GlobalRef,
   window_manager: GlobalRef,
-  webchrome_client: GlobalRef,
 ) {
   let mut activity_proxy = ACTIVITY_PROXY.lock().unwrap();
   if let Some(proxy) = activity_proxy.get_mut(&id) {
     proxy.activity = activity;
     proxy.window_manager = window_manager;
-    proxy.webchrome_client = webchrome_client;
     proxy.java_vm = vm.get_java_vm_pointer() as *mut _;
   } else {
-    let proxy = ActivityProxy::new(vm, activity, window_manager, webchrome_client);
+    let proxy = ActivityProxy::new(vm, activity, window_manager);
     activity_proxy.insert(id, proxy.clone());
   }
 }
@@ -146,9 +137,7 @@ impl<'a> MainPipe<'a> {
     if let Ok((activity_id, message)) = CHANNEL.1.recv() {
       match message {
         WebViewMessage::CreateWebView(attrs) => {
-          let Some((activity, web_chrome_client)) =
-            activity_proxy(activity_id).map(|p| (p.activity.clone(), p.webchrome_client.clone()))
-          else {
+          let Some(activity) = activity_proxy(activity_id).map(|p| p.activity.clone()) else {
             #[cfg(debug_assertions)]
             eprintln!("no activity found for activity id: {}", activity_id);
             return Ok(());
@@ -282,12 +271,26 @@ impl<'a> MainPipe<'a> {
             "(Landroid/webkit/WebViewClient;)V",
             &[(&webview_client).into()],
           )?;
-          // set webchrome client
+          // Create and set webchrome client
+          let rust_webchrome_client_class = find_class(
+            &mut self.env,
+            &activity,
+            format!("{}/RustWebChromeClient", PACKAGE.get().unwrap()),
+          )?;
+          let webview_id = self.env.new_string(&id)?;
+          let web_chrome_client = self.env.new_object(
+            &rust_webchrome_client_class,
+            format!(
+              "(L{}/WryActivity;Ljava/lang/String;)V",
+              PACKAGE.get().unwrap()
+            ),
+            &[(&activity).into(), (&webview_id).into()],
+          )?;
           self.env.call_method(
             &webview,
             "setWebChromeClient",
             "(Landroid/webkit/WebChromeClient;)V",
-            &[web_chrome_client.as_obj().into()],
+            &[(&web_chrome_client).into()],
           )?;
 
           // Add javascript interface (IPC)
