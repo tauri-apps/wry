@@ -1400,12 +1400,14 @@ impl Drop for InnerWebView {
     // We need to drop handler closures here
     unsafe {
       if let Some(ipc_handler) = self.ipc_handler_delegate.take() {
-        let ipc = ns_string!(IPC_MESSAGE_HANDLER_NAME);
-        // this will decrease the retain count of the ipc handler and trigger the drop
-        ipc_handler
-          .ivars()
-          .controller
-          .removeScriptMessageHandlerForName(ipc);
+        if ipc_handler.ivars().registered_ipc_handler.get() {
+          let ipc = ns_string!(IPC_MESSAGE_HANDLER_NAME);
+          // this will decrease the retain count of the ipc handler and trigger the drop
+          ipc_handler
+            .ivars()
+            .controller
+            .removeScriptMessageHandlerForName(ipc);
+        }
       }
 
       // Remove webview from window's NSView before dropping.
