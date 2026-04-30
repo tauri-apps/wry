@@ -24,26 +24,6 @@ object WryLifecycleObserver : DefaultLifecycleObserver {
         Rust.create()
         Rust.wryCreate()
     }
-
-    override fun onStart(owner: LifecycleOwner) {
-        super.onStart(owner)
-        Rust.start()
-    }
-
-    override fun onResume(owner: LifecycleOwner) {
-        super.onResume(owner)
-        Rust.resume()
-    }
-
-    override fun onPause(owner: LifecycleOwner) {
-        super.onPause(owner)
-        Rust.pause()
-    }
-
-    override fun onStop(owner: LifecycleOwner) {
-        super.onStop(owner)
-        Rust.stop()
-    }
 }
 
 abstract class WryActivity : AppCompatActivity() {
@@ -116,6 +96,11 @@ abstract class WryActivity : AppCompatActivity() {
         Rust.onActivityCreate(this)
     }
 
+    override fun onStart() {
+        super.onStart()
+        Rust.start(this)
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         Rust.onWindowFocusChanged(this, hasFocus)
@@ -129,6 +114,7 @@ abstract class WryActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        Rust.pause(this)
         if (::mWebView.isInitialized) {
             mWebView.onPause()
         }
@@ -136,9 +122,15 @@ abstract class WryActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        Rust.resume(this)
         if (::mWebView.isInitialized) {
             mWebView.onResume()
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Rust.stop(this)
     }
 
     override fun onDestroy() {

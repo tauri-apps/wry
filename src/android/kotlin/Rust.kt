@@ -24,10 +24,10 @@ object Rust {
     @JvmStatic external fun onNewIntent(intent: Intent)
 
     @JvmStatic external fun create()
-    @JvmStatic external fun start()
-    @JvmStatic external fun resume()
-    @JvmStatic external fun pause()
-    @JvmStatic external fun stop()
+    @JvmStatic external fun start(activity: WryActivity)
+    @JvmStatic external fun resume(activity: WryActivity)
+    @JvmStatic external fun pause(activity: WryActivity)
+    @JvmStatic external fun stop(activity: WryActivity)
 
     @JvmStatic external fun wryCreate()
     @JvmStatic external fun onWebviewDestroy(activity: WryActivity, webviewId: String)
