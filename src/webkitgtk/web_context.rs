@@ -133,13 +133,23 @@ impl WebContextExt for super::WebContext {
   {
     self.register_custom_protocol(name.to_owned())?;
 
-    // Enable secure context
-    self
+    // Enable secure context + CORS for the scheme. webkit2gtk 2.46+
+    // requires the scheme to be CORS-enabled or webkit silently bypasses
+    // the registered handler and routes the request through the default
+    // network loader. Symptom for callers using a custom scheme like
+    // `tauri://localhost/`: the load lands as `http://localhost:80/` and
+    // shows "Could not connect to localhost: Connection refused" instead
+    // of the embedded asset.
+    //
+    // The CORS-enable call is a no-op on webkit2gtk ≤ 2.44 (Ubuntu 22.04
+    // / 24.04) so it's safe to add unconditionally.
+    let security_manager = self
       .os
       .context
       .security_manager()
-      .ok_or(Error::MissingManager)?
-      .register_uri_scheme_as_secure(name);
+      .ok_or(Error::MissingManager)?;
+    security_manager.register_uri_scheme_as_secure(name);
+    security_manager.register_uri_scheme_as_cors_enabled(name);
 
     self.os.context.register_uri_scheme(name, move |request| {
       #[cfg(feature = "tracing")]
