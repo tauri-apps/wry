@@ -1920,6 +1920,7 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
 pub(crate) struct PlatformSpecificWebViewAttributes {
   extension_path: Option<PathBuf>,
   related_view: Option<webkit2gtk::WebView>,
+  input_method_preedit: bool,
 }
 
 #[cfg(any(
@@ -1950,6 +1951,26 @@ pub trait WebViewBuilderExtUnix<'a> {
   /// Creates a new webview sharing the same web process with the provided webview.
   /// Useful if you need to link a webview to another, for instance when using the [`WebViewBuilder::with_new_window_req_handler`].
   fn with_related_view(self, webview: webkit2gtk::WebView) -> Self;
+
+  /// Set whether the WebView's input method context should report
+  /// preedit text to the application during composition.
+  ///
+  /// When `true`, IME composition events (`compositionstart`,
+  /// `compositionupdate`, `compositionend`) fire in the DOM and
+  /// CJK input methods can render their preedit inline in editable
+  /// elements. When `false` (the default), preedit is suppressed
+  /// and the IM falls back to its own popup UI; this matches the
+  /// behavior introduced in wry 0.29.0 to mitigate
+  /// popup-positioning issues on older webkit2gtk versions (see
+  /// [tauri-apps/tauri#5986]).
+  ///
+  /// On modern webkit2gtk-4.1 (≥ 2.50) inline preedit works
+  /// correctly with major IMEs (fcitx5, ibus, etc.); apps targeting
+  /// those environments can opt in here to match the IME UX of
+  /// native GTK / Firefox / Chromium-based apps.
+  ///
+  /// [tauri-apps/tauri#5986]: https://github.com/tauri-apps/tauri/issues/5986
+  fn with_input_method_preedit(self, enabled: bool) -> Self;
 }
 
 #[cfg(any(
@@ -1977,6 +1998,11 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
 
   fn with_related_view(mut self, webview: webkit2gtk::WebView) -> Self {
     self.platform_specific.related_view.replace(webview);
+    self
+  }
+
+  fn with_input_method_preedit(mut self, enabled: bool) -> Self {
+    self.platform_specific.input_method_preedit = enabled;
     self
   }
 }
