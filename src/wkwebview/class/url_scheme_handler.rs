@@ -4,7 +4,7 @@
 
 use std::{
   borrow::Cow,
-  ffi::{c_char, c_void, CStr},
+  ffi::{c_char, CStr},
   panic::AssertUnwindSafe,
   ptr::NonNull,
 };
@@ -268,20 +268,14 @@ extern "C" fn start_task(
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
                 let data = if content_len < NO_COPY_DATA_THRESHOLD {
-                  let data = NSData::alloc();
                   // Keep small responses on the original copy path; no-copy deallocation costs more.
-                  NSData::initWithBytes_length(data, content.as_ptr() as *mut c_void, content.len())
+                  NSData::with_bytes(content)
                 } else {
                   match sent_response.into_body() {
                     Cow::Owned(content) => NSData::from_vec(content),
                     Cow::Borrowed(content) => {
-                      let data = NSData::alloc();
                       // Copy borrowed responses because NSData cannot take ownership.
-                      NSData::initWithBytes_length(
-                        data,
-                        content.as_ptr() as *mut c_void,
-                        content.len(),
-                      )
+                      NSData::with_bytes(content)
                     }
                   }
                 };
