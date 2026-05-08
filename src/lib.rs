@@ -1316,10 +1316,6 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// The closure take the URL to open and the window features object and returns [`NewWindowResponse`] to determine whether the window should open.
   ///
-  /// ## Platform-specific:
-  ///
-  /// - **Windows**: The closure is executed on a separate thread to prevent a deadlock.
-  ///
   /// [window.open]: https://developer.mozilla.org/en-US/docs/Web/API/Window/open
   pub fn with_new_window_req_handler(
     mut self,
