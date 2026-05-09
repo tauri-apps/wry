@@ -216,8 +216,7 @@ extern "C" fn start_task(
                 check_webview_id_valid(webview_id)?;
                 check_task_is_valid(&webview, task_key, task_uuid.clone())?;
 
-                let content = sent_response.body();
-                let content_len = content.len();
+                let content_len = sent_response.body().len();
                 // default: application/octet-stream, but should be provided by the client
                 let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
                 // default to 200
@@ -267,11 +266,12 @@ extern "C" fn start_task(
                 }))
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
+                let content = sent_response.into_body();
                 let data = if content_len < NO_COPY_DATA_THRESHOLD {
                   // Keep small responses on the original copy path; no-copy deallocation costs more.
-                  NSData::with_bytes(content)
+                  NSData::with_bytes(content.as_ref())
                 } else {
-                  match sent_response.into_body() {
+                  match content {
                     Cow::Owned(content) => NSData::from_vec(content),
                     Cow::Borrowed(content) => {
                       // Copy borrowed responses because NSData cannot take ownership.
