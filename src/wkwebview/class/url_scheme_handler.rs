@@ -267,6 +267,9 @@ extern "C" fn start_task(
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
                 let content = sent_response.into_body();
+                // It yields benefits by eliminating buffer copying starting from 88 bytes.
+                // However, sizes below 88 bytes cause regressions. 128 bytes as
+                // it aligns better with engineering standards and is more human-readable.
                 let data = if content_len < NO_COPY_DATA_THRESHOLD {
                   // Keep small responses on the original copy path; no-copy deallocation costs more.
                   NSData::with_bytes(content.as_ref())
