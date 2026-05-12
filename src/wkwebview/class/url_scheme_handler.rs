@@ -26,7 +26,7 @@ use objc2_web_kit::{WKURLSchemeHandler, WKURLSchemeTask};
 
 use crate::{wkwebview::WEBVIEW_STATE, RequestAsyncResponder, WryWebView};
 
-const NO_COPY_DATA_THRESHOLD: usize = 64 * 1024;
+const NO_COPY_DATA_THRESHOLD: usize = 128 * 1024;
 
 pub fn create(name: &str) -> &AnyClass {
   unsafe {
@@ -267,8 +267,8 @@ extern "C" fn start_task(
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
                 let content = sent_response.into_body();
-                // It yields benefits by eliminating buffer copying starting from 64 KB.
-                // However, sizes below 64 bytes cause regressions(or noise). 64 KB as
+                // It yields benefits by eliminating buffer copying starting from 128 KB.
+                // However, sizes below 64 bytes cause regressions(or noise). 128 KB as
                 // it aligns better with engineering standards and is more human-readable.
                 let data = if content_len < NO_COPY_DATA_THRESHOLD {
                   // Keep small responses on the original copy path; no-copy deallocation costs more.
