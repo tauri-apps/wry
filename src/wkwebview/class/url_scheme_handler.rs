@@ -266,21 +266,9 @@ extern "C" fn start_task(
                 }))
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
-                let content = sent_response.into_body();
-                // It yields benefits by eliminating buffer copying starting from 128 KB.
-                // However, sizes below 64 bytes cause regressions(or noise). 128 KB as
-                // it aligns better with engineering standards and is more human-readable.
-                let data = if content_len < NO_COPY_DATA_THRESHOLD {
-                  // Keep small responses on the original copy path; no-copy deallocation costs more.
-                  NSData::with_bytes(content.as_ref())
-                } else {
-                  match content {
+                let data = match sent_response.into_body() {
                     Cow::Owned(content) => NSData::from_vec(content),
-                    Cow::Borrowed(content) => {
-                      // Copy borrowed responses because NSData cannot take ownership.
-                      NSData::with_bytes(content)
-                    }
-                  }
+                    Cow::Borrowed(content) => NSData::with_bytes(content),
                 };
 
                 // Check validity again
