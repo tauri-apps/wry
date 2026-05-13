@@ -267,8 +267,8 @@ extern "C" fn start_task(
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
                 let data = match sent_response.into_body() {
-                    Cow::Owned(content) => NSData::from_vec(content),
-                    Cow::Borrowed(content) => NSData::with_bytes(content),
+                  Cow::Owned(content) => NSData::from_vec(content),
+                  Cow::Borrowed(content) => NSData::with_bytes(content),
                 };
 
                 // Check validity again
