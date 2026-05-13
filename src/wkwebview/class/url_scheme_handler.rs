@@ -26,8 +26,6 @@ use objc2_web_kit::{WKURLSchemeHandler, WKURLSchemeTask};
 
 use crate::{wkwebview::WEBVIEW_STATE, RequestAsyncResponder, WryWebView};
 
-const NO_COPY_DATA_THRESHOLD: usize = 128 * 1024;
-
 pub fn create(name: &str) -> &AnyClass {
   unsafe {
     // Include the address of WEBVIEW_STATE in the class name so that each dylib in the process
