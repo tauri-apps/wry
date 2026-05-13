@@ -26,9 +26,9 @@ fn main() -> wry::Result<()> {
     <!DOCTYPE html>
     <body>
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    // document.addEventListener('DOMContentLoaded', () => {
       ipc.postMessage('dom-loaded')
-    })
+    // })
     </script>
     </body>
   "#;
