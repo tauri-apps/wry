@@ -27,7 +27,7 @@ fn main() -> wry::Result<()> {
     <body>
     <script>
     // document.addEventListener('DOMContentLoaded', () => {
-      ipc.postMessage('dom-loaded')
+    //  ipc.postMessage('dom-loaded')
     // })
     </script>
     </body>
@@ -41,6 +41,11 @@ fn main() -> wry::Result<()> {
 
   let builder = WebViewBuilder::new()
     .with_html(html)
+    .with_on_page_load_handler(|event, _webview_id| {
+      if matches!(event, wry::PageLoadEvent::Finished) {
+        exit(0);
+      }
+    })
     .with_ipc_handler(handler);
 
   #[cfg(any(
