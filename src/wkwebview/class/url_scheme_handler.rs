@@ -4,7 +4,7 @@
 
 use std::{
   borrow::Cow,
-  ffi::{c_char, c_void, CStr},
+  ffi::{c_char, CStr},
   panic::AssertUnwindSafe,
   ptr::NonNull,
 };
@@ -214,7 +214,7 @@ extern "C" fn start_task(
                 check_webview_id_valid(webview_id)?;
                 check_task_is_valid(&webview, task_key, task_uuid.clone())?;
 
-                let content = sent_response.body();
+                let content_len = sent_response.body().len();
                 // default: application/octet-stream, but should be provided by the client
                 let wanted_mime = sent_response.headers().get(CONTENT_TYPE);
                 // default to 200
@@ -231,7 +231,7 @@ extern "C" fn start_task(
                 }
                 headers.insert(
                   &*NSString::from_str(CONTENT_LENGTH.as_str()),
-                  &*NSString::from_str(&content.len().to_string()),
+                  &*NSString::from_str(&content_len.to_string()),
                 );
 
                 // add headers
@@ -264,15 +264,10 @@ extern "C" fn start_task(
                 }))
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
-                // Send data
-                let data = NSData::alloc();
-                // MIGRATE NOTE: we copied the content to the NSData because content will be freed
-                // when out of scope but NSData will also free the content when it's done and cause doube free.
-                let data = NSData::initWithBytes_length(
-                  data,
-                  content.as_ptr() as *mut c_void,
-                  content.len(),
-                );
+                let data = match sent_response.into_body() {
+                  Cow::Owned(content) => NSData::from_vec(content),
+                  Cow::Borrowed(content) => NSData::with_bytes(content),
+                };
 
                 // Check validity again
                 check_webview_id_valid(webview_id)?;

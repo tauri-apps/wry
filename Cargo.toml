@@ -138,6 +138,7 @@ objc2-core-foundation = { version = "0.3.0", default-features = false, features 
 ] }
 objc2-foundation = { version = "0.3.0", default-features = false, features = [
   "std",
+  "block2",
   "objc2-core-foundation",
   "NSURLRequest",
   "NSURL",
