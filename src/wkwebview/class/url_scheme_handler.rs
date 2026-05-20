@@ -286,12 +286,18 @@ extern "C" fn start_task(
                 }))
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
-                if WEBVIEW_STATE.read().unwrap().contains_key(webview_id) {
+                let result = if WEBVIEW_STATE.read().unwrap().contains_key(webview_id) {
                   webview.remove_custom_task_key(task_key);
                   Ok(())
                 } else {
                   Err(crate::Error::CustomProtocolTaskInvalid)
-                }
+                };
+
+                // webview must drop before task: if webview drop triggers dealloc →
+                // stopAllTasksForPage → platformStopTask, the task must still be alive.
+                drop(webview);
+                drop(task);
+                result
               }
 
               #[cfg(feature = "tracing")]
@@ -334,8 +340,8 @@ extern "C" fn start_task(
 extern "C" fn stop_task(
   _this: &ProtocolObject<dyn WKURLSchemeHandler>,
   _sel: objc2::runtime::Sel,
-  webview: &WryWebView,
-  task: &ProtocolObject<dyn WKURLSchemeTask>,
+  _webview: *mut AnyObject,
+  _task: *mut AnyObject,
 ) {
-  webview.remove_custom_task_key(task.hash());
+  // no-op: avoid accessing task/webview — macOS 11 may pass freed pointers here
 }
