@@ -252,7 +252,10 @@ fn handle_request(
 
 #[allow(non_snake_case)]
 pub unsafe fn wryCreate(env: JNIEnv, _: JClass) {
-  let mut main_pipe = MainPipe { env };
+  let mut main_pipe = MainPipe {
+    env,
+    package: super::PACKAGE.get().unwrap(),
+  };
 
   let looper = ThreadLooper::for_thread().unwrap();
 

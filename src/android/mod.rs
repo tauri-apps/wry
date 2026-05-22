@@ -109,7 +109,7 @@ pub unsafe fn android_setup(
   _looper: &ThreadLooper,
   activity: GlobalRef,
 ) {
-  PACKAGE.get_or_init(move || package.to_string());
+  let package = PACKAGE.get_or_init(|| package.to_string());
 
   let vm = env.get_java_vm().unwrap();
 
@@ -136,13 +136,13 @@ pub unsafe fn android_setup(
   let rust_webchrome_client_class = find_class(
     &mut env,
     activity.as_obj(),
-    format!("{}/RustWebChromeClient", PACKAGE.get().unwrap()),
+    format!("{package}/RustWebChromeClient"),
   )
   .unwrap();
   let webchrome_client = env
     .new_object(
       &rust_webchrome_client_class,
-      format!("(L{}/WryActivity;)V", PACKAGE.get().unwrap()),
+      format!("(L{package}/WryActivity;)V"),
       &[activity.as_obj().into()],
     )
     .unwrap();
