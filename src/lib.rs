@@ -520,9 +520,6 @@ pub struct NewWindowOpener {
   pub target_configuration: Retained<objc2_web_kit::WKWebViewConfiguration>,
 }
 
-unsafe impl Send for NewWindowOpener {}
-unsafe impl Sync for NewWindowOpener {}
-
 /// Window features of a window requested to open.
 #[non_exhaustive]
 #[derive(Debug)]
