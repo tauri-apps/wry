@@ -261,9 +261,10 @@ pub unsafe fn wryCreate(env: JNIEnv, _: JClass) {
 
   looper
     .add_fd_with_callback(MAIN_PIPE[0].as_fd(), FdEvent::INPUT, move |fd, _event| {
-      let size = std::mem::size_of::<bool>();
-      let mut wake = false;
-      if libc::read(fd.as_raw_fd(), &mut wake as *mut _ as *mut _, size) == size as libc::ssize_t {
+      let mut buf = [0u8];
+      if libc::read(fd.as_raw_fd(), buf.as_mut_ptr() as *mut _, buf.len())
+        == buf.len() as libc::ssize_t
+      {
         // unregister itself on errors
         main_pipe.recv().is_ok()
       } else {

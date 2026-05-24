@@ -131,13 +131,13 @@ pub struct MainPipe<'a> {
 
 impl<'a> MainPipe<'a> {
   pub(crate) fn send(activity_id: ActivityId, message: WebViewMessage) {
-    let size = std::mem::size_of::<bool>();
+    const BYTE: [u8; 1] = [0];
     if CHANNEL.0.send((activity_id, message)).is_ok() {
       unsafe {
         libc::write(
           MAIN_PIPE[1].as_raw_fd(),
-          &true as *const _ as *const _,
-          size,
+          BYTE.as_ptr() as *const _,
+          BYTE.len(),
         )
       };
     }
