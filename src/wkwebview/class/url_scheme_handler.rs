@@ -60,7 +60,6 @@ extern "C" fn start_task(
   webview: &WryWebView,
   task: &ProtocolObject<dyn WKURLSchemeTask>,
 ) {
-  unsafe {
     #[cfg(feature = "tracing")]
     let span = tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty)
       .entered();
@@ -69,14 +68,16 @@ extern "C" fn start_task(
     let task_uuid = webview.add_custom_task_key(task_key);
 
     let ivar = this.class().instance_variable(c"webview_id").unwrap();
-    let webview_id_ptr: *mut c_char = *ivar.load(this);
-    let webview_id = CStr::from_ptr(webview_id_ptr)
-      .to_str()
-      .ok()
-      .unwrap_or_default();
+    let webview_id = unsafe {
+        let webview_id_ptr: *mut c_char = *ivar.load(this);
+        CStr::from_ptr(webview_id_ptr)
+            .to_str()
+            .ok()
+            .unwrap_or_default()
+    };
 
     let ivar = this.class().instance_variable(c"protocol_index").unwrap();
-    let protocol_index: usize = *ivar.load(this);
+    let protocol_index: usize = unsafe { *ivar.load(this) };
 
     let function = WEBVIEW_STATE
       .read()
@@ -87,7 +88,7 @@ extern "C" fn start_task(
 
     if let Some(function) = function {
       // Get url request
-      let request = task.request();
+      let request = unsafe { task.request() };
       let url = request.URL().unwrap();
 
       let uri = url.absoluteString().unwrap().to_string();
@@ -110,12 +111,10 @@ extern "C" fn start_task(
       } else if let Some(body_stream) = body_stream {
         body_stream.open();
 
+          let mut buf = [0u8; 128];
         while body_stream.hasBytesAvailable() {
-          sent_form_body.reserve(128);
-          let p = sent_form_body.as_mut_ptr().add(sent_form_body.len());
-          let read_length = sent_form_body.capacity() - sent_form_body.len();
-          let count = body_stream.read_maxLength(NonNull::new(p).unwrap(), read_length);
-          sent_form_body.set_len(sent_form_body.len() + count as usize);
+          let count = unsafe { body_stream.read_maxLength(NonNull::new(buf.as_mut_ptr()).unwrap(), buf.len()) };
+          sent_form_body.extend_from_slice(&buf[..count as usize]);
         }
 
         body_stream.close();
@@ -145,9 +144,11 @@ extern "C" fn start_task(
           None,
         )
         .unwrap();
+          unsafe {
         task.didReceiveResponse(&response);
         // Finish
         task.didFinish();
+          }
       };
 
       fn check_webview_id_valid(webview_id: &str) -> crate::Result<()> {
@@ -199,7 +200,7 @@ extern "C" fn start_task(
                 return; // If invalid, return early without calling task methods.
               }
 
-              unsafe fn response(
+              fn response(
                 // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
                 task: Retained<ProtocolObject<dyn WKURLSchemeTask>>,
                 // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
@@ -260,7 +261,9 @@ extern "C" fn start_task(
 
                 // Use map_err to convert Option<Retained<Exception>> to crate::Error
                 objc2::exception::catch(AssertUnwindSafe(|| {
+                    unsafe {
                   task.didReceiveResponse(&response);
+                    }
                 }))
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
@@ -274,7 +277,9 @@ extern "C" fn start_task(
                 check_task_is_valid(&webview, task_key, task_uuid.clone())?;
 
                 objc2::exception::catch(AssertUnwindSafe(|| {
+                    unsafe {
                   task.didReceiveData(&data);
+                    }
                 }))
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
@@ -282,7 +287,9 @@ extern "C" fn start_task(
                 check_task_is_valid(&webview, task_key, task_uuid)?;
 
                 objc2::exception::catch(AssertUnwindSafe(|| {
+                    unsafe {
                   task.didFinish();
+                    }
                 }))
                 .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
@@ -328,7 +335,6 @@ extern "C" fn start_task(
         "Either WebView or WebContext instance is dropped! This handler shouldn't be called."
       );
     };
-  }
 }
 
 extern "C" fn stop_task(
