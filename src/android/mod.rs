@@ -53,11 +53,11 @@ macro_rules! define_static_handlers {
   ($($var:ident = $type_name:ident { $($fields:ident:$types:ty),+ $(,)? });+ $(;)?) => {
     $(
     static $var: Lazy<Mutex<HashMap<WebviewId, $type_name>>> = Lazy::new(||Mutex::new(HashMap::new()));
-    pub struct $type_name {
+    struct $type_name {
       $($fields: $types,)*
     }
     impl $type_name {
-      pub fn new($($fields: $types,)*) -> Self {
+      fn new($($fields: $types,)*) -> Self {
         Self {
           $($fields,)*
         }
@@ -81,12 +81,12 @@ define_static_handlers! {
   ActivityId, WEBVIEW_ATTRIBUTES = CreateWebViewAttributes;
 }
 
-pub(crate) static PACKAGE: OnceCell<String> = OnceCell::new();
+static PACKAGE: OnceCell<String> = OnceCell::new();
 
 type EvalCallback = Box<dyn Fn(String) + Send + 'static>;
 
-pub static EVAL_ID_GENERATOR: Counter = Counter::new();
-pub static EVAL_CALLBACKS: OnceCell<Mutex<HashMap<i32, EvalCallback>>> = OnceCell::new();
+static EVAL_ID_GENERATOR: Counter = Counter::new();
+static EVAL_CALLBACKS: OnceCell<Mutex<HashMap<i32, EvalCallback>>> = OnceCell::new();
 
 pub fn destroy_webview(activity_id: ActivityId, webview_id: &WebviewId) {
   WEBVIEW_ATTRIBUTES.lock().unwrap().remove(&activity_id);
@@ -109,7 +109,7 @@ pub unsafe fn android_setup(
   _looper: &ThreadLooper,
   activity: GlobalRef,
 ) {
-  PACKAGE.get_or_init(move || package.to_string());
+  let package = PACKAGE.get_or_init(|| package.to_string());
 
   let vm = env.get_java_vm().unwrap();
 
@@ -136,13 +136,13 @@ pub unsafe fn android_setup(
   let rust_webchrome_client_class = find_class(
     &mut env,
     activity.as_obj(),
-    format!("{}/RustWebChromeClient", PACKAGE.get().unwrap()),
+    format!("{package}/RustWebChromeClient"),
   )
   .unwrap();
   let webchrome_client = env
     .new_object(
       &rust_webchrome_client_class,
-      format!("(L{}/WryActivity;)V", PACKAGE.get().unwrap()),
+      format!("(L{package}/WryActivity;)V"),
       &[activity.as_obj().into()],
     )
     .unwrap();

@@ -135,7 +135,13 @@ impl InnerWebView {
     } else {
       Self::create_environment(&attributes, pl_attrs.clone())?
     };
-    let controller = Self::create_controller(hwnd, &env, attributes.incognito, background_color)?;
+    let controller = Self::create_controller(
+      hwnd,
+      &env,
+      attributes.incognito,
+      background_color,
+      pl_attrs.profile_name.as_deref(),
+    )?;
     let webview = Self::init_webview(
       parent,
       hwnd,
@@ -369,6 +375,7 @@ impl InnerWebView {
     env: &ICoreWebView2Environment,
     incognito: bool,
     background_color: Option<(u8, u8, u8, u8)>,
+    profile_name: Option<&str>,
   ) -> Result<ICoreWebView2Controller> {
     let (tx, rx) = mpsc::channel();
 
@@ -405,6 +412,11 @@ impl InnerWebView {
         }
 
         controller_opts.SetIsInPrivateModeEnabled(incognito)?;
+
+        if let Some(name) = profile_name {
+          controller_opts.SetProfileName(&HSTRING::from(name))?;
+        }
+
         env10.CreateCoreWebView2ControllerWithOptions(hwnd, &controller_opts, &handler)?;
       } else {
         env.CreateCoreWebView2Controller(hwnd, &handler)?
