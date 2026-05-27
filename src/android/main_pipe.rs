@@ -17,7 +17,7 @@ use std::{
   sync::{Arc, Mutex},
 };
 
-use super::{find_class, EvalCallback, WebviewId, EVAL_CALLBACKS, EVAL_ID_GENERATOR};
+use super::{find_class, EvalCallback, WebviewId, EVAL_CALLBACKS, EVAL_ID_GENERATOR, PACKAGE};
 
 pub type ActivityId = i32;
 
@@ -126,7 +126,6 @@ pub fn get_webview(activity_id: ActivityId) -> Option<GlobalRef> {
 
 pub struct MainPipe<'a> {
   pub env: JNIEnv<'a>,
-  pub package: &'static str,
 }
 
 impl<'a> MainPipe<'a> {
@@ -193,7 +192,7 @@ impl<'a> MainPipe<'a> {
         let rust_webview_class = find_class(
           &mut self.env,
           &activity,
-          format!("{}/RustWebView", self.package),
+          format!("{}/RustWebView", PACKAGE.get().unwrap()),
         )?;
         let webview = self.env.new_object(
           &rust_webview_class,
@@ -242,7 +241,7 @@ impl<'a> MainPipe<'a> {
           )?;
         }
 
-        let webview_class_name = format!("{}/RustWebView", self.package);
+        let webview_class_name = format!("{}/RustWebView", PACKAGE.get().unwrap());
         self.env.call_method(
           &activity,
           "setWebView",
@@ -273,7 +272,7 @@ impl<'a> MainPipe<'a> {
           set_background_color(&mut self.env, &webview, color)?;
         }
         // Create and set webview client
-        let client_class_name = format!("{}/RustWebViewClient", self.package);
+        let client_class_name = format!("{}/RustWebViewClient", PACKAGE.get().unwrap());
         let rust_webview_client_class =
           find_class(&mut self.env, &activity, client_class_name.clone())?;
         let webview_client = self.env.new_object(
@@ -296,7 +295,11 @@ impl<'a> MainPipe<'a> {
         )?;
 
         // Add javascript interface (IPC)
-        let ipc_class = find_class(&mut self.env, &activity, format!("{}/Ipc", self.package))?;
+        let ipc_class = find_class(
+          &mut self.env,
+          &activity,
+          format!("{}/Ipc", PACKAGE.get().unwrap()),
+        )?;
         let ipc = self.env.new_object(
           ipc_class,
           format!("(L{webview_class_name};L{client_class_name};)V"),

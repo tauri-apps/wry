@@ -81,7 +81,7 @@ define_static_handlers! {
   ActivityId, WEBVIEW_ATTRIBUTES = CreateWebViewAttributes;
 }
 
-static PACKAGE: OnceCell<String> = OnceCell::new();
+pub(crate) static PACKAGE: OnceCell<String> = OnceCell::new();
 
 type EvalCallback = Box<dyn Fn(String) + Send + 'static>;
 
