@@ -85,7 +85,7 @@ pub fn register_activity_proxy(
     proxy.java_vm = vm.get_java_vm_pointer() as *mut _;
   } else {
     let proxy = ActivityProxy::new(vm, activity, window_manager, webchrome_client);
-    activity_proxy.insert(id, proxy.clone());
+    activity_proxy.insert(id, proxy);
   }
 }
 
@@ -144,354 +144,357 @@ impl<'a> MainPipe<'a> {
   }
 
   pub fn recv(&mut self) -> JniResult<()> {
-    if let Ok((activity_id, message)) = CHANNEL.1.recv() {
-      match message {
-        WebViewMessage::CreateWebView(attrs) => {
-          let Some((activity, web_chrome_client)) =
-            activity_proxy(activity_id).map(|p| (p.activity.clone(), p.webchrome_client.clone()))
-          else {
-            #[cfg(debug_assertions)]
-            eprintln!("no activity found for activity id: {}", activity_id);
-            return Ok(());
-          };
-          let CreateWebViewAttributes {
-            url,
-            html,
-            #[cfg(any(debug_assertions, feature = "devtools"))]
-            devtools,
-            transparent,
-            background_color,
-            headers,
-            on_webview_created,
-            autoplay,
-            user_agent,
-            initialization_scripts,
-            id,
-            javascript_disabled,
-            ..
-          } = attrs;
+    // SAFETY: The `CHANNEL` is `static` that the sender never drops
+    let (activity_id, message) = CHANNEL.1.recv().unwrap();
+    match message {
+      WebViewMessage::CreateWebView(attrs) => {
+        let Some(ActivityProxy {
+          activity,
+          webchrome_client,
+          ..
+        }) = activity_proxy(activity_id)
+        else {
+          #[cfg(debug_assertions)]
+          eprintln!("no activity found for activity id: {}", activity_id);
+          return Ok(());
+        };
+        let CreateWebViewAttributes {
+          url,
+          html,
+          #[cfg(any(debug_assertions, feature = "devtools"))]
+          devtools,
+          transparent,
+          background_color,
+          headers,
+          on_webview_created,
+          autoplay,
+          user_agent,
+          initialization_scripts,
+          id,
+          javascript_disabled,
+          ..
+        } = attrs;
 
-          let string_class = self.env.find_class("java/lang/String")?;
-          let initialization_scripts_array = self.env.new_object_array(
-            initialization_scripts.len() as i32,
-            string_class,
-            self.env.new_string("")?,
+        let string_class = self.env.find_class("java/lang/String")?;
+        let initialization_scripts_array = self.env.new_object_array(
+          initialization_scripts.len() as i32,
+          string_class,
+          self.env.new_string("")?,
+        )?;
+        for (i, init_script) in initialization_scripts.into_iter().enumerate() {
+          self.env.set_object_array_element(
+            &initialization_scripts_array,
+            i as i32,
+            self.env.new_string(init_script.script)?,
           )?;
-          for (i, init_script) in initialization_scripts.into_iter().enumerate() {
-            self.env.set_object_array_element(
-              &initialization_scripts_array,
-              i as i32,
-              self.env.new_string(init_script.script)?,
-            )?;
-          }
-          let id = self.env.new_string(id)?;
-          // Create webview
-          let rust_webview_class = find_class(
-            &mut self.env,
-            &activity,
-            format!("{}/RustWebView", self.package),
-          )?;
-          let webview = self.env.new_object(
-            &rust_webview_class,
-            "(Landroid/content/Context;[Ljava/lang/String;Ljava/lang/String;)V",
-            &[
-              (&activity).into(),
-              (&initialization_scripts_array).into(),
-              (&id).into(),
-            ],
-          )?;
-          // get settings
-          let web_settings = self
-            .env
-            .call_method(
-              &webview,
-              "getSettings",
-              "()Landroid/webkit/WebSettings;",
-              &[],
-            )?
-            .l()?;
-          // set media autoplay
+        }
+        let id = self.env.new_string(id)?;
+        // Create webview
+        let rust_webview_class = find_class(
+          &mut self.env,
+          &activity,
+          format!("{}/RustWebView", self.package),
+        )?;
+        let webview = self.env.new_object(
+          &rust_webview_class,
+          "(Landroid/content/Context;[Ljava/lang/String;Ljava/lang/String;)V",
+          &[
+            (&activity).into(),
+            (&initialization_scripts_array).into(),
+            (&id).into(),
+          ],
+        )?;
+        // get settings
+        let web_settings = self
+          .env
+          .call_method(
+            &webview,
+            "getSettings",
+            "()Landroid/webkit/WebSettings;",
+            &[],
+          )?
+          .l()?;
+        // set media autoplay
+        self.env.call_method(
+          &web_settings,
+          "setMediaPlaybackRequiresUserGesture",
+          "(Z)V",
+          &[(!autoplay).into()],
+        )?;
+        // set user-agent
+        if let Some(user_agent) = user_agent {
+          let user_agent = self.env.new_string(user_agent)?;
           self.env.call_method(
             &web_settings,
-            "setMediaPlaybackRequiresUserGesture",
+            "setUserAgentString",
+            "(Ljava/lang/String;)V",
+            &[(&user_agent).into()],
+          )?;
+        }
+
+        // disable javascript
+        if javascript_disabled {
+          self.env.call_method(
+            &web_settings,
+            "setJavaScriptEnabled",
             "(Z)V",
-            &[(!autoplay).into()],
+            &[false.into()],
           )?;
-          // set user-agent
-          if let Some(user_agent) = user_agent {
-            let user_agent = self.env.new_string(user_agent)?;
-            self.env.call_method(
-              &web_settings,
-              "setUserAgentString",
-              "(Ljava/lang/String;)V",
-              &[(&user_agent).into()],
-            )?;
+        }
+
+        let webview_class_name = format!("{}/RustWebView", self.package);
+        self.env.call_method(
+          &activity,
+          "setWebView",
+          format!("(L{webview_class_name};)V"),
+          &[(&webview).into()],
+        )?;
+        // Navigation
+        if let Some(u) = url {
+          if let Ok(url) = self.env.new_string(u) {
+            load_url(&mut self.env, &webview, &url, headers, true)?;
           }
-
-          // disable javascript
-          if javascript_disabled {
-            self.env.call_method(
-              &web_settings,
-              "setJavaScriptEnabled",
-              "(Z)V",
-              &[false.into()],
-            )?;
+        } else if let Some(h) = html {
+          if let Ok(html) = self.env.new_string(h) {
+            load_html(&mut self.env, &webview, &html)?;
           }
+        }
+        // Enable devtools
+        #[cfg(any(debug_assertions, feature = "devtools"))]
+        self.env.call_static_method(
+          &rust_webview_class,
+          "setWebContentsDebuggingEnabled",
+          "(Z)V",
+          &[devtools.into()],
+        )?;
+        if transparent {
+          set_background_color(&mut self.env, &webview, (0, 0, 0, 0))?;
+        } else if let Some(color) = background_color {
+          set_background_color(&mut self.env, &webview, color)?;
+        }
+        // Create and set webview client
+        let client_class_name = format!("{}/RustWebViewClient", self.package);
+        let rust_webview_client_class =
+          find_class(&mut self.env, &activity, client_class_name.clone())?;
+        let webview_client = self.env.new_object(
+          &rust_webview_client_class,
+          format!("(L{webview_class_name};Landroid/content/Context;)V"),
+          &[(&webview).into(), (&activity).into()],
+        )?;
+        self.env.call_method(
+          &webview,
+          "setWebViewClient",
+          "(Landroid/webkit/WebViewClient;)V",
+          &[(&webview_client).into()],
+        )?;
+        // set webchrome client
+        self.env.call_method(
+          &webview,
+          "setWebChromeClient",
+          "(Landroid/webkit/WebChromeClient;)V",
+          &[webchrome_client.as_obj().into()],
+        )?;
 
-          let webview_class_name = format!("{}/RustWebView", self.package);
-          self.env.call_method(
-            &activity,
-            "setWebView",
-            format!("(L{webview_class_name};)V"),
-            &[(&webview).into()],
-          )?;
-          // Navigation
-          if let Some(u) = url {
-            if let Ok(url) = self.env.new_string(u) {
-              load_url(&mut self.env, &webview, &url, headers, true)?;
-            }
-          } else if let Some(h) = html {
-            if let Ok(html) = self.env.new_string(h) {
-              load_html(&mut self.env, &webview, &html)?;
-            }
+        // Add javascript interface (IPC)
+        let ipc_class = find_class(&mut self.env, &activity, format!("{}/Ipc", self.package))?;
+        let ipc = self.env.new_object(
+          ipc_class,
+          format!("(L{webview_class_name};L{client_class_name};)V"),
+          &[(&webview).into(), (&webview_client).into()],
+        )?;
+        let ipc_str = self.env.new_string("ipc")?;
+        self.env.call_method(
+          &webview,
+          "addJavascriptInterface",
+          "(Ljava/lang/Object;Ljava/lang/String;)V",
+          &[(&ipc).into(), (&ipc_str).into()],
+        )?;
+
+        // Set content view
+        self.env.call_method(
+          &activity,
+          "setContentView",
+          "(Landroid/view/View;)V",
+          &[(&webview).into()],
+        )?;
+
+        if let Some(on_webview_created) = on_webview_created {
+          if let Err(_e) = on_webview_created(super::Context {
+            env: &mut self.env,
+            activity: &activity,
+            webview: &webview,
+          }) {
+            #[cfg(feature = "tracing")]
+            tracing::warn!("failed to run webview created hook: {_e}");
           }
-          // Enable devtools
-          #[cfg(any(debug_assertions, feature = "devtools"))]
-          self.env.call_static_method(
-            &rust_webview_class,
-            "setWebContentsDebuggingEnabled",
-            "(Z)V",
-            &[devtools.into()],
-          )?;
-          if transparent {
-            set_background_color(&mut self.env, &webview, (0, 0, 0, 0))?;
-          } else if let Some(color) = background_color {
-            set_background_color(&mut self.env, &webview, color)?;
-          }
-          // Create and set webview client
-          let client_class_name = format!("{}/RustWebViewClient", self.package);
-          let rust_webview_client_class =
-            find_class(&mut self.env, &activity, client_class_name.clone())?;
-          let webview_client = self.env.new_object(
-            &rust_webview_client_class,
-            format!("(L{webview_class_name};Landroid/content/Context;)V"),
-            &[(&webview).into(), (&activity).into()],
-          )?;
-          self.env.call_method(
-            &webview,
-            "setWebViewClient",
-            "(Landroid/webkit/WebViewClient;)V",
-            &[(&webview_client).into()],
-          )?;
-          // set webchrome client
-          self.env.call_method(
-            &webview,
-            "setWebChromeClient",
-            "(Landroid/webkit/WebChromeClient;)V",
-            &[web_chrome_client.as_obj().into()],
-          )?;
+        }
 
-          // Add javascript interface (IPC)
-          let ipc_class = find_class(&mut self.env, &activity, format!("{}/Ipc", self.package))?;
-          let ipc = self.env.new_object(
-            ipc_class,
-            format!("(L{webview_class_name};L{client_class_name};)V"),
-            &[(&webview).into(), (&webview_client).into()],
-          )?;
-          let ipc_str = self.env.new_string("ipc")?;
-          self.env.call_method(
-            &webview,
-            "addJavascriptInterface",
-            "(Ljava/lang/Object;Ljava/lang/String;)V",
-            &[(&ipc).into(), (&ipc_str).into()],
-          )?;
+        let webview = self.env.new_global_ref(webview)?;
 
-          // Set content view
-          self.env.call_method(
-            &activity,
-            "setContentView",
-            "(Landroid/view/View;)V",
-            &[(&webview).into()],
-          )?;
+        ACTIVITY_PROXY
+          .lock()
+          .unwrap()
+          .get_mut(&activity_id)
+          .unwrap()
+          .webview
+          .replace(webview);
+      }
+      WebViewMessage::Eval(script, callback) => {
+        if let Some(webview) = get_webview(activity_id) {
+          let id = EVAL_ID_GENERATOR.next() as i32;
 
-          if let Some(on_webview_created) = on_webview_created {
-            if let Err(_e) = on_webview_created(super::Context {
-              env: &mut self.env,
-              activity: &activity,
-              webview: &webview,
-            }) {
-              #[cfg(feature = "tracing")]
-              tracing::warn!("failed to run webview created hook: {_e}");
-            }
-          }
+          #[cfg(feature = "tracing")]
+          let span = std::sync::Mutex::new(Some(SendEnteredSpan(
+            tracing::debug_span!("wry::eval").entered(),
+          )));
 
-          let webview = self.env.new_global_ref(webview)?;
-
-          ACTIVITY_PROXY
+          EVAL_CALLBACKS
+            .get_or_init(Default::default)
             .lock()
             .unwrap()
-            .get_mut(&activity_id)
-            .unwrap()
-            .webview
-            .replace(webview);
+            .insert(
+              id,
+              Box::new(move |result| {
+                #[cfg(feature = "tracing")]
+                span.lock().unwrap().take();
+
+                if let Some(callback) = &callback {
+                  callback(result);
+                }
+              }),
+            );
+
+          let s = self.env.new_string(script)?;
+          self.env.call_method(
+            webview.as_obj(),
+            "evalScript",
+            "(ILjava/lang/String;)V",
+            &[id.into(), (&s).into()],
+          )?;
         }
-        WebViewMessage::Eval(script, callback) => {
-          if let Some(webview) = get_webview(activity_id) {
-            let id = EVAL_ID_GENERATOR.next() as i32;
-
-            #[cfg(feature = "tracing")]
-            let span = std::sync::Mutex::new(Some(SendEnteredSpan(
-              tracing::debug_span!("wry::eval").entered(),
-            )));
-
-            EVAL_CALLBACKS
-              .get_or_init(Default::default)
-              .lock()
-              .unwrap()
-              .insert(
-                id,
-                Box::new(move |result| {
-                  #[cfg(feature = "tracing")]
-                  span.lock().unwrap().take();
-
-                  if let Some(callback) = &callback {
-                    callback(result);
-                  }
-                }),
-              );
-
-            let s = self.env.new_string(script)?;
-            self.env.call_method(
-              webview.as_obj(),
-              "evalScript",
-              "(ILjava/lang/String;)V",
-              &[id.into(), (&s).into()],
-            )?;
-          }
+      }
+      WebViewMessage::SetBackgroundColor(background_color) => {
+        if let Some(webview) = get_webview(activity_id) {
+          set_background_color(&mut self.env, webview.as_obj(), background_color)?;
         }
-        WebViewMessage::SetBackgroundColor(background_color) => {
-          if let Some(webview) = get_webview(activity_id) {
-            set_background_color(&mut self.env, webview.as_obj(), background_color)?;
-          }
-        }
-        WebViewMessage::GetWebViewVersion(tx) => {
-          if let Some(activity) = activity_proxy(activity_id).map(|p| p.activity.clone()) {
-            match self
-              .env
-              .call_method(activity, "getVersion", "()Ljava/lang/String;", &[])
-              .and_then(|v| v.l())
-              .and_then(|s| {
-                let s = JString::from(s);
-                self
-                  .env
-                  .get_string(&s)
-                  .map(|v| v.to_string_lossy().to_string())
-              }) {
-              Ok(version) => {
-                tx.send(Ok(version)).unwrap();
-              }
-              Err(e) => tx.send(Err(e.into())).unwrap(),
+      }
+      WebViewMessage::GetWebViewVersion(tx) => {
+        if let Some(activity) = activity_proxy(activity_id).map(|p| p.activity) {
+          match self
+            .env
+            .call_method(activity, "getVersion", "()Ljava/lang/String;", &[])
+            .and_then(|v| v.l())
+            .and_then(|s| {
+              let s = JString::from(s);
+              self
+                .env
+                .get_string(&s)
+                .map(|v| v.to_string_lossy().to_string())
+            }) {
+            Ok(version) => {
+              tx.send(Ok(version)).unwrap();
             }
-          } else {
-            tx.send(Err(Error::ActivityNotFound)).unwrap();
+            Err(e) => tx.send(Err(e.into())).unwrap(),
           }
+        } else {
+          tx.send(Err(Error::ActivityNotFound)).unwrap();
         }
-        WebViewMessage::GetUrl(tx) => {
-          if let Some(webview) = get_webview(activity_id) {
-            let url = self
-              .env
-              .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String;", &[])
-              .and_then(|v| v.l())
-              .and_then(|s| {
-                let s = JString::from(s);
-                self
-                  .env
-                  .get_string(&s)
-                  .map(|v| v.to_string_lossy().to_string())
-              })
-              .unwrap_or_default();
+      }
+      WebViewMessage::GetUrl(tx) => {
+        if let Some(webview) = get_webview(activity_id) {
+          let url = self
+            .env
+            .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String;", &[])
+            .and_then(|v| v.l())
+            .and_then(|s| {
+              let s = JString::from(s);
+              self
+                .env
+                .get_string(&s)
+                .map(|v| v.to_string_lossy().to_string())
+            })
+            .unwrap_or_default();
 
-            tx.send(url).unwrap()
+          tx.send(url).unwrap()
+        }
+      }
+      WebViewMessage::Jni(f) => {
+        match activity_proxy(activity_id).map(|p| (p.activity.clone(), p.webview)) {
+          Some((activity, Some(webview))) => {
+            f(&mut self.env, &activity, webview.as_obj());
+          }
+          Some((activity, None)) => {
+            f(&mut self.env, &activity, &JObject::null());
+          }
+          _ => {
+            f(&mut self.env, &JObject::null(), &JObject::null());
           }
         }
-        WebViewMessage::Jni(f) => {
-          match activity_proxy(activity_id).map(|p| (p.activity.clone(), p.webview.clone())) {
-            Some((activity, Some(webview))) => {
-              f(&mut self.env, &activity, webview.as_obj());
-            }
-            Some((activity, None)) => {
-              f(&mut self.env, &activity, &JObject::null());
-            }
-            _ => {
-              f(&mut self.env, &JObject::null(), &JObject::null());
-            }
-          }
+      }
+      WebViewMessage::LoadUrl(url, headers) => {
+        if let Some(webview) = get_webview(activity_id) {
+          let url = self.env.new_string(url)?;
+          load_url(&mut self.env, webview.as_obj(), &url, headers, false)?;
         }
-        WebViewMessage::LoadUrl(url, headers) => {
-          if let Some(webview) = get_webview(activity_id) {
-            let url = self.env.new_string(url)?;
-            load_url(&mut self.env, webview.as_obj(), &url, headers, false)?;
-          }
+      }
+      WebViewMessage::ClearAllBrowsingData => {
+        if let Some(webview) = get_webview(activity_id) {
+          self
+            .env
+            .call_method(webview, "clearAllBrowsingData", "()V", &[])?;
         }
-        WebViewMessage::ClearAllBrowsingData => {
-          if let Some(webview) = get_webview(activity_id) {
-            self
-              .env
-              .call_method(webview, "clearAllBrowsingData", "()V", &[])?;
-          }
+      }
+      WebViewMessage::LoadHtml(html) => {
+        if let Some(webview) = get_webview(activity_id) {
+          let html = self.env.new_string(html)?;
+          load_html(&mut self.env, webview.as_obj(), &html)?;
         }
-        WebViewMessage::LoadHtml(html) => {
-          if let Some(webview) = get_webview(activity_id) {
-            let html = self.env.new_string(html)?;
-            load_html(&mut self.env, webview.as_obj(), &html)?;
-          }
+      }
+      WebViewMessage::Reload => {
+        if let Some(webview) = get_webview(activity_id) {
+          reload(&mut self.env, webview.as_obj())?;
         }
-        WebViewMessage::Reload => {
-          if let Some(webview) = get_webview(activity_id) {
-            reload(&mut self.env, webview.as_obj())?;
-          }
-        }
-        WebViewMessage::GetCookies(tx, url) => {
-          if let Some(webview) = get_webview(activity_id) {
-            let url = self.env.new_string(url)?;
-            let cookies = self
-              .env
-              .call_method(
-                webview,
-                "getCookies",
-                "(Ljava/lang/String;)Ljava/lang/String;",
-                &[(&url).into()],
-              )
-              .and_then(|v| v.l())
-              .and_then(|s| {
-                let s = JString::from(s);
-                self
-                  .env
-                  .get_string(&s)
-                  .map(|v| v.to_string_lossy().to_string())
-              })
-              .unwrap_or_default();
-
-            tx.send(
-              cookies
-                .split("; ")
-                .flat_map(|c| cookie::Cookie::parse(c.to_string()))
-                .collect(),
+      }
+      WebViewMessage::GetCookies(tx, url) => {
+        if let Some(webview) = get_webview(activity_id) {
+          let url = self.env.new_string(url)?;
+          let cookies = self
+            .env
+            .call_method(
+              webview,
+              "getCookies",
+              "(Ljava/lang/String;)Ljava/lang/String;",
+              &[(&url).into()],
             )
-            .unwrap();
-          }
+            .and_then(|v| v.l())
+            .and_then(|s| {
+              let s = JString::from(s);
+              self
+                .env
+                .get_string(&s)
+                .map(|v| v.to_string_lossy().to_string())
+            })
+            .unwrap_or_default();
+
+          tx.send(
+            cookies
+              .split("; ")
+              .flat_map(|c| cookie::Cookie::parse(c.to_string()))
+              .collect(),
+          )
+          .unwrap();
         }
-        WebViewMessage::OnDestroy {
-          activity_id,
-          webview_id,
-          is_changing_configurations,
-        } => {
-          // keep our webview references (callbacks etc) alive if the activity is going to be recreated due to configuration changes
-          // e.g. rotation, multi-window mode change, etc
-          if !is_changing_configurations {
-            super::destroy_webview(activity_id, &webview_id);
-            remove_activity_proxy(activity_id);
-          }
+      }
+      WebViewMessage::OnDestroy {
+        activity_id,
+        webview_id,
+        is_changing_configurations,
+      } => {
+        // keep our webview references (callbacks etc) alive if the activity is going to be recreated due to configuration changes
+        // e.g. rotation, multi-window mode change, etc
+        if !is_changing_configurations {
+          super::destroy_webview(activity_id, &webview_id);
+          remove_activity_proxy(activity_id);
         }
       }
     }
