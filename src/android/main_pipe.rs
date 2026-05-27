@@ -17,7 +17,7 @@ use std::{
   sync::{Arc, Mutex},
 };
 
-use super::{find_class, EvalCallback, WebviewId, EVAL_CALLBACKS, EVAL_ID_GENERATOR, PACKAGE};
+use super::{find_class, EvalCallback, WebviewId, EVAL_CALLBACKS, EVAL_ID_GENERATOR};
 
 pub type ActivityId = i32;
 
@@ -126,17 +126,18 @@ pub fn get_webview(activity_id: ActivityId) -> Option<GlobalRef> {
 
 pub struct MainPipe<'a> {
   pub env: JNIEnv<'a>,
+  pub package: &'static str,
 }
 
 impl<'a> MainPipe<'a> {
   pub(crate) fn send(activity_id: ActivityId, message: WebViewMessage) {
-    let size = std::mem::size_of::<bool>();
+    const BYTE: [u8; 1] = [0];
     if CHANNEL.0.send((activity_id, message)).is_ok() {
       unsafe {
         libc::write(
           MAIN_PIPE[1].as_raw_fd(),
-          &true as *const _ as *const _,
-          size,
+          BYTE.as_ptr() as *const _,
+          BYTE.len(),
         )
       };
     }
@@ -188,7 +189,7 @@ impl<'a> MainPipe<'a> {
           let rust_webview_class = find_class(
             &mut self.env,
             &activity,
-            format!("{}/RustWebView", PACKAGE.get().unwrap()),
+            format!("{}/RustWebView", self.package),
           )?;
           let webview = self.env.new_object(
             &rust_webview_class,
@@ -237,7 +238,7 @@ impl<'a> MainPipe<'a> {
             )?;
           }
 
-          let webview_class_name = format!("{}/RustWebView", PACKAGE.get().unwrap());
+          let webview_class_name = format!("{}/RustWebView", self.package);
           self.env.call_method(
             &activity,
             "setWebView",
@@ -268,7 +269,7 @@ impl<'a> MainPipe<'a> {
             set_background_color(&mut self.env, &webview, color)?;
           }
           // Create and set webview client
-          let client_class_name = format!("{}/RustWebViewClient", PACKAGE.get().unwrap());
+          let client_class_name = format!("{}/RustWebViewClient", self.package);
           let rust_webview_client_class =
             find_class(&mut self.env, &activity, client_class_name.clone())?;
           let webview_client = self.env.new_object(
@@ -291,11 +292,7 @@ impl<'a> MainPipe<'a> {
           )?;
 
           // Add javascript interface (IPC)
-          let ipc_class = find_class(
-            &mut self.env,
-            &activity,
-            format!("{}/Ipc", PACKAGE.get().unwrap()),
-          )?;
+          let ipc_class = find_class(&mut self.env, &activity, format!("{}/Ipc", self.package))?;
           let ipc = self.env.new_object(
             ipc_class,
             format!("(L{webview_class_name};L{client_class_name};)V"),
