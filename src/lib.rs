@@ -360,8 +360,6 @@ mod web_context;
 #[cfg(target_os = "android")]
 pub(crate) mod android;
 #[cfg(target_os = "android")]
-pub use crate::android::android_setup;
-#[cfg(target_os = "android")]
 pub mod prelude {
   pub use crate::android::{binding::*, dispatch, find_class, Context};
   pub use tao_macros::{android_fn, generate_package_name};
@@ -1457,6 +1455,21 @@ impl<'a> WebViewBuilder<'a> {
     self.error?;
 
     InnerWebView::new(window, self.attrs, self.platform_specific).map(|webview| WebView { webview })
+  }
+
+  #[cfg(target_os = "android")]
+  /// This function must be run on the thread where the [`JNIEnv`] is registered and the looper is local,
+  /// hence the requirement for a [`ThreadLooper`].
+  pub unsafe fn build_android<W: HasWindowHandle>(
+    self,
+    window: &'a W,
+    package: &str,
+    env: jni::JNIEnv,
+    _looper: &ndk::looper::ThreadLooper,
+    activity: jni::objects::GlobalRef,
+  ) -> Result<WebView> {
+    unsafe { android_setup(package, env, _looper, activity) };
+    self.build(window)
   }
 
   /// Consume the builder and create the [`WebView`] as a child window inside the provided [`HasWindowHandle`].

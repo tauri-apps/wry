@@ -103,7 +103,7 @@ pub fn destroy_webview(activity_id: ActivityId, webview_id: &WebviewId) {
 ///
 /// This function must be run on the thread where the [`JNIEnv`] is registered and the looper is local,
 /// hence the requirement for a [`ThreadLooper`].
-pub unsafe fn android_setup(
+pub(crate) unsafe fn android_setup(
   package: &str,
   mut env: JNIEnv,
   _looper: &ThreadLooper,
