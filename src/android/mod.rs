@@ -109,7 +109,7 @@ pub unsafe fn android_setup(
   _looper: &ThreadLooper,
   activity: GlobalRef,
 ) {
-  let package = PACKAGE.get_or_init(|| package.to_string());
+  PACKAGE.get_or_init(|| package.to_string());
 
   let vm = env.get_java_vm().unwrap();
 
