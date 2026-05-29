@@ -126,7 +126,6 @@ pub fn get_webview(activity_id: ActivityId) -> Option<GlobalRef> {
 
 pub struct MainPipe<'a> {
   pub env: JNIEnv<'a>,
-  pub package: &'static str,
 }
 
 impl<'a> MainPipe<'a> {
@@ -144,6 +143,7 @@ impl<'a> MainPipe<'a> {
   }
 
   pub fn recv(&mut self) -> JniResult<()> {
+    let package = super::PACKAGE.get().unwrap();
     // SAFETY: The `CHANNEL` is `static` that the sender never drops
     let (activity_id, message) = CHANNEL.1.recv().unwrap();
     match message {
@@ -190,11 +190,8 @@ impl<'a> MainPipe<'a> {
         }
         let id = self.env.new_string(id)?;
         // Create webview
-        let rust_webview_class = find_class(
-          &mut self.env,
-          &activity,
-          format!("{}/RustWebView", self.package),
-        )?;
+        let rust_webview_class =
+          find_class(&mut self.env, &activity, format!("{package}/RustWebView"))?;
         let webview = self.env.new_object(
           &rust_webview_class,
           "(Landroid/content/Context;[Ljava/lang/String;Ljava/lang/String;)V",
@@ -242,7 +239,7 @@ impl<'a> MainPipe<'a> {
           )?;
         }
 
-        let webview_class_name = format!("{}/RustWebView", self.package);
+        let webview_class_name = format!("{package}/RustWebView");
         self.env.call_method(
           &activity,
           "setWebView",
@@ -273,7 +270,7 @@ impl<'a> MainPipe<'a> {
           set_background_color(&mut self.env, &webview, color)?;
         }
         // Create and set webview client
-        let client_class_name = format!("{}/RustWebViewClient", self.package);
+        let client_class_name = format!("{package}/RustWebViewClient");
         let rust_webview_client_class =
           find_class(&mut self.env, &activity, client_class_name.clone())?;
         let webview_client = self.env.new_object(
@@ -296,7 +293,7 @@ impl<'a> MainPipe<'a> {
         )?;
 
         // Add javascript interface (IPC)
-        let ipc_class = find_class(&mut self.env, &activity, format!("{}/Ipc", self.package))?;
+        let ipc_class = find_class(&mut self.env, &activity, format!("{package}/Ipc"))?;
         let ipc = self.env.new_object(
           ipc_class,
           format!("(L{webview_class_name};L{client_class_name};)V"),
