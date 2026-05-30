@@ -67,6 +67,14 @@ fn main() -> wry::Result<()> {
   dbg!("event_loop.run");
   event_loop.run(move |event, _, control_flow| {
     dbg!("event_loop event");
-    *control_flow = ControlFlow::Exit;
+    // *control_flow = ControlFlow::Wait;
+
+    match event {
+      Event::WindowEvent {
+        event: WindowEvent::CloseRequested,
+        ..
+      } => *control_flow = ControlFlow::Exit,
+      _ => {}
+    }
   })
 }
