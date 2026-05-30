@@ -57,17 +57,15 @@ fn main() -> wry::Result<()> {
     target_os = "ios",
     target_os = "android"
   )))]
-  {
+  let _webview = {
     use tao::platform::unix::WindowExtUnix;
     use wry::WebViewBuilderExtUnix;
     let vbox = window.default_vbox().unwrap();
-    let _webview = builder.build_gtk(vbox)?;
+    builder.build_gtk(vbox)?
   };
 
-  dbg!("event_loop.run");
   event_loop.run(move |event, _, control_flow| {
-    dbg!("event_loop event");
-    // *control_flow = ControlFlow::Wait;
+    *control_flow = ControlFlow::Wait;
 
     match event {
       Event::WindowEvent {
