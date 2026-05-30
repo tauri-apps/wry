@@ -520,9 +520,6 @@ pub struct NewWindowOpener {
   pub target_configuration: Retained<objc2_web_kit::WKWebViewConfiguration>,
 }
 
-unsafe impl Send for NewWindowOpener {}
-unsafe impl Sync for NewWindowOpener {}
-
 /// Window features of a window requested to open.
 #[non_exhaustive]
 #[derive(Debug)]
@@ -1673,6 +1670,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   extension_path: Option<PathBuf>,
   default_context_menus: bool,
   environment: Option<ICoreWebView2Environment>,
+  profile_name: Option<String>,
 }
 
 #[cfg(windows)]
@@ -1688,6 +1686,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       browser_extensions_enabled: false,
       extension_path: None,
       environment: None,
+      profile_name: None,
     }
   }
 }
@@ -1772,6 +1771,19 @@ pub trait WebViewBuilderExtWindows {
   /// Set the environment for the webview.
   /// Useful if you need to share the same environment, for instance when using the [`WebViewBuilder::with_new_window_req_handler`].
   fn with_environment(self, environment: ICoreWebView2Environment) -> Self;
+
+  /// Set the WebView2 profile name for this webview. Webviews with different
+  /// profile names within the same environment have isolated cookies, storage,
+  /// IndexedDB, cache, and other site data, while sharing the runtime.
+  ///
+  /// When `None` (the default), the webview uses the unnamed default profile.
+  ///
+  /// See <https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/multi-profile-support>
+  /// for the underlying WebView2 multi-profile feature.
+  ///
+  /// Profile names must follow the WebView2 naming rules (alphanumeric, `.`,
+  /// `_`, `-`, ` `, up to 64 chars, not starting/ending with `.` or ` `).
+  fn with_profile_name<S: Into<String>>(self, name: S) -> Self;
 }
 
 #[cfg(windows)]
@@ -1818,6 +1830,11 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 
   fn with_environment(mut self, environment: ICoreWebView2Environment) -> Self {
     self.platform_specific.environment.replace(environment);
+    self
+  }
+
+  fn with_profile_name<S: Into<String>>(mut self, name: S) -> Self {
+    self.platform_specific.profile_name = Some(name.into());
     self
   }
 }
