@@ -64,15 +64,9 @@ fn main() -> wry::Result<()> {
     let _webview = builder.build_gtk(vbox)?;
   };
 
+  dbg!("event_loop.run");
   event_loop.run(move |event, _, control_flow| {
-    *control_flow = ControlFlow::Wait;
-
-    match event {
-      Event::WindowEvent {
-        event: WindowEvent::CloseRequested,
-        ..
-      } => *control_flow = ControlFlow::Exit,
-      _ => {}
-    }
+    dbg!("event_loop event");
+    *control_flow = ControlFlow::Exit;
   })
 }
