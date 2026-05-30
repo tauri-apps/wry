@@ -64,7 +64,8 @@ jobs:
       - name: run benchmarks
         run: |
           RUSTFLAGS="-Zunstable-options -Cpanic=immediate-abort" cargo +nightly build --release -Z build-std=std,panic_abort -Z build-std-features= --target ${{ matrix.platform.target }} --manifest-path bench/tests/Cargo.toml
-          xvfb-run --auto-servernum "bench/tests/target/${{ matrix.platform.target }}/release/run_benchmark"
+          cargo build --manifest-path ./bench/Cargo.toml --bin run_benchmark
+          xvfb-run --auto-servernum "bench/target/debug/run_benchmark"
 
       - name: clone benchmarks_results
         if: github.repository == 'tauri-apps/wry' && github.ref == 'refs/heads/dev'
