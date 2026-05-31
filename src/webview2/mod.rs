@@ -297,11 +297,18 @@ impl InnerWebView {
       .map(HSTRING::from);
 
     // additional browser args
+    let native_window_occlusion = pl_attrs.native_window_occlusion;
     let additional_browser_args = pl_attrs.additional_browser_args.unwrap_or_else(|| {
       // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
       // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
-      let default_args = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
-      let mut arguments = String::from(default_args);
+      let mut disabled_features =
+        String::from("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection");
+      // optionally disable native window occlusion so webviews keep rendering while
+      // their window is hidden/occluded - See https://github.com/tauri-apps/tauri/issues/9798
+      if !native_window_occlusion {
+        disabled_features.push_str(",CalculateNativeWinOcclusion");
+      }
+      let mut arguments = disabled_features;
 
       if attributes.autoplay {
         arguments.push_str(" --autoplay-policy=no-user-gesture-required");

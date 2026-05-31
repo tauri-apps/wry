@@ -1671,6 +1671,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   default_context_menus: bool,
   environment: Option<ICoreWebView2Environment>,
   profile_name: Option<String>,
+  native_window_occlusion: bool,
 }
 
 #[cfg(windows)]
@@ -1687,6 +1688,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       extension_path: None,
       environment: None,
       profile_name: None,
+      native_window_occlusion: true, // This is WebView2's default behavior
     }
   }
 }
@@ -1784,6 +1786,27 @@ pub trait WebViewBuilderExtWindows {
   /// Profile names must follow the WebView2 naming rules (alphanumeric, `.`,
   /// `_`, `-`, ` `, up to 64 chars, not starting/ending with `.` or ` `).
   fn with_profile_name<S: Into<String>>(self, name: S) -> Self;
+
+  /// Determines whether WebView2's native window occlusion detection is enabled.
+  ///
+  /// The default value is `true`, which matches WebView2's default behavior: when the
+  /// webview's window is fully covered by other windows, or hidden, WebView2 may stop
+  /// rendering it to save resources (the `CalculateNativeWinOcclusion` feature).
+  ///
+  /// Setting this to `false` disables that detection so a webview keeps rendering even
+  /// while its window is hidden or occluded. This is useful for apps that pre-create
+  /// several webviews and show/hide them on demand (e.g. a tabbed/multi-service shell):
+  /// with occlusion enabled, a webview created while hidden may never initialize its
+  /// render surface and paints blank when first shown.
+  ///
+  /// See <https://github.com/MicrosoftEdge/WebView2Feedback/issues/1077> and
+  /// <https://github.com/tauri-apps/tauri/issues/9798>.
+  ///
+  /// ## Warning
+  ///
+  /// This has no effect if [`with_additional_browser_args`](Self::with_additional_browser_args)
+  /// is also used, since that fully overrides the browser arguments wry passes by default.
+  fn with_native_window_occlusion(self, enabled: bool) -> Self;
 }
 
 #[cfg(windows)]
@@ -1835,6 +1858,11 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 
   fn with_profile_name<S: Into<String>>(mut self, name: S) -> Self {
     self.platform_specific.profile_name = Some(name.into());
+    self
+  }
+
+  fn with_native_window_occlusion(mut self, enabled: bool) -> Self {
+    self.platform_specific.native_window_occlusion = enabled;
     self
   }
 }
