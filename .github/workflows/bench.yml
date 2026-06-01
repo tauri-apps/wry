@@ -69,7 +69,7 @@ jobs:
         if: github.repository == 'tauri-apps/wry' && github.ref == 'refs/heads/dev'
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.BENCH_PAT }}
+          token: ${{ secrets.ORG_TAURI_BOT_PAT }}
           path: gh-pages
           repository: tauri-apps/benchmark_results
 
@@ -79,8 +79,8 @@ jobs:
           cargo run --manifest-path ./bench/Cargo.toml --bin build_benchmark_jsons
           cd gh-pages
           git pull
-          git config user.name "tauri-bench"
-          git config user.email "gh.tauribot@gmail.com"
+          git config user.name "tauri-bot"
+          git config user.email "tauri-bot@tauri.app"
           git add .
           git commit --message "Update WRY benchmarks"
           git push origin gh-pages
