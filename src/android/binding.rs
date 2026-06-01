@@ -110,7 +110,8 @@ fn handle_request(
 
   #[cfg(feature = "tracing")]
   let span =
-    tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty);
+    tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty)
+      .entered();
 
   let mut request_builder = Request::builder();
 
