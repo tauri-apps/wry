@@ -62,7 +62,7 @@ jobs:
 
       - name: run benchmarks
         run: |
-          cargo +nightly build --release -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --target ${{ matrix.platform.target }} --manifest-path bench/tests/Cargo.toml
+          RUSTFLAGS="-Zunstable-options -Cpanic=immediate-abort" cargo +nightly build --release -Z build-std=std,panic_abort -Z build-std-features= --target ${{ matrix.platform.target }} --manifest-path bench/tests/Cargo.toml
           xvfb-run --auto-servernum cargo run --manifest-path ./bench/Cargo.toml --bin run_benchmark
 
       - name: clone benchmarks_results
