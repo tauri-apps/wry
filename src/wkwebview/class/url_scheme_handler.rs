@@ -88,15 +88,37 @@ extern "C" fn start_task(
     if let Some(function) = function {
       // Get url request
       let request = task.request();
-      let url = request.URL().unwrap();
+      // WebKit may dispatch custom-scheme tasks whose request has nil URL,
+      // absoluteString, or HTTPMethod. Unwrapping them aborts across the FFI
+      // boundary, so bail out (or fall back to GET) instead.
+      let Some(url) = request.URL() else {
+        #[cfg(feature = "tracing")]
+        tracing::warn!("custom scheme request has nil URL, ignoring");
+        return;
+      };
 
-      let uri = url.absoluteString().unwrap().to_string();
+      let Some(absolute_uri) = url.absoluteString() else {
+        #[cfg(feature = "tracing")]
+        tracing::warn!("custom scheme URL has nil absoluteString, ignoring");
+        return;
+      };
+      let uri = absolute_uri.to_string();
 
       #[cfg(feature = "tracing")]
       span.record("uri", uri.clone());
 
       // Get request method (GET, POST, PUT etc...)
-      let method = request.HTTPMethod().unwrap().to_string();
+      let method = match request.HTTPMethod() {
+        Some(m) => m.to_string(),
+        None => {
+          #[cfg(feature = "tracing")]
+          tracing::warn!(
+            "custom scheme request for {} has nil HTTPMethod, defaulting to GET",
+            uri
+          );
+          "GET".to_string()
+        }
+      };
 
       // Prepare our HttpRequest
       let mut http_request = Request::builder().uri(uri).method(method.as_str());
@@ -127,9 +149,12 @@ extern "C" fn start_task(
       // get all our headers values and inject them in our request
       if let Some(all_headers) = all_headers {
         for current_header in all_headers.allKeys().iter() {
-          let header_value = all_headers.valueForKey(&current_header).unwrap();
-          // inject the header into the request
-          http_request = http_request.header(current_header.to_string(), header_value.to_string());
+          // Skip headers whose value is nil rather than aborting the task.
+          if let Some(header_value) = all_headers.valueForKey(&current_header) {
+            // inject the header into the request
+            http_request =
+              http_request.header(current_header.to_string(), header_value.to_string());
+          }
         }
       }
 
