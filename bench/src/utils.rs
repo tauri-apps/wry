@@ -37,11 +37,11 @@ pub struct StraceOutput {
 
 pub fn get_target() -> &'static str {
   #[cfg(target_os = "macos")]
-  return "x86_64-apple-darwin";
+  return "aarch64-apple-darwin";
   #[cfg(target_os = "linux")]
   return "x86_64-unknown-linux-gnu";
   #[cfg(target_os = "windows")]
-  return unimplemented!();
+  return "x86_64-pc-windows-msvc";
 }
 
 pub fn target_dir() -> PathBuf {
