@@ -14,27 +14,20 @@ mod utils;
 
 /// The list of the examples of the benchmark name and binary relative path
 fn get_all_benchmarks() -> Vec<(String, String)> {
+  let extension = if cfg!(windows) { ".exe" } else { "" };
+  let target_triple = utils::get_target();
   vec![
     (
       "wry_hello_world".into(),
-      format!(
-        "tests/target/{}/release/bench_hello_world",
-        utils::get_target()
-      ),
+      format!("tests/target/{target_triple}/release/bench_hello_world{extension}"),
     ),
     (
       "wry_custom_protocol".into(),
-      format!(
-        "tests/target/{}/release/bench_custom_protocol",
-        utils::get_target()
-      ),
+      format!("tests/target/{target_triple}/release/bench_custom_protocol{extension}"),
     ),
     (
       "wry_cpu_intensive".into(),
-      format!(
-        "tests/target/{}/release/bench_cpu_intensive",
-        utils::get_target()
-      ),
+      format!("tests/target/{target_triple}/release/bench_cpu_intensive{extension}"),
     ),
   ]
 }
