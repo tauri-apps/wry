@@ -218,7 +218,7 @@ fn run_exec_time(target_dir: &Path) -> Result<HashMap<String, HashMap<String, f6
     // For `sleep 1` to work
     // hyperfine uses cmd by default and it would fail with
     // 'Input redirection is not supported, exiting the process immediately.'
-    command.push("shell".to_owned());
+    command.push("--shell".to_owned());
     command.push("powershell".to_owned());
   }
 
