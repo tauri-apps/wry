@@ -2,16 +2,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{fs::File, io::BufReader};
+use std::{
+  fs::{self, File},
+  io::BufReader,
+  path::Path,
+};
 mod utils;
 
 fn main() {
+  let platform = if cfg!(target_os = "macos") {
+    "macos"
+  } else if cfg!(target_os = "windows") {
+    "windows"
+  } else {
+    "linux"
+  };
   let wry_data = &utils::wry_root_path()
     .join("gh-pages")
-    .join("wry-data.json");
+    .join(format!("wry-data-{platform}.json"));
   let wry_recent = &utils::wry_root_path()
     .join("gh-pages")
-    .join("wry-recent.json");
+    .join(format!("wry-recent-{platform}.json"));
 
   // current data
   let current_data_buffer = BufReader::new(
@@ -37,16 +48,30 @@ fn main() {
 
   // write jsons
   utils::write_json(
-    wry_data.to_str().expect("Something wrong with wry_data"),
+    wry_data,
     &serde_json::to_value(&all_data).expect("Unable to build final json (all)"),
   )
-  .unwrap_or_else(|_| panic!("Unable to write {:?}", wry_data));
+  .unwrap_or_else(|_| panic!("Unable to write {wry_data:?}"));
 
   utils::write_json(
-    wry_recent
-      .to_str()
-      .expect("Something wrong with wry_recent"),
+    wry_recent,
     &serde_json::to_value(recent).expect("Unable to build final json (recent)"),
   )
-  .unwrap_or_else(|_| panic!("Unable to write {:?}", wry_recent));
+  .unwrap_or_else(|_| panic!("Unable to write {wry_recent:?}"));
+}
+
+fn migrate_old_benchmark_data(new_wry_data: &Path, new_wry_recent: &Path) {
+  let old_wry_data = &utils::wry_root_path()
+    .join("gh-pages")
+    .join("wry-data.json");
+  let old_wry_recent = &utils::wry_root_path()
+    .join("gh-pages")
+    .join("wry-recent.json");
+
+  if old_wry_data.exists() {
+    fs::rename(old_wry_data, new_wry_data).unwrap();
+  }
+  if old_wry_recent.exists() {
+    fs::rename(old_wry_recent, new_wry_recent).unwrap();
+  }
 }

@@ -289,11 +289,8 @@ fn main() -> Result<()> {
   serde_json::to_writer_pretty(std::io::stdout(), &new_data)?;
   println!("\n===== </BENCHMARK RESULTS>");
 
-  if let Some(filename) = target_dir.join("bench.json").to_str() {
-    utils::write_json(filename, &serde_json::to_value(&new_data)?)?;
-  } else {
-    eprintln!("Cannot write bench.json, path is invalid");
-  }
+  let output_path = target_dir.join("bench.json");
+  utils::write_json(&output_path, &serde_json::to_value(&new_data)?)?;
 
   Ok(())
 }

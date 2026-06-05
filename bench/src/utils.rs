@@ -9,7 +9,7 @@ use std::{
   collections::HashMap,
   fs,
   io::{BufRead, BufReader},
-  path::PathBuf,
+  path::{Path, PathBuf},
   process::{Command, Output, Stdio},
 };
 
@@ -200,7 +200,7 @@ pub fn read_json(filename: &str) -> Result<Value> {
 }
 
 #[allow(dead_code)]
-pub fn write_json(filename: &str, value: &Value) -> Result<()> {
+pub fn write_json(filename: &Path, value: &Value) -> Result<()> {
   let f = fs::File::create(filename)?;
   serde_json::to_writer(f, value)?;
   Ok(())
