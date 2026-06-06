@@ -24,6 +24,11 @@ fn main() {
     .join("gh-pages")
     .join(format!("wry-recent-{platform}.json"));
 
+  if cfg!(target_os = "linux") {
+    // We used to only have `wry-data.json` and `wry-recent.json` data on `ubuntu-latest` runner
+    migrate_old_benchmark_data(wry_data, wry_recent);
+  }
+
   // current data
   let current_data_buffer = BufReader::new(
     File::open(utils::target_dir().join("bench.json")).expect("Unable to read current data file"),
@@ -51,13 +56,13 @@ fn main() {
     wry_data,
     &serde_json::to_value(&all_data).expect("Unable to build final json (all)"),
   )
-  .unwrap_or_else(|_| panic!("Unable to write {wry_data:?}"));
+  .unwrap_or_else(|_| panic!("Unable to write {}", wry_data.display()));
 
   utils::write_json(
     wry_recent,
     &serde_json::to_value(recent).expect("Unable to build final json (recent)"),
   )
-  .unwrap_or_else(|_| panic!("Unable to write {wry_recent:?}"));
+  .unwrap_or_else(|_| panic!("Unable to write {}", wry_recent.display()));
 }
 
 fn migrate_old_benchmark_data(new_wry_data: &Path, new_wry_recent: &Path) {
