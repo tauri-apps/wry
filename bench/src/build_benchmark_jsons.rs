@@ -2,11 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{
-  fs::{self, File},
-  io::BufReader,
-  path::Path,
-};
+use std::{fs::File, io::BufReader};
 mod utils;
 
 fn main() {
@@ -23,11 +19,6 @@ fn main() {
   let wry_recent = &utils::wry_root_path()
     .join("gh-pages")
     .join(format!("wry-recent-{platform}.json"));
-
-  if cfg!(target_os = "linux") {
-    // We used to only have `wry-data.json` and `wry-recent.json` data on `ubuntu-latest` runner
-    migrate_old_benchmark_data(wry_data, wry_recent);
-  }
 
   // current data
   let current_data_buffer = BufReader::new(
@@ -63,20 +54,4 @@ fn main() {
     &serde_json::to_value(recent).expect("Unable to build final json (recent)"),
   )
   .unwrap_or_else(|_| panic!("Unable to write {}", wry_recent.display()));
-}
-
-fn migrate_old_benchmark_data(new_wry_data: &Path, new_wry_recent: &Path) {
-  let old_wry_data = &utils::wry_root_path()
-    .join("gh-pages")
-    .join("wry-data.json");
-  let old_wry_recent = &utils::wry_root_path()
-    .join("gh-pages")
-    .join("wry-recent.json");
-
-  if old_wry_data.exists() {
-    fs::rename(old_wry_data, new_wry_data).unwrap();
-  }
-  if old_wry_recent.exists() {
-    fs::rename(old_wry_recent, new_wry_recent).unwrap();
-  }
 }
