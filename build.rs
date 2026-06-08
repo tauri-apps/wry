@@ -101,7 +101,9 @@ fn main() {
 
   let target = std::env::var("TARGET").unwrap_or_default();
   let android = target.contains("android");
+  let ohos = target.contains("ohos");
   let linux = !android
+    && !ohos
     && (target.contains("linux")
       || target.contains("freebsd")
       || target.contains("dragonfly")

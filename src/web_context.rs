@@ -64,12 +64,15 @@ impl WebContext {
     self.data_directory.as_deref()
   }
 
-  #[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
+  #[cfg(all(
+    any(
+      target_os = "linux",
+      target_os = "dragonfly",
+      target_os = "freebsd",
+      target_os = "netbsd",
+      target_os = "openbsd"
+    ),
+    not(target_env = "ohos")
   ))]
   pub(crate) fn register_custom_protocol(&mut self, name: String) -> Result<(), crate::Error> {
     if self.is_custom_protocol_registered(&name) {
