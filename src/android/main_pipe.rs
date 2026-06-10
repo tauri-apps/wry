@@ -279,14 +279,11 @@ impl<'a> MainPipe<'a> {
         let rust_webchrome_client_class = find_class(
           &mut self.env,
           &activity,
-          format!("{}/RustWebChromeClient", PACKAGE.get().unwrap()),
+          format!("{package}/RustWebChromeClient"),
         )?;
         let web_chrome_client = self.env.new_object(
           &rust_webchrome_client_class,
-          format!(
-            "(L{}/WryActivity;Ljava/lang/String;)V",
-            PACKAGE.get().unwrap()
-          ),
+          format!("(L{package}/WryActivity;Ljava/lang/String;)V"),
           &[(&activity).into(), (&id).into()],
         )?;
         self.env.call_method(
