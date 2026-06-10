@@ -1347,7 +1347,7 @@ r#"Object.defineProperty(window, 'ipc', {
 
 pub fn url_from_webview(webview: &WKWebView) -> Result<String> {
   let url_obj = unsafe { webview.URL().unwrap() };
-  let absolute_url = unsafe { url_obj.absoluteString().unwrap() };
+  let absolute_url = url_obj.absoluteString().unwrap();
 
   let bytes = {
     let bytes: *const c_char = absolute_url.UTF8String();

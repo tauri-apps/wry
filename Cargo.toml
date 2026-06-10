@@ -103,7 +103,7 @@ objc2 = { version = "0.6.4", features = [
   # see https://github.com/tauri-apps/tauri/issues/12843
   "disable-encoding-assertions",
 ] }
-objc2-web-kit = { version = "0.3.0", default-features = false, features = [
+objc2-web-kit = { version = "0.3.2", default-features = false, features = [
   "std",
   "objc2-core-foundation",
   "objc2-app-kit",
@@ -132,11 +132,11 @@ objc2-web-kit = { version = "0.3.0", default-features = false, features = [
   "WKHTTPCookieStore",
   "WKWindowFeatures",
 ] }
-objc2-core-foundation = { version = "0.3.0", default-features = false, features = [
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = [
   "std",
   "CFCGTypes",
 ] }
-objc2-foundation = { version = "0.3.0", default-features = false, features = [
+objc2-foundation = { version = "0.3.2", default-features = false, features = [
   "std",
   "block2",
   "objc2-core-foundation",
@@ -161,7 +161,7 @@ objc2-foundation = { version = "0.3.0", default-features = false, features = [
 ] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
-objc2-ui-kit = { version = "0.3.0", default-features = false, features = [
+objc2-ui-kit = { version = "0.3.2", default-features = false, features = [
   "std",
   "objc2-core-foundation",
   "UIResponder",
@@ -174,7 +174,7 @@ objc2-ui-kit = { version = "0.3.0", default-features = false, features = [
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3.0", default-features = false, features = [
+objc2-app-kit = { version = "0.3.2", default-features = false, features = [
   "std",
   "objc2-core-foundation",
   "NSApplication",
