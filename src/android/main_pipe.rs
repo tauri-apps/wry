@@ -139,12 +139,7 @@ impl<'a> MainPipe<'a> {
     let (activity_id, message) = CHANNEL.1.recv().unwrap();
     match message {
       WebViewMessage::CreateWebView(attrs) => {
-        let Some(ActivityProxy {
-          activity,
-          webchrome_client,
-          ..
-        }) = activity_proxy(activity_id)
-        else {
+        let Some(ActivityProxy { activity, .. }) = activity_proxy(activity_id) else {
           #[cfg(debug_assertions)]
           eprintln!("no activity found for activity id: {}", activity_id);
           return Ok(());
@@ -290,7 +285,7 @@ impl<'a> MainPipe<'a> {
           &webview,
           "setWebChromeClient",
           "(Landroid/webkit/WebChromeClient;)V",
-          &[(&webchrome_client).into()],
+          &[(&web_chrome_client).into()],
         )?;
 
         // Add javascript interface (IPC)
