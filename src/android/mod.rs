@@ -53,11 +53,11 @@ macro_rules! define_static_handlers {
   ($($var:ident = $type_name:ident { $($fields:ident:$types:ty),+ $(,)? });+ $(;)?) => {
     $(
     static $var: Lazy<Mutex<HashMap<WebviewId, $type_name>>> = Lazy::new(||Mutex::new(HashMap::new()));
-    pub struct $type_name {
+    struct $type_name {
       $($fields: $types,)*
     }
     impl $type_name {
-      pub fn new($($fields: $types,)*) -> Self {
+      fn new($($fields: $types,)*) -> Self {
         Self {
           $($fields,)*
         }
@@ -82,12 +82,12 @@ define_static_handlers! {
   ActivityId, WEBVIEW_ATTRIBUTES = CreateWebViewAttributes;
 }
 
-pub(crate) static PACKAGE: OnceCell<String> = OnceCell::new();
+static PACKAGE: OnceCell<String> = OnceCell::new();
 
 type EvalCallback = Box<dyn Fn(String) + Send + 'static>;
 
-pub static EVAL_ID_GENERATOR: Counter = Counter::new();
-pub static EVAL_CALLBACKS: OnceCell<Mutex<HashMap<i32, EvalCallback>>> = OnceCell::new();
+static EVAL_ID_GENERATOR: Counter = Counter::new();
+static EVAL_CALLBACKS: OnceCell<Mutex<HashMap<i32, EvalCallback>>> = OnceCell::new();
 
 pub fn destroy_webview(activity_id: ActivityId, webview_id: &WebviewId) {
   WEBVIEW_ATTRIBUTES.lock().unwrap().remove(&activity_id);
@@ -111,7 +111,7 @@ pub unsafe fn android_setup(
   _looper: &ThreadLooper,
   activity: GlobalRef,
 ) {
-  PACKAGE.get_or_init(move || package.to_string());
+  PACKAGE.get_or_init(|| package.to_string());
 
   let vm = env.get_java_vm().unwrap();
 
@@ -226,50 +226,51 @@ impl InnerWebView {
     }
 
     let initialization_scripts_ = initialization_scripts.clone();
-    REQUEST_HANDLER
-      .lock()
-      .unwrap()
-      .insert(
-        id.clone(),
-        UnsafeRequestHandler::new(Box::new(
-          move |webview_id: &str, mut request, is_document_start_script_enabled| {
-            let uri = request.uri().to_string();
-            if let Some((custom_protocol, custom_protocol_handler)) =
-              custom_protocols.iter().find(|(protocol, _)| {
-                custom_protocol_workaround::is_work_around_uri(&uri, http_or_https, protocol)
-              })
-            {
-              let uri_res = custom_protocol_workaround::revert_uri_work_around(
-                &uri,
-                http_or_https,
-                custom_protocol,
-              )
-              .parse();
+    REQUEST_HANDLER.lock().unwrap().insert(
+      id.clone(),
+      UnsafeRequestHandler::new(Box::new(
+        move |webview_id, mut request, is_document_start_script_enabled| {
+          let uri = request.uri().to_string();
+          let (custom_protocol, custom_protocol_handler) =
+            custom_protocols.iter().find(|(protocol, _)| {
+              custom_protocol_workaround::is_work_around_uri(&uri, http_or_https, protocol)
+            })?;
 
-                if let Ok(uri) = uri_res {
-                  *request.uri_mut() = uri;
-                }
+          let uri_res = custom_protocol_workaround::revert_uri_work_around(
+            &uri,
+            http_or_https,
+            custom_protocol,
+          )
+          .parse();
 
-              let (tx, rx) = channel();
-              let initialization_scripts = initialization_scripts_.clone();
-              let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
-                Box::new(move |mut response| {
-                  if !is_document_start_script_enabled {
-                    #[cfg(feature = "tracing")]
-                    tracing::info!("`addDocumentStartJavaScript` is not supported; injecting initialization scripts via custom protocol handler");
-                    response = inject_scripts_into_html(response, &initialization_scripts);
-                  }
-                  let _ = tx.send(response);
-                });
+          if let Ok(uri) = uri_res {
+            *request.uri_mut() = uri;
+          }
 
-              (custom_protocol_handler)(webview_id, request, RequestAsyncResponder { responder });
-              // 3x the timeout while we monitor https://github.com/tauri-apps/wry/issues/1551
-              // TODO: Remove timeout
-              return rx.recv_timeout(MAIN_PIPE_TIMEOUT * 3).inspect_err(|e| {eprintln!("custom protocol timed out: {e}");}).ok();
-            }
-            None
-          },
-      )));
+          let (tx, rx) = channel();
+          let initialization_scripts = initialization_scripts_.clone();
+          let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> = Box::new(
+            move |mut response| {
+              if !is_document_start_script_enabled {
+                #[cfg(feature = "tracing")]
+                tracing::info!("`addDocumentStartJavaScript` is not supported; injecting initialization scripts via custom protocol handler");
+                response = inject_scripts_into_html(response, &initialization_scripts);
+              }
+              let _ = tx.send(response);
+            },
+          );
+
+          (custom_protocol_handler)(webview_id, request, RequestAsyncResponder { responder });
+          // 3x the timeout while we monitor https://github.com/tauri-apps/wry/issues/1551
+          // TODO: Remove timeout
+          rx.recv_timeout(MAIN_PIPE_TIMEOUT * 3)
+            .inspect_err(|e| {
+              eprintln!("custom protocol timed out: {e}");
+            })
+            .ok()
+        },
+      )),
+    );
 
     if let Some(i) = ipc_handler {
       IPC

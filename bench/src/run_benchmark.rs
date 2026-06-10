@@ -14,27 +14,20 @@ mod utils;
 
 /// The list of the examples of the benchmark name and binary relative path
 fn get_all_benchmarks() -> Vec<(String, String)> {
+  let extension = if cfg!(windows) { ".exe" } else { "" };
+  let target_triple = utils::get_target();
   vec![
     (
       "wry_hello_world".into(),
-      format!(
-        "tests/target/{}/release/bench_hello_world",
-        utils::get_target()
-      ),
+      format!("tests/target/{target_triple}/release/bench_hello_world{extension}"),
     ),
     (
       "wry_custom_protocol".into(),
-      format!(
-        "tests/target/{}/release/bench_custom_protocol",
-        utils::get_target()
-      ),
+      format!("tests/target/{target_triple}/release/bench_custom_protocol{extension}"),
     ),
     (
       "wry_cpu_intensive".into(),
-      format!(
-        "tests/target/{}/release/bench_cpu_intensive",
-        utils::get_target()
-      ),
+      format!("tests/target/{target_triple}/release/bench_cpu_intensive{extension}"),
     ),
   ]
 }
@@ -212,10 +205,22 @@ fn run_exec_time(target_dir: &Path) -> Result<HashMap<String, HashMap<String, f6
     benchmark_file,
     "--warmup",
     "3",
+    // It seems like if we run them back to back,
+    // the execution time will get longer and longer for some reason on macOS and Windows
+    "--prepare",
+    "sleep 1",
   ]
   .iter()
   .map(|s| s.to_string())
   .collect::<Vec<_>>();
+
+  if cfg!(target_os = "windows") {
+    // For `sleep 1` to work
+    // hyperfine uses cmd by default and it would fail with
+    // 'Input redirection is not supported, exiting the process immediately.'
+    command.push("--shell".to_owned());
+    command.push("powershell".to_owned());
+  }
 
   for (_, example_exe) in get_all_benchmarks() {
     command.push(
@@ -284,11 +289,8 @@ fn main() -> Result<()> {
   serde_json::to_writer_pretty(std::io::stdout(), &new_data)?;
   println!("\n===== </BENCHMARK RESULTS>");
 
-  if let Some(filename) = target_dir.join("bench.json").to_str() {
-    utils::write_json(filename, &serde_json::to_value(&new_data)?)?;
-  } else {
-    eprintln!("Cannot write bench.json, path is invalid");
-  }
+  let output_path = target_dir.join("bench.json");
+  utils::write_json(&output_path, &serde_json::to_value(&new_data)?)?;
 
   Ok(())
 }

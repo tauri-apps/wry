@@ -11,6 +11,7 @@
 
   void setWebView({{package-unescaped}}.RustWebView);
   java.lang.Class getAppClass(...);
+  int getId();
   java.lang.String getVersion();
   int startActivity(...);
 }
