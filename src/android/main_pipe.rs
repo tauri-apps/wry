@@ -464,12 +464,14 @@ impl<'a> MainPipe<'a> {
       }
       WebViewMessage::CanGoForward(tx) => {
         if let Some(webview) = get_webview(activity_id) {
-          tx.send(can_go_forward(&mut self.env, webview.as_obj())?)?;
+          tx.send(can_go_forward(&mut self.env, webview.as_obj())?)
+            .unwrap();
         }
       }
       WebViewMessage::CanGoBack(tx) => {
         if let Some(webview) = get_webview(activity_id) {
-          tx.send(can_go_back(&mut self.env, webview.as_obj())?)?;
+          tx.send(can_go_back(&mut self.env, webview.as_obj())?)
+            .unwrap();
         }
       }
       WebViewMessage::GetCookies(tx, url) => {
