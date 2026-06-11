@@ -5,7 +5,7 @@
 use super::{PageLoadEvent, WebViewAttributes, RGBA};
 use crate::{
   custom_protocol_workaround, inject_initialization_scripts::inject_scripts_into_html, Error,
-  RequestAsyncResponder, Result,
+  PermissionKind, PermissionResponse, RequestAsyncResponder, Result,
 };
 use crossbeam_channel::*;
 
@@ -74,6 +74,7 @@ define_static_handlers! {
   TITLE_CHANGE_HANDLER = UnsafeTitleHandler { handler: Box<dyn Fn(String)> };
   URL_LOADING_OVERRIDE = UnsafeUrlLoadingOverride { handler: Box<dyn Fn(String) -> bool> };
   ON_LOAD_HANDLER = UnsafeOnPageLoadHandler { handler: Box<dyn Fn(PageLoadEvent, String)> };
+  PERMISSION_HANDLER = UnsafePermissionHandler { handler: Box<dyn Fn(PermissionKind) -> PermissionResponse> };
 }
 define_static_handlers! {
   WebviewId, WITH_ASSET_LOADER = bool;
@@ -95,6 +96,7 @@ pub fn destroy_webview(activity_id: ActivityId, webview_id: &WebviewId) {
   TITLE_CHANGE_HANDLER.lock().unwrap().remove(webview_id);
   URL_LOADING_OVERRIDE.lock().unwrap().remove(webview_id);
   ON_LOAD_HANDLER.lock().unwrap().remove(webview_id);
+  PERMISSION_HANDLER.lock().unwrap().remove(webview_id);
   WITH_ASSET_LOADER.lock().unwrap().remove(webview_id);
   ASSET_LOADER_DOMAIN.lock().unwrap().remove(webview_id);
 }
@@ -131,25 +133,7 @@ pub unsafe fn android_setup(
     .unwrap();
   let window_manager = env.new_global_ref(window_manager).unwrap();
 
-  // we must create the WebChromeClient here because it calls `registerForActivityResult`,
-  // which gives an `LifecycleOwners must call register before they are STARTED.` error when called outside the onCreate hook
-  let rust_webchrome_client_class = find_class(
-    &mut env,
-    activity.as_obj(),
-    format!("{package}/RustWebChromeClient"),
-  )
-  .unwrap();
-  let webchrome_client = env
-    .new_object(
-      &rust_webchrome_client_class,
-      format!("(L{package}/WryActivity;)V"),
-      &[activity.as_obj().into()],
-    )
-    .unwrap();
-
-  let webchrome_client = env.new_global_ref(webchrome_client).unwrap();
-
-  register_activity_proxy(vm, activity_id, activity, window_manager, webchrome_client);
+  register_activity_proxy(vm, activity_id, activity, window_manager);
 
   if let Some(webview_attributes) = WEBVIEW_ATTRIBUTES.lock().unwrap().get(&activity_id) {
     MainPipe::send(
@@ -314,6 +298,15 @@ impl InnerWebView {
         .lock()
         .unwrap()
         .insert(id.clone(), UnsafeOnPageLoadHandler::new(h));
+    }
+
+    if let Some(permission_handler) = attributes.permission_handler {
+      let permission_handler: Box<dyn Fn(PermissionKind) -> PermissionResponse> =
+        permission_handler;
+      PERMISSION_HANDLER
+        .lock()
+        .unwrap()
+        .insert(id.clone(), UnsafePermissionHandler::new(permission_handler));
     }
 
     let attributes = CreateWebViewAttributes {

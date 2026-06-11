@@ -352,6 +352,7 @@ mod custom_protocol_workaround;
 mod error;
 #[cfg(any(target_os = "android", test))]
 mod inject_initialization_scripts;
+mod permissions;
 mod proxy;
 #[cfg(any(target_os = "macos", target_os = "android", target_os = "ios"))]
 mod util;
@@ -411,6 +412,7 @@ pub use cookie;
 pub use dpi;
 pub use error::*;
 pub use http;
+pub use permissions::{PermissionKind, PermissionResponse};
 pub use proxy::{ProxyConfig, ProxyEndpoint};
 pub use web_context::WebContext;
 
@@ -788,6 +790,39 @@ struct WebViewAttributes<'a> {
   /// Whether JavaScript should be disabled.
   pub javascript_disabled: bool,
 
+  /// A handler to intercept permission requests from the webview.
+  ///
+  /// The handler receives the [`PermissionKind`] and should return
+  /// the desired [`PermissionResponse`].
+  ///
+  /// > [!NOTE]
+  /// > This handler only triggers for new permission requests. If the user has already
+  /// > allowed or denied a permission persistently within the webview, the browser
+  /// > will use the saved preference instead of calling this handler.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows**: Fully supported via WebView2's PermissionRequested event.
+  /// - **macOS / iOS**: Fully supported via WKUIDelegate's requestMediaCapturePermission.
+  /// - **Linux**: Fully supported via WebKitGTK's permission-request signal.
+  /// - **Android**: Supported via JNI bridge for geolocation, microphone, camera,
+  ///   protected media, and MIDI requests. Android runtime permissions may still
+  ///   trigger native OS prompts before access is granted.
+  ///
+  /// ## Example
+  ///
+  /// ```no_run
+  /// # use wry::{WebViewBuilder, PermissionKind, PermissionResponse};
+  /// let webview = WebViewBuilder::new()
+  ///     .with_permission_handler(|kind| {
+  ///         match kind {
+  ///             PermissionKind::Microphone => PermissionResponse::Allow,
+  ///             PermissionKind::Camera => PermissionResponse::Allow,
+  ///             _ => PermissionResponse::Default,
+  ///         }
+  ///     });
+  /// ```
+  pub permission_handler: Option<Box<dyn Fn(PermissionKind) -> PermissionResponse + Send + Sync>>,
   /// Controls the WebView's browser-level general autofill behavior.
   ///
   /// **This option does not disable password or credit card autofill.**
@@ -847,6 +882,7 @@ impl Default for WebViewAttributes<'_> {
       }),
       background_throttling: None,
       javascript_disabled: false,
+      permission_handler: None,
       general_autofill_enabled: true,
     }
   }
@@ -1258,6 +1294,44 @@ impl<'a> WebViewBuilder<'a> {
   /// `true` allows to navigate and `false` does not.
   pub fn with_navigation_handler(mut self, callback: impl Fn(String) -> bool + 'static) -> Self {
     self.attrs.navigation_handler = Some(Box::new(callback));
+    self
+  }
+
+  /// Set a handler to intercept permission requests from the webview.
+  ///
+  /// The handler receives the [`PermissionKind`] and should return
+  /// the desired [`PermissionResponse`].
+  ///
+  /// > [!NOTE]
+  /// > This handler only triggers for new permission requests. If the user has already
+  /// > allowed or denied a permission persistently within the webview, the browser
+  /// > will use the saved preference instead of calling this handler.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows**: Fully supported via WebView2's PermissionRequested event.
+  /// - **macOS / iOS**: Fully supported via WKUIDelegate's requestMediaCapturePermission.
+  /// - **Linux**: Fully supported via WebKitGTK's permission-request signal.
+  /// - **Android**: Supported via JNI bridge with some limitations (WIP).
+  ///
+  /// ## Example
+  ///
+  /// ```no_run
+  /// # use wry::{WebViewBuilder, PermissionKind, PermissionResponse};
+  /// let webview = WebViewBuilder::new()
+  ///     .with_permission_handler(|kind| {
+  ///         match kind {
+  ///             PermissionKind::Microphone => PermissionResponse::Allow,
+  ///             PermissionKind::Camera => PermissionResponse::Allow,
+  ///             _ => PermissionResponse::Default,
+  ///         }
+  ///     });
+  /// ```
+  pub fn with_permission_handler<F>(mut self, handler: F) -> Self
+  where
+    F: Fn(PermissionKind) -> PermissionResponse + Send + Sync + 'static,
+  {
+    self.attrs.permission_handler = Some(Box::new(handler));
     self
   }
 

@@ -19,11 +19,11 @@ use std::os::fd::{AsFd, AsRawFd};
 
 use super::{
   main_pipe::{MainPipe, MAIN_PIPE},
-  ASSET_LOADER_DOMAIN, EVAL_CALLBACKS, IPC, ON_LOAD_HANDLER, REQUEST_HANDLER, TITLE_CHANGE_HANDLER,
-  URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
+  ASSET_LOADER_DOMAIN, EVAL_CALLBACKS, IPC, ON_LOAD_HANDLER, PERMISSION_HANDLER, REQUEST_HANDLER,
+  TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
 };
 
-use crate::PageLoadEvent;
+use crate::{PageLoadEvent, PermissionKind, PermissionResponse};
 
 #[macro_export]
 macro_rules! android_binding {
@@ -86,6 +86,22 @@ macro_rules! android_binding {
       Rust,
       handleReceivedTitle,
       [JString, JString],
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebChromeClient,
+      onPermissionRequestNative,
+      [JString, JString],
+      jint
+    );
+    android_fn!(
+      $domain,
+      $package,
+      RustWebChromeClient,
+      onGeolocationPermissionRequestNative,
+      [JString, JString],
+      jboolean
     );
   }};
 }
@@ -484,4 +500,71 @@ pub unsafe fn onPageLoaded(mut env: JNIEnv, _: JClass, webview_id: JString, url:
       tracing::warn!("Failed to parse JString: {_e}")
     }
   }
+}
+
+const ANDROID_PERMISSION_REQUEST_DEFAULT: jint = 0;
+const ANDROID_PERMISSION_REQUEST_ALLOW: jint = 1;
+const ANDROID_PERMISSION_REQUEST_DENY: jint = 2;
+
+/// Returns `ANDROID_PERMISSION_REQUEST_DEFAULT | ANDROID_PERMISSION_REQUEST_ALLOW | ANDROID_PERMISSION_REQUEST_DENY`
+#[allow(non_snake_case)]
+pub unsafe fn onPermissionRequestNative(
+  mut env: JNIEnv,
+  _: JClass,
+  webview_id: JString,
+  resource: JString,
+) -> jint {
+  let Ok(webview_id) = env.get_string(&webview_id) else {
+    return ANDROID_PERMISSION_REQUEST_DEFAULT;
+  };
+  let webview_id = webview_id.to_str().ok().unwrap_or_default();
+  let permission_handlers = PERMISSION_HANDLER.lock().unwrap();
+  let Some(handler) = permission_handlers.get(webview_id) else {
+    return ANDROID_PERMISSION_REQUEST_DEFAULT;
+  };
+
+  let Ok(resource_str) = env.get_string(&resource) else {
+    return ANDROID_PERMISSION_REQUEST_DEFAULT;
+  };
+  let resource_str = resource_str.to_string_lossy();
+
+  let kind = match resource_str.as_ref() {
+    "android.webkit.resource.AUDIO_CAPTURE" => PermissionKind::Microphone,
+    "android.webkit.resource.VIDEO_CAPTURE" => PermissionKind::Camera,
+    "android.webkit.resource.PROTECTED_MEDIA_ID" => PermissionKind::MediaKeySystemAccess,
+    "android.webkit.resource.MIDI_SYSEX" => PermissionKind::Midi,
+    _ => PermissionKind::Other,
+  };
+
+  match (handler.handler)(kind) {
+    PermissionResponse::Default => ANDROID_PERMISSION_REQUEST_DEFAULT,
+    PermissionResponse::Allow => ANDROID_PERMISSION_REQUEST_ALLOW,
+    PermissionResponse::Deny => ANDROID_PERMISSION_REQUEST_DENY,
+  }
+}
+
+/// Returns true to deny geolocation.
+///
+/// Returns false to let Kotlin continue with Android's normal runtime permission flow.
+#[allow(non_snake_case)]
+pub unsafe fn onGeolocationPermissionRequestNative(
+  mut env: JNIEnv,
+  _: JClass,
+  webview_id: JString,
+  _origin: JString,
+) -> jboolean {
+  let Ok(webview_id) = env.get_string(&webview_id) else {
+    return false.into();
+  };
+  let webview_id = webview_id.to_str().ok().unwrap_or_default();
+  let permission_handlers = PERMISSION_HANDLER.lock().unwrap();
+  let Some(handler) = permission_handlers.get(webview_id) else {
+    return false.into();
+  };
+
+  matches!(
+    (handler.handler)(PermissionKind::Geolocation),
+    PermissionResponse::Deny
+  )
+  .into()
 }

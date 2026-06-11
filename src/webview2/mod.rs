@@ -30,8 +30,8 @@ use self::drag_drop::DragDropController;
 use super::Theme;
 use crate::{
   custom_protocol_workaround, proxy::ProxyConfig, Error, MemoryUsageLevel, NewWindowFeatures,
-  NewWindowOpener, NewWindowResponse, PageLoadEvent, Rect, RequestAsyncResponder, Result,
-  WebViewAttributes, RGBA,
+  NewWindowOpener, NewWindowResponse, PageLoadEvent, PermissionKind, PermissionResponse, Rect,
+  RequestAsyncResponder, Result, WebViewAttributes, RGBA,
 };
 
 type EventRegistrationToken = i64;
@@ -517,6 +517,58 @@ impl InnerWebView {
             args.PermissionKind(&mut kind)?;
             if kind == COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ {
               args.SetState(COREWEBVIEW2_PERMISSION_STATE_ALLOW)?;
+            }
+
+            Ok(())
+          })),
+          &mut token,
+        )?;
+      }
+    }
+
+    // Permission handler
+    if let Some(permission_handler) = attributes.permission_handler.take() {
+      unsafe {
+        webview.add_PermissionRequested(
+          &PermissionRequestedEventHandler::create(Box::new(move |_, args| {
+            let Some(args) = args else { return Ok(()) };
+
+            let mut kind = COREWEBVIEW2_PERMISSION_KIND::default();
+            args.PermissionKind(&mut kind)?;
+
+            // Convert WebView2 permission kind to our PermissionKind
+            let permission_kind = match kind {
+              COREWEBVIEW2_PERMISSION_KIND_MICROPHONE => PermissionKind::Microphone,
+              COREWEBVIEW2_PERMISSION_KIND_CAMERA => PermissionKind::Camera,
+              COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION => PermissionKind::Geolocation,
+              COREWEBVIEW2_PERMISSION_KIND_NOTIFICATIONS => PermissionKind::Notifications,
+              COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ => PermissionKind::ClipboardRead,
+              COREWEBVIEW2_PERMISSION_KIND_LOCAL_FONTS => PermissionKind::LocalFonts,
+              COREWEBVIEW2_PERMISSION_KIND_OTHER_SENSORS => PermissionKind::Sensors,
+              COREWEBVIEW2_PERMISSION_KIND_MIDI_SYSTEM_EXCLUSIVE_MESSAGES => PermissionKind::Midi,
+              COREWEBVIEW2_PERMISSION_KIND_MULTIPLE_AUTOMATIC_DOWNLOADS => {
+                PermissionKind::AutomaticDownloads
+              }
+              COREWEBVIEW2_PERMISSION_KIND_FILE_READ_WRITE => PermissionKind::FileSystemAccess,
+              COREWEBVIEW2_PERMISSION_KIND_AUTOPLAY => PermissionKind::Autoplay,
+              COREWEBVIEW2_PERMISSION_KIND_WINDOW_MANAGEMENT => PermissionKind::WindowManagement,
+              _ => PermissionKind::Other,
+            };
+
+            // Call user's permission handler
+            let response = permission_handler(permission_kind);
+
+            // Apply the response
+            match response {
+              PermissionResponse::Allow => {
+                args.SetState(COREWEBVIEW2_PERMISSION_STATE_ALLOW)?;
+              }
+              PermissionResponse::Deny => {
+                args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY)?;
+              }
+              PermissionResponse::Default => {
+                // Do nothing, let WebView2 show default prompt
+              }
             }
 
             Ok(())
