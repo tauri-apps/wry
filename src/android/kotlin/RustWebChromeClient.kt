@@ -52,7 +52,7 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
   }
 
   override fun onPermissionRequest(request: PermissionRequest) {
-    val requestedResources = safePermissionRequestResources(request.resources)
+    val requestedResources = request.resources
     if (requestedResources.isEmpty()) {
       request.deny()
       return
@@ -63,7 +63,8 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
       return
     }
 
-    grantPermissionRequest(request, requestedResources)
+    val grantableResources = safePermissionRequestResources(requestedResources)
+    grantPermissionRequest(request, grantableResources)
   }
 
   private fun grantPermissionRequest(request: PermissionRequest, resources: Array<String>) {
