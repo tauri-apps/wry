@@ -138,6 +138,7 @@ pub enum PermissionResponse {
   ///
   /// ## Platform-specific
   ///
+  /// - **Windows / macOS / Android**: The default behavior is [`Self::Prompt`]
   /// - **Linux**: The default behavior is [`Self::Deny`]
   #[default]
   Default,
