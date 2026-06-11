@@ -58,29 +58,14 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
       return
     }
 
-    val grantedResources = ArrayList<String>()
-    val defaultResources = ArrayList<String>()
-
     for (resource in requestedResources) {
-      when (onPermissionRequestNative(webViewId, arrayOf(resource))) {
-        0 -> grantedResources.add(resource)
-        1 -> {
-          request.deny()
-          return
-        }
-        2, 3 -> defaultResources.add(resource)
+      if (onPermissionRequestNative(webViewId, arrayOf(resource))) {
+        request.deny()
+        return
       }
     }
 
-    if (grantedResources.isNotEmpty()) {
-      // Android PermissionRequest can only be completed once. When the handler
-      // explicitly allows a subset and leaves the rest as default/prompt, grant
-      // only the handled subset and let the remaining resources be denied.
-      grantPermissionRequest(request, grantedResources.toTypedArray())
-      return
-    }
-
-    grantPermissionRequest(request, defaultResources.toTypedArray())
+    grantPermissionRequest(request, requestedResources)
   }
 
   private fun grantPermissionRequest(request: PermissionRequest, resources: Array<String>) {
@@ -117,8 +102,8 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
     return permissionList
   }
 
-  private external fun onPermissionRequestNative(webviewId: String, resources: Array<String>): Int
-  private external fun onGeolocationPermissionRequestNative(webviewId: String, origin: String): Int
+  private external fun onPermissionRequestNative(webviewId: String, resources: Array<String>): Boolean
+  private external fun onGeolocationPermissionRequestNative(webviewId: String, origin: String): Boolean
 
   /**
    * Show the browser alert modal
@@ -242,11 +227,9 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
     callback: GeolocationPermissions.Callback
   ) {
     super.onGeolocationPermissionsShowPrompt(origin, callback)
-    when (onGeolocationPermissionRequestNative(webViewId, origin)) {
-      1 -> {
-        callback.invoke(origin, false, false)
-        return
-      }
+    if (onGeolocationPermissionRequestNative(webViewId, origin)) {
+      callback.invoke(origin, false, false)
+      return
     }
 
     Logger.debug("onGeolocationPermissionsShowPrompt: DOING IT HERE FOR ORIGIN: $origin")

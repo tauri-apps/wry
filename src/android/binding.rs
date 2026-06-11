@@ -93,7 +93,7 @@ macro_rules! android_binding {
       RustWebChromeClient,
       onPermissionRequestNative,
       [JString, jni::objects::JObjectArray],
-      jint
+      jboolean
     );
     android_fn!(
       $domain,
@@ -101,7 +101,7 @@ macro_rules! android_binding {
       RustWebChromeClient,
       onGeolocationPermissionRequestNative,
       [JString, JString],
-      jint
+      jboolean
     );
   }};
 }
@@ -508,17 +508,15 @@ pub unsafe fn onPermissionRequestNative(
   _: JClass,
   webview_id: JString,
   resources: jni::objects::JObjectArray,
-) -> jint {
-  let mut allowed = false;
+) -> jboolean {
   let mut denied = false;
-  let mut prompt = false;
   let Ok(webview_id) = env.get_string(&webview_id) else {
-    return 2;
+    return false.into();
   };
   let webview_id = webview_id.to_str().ok().unwrap_or_default();
   let permission_handlers = PERMISSION_HANDLER.lock().unwrap();
   let Some(handler) = permission_handlers.get(webview_id) else {
-    return 2;
+    return false.into();
   };
 
   if let Ok(size) = env.get_array_length(&resources) {
@@ -536,26 +534,17 @@ pub unsafe fn onPermissionRequestNative(
           };
 
           match (handler.handler)(kind) {
-            PermissionResponse::Allow => allowed = true,
             PermissionResponse::Deny => denied = true,
-            PermissionResponse::Prompt => prompt = true,
-            PermissionResponse::Default => {}
+            PermissionResponse::Allow
+            | PermissionResponse::Default
+            | PermissionResponse::Prompt => {}
           }
         }
       }
     }
   }
 
-  // Consolidated decision logic
-  if denied {
-    1 // Deny
-  } else if allowed {
-    0 // Allow
-  } else if prompt {
-    3 // Prompt
-  } else {
-    2 // Default
-  }
+  denied.into()
 }
 
 #[allow(non_snake_case)]
@@ -564,20 +553,19 @@ pub unsafe fn onGeolocationPermissionRequestNative(
   _: JClass,
   webview_id: JString,
   _origin: JString,
-) -> jint {
+) -> jboolean {
   let Ok(webview_id) = env.get_string(&webview_id) else {
-    return 2;
+    return false.into();
   };
   let webview_id = webview_id.to_str().ok().unwrap_or_default();
   let permission_handlers = PERMISSION_HANDLER.lock().unwrap();
   let Some(handler) = permission_handlers.get(webview_id) else {
-    return 2;
+    return false.into();
   };
 
-  match (handler.handler)(PermissionKind::Geolocation) {
-    PermissionResponse::Allow => 0,
-    PermissionResponse::Deny => 1,
-    PermissionResponse::Default => 2,
-    PermissionResponse::Prompt => 3,
-  }
+  matches!(
+    (handler.handler)(PermissionKind::Geolocation),
+    PermissionResponse::Deny
+  )
+  .into()
 }
