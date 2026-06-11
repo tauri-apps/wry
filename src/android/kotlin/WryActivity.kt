@@ -130,23 +130,21 @@ abstract class WryActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         id = savedInstanceState?.getInt(ACTIVITY_ID_KEY) ?: intent.extras?.getInt(ACTIVITY_ID_KEY) ?: hashCode()
-        val permissionCallback =
-            ActivityResultCallback { isGranted: Map<String, Boolean> ->
-                permissionListener?.let {
-                    var granted = true
-                    for ((_, value) in isGranted) {
-                        if (!value) granted = false
-                    }
-                    it(granted)
-                }
+
+        permissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions(),
+        ) { isGranted ->
+            permissionListener?.let { listener ->
+                val allGranted = isGranted.values.all { it }
+                listener(allGranted)
             }
-        permissionLauncher =
-            registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions(), permissionCallback)
+        }
         activityLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
             activityListener?.invoke(result)
         }
+
         ProcessLifecycleOwner.get().lifecycle.addObserver(WryLifecycleObserver)
         Rust.onActivityCreate(this)
     }
