@@ -28,6 +28,11 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class RustWebChromeClient(private val activity: WryActivity, private val webViewId: String) : WebChromeClient() {
+  private companion object {
+    const val PERMISSION_REQUEST_DEFAULT = 0
+    const val PERMISSION_REQUEST_ALLOW = 1
+    const val PERMISSION_REQUEST_DENY = 2
+  }
 
   /**
    * Render web content in `view`.
@@ -58,13 +63,18 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
       return
     }
 
-    if (onPermissionRequestNative(webViewId, requestedResources)) {
-      request.deny()
-      return
+    when (onPermissionRequestNative(webViewId, requestedResources)) {
+      PERMISSION_REQUEST_DENY -> request.deny()
+      PERMISSION_REQUEST_ALLOW -> grantPermissionRequest(request, requestedResources)
+      PERMISSION_REQUEST_DEFAULT -> {
+        val grantableResources = safePermissionRequestResources(requestedResources)
+        grantPermissionRequest(request, grantableResources)
+      }
+      else -> {
+        val grantableResources = safePermissionRequestResources(requestedResources)
+        grantPermissionRequest(request, grantableResources)
+      }
     }
-
-    val grantableResources = safePermissionRequestResources(requestedResources)
-    grantPermissionRequest(request, grantableResources)
   }
 
   private fun grantPermissionRequest(request: PermissionRequest, resources: Array<String>) {
@@ -101,8 +111,8 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
     return permissionList
   }
 
-  // Returns true when Rust denies the request; false continues the normal Android permission flow.
-  private external fun onPermissionRequestNative(webviewId: String, resources: Array<String>): Boolean
+  // Returns one of the PERMISSION_REQUEST_* constants.
+  private external fun onPermissionRequestNative(webviewId: String, resources: Array<String>): Int
   // Returns true when Rust denies geolocation; false continues the normal Android permission flow.
   private external fun onGeolocationPermissionRequestNative(webviewId: String, origin: String): Boolean
 

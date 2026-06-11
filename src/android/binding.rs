@@ -93,7 +93,7 @@ macro_rules! android_binding {
       RustWebChromeClient,
       onPermissionRequestNative,
       [JString, jni::objects::JObjectArray],
-      jboolean
+      jint
     );
     android_fn!(
       $domain,
@@ -502,27 +502,35 @@ pub unsafe fn onPageLoaded(mut env: JNIEnv, _: JClass, webview_id: JString, url:
   }
 }
 
-/// Returns true to deny the Android request.
-///
-/// Returns false to let Kotlin continue with Android's normal runtime permission flow.
+const ANDROID_PERMISSION_REQUEST_DEFAULT: jint = 0;
+const ANDROID_PERMISSION_REQUEST_ALLOW: jint = 1;
+const ANDROID_PERMISSION_REQUEST_DENY: jint = 2;
+
+/// Returns allow when every requested resource was explicitly allowed, deny when
+/// any resource was denied, and default otherwise.
 #[allow(non_snake_case)]
 pub unsafe fn onPermissionRequestNative(
   mut env: JNIEnv,
   _: JClass,
   webview_id: JString,
   resources: jni::objects::JObjectArray,
-) -> jboolean {
+) -> jint {
   let mut denied = false;
+  let mut defaulted = false;
   let Ok(webview_id) = env.get_string(&webview_id) else {
-    return false.into();
+    return ANDROID_PERMISSION_REQUEST_DEFAULT;
   };
   let webview_id = webview_id.to_str().ok().unwrap_or_default();
   let permission_handlers = PERMISSION_HANDLER.lock().unwrap();
   let Some(handler) = permission_handlers.get(webview_id) else {
-    return false.into();
+    return ANDROID_PERMISSION_REQUEST_DEFAULT;
   };
 
   if let Ok(size) = env.get_array_length(&resources) {
+    if size == 0 {
+      defaulted = true;
+    }
+
     for i in 0..size {
       if let Ok(resource) = env.get_object_array_element(&resources, i) {
         if let Ok(resource_str) = env.get_string(&resource.into()) {
@@ -538,14 +546,27 @@ pub unsafe fn onPermissionRequestNative(
 
           match (handler.handler)(kind) {
             PermissionResponse::Deny => denied = true,
-            PermissionResponse::Allow | PermissionResponse::Default => {}
+            PermissionResponse::Default => defaulted = true,
+            PermissionResponse::Allow => {}
           }
+        } else {
+          defaulted = true;
         }
+      } else {
+        defaulted = true;
       }
     }
+  } else {
+    defaulted = true;
   }
 
-  denied.into()
+  if denied {
+    ANDROID_PERMISSION_REQUEST_DENY
+  } else if defaulted {
+    ANDROID_PERMISSION_REQUEST_DEFAULT
+  } else {
+    ANDROID_PERMISSION_REQUEST_ALLOW
+  }
 }
 
 /// Returns true to deny geolocation.
