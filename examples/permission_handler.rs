@@ -26,7 +26,7 @@ fn main() -> wry::Result<()> {
     .with_url("https://permission.site/")
     .with_permission_handler(|kind| {
       let response = match kind {
-        PermissionKind::Geolocation => PermissionResponse::Prompt,
+        PermissionKind::Geolocation => PermissionResponse::Default,
         _ => PermissionResponse::Allow,
       };
       println!("[permission] {kind} → {response}");
