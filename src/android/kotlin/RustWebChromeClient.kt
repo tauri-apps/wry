@@ -63,13 +63,20 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
       return
     }
 
-    when (onPermissionRequestNative(webViewId, requestedResources)) {
-      PERMISSION_REQUEST_DENY -> request.deny()
-      PERMISSION_REQUEST_ALLOW -> grantPermissionRequest(request, requestedResources)
-      PERMISSION_REQUEST_DEFAULT -> {
-        grantPermissionRequest(request, filterKnownPermissions(requestedResources))
+    val allowedResources = ArrayList<String>()
+    val defaultResources = ArrayList<String>()
+
+    for (resource in requestedResources) {
+      when (onPermissionRequestNative(webViewId, resource)) {
+        PERMISSION_REQUEST_DENY -> {}
+        PERMISSION_REQUEST_ALLOW -> allowedResources.add(resource)
+        PERMISSION_REQUEST_DEFAULT -> defaultResources.add(resource)
       }
     }
+
+    val resources =
+      allowedResources.plus(filterKnownPermissions(defaultResources)).toList().toTypedArray()
+    grantPermissionRequest(request, resources)
   }
 
   private fun grantPermissionRequest(request: PermissionRequest, resources: Array<String>) {
@@ -106,9 +113,13 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
     return permissionList
   }
 
-  // Returns one of the PERMISSION_REQUEST_* constants.
-  private external fun onPermissionRequestNative(webviewId: String, resources: Array<String>): Int
-  // Returns true when Rust denies geolocation; false continues the normal Android permission flow.
+  /**
+   * @return one of the PERMISSION_REQUEST_* constants.
+   */
+  private external fun onPermissionRequestNative(webviewId: String, resource: String): Int
+  /**
+   * @return true when Rust denies geolocation; false continues the normal Android permission flow.
+   */
   private external fun onGeolocationPermissionRequestNative(webviewId: String, origin: String): Boolean
 
   /**
@@ -268,7 +279,7 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
     }
   }
 
-  private fun filterKnownPermissions(resources: Array<String>): Array<String> {
+  private fun filterKnownPermissions(resources: List<String>): Array<String> {
     return resources.filter {
       it == PermissionRequest.RESOURCE_AUDIO_CAPTURE ||
         it == PermissionRequest.RESOURCE_VIDEO_CAPTURE ||

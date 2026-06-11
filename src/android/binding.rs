@@ -92,7 +92,7 @@ macro_rules! android_binding {
       $package,
       RustWebChromeClient,
       onPermissionRequestNative,
-      [JString, jni::objects::JObjectArray],
+      [JString, JString],
       jint
     );
     android_fn!(
@@ -506,17 +506,14 @@ const ANDROID_PERMISSION_REQUEST_DEFAULT: jint = 0;
 const ANDROID_PERMISSION_REQUEST_ALLOW: jint = 1;
 const ANDROID_PERMISSION_REQUEST_DENY: jint = 2;
 
-/// Returns allow when every requested resource was explicitly allowed, deny when
-/// any resource was denied, and default otherwise.
+/// Returns `ANDROID_PERMISSION_REQUEST_DEFAULT | ANDROID_PERMISSION_REQUEST_ALLOW | ANDROID_PERMISSION_REQUEST_DENY`
 #[allow(non_snake_case)]
 pub unsafe fn onPermissionRequestNative(
   mut env: JNIEnv,
   _: JClass,
   webview_id: JString,
-  resources: jni::objects::JObjectArray,
+  resource: JString,
 ) -> jint {
-  let mut denied = false;
-  let mut defaulted = false;
   let Ok(webview_id) = env.get_string(&webview_id) else {
     return ANDROID_PERMISSION_REQUEST_DEFAULT;
   };
@@ -526,46 +523,23 @@ pub unsafe fn onPermissionRequestNative(
     return ANDROID_PERMISSION_REQUEST_DEFAULT;
   };
 
-  if let Ok(size) = env.get_array_length(&resources) {
-    if size == 0 {
-      defaulted = true;
-    }
+  let Ok(resource_str) = env.get_string(&resource) else {
+    return ANDROID_PERMISSION_REQUEST_DEFAULT;
+  };
+  let resource_str = resource_str.to_string_lossy();
 
-    for i in 0..size {
-      if let Ok(resource) = env.get_object_array_element(&resources, i) {
-        if let Ok(resource_str) = env.get_string(&resource.into()) {
-          let resource_str = resource_str.to_string_lossy();
+  let kind = match resource_str.as_ref() {
+    "android.webkit.resource.AUDIO_CAPTURE" => PermissionKind::Microphone,
+    "android.webkit.resource.VIDEO_CAPTURE" => PermissionKind::Camera,
+    "android.webkit.resource.PROTECTED_MEDIA_ID" => PermissionKind::MediaKeySystemAccess,
+    "android.webkit.resource.MIDI_SYSEX" => PermissionKind::Midi,
+    _ => PermissionKind::Other,
+  };
 
-          let kind = match resource_str.as_ref() {
-            "android.webkit.resource.AUDIO_CAPTURE" => PermissionKind::Microphone,
-            "android.webkit.resource.VIDEO_CAPTURE" => PermissionKind::Camera,
-            "android.webkit.resource.PROTECTED_MEDIA_ID" => PermissionKind::MediaKeySystemAccess,
-            "android.webkit.resource.MIDI_SYSEX" => PermissionKind::Midi,
-            _ => PermissionKind::Other,
-          };
-
-          match (handler.handler)(kind) {
-            PermissionResponse::Deny => denied = true,
-            PermissionResponse::Default => defaulted = true,
-            PermissionResponse::Allow => {}
-          }
-        } else {
-          defaulted = true;
-        }
-      } else {
-        defaulted = true;
-      }
-    }
-  } else {
-    defaulted = true;
-  }
-
-  if denied {
-    ANDROID_PERMISSION_REQUEST_DENY
-  } else if defaulted {
-    ANDROID_PERMISSION_REQUEST_DEFAULT
-  } else {
-    ANDROID_PERMISSION_REQUEST_ALLOW
+  match (handler.handler)(kind) {
+    PermissionResponse::Default => ANDROID_PERMISSION_REQUEST_DEFAULT,
+    PermissionResponse::Allow => ANDROID_PERMISSION_REQUEST_ALLOW,
+    PermissionResponse::Deny => ANDROID_PERMISSION_REQUEST_DENY,
   }
 }
 
