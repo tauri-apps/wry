@@ -509,6 +509,8 @@ pub unsafe fn onPermissionRequestNative(
   webview_id: JString,
   resources: jni::objects::JObjectArray,
 ) -> jboolean {
+  // Return true to deny the Android request. false lets Kotlin continue with
+  // Android's normal runtime permission flow.
   let mut denied = false;
   let Ok(webview_id) = env.get_string(&webview_id) else {
     return false.into();
@@ -535,9 +537,7 @@ pub unsafe fn onPermissionRequestNative(
 
           match (handler.handler)(kind) {
             PermissionResponse::Deny => denied = true,
-            PermissionResponse::Allow
-            | PermissionResponse::Default
-            | PermissionResponse::Prompt => {}
+            PermissionResponse::Allow | PermissionResponse::Default => {}
           }
         }
       }
@@ -554,6 +554,8 @@ pub unsafe fn onGeolocationPermissionRequestNative(
   webview_id: JString,
   _origin: JString,
 ) -> jboolean {
+  // Return true to deny geolocation. false lets Kotlin continue with Android's
+  // normal runtime permission flow.
   let Ok(webview_id) = env.get_string(&webview_id) else {
     return false.into();
   };

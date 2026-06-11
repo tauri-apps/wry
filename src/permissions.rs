@@ -134,24 +134,20 @@ pub enum PermissionResponse {
   ///
   /// ## Platform-specific
   ///
-  /// - **Android**: Not supported, same as [`Self::Prompt`]
+  /// - **Android**: Not supported for runtime permissions; the normal Android
+  ///   permission flow is used instead.
   Allow,
   /// Deny the permission.
   Deny,
-  /// Use default behavior (show system prompt).
+  /// Use the platform or browser default behavior.
   ///
   /// ## Platform-specific
   ///
-  /// - **Windows / macOS / Android**: The default behavior is [`Self::Prompt`]
+  /// - **Windows / macOS / Android**: The default behavior is to continue the
+  ///   platform or browser permission flow.
   /// - **Linux**: The default behavior is [`Self::Deny`]
   #[default]
   Default,
-  /// Explicitly prompt the user (system dialog).
-  ///
-  /// ## Platform-specific
-  ///
-  /// - **Linux**: Not supported, same as [`Self::Deny`]
-  Prompt,
 }
 
 impl std::fmt::Display for PermissionResponse {
@@ -160,7 +156,6 @@ impl std::fmt::Display for PermissionResponse {
       Self::Allow => write!(f, "allow"),
       Self::Deny => write!(f, "deny"),
       Self::Default => write!(f, "default"),
-      Self::Prompt => write!(f, "prompt"),
     }
   }
 }

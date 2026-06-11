@@ -604,7 +604,7 @@ impl InnerWebView {
                 request.deny();
                 true
               }
-              PermissionResponse::Default | PermissionResponse::Prompt => false,
+              PermissionResponse::Default => false,
             };
           }
 
@@ -618,7 +618,7 @@ impl InnerWebView {
             match permission_handler(PermissionKind::Microphone) {
               PermissionResponse::Allow => {}
               PermissionResponse::Deny => allow = false,
-              PermissionResponse::Default | PermissionResponse::Prompt => handled = false,
+              PermissionResponse::Default => handled = false,
             }
           }
 
@@ -627,7 +627,7 @@ impl InnerWebView {
             match permission_handler(PermissionKind::Camera) {
               PermissionResponse::Allow => {}
               PermissionResponse::Deny => allow = false,
-              PermissionResponse::Default | PermissionResponse::Prompt => handled = false,
+              PermissionResponse::Default => handled = false,
             }
           }
 
@@ -661,7 +661,7 @@ impl InnerWebView {
               request.deny();
               true
             }
-            PermissionResponse::Default | PermissionResponse::Prompt => false,
+            PermissionResponse::Default => false,
           }
         }
       });

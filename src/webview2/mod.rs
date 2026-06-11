@@ -566,7 +566,7 @@ impl InnerWebView {
               PermissionResponse::Deny => {
                 args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY)?;
               }
-              PermissionResponse::Default | PermissionResponse::Prompt => {
+              PermissionResponse::Default => {
                 // Do nothing, let WebView2 show default prompt
               }
             }

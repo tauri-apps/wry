@@ -139,7 +139,6 @@ define_class!(
           PermissionResponse::Allow => WKPermissionDecision::Grant,
           PermissionResponse::Deny => WKPermissionDecision::Deny,
           PermissionResponse::Default => WKPermissionDecision::Prompt,
-          PermissionResponse::Prompt => WKPermissionDecision::Prompt,
         };
 
         match capture_type {

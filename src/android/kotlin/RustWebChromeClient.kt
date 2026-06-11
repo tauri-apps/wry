@@ -58,11 +58,9 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
       return
     }
 
-    for (resource in requestedResources) {
-      if (onPermissionRequestNative(webViewId, arrayOf(resource))) {
-        request.deny()
-        return
-      }
+    if (onPermissionRequestNative(webViewId, requestedResources)) {
+      request.deny()
+      return
     }
 
     grantPermissionRequest(request, requestedResources)
@@ -102,7 +100,9 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
     return permissionList
   }
 
+  // Returns true when Rust denies the request; false continues the normal Android permission flow.
   private external fun onPermissionRequestNative(webviewId: String, resources: Array<String>): Boolean
+  // Returns true when Rust denies geolocation; false continues the normal Android permission flow.
   private external fun onGeolocationPermissionRequestNative(webviewId: String, origin: String): Boolean
 
   /**
