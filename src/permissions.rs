@@ -131,6 +131,10 @@ impl std::fmt::Display for PermissionKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum PermissionResponse {
   /// Grant the permission.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Android**: Not supported, same as [`Self::Prompt`]
   Allow,
   /// Deny the permission.
   Deny,
