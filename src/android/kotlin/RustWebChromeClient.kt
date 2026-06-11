@@ -67,12 +67,7 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
       PERMISSION_REQUEST_DENY -> request.deny()
       PERMISSION_REQUEST_ALLOW -> grantPermissionRequest(request, requestedResources)
       PERMISSION_REQUEST_DEFAULT -> {
-        val grantableResources = safePermissionRequestResources(requestedResources)
-        grantPermissionRequest(request, grantableResources)
-      }
-      else -> {
-        val grantableResources = safePermissionRequestResources(requestedResources)
-        grantPermissionRequest(request, grantableResources)
+        grantPermissionRequest(request, filterKnownPermissions(requestedResources))
       }
     }
   }
@@ -273,7 +268,7 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
     }
   }
 
-  private fun safePermissionRequestResources(resources: Array<String>): Array<String> {
+  private fun filterKnownPermissions(resources: Array<String>): Array<String> {
     return resources.filter {
       it == PermissionRequest.RESOURCE_AUDIO_CAPTURE ||
         it == PermissionRequest.RESOURCE_VIDEO_CAPTURE ||
