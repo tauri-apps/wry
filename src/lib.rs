@@ -584,11 +584,14 @@ struct WebViewAttributes<'a> {
   /// Headers used when loading the requested [`url`](Self::url).
   pub headers: Option<http::HeaderMap>,
 
-  /// Whether page zooming by hotkeys is enabled
+  /// Whether page zooming by hotkeys or gestures is enabled
   ///
   /// ## Platform-specific
   ///
-  /// **macOS / Linux / Android / iOS**: Unsupported
+  /// - Windows: Setting to `false` can't disable pinch zoom on WebView2 Runtime version before 91.0.865.0,
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10865-prerelease>
+  ///
+  /// - **macOS / Linux / Android / iOS**: Unsupported
   pub zoom_hotkeys_enabled: bool,
 
   /// Whether load the provided html string to [`WebView`].
@@ -634,7 +637,7 @@ struct WebViewAttributes<'a> {
   /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
   /// different Origin headers across platforms:
   ///
-  /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://path/to/page/`).
+  /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://path/to/page`).
   /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page`). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`].
   ///
   /// # Reading assets on mobile
@@ -666,7 +669,7 @@ struct WebViewAttributes<'a> {
 
   /// A download started handler to manage incoming downloads.
   ///
-  /// The closure takes two parameters, the first is a `String` representing the url being downloaded from and and the
+  /// The closure takes two parameters, the first is a `String` representing the url being downloaded from and the
   /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
   /// parameter can be used to set the download location by assigning a new path to it, the assigned path _must_ be
   /// absolute. The closure returns a `bool` to allow or deny the download.
@@ -737,7 +740,7 @@ struct WebViewAttributes<'a> {
   /// Set a handler closure to process the change of the webview's document title.
   pub document_title_changed_handler: Option<Box<dyn Fn(String)>>,
 
-  /// Run the WebView with incognito mode. Note that WebContext will be ingored if incognito is
+  /// Run the WebView with incognito mode. Note that WebContext will be ignored if incognito is
   /// enabled.
   ///
   /// ## Platform-specific:
@@ -956,7 +959,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// The color uses the RGBA format.
   ///
-  /// ## Platfrom-specific:
+  /// ## Platform-specific:
   ///
   /// - **macOS**: Disables the default white WKWebView background via the `drawsBackground` KVC key
   ///   (same as the `transparent` feature) and sets `underPageBackgroundColor` (macOS 12+) for overscroll areas.
@@ -1047,7 +1050,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// The closure takes a [Request] and returns a [Response]
   ///
-  /// When registering a custom protocol with the same name, only the last regisered one will be used.
+  /// When registering a custom protocol with the same name, only the last registered one will be used.
   ///
   /// # Warning
   ///
@@ -1105,7 +1108,7 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Same as [`Self::with_custom_protocol`] but with an asynchronous responder.
   ///
-  /// When registering a custom protocol with the same name, only the last regisered one will be used.
+  /// When registering a custom protocol with the same name, only the last registered one will be used.
   ///
   /// # Warning
   ///
@@ -1312,7 +1315,9 @@ impl<'a> WebViewBuilder<'a> {
   /// - **Windows**: Fully supported via WebView2's PermissionRequested event.
   /// - **macOS / iOS**: Fully supported via WKUIDelegate's requestMediaCapturePermission.
   /// - **Linux**: Fully supported via WebKitGTK's permission-request signal.
-  /// - **Android**: Supported via JNI bridge with some limitations (WIP).
+  /// - **Android**: Supported via JNI bridge for geolocation, microphone, camera,
+  ///   protected media, and MIDI requests. Android runtime permissions may still
+  ///   trigger native OS prompts before access is granted.
   ///
   /// ## Example
   ///
@@ -1337,7 +1342,7 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Set a download started handler to manage incoming downloads.
   ///
-  /// The closure takes two parameters, the first is a `String` representing the url being downloaded from and and the
+  /// The closure takes two parameters, the first is a `String` representing the url being downloaded from and the
   /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
   /// parameter can be used to set the download location by assigning a new path to it, the assigned path _must_ be
   /// absolute. The closure returns a `bool` to allow or deny the download.
@@ -1415,7 +1420,7 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Run the WebView with incognito mode. Note that WebContext will be ingored if incognito is
+  /// Run the WebView with incognito mode. Note that WebContext will be ignored if incognito is
   /// enabled.
   ///
   /// ## Platform-specific:
@@ -1437,10 +1442,9 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set a proxy configuration for the webview.
+  /// Set a proxy configuration for the webview. Supports HTTP CONNECT and SOCKSv5 proxies
   ///
-  /// - **macOS**: Requires macOS 14.0+ and the `mac-proxy` feature flag to be enabled. Supports HTTP CONNECT and SOCKSv5 proxies.
-  /// - **Windows / Linux**: Supports HTTP CONNECT and SOCKSv5 proxies.
+  /// - **macOS**: Requires macOS 14.0+ and the `mac-proxy` feature flag to be enabled.
   /// - **Android / iOS:** Not supported.
   pub fn with_proxy_config(mut self, configuration: ProxyConfig) -> Self {
     self.attrs.proxy_config = Some(configuration);
@@ -1517,7 +1521,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewBuilderExtUnix::new_gtk`].
   ///
-  ///   Although this methods only needs an X11 window handle, we use webkit2gtk, so you still need to initialize gtk
+  ///   Although this method only needs an X11 window handle, we use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
   ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
   /// - **Windows**: The webview will auto-resize when the passed handle is resized.
@@ -2189,7 +2193,7 @@ impl WebView {
   ///
   /// The color uses the RGBA format.
   ///
-  /// ## Platfrom-specific:
+  /// ## Platform-specific:
   ///
   /// - **macOS**: Disables the default white WKWebView background via the `drawsBackground` KVC key
   ///   (same as the `transparent` feature) and sets `underPageBackgroundColor` (macOS 12+) for overscroll areas.
