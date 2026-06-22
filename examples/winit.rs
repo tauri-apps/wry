@@ -62,11 +62,7 @@ impl ApplicationHandler for State {
       target_os = "netbsd",
       target_os = "openbsd",
     ))]
-    {
-      while gtk::events_pending() {
-        gtk::main_iteration_do(false);
-      }
-    }
+    while gtk4::glib::MainContext::default().iteration(false) {}
   }
 }
 
@@ -79,13 +75,9 @@ fn main() -> wry::Result<()> {
     target_os = "openbsd",
   ))]
   {
-    use gtk::prelude::DisplayExtManual;
+    gtk4::init().unwrap();
 
-    gtk::init().unwrap();
-    if gtk::gdk::Display::default().unwrap().backend().is_wayland() {
-      panic!("This example doesn't support wayland!");
-    }
-
+    #[cfg(feature = "x11")]
     winit::platform::x11::register_xlib_error_hook(Box::new(|_display, error| {
       let error = error as *mut x11_dl::xlib::XErrorEvent;
       (unsafe { (*error).error_code }) == 170

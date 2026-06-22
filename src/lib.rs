@@ -51,25 +51,27 @@
 //! event_loop.run_app(&mut app).unwrap();
 //! ```
 //!
-//! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::new_gtk`] on Linux.
-//! See the following example using [`tao`]:
+//! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::build_gtk`] on Linux.
+//! See the following example using [`gtk4`] on Linux:
 //!
 //! ```no_run
 //! # use wry::WebViewBuilder;
-//! # use tao::{window::WindowBuilder, event_loop::EventLoop};
-//! # #[cfg(target_os = "linux")]
-//! # use tao::platform::unix::WindowExtUnix;
-//! # #[cfg(target_os = "linux")]
+//! # #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
 //! # use wry::WebViewBuilderExtUnix;
-//! let event_loop = EventLoop::new();
-//! let window = WindowBuilder::new().build(&event_loop).unwrap();
-//!
-//! let builder = WebViewBuilder::new().with_url("https://tauri.app");
-//!
-//! #[cfg(not(target_os = "linux"))]
-//! let webview = builder.build(&window).unwrap();
-//! #[cfg(target_os = "linux")]
-//! let webview = builder.build_gtk(window.gtk_window()).unwrap();
+//! # #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+//! # use gtk4::prelude::*;
+//! #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+//! {
+//!   gtk4::init().unwrap();
+//!   let window = gtk4::Window::new();
+//!   let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+//!   window.set_child(Some(&vbox));
+//!   let _webview = WebViewBuilder::new()
+//!     .with_url("https://tauri.app")
+//!     .build_gtk(&vbox)
+//!     .unwrap();
+//!   window.present();
+//! }
 //! ```
 //!
 //! ## Child webviews
@@ -111,36 +113,30 @@
 //! ```
 //!
 //! If you want to support X11 and Wayland at the same time, we recommend using
-//! [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+//! [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::build_gtk`] with [`gtk4::Fixed`].
 //!
 //! ```no_run
-//! # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
-//! # use tao::{window::WindowBuilder, event_loop::EventLoop};
-//! # #[cfg(target_os = "linux")]
+//! # use wry::{WebViewBuilder, Rect, dpi::*};
+//! # #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
 //! # use wry::WebViewBuilderExtUnix;
-//! # #[cfg(target_os = "linux")]
-//! # use tao::platform::unix::WindowExtUnix;
-//! let event_loop = EventLoop::new();
-//! let window = WindowBuilder::new().build(&event_loop).unwrap();
-//!
-//! let builder = WebViewBuilder::new()
-//!   .with_url("https://tauri.app")
-//!   .with_bounds(Rect {
-//!     position: LogicalPosition::new(100, 100).into(),
-//!     size: LogicalSize::new(200, 200).into(),
-//!   });
-//!
-//! #[cfg(not(target_os = "linux"))]
-//! let webview = builder.build_as_child(&window).unwrap();
-//! #[cfg(target_os = "linux")]
-//! let webview = {
-//!   # use gtk::prelude::*;
-//!   let vbox = window.default_vbox().unwrap(); // tao adds a gtk::Box by default
-//!   let fixed = gtk::Fixed::new();
-//!   fixed.show_all();
-//!   vbox.pack_start(&fixed, true, true, 0);
-//!   builder.build_gtk(&fixed).unwrap()
-//! };
+//! # #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+//! # use gtk4::prelude::*;
+//! #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+//! {
+//!   gtk4::init().unwrap();
+//!   let window = gtk4::Window::new();
+//!   let fixed = gtk4::Fixed::new();
+//!   window.set_child(Some(&fixed));
+//!   let _webview = WebViewBuilder::new()
+//!     .with_url("https://tauri.app")
+//!     .with_bounds(Rect {
+//!       position: LogicalPosition::new(100, 100).into(),
+//!       size: LogicalSize::new(200, 200).into(),
+//!     })
+//!     .build_gtk(&fixed)
+//!     .unwrap();
+//!   window.present();
+//! }
 //! ```
 //!
 //! ## Platform Considerations
@@ -151,8 +147,8 @@
 //!
 //! [WebKitGTK](https://webkitgtk.org/) is used to provide webviews on Linux which requires GTK,
 //! so if the windowing library doesn't support GTK (as in [`winit`])
-//! you'll need to call [`gtk::init`] before creating the webview and then call [`gtk::main_iteration_do`] alongside
-//! your windowing library event loop.
+//! you'll need to call [`gtk4::init`] before creating the webview and then pump GTK events alongside
+//! your windowing library event loop using [`gtk4::glib::MainContext::default()`].
 //!
 //! ```no_run
 //! # use wry::{WebView, WebViewBuilder};
@@ -177,10 +173,8 @@
 //!
 //!   // Advance GTK event loop <!----- IMPORTANT
 //!   fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-//!     #[cfg(target_os = "linux")]
-//!     while gtk::events_pending() {
-//!       gtk::main_iteration_do(false);
-//!     }
+//!     #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+//!     while gtk4::glib::MainContext::default().iteration(false) {}
 //!   }
 //! }
 //!
@@ -480,7 +474,7 @@ pub enum NewWindowResponse {
       target_os = "netbsd",
       target_os = "openbsd",
     ))]
-    webview: webkit2gtk::WebView,
+    webview: webkit6::WebView,
     #[cfg(windows)]
     webview: ICoreWebView2,
     #[cfg(target_os = "macos")]
@@ -503,7 +497,7 @@ pub struct NewWindowOpener {
     target_os = "netbsd",
     target_os = "openbsd",
   ))]
-  pub webview: webkit2gtk::WebView,
+  pub webview: webkit6::WebView,
   /// The instance of the webview that initiated the new window request.
   #[cfg(windows)]
   pub webview: ICoreWebView2,
@@ -2010,7 +2004,7 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
 #[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   extension_path: Option<PathBuf>,
-  related_view: Option<webkit2gtk::WebView>,
+  related_view: Option<webkit6::WebView>,
 }
 
 #[cfg(any(
@@ -2033,14 +2027,14 @@ pub trait WebViewBuilderExtUnix<'a> {
   /// - Panics if [`gtk::init`] was not called in this thread.
   fn build_gtk<W>(self, widget: &'a W) -> Result<WebView>
   where
-    W: gtk::prelude::IsA<gtk::Container>;
+    W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>;
 
   /// Set the path from which to load extensions from.
   fn with_extensions_path(self, path: impl Into<PathBuf>) -> Self;
 
   /// Creates a new webview sharing the same web process with the provided webview.
   /// Useful if you need to link a webview to another, for instance when using the [`WebViewBuilder::with_new_window_req_handler`].
-  fn with_related_view(self, webview: webkit2gtk::WebView) -> Self;
+  fn with_related_view(self, webview: webkit6::WebView) -> Self;
 }
 
 #[cfg(any(
@@ -2053,7 +2047,7 @@ pub trait WebViewBuilderExtUnix<'a> {
 impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
   fn build_gtk<W>(self, widget: &'a W) -> Result<WebView>
   where
-    W: gtk::prelude::IsA<gtk::Container>,
+    W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>,
   {
     self.error?;
 
@@ -2066,7 +2060,7 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
     self
   }
 
-  fn with_related_view(mut self, webview: webkit2gtk::WebView) -> Self {
+  fn with_related_view(mut self, webview: webkit6::WebView) -> Self {
     self.platform_specific.related_view.replace(webview);
     self
   }
@@ -2416,33 +2410,33 @@ pub trait WebViewExtUnix: Sized {
   /// - Panics if [`gtk::init`] was not called in this thread.
   fn new_gtk<W>(widget: &W) -> Result<Self>
   where
-    W: gtk::prelude::IsA<gtk::Container>;
+    W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>;
 
-  /// Returns Webkit2gtk Webview handle
-  fn webview(&self) -> webkit2gtk::WebView;
+  /// Returns webkit6 WebView handle
+  fn webview(&self) -> webkit6::WebView;
 
   /// Attaches this webview to the given Widget and removes it from the current one.
   fn reparent<W>(&self, widget: &W) -> Result<()>
   where
-    W: gtk::prelude::IsA<gtk::Container>;
+    W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>;
 }
 
 #[cfg(gtk)]
 impl WebViewExtUnix for WebView {
   fn new_gtk<W>(widget: &W) -> Result<Self>
   where
-    W: gtk::prelude::IsA<gtk::Container>,
+    W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>,
   {
     WebViewBuilder::new().build_gtk(widget)
   }
 
-  fn webview(&self) -> webkit2gtk::WebView {
+  fn webview(&self) -> webkit6::WebView {
     self.webview.webview.clone()
   }
 
   fn reparent<W>(&self, widget: &W) -> Result<()>
   where
-    W: gtk::prelude::IsA<gtk::Container>,
+    W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>,
   {
     self.webview.reparent(widget)
   }

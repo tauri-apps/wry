@@ -30,16 +30,16 @@ protocol = []
 devtools = []
 transparent = []
 fullscreen = []
-linux-body = ["webkit2gtk/v2_40", "os-webview"]
+linux-body = ["os-webview"]
 mac-proxy = []
 os-webview = [
-  "javascriptcore-rs",
-  "webkit2gtk",
-  "webkit2gtk-sys",
-  "dep:gtk",
+  "javascriptcore6",
+  "webkit6",
+  "webkit6-sys",
+  "dep:gtk4",
   "soup3",
 ]
-x11 = ["x11-dl", "gdkx11", "tao/x11"]
+x11 = ["x11-dl", "gdk4-x11"]
 tracing = ["dep:tracing"]
 
 [dependencies]
@@ -52,20 +52,20 @@ dpi = "0.1"
 cookie = "0.18"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
-javascriptcore-rs = { version = "=1.1.2", features = [
-  "v2_28",
-], optional = true }
-webkit2gtk = { version = "=2.0.2", features = ["v2_38"], optional = true }
-webkit2gtk-sys = { version = "=2.0.2", optional = true }
-gtk = { version = "0.18", optional = true }
-soup3 = { version = "0.5", optional = true }
+javascriptcore6 = { version = "0.6", optional = true }
+webkit6 = { version = "0.6", features = ["v2_42"], optional = true }
+webkit6-sys = { version = "0.6", optional = true }
+gtk4 = { version = "0.11", optional = true }
+soup3 = { version = "0.9", optional = true }
 x11-dl = { version = "2.21", optional = true }
-gdkx11 = { version = "0.18", optional = true }
+gdk4 = { version = "0.11", features = ["v4_6"] }
+gdk4-x11 = { version = "0.11", optional = true }
 percent-encoding = "2.3"
 dirs = "6"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dev-dependencies]
 x11-dl = { version = "2.21" }
+gtk4 = "0.11"
 
 [target."cfg(target_os = \"windows\")".dependencies]
 webview2-com = "0.38"
@@ -205,7 +205,6 @@ dom_query = { version = "0.28.0", default-features = false }
 
 [dev-dependencies]
 pollster = "0.4.0"
-tao = "0.35"
 wgpu = "23"
 winit = "0.30"
 getrandom = "0.3"

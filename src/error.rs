@@ -7,10 +7,10 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
   #[cfg(gtk)]
   #[error(transparent)]
-  GlibError(#[from] gtk::glib::Error),
+  GlibError(#[from] webkit6::glib::Error),
   #[cfg(gtk)]
   #[error(transparent)]
-  GlibBoolError(#[from] gtk::glib::BoolError),
+  GlibBoolError(#[from] webkit6::glib::BoolError),
   #[cfg(gtk)]
   #[error("Fail to fetch security manager")]
   MissingManager,

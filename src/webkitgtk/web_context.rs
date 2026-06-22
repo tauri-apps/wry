@@ -5,7 +5,6 @@
 //! Unix platform extensions for [`WebContext`](super::WebContext).
 
 use crate::{Error, RequestAsyncResponder};
-use gtk::glib::{self, MainContext, ObjectExt};
 use http::{header::CONTENT_TYPE, HeaderName, HeaderValue, Request, Response as HttpResponse};
 use soup::{MessageHeaders, MessageHeadersType};
 use std::{
@@ -15,53 +14,52 @@ use std::{
   path::{Path, PathBuf},
   rc::Rc,
 };
-use webkit2gtk::{
-  ApplicationInfo, AutomationSessionExt, CookiePersistentStorage, DownloadExt, SecurityManagerExt,
-  URIRequest, URIRequestExt, URISchemeRequest, URISchemeRequestExt, URISchemeResponse,
-  URISchemeResponseExt, WebContext, WebContextExt as Webkit2gtkContextExt, WebView, WebViewExt,
+use webkit6::gio;
+use webkit6::glib::{self, MainContext};
+use webkit6::prelude::*;
+use webkit6::{
+  ApplicationInfo, CookiePersistentStorage, NetworkSession, URIRequest, URISchemeRequest,
+  URISchemeResponse, WebContext, WebView,
 };
 
 #[derive(Debug)]
 pub struct WebContextImpl {
   context: WebContext,
+  network_session: NetworkSession,
   automation: bool,
   app_info: Option<ApplicationInfo>,
 }
 
 impl WebContextImpl {
   pub fn new(data_directory: Option<&Path>) -> Self {
-    use webkit2gtk::{CookieManagerExt, WebsiteDataManager, WebsiteDataManagerExt};
-    let mut context_builder = WebContext::builder();
-    if let Some(data_directory) = data_directory {
-      let data_manager = WebsiteDataManager::builder()
-        // TODO: Consider taking a cache_directory so this can be in XDG_CACHE_HOME.
-        .base_cache_directory(data_directory.to_string_lossy())
-        .base_data_directory(data_directory.to_string_lossy())
-        .build();
-      if let Some(cookie_manager) = data_manager.cookie_manager() {
+    let network_session = if let Some(data_directory) = data_directory {
+      let data_dir = data_directory.to_string_lossy();
+      let session = NetworkSession::new(Some(data_dir.as_ref()), Some(data_dir.as_ref()));
+      if let Some(cookie_manager) = session.cookie_manager() {
         cookie_manager.set_persistent_storage(
           &data_directory.join("cookies").to_string_lossy(),
           CookiePersistentStorage::Text,
         );
       }
-      context_builder = context_builder.website_data_manager(&data_manager);
-    }
-    let context = context_builder.build();
+      session
+    } else {
+      NetworkSession::new(None, None)
+    };
 
-    Self::create_context(context)
+    let context = WebContext::new();
+    Self::create_context(context, network_session)
   }
 
   pub fn new_ephemeral() -> Self {
-    let context = WebContext::new_ephemeral();
-
-    Self::create_context(context)
+    let context = WebContext::new();
+    let network_session = NetworkSession::new_ephemeral();
+    Self::create_context(context, network_session)
   }
 
-  pub fn create_context(context: WebContext) -> Self {
+  pub fn create_context(context: WebContext, network_session: NetworkSession) -> Self {
     let automation = false;
     context.set_automation_allowed(automation);
 
-    // e.g. wry 0.9.4
     let app_info = ApplicationInfo::new();
     app_info.set_name(env!("CARGO_PKG_NAME"));
     app_info.set_version(
@@ -78,6 +76,7 @@ impl WebContextImpl {
 
     Self {
       context,
+      network_session,
       automation,
       app_info: Some(app_info),
     }
@@ -91,7 +90,7 @@ impl WebContextImpl {
   pub fn set_web_extensions_directory(&mut self, path: &Path) {
     self
       .context
-      .set_web_extensions_directory(&path.to_string_lossy());
+      .set_web_process_extensions_directory(&path.to_string_lossy());
   }
 }
 
@@ -99,6 +98,9 @@ impl WebContextImpl {
 pub trait WebContextExt {
   /// The GTK [`WebContext`] of all webviews in the context.
   fn context(&self) -> &WebContext;
+
+  /// The [`NetworkSession`] for this context (owns CookieManager, downloads, proxy).
+  fn network_session(&self) -> &NetworkSession;
 
   /// Register a custom protocol to the web context.
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
@@ -125,6 +127,10 @@ pub trait WebContextExt {
 impl WebContextExt for super::WebContext {
   fn context(&self) -> &WebContext {
     &self.os.context
+  }
+
+  fn network_session(&self) -> &NetworkSession {
+    &self.os.network_session
   }
 
   fn register_uri_scheme<F>(&mut self, name: &str, handler: F) -> crate::Result<()>
@@ -175,10 +181,9 @@ impl WebContextExt for super::WebContext {
         let body;
         #[cfg(feature = "linux-body")]
         {
-          use gtk::{gdk::prelude::InputStreamExtManual, gio::Cancellable};
+          use gio::prelude::InputStreamExtManual;
 
-          // Set request http body
-          let cancellable: Option<&Cancellable> = None;
+          let cancellable: Option<&gio::Cancellable> = None;
           body = request
             .http_body()
             .map(|s| {
@@ -207,7 +212,7 @@ impl WebContextExt for super::WebContext {
         let http_request = match http_request.body(body) {
           Ok(req) => req,
           Err(_) => {
-            request.finish_error(&mut gtk::glib::Error::new(
+            request.finish_error(&mut glib::Error::new(
               glib::UriError::Failed,
               "Internal server error: could not create request.",
             ));
@@ -220,7 +225,7 @@ impl WebContextExt for super::WebContext {
           Box::new(move |http_response| {
             MainContext::default().invoke(move || {
               let buffer = http_response.body();
-              let input = gtk::gio::MemoryInputStream::from_bytes(&gtk::glib::Bytes::from(buffer));
+              let input = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(buffer.as_ref()));
               let content_type = http_response
                 .headers()
                 .get(CONTENT_TYPE)
@@ -239,7 +244,6 @@ impl WebContextExt for super::WebContext {
               response.set_http_headers(headers);
               request_.finish_with_response(&response);
             });
-
           });
 
         #[cfg(feature = "tracing")]
@@ -265,7 +269,7 @@ impl WebContextExt for super::WebContext {
 
   fn load_uri(&self, webview: WebView, uri: String, headers: Option<http::HeaderMap>) {
     if let Some(headers) = headers {
-      let req = URIRequest::builder().uri(&uri).build();
+      let req = URIRequest::new(&uri);
 
       if let Some(ref mut req_headers) = req.http_headers() {
         for (header, value) in headers.iter() {
@@ -309,12 +313,12 @@ impl WebContextExt for super::WebContext {
     download_started_handler: Option<Box<dyn FnMut(String, &mut PathBuf) -> bool>>,
     download_completed_handler: Option<Rc<dyn Fn(String, Option<PathBuf>, bool) + 'static>>,
   ) {
-    let context = &self.os.context;
+    let network_session = &self.os.network_session;
 
     let download_started_handler = Rc::new(RefCell::new(download_started_handler));
     let failed = Rc::new(RefCell::new(false));
 
-    context.connect_download_started(move |_context, download| {
+    network_session.connect_download_started(move |_ns, download| {
       let download_started_handler = download_started_handler.clone();
       download.connect_decide_destination(move |download, suggested_filename| {
         if let Some(uri) = download.request().and_then(|req| req.uri()) {
@@ -329,10 +333,8 @@ impl WebContextExt for super::WebContext {
               .map(|(base, ext)| (base, format!(".{ext}")))
               .unwrap_or((suggested_filename, "".to_string()));
 
-            // For `data:` downloads, webkitgtk will suggest to use the raw data as the filename if the dev provided no name,
-            // for example `"data:attachment/text,sometext"` will result in `text,sometext` but longer data URLs will
-            // result in a cut-off filename, which makes it hard to predict reliably.
-            // TODO: If this keeps causing problems, just remove it and use whatever file name webkitgtk suggests.
+            // For `data:` downloads, webkitgtk will suggest to use the raw data as the filename
+            // if the dev provided no name. Truncate to avoid unreliable long filenames.
             if uri.starts_with("data:") {
               if let Some((_, uri_stripped)) = uri.split_once('/') {
                 if let Some((uri_stripped, _)) = uri_stripped.split_once(',') {
@@ -359,7 +361,6 @@ impl WebContextExt for super::WebContext {
             }
           }
         }
-        // TODO: check if we may also need `false`
         true
       });
 

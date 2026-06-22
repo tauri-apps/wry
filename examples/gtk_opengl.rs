@@ -2,42 +2,64 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use tao::{
-  event::{Event, WindowEvent},
-  event_loop::{ControlFlow, EventLoop},
-  window::WindowBuilder,
-};
 use wry::{
   dpi::{LogicalPosition, LogicalSize},
   Rect, WebViewBuilder,
 };
 
 fn main() -> wry::Result<()> {
-  let event_loop = EventLoop::new();
-  let window = WindowBuilder::new()
-    .with_title("GTK OpenGL with Webview")
-    .with_inner_size(LogicalSize::new(800, 600))
-    .build(&event_loop)
-    .unwrap();
-
   #[cfg(not(any(
     target_os = "windows",
     target_os = "macos",
     target_os = "ios",
     target_os = "android"
   )))]
-  let (fixed, _) = {
-    use gtk::prelude::*;
-    use std::{cell::RefCell, rc::Rc};
-    use tao::platform::unix::WindowExtUnix;
+  linux_main()?;
 
-    let overlay = gtk::Overlay::new();
-    let vbox = window.default_vbox().unwrap();
-    vbox.pack_start(&overlay, true, true, 0);
+  #[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "android"
+  ))]
+  non_linux_main()?;
 
-    let gl_area = gtk::GLArea::new();
-    gl_area.set_has_alpha(true);
+  Ok(())
+}
+
+/// Linux implementation using GTK4 Application + GLArea directly.
+#[cfg(not(any(
+  target_os = "windows",
+  target_os = "macos",
+  target_os = "ios",
+  target_os = "android"
+)))]
+fn linux_main() -> wry::Result<()> {
+  use std::{cell::RefCell, rc::Rc};
+
+  use gtk4::prelude::*;
+  use wry::WebViewBuilderExtUnix;
+
+  gtk4::init().unwrap();
+
+  let app = gtk4::Application::new(
+    Some("com.example.gtk_opengl"),
+    gtk4::gio::ApplicationFlags::empty(),
+  );
+
+  app.connect_activate(|app| {
+    let window = gtk4::ApplicationWindow::new(app);
+    window.set_title(Some("GTK OpenGL with Webview"));
+    window.set_default_size(800, 600);
+
+    let overlay = gtk4::Overlay::new();
+    window.set_child(Some(&overlay));
+
+    let gl_area = gtk4::GLArea::new();
     gl_area.set_auto_render(true);
+    gl_area.set_has_depth_buffer(false);
+    gl_area.set_hexpand(true);
+    gl_area.set_vexpand(true);
 
     struct AppState {
       gl: glow::Context,
@@ -154,7 +176,7 @@ fn main() -> wry::Result<()> {
           state.gl.draw_arrays(glow::TRIANGLES, 0, 3);
         }
       }
-      gtk::glib::Propagation::Proceed
+      gtk4::glib::Propagation::Proceed
     });
 
     gl_area.connect_unrealize(move |gl_area| {
@@ -168,73 +190,46 @@ fn main() -> wry::Result<()> {
       }
     });
 
-    overlay.add(&gl_area);
+    // The gl_area goes as the base child of the overlay
+    overlay.set_child(Some(&gl_area));
 
-    let fixed = gtk::Fixed::new();
+    let fixed = gtk4::Fixed::new();
     overlay.add_overlay(&fixed);
 
-    overlay.show_all();
-    (fixed, gl_area)
-  };
-
-  let builder = WebViewBuilder::new()
-    .with_bounds(Rect {
-      position: LogicalPosition::new(100, 100).into(),
-      size: LogicalSize::new(400, 300).into(),
-    })
-    .with_transparent(true)
-    .with_html(
-      r#"<html>
+    let _webview = WebViewBuilder::new()
+      .with_bounds(Rect {
+        position: LogicalPosition::new(100, 100).into(),
+        size: LogicalSize::new(400, 300).into(),
+      })
+      .with_transparent(true)
+      .with_html(
+        r#"<html>
           <body>
             <h1 style="color: white;">Hello World!</h1>
           </body>
       </html>"#,
-    );
+      )
+      .build_gtk(&fixed)
+      .unwrap();
 
-  #[cfg(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "android"
-  ))]
-  let webview = builder.build(&window)?;
+    window.present();
 
-  #[cfg(not(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "android"
-  )))]
-  let webview = {
-    use wry::WebViewBuilderExtUnix;
-    builder.build_gtk(&fixed)?
-  };
-
-  event_loop.run(move |event, _, control_flow| {
-    *control_flow = ControlFlow::Wait;
-
-    match event {
-      Event::WindowEvent {
-        event: WindowEvent::Resized(size),
-        ..
-      } => {
-        let size = size.to_logical::<u32>(window.scale_factor());
-        webview
-          .set_bounds(Rect {
-            position: LogicalPosition::new(100, 100).into(),
-            size: LogicalSize::new(
-              size.width.saturating_sub(200).max(100),
-              size.height.saturating_sub(200).max(100),
-            )
-            .into(),
-          })
-          .unwrap();
-      }
-      Event::WindowEvent {
-        event: WindowEvent::CloseRequested,
-        ..
-      } => *control_flow = ControlFlow::Exit,
-      _ => {}
-    }
+    // Pump GTK events
+    while gtk4::glib::MainContext::default().iteration(false) {}
   });
+
+  app.run();
+  Ok(())
+}
+
+/// Non-Linux placeholder — GTK OpenGL is a Linux-only example.
+#[cfg(any(
+  target_os = "windows",
+  target_os = "macos",
+  target_os = "ios",
+  target_os = "android"
+))]
+fn non_linux_main() -> wry::Result<()> {
+  eprintln!("gtk_opengl example is only supported on Linux.");
+  Ok(())
 }
