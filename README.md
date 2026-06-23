@@ -45,19 +45,22 @@ let mut app = App::default();
 event_loop.run_app(&mut app).unwrap();
 ```
 
-If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::new_gtk`] on Linux.
-See the following example using [`tao`]:
+If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::build_gtk`] on Linux.
+See the following example using [`gtk4`] directly:
 
 ```rust
-let event_loop = EventLoop::new();
-let window = WindowBuilder::new().build(&event_loop).unwrap();
-
 let builder = WebViewBuilder::new().with_url("https://tauri.app");
 
 #[cfg(not(target_os = "linux"))]
 let webview = builder.build(&window).unwrap();
 #[cfg(target_os = "linux")]
-let webview = builder.build_gtk(window.gtk_window()).unwrap();
+let webview = {
+  use gtk4::prelude::*;
+  gtk4::init().unwrap();
+  let gtk_window = gtk4::Window::new();
+  gtk_window.present();
+  builder.build_gtk(&gtk_window).unwrap()
+};
 ```
 
 ### Child webviews
@@ -97,12 +100,9 @@ event_loop.run_app(&mut app).unwrap();
 ```
 
 If you want to support X11 and Wayland at the same time, we recommend using
-[`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+[`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::build_gtk`] with [`gtk4::Fixed`].
 
 ```rust
-let event_loop = EventLoop::new();
-let window = WindowBuilder::new().build(&event_loop).unwrap();
-
 let builder = WebViewBuilder::new()
   .with_url("https://tauri.app")
   .with_bounds(Rect {
@@ -114,11 +114,12 @@ let builder = WebViewBuilder::new()
 let webview = builder.build_as_child(&window).unwrap();
 #[cfg(target_os = "linux")]
 let webview = {
-  # use gtk::prelude::*;
-  let vbox = window.default_vbox().unwrap(); // tao adds a gtk::Box by default
-  let fixed = gtk::Fixed::new();
-  fixed.show_all();
-  vbox.pack_start(&fixed, true, true, 0);
+  use gtk4::prelude::*;
+  gtk4::init().unwrap();
+  let gtk_window = gtk4::Window::new();
+  let fixed = gtk4::Fixed::new();
+  gtk_window.set_child(Some(&fixed));
+  gtk_window.present();
   builder.build_gtk(&fixed).unwrap()
 };
 ```
@@ -129,10 +130,10 @@ Here is the underlying web engine each platform uses, and some dependencies you 
 
 #### Linux
 
-[WebKitGTK](https://webkitgtk.org/) is used to provide webviews on Linux which requires GTK,
+[WebKitGTK](https://webkitgtk.org/) is used to provide webviews on Linux which requires GTK4,
 so if the windowing library doesn't support GTK (as in [`winit`])
-you'll need to call [`gtk::init`] before creating the webview and then call [`gtk::main_iteration_do`] alongside
-your windowing library event loop.
+you'll need to call [`gtk4::init`] before creating the webview and then pump GTK events alongside
+your windowing library event loop using [`gtk4::glib::MainContext::default()`].
 
 ```rust
 #[derive(Default)]
@@ -156,9 +157,7 @@ impl ApplicationHandler for App {
   // Advance GTK event loop <!----- IMPORTANT
   fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
     #[cfg(target_os = "linux")]
-    while gtk::events_pending() {
-      gtk::main_iteration_do(false);
-    }
+    while gtk4::glib::MainContext::default().iteration(false) {}
   }
 }
 
@@ -172,19 +171,19 @@ event_loop.run_app(&mut app).unwrap();
 ###### Arch Linux / Manjaro:
 
 ```bash
-sudo pacman -S webkit2gtk-4.1
+sudo pacman -S webkitgtk-6.0
 ```
 
 ###### Debian / Ubuntu:
 
 ```bash
-sudo apt install libwebkit2gtk-4.1-dev
+sudo apt install libwebkitgtk-6.0-dev
 ```
 
 ###### Fedora
 
 ```bash
-sudo dnf install gtk3-devel webkit2gtk4.1-devel
+sudo dnf install gtk4-devel webkitgtk6.0-devel
 ```
 
 ###### Nix & NixOS
@@ -197,7 +196,7 @@ let
    pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
    packages = with pkgs; [
      pkg-config
-     webkitgtk_4_1
+     webkitgtk_6_0
    ];
  in
  pkgs.mkShell {
@@ -216,7 +215,7 @@ nix-shell shell.nix
 
 (specifications->manifest
   '("pkg-config"                ; Helper tool used when compiling
-    "webkitgtk"                 ; Web content engine fot GTK+
+    "webkitgtk"                 ; Web content engine for GTK+
  ))
 ```
 

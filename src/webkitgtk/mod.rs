@@ -28,11 +28,11 @@ use webkit6::glib;
 use webkit6::prelude::*;
 use webkit6::{gdk, gio, gtk};
 use webkit6::{
-  AutoplayPolicy, GeolocationPermissionRequest, LoadEvent, NavigationPolicyDecision,
-  NetworkProxyMode, NetworkProxySettings, NotificationPermissionRequest,
-  PointerLockPermissionRequest, PolicyDecisionType, PrintOperation, URIRequest,
-  UserContentInjectedFrames, UserContentManager, UserMediaPermissionRequest, UserScript,
-  UserScriptInjectionTime, WebView, WebsiteDataTypes, WebsitePolicies,
+  AutoplayPolicy, ClipboardPermissionRequest, GeolocationPermissionRequest, LoadEvent,
+  MediaKeySystemPermissionRequest, NavigationPolicyDecision, NetworkProxyMode, NetworkProxySettings,
+  NotificationPermissionRequest, PointerLockPermissionRequest, PolicyDecisionType, PrintOperation,
+  URIRequest, UserContentInjectedFrames, UserContentManager, UserMediaPermissionRequest,
+  UserScript, UserScriptInjectionTime, WebView, WebsiteDataTypes, WebsitePolicies,
 };
 #[cfg(feature = "x11")]
 use x11_dl::xlib::*;
@@ -614,6 +614,10 @@ impl InnerWebView {
             PermissionKind::Notifications
           } else if request.is::<PointerLockPermissionRequest>() {
             PermissionKind::PointerLock
+          } else if request.is::<ClipboardPermissionRequest>() {
+            PermissionKind::ClipboardRead
+          } else if request.is::<MediaKeySystemPermissionRequest>() {
+            PermissionKind::MediaKeySystemAccess
           } else {
             PermissionKind::Other
           };
@@ -652,6 +656,8 @@ impl InnerWebView {
 
     let container_type = container.type_().name();
     if container_type == "GtkBox" {
+      webview.set_hexpand(true);
+      webview.set_vexpand(true);
       container
         .dynamic_cast_ref::<gtk::Box>()
         .unwrap()
@@ -1197,6 +1203,8 @@ impl InnerWebView {
     // Add to new container using type-based dispatch (same as add_to_container)
     let container_type = container.type_().name();
     if container_type == "GtkBox" {
+      self.webview.set_hexpand(true);
+      self.webview.set_vexpand(true);
       container
         .dynamic_cast_ref::<gtk::Box>()
         .unwrap()

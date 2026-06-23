@@ -9,7 +9,10 @@ edition = "2018"
 [dependencies]
 wry = { path = "../../" }
 serde = { version = "1.0", features = ["derive"] }
-tao = "0.35"
+winit = "0.30"
+
+[target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))'.dependencies]
+gtk4 = "0.11"
 
 [[bin]]
 name = "bench_hello_world"

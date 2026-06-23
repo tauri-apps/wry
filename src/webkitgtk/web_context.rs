@@ -112,7 +112,7 @@ pub trait WebContextExt {
 
   /// If the context allows automation.
   ///
-  /// **Note:** `libwebkit2gtk` only allows 1 automation context at a time.
+  /// **Note:** `libwebkitgtk` only allows 1 automation context at a time.
   fn allows_automation(&self) -> bool;
 
   fn register_automation(&mut self, webview: WebView);

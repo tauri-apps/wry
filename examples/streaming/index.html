@@ -3,36 +3,179 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
+    <title>Streaming</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: sans-serif;
+        background: #111;
+        color: #eee;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        padding: 0.75rem;
+        gap: 0.5rem;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .toggle {
+        display: flex;
+        border: 1px solid #444;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .toggle button {
+        padding: 0.35rem 0.8rem;
+        background: #222;
+        color: #aaa;
+        border: none;
+        cursor: pointer;
+        font-size: 0.85rem;
+      }
+      .toggle button.active {
+        background: #2a6496;
+        color: #fff;
+      }
+
+      #local-row {
+        display: flex;
+        gap: 0.4rem;
+        flex: 1;
+      }
+      #local-row input {
+        flex: 1;
+        padding: 0.35rem 0.5rem;
+        background: #222;
+        color: #eee;
+        border: 1px solid #444;
+        border-radius: 4px;
+        font-size: 0.85rem;
+      }
+
+      select {
+        padding: 0.35rem 0.5rem;
+        background: #e8e8e8;
+        color: #111;
+        border: 1px solid #555;
+        border-radius: 4px;
+        font-size: 0.85rem;
+      }
+
+      button.play-btn {
+        padding: 0.35rem 0.8rem;
+        background: #2a6496;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+      }
+
+      .credit {
+        font-size: 0.7rem;
+        color: #555;
+      }
+      .credit a { color: #666; }
+
+      video {
+        flex: 1;
+        width: 100%;
+        background: #000;
+        border-radius: 4px;
+        min-height: 0;
+      }
+    </style>
   </head>
   <body>
-    <p>Enter a path to a video to play, then hit Enter or click Start</p>
-    <form id="form-el">
-      <input id="input-el" />
-      <button type="submit">Start</button>
-    </form>
+    <div class="controls">
+      <div class="toggle">
+        <button id="btn-local" class="active" onclick="setMode('local')">Local file</button>
+        <button id="btn-remote" onclick="setMode('remote')">Remote HTTPS</button>
+      </div>
+
+      <div id="local-row">
+        <input id="input-el" placeholder="Absolute path — e.g. /home/you/video.mp4 or .webm" />
+        <button class="play-btn" onclick="loadLocal()">Play</button>
+      </div>
+
+      <div id="remote-row" style="display:none; align-items:center; gap:0.5rem; flex-wrap:wrap; flex:1;">
+        <select id="fmt-sel">
+          <option value="mp4/h264">MP4 — H.264</option>
+          <option value="mp4/av1">MP4 — AV1</option>
+          <option value="webm/vp9">WebM — VP9</option>
+        </select>
+        <select id="res-sel">
+          <option value="360">360p — 1 MB</option>
+          <option value="720">720p — 2 MB</option>
+          <option value="1080">1080p — 5 MB</option>
+        </select>
+        <button class="play-btn" onclick="loadRemote()">Play</button>
+      </div>
+    </div>
+
     <video id="video-el" autoplay controls></video>
+
+    <div id="remote-credit" class="credit" style="display:none;">
+      <em>Big Buck Bunny</em> (c) 2008 Blender Foundation /
+      <a href="https://www.bigbuckbunny.org" target="_blank">bigbuckbunny.org</a>,
+      licensed under <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank">CC BY 3.0</a>.
+      Test files hosted by <a href="https://test-videos.co.uk" target="_blank">test-videos.co.uk</a>.
+    </div>
+
+    <script>
+      // Big Buck Bunny test clips - (c) 2008 Blender Foundation, CC BY 3.0
+      // Hosted by test-videos.co.uk
+      const BASE = "https://test-videos.co.uk/vids/bigbuckbunny";
+
+      const FILENAMES = {
+        "mp4/h264": { "360": "Big_Buck_Bunny_360_10s_1MB.mp4",  "720": "Big_Buck_Bunny_720_10s_2MB.mp4",  "1080": "Big_Buck_Bunny_1080_10s_5MB.mp4"  },
+        "mp4/av1":  { "360": "Big_Buck_Bunny_360_10s_1MB.mp4",  "720": "Big_Buck_Bunny_720_10s_2MB.mp4",  "1080": "Big_Buck_Bunny_1080_10s_5MB.mp4"  },
+        "webm/vp9": { "360": "Big_Buck_Bunny_360_10s_1MB.webm", "720": "Big_Buck_Bunny_720_10s_2MB.webm", "1080": "Big_Buck_Bunny_1080_10s_5MB.webm" },
+      };
+
+      const videoEl   = document.getElementById("video-el");
+      const localRow  = document.getElementById("local-row");
+      const remoteRow = document.getElementById("remote-row");
+      const creditEl  = document.getElementById("remote-credit");
+
+      function setMode(mode) {
+        document.getElementById("btn-local").classList.toggle("active", mode === "local");
+        document.getElementById("btn-remote").classList.toggle("active", mode === "remote");
+        localRow.style.display  = mode === "local"  ? "flex"  : "none";
+        remoteRow.style.display = mode === "remote" ? "flex"  : "none";
+        creditEl.style.display  = mode === "remote" ? "block" : "none";
+      }
+
+      function convertFileSrc(filePath) {
+        const ua   = navigator.userAgent.toLowerCase();
+        const path = encodeURIComponent(filePath);
+        return (ua.includes("android") || ua.includes("windows"))
+          ? `http://stream.localhost/${path}`
+          : `stream://localhost/${path}`;
+      }
+
+      function loadLocal() {
+        const path = document.getElementById("input-el").value.trim();
+        if (path) videoEl.src = convertFileSrc(path);
+      }
+
+      function loadRemote() {
+        const fmt = document.getElementById("fmt-sel").value;   // e.g. "mp4/h264"
+        const res = document.getElementById("res-sel").value;   // e.g. "720"
+        const [container, codec] = fmt.split("/");
+        const filename = FILENAMES[fmt][res];
+        videoEl.src = `${BASE}/${container}/${codec}/${res}/${filename}`;
+      }
+
+      document.getElementById("input-el").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); loadLocal(); }
+      });
+    </script>
   </body>
-
-  <script>
-    function convertFileSrc(filePath) {
-      const userAgent = navigator.userAgent.toLowerCase();
-      const android = userAgent.indexOf("android") > -1;
-      const windows = userAgent.indexOf("windows") > -1;
-
-      const path = encodeURIComponent(filePath);
-      return windows || android
-        ? `http://stream.localhost/${path}`
-        : `stream://localhost/${path}`;
-    }
-
-    const formEl = document.querySelector("#form-el");
-    const inputEl = document.querySelector("#input-el");
-    const videoEl = document.querySelector("#video-el");
-
-    formEl.addEventListener("submit", (e) => {
-      e.preventDefault();
-      videoEl.src = convertFileSrc(inputEl.value);
-    });
-  </script>
 </html>

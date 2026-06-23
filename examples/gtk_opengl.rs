@@ -196,7 +196,7 @@ fn linux_main() -> wry::Result<()> {
     let fixed = gtk4::Fixed::new();
     overlay.add_overlay(&fixed);
 
-    let _webview = WebViewBuilder::new()
+    let webview = WebViewBuilder::new()
       .with_bounds(Rect {
         position: LogicalPosition::new(100, 100).into(),
         size: LogicalSize::new(400, 300).into(),
@@ -214,8 +214,12 @@ fn linux_main() -> wry::Result<()> {
 
     window.present();
 
-    // Pump GTK events
-    while gtk4::glib::MainContext::default().iteration(false) {}
+    // Keep the webview alive for the window's lifetime.
+    let webview = std::cell::RefCell::new(Some(webview));
+    window.connect_close_request(move |_| {
+      webview.borrow_mut().take();
+      gtk4::glib::Propagation::Proceed
+    });
   });
 
   app.run();

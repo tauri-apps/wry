@@ -30,9 +30,17 @@ pub enum PermissionKind {
   /// ## Platform-specific
   ///
   /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ`.
-  /// - **macOS / Linux / Android / iOS**: Not yet supported by platform backends.
+  /// - **Linux**: Supported via `ClipboardPermissionRequest` (webkit6).
+  /// - **macOS / Android / iOS**: Not yet supported by platform backends.
   ClipboardRead,
   /// Display capture permission (for getDisplayMedia).
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_SCREEN_CAPTURE`.
+  /// - **Linux**: Not routed through the permission handler; webkit6 handles `getDisplayMedia`
+  ///   natively at the compositor/OS level.
+  /// - **macOS / Android / iOS**: Not yet supported by platform backends.
   DisplayCapture,
   /// Midi access permission.
   ///
@@ -54,7 +62,8 @@ pub enum PermissionKind {
   /// ## Platform-specific
   ///
   /// - **Android**: Supported via `android.webkit.resource.PROTECTED_MEDIA_ID`.
-  /// - **Windows / macOS / Linux / iOS**: Not yet supported by platform backends.
+  /// - **Linux**: Supported via `MediaKeySystemPermissionRequest` (webkit6).
+  /// - **Windows / macOS / iOS**: Not yet supported by platform backends.
   MediaKeySystemAccess,
   /// Local fonts access permission.
   ///
