@@ -37,6 +37,7 @@ os-webview = [
   "webkit6",
   "webkit6-sys",
   "dep:gtk4",
+  "dep:gdk4",
   "soup3",
 ]
 x11 = ["x11-dl", "gdk4-x11"]
@@ -58,7 +59,7 @@ webkit6-sys = { version = "0.6", optional = true }
 gtk4 = { version = "0.11", optional = true }
 soup3 = { version = "0.9", optional = true }
 x11-dl = { version = "2.21", optional = true }
-gdk4 = { version = "0.11", features = ["v4_6"] }
+gdk4 = { version = "0.11", features = ["v4_6"], optional = true }
 gdk4-x11 = { version = "0.11", optional = true }
 percent-encoding = "2.3"
 dirs = "6"
