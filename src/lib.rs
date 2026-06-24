@@ -13,13 +13,16 @@
 //!
 //! Wry is a cross-platform WebView rendering library.
 //!
-//! The webview requires a running event loop and a window type that implements [`HasWindowHandle`],
-//! or a gtk container widget if you need to support X11 and Wayland.
+//! The webview requires a running event loop and a window type that implements [`HasWindowHandle`].
+//! On Linux, enable `--features x11` for X11 support or `--features wayland` for native Wayland
+//! support. Alternatively, use a GTK container widget via [`WebViewBuilderExtUnix::build_gtk`],
+//! which works on both X11 and Wayland without a feature flag.
 //! You can use a windowing library like [`tao`] or [`winit`].
 //!
 //! ## Examples
 //!
-//! This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only).
+//! This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android,
+//! Linux X11 (with `--features x11`) and Linux Wayland (with `--features wayland`).
 //! See the following example using [`winit`]:
 //!
 //! ```no_run
@@ -51,8 +54,11 @@
 //! event_loop.run_app(&mut app).unwrap();
 //! ```
 //!
-//! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::build_gtk`] on Linux.
-//! See the following example using [`gtk4`] on Linux:
+//! On Linux, `--features wayland` enables passing a `RawWindowHandle::Wayland` directly to
+//! [`build`](WebViewBuilder::build). The parent window must be a GTK4 window — a foreign
+//! toolkit's `wl_surface` will not be found and returns an error. Alternatively,
+//! [`WebViewBuilderExtUnix::build_gtk`] accepts any GTK container and works on both X11 and
+//! Wayland without a feature flag. See the following example using [`gtk4`] on Linux:
 //!
 //! ```no_run
 //! # use wry::WebViewBuilder;
@@ -77,7 +83,7 @@
 //! ## Child webviews
 //!
 //! You can use [`WebViewBuilder::build_as_child`] to create the webview as a child inside another window. This is supported on
-//! macOS, Windows and Linux (X11 Only).
+//! macOS, Windows, Linux X11 (with `--features x11`) and Linux Wayland (with `--features wayland`).
 //!
 //! ```no_run
 //! # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
@@ -112,8 +118,9 @@
 //! event_loop.run_app(&mut app).unwrap();
 //! ```
 //!
-//! If you want to support X11 and Wayland at the same time, we recommend using
-//! [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::build_gtk`] with [`gtk4::Fixed`].
+//! With `--features wayland`, [`build_as_child`](WebViewBuilder::build_as_child) also accepts
+//! Wayland handles and places the webview in a `GtkFixed`. For a GTK-native approach that works
+//! on both X11 and Wayland without a feature flag, use [`WebViewBuilderExtUnix::build_gtk`] with [`gtk4::Fixed`].
 //!
 //! ```no_run
 //! # use wry::{WebViewBuilder, Rect, dpi::*};
@@ -1589,14 +1596,16 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// # Platform-specific:
   ///
-  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewBuilderExtUnix::build_gtk`].
-  ///
-  ///   Although this method only needs an X11 window handle, wry uses webkit6 (WebKitGTK 6), so you still need to
-  ///   initialize GTK by calling [`gtk4::init`] and advance its loop alongside your event loop using
-  ///   [`gtk4::glib::MainContext::default()`].
-  ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
+  /// - **Linux X11** (`--features x11`): The GTK window is reparented under the X11 window via
+  ///   `XReparentWindow`. The webview will not auto-resize; call [`WebView::set_bounds`] manually.
+  /// - **Linux Wayland** (`--features wayland`): Accepts a `RawWindowHandle::Wayland` handle.
+  ///   The backend locates the GTK4 window owning that Wayland surface. The parent window must be
+  ///   a GTK4 window; a foreign-toolkit surface returns `Error::UnsupportedWindowHandle`.
+  ///   Use [`WebViewBuilderExtUnix::build_gtk`] for a feature-flag-free GTK-native alternative.
+  /// - **Linux**: wry uses webkit6 (WebKitGTK 6), so you need to call [`gtk4::init`] and advance
+  ///   the GTK loop alongside your event loop via [`gtk4::glib::MainContext::default()`].
+  ///   See the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section.
   /// - **Windows**: The webview will auto-resize when the passed handle is resized.
-  /// - **Linux (X11)**: Unlike macOS and Windows, the webview will not auto-resize and you'll need to call [`WebView::set_bounds`] manually.
   ///
   /// # Panics:
   ///
@@ -1615,16 +1624,14 @@ impl<'a> WebViewBuilder<'a> {
   /// - **Windows**: This will create the webview as a child window of the `parent` window.
   /// - **macOS**: This will create the webview as a `NSView` subview of the `parent` window's
   ///   content view.
-  /// - **Linux**: This will create the webview as a child window of the `parent` window. Only X11
-  ///   is supported. This method won't work on Wayland.
-  ///
-  ///   Although this method only needs an X11 window handle, wry uses webkit6 (WebKitGTK 6), so you still need to
-  ///   initialize GTK by calling [`gtk4::init`] and advance its loop alongside your event loop using
-  ///   [`gtk4::glib::MainContext::default()`].
-  ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
-  ///
-  ///   If you want to support child webviews on X11 and Wayland at the same time,
-  ///   we recommend using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk4::Fixed`].
+  /// - **Linux X11** (`--features x11`): Creates a child X11 window reparented under the parent.
+  /// - **Linux Wayland** (`--features wayland`): Accepts a `RawWindowHandle::Wayland` handle and
+  ///   positions the webview in a `GtkFixed` at `bounds.position`. The parent window must be a
+  ///   GTK4 window. Use [`WebViewBuilderExtUnix::build_gtk`] with [`gtk4::Fixed`] for a
+  ///   feature-flag-free GTK-native alternative that works on both X11 and Wayland.
+  /// - **Linux**: wry uses webkit6 (WebKitGTK 6), so you need to call [`gtk4::init`] and advance
+  ///   the GTK loop alongside your event loop via [`gtk4::glib::MainContext::default()`].
+  ///   See the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section.
   /// - **Android/iOS:** Unsupported.
   ///
   /// # Panics:

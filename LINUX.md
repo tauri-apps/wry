@@ -6,6 +6,7 @@
   - [Wayland — GTK4 / webkit6](#wayland--gtk4--webkit6)
   - [X11 — winit](#x11--winit)
 - [Feature Notes](#feature-notes)
+  - [Wayland Native Embedding](#wayland-native-embedding)
   - [Streaming](#streaming)
   - [Permission Handler](#permission-handler)
 - [Known Issues](#known-issues)
@@ -22,7 +23,8 @@ WRY has two families of examples on Linux:
 | Family | Backend | X11 | Wayland |
 |--------|---------|-----|---------|
 | `gtk_*` | GTK4 / webkit6 | ✓ | ✓ |
-| All others | winit / X11 | ✓ | ✗ |
+| All others | winit + `--features x11` | ✓ | ✗ |
+| Raw handle | `--features wayland` | ✗ | ✓ (GTK-owned surface required) |
 
 ### Wayland — GTK4 / webkit6
 
@@ -81,6 +83,73 @@ cargo run --example winit
 ---
 
 ## Feature Notes
+
+### Wayland Native Embedding
+
+Enable with `--features wayland` (mirrors the existing `x11` feature). Both can be active
+simultaneously — the backend dispatches at runtime on the window handle type.
+
+```toml
+# Cargo.toml
+wry = { version = "...", features = ["wayland"] }
+```
+
+**How it works:**
+
+`WebViewBuilder::new()` and `WebViewBuilder::new_as_child()` accept a
+`RawWindowHandle::Wayland` handle. The backend locates the `GtkWindow` that owns the
+given `wl_surface` by iterating `gtk::Window::list_toplevels()` and comparing raw surface
+pointers via `gdk_wayland_surface_get_wl_surface`. This means **the parent window must
+be a GTK4 window** — a raw winit or foreign-toolkit surface will not be found and will
+return `Error::UnsupportedWindowHandle`.
+
+**Child mode** (`new_as_child`): finds-or-creates a `GtkFixed` as the root window's child
+widget and places the WebView at `bounds.position`. `set_bounds()` uses `GtkFixed::move_`
++ `set_size_request`; `bounds()` returns the last-set position plus `widget.allocation()`
+for size.
+
+**Non-child mode** (`new`): replaces the root window's child with a `GtkBox` and expands
+the WebView to fill it.
+
+**Example — child embed at a fixed rect:**
+
+```rust
+use wry::WebViewBuilder;
+use raw_window_handle::HasWindowHandle;
+
+// `parent` is any type that returns RawWindowHandle::Wayland —
+// e.g. a gtk4::ApplicationWindow exposed via WindowHandle
+let webview = WebViewBuilder::new_as_child(&parent)
+    .with_bounds(wry::Rect {
+        position: dpi::LogicalPosition::new(10, 10).into(),
+        size:     dpi::LogicalSize::new(800, 600).into(),
+    })
+    .with_url("https://example.com")
+    .build()?;
+```
+
+**HiDPI / Scaling:**
+
+Scale-factor conversion in `set_bounds()` and `bounds()` uses the GDK surface's integer
+`scale_factor`. Compositors that advertise a fractional scale via the `wp-fractional-scale-v1`
+protocol (e.g. 1.25×) will have their fractional part truncated until `gdk4/v4_12` is opted
+into as an optional feature (provides `gdk4::SurfaceExt::scale() -> f64`). For integer scale
+factors (1×, 2×) the current implementation is exact.
+
+**Limitations:**
+
+| Limitation | Reason |
+|---|---|
+| Parent must be a GTK4 window | `wl_surface` lookup iterates GTK toplevels only |
+| Fractional scaling requires GDK 4.12 | `scale()` returning `f64` is gated behind `gdk4/v4_12` |
+| Cross-process surface embedding | Wayland `xdg-foreign-unstable-v2` has no GTK4 binding |
+| `wl_subsurface` for non-GTK parents | GDK4 does not expose `wl_subcompositor` publicly |
+| winit surfaces without GTK display backend | `wl_surface` not registered in the GDK display |
+
+For Wayland-capable apps that already own GTK4 windows, use `build_gtk` directly —
+it avoids the surface-lookup overhead and works on both X11 and Wayland without a feature flag.
+
+---
 
 ### Streaming
 

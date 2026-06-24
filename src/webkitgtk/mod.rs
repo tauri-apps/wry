@@ -2,14 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-#[cfg(feature = "x11")]
+#[cfg(any(feature = "x11", feature = "wayland"))]
 use dpi::LogicalPosition;
 use dpi::LogicalSize;
 #[cfg(feature = "x11")]
 use gdk4_x11::X11Display;
+#[cfg(feature = "wayland")]
+use gdk4_wayland;
 use http::Request;
 use raw_window_handle::HasWindowHandle;
-#[cfg(feature = "x11")]
+#[cfg(any(feature = "x11", feature = "wayland"))]
 use raw_window_handle::RawWindowHandle;
 #[cfg(feature = "x11")]
 use std::ffi::c_ulong;
@@ -71,6 +73,13 @@ impl Drop for X11Data {
   }
 }
 
+#[cfg(feature = "wayland")]
+struct WaylandData {
+  is_child: bool,
+  gtk_window: std::cell::RefCell<gtk::Window>,
+  position: std::cell::Cell<(i32, i32)>,
+}
+
 pub(crate) struct InnerWebView {
   id: String,
   pub webview: WebView,
@@ -81,11 +90,26 @@ pub(crate) struct InnerWebView {
 
   #[cfg(feature = "x11")]
   x11: Option<X11Data>,
+  #[cfg(feature = "wayland")]
+  wayland: Option<WaylandData>,
 }
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
     self.webview.unparent();
+
+    // Non-child Wayland mode: we created the GtkBox wrapper and replaced the
+    // window's child with it, so clean it up on drop (the GTK window is owned
+    // by the caller and must continue to be usable after the WebView is gone).
+    #[cfg(feature = "wayland")]
+    if let Some(wayland_data) = &self.wayland {
+      if !wayland_data.is_child {
+        wayland_data
+          .gtk_window
+          .borrow()
+          .set_child(None::<&gtk::Widget>);
+      }
+    }
   }
 }
 
@@ -95,17 +119,20 @@ impl InnerWebView {
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
   ) -> Result<Self> {
-    #[cfg(feature = "x11")]
-    {
-      Self::new_x11(window, attributes, pl_attrs, false)
+    #[cfg(any(feature = "x11", feature = "wayland"))]
+    match window.window_handle()?.as_raw() {
+      #[cfg(feature = "x11")]
+      RawWindowHandle::Xlib(_) => return Self::new_x11(window, attributes, pl_attrs, false),
+      #[cfg(feature = "wayland")]
+      RawWindowHandle::Wayland(_) => return Self::new_wayland(window, attributes, pl_attrs, false),
+      #[cfg(not(feature = "wayland"))]
+      RawWindowHandle::Wayland(_) => return Err(Error::WaylandNotSupported),
+      _ => {}
     }
-    #[cfg(not(feature = "x11"))]
-    {
-      let _ = window;
-      let _ = attributes;
-      let _ = pl_attrs;
-      Err(Error::UnsupportedWindowHandle)
-    }
+    let _ = window;
+    let _ = attributes;
+    let _ = pl_attrs;
+    Err(Error::UnsupportedWindowHandle)
   }
 
   pub fn new_as_child<W: HasWindowHandle>(
@@ -113,17 +140,20 @@ impl InnerWebView {
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
   ) -> Result<Self> {
-    #[cfg(feature = "x11")]
-    {
-      Self::new_x11(parent, attributes, pl_attrs, true)
+    #[cfg(any(feature = "x11", feature = "wayland"))]
+    match parent.window_handle()?.as_raw() {
+      #[cfg(feature = "x11")]
+      RawWindowHandle::Xlib(_) => return Self::new_x11(parent, attributes, pl_attrs, true),
+      #[cfg(feature = "wayland")]
+      RawWindowHandle::Wayland(_) => return Self::new_wayland(parent, attributes, pl_attrs, true),
+      #[cfg(not(feature = "wayland"))]
+      RawWindowHandle::Wayland(_) => return Err(Error::WaylandNotSupported),
+      _ => {}
     }
-    #[cfg(not(feature = "x11"))]
-    {
-      let _ = parent;
-      let _ = attributes;
-      let _ = pl_attrs;
-      Err(Error::UnsupportedWindowHandle)
-    }
+    let _ = parent;
+    let _ = attributes;
+    let _ = pl_attrs;
+    Err(Error::UnsupportedWindowHandle)
   }
 
   #[cfg(feature = "x11")]
@@ -239,6 +269,100 @@ impl InnerWebView {
     (window, vbox)
   }
 
+  #[cfg(feature = "wayland")]
+  fn scale_factor_wayland(window: &gtk::Window) -> f64 {
+    // gdk4::SurfaceExt::scale() returns fractional f64 but requires gdk4 feature "v4_12".
+    // Fall back to the integer scale_factor until that feature is opted into.
+    use webkit6::prelude::NativeExt;
+    NativeExt::surface(window)
+      .map(|s| s.scale_factor() as f64)
+      .unwrap_or_else(|| window.scale_factor() as f64)
+  }
+
+  /// Find the `GtkWindow` whose Wayland surface matches the given `wl_surface` pointer.
+  /// Iterates all realized GTK toplevels and compares the raw `wl_surface` pointer via FFI.
+  #[cfg(feature = "wayland")]
+  fn gtk_window_for_wl_surface(
+    handle: &raw_window_handle::WaylandWindowHandle,
+  ) -> Option<gtk::Window> {
+    let target = handle.surface.as_ptr();
+    for widget in gtk::Window::list_toplevels() {
+      if let Ok(win) = widget.downcast::<gtk::Window>() {
+        if let Some(surface) = webkit6::prelude::NativeExt::surface(&win) {
+          if let Ok(wl_surf) = surface.downcast::<gdk4_wayland::WaylandSurface>() {
+            let raw = unsafe {
+              gdk4_wayland::ffi::gdk_wayland_surface_get_wl_surface(
+                wl_surf.as_ptr() as *mut gdk4_wayland::ffi::GdkWaylandSurface,
+              )
+            };
+            if raw == target {
+              return Some(win);
+            }
+          }
+        }
+      }
+    }
+    None
+  }
+
+  #[cfg(feature = "wayland")]
+  fn new_wayland<W: HasWindowHandle>(
+    window: &W,
+    attributes: WebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
+    is_child: bool,
+  ) -> Result<Self> {
+    let handle = window.window_handle()?;
+    let wl_handle = match handle.as_raw() {
+      RawWindowHandle::Wayland(h) => h,
+      _ => return Err(Error::UnsupportedWindowHandle),
+    };
+
+    let gtk_window =
+      Self::gtk_window_for_wl_surface(&wl_handle).ok_or(Error::UnsupportedWindowHandle)?;
+
+    if is_child {
+      let scale_factor = Self::scale_factor_wayland(&gtk_window);
+      let (x, y) = attributes
+        .bounds
+        .map(|b| b.position.to_logical::<i32>(scale_factor))
+        .map(Into::into)
+        .unwrap_or((0, 0));
+
+      let fixed = if let Some(child) = gtk_window
+        .child()
+        .and_then(|c| c.downcast::<gtk::Fixed>().ok())
+      {
+        child
+      } else {
+        let f = gtk::Fixed::new();
+        gtk_window.set_child(Some(&f));
+        f
+      };
+
+      Self::new_gtk(&fixed, attributes, pl_attrs).map(|mut w| {
+        w.wayland = Some(WaylandData {
+          is_child: true,
+          gtk_window: std::cell::RefCell::new(gtk_window),
+          position: std::cell::Cell::new((x, y)),
+        });
+        w
+      })
+    } else {
+      let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+      gtk_window.set_child(Some(&vbox));
+
+      Self::new_gtk(&vbox, attributes, pl_attrs).map(|mut w| {
+        w.wayland = Some(WaylandData {
+          is_child: false,
+          gtk_window: std::cell::RefCell::new(gtk_window),
+          position: std::cell::Cell::new((0, 0)),
+        });
+        w
+      })
+    }
+  }
+
   pub fn new_gtk<W>(
     container: &W,
     mut attributes: WebViewAttributes,
@@ -349,6 +473,8 @@ impl InnerWebView {
       is_in_fixed_parent,
       #[cfg(feature = "x11")]
       x11: None,
+      #[cfg(feature = "wayland")]
+      wayland: None,
 
       #[cfg(any(debug_assertions, feature = "devtools"))]
       is_inspector_open,
@@ -689,16 +815,21 @@ impl InnerWebView {
   {
     let mut is_in_fixed_parent = false;
 
-    let container_type = container.type_().name();
-    if container_type == "GtkBox" {
+    if let Some(box_) = container.dynamic_cast_ref::<gtk::Box>() {
       webview.set_hexpand(true);
       webview.set_vexpand(true);
-      container
-        .dynamic_cast_ref::<gtk::Box>()
-        .unwrap()
-        .append(webview);
-    } else if container_type == "GtkFixed" {
+      box_.append(webview);
+    } else if let Some(fixed) = container.dynamic_cast_ref::<gtk::Fixed>() {
+      // Prefer the root window's surface scale over the not-yet-realized webview's scale.
+      #[cfg(feature = "wayland")]
+      let scale_factor = container
+        .root()
+        .and_then(|r| r.downcast::<gtk::Window>().ok())
+        .map(|w| Self::scale_factor_wayland(&w))
+        .unwrap_or_else(|| webview.scale_factor() as f64);
+      #[cfg(not(feature = "wayland"))]
       let scale_factor = webview.scale_factor() as f64;
+
       let (width, height) = attributes
         .bounds
         .map(|b| b.size.to_logical::<i32>(scale_factor))
@@ -711,12 +842,7 @@ impl InnerWebView {
         .unwrap_or((0, 0));
 
       webview.set_size_request(width, height);
-
-      container
-        .dynamic_cast_ref::<gtk::Fixed>()
-        .unwrap()
-        .put(webview, x as f64, y as f64);
-
+      fixed.put(webview, x as f64, y as f64);
       is_in_fixed_parent = true;
     }
 
@@ -965,6 +1091,17 @@ impl InnerWebView {
       return Ok(bounds);
     }
 
+    #[cfg(feature = "wayland")]
+    if let Some(wayland_data) = &self.wayland {
+      if wayland_data.is_child {
+        let (x, y) = wayland_data.position.get();
+        bounds.position = LogicalPosition::new(x, y).into();
+      }
+      let size = self.webview.allocation();
+      bounds.size = LogicalSize::new(size.width(), size.height()).into();
+      return Ok(bounds);
+    }
+
     let size = self.webview.allocation();
     bounds.size = LogicalSize::new(size.width(), size.height()).into();
 
@@ -972,9 +1109,16 @@ impl InnerWebView {
   }
 
   pub fn set_bounds(&self, bounds: Rect) -> Result<()> {
+    #[cfg(feature = "wayland")]
+    let scale_factor = if let Some(wayland_data) = &self.wayland {
+      Self::scale_factor_wayland(&wayland_data.gtk_window.borrow())
+    } else {
+      self.webview.scale_factor() as f64
+    };
+    #[cfg(not(feature = "wayland"))]
     let scale_factor = self.webview.scale_factor() as f64;
-    let (width, height) = bounds.size.to_logical::<i32>(scale_factor).into();
-    let (x, y) = bounds.position.to_logical::<i32>(scale_factor).into();
+    let (width, height): (i32, i32) = bounds.size.to_logical::<i32>(scale_factor).into();
+    let (x, y): (i32, i32) = bounds.position.to_logical::<i32>(scale_factor).into();
 
     #[cfg(feature = "x11")]
     if let Some(x11_data) = &self.x11 {
@@ -990,15 +1134,33 @@ impl InnerWebView {
           );
         }
       }
-      x11_data
-        .gtk_window
-        .size_allocate(&gdk::Rectangle::new(0, 0, width, height), -1);
+    }
+
+    #[cfg(feature = "wayland")]
+    if let Some(wayland_data) = &self.wayland {
+      if wayland_data.is_child {
+        if let Some(fixed) = self
+          .webview
+          .parent()
+          .and_then(|p| p.downcast::<gtk::Fixed>().ok())
+        {
+          fixed.move_(&self.webview, x as f64, y as f64);
+          self.webview.set_size_request(width, height);
+          wayland_data.position.set((x, y));
+        }
+      }
+      return Ok(());
     }
 
     if self.is_in_fixed_parent {
-      self
+      if let Some(fixed) = self
         .webview
-        .size_allocate(&gdk::Rectangle::new(x, y, width, height), -1);
+        .parent()
+        .and_then(|p| p.downcast::<gtk::Fixed>().ok())
+      {
+        fixed.move_(&self.webview, x as f64, y as f64);
+        self.webview.set_size_request(width, height);
+      }
     }
 
     Ok(())
@@ -1043,6 +1205,17 @@ impl InnerWebView {
     #[cfg(feature = "x11")]
     self.set_visible_gtk(visible);
 
+    #[cfg(feature = "wayland")]
+    if let Some(wayland_data) = &self.wayland {
+      if wayland_data.is_child {
+        if visible {
+          wayland_data.gtk_window.borrow().show();
+        } else {
+          wayland_data.gtk_window.borrow().hide();
+        }
+      }
+    }
+
     Ok(())
   }
 
@@ -1054,7 +1227,7 @@ impl InnerWebView {
   pub fn focus_parent(&self) -> Result<()> {
     if let Some(root) = self.webview.root() {
       if let Ok(window) = root.downcast::<gtk::Window>() {
-        window.present_with_time(gdk::CURRENT_TIME);
+        window.present();
       }
     }
 
@@ -1158,7 +1331,7 @@ impl InnerWebView {
     }
 
     loop {
-      glib::MainContext::default().iteration(false);
+      glib::MainContext::default().iteration(true);
 
       if let Ok(response) = rx.try_recv() {
         return response.map_err(Into::into);
@@ -1185,7 +1358,7 @@ impl InnerWebView {
     }
 
     loop {
-      glib::MainContext::default().iteration(false);
+      glib::MainContext::default().iteration(true);
 
       if let Ok(response) = rx.try_recv() {
         return response.map_err(Into::into);
@@ -1207,7 +1380,7 @@ impl InnerWebView {
     }
 
     loop {
-      glib::MainContext::default().iteration(false);
+      glib::MainContext::default().iteration(true);
 
       if let Ok(response) = rx.try_recv() {
         return response.map_err(Into::into);
@@ -1229,7 +1402,7 @@ impl InnerWebView {
     }
 
     loop {
-      glib::MainContext::default().iteration(false);
+      glib::MainContext::default().iteration(true);
 
       if let Ok(response) = rx.try_recv() {
         return response.map_err(Into::into);
@@ -1241,23 +1414,14 @@ impl InnerWebView {
   where
     W: IsA<gtk::Widget>,
   {
-    // Remove from current parent
     self.webview.unparent();
 
-    // Add to new container using type-based dispatch (same as add_to_container)
-    let container_type = container.type_().name();
-    if container_type == "GtkBox" {
+    if let Some(box_) = container.dynamic_cast_ref::<gtk::Box>() {
       self.webview.set_hexpand(true);
       self.webview.set_vexpand(true);
-      container
-        .dynamic_cast_ref::<gtk::Box>()
-        .unwrap()
-        .append(&self.webview);
-    } else if container_type == "GtkFixed" {
-      container
-        .dynamic_cast_ref::<gtk::Fixed>()
-        .unwrap()
-        .put(&self.webview, 0.0, 0.0);
+      box_.append(&self.webview);
+    } else if let Some(fixed) = container.dynamic_cast_ref::<gtk::Fixed>() {
+      fixed.put(&self.webview, 0.0, 0.0);
     }
 
     Ok(())
@@ -1281,6 +1445,41 @@ impl InnerWebView {
           x11_data.x11_window.set(new_parent);
           return Ok(());
         }
+      }
+    }
+
+    #[cfg(feature = "wayland")]
+    if let Some(wayland_data) = &self.wayland {
+      let new_handle = window.window_handle()?;
+      if let RawWindowHandle::Wayland(h) = new_handle.as_raw() {
+        let new_gtk_window =
+          Self::gtk_window_for_wl_surface(&h).ok_or(Error::UnsupportedWindowHandle)?;
+
+        self.webview.unparent();
+
+        if wayland_data.is_child {
+          // Mirror new_wayland() child path: find-or-create a GtkFixed so that
+          // set_bounds() can still call GtkFixed::move_() after the reparent.
+          let fixed = if let Some(child) = new_gtk_window
+            .child()
+            .and_then(|c| c.downcast::<gtk::Fixed>().ok())
+          {
+            child
+          } else {
+            let f = gtk::Fixed::new();
+            new_gtk_window.set_child(Some(&f));
+            f
+          };
+          let (x, y) = wayland_data.position.get();
+          fixed.put(&self.webview, x as f64, y as f64);
+        } else {
+          let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+          new_gtk_window.set_child(Some(&vbox));
+          vbox.append(&self.webview);
+        }
+
+        *wayland_data.gtk_window.borrow_mut() = new_gtk_window;
+        return Ok(());
       }
     }
 
