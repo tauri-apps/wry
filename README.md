@@ -287,8 +287,8 @@ Wry uses a set of feature flags to toggle several advanced features.
   Avoid this in release build if your app needs to publish to App Store.
 - `fullscreen`: Fullscreen video and other media on **macOS** requires calling private functions.
   Avoid this in release build if your app needs to publish to App Store.
-- `linux-body`: Enables body support of custom protocol request on Linux. Requires
-  WebKit2GTK v2.40 or above.
+- `linux-body` *(enabled by default)*: Enables body support of custom protocol request on Linux. Requires
+  WebKit2GTK v2.40 or above. Without this feature, `request.body()` always returns an empty slice on Linux.
 - `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler`, and `custom_protocols`.
 
 ### Partners

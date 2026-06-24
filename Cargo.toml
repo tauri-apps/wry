@@ -24,7 +24,7 @@ targets = [
 ]
 
 [features]
-default = ["protocol", "os-webview", "x11"]
+default = ["protocol", "os-webview", "x11", "linux-body"]
 serde = ["dpi/serde"]
 protocol = []
 devtools = []

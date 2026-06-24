@@ -2,6 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+//! Cookie management example for GTK4 / webkit6.
+//!
+//! Demonstrates `set_cookie`, `delete_cookie`, `cookies()`, and
+//! `WebContext::set_cookie_accept_policy`.
+//!
+//! With `CookieAcceptPolicy::Never` active, cookies sent by HTTP Set-Cookie
+//! headers (e.g. from httpbin's redirect URL) are silently blocked. Cookies
+//! written programmatically via `WebView::set_cookie` bypass the policy and
+//! still work — you should see `foo1` in the list but not `foo` from httpbin.
+//!
+//! Run with:
+//!
+//! ```bash
+//! cargo run --example gtk_cookies
+//! ```
+
 fn main() -> wry::Result<()> {
   #[cfg(any(
     target_os = "linux",
@@ -33,7 +49,8 @@ fn linux_main() -> wry::Result<()> {
   use std::cell::RefCell;
 
   use gtk4::prelude::*;
-  use wry::WebViewBuilderExtUnix;
+  use webkit6::CookieAcceptPolicy;
+  use wry::{WebContext, WebViewBuilderExtUnix};
 
   let app = gtk4::Application::new(None::<&str>, Default::default());
 
@@ -46,7 +63,16 @@ fn linux_main() -> wry::Result<()> {
     window.set_child(Some(&vbox));
     window.present();
 
-    let webview = wry::WebViewBuilder::new()
+    // Block all cookies arriving via HTTP Set-Cookie headers.
+    // Programmatic set_cookie() / delete_cookie() calls bypass this policy.
+    let mut ctx = WebContext::default();
+    ctx.set_cookie_accept_policy(CookieAcceptPolicy::Never);
+    println!("[policy] CookieAcceptPolicy::Never");
+    println!("         HTTP Set-Cookie headers are blocked — 'foo=bar' from httpbin will not appear");
+    println!("         Programmatic set_cookie() calls bypass the policy and still work");
+
+    let webview = wry::WebViewBuilder::new_with_web_context(&mut ctx)
+      // httpbin would normally set foo=bar via Set-Cookie; blocked by Never policy.
       .with_url("https://www.httpbin.org/cookies/set?foo=bar")
       .build_gtk(&vbox)
       .unwrap();

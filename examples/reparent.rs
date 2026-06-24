@@ -217,10 +217,10 @@ fn linux_main() -> wry::Result<()> {
     key_ctrl.connect_key_pressed(move |_, key, _, _| {
       if key == gtk4::gdk::Key::x {
         if is_in_window1.get() {
-          webview_rc_clone.borrow().reparent(&vbox2_clone).unwrap();
+          WebViewExtUnix::reparent(&*webview_rc_clone.borrow(), &vbox2_clone).unwrap();
           is_in_window1.set(false);
         } else {
-          webview_rc_clone.borrow().reparent(&vbox1_clone).unwrap();
+          WebViewExtUnix::reparent(&*webview_rc_clone.borrow(), &vbox1_clone).unwrap();
           is_in_window1.set(true);
         }
         return gtk4::glib::Propagation::Stop;

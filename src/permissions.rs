@@ -15,7 +15,8 @@ pub enum PermissionKind {
   /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION`.
   /// - **Linux**: Supported via `GeolocationPermissionRequest`.
   /// - **Android**: Supported via `WebChromeClient.onGeolocationPermissionsShowPrompt`.
-  /// - **macOS / iOS**: Not yet supported by platform backends.
+  /// - **macOS**: Supported via `WKUIDelegate` `requestGeolocationPermissionForOrigin` (macOS 12+).
+  /// - **iOS**: Not yet supported by platform backends.
   Geolocation,
   /// Notifications permission.
   ///
@@ -55,7 +56,8 @@ pub enum PermissionKind {
   /// ## Platform-specific
   ///
   /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_OTHER_SENSORS`.
-  /// - **macOS / Linux / Android / iOS**: Not yet supported by platform backends.
+  /// - **macOS**: Supported via `WKUIDelegate` `requestDeviceOrientationAndMotionPermissionForOrigin`.
+  /// - **Linux / Android / iOS**: Not yet supported by platform backends.
   Sensors,
   /// Media key system access permission.
   ///

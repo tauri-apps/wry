@@ -166,6 +166,48 @@ define_class!(
     }
 
     #[cfg(target_os = "macos")]
+    #[unsafe(method(webView:requestGeolocationPermissionForOrigin:initiatedByFrame:decisionHandler:))]
+    fn request_geolocation_permission(
+      &self,
+      _webview: &WryWebView,
+      _origin: &WKSecurityOrigin,
+      _frame: &WKFrameInfo,
+      decision_handler: &Block<dyn Fn(WKPermissionDecision)>,
+    ) {
+      let decision = if let Some(handler) = &self.ivars().permission_handler {
+        match handler(PermissionKind::Geolocation) {
+          PermissionResponse::Allow => WKPermissionDecision::Grant,
+          PermissionResponse::Deny => WKPermissionDecision::Deny,
+          PermissionResponse::Default => WKPermissionDecision::Prompt,
+        }
+      } else {
+        WKPermissionDecision::Prompt
+      };
+      (*decision_handler).call((decision,));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[unsafe(method(webView:requestDeviceOrientationAndMotionPermissionForOrigin:initiatedByFrame:decisionHandler:))]
+    fn request_device_orientation_permission(
+      &self,
+      _webview: &WryWebView,
+      _origin: &WKSecurityOrigin,
+      _frame: &WKFrameInfo,
+      decision_handler: &Block<dyn Fn(WKPermissionDecision)>,
+    ) {
+      let decision = if let Some(handler) = &self.ivars().permission_handler {
+        match handler(PermissionKind::Sensors) {
+          PermissionResponse::Allow => WKPermissionDecision::Grant,
+          PermissionResponse::Deny => WKPermissionDecision::Deny,
+          PermissionResponse::Default => WKPermissionDecision::Prompt,
+        }
+      } else {
+        WKPermissionDecision::Prompt
+      };
+      (*decision_handler).call((decision,));
+    }
+
+    #[cfg(target_os = "macos")]
     #[unsafe(method_id(webView:createWebViewWithConfiguration:forNavigationAction:windowFeatures:))]
     unsafe fn create_web_view_for_navigation_action(
       &self,

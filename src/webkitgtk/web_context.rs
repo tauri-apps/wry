@@ -92,6 +92,12 @@ impl WebContextImpl {
       .context
       .set_web_process_extensions_directory(&path.to_string_lossy());
   }
+
+  pub fn set_cookie_accept_policy(&self, policy: webkit6::CookieAcceptPolicy) {
+    if let Some(cm) = self.network_session.cookie_manager() {
+      cm.set_accept_policy(policy);
+    }
+  }
 }
 
 /// [`WebContext`](super::WebContext) items that only matter on unix.

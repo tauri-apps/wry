@@ -304,8 +304,10 @@
 //!   Avoid this in release build if your app needs to publish to App Store.
 //! - `fullscreen`: Fullscreen video and other media on **macOS** requires calling private functions.
 //!   Avoid this in release build if your app needs to publish to App Store.
-//! - `linux-body`: Enables body support of custom protocol request on Linux. Requires
-//!   WebKit2GTK v2.40 or above.
+//! - `linux-body` *(enabled by default)*: Enables body support of custom protocol request on Linux. Requires
+//!   WebKit2GTK v2.40 or above (the gtk4-webkit6 backend requires WebKitGTK 6.x, so this
+//!   is always satisfied). Without this feature, `request.body()` in a custom protocol
+//!   handler always returns an empty slice on Linux.
 //! - `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler`, and `custom_protocols`.
 //!
 //! ## Partners
@@ -800,7 +802,8 @@ struct WebViewAttributes<'a> {
   /// ## Platform-specific:
   ///
   /// - **Windows**: Fully supported via WebView2's PermissionRequested event.
-  /// - **macOS / iOS**: Fully supported via WKUIDelegate's requestMediaCapturePermission.
+  /// - **macOS**: Supported for Camera, Microphone, Geolocation (macOS 12+), and Sensors via `WKUIDelegate`. Notifications, ClipboardRead, and PointerLock have no `WKUIDelegate` hook and are not routed through this handler.
+  /// - **iOS**: Supported for Camera and Microphone via `WKUIDelegate`'s `requestMediaCapturePermission`.
   /// - **Linux**: Fully supported via WebKitGTK's permission-request signal.
   /// - **Android**: Supported via JNI bridge for geolocation, microphone, camera,
   ///   protected media, and MIDI requests. Android runtime permissions may still
@@ -837,6 +840,29 @@ struct WebViewAttributes<'a> {
   ///   behavior will be disabled.
   /// - **macOS / Linux / Android / iOS**: Unsupported and ignored.
   pub general_autofill_enabled: bool,
+
+  /// Whether media streaming (camera and microphone access via `getUserMedia`) should be enabled.
+  ///
+  /// Defaults to `false`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux**: Enables `webkit_settings_set_enable_media_stream`. Must be `true` for
+  ///   `getUserMedia()` calls to succeed; granting the permission via [`with_permission_handler`](Self::with_permission_handler)
+  ///   is still required in addition.
+  /// - **Windows / macOS / Android / iOS**: Unsupported and ignored (media stream is enabled by default on those platforms).
+  pub enable_media_stream: bool,
+
+  /// Whether Encrypted Media Extensions (EME / DRM) should be enabled.
+  ///
+  /// Defaults to `false`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux**: Enables `webkit_settings_set_enable_encrypted_media`. Required for
+  ///   `MediaKeySystemAccess` (e.g. Widevine DRM).
+  /// - **Windows / macOS / Android / iOS**: Unsupported and ignored (EME is enabled by default on those platforms).
+  pub enable_encrypted_media: bool,
 }
 
 impl Default for WebViewAttributes<'_> {
@@ -881,6 +907,8 @@ impl Default for WebViewAttributes<'_> {
       javascript_disabled: false,
       permission_handler: None,
       general_autofill_enabled: true,
+      enable_media_stream: false,
+      enable_encrypted_media: false,
     }
   }
 }
@@ -1064,6 +1092,12 @@ impl<'a> WebViewBuilder<'a> {
   ///   elsewhere in Android (provided the app has appropriate access), but not from the `assets`
   ///   folder which lives within the apk. For the cases where this can be used, it works the same as in macOS and Linux.
   /// - iOS: To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
+  ///
+  /// # Platform-specific
+  ///
+  /// - **Linux**: Request bodies (e.g. POST data) are only available when the `linux-body`
+  ///   feature is enabled. Without it, `request.body()` is always empty. The `linux-body`
+  ///   feature is included in the default feature set since wry 0.x.
   #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
@@ -1103,6 +1137,12 @@ impl<'a> WebViewBuilder<'a> {
   /// Same as [`Self::with_custom_protocol`] but with an asynchronous responder.
   ///
   /// When registering a custom protocol with the same name, only the last registered one will be used.
+  ///
+  /// # Platform-specific
+  ///
+  /// - **Linux**: Request bodies (e.g. POST data) are only available when the `linux-body`
+  ///   feature is enabled. Without it, `request.body()` is always empty. The `linux-body`
+  ///   feature is included in the default feature set since wry 0.x.
   ///
   /// # Warning
   ///
@@ -1279,7 +1319,8 @@ impl<'a> WebViewBuilder<'a> {
   /// - Windows: Setting to `false` can't disable pinch zoom on WebView2 Runtime version before 91.0.865.0,
   ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10865-prerelease>
   ///
-  /// - **macOS / Linux / Android / iOS**: Unsupported
+  /// - **macOS / Linux / Android / iOS**: Unsupported. This option is silently ignored — WebKitGTK6
+  ///   has no per-view zoom-key toggle.
   pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
     self.attrs.zoom_hotkeys_enabled = zoom;
     self
@@ -1307,7 +1348,8 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific:
   ///
   /// - **Windows**: Fully supported via WebView2's PermissionRequested event.
-  /// - **macOS / iOS**: Fully supported via WKUIDelegate's requestMediaCapturePermission.
+  /// - **macOS**: Supported for Camera, Microphone, Geolocation (macOS 12+), and Sensors via `WKUIDelegate`. Notifications, ClipboardRead, and PointerLock have no `WKUIDelegate` hook and are not routed through this handler.
+  /// - **iOS**: Supported for Camera and Microphone via `WKUIDelegate`'s `requestMediaCapturePermission`.
   /// - **Linux**: Fully supported via WebKitGTK's permission-request signal.
   /// - **Android**: Supported via JNI bridge for geolocation, microphone, camera,
   ///   protected media, and MIDI requests. Android runtime permissions may still
@@ -1399,7 +1441,10 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific
   ///
-  /// This configuration only impacts macOS.
+  /// - **macOS**: Supported — controls whether a click on an inactive window is forwarded to
+  ///   the webview.
+  /// - **Linux / Windows / Android / iOS**: No-op. This is a macOS hit-testing concept with no
+  ///   equivalent on other platforms.
   pub fn with_accept_first_mouse(mut self, accept_first_mouse: bool) -> Self {
     self.attrs.accept_first_mouse = accept_first_mouse;
     self
@@ -1472,7 +1517,8 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific
   ///
-  /// - **Linux / Windows / Android**: Unsupported. Workarounds like a pending WebLock transaction might suffice.
+  /// - **Linux / Windows / Android**: No-op. This is a macOS 14+ / iOS 17+ only feature with no
+  ///   WebKitGTK6 or WebView2 equivalent. Workarounds like a pending WebLock transaction might suffice.
   /// - **iOS**: Supported since version 17.0+.
   /// - **macOS**: Supported since version 14.0+.
   ///
@@ -1503,9 +1549,39 @@ impl<'a> WebViewBuilder<'a> {
   ///   "Suggestions") may not honor `autocomplete="off"` attributes on input
   ///   elements in some cases. When this option is `false`, that autofill
   ///   behavior will be disabled.
-  /// - **macOS / Linux / Android / iOS**: Unsupported and ignored.
+  /// - **macOS / Linux / Android / iOS**: No-op. This is a Windows-only browser feature; the
+  ///   option is silently ignored on all other platforms.
   pub fn with_general_autofill_enabled(mut self, enabled: bool) -> Self {
     self.attrs.general_autofill_enabled = enabled;
+    self
+  }
+
+  /// Enables media streaming (`getUserMedia` — camera and microphone access).
+  ///
+  /// Defaults to `false`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux**: Enables `webkit_settings_set_enable_media_stream`. Must be `true` for
+  ///   `getUserMedia()` calls to succeed; granting the permission via
+  ///   [`with_permission_handler`](Self::with_permission_handler) is still required in addition.
+  /// - **Windows / macOS / Android / iOS**: Unsupported and ignored (media stream is enabled by default on those platforms).
+  pub fn with_enable_media_stream(mut self, enabled: bool) -> Self {
+    self.attrs.enable_media_stream = enabled;
+    self
+  }
+
+  /// Enables Encrypted Media Extensions (EME / DRM).
+  ///
+  /// Defaults to `false`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux**: Enables `webkit_settings_set_enable_encrypted_media`. Required for
+  ///   `MediaKeySystemAccess` (e.g. Widevine DRM).
+  /// - **Windows / macOS / Android / iOS**: Unsupported and ignored (EME is enabled by default on those platforms).
+  pub fn with_enable_encrypted_media(mut self, enabled: bool) -> Self {
+    self.attrs.enable_encrypted_media = enabled;
     self
   }
 
@@ -2003,10 +2079,33 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
   target_os = "netbsd",
   target_os = "openbsd",
 ))]
-#[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
+  data_directory: Option<PathBuf>,
   extension_path: Option<PathBuf>,
   related_view: Option<webkit6::WebView>,
+  on_web_content_process_terminate_handler: Option<Box<dyn Fn()>>,
+  hardware_acceleration_policy: Option<webkit6::HardwareAccelerationPolicy>,
+  theme: Option<crate::Theme>,
+}
+
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd",
+))]
+impl Default for PlatformSpecificWebViewAttributes {
+  fn default() -> Self {
+    Self {
+      data_directory: None,
+      extension_path: None,
+      related_view: None,
+      on_web_content_process_terminate_handler: None,
+      hardware_acceleration_policy: None,
+      theme: None,
+    }
+  }
 }
 
 #[cfg(any(
@@ -2032,12 +2131,66 @@ pub trait WebViewBuilderExtUnix<'a> {
   where
     W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>;
 
+  /// Set a custom directory for the WebKit website data (cache, IndexedDB, cookies, …).
+  ///
+  /// This is the Linux equivalent of [`WebViewBuilderExtWindows::with_profile_name`] and
+  /// [`WebViewBuilderExtDarwin::with_data_store_identifier`]: it creates an isolated
+  /// `NetworkSession` whose persistent data lives under `path` rather than the default
+  /// system-wide WebKit data directory.
+  ///
+  /// **Note:** This option is ignored when an explicit [`WebContext`] is also supplied via
+  /// [`WebViewBuilder::with_web_context`], since the context already owns its `NetworkSession`.
+  /// In that case configure the data directory on the [`WebContext`] directly.
+  fn with_data_directory(self, path: impl Into<PathBuf>) -> Self;
+
   /// Set the path from which to load extensions from.
   fn with_extensions_path(self, path: impl Into<PathBuf>) -> Self;
 
   /// Creates a new webview sharing the same web process with the provided webview.
   /// Useful if you need to link a webview to another, for instance when using the [`WebViewBuilder::with_new_window_req_handler`].
   fn with_related_view(self, webview: webkit6::WebView) -> Self;
+
+  /// Set a handler closure to respond to web content process termination.
+  ///
+  /// This is called when the WebKit web process (which renders pages and runs JavaScript)
+  /// crashes or is killed due to exceeding memory limits. Use it to show an error page
+  /// or reload the webview.
+  ///
+  /// The `webkit6::WebProcessTerminationReason` passed to the underlying signal is not
+  /// forwarded — the handler is a plain `Fn()`. Use [`WebViewExtUnix::webview`] and
+  /// connect `connect_web_process_terminated` directly if you need the reason.
+  fn with_on_web_content_process_terminate_handler(self, handler: impl Fn() + 'static) -> Self;
+
+  /// Set the hardware acceleration policy for the webview.
+  ///
+  /// - [`webkit6::HardwareAccelerationPolicy::Always`] — GPU compositing is always enabled
+  ///   (default WebKit behaviour).
+  /// - [`webkit6::HardwareAccelerationPolicy::Never`] — forces software rendering. Useful
+  ///   for headless environments, CI runners, or systems without a working EGL/DRM stack
+  ///   where GPU compositing causes a blank or corrupted webview. Equivalent to setting the
+  ///   `WEBKIT_DISABLE_DMABUF_RENDERER=1` / `WEBKIT_DISABLE_COMPOSITING_MODE=1` environment
+  ///   variables, but scoped to this webview instance.
+  fn with_hardware_acceleration_policy(
+    self,
+    policy: webkit6::HardwareAccelerationPolicy,
+  ) -> Self;
+
+  /// Set the preferred color scheme (`prefers-color-scheme` CSS media feature).
+  ///
+  /// - [`Theme::Dark`]  — forces dark mode.
+  /// - [`Theme::Light`] — forces light mode.
+  /// - [`Theme::Auto`]  — follows the system/desktop preference (default, no-op).
+  ///
+  /// ## Platform-specific
+  ///
+  /// **Linux:** Sets GTK4's `gtk-application-prefer-dark-theme` display setting,
+  /// which WebKitGTK reads to determine the `prefers-color-scheme` CSS media feature.
+  /// Because this is a display-wide setting it affects all GTK widgets in the process,
+  /// not just this webview. For most WRY applications (which are a single fullscreen
+  /// webview) this is the correct behaviour, but be aware of the side effect if you
+  /// mix native GTK widgets with webviews. [`Theme::Auto`] is a no-op — it leaves
+  /// the GTK setting unchanged so the system/desktop preference is followed.
+  fn with_theme(self, theme: Theme) -> Self;
 }
 
 #[cfg(any(
@@ -2058,6 +2211,11 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
       .map(|webview| WebView { webview })
   }
 
+  fn with_data_directory(mut self, path: impl Into<PathBuf>) -> Self {
+    self.platform_specific.data_directory = Some(path.into());
+    self
+  }
+
   fn with_extensions_path(mut self, path: impl Into<PathBuf>) -> Self {
     self.platform_specific.extension_path = Some(path.into());
     self
@@ -2065,6 +2223,26 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
 
   fn with_related_view(mut self, webview: webkit6::WebView) -> Self {
     self.platform_specific.related_view.replace(webview);
+    self
+  }
+
+  fn with_on_web_content_process_terminate_handler(mut self, handler: impl Fn() + 'static) -> Self {
+    self
+      .platform_specific
+      .on_web_content_process_terminate_handler = Some(Box::new(handler));
+    self
+  }
+
+  fn with_hardware_acceleration_policy(
+    mut self,
+    policy: webkit6::HardwareAccelerationPolicy,
+  ) -> Self {
+    self.platform_specific.hardware_acceleration_policy = Some(policy);
+    self
+  }
+
+  fn with_theme(mut self, theme: Theme) -> Self {
+    self.platform_specific.theme = Some(theme);
     self
   }
 }
@@ -2106,6 +2284,24 @@ impl WebView {
     callback: impl Fn(String) + Send + 'static,
   ) -> Result<()> {
     self.webview.eval(js, Some(callback))
+  }
+
+  /// Reparent the webview to a new window or surface.
+  ///
+  /// Moves this webview so that it renders inside `window` instead of its current parent.
+  /// Accepts any type that implements [`HasWindowHandle`], the same trait accepted by
+  /// [`WebViewBuilder::build`].
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Calls `SetParent` on the WebView2 HWND, matching `WebViewExtWindows::reparent`.
+  /// - **macOS / iOS**: Adds the WKWebView as a subview of the target window's content view,
+  ///   matching `WebViewExtMacOS::reparent` / `WebViewExtIOS::reparent`.
+  /// - **Linux (X11)**: Calls `XReparentWindow` to move the embedded GTK surface under the new
+  ///   X11 parent. Only applies to webviews created via [`WebViewBuilder::build`]. Webviews
+  ///   created via [`WebViewBuilderExtUnix::build_gtk`] should use [`WebViewExtUnix::reparent`].
+  pub fn reparent<W: HasWindowHandle>(&self, window: &W) -> Result<()> {
+    self.webview.reparent_window(window)
   }
 
   /// Launch print modal for the webview content.
@@ -2423,6 +2619,14 @@ pub trait WebViewExtUnix: Sized {
   fn reparent<W>(&self, widget: &W) -> Result<()>
   where
     W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>;
+
+  /// Returns the base data directory used by the underlying `NetworkSession`, if one was set.
+  ///
+  /// Returns `None` when the webview uses a default or ephemeral session without a custom
+  /// data directory. Callers can use this path to enumerate or delete stored data on the
+  /// filesystem, which is the Linux equivalent of the macOS `fetch_data_store_identifiers` /
+  /// `remove_data_store` APIs.
+  fn data_directory(&self) -> Option<PathBuf>;
 }
 
 #[cfg(gtk)]
@@ -2443,6 +2647,10 @@ impl WebViewExtUnix for WebView {
     W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>,
   {
     self.webview.reparent(widget)
+  }
+
+  fn data_directory(&self) -> Option<PathBuf> {
+    self.webview.data_directory()
   }
 }
 

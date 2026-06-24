@@ -17,6 +17,7 @@ use std::ffi::c_ulong;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
   collections::HashMap,
+  path::PathBuf,
   rc::Rc,
   sync::{Arc, Mutex},
 };
@@ -58,14 +59,14 @@ struct X11Data {
   is_child: bool,
   xlib: Xlib,
   x11_display: *mut std::ffi::c_void,
-  x11_window: c_ulong,
+  x11_window: std::cell::Cell<c_ulong>,
   gtk_window: gtk::Window,
 }
 
 #[cfg(feature = "x11")]
 impl Drop for X11Data {
   fn drop(&mut self) {
-    unsafe { (self.xlib.XDestroyWindow)(self.x11_display as _, self.x11_window) };
+    unsafe { (self.xlib.XDestroyWindow)(self.x11_display as _, self.x11_window.get()) };
     self.gtk_window.close();
   }
 }
@@ -169,7 +170,7 @@ impl InnerWebView {
         is_child,
         xlib,
         x11_display: x11_display as _,
-        x11_window,
+        x11_window: std::cell::Cell::new(x11_window),
         gtk_window,
       });
 
@@ -255,7 +256,7 @@ impl InnerWebView {
       match attributes.context.take() {
         Some(w) => w,
         None => {
-          default_context = Default::default();
+          default_context = WebContext::new(pl_attrs.data_directory.clone());
           &mut default_context
         }
       }
@@ -278,6 +279,19 @@ impl InnerWebView {
       web_context.os.set_web_extensions_directory(extension_path);
     }
 
+    // Theme / prefers-color-scheme: apply via GTK display settings, which WebKitGTK reads.
+    // Note: this setting is display-wide and affects all GTK widgets in the process.
+    if let Some(theme) = pl_attrs.theme {
+      if let Some(display) = gdk::Display::default() {
+        let settings = gtk::Settings::for_display(&display);
+        match theme {
+          crate::Theme::Dark => settings.set_gtk_application_prefer_dark_theme(true),
+          crate::Theme::Light => settings.set_gtk_application_prefer_dark_theme(false),
+          crate::Theme::Auto => {} // follow system — do not override the GTK setting
+        }
+      }
+    }
+
     let webview = Self::create_webview(web_context, &attributes, &pl_attrs);
 
     // Transparent
@@ -296,10 +310,15 @@ impl InnerWebView {
     }
 
     // Webview Settings
-    Self::set_webview_settings(&webview, &attributes);
+    Self::set_webview_settings(&webview, &attributes, &pl_attrs);
 
     // Webview handlers
     Self::attach_handlers(&webview, web_context, &mut attributes);
+
+    // Web process terminated handler
+    if let Some(handler) = pl_attrs.on_web_content_process_terminate_handler {
+      webview.connect_web_process_terminated(move |_, _| handler());
+    }
 
     // IPC handler
     Self::attach_ipc_handler(webview.clone(), &mut attributes);
@@ -407,7 +426,11 @@ impl InnerWebView {
     builder.build()
   }
 
-  fn set_webview_settings(webview: &WebView, attributes: &WebViewAttributes) {
+  fn set_webview_settings(
+    webview: &WebView,
+    attributes: &WebViewAttributes,
+    pl_attrs: &super::PlatformSpecificWebViewAttributes,
+  ) {
     // Disable input preedit, fcitx input editor can anchor at edit cursor position
     if let Some(input_context) = webview.input_method_context() {
       input_context.set_enable_preedit(false);
@@ -438,6 +461,18 @@ impl InnerWebView {
 
       if attributes.javascript_disabled {
         settings.set_enable_javascript(false);
+      }
+
+      if attributes.enable_media_stream {
+        settings.set_enable_media_stream(true);
+      }
+
+      if attributes.enable_encrypted_media {
+        settings.set_enable_encrypted_media(true);
+      }
+
+      if let Some(policy) = pl_attrs.hardware_acceleration_policy {
+        settings.set_hardware_acceleration_policy(policy);
       }
     }
   }
@@ -898,6 +933,15 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn data_directory(&self) -> Option<PathBuf> {
+    self
+      .webview
+      .network_session()
+      .and_then(|ns| ns.website_data_manager())
+      .and_then(|dm| dm.base_data_directory())
+      .map(|s| PathBuf::from(s.as_str()))
+  }
+
   pub fn bounds(&self) -> Result<Rect> {
     let mut bounds = Rect::default();
 
@@ -909,7 +953,7 @@ impl InnerWebView {
 
         let ok = (x11_data.xlib.XGetWindowAttributes)(
           x11_data.x11_display as _,
-          x11_data.x11_window,
+          x11_data.x11_window.get(),
           &mut attributes,
         );
 
@@ -938,7 +982,7 @@ impl InnerWebView {
         unsafe {
           (x11_data.xlib.XMoveResizeWindow)(
             x11_data.x11_display as _,
-            x11_data.x11_window,
+            x11_data.x11_window.get(),
             x as _,
             y as _,
             width as _,
@@ -965,9 +1009,9 @@ impl InnerWebView {
     if let Some(x11_data) = &self.x11 {
       if x11_data.is_child {
         if visible {
-          unsafe { (x11_data.xlib.XMapWindow)(x11_data.x11_display as _, x11_data.x11_window) };
+          unsafe { (x11_data.xlib.XMapWindow)(x11_data.x11_display as _, x11_data.x11_window.get()) };
         } else {
-          unsafe { (x11_data.xlib.XUnmapWindow)(x11_data.x11_display as _, x11_data.x11_window) };
+          unsafe { (x11_data.xlib.XUnmapWindow)(x11_data.x11_display as _, x11_data.x11_window.get()) };
         }
       }
     }
@@ -1217,6 +1261,31 @@ impl InnerWebView {
     }
 
     Ok(())
+  }
+
+  pub fn reparent_window<W: HasWindowHandle>(&self, window: &W) -> Result<()> {
+    #[cfg(feature = "x11")]
+    if let Some(x11_data) = &self.x11 {
+      let new_parent = match window.window_handle()?.as_raw() {
+        RawWindowHandle::Xlib(w) => w.window,
+        _ => return Err(Error::UnsupportedWindowHandle),
+      };
+
+      if let Some(surface) = x11_data.gtk_window.surface() {
+        if let Ok(x11_surf) = surface.downcast::<gdk4_x11::X11Surface>() {
+          let gtk_xid = x11_surf.xid();
+          unsafe {
+            (x11_data.xlib.XReparentWindow)(x11_data.x11_display as _, gtk_xid as _, new_parent, 0, 0);
+            (x11_data.xlib.XFlush)(x11_data.x11_display as _);
+          }
+          x11_data.x11_window.set(new_parent);
+          return Ok(());
+        }
+      }
+    }
+
+    let _ = window;
+    Err(Error::UnsupportedWindowHandle)
   }
 }
 

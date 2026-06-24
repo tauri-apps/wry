@@ -52,8 +52,7 @@ fn linux_main() -> wry::Result<()> {
   };
 
   use gtk4::prelude::*;
-  use webkit6::prelude::WebViewExt as Webkit6WebViewExt;
-  use wry::{PermissionResponse, WebViewBuilderExtUnix, WebViewExtUnix};
+  use wry::{PermissionResponse, WebViewBuilderExtUnix};
 
   let app = gtk4::Application::new(None::<&str>, Default::default());
 
@@ -114,15 +113,10 @@ fn linux_main() -> wry::Result<()> {
         println!("[permission]  {kind:24} -> {response}");
         response
       })
+      .with_enable_media_stream(true)
+      .with_enable_encrypted_media(true)
       .build_gtk(&vbox)
       .unwrap();
-
-    // Enable APIs that webkit6 disables by default.
-    // Must be set after build; these are not exposed through wry's builder.
-    if let Some(settings) = Webkit6WebViewExt::settings(&webview.webview()) {
-      settings.set_enable_media_stream(true); // Camera / Microphone
-      settings.set_enable_encrypted_media(true); // MediaKeySystem (EME/DRM)
-    }
 
     let webview = RefCell::new(Some(webview));
     window.connect_close_request(move |_| {
