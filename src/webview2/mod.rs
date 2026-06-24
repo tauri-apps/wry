@@ -39,6 +39,8 @@ type EventRegistrationToken = i64;
 const PARENT_SUBCLASS_ID: u32 = WM_USER + 0x64;
 const PARENT_DESTROY_MESSAGE: u32 = WM_USER + 0x65;
 const MAIN_THREAD_DISPATCHER_SUBCLASS_ID: u32 = WM_USER + 0x66;
+// #1754 fix: deferred focus re-seed posted from WM_ACTIVATE (run MoveFocus after Windows routes focus).
+const PARENT_RESEED_FOCUS_MESSAGE: u32 = WM_USER + 0x67;
 static EXEC_MSG_ID: Lazy<u32> = Lazy::new(|| unsafe { RegisterWindowMessageA(s!("Wry::ExecMsg")) });
 
 impl From<webview2_com::Error> for Error {
@@ -73,7 +75,34 @@ impl Drop for InnerWebView {
     if self.is_child {
       let _ = unsafe { DestroyWindow(self.hwnd) };
     }
-    unsafe { Self::dettach_parent_subclass(*self.parent.borrow()) }
+    // [wry-1754] Only the webview that INSTALLED the parent subclass (the first/main one) may
+    // remove it. We now attach only for the first webview per parent, so a closing browser tab
+    // must NOT tear down the main webview's focus handler. Detach only if the subclass currently
+    // holds THIS webview's controller.
+    unsafe {
+      let parent = *self.parent.borrow();
+      let mut rd: usize = 0;
+      let has = GetWindowSubclass(
+        parent,
+        Some(Self::parent_subclass_proc),
+        PARENT_SUBCLASS_ID as usize,
+        Some(&mut rd as *mut usize),
+      )
+      .as_bool();
+      if has && rd != 0 && *(rd as *const ICoreWebView2Controller) == self.controller {
+        Self::dettach_parent_subclass(parent);
+      } else if has {
+        // A different (main) webview still owns the subclass. Closing this child (e.g. a browser
+        // tab) destroys its window and leaves the host with no seeded keyboard focus until the
+        // next click/activation — nudge the owning webview to re-seed focus now.
+        let _ = PostMessageW(
+          Some(parent),
+          PARENT_RESEED_FOCUS_MESSAGE,
+          WPARAM(0),
+          LPARAM(0),
+        );
+      }
+    }
   }
 }
 
@@ -599,8 +628,25 @@ impl InnerWebView {
       unsafe { webview.NavigateToString(&html)? };
     }
 
-    // Subclass parent for resizing and focus
-    if !is_child {
+    // Subclass parent for resizing and focus.
+    // [wry-1754] With the `unstable` (multi-webview) feature the main webview is itself created
+    // as a child (is_child=true), so the original `if !is_child` never attached the focus handler
+    // and the window's keyboard focus was never re-seeded on (re)activation — dead until a click.
+    // Attach only when the parent has no subclass yet (= the first/main webview of that window):
+    // the main webview gets the handler, and later children (e.g. browser tabs) don't overwrite
+    // it, so closing them leaves the main controller intact. A standard single webview (!is_child)
+    // is also the first attach, so its behavior is unchanged.
+    let already_attached = unsafe {
+      let mut rd: usize = 0;
+      GetWindowSubclass(
+        parent,
+        Some(Self::parent_subclass_proc),
+        PARENT_SUBCLASS_ID as usize,
+        Some(&mut rd as *mut usize),
+      )
+      .as_bool()
+    };
+    if !already_attached {
       unsafe { Self::attach_parent_subclass(parent, controller) };
     }
 
@@ -1318,6 +1364,32 @@ impl InnerWebView {
       WM_SETFOCUS | WM_ENTERSIZEMOVE => {
         let controller = dwrefdata as *mut ICoreWebView2Controller;
         let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+      }
+
+      // Fix https://github.com/tauri-apps/wry/issues/1754 (failure mode B)
+      // On Alt+Tab / click-back, Windows restores foreground activation to the top-level
+      // window but routes keyboard focus directly to the WebView2 child wrapper
+      // (`Chrome_WidgetWin_1`). The top-level's WM_SETFOCUS therefore never fires, so the
+      // MoveFocus remedy above never runs and keyboard/Tab entry into the content stays
+      // stale until the user clicks to re-seed focus. WM_ACTIVATE *does* fire on the
+      // top-level on (de)activation even when focus lands on a child — but calling MoveFocus
+      // directly here is too early: Windows routes focus to the child right after, overriding
+      // it. So DEFER: post a message to ourselves and re-seed once Windows finished routing.
+      // (LOWORD == WA_INACTIVE(0) = deactivation — skip; only on WA_ACTIVE/WA_CLICKACTIVE.)
+      WM_ACTIVATE if (wparam.0 & 0xffff) != 0 => {
+        let _ = PostMessageW(
+          Some(hwnd),
+          PARENT_RESEED_FOCUS_MESSAGE,
+          WPARAM(0),
+          LPARAM(0),
+        );
+      }
+
+      msg if msg == PARENT_RESEED_FOCUS_MESSAGE => {
+        let controller = dwrefdata as *mut ICoreWebView2Controller;
+        if !(controller as *mut ()).is_null() {
+          let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+        }
       }
 
       msg if msg == WM_MOVE || msg == WM_MOVING => {
