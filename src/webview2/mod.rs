@@ -40,7 +40,7 @@ use super::Theme;
 use crate::{
   custom_protocol_workaround, proxy::ProxyConfig, Error, MemoryUsageLevel, NewWindowFeatures,
   NewWindowOpener, NewWindowResponse, PageLoadEvent, PermissionKind, PermissionResponse, Rect,
-  RequestAsyncResponder, Result, WebViewAttributes, RGBA,
+  RequestAsyncResponder, Result, WebViewAttributes, WebViewHandle, RGBA,
 };
 
 type EventRegistrationToken = i64;
@@ -821,7 +821,7 @@ impl InnerWebView {
                 position,
                 size,
                 opener: NewWindowOpener {
-                  webview: webview.clone(),
+                  handle: WebViewHandle(webview.clone()),
                   environment: env_.clone(),
                 },
               }
@@ -845,9 +845,9 @@ impl InnerWebView {
               let _ = args.SetHandled(false);
               let _ = deferral.Complete();
             }
-            NewWindowResponse::Create { webview } => {
+            NewWindowResponse::Create { handle } => {
               let _ = args.SetHandled(true);
-              let _ = args.SetNewWindow(&webview);
+              let _ = args.SetNewWindow(&handle.0);
               let _ = deferral.Complete();
             }
             NewWindowResponse::Deny => {

@@ -23,6 +23,15 @@ pub enum Error {
      Use WebViewBuilderExtUnix::build_gtk to embed a WebView inside a Wayland application."
   )]
   WaylandNotSupported,
+  #[cfg(gtk)]
+  #[error(
+    "No realized GTK4 window found that owns the given Wayland wl_surface. \
+     The parent window must be a GTK4 toplevel created before the WebView is built — \
+     surfaces from foreign toolkits (e.g. a bare winit window on Wayland) cannot be \
+     matched. Use WebViewBuilderExtUnix::build_gtk to embed a webview into any GTK \
+     widget without requiring the `wayland` feature flag."
+  )]
+  WaylandWindowNotFound,
   #[cfg(all(gtk, feature = "x11"))]
   #[error(transparent)]
   XlibError(#[from] x11_dl::error::OpenError),

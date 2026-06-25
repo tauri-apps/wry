@@ -62,6 +62,20 @@ fn linux_main() -> wry::Result<()> {
     let webview = wry::WebViewBuilder::new()
       .with_url("https://tauri.app")
       .with_devtools(true)
+      .with_drag_drop_handler(|e| {
+        match e {
+          wry::DragDropEvent::Enter { paths, position } => {
+            println!("DragEnter: {position:?} {paths:?}")
+          }
+          wry::DragDropEvent::Over { position } => println!("DragOver: {position:?}"),
+          wry::DragDropEvent::Drop { paths, position } => {
+            println!("DragDrop: {position:?} {paths:?}")
+          }
+          wry::DragDropEvent::Leave => println!("DragLeave"),
+          _ => {}
+        }
+        true
+      })
       .build_gtk(&vbox)
       .unwrap();
 

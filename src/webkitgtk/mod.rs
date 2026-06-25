@@ -43,9 +43,9 @@ use x11_dl::xlib::*;
 pub use web_context::WebContextImpl;
 
 use crate::{
-  proxy::ProxyConfig, web_context::WebContext, Error, NewWindowFeatures, NewWindowOpener,
-  NewWindowResponse, PageLoadEvent, PermissionKind, PermissionResponse, Rect, Result,
-  WebViewAttributes, RGBA,
+  proxy::ProxyConfig, web_context::WebContext, Error, HardwareAccelerationPolicy,
+  NewWindowFeatures, NewWindowOpener, NewWindowResponse, PageLoadEvent, PermissionKind,
+  PermissionResponse, Rect, Result, WebViewAttributes, WebViewHandle, RGBA,
 };
 
 use self::web_context::WebContextExt;
@@ -249,7 +249,10 @@ impl InnerWebView {
     let window = gtk::Window::new();
     window.set_decorated(false);
 
-    let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    let vbox = gtk::Box::builder()
+      .orientation(gtk::Orientation::Vertical)
+      .accessible_role(gtk::AccessibleRole::None)
+      .build();
     window.set_child(Some(&vbox));
 
     // In GTK4, realize the window to allocate its native GDK surface, then
@@ -269,13 +272,12 @@ impl InnerWebView {
     (window, vbox)
   }
 
-  #[cfg(feature = "wayland")]
-  fn scale_factor_wayland(window: &gtk::Window) -> f64 {
-    // gdk4::SurfaceExt::scale() returns fractional f64 but requires gdk4 feature "v4_12".
-    // Fall back to the integer scale_factor until that feature is opted into.
+  fn scale_factor_for_gtk_window(window: &gtk::Window) -> f64 {
     use webkit6::prelude::NativeExt;
+    // GDK 4.12+ returns a fractional f64 scale via surface().scale() for both
+    // X11 (XWayland) and Wayland. Falls back to the integer widget scale factor.
     NativeExt::surface(window)
-      .map(|s| s.scale_factor() as f64)
+      .map(|s| s.scale())
       .unwrap_or_else(|| window.scale_factor() as f64)
   }
 
@@ -319,10 +321,10 @@ impl InnerWebView {
     };
 
     let gtk_window =
-      Self::gtk_window_for_wl_surface(&wl_handle).ok_or(Error::UnsupportedWindowHandle)?;
+      Self::gtk_window_for_wl_surface(&wl_handle).ok_or(Error::WaylandWindowNotFound)?;
 
     if is_child {
-      let scale_factor = Self::scale_factor_wayland(&gtk_window);
+      let scale_factor = Self::scale_factor_for_gtk_window(&gtk_window);
       let (x, y) = attributes
         .bounds
         .map(|b| b.position.to_logical::<i32>(scale_factor))
@@ -349,7 +351,10 @@ impl InnerWebView {
         w
       })
     } else {
-      let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+      let vbox = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .accessible_role(gtk::AccessibleRole::None)
+        .build();
       gtk_window.set_child(Some(&vbox));
 
       Self::new_gtk(&vbox, attributes, pl_attrs).map(|mut w| {
@@ -361,6 +366,25 @@ impl InnerWebView {
         w
       })
     }
+  }
+
+  fn monitors_snapshot(display: &gdk::Display) -> Vec<crate::MonitorInfo> {
+    use gio::prelude::ListModelExt;
+    let model = display.monitors();
+    (0..model.n_items())
+      .filter_map(|i| model.item(i)?.downcast::<gdk::Monitor>().ok())
+      .map(|m| {
+        let geo = m.geometry();
+        crate::MonitorInfo {
+          geometry: Rect {
+            position: dpi::LogicalPosition::new(geo.x(), geo.y()).into(),
+            size: dpi::LogicalSize::new(geo.width(), geo.height()).into(),
+          },
+          scale_factor: m.scale_factor(),
+          model: m.model().map(|s| s.to_string()),
+        }
+      })
+      .collect()
   }
 
   pub fn new_gtk<W>(
@@ -447,9 +471,81 @@ impl InnerWebView {
     // IPC handler
     Self::attach_ipc_handler(webview.clone(), &mut attributes);
 
-    // Drag drop handler
+    // Drag drop handler (incoming drops onto the webview)
     if let Some(drag_drop_handler) = attributes.drag_drop_handler.take() {
       drag_drop::connect_drag_event(&webview, drag_drop_handler);
+    }
+
+    // Drag source handler (outgoing drags from the webview)
+    if let Some(drag_source_handler) = pl_attrs.on_drag_source_handler {
+      drag_drop::connect_drag_source(&webview, drag_source_handler);
+    }
+
+    // Focus handler
+    if let Some(handler) = pl_attrs.on_focus_handler {
+      let handler = std::rc::Rc::new(handler);
+      let focus_ctrl = gtk::EventControllerFocus::new();
+      {
+        let handler = handler.clone();
+        focus_ctrl.connect_enter(move |_| (handler)(true));
+      }
+      focus_ctrl.connect_leave(move |_| (handler)(false));
+      webview.add_controller(focus_ctrl);
+    }
+
+    // Keyboard handler
+    if let Some(handler) = pl_attrs.on_keyboard_handler {
+      let key_ctrl = gtk::EventControllerKey::new();
+      key_ctrl.connect_key_pressed(move |_, keyval, keycode, modifiers| {
+        if handler(glib::translate::IntoGlib::into_glib(keyval), keycode, modifiers) {
+          glib::Propagation::Stop
+        } else {
+          glib::Propagation::Proceed
+        }
+      });
+      webview.add_controller(key_ctrl);
+    }
+
+    // Motion / pointer-enter / pointer-leave handlers
+    let has_motion = pl_attrs.on_motion_handler.is_some()
+      || pl_attrs.on_pointer_enter_handler.is_some()
+      || pl_attrs.on_pointer_leave_handler.is_some();
+    if has_motion {
+      let motion_ctrl = gtk::EventControllerMotion::new();
+      if let Some(handler) = pl_attrs.on_motion_handler {
+        motion_ctrl.connect_motion(move |_, x, y| handler(x, y));
+      }
+      if let Some(handler) = pl_attrs.on_pointer_enter_handler {
+        motion_ctrl.connect_enter(move |_, x, y| handler(x, y));
+      }
+      if let Some(handler) = pl_attrs.on_pointer_leave_handler {
+        motion_ctrl.connect_leave(move |_| handler());
+      }
+      webview.add_controller(motion_ctrl);
+    }
+
+    // Scroll handler (intercept before WebKit)
+    if let Some(handler) = pl_attrs.on_scroll_handler {
+      let scroll_ctrl =
+        gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::BOTH_AXES);
+      scroll_ctrl.connect_scroll(move |_, dx, dy| {
+        if handler(dx, dy) {
+          glib::Propagation::Stop
+        } else {
+          glib::Propagation::Proceed
+        }
+      });
+      webview.add_controller(scroll_ctrl);
+    }
+
+    // Monitor configuration change handler
+    if let Some(handler) = pl_attrs.on_monitors_changed_handler {
+      if let Some(display) = gdk::Display::default() {
+        let display_ = display.clone();
+        display.monitors().connect_items_changed(move |_, _, _, _| {
+          handler(Self::monitors_snapshot(&display_));
+        });
+      }
     }
 
     web_context.register_automation(webview.clone());
@@ -557,11 +653,6 @@ impl InnerWebView {
     attributes: &WebViewAttributes,
     pl_attrs: &super::PlatformSpecificWebViewAttributes,
   ) {
-    // Disable input preedit, fcitx input editor can anchor at edit cursor position
-    if let Some(input_context) = webview.input_method_context() {
-      input_context.set_enable_preedit(false);
-    }
-
     if let Some(settings) = <WebView as webkit6::prelude::WebViewExt>::settings(webview) {
       // Enable webgl, webaudio, canvas features as default.
       settings.set_enable_webgl(true);
@@ -598,7 +689,11 @@ impl InnerWebView {
       }
 
       if let Some(policy) = pl_attrs.hardware_acceleration_policy {
-        settings.set_hardware_acceleration_policy(policy);
+        let wk_policy = match policy {
+          HardwareAccelerationPolicy::Always => webkit6::HardwareAccelerationPolicy::Always,
+          HardwareAccelerationPolicy::Never => webkit6::HardwareAccelerationPolicy::Never,
+        };
+        settings.set_hardware_acceleration_policy(wk_policy);
       }
     }
   }
@@ -649,48 +744,69 @@ impl InnerWebView {
             size: None,
             position: None,
             opener: NewWindowOpener {
-              webview: webview.clone(),
+              handle: WebViewHandle(webview.clone()),
             },
           },
         ) {
           NewWindowResponse::Allow => {
-            let related_webviews = related_webviews.clone();
             let root = webview.root().unwrap();
-            let window = root.downcast::<gtk::ApplicationWindow>().unwrap();
-            let id = window.id();
-            let app = window.application().unwrap();
+            if let Ok(app_window) = root.clone().downcast::<gtk::ApplicationWindow>() {
+              let related_webviews = related_webviews.clone();
+              let id = app_window.id();
+              let app = app_window.application().unwrap();
 
-            let window = gtk::ApplicationWindow::builder()
-              .application(&app)
-              .title(&url)
-              .build();
-            let box_ = gtk::Box::new(gtk::Orientation::Vertical, 0);
-            window.set_child(Some(&box_));
+              let window = gtk::ApplicationWindow::builder()
+                .application(&app)
+                .title(&url)
+                .build();
+              let box_ = gtk::Box::new(gtk::Orientation::Vertical, 0);
+              window.set_child(Some(&box_));
 
-            let related_webviews_ = related_webviews.clone();
-            window.connect_destroy(move |_| {
-              related_webviews_.lock().unwrap().remove(&id);
-            });
+              let related_webviews_ = related_webviews.clone();
+              window.connect_destroy(move |_| {
+                related_webviews_.lock().unwrap().remove(&id);
+              });
 
-            window.show();
-            Self::new_gtk(
-              &box_,
-              WebViewAttributes {
-                ..Default::default()
-              },
-              super::PlatformSpecificWebViewAttributes {
-                related_view: Some(webview.clone()),
-                ..Default::default()
-              },
-            )
-            .map(|webview| {
-              let widget = webview.webview.upcast_ref::<gtk::Widget>().clone();
-              related_webviews.lock().unwrap().insert(id, webview);
-              widget
-            })
-            .ok()
+              window.show();
+              Self::new_gtk(
+                &box_,
+                WebViewAttributes {
+                  ..Default::default()
+                },
+                super::PlatformSpecificWebViewAttributes {
+                  related_view: Some(webview.clone()),
+                  ..Default::default()
+                },
+              )
+              .map(|wv| {
+                let widget = wv.webview.upcast_ref::<gtk::Widget>().clone();
+                related_webviews.lock().unwrap().insert(id, wv);
+                widget
+              })
+              .ok()
+            } else if root.downcast_ref::<gtk::Window>().is_some() {
+              let window = gtk::Window::new();
+              window.set_title(Some(&url));
+              let box_ = gtk::Box::new(gtk::Orientation::Vertical, 0);
+              window.set_child(Some(&box_));
+              window.show();
+              Self::new_gtk(
+                &box_,
+                WebViewAttributes {
+                  ..Default::default()
+                },
+                super::PlatformSpecificWebViewAttributes {
+                  related_view: Some(webview.clone()),
+                  ..Default::default()
+                },
+              )
+              .map(|wv| wv.webview.upcast_ref::<gtk::Widget>().clone())
+              .ok()
+            } else {
+              None
+            }
           }
-          NewWindowResponse::Create { webview } => Some(webview.upcast::<gtk::Widget>()),
+          NewWindowResponse::Create { handle } => Some(handle.0.upcast::<gtk::Widget>()),
           NewWindowResponse::Deny => None,
         }
       });
@@ -819,15 +935,18 @@ impl InnerWebView {
       webview.set_hexpand(true);
       webview.set_vexpand(true);
       box_.append(webview);
+      // Route AT-SPI events directly to WebKit's own accessible tree.
+      box_.set_accessible_role(gtk::AccessibleRole::None);
     } else if let Some(fixed) = container.dynamic_cast_ref::<gtk::Fixed>() {
       // Prefer the root window's surface scale over the not-yet-realized webview's scale.
-      #[cfg(feature = "wayland")]
+      // scale_factor_for_gtk_window works for both X11 (GDK 4.12+) and Wayland.
+      #[cfg(any(feature = "wayland", feature = "x11"))]
       let scale_factor = container
         .root()
         .and_then(|r| r.downcast::<gtk::Window>().ok())
-        .map(|w| Self::scale_factor_wayland(&w))
+        .map(|w| Self::scale_factor_for_gtk_window(&w))
         .unwrap_or_else(|| webview.scale_factor() as f64);
-      #[cfg(not(feature = "wayland"))]
+      #[cfg(not(any(feature = "wayland", feature = "x11")))]
       let scale_factor = webview.scale_factor() as f64;
 
       let (width, height) = attributes
@@ -1068,6 +1187,46 @@ impl InnerWebView {
       .map(|s| PathBuf::from(s.as_str()))
   }
 
+  pub fn write_clipboard_text(&self, text: &str) {
+    if let Some(display) = gdk::Display::default() {
+      display.clipboard().set_text(text);
+    }
+  }
+
+  pub fn read_clipboard_text(&self, callback: impl FnOnce(Option<String>) + 'static) {
+    if let Some(display) = gdk::Display::default() {
+      display
+        .clipboard()
+        .read_text_async(None::<&gio::Cancellable>, move |result| {
+          callback(result.ok().flatten().map(|s| s.to_string()));
+        });
+    } else {
+      callback(None);
+    }
+  }
+
+  pub fn set_cursor_from_name(&self, name: Option<&str>) {
+    self.webview.set_cursor_from_name(name);
+  }
+
+  pub fn write_primary_clipboard_text(&self, text: &str) {
+    if let Some(display) = gdk::Display::default() {
+      display.primary_clipboard().set_text(text);
+    }
+  }
+
+  pub fn read_primary_clipboard_text(&self, callback: impl FnOnce(Option<String>) + 'static) {
+    if let Some(display) = gdk::Display::default() {
+      display
+        .primary_clipboard()
+        .read_text_async(None::<&gio::Cancellable>, move |result| {
+          callback(result.ok().flatten().map(|s| s.to_string()));
+        });
+    } else {
+      callback(None);
+    }
+  }
+
   pub fn bounds(&self) -> Result<Rect> {
     let mut bounds = Rect::default();
 
@@ -1111,7 +1270,7 @@ impl InnerWebView {
   pub fn set_bounds(&self, bounds: Rect) -> Result<()> {
     #[cfg(feature = "wayland")]
     let scale_factor = if let Some(wayland_data) = &self.wayland {
-      Self::scale_factor_wayland(&wayland_data.gtk_window.borrow())
+      Self::scale_factor_for_gtk_window(&wayland_data.gtk_window.borrow())
     } else {
       self.webview.scale_factor() as f64
     };
@@ -1313,101 +1472,75 @@ impl InnerWebView {
   }
 
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
-    let (tx, rx) = std::sync::mpsc::channel();
-    if let Some(cookies_manager) = self
+    let Some(cookies_manager) = self
       .webview
       .network_session()
       .and_then(|ns| ns.cookie_manager())
-    {
-      cookies_manager.cookies(url, None::<&gio::Cancellable>, move |cookies| {
-        let cookies = cookies.map(|cookies| {
-          cookies
-            .into_iter()
-            .map(Self::cookie_from_soup_cookie)
-            .collect()
-        });
-        let _ = tx.send(cookies);
-      })
-    }
+    else {
+      return Ok(Vec::new());
+    };
 
-    loop {
-      glib::MainContext::default().iteration(true);
+    let soup_cookies = glib::MainContext::default()
+      .block_on(cookies_manager.cookies_future(url))
+      .map_err(crate::Error::from)?;
 
-      if let Ok(response) = rx.try_recv() {
-        return response.map_err(Into::into);
-      }
-    }
+    Ok(
+      soup_cookies
+        .into_iter()
+        .map(Self::cookie_from_soup_cookie)
+        .collect(),
+    )
   }
 
   pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {
-    let (tx, rx) = std::sync::mpsc::channel();
-    if let Some(cookies_manager) = self
+    let Some(cookies_manager) = self
       .webview
       .network_session()
       .and_then(|ns| ns.cookie_manager())
-    {
-      cookies_manager.all_cookies(None::<&gio::Cancellable>, move |cookies| {
-        let cookies = cookies.map(|cookies| {
-          cookies
-            .into_iter()
-            .map(Self::cookie_from_soup_cookie)
-            .collect()
-        });
-        let _ = tx.send(cookies);
-      })
-    }
+    else {
+      return Ok(Vec::new());
+    };
 
-    loop {
-      glib::MainContext::default().iteration(true);
+    let soup_cookies = glib::MainContext::default()
+      .block_on(cookies_manager.all_cookies_future())
+      .map_err(crate::Error::from)?;
 
-      if let Ok(response) = rx.try_recv() {
-        return response.map_err(Into::into);
-      }
-    }
+    Ok(
+      soup_cookies
+        .into_iter()
+        .map(Self::cookie_from_soup_cookie)
+        .collect(),
+    )
   }
 
   pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
-    let (tx, rx) = std::sync::mpsc::channel();
-    if let Some(cookies_manager) = self
+    let Some(cookies_manager) = self
       .webview
       .network_session()
       .and_then(|ns| ns.cookie_manager())
-    {
-      let soup_cookie = Self::cookie_into_soup_cookie(cookie);
-      cookies_manager.add_cookie(&soup_cookie, None::<&gio::Cancellable>, move |ret| {
-        let _ = tx.send(ret);
-      });
-    }
+    else {
+      return Ok(());
+    };
 
-    loop {
-      glib::MainContext::default().iteration(true);
-
-      if let Ok(response) = rx.try_recv() {
-        return response.map_err(Into::into);
-      }
-    }
+    let soup_cookie = Self::cookie_into_soup_cookie(cookie);
+    glib::MainContext::default()
+      .block_on(cookies_manager.add_cookie_future(&soup_cookie))
+      .map_err(crate::Error::from)
   }
 
   pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
-    let (tx, rx) = std::sync::mpsc::channel();
-    if let Some(cookies_manager) = self
+    let Some(cookies_manager) = self
       .webview
       .network_session()
       .and_then(|ns| ns.cookie_manager())
-    {
-      let soup_cookie = Self::cookie_into_soup_cookie(cookie);
-      cookies_manager.delete_cookie(&soup_cookie, None::<&gio::Cancellable>, move |ret| {
-        let _ = tx.send(ret);
-      });
-    }
+    else {
+      return Ok(());
+    };
 
-    loop {
-      glib::MainContext::default().iteration(true);
-
-      if let Ok(response) = rx.try_recv() {
-        return response.map_err(Into::into);
-      }
-    }
+    let soup_cookie = Self::cookie_into_soup_cookie(cookie);
+    glib::MainContext::default()
+      .block_on(cookies_manager.delete_cookie_future(&soup_cookie))
+      .map_err(crate::Error::from)
   }
 
   pub fn reparent<W>(&self, container: &W) -> Result<()>
@@ -1453,7 +1586,7 @@ impl InnerWebView {
       let new_handle = window.window_handle()?;
       if let RawWindowHandle::Wayland(h) = new_handle.as_raw() {
         let new_gtk_window =
-          Self::gtk_window_for_wl_surface(&h).ok_or(Error::UnsupportedWindowHandle)?;
+          Self::gtk_window_for_wl_surface(&h).ok_or(Error::WaylandWindowNotFound)?;
 
         self.webview.unparent();
 

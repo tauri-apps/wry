@@ -9,6 +9,20 @@
   - [Wayland Native Embedding](#wayland-native-embedding)
   - [Streaming](#streaming)
   - [Permission Handler](#permission-handler)
+  - [Theme / Dark Mode](#theme--dark-mode)
+  - [Focus Handler](#focus-handler)
+  - [Keyboard Handler](#keyboard-handler)
+  - [Clipboard](#clipboard)
+  - [Drag Source](#drag-source-outgoing-drags)
+  - [Pointer Motion / Enter / Leave](#pointer-motion--enter--leave)
+  - [Scroll Interception](#scroll-interception)
+  - [Cursor Control](#cursor-control)
+  - [Primary Clipboard (X11 Selection)](#primary-clipboard-x11-selection)
+  - [Monitor Change Notifications](#monitor-change-notifications)
+  - [Web Process Crash Handler](#web-process-crash-handler)
+  - [Isolated Data Directory](#isolated-data-directory)
+  - [Cookie Accept Policy](#cookie-accept-policy)
+  - [Data Directory Accessor](#data-directory-accessor)
 - [Known Issues](#known-issues)
   - [GLIBC_PRIVATE symbol error](#glibc_private-symbol-error)
   - [NeedDebuggerBreak trap in stderr](#needdebuggerbeak-trap-in-stderr)
@@ -84,6 +98,21 @@ cargo run --example winit
 
 ## Feature Notes
 
+### IME / CJK Input (Fcitx5, IBus)
+
+GTK4 routes input-method events through the `GtkEventControllerKey` pipeline. wry no longer
+calls `set_enable_preedit(false)` — a workaround that was introduced for the GTK3/WebKitGTK
+cursor-anchor bug (WebKit bug 218148) where the IME popup drifted to the top-left corner of
+the screen. That bug was fixed upstream in WebKitGTK 2.44 (May 2024). Removing the workaround
+restores inline preedit composition (the composing-character preview) for all CJK users on
+both Fcitx5 and IBus, and eliminates the Fcitx/Fcitx5 regression where the first character
+of subsequent words was silently dropped when preedit was disabled (Mozilla bug #1742039).
+
+No special configuration is required — Fcitx5 and IBus inline composition work out of the
+box on webkitgtk-6.0 ≥ 2.44.
+
+---
+
 ### Wayland Native Embedding
 
 Enable with `--features wayland` (mirrors the existing `x11` feature). Both can be active
@@ -100,8 +129,10 @@ wry = { version = "...", features = ["wayland"] }
 `RawWindowHandle::Wayland` handle. The backend locates the `GtkWindow` that owns the
 given `wl_surface` by iterating `gtk::Window::list_toplevels()` and comparing raw surface
 pointers via `gdk_wayland_surface_get_wl_surface`. This means **the parent window must
-be a GTK4 window** — a raw winit or foreign-toolkit surface will not be found and will
-return `Error::UnsupportedWindowHandle`.
+be a realized GTK4 window** — a raw winit or foreign-toolkit surface will not be found
+and will return `Error::WaylandWindowNotFound`. Common causes of this error: the
+`wl_surface` comes from a non-GTK toolkit, `gtk4::init()` was not called before creating
+the webview, or the GTK4 window was not yet realized/shown.
 
 **Child mode** (`new_as_child`): finds-or-creates a `GtkFixed` as the root window's child
 widget and places the WebView at `bounds.position`. `set_bounds()` uses `GtkFixed::move_`
@@ -130,24 +161,49 @@ let webview = WebViewBuilder::new_as_child(&parent)
 
 **HiDPI / Scaling:**
 
-Scale-factor conversion in `set_bounds()` and `bounds()` uses the GDK surface's integer
-`scale_factor`. Compositors that advertise a fractional scale via the `wp-fractional-scale-v1`
-protocol (e.g. 1.25×) will have their fractional part truncated until `gdk4/v4_12` is opted
-into as an optional feature (provides `gdk4::SurfaceExt::scale() -> f64`). For integer scale
-factors (1×, 2×) the current implementation is exact.
+Scale-factor conversion in `set_bounds()` and `bounds()` uses `gdk4::SurfaceExt::scale()`
+which returns a fractional `f64` (available since GDK 4.12). The `gdk4/v4_12` feature is
+always enabled, so fractional-scale compositors (e.g. GNOME 45+ at 1.25×, 1.5×) are handled
+correctly. On systems running GDK < 4.12 the library falls back to the integer
+`scale_factor`, which is exact for 1× and 2× scaling.
 
 **Limitations:**
 
 | Limitation | Reason |
 |---|---|
 | Parent must be a GTK4 window | `wl_surface` lookup iterates GTK toplevels only |
-| Fractional scaling requires GDK 4.12 | `scale()` returning `f64` is gated behind `gdk4/v4_12` |
 | Cross-process surface embedding | Wayland `xdg-foreign-unstable-v2` has no GTK4 binding |
 | `wl_subsurface` for non-GTK parents | GDK4 does not expose `wl_subcompositor` publicly |
 | winit surfaces without GTK display backend | `wl_surface` not registered in the GDK display |
 
 For Wayland-capable apps that already own GTK4 windows, use `build_gtk` directly —
 it avoids the surface-lookup overhead and works on both X11 and Wayland without a feature flag.
+
+---
+
+### Advancing the GTK Event Loop
+
+When integrating wry with a non-GTK windowing library (e.g. winit), GLib/GTK events must
+be drained once per outer-loop iteration. The helper `wry::pump_platform_events()` does this:
+
+```rust
+fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+    wry::pump_platform_events();
+}
+```
+
+Without this call, network requests, rendering callbacks, IPC messages, and JavaScript
+timers will stall. Internally it is equivalent to:
+
+```rust
+// Manual equivalent — shown for reference only
+while gtk4::glib::MainContext::default().iteration(false) {}
+```
+
+Use `wry::pump_platform_events()` in preference to the manual form; it is exported only on
+Linux/BSD (the `#[cfg(gtk)]` target) so no `#[cfg]` guard is needed in cross-platform code
+when targeting only those platforms, but you will still need `#[cfg(target_os = "linux")]`
+if your binary must also compile on Windows/macOS.
 
 ---
 
@@ -260,9 +316,248 @@ let webview = WebViewBuilder::new()
 ```
 
 WebKitGTK reads GTK4's `gtk-application-prefer-dark-theme` display setting to set
-`prefers-color-scheme`. Because this is display-wide, `with_theme` affects all GTK
-widgets in the process. For most wry-based apps (a single fullscreen webview) this is
-the desired behaviour. `Theme::Auto` is a no-op — the system/desktop preference is used.
+`prefers-color-scheme`. `Theme::Auto` is a no-op — the system/desktop preference is used.
+
+> **Warning — process-wide side effect.** `with_theme` calls
+> `gtk::Settings::set_gtk_application_prefer_dark_theme()`, which is a **GDK
+> display-level** property. It affects every GTK widget in the process for the
+> lifetime of the display — not just the webview being built. If you create
+> multiple webviews with different themes, the last call wins for the entire
+> process. This is the intended behaviour for most wry applications (a single
+> fullscreen webview per process), but be aware of the side effect when mixing
+> native GTK widgets with wry webviews.
+
+**Per-page colour scheme without the display-wide effect**
+
+If you need to override `prefers-color-scheme` for a single page without changing the
+GTK display setting, inject a CSS init script instead:
+
+```rust
+let webview = WebViewBuilder::new()
+    .with_initialization_script(
+        "document.documentElement.style.colorScheme = 'dark';"
+    )
+    .build_gtk(&vbox)?;
+```
+
+This sets the CSS `color-scheme` property on the root element, which causes most
+frameworks (Tailwind, shadcn/ui, …) to switch to dark mode via their own CSS variables,
+without touching any GTK setting.
+
+---
+
+### Focus Handler
+
+Use `with_focus_handler` (from `WebViewBuilderExtUnix`) to be notified when the webview
+gains or loses keyboard focus:
+
+```rust
+use wry::WebViewBuilderExtUnix;
+
+let webview = WebViewBuilder::new()
+    .with_focus_handler(|focused| {
+        if focused {
+            println!("webview gained focus");
+        } else {
+            println!("webview lost focus");
+        }
+    })
+    .build_gtk(&vbox)?;
+```
+
+The handler receives `true` on focus-in and `false` on focus-out. It is implemented via
+GTK4's `GtkEventControllerFocus` and is Linux/BSD only.
+
+---
+
+### Keyboard Handler
+
+Use `with_keyboard_handler` (from `WebViewBuilderExtUnix`) to intercept key-press events
+before WebKit processes them:
+
+```rust
+use wry::WebViewBuilderExtUnix;
+use webkit6::gdk::ModifierType;
+
+let webview = WebViewBuilder::new()
+    .with_keyboard_handler(|keyval, _keycode, modifiers| {
+        if modifiers.contains(ModifierType::CONTROL_MASK) && keyval == b'r' as u32 {
+            println!("Ctrl+R intercepted");
+            return true; // consume — WebKit does not see this event
+        }
+        false // propagate normally
+    })
+    .build_gtk(&vbox)?;
+```
+
+Return `true` to consume the event (WebKit will not receive it); return `false` to let it
+propagate. The `keyval` is the raw GDK keysym as a `u32`. Linux/BSD only.
+
+---
+
+### Clipboard
+
+**Write** (synchronous, no JS required):
+
+```rust
+use wry::WebViewExtUnix;
+
+webview.write_clipboard_text("hello from wry");
+```
+
+**Read** (asynchronous callback, fires on the GLib main context):
+
+```rust
+use wry::WebViewExtUnix;
+
+webview.read_clipboard_text(|text| {
+    match text {
+        Some(s) => println!("clipboard: {s}"),
+        None    => println!("clipboard empty or unavailable"),
+    }
+});
+```
+
+Neither method requires `with_clipboard(true)` or a JS round-trip. Linux/BSD only.
+
+---
+
+### Drag Source (outgoing drags)
+
+Use `with_drag_source_handler` (from `WebViewBuilderExtUnix`) to let the webview initiate
+drags to other applications:
+
+```rust
+use wry::WebViewBuilderExtUnix;
+
+let webview = WebViewBuilder::new()
+    .with_drag_source_handler(|x, y| {
+        println!("drag started at ({x}, {y})");
+        Some("dragged text content".to_string()) // None cancels the drag
+    })
+    .build_gtk(&vbox)?;
+```
+
+The handler receives the pointer position where the drag began and should return the text
+to drag, or `None` to cancel. Implemented via GTK4's `GtkDragSource`. Linux/BSD only;
+text-only in this initial implementation.
+
+---
+
+### Pointer Motion / Enter / Leave
+
+Use `WebViewBuilderExtUnix` to receive pointer-motion and crossing events from the webview
+widget without injecting JavaScript. All three handlers are independent and optional.
+
+```rust
+use wry::WebViewBuilderExtUnix;
+
+let webview = WebViewBuilder::new()
+    .with_motion_handler(|x, y| {
+        println!("pointer at ({x:.1}, {y:.1})");
+    })
+    .with_pointer_enter_handler(|x, y| {
+        println!("pointer entered at ({x:.1}, {y:.1})");
+    })
+    .with_pointer_leave_handler(|| {
+        println!("pointer left webview");
+    })
+    .build_gtk(&vbox)?;
+```
+
+Coordinates are in widget-local logical pixels. Implemented via `GtkEventControllerMotion`.
+**Linux/BSD only.**
+
+---
+
+### Scroll Interception
+
+Use `WebViewBuilderExtUnix::with_scroll_handler` to intercept scroll events before WebKit
+processes them. Return `true` to consume (suppress) the event; `false` to let it pass through.
+
+```rust
+use wry::WebViewBuilderExtUnix;
+
+let webview = WebViewBuilder::new()
+    .with_scroll_handler(|dx, dy| {
+        println!("scroll delta ({dx:.2}, {dy:.2})");
+        false // let WebKit handle it
+    })
+    .build_gtk(&vbox)?;
+```
+
+`delta_x` and `delta_y` are in scroll units (positive = right/down). Useful for implementing
+custom scroll-to-zoom or intercepting horizontal scroll for tab switching. Implemented via
+`GtkEventControllerScroll` with `BOTH_AXES`. **Linux/BSD only.**
+
+---
+
+### Cursor Control
+
+Use `WebViewExtUnix::set_cursor_from_name` to override the GTK cursor shown over the webview
+widget, independently of any CSS `cursor:` properties on the page:
+
+```rust
+use wry::WebViewExtUnix;
+
+// set a custom cursor
+webview.set_cursor_from_name(Some("crosshair"));
+
+// restore default browser cursor
+webview.set_cursor_from_name(None);
+```
+
+Accepts any named CSS cursor string (`"grab"`, `"zoom-in"`, `"not-allowed"`, etc.).
+Uses `gtk::Widget::set_cursor_from_name` (GTK 4.0+). **Linux/BSD only.**
+
+---
+
+### Primary Clipboard (X11 Selection)
+
+Use `WebViewExtUnix` to read and write the X11 primary selection — the clipboard
+populated on text selection and pasted with middle-click:
+
+```rust
+use wry::WebViewExtUnix;
+
+// write to primary selection
+webview.write_primary_clipboard_text("selected text");
+
+// read from primary selection (async)
+webview.read_primary_clipboard_text(|text| {
+    println!("primary: {:?}", text);
+});
+```
+
+On Wayland compositors, write access is restricted by the compositor security policy and the
+read callback will typically receive `None`. Uses `GdkDisplay::primary_clipboard`.
+**Linux/BSD only.**
+
+---
+
+### Monitor Change Notifications
+
+Use `WebViewBuilderExtUnix::with_monitors_changed_handler` to be notified when the monitor
+configuration changes (monitor connected, disconnected, or reconfigured):
+
+```rust
+use wry::{WebViewBuilderExtUnix, MonitorInfo};
+
+let webview = WebViewBuilder::new()
+    .with_monitors_changed_handler(|monitors: Vec<MonitorInfo>| {
+        for m in &monitors {
+            println!(
+                "monitor {:?}: {:?} @{}x",
+                m.model, m.geometry, m.scale_factor
+            );
+        }
+    })
+    .build_gtk(&vbox)?;
+```
+
+`MonitorInfo` exposes `geometry` (logical-pixel `Rect`), `scale_factor` (`i32`), and
+`model` (`Option<String>`). The handler fires on `GListModel::items-changed` from
+`GdkDisplay::monitors()`. **Linux/BSD only.**
 
 ---
 
@@ -342,6 +637,25 @@ The three variants mirror the underlying WebKitGTK enum:
 | `CookieAcceptPolicy::Always` | Accept all cookies (WebKit default) |
 | `CookieAcceptPolicy::Never` | Reject all cookies |
 | `CookieAcceptPolicy::NoThirdParty` | Accept only first-party cookies |
+
+#### Cookie API — blocking behaviour on Linux
+
+`WebView::cookies()`, `WebView::cookies_for_url()`, `WebView::set_cookie()`, and
+`WebView::delete_cookie()` use `glib::MainContext::block_on` to drive the async WebKit
+cookie operation to completion. This is the same mechanism GTK uses for modal dialogs —
+a nested `GMainLoop` is started on the current main context and runs until the future
+resolves, then exits cleanly.
+
+- **They block the calling thread** until the WebKit network process responds. For typical
+  cookie operations this is imperceptible.
+- **They must be called from the GLib main-context thread** (i.e. the UI / main thread).
+  Calling them from a thread that does not own the default main context will panic.
+- **Calling them from inside a GLib callback is safe** — `block_on` starts a nested event
+  loop, so other GLib sources (UI events, IPC, timers) continue to be dispatched while
+  waiting. This is identical to how GTK modal dialogs behave.
+
+If you need cookie access from a background thread, dispatch the call to the main thread
+using `glib::MainContext::default().spawn()` and receive the result via a channel.
 
 ---
 

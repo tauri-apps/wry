@@ -15,7 +15,8 @@ You can use a windowing library like [`tao`] or [`winit`].
 
 ### Examples
 
-This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only).
+This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android,
+Linux X11 (with `--features x11`) and Linux Wayland (with `--features wayland`).
 See the following example using [`winit`]:
 
 ```rust
@@ -66,7 +67,7 @@ let webview = {
 ### Child webviews
 
 You can use [`WebViewBuilder::build_as_child`] to create the webview as a child inside another window. This is supported on
-macOS, Windows and Linux (X11 Only).
+macOS, Windows, Linux X11 (with `--features x11`) and Linux Wayland (with `--features wayland`).
 
 ```rust
 #[derive(Default)]
@@ -133,7 +134,7 @@ Here is the underlying web engine each platform uses, and some dependencies you 
 [WebKitGTK](https://webkitgtk.org/) is used to provide webviews on Linux which requires GTK4,
 so if the windowing library doesn't support GTK (as in [`winit`])
 you'll need to call [`gtk4::init`] before creating the webview and then pump GTK events alongside
-your windowing library event loop using [`gtk4::glib::MainContext::default()`].
+your windowing library event loop using [`wry::pump_platform_events`].
 
 ```rust
 #[derive(Default)]
@@ -154,10 +155,10 @@ impl ApplicationHandler for App {
 
   fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {}
 
-  // Advance GTK event loop <!----- IMPORTANT
+  // Advance GTK event loop — IMPORTANT on Linux
   fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
     #[cfg(target_os = "linux")]
-    while gtk4::glib::MainContext::default().iteration(false) {}
+    wry::pump_platform_events();
   }
 }
 
@@ -288,7 +289,7 @@ Wry uses a set of feature flags to toggle several advanced features.
 - `fullscreen`: Fullscreen video and other media on **macOS** requires calling private functions.
   Avoid this in release build if your app needs to publish to App Store.
 - `linux-body` *(enabled by default)*: Enables body support of custom protocol request on Linux. Requires
-  WebKit2GTK v2.40 or above. Without this feature, `request.body()` always returns an empty slice on Linux.
+  WebKitGTK 6.x (always satisfied by the gtk4-webkit6 backend). Without this feature, `request.body()` always returns an empty slice on Linux.
 - `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler`, and `custom_protocols`.
 
 ### Partners

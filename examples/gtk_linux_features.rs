@@ -63,8 +63,8 @@ fn linux_main() -> wry::Result<()> {
   use std::rc::Rc;
 
   use gtk4::prelude::*;
-  use webkit6::{prelude::WebViewExt as WebKitViewExt, HardwareAccelerationPolicy};
-  use wry::{Theme, WebViewBuilderExtUnix, WebViewExtUnix};
+  use webkit6::prelude::WebViewExt as WebKitViewExt;
+  use wry::{HardwareAccelerationPolicy, Theme, WebViewBuilderExtUnix, WebViewExtUnix};
 
   let app = gtk4::Application::new(None::<&str>, Default::default());
 
