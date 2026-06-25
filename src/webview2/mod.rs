@@ -821,7 +821,7 @@ impl InnerWebView {
                 position,
                 size,
                 opener: NewWindowOpener {
-                  handle: WebViewHandle(webview.clone()),
+                  webview: WebViewHandle(webview.clone()),
                   environment: env_.clone(),
                 },
               }
@@ -830,7 +830,7 @@ impl InnerWebView {
               position: None,
               size: None,
               opener: NewWindowOpener {
-                webview: webview.clone(),
+                webview: WebViewHandle(webview.clone()),
                 environment: env_.clone(),
               },
             });
@@ -845,9 +845,9 @@ impl InnerWebView {
               let _ = args.SetHandled(false);
               let _ = deferral.Complete();
             }
-            NewWindowResponse::Create { handle } => {
+            NewWindowResponse::Create { webview } => {
               let _ = args.SetHandled(true);
-              let _ = args.SetNewWindow(&handle.0);
+              let _ = args.SetNewWindow(&webview.0);
               let _ = deferral.Complete();
             }
             NewWindowResponse::Deny => {

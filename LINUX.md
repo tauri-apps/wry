@@ -20,6 +20,7 @@
   - [Primary Clipboard (X11 Selection)](#primary-clipboard-x11-selection)
   - [Monitor Change Notifications](#monitor-change-notifications)
   - [Web Process Crash Handler](#web-process-crash-handler)
+  - [New Window Requests](#new-window-requests)
   - [Isolated Data Directory](#isolated-data-directory)
   - [Cookie Accept Policy](#cookie-accept-policy)
   - [Data Directory Accessor](#data-directory-accessor)
@@ -589,6 +590,52 @@ webview.webview().connect_web_process_terminated(|_, reason| {
     eprintln!("terminated: {reason:?}");
 });
 ```
+
+---
+
+### New Window Requests
+
+Use `WebViewBuilder::with_new_window_req_handler` to intercept `window.open()` calls and
+`<a target="_blank">` navigations. The handler receives a `NewWindowFeatures` struct that
+includes a `NewWindowOpener` with a `webview: WebViewHandle` field pointing to the opener.
+
+On Linux, pass `opener.webview` to `WebViewBuilderExtUnix::with_related_view` so the new
+webview shares the same WebKit web process as the opener:
+
+```rust
+use wry::{WebViewBuilder, WebViewBuilderExtUnix, NewWindowResponse};
+
+let webview = WebViewBuilder::new()
+    .with_url("https://tauri.app")
+    .with_new_window_req_handler(|url, features| {
+        let opener = features.opener;
+        // Spawn the new window, then build the webview sharing the opener's web process
+        let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        let window = gtk4::Window::builder().child(&vbox).build();
+        window.present();
+
+        let new_webview = WebViewBuilder::new()
+            .with_url(&url)
+            .with_related_view(opener.webview) // share web process with opener
+            .build_gtk(&vbox)
+            .unwrap();
+
+        NewWindowResponse::Deny // wry won't open its own window; we handled it above
+    })
+    .build_gtk(&vbox)?;
+```
+
+To hand the new webview back to WebKit instead (letting it manage the relationship), use
+`NewWindowResponse::Create { webview: handle }` where `handle` is the `WebViewHandle` of the
+newly-built webview:
+
+```rust
+NewWindowResponse::Create { webview: new_webview.into_handle() }
+```
+
+> **Note:** `opener.webview` holds a `WebViewHandle` — an opaque wrapper around the
+> platform webview. On Linux you can access the underlying `webkit6::WebView` via the
+> `WebViewHandleExtUnix` trait: `opener.webview.as_webkit6_webview()`.
 
 ---
 

@@ -569,7 +569,7 @@ pub enum NewWindowResponse {
   /// **macOS**: The webview must use the same configuration as the caller webview. See [`WebViewBuilderExtMacos::with_webview_configuration`].
   #[cfg(not(any(target_os = "android", target_os = "ios")))]
   Create {
-    handle: WebViewHandle,
+    webview: WebViewHandle,
   },
   /// Deny the window from being opened.
   Deny,
@@ -584,7 +584,7 @@ pub struct NewWindowOpener {
   /// the new webview. On Windows, use the `environment` field. On macOS, use
   /// `target_configuration`.
   #[cfg(not(any(target_os = "android", target_os = "ios")))]
-  pub handle: WebViewHandle,
+  pub webview: WebViewHandle,
   /// The environment of the opener webview (Windows only).
   ///
   /// The target webview environment **MUST** match the environment of the opener. See [`WebViewBuilderExtWindows::with_environment`].
@@ -2291,8 +2291,8 @@ pub trait WebViewBuilderExtUnix<'a> {
 
   /// Creates a new webview sharing the same web process as the opener.
   ///
-  /// Pass the [`WebViewHandle`] obtained from [`NewWindowOpener::handle`].
-  fn with_related_view(self, handle: WebViewHandle) -> Self;
+  /// Pass the [`WebViewHandle`] obtained from [`NewWindowOpener::webview`].
+  fn with_related_view(self, webview: WebViewHandle) -> Self;
 
   /// Set a handler closure to respond to web content process termination.
   ///
@@ -2431,8 +2431,8 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
     self
   }
 
-  fn with_related_view(mut self, handle: WebViewHandle) -> Self {
-    self.platform_specific.related_view.replace(handle.0);
+  fn with_related_view(mut self, webview: WebViewHandle) -> Self {
+    self.platform_specific.related_view.replace(webview.0);
     self
   }
 

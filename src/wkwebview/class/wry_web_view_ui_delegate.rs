@@ -246,7 +246,7 @@ define_class!(
               None
             },
             opener: NewWindowOpener {
-              handle: WebViewHandle(webview.into()),
+              webview: WebViewHandle(webview.into()),
               target_configuration: configuration.into(),
             },
           },
@@ -325,7 +325,7 @@ define_class!(
 
             Some(webview)
           }
-          NewWindowResponse::Create { handle } => Some(handle.0),
+          NewWindowResponse::Create { webview } => Some(webview.0),
           NewWindowResponse::Deny => None,
         }
       } else {

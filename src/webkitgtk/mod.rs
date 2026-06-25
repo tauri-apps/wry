@@ -744,7 +744,7 @@ impl InnerWebView {
             size: None,
             position: None,
             opener: NewWindowOpener {
-              handle: WebViewHandle(webview.clone()),
+              webview: WebViewHandle(webview.clone()),
             },
           },
         ) {
@@ -806,7 +806,7 @@ impl InnerWebView {
               None
             }
           }
-          NewWindowResponse::Create { handle } => Some(handle.0.upcast::<gtk::Widget>()),
+          NewWindowResponse::Create { webview } => Some(webview.0.upcast::<gtk::Widget>()),
           NewWindowResponse::Deny => None,
         }
       });
