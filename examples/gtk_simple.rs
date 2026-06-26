@@ -53,7 +53,7 @@ fn linux_main() -> wry::Result<()> {
 
     let window = gtk4::ApplicationWindow::new(app);
     window.set_title(Some("Simple (GTK4 / Wayland)"));
-    window.set_default_size(800, 600);
+    window.set_default_size(1280, 800);
 
     let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     window.set_child(Some(&vbox));

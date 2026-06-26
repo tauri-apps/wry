@@ -48,14 +48,17 @@ fn linux_main() -> wry::Result<()> {
     //   ├── top_row    (hbox: wv1 | wv2)
     //   └── bottom_row (hbox: wv3 | wv4)
     let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    vbox.set_homogeneous(true);
     window.set_child(Some(&vbox));
 
     let top_row = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
     top_row.set_vexpand(true);
+    top_row.set_homogeneous(true);
     vbox.append(&top_row);
 
     let bottom_row = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
     bottom_row.set_vexpand(true);
+    bottom_row.set_homogeneous(true);
     vbox.append(&bottom_row);
 
     window.present();
