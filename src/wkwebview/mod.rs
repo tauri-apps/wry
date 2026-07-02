@@ -109,7 +109,8 @@ static COUNTER: Counter = Counter::new();
 static WEBVIEW_STATE: Lazy<RwLock<HashMap<String, WebViewState>>> = Lazy::new(Default::default);
 
 struct WebViewState {
-  pub protocol_ptrs: Vec<Rc<dyn Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder)>>,
+  pub protocol_ptrs:
+    Vec<Rc<dyn Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + Send + Sync>>,
 }
 
 unsafe impl Send for WebViewState {}

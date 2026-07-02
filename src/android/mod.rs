@@ -21,7 +21,7 @@ use raw_window_handle::HasWindowHandle;
 use std::{
   borrow::Cow,
   collections::HashMap,
-  sync::{mpsc::channel, Mutex},
+  sync::{mpsc::channel, Arc, Mutex},
   time::Duration,
 };
 
@@ -70,7 +70,7 @@ macro_rules! define_static_handlers {
 
 define_static_handlers! {
   IPC = UnsafeIpc { handler: Box<dyn Fn(Request<String>)> };
-  REQUEST_HANDLER = UnsafeRequestHandler { handler:  Box<dyn Fn(&str, Request<Vec<u8>>, bool) -> Option<HttpResponse<Cow<'static, [u8]>>>> };
+  REQUEST_HANDLER = UnsafeRequestHandler { handler: Arc<dyn Fn(&str, Request<Vec<u8>>, bool) -> Option<HttpResponse<Cow<'static, [u8]>>> + Send + Sync> };
   TITLE_CHANGE_HANDLER = UnsafeTitleHandler { handler: Box<dyn Fn(String)> };
   URL_LOADING_OVERRIDE = UnsafeUrlLoadingOverride { handler: Box<dyn Fn(String) -> bool> };
   ON_LOAD_HANDLER = UnsafeOnPageLoadHandler { handler: Box<dyn Fn(PageLoadEvent, String)> };
@@ -228,7 +228,7 @@ impl InnerWebView {
     let initialization_scripts_ = initialization_scripts.clone();
     REQUEST_HANDLER.lock().unwrap().insert(
       id.clone(),
-      UnsafeRequestHandler::new(Box::new(
+      UnsafeRequestHandler::new(Arc::new(
         move |webview_id, mut request, is_document_start_script_enabled| {
           let uri = request.uri().to_string();
           let (custom_protocol, custom_protocol_handler) =

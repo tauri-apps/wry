@@ -115,8 +115,12 @@ fn handle_request(
   let webview_id = env.get_string(&webview_id)?;
   let webview_id = webview_id.to_str().unwrap_or_default();
 
-  let request_handlers = REQUEST_HANDLER.lock().unwrap();
-  let Some(handler) = request_handlers.get(webview_id) else {
+  let Some(handler) = REQUEST_HANDLER
+    .lock()
+    .unwrap()
+    .get(webview_id)
+    .map(|handler| handler.handler.clone())
+  else {
     return Ok(*JObject::null());
   };
 
@@ -183,7 +187,7 @@ fn handle_request(
   let response = {
     #[cfg(feature = "tracing")]
     let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
-    (handler.handler)(
+    handler(
       webview_id,
       final_request,
       is_document_start_script_enabled != 0,
