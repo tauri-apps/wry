@@ -448,6 +448,28 @@ impl<'a> MainPipe<'a> {
           reload(&mut self.env, webview.as_obj())?;
         }
       }
+      WebViewMessage::GoForward => {
+        if let Some(webview) = get_webview(activity_id) {
+          go_forward(&mut self.env, webview.as_obj())?;
+        }
+      }
+      WebViewMessage::GoBack => {
+        if let Some(webview) = get_webview(activity_id) {
+          go_back(&mut self.env, webview.as_obj())?;
+        }
+      }
+      WebViewMessage::CanGoForward(tx) => {
+        if let Some(webview) = get_webview(activity_id) {
+          tx.send(can_go_forward(&mut self.env, webview.as_obj())?)
+            .unwrap();
+        }
+      }
+      WebViewMessage::CanGoBack(tx) => {
+        if let Some(webview) = get_webview(activity_id) {
+          tx.send(can_go_back(&mut self.env, webview.as_obj())?)
+            .unwrap();
+        }
+      }
       WebViewMessage::GetCookies(tx, url) => {
         if let Some(webview) = get_webview(activity_id) {
           let url = self.env.new_string(url)?;
@@ -545,6 +567,24 @@ fn reload<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>) -> JniResult<()> {
   Ok(())
 }
 
+fn go_forward<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>) -> JniResult<()> {
+  env.call_method(webview, "goForward", "()V", &[])?;
+  Ok(())
+}
+
+fn go_back<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>) -> JniResult<()> {
+  env.call_method(webview, "goBack", "()V", &[])?;
+  Ok(())
+}
+
+fn can_go_forward<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>) -> JniResult<bool> {
+  Ok(env.call_method(webview, "canGoForward", "()Z", &[])?.z()?)
+}
+
+fn can_go_back<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>) -> JniResult<bool> {
+  Ok(env.call_method(webview, "canGoBack", "()Z", &[])?.z()?)
+}
+
 fn set_background_color<'a>(
   env: &mut JNIEnv<'a>,
   webview: &JObject<'a>,
@@ -566,6 +606,10 @@ pub(crate) enum WebViewMessage {
   LoadUrl(String, Option<http::HeaderMap>),
   LoadHtml(String),
   Reload,
+  GoForward,
+  GoBack,
+  CanGoForward(Sender<bool>),
+  CanGoBack(Sender<bool>),
   ClearAllBrowsingData,
   OnDestroy {
     activity_id: ActivityId,

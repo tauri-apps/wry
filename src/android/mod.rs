@@ -409,6 +409,28 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn go_forward(&self) -> Result<()> {
+    MainPipe::send(self.activity_id, WebViewMessage::GoForward);
+    Ok(())
+  }
+
+  pub fn go_back(&self) -> Result<()> {
+    MainPipe::send(self.activity_id, WebViewMessage::GoBack);
+    Ok(())
+  }
+
+  pub fn can_go_forward(&self) -> Result<bool> {
+    let (tx, rx) = bounded(1);
+    MainPipe::send(self.activity_id, WebViewMessage::CanGoForward(tx));
+    rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
+  }
+
+  pub fn can_go_back(&self) -> Result<bool> {
+    let (tx, rx) = bounded(1);
+    MainPipe::send(self.activity_id, WebViewMessage::CanGoBack(tx));
+    rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
+  }
+
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     MainPipe::send(self.activity_id, WebViewMessage::ClearAllBrowsingData);
     Ok(())

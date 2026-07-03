@@ -897,6 +897,24 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn go_forward(&self) -> Result<()> {
+    self.webview.go_forward();
+    Ok(())
+  }
+
+  pub fn go_back(&self) -> Result<()> {
+    self.webview.go_back();
+    Ok(())
+  }
+
+  pub fn can_go_forward(&self) -> Result<bool> {
+    Ok(self.webview.can_go_forward())
+  }
+
+  pub fn can_go_back(&self) -> Result<bool> {
+    Ok(self.webview.can_go_back())
+  }
+
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     if let Some(context) = self.webview.context() {
       if let Some(data_manger) = context.website_data_manager() {

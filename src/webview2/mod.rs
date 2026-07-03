@@ -1480,6 +1480,26 @@ impl InnerWebView {
     unsafe { self.webview.Reload() }.map_err(Into::into)
   }
 
+  pub fn go_forward(&self) -> Result<()> {
+    unsafe { self.webview.GoForward() }.map_err(Into::into)
+  }
+
+  pub fn go_back(&self) -> Result<()> {
+    unsafe { self.webview.GoBack() }.map_err(Into::into)
+  }
+
+  pub fn can_go_forward(&self) -> Result<bool> {
+    let mut can_go_forward = FALSE;
+    unsafe { self.webview.CanGoForward(&mut can_go_forward) }.map_err(Into::<Error>::into)?;
+    Ok(can_go_forward.into())
+  }
+
+  pub fn can_go_back(&self) -> Result<bool> {
+    let mut can_go_back = FALSE;
+    unsafe { self.webview.CanGoBack(&mut can_go_back) }.map_err(Into::<Error>::into)?;
+    Ok(can_go_back.into())
+  }
+
   pub fn bounds(&self) -> Result<Rect> {
     let mut bounds = Rect::default();
     let mut rect = RECT::default();

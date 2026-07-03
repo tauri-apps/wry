@@ -812,6 +812,24 @@ r#"Object.defineProperty(window, 'ipc', {
     Ok(())
   }
 
+  pub fn go_forward(&self) -> Result<()> {
+    unsafe { self.webview.goForward() };
+    Ok(())
+  }
+
+  pub fn go_back(&self) -> Result<()> {
+    unsafe { self.webview.goBack() };
+    Ok(())
+  }
+
+  pub fn can_go_forward(&self) -> Result<bool> {
+    Ok(unsafe { self.webview.canGoForward() })
+  }
+
+  pub fn can_go_back(&self) -> Result<bool> {
+    Ok(unsafe { self.webview.canGoBack() })
+  }
+
   pub fn clear_all_browsing_data(&self) -> Result<()> {
     unsafe {
       let config = self.webview.configuration();

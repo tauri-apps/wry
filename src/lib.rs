@@ -2214,6 +2214,24 @@ impl WebView {
     self.webview.reload()
   }
 
+  /// Go to the next page.
+  pub fn go_forward(&self) -> Result<()> {
+    self.webview.go_forward()
+  }
+
+  /// Go to the previous page.
+  pub fn go_back(&self) -> Result<()> {
+    self.webview.go_back()
+  }
+
+  pub fn can_go_forward(&self) -> Result<bool> {
+    self.webview.can_go_forward()
+  }
+
+  pub fn can_go_back(&self) -> Result<bool> {
+    self.webview.can_go_back()
+  }
+
   /// Navigate to the specified url using the specified headers
   pub fn load_url_with_headers(&self, url: &str, headers: http::HeaderMap) -> Result<()> {
     self.webview.load_url_with_headers(url, headers)
