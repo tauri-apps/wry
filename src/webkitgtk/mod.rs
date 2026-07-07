@@ -16,6 +16,7 @@ use raw_window_handle::HasWindowHandle;
 #[cfg(any(debug_assertions, feature = "devtools"))]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
+  cell::Cell,
   collections::HashMap,
   rc::Rc,
   sync::{Arc, Mutex},
@@ -50,7 +51,7 @@ pub(crate) struct InnerWebView {
   #[cfg(any(debug_assertions, feature = "devtools"))]
   is_inspector_open: Arc<AtomicBool>,
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
-  is_in_fixed_parent: bool,
+  is_in_fixed_parent: Cell<bool>,
   gtk_window: Option<gtk::Window>,
 }
 
@@ -191,7 +192,7 @@ impl InnerWebView {
       id,
       webview,
       pending_scripts: Arc::new(Mutex::new(Some(Vec::new()))),
-      is_in_fixed_parent,
+      is_in_fixed_parent: Cell::new(is_in_fixed_parent),
       gtk_window: None,
 
       #[cfg(any(debug_assertions, feature = "devtools"))]
@@ -796,7 +797,7 @@ impl InnerWebView {
       gtk_window.set_default_height(height);
     }
 
-    if self.is_in_fixed_parent {
+    if self.is_in_fixed_parent.get() {
       self
         .webview
         .size_allocate(&gtk::Allocation::new(x, y, width, height), -1);
@@ -1021,7 +1022,7 @@ impl InnerWebView {
     }
   }
 
-  pub fn reparent<W>(&mut self, container: &W) -> Result<()>
+  pub fn reparent<W>(&self, container: &W) -> Result<()>
   where
     W: IsA<gtk::Widget>,
   {
@@ -1037,7 +1038,11 @@ impl InnerWebView {
       }
     }
 
-    self.is_in_fixed_parent = Self::add_to_container(&self.webview, container, self.bounds().ok())?;
+    self.is_in_fixed_parent.set(Self::add_to_container(
+      &self.webview,
+      container,
+      self.bounds().ok(),
+    )?);
     Ok(())
   }
 }
