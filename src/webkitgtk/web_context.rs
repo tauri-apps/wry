@@ -98,7 +98,6 @@ impl WebContextImpl {
     self.automation = flag;
     self.context.set_automation_allowed(flag);
   }
-
 }
 
 /// [`WebContext`](super::WebContext) items that only matter on unix.
