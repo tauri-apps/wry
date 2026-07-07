@@ -21,6 +21,7 @@
   - [Monitor Change Notifications](#monitor-change-notifications)
   - [Web Process Crash Handler](#web-process-crash-handler)
   - [New Window Requests](#new-window-requests)
+  - [Reparenting GTK Containers](#reparenting-gtk-containers)
   - [Isolated Data Directory](#isolated-data-directory)
   - [Cookie Accept Policy](#cookie-accept-policy)
   - [Data Directory Accessor](#data-directory-accessor)
@@ -633,9 +634,48 @@ newly-built webview:
 NewWindowResponse::Create { webview: new_webview.into_handle() }
 ```
 
+If you build the `webkit6::WebView` yourself (outside of `WebViewBuilder`), wrap it in a
+handle using `WebViewHandle::from_webkit_webview`:
+
+```rust
+use wry::{WebViewHandle, NewWindowResponse};
+
+let raw_webview: webkit6::WebView = /* … */;
+NewWindowResponse::Create { webview: WebViewHandle::from_webkit_webview(raw_webview) }
+```
+
 > **Note:** `opener.webview` holds a `WebViewHandle` — an opaque wrapper around the
 > platform webview. On Linux you can access the underlying `webkit6::WebView` via the
-> `WebViewHandleExtUnix` trait: `opener.webview.as_webkit6_webview()`.
+> `WebViewHandleExtUnix` trait: `opener.webview.as_webkit_webview()`.
+
+---
+
+### Reparenting GTK Containers
+
+> **Example:** `cargo run --example reparent` — press **X** to move the webview between two windows.
+
+Use `WebViewExtUnix::reparent_gtk` to move a webview built with `build_gtk` into a
+different GTK container at runtime:
+
+```rust
+use wry::WebViewExtUnix;
+
+// move the webview into vbox2
+webview.reparent_gtk(&vbox2)?;
+
+// move it back
+webview.reparent_gtk(&vbox1)?;
+```
+
+Accepts any GTK widget that implements `IsA<gtk::Widget>` — typically `gtk::Box` or
+`gtk::Fixed`. The webview is unparented from its current container before being added
+to the new one.
+
+> **Note:** `reparent_gtk` is for webviews created via `build_gtk`. For webviews created
+> via `WebViewBuilder::build` (X11 raw-handle mode), use the cross-platform
+> `WebView::reparent(&impl HasWindowHandle)` instead.
+
+**Linux/BSD only.**
 
 ---
 

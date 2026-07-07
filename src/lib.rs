@@ -495,9 +495,9 @@ pub struct WebViewHandle(
 ))]
 pub trait WebViewHandleExtUnix {
   /// Returns a reference to the underlying `webkit6::WebView`.
-  fn as_webkit6_webview(&self) -> &webkit6::WebView;
+  fn as_webkit_webview(&self) -> &webkit6::WebView;
   /// Consumes the handle and returns the underlying `webkit6::WebView`.
-  fn into_webkit6_webview(self) -> webkit6::WebView;
+  fn into_webkit_webview(self) -> webkit6::WebView;
 }
 
 #[cfg(any(
@@ -508,11 +508,29 @@ pub trait WebViewHandleExtUnix {
   target_os = "openbsd",
 ))]
 impl WebViewHandleExtUnix for WebViewHandle {
-  fn as_webkit6_webview(&self) -> &webkit6::WebView {
+  fn as_webkit_webview(&self) -> &webkit6::WebView {
     &self.0
   }
-  fn into_webkit6_webview(self) -> webkit6::WebView {
+  fn into_webkit_webview(self) -> webkit6::WebView {
     self.0
+  }
+}
+
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd",
+))]
+impl WebViewHandle {
+  /// Wraps an existing [`webkit6::WebView`] in an opaque handle.
+  ///
+  /// Useful when answering [`WebViewBuilder::with_new_window_req_handler`]
+  /// with a webview the embedder created itself, e.g. for
+  /// [`NewWindowResponse::Create`] or [`WebViewBuilderExtUnix::with_related_view`].
+  pub fn from_webkit_webview(webview: webkit6::WebView) -> Self {
+    Self(webview)
   }
 }
 
@@ -2158,6 +2176,7 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
   target_os = "netbsd",
   target_os = "openbsd",
 ))]
+#[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   data_directory: Option<PathBuf>,
   extension_path: Option<PathBuf>,
@@ -2173,34 +2192,6 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   on_pointer_leave_handler: Option<Box<dyn Fn()>>,
   on_scroll_handler: Option<Box<dyn Fn(f64, f64) -> bool>>,
   on_monitors_changed_handler: Option<Box<dyn Fn(Vec<MonitorInfo>)>>,
-}
-
-#[cfg(any(
-  target_os = "linux",
-  target_os = "dragonfly",
-  target_os = "freebsd",
-  target_os = "netbsd",
-  target_os = "openbsd",
-))]
-impl Default for PlatformSpecificWebViewAttributes {
-  fn default() -> Self {
-    Self {
-      data_directory: None,
-      extension_path: None,
-      related_view: None,
-      on_web_content_process_terminate_handler: None,
-      hardware_acceleration_policy: None,
-      theme: None,
-      on_focus_handler: None,
-      on_keyboard_handler: None,
-      on_drag_source_handler: None,
-      on_motion_handler: None,
-      on_pointer_enter_handler: None,
-      on_pointer_leave_handler: None,
-      on_scroll_handler: None,
-      on_monitors_changed_handler: None,
-    }
-  }
 }
 
 /// Information about a connected monitor, provided by `GdkDisplay::monitors()`.
@@ -2555,7 +2546,7 @@ impl WebView {
   ///   matching `WebViewExtMacOS::reparent` / `WebViewExtIOS::reparent`.
   /// - **Linux (X11)**: Calls `XReparentWindow` to move the embedded GTK surface under the new
   ///   X11 parent. Only applies to webviews created via [`WebViewBuilder::build`]. Webviews
-  ///   created via [`WebViewBuilderExtUnix::build_gtk`] should use [`WebViewExtUnix::reparent`].
+  ///   created via [`WebViewBuilderExtUnix::build_gtk`] should use [`WebViewExtUnix::reparent_gtk`].
   pub fn reparent<W: HasWindowHandle>(&self, window: &W) -> Result<()> {
     self.webview.reparent_window(window)
   }
@@ -2924,8 +2915,8 @@ pub trait WebViewExtUnix: Sized {
   /// Returns webkit6 WebView handle
   fn webview(&self) -> webkit6::WebView;
 
-  /// Attaches this webview to the given Widget and removes it from the current one.
-  fn reparent<W>(&self, widget: &W) -> Result<()>
+  /// Attaches this webview to the given GTK widget and removes it from the current one.
+  fn reparent_gtk<W>(&self, widget: &W) -> Result<()>
   where
     W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>;
 
@@ -2999,7 +2990,7 @@ impl WebViewExtUnix for WebView {
     self.webview.webview.clone()
   }
 
-  fn reparent<W>(&self, widget: &W) -> Result<()>
+  fn reparent_gtk<W>(&self, widget: &W) -> Result<()>
   where
     W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>,
   {

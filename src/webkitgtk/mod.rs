@@ -7,8 +7,7 @@ use dpi::LogicalPosition;
 use dpi::LogicalSize;
 #[cfg(feature = "x11")]
 use gdk4_x11::X11Display;
-#[cfg(feature = "wayland")]
-use gdk4_wayland;
+
 use http::Request;
 use raw_window_handle::HasWindowHandle;
 #[cfg(any(feature = "x11", feature = "wayland"))]
@@ -294,7 +293,7 @@ impl InnerWebView {
           if let Ok(wl_surf) = surface.downcast::<gdk4_wayland::WaylandSurface>() {
             let raw = unsafe {
               gdk4_wayland::ffi::gdk_wayland_surface_get_wl_surface(
-                wl_surf.as_ptr() as *mut gdk4_wayland::ffi::GdkWaylandSurface,
+                wl_surf.as_ptr(),
               )
             };
             if raw == target {
@@ -1634,6 +1633,7 @@ pub fn platform_webview_version() -> Result<String> {
 
 // SAFETY: only use this when you are sure the span will be dropped on the same thread it was entered
 #[cfg(feature = "tracing")]
+#[allow(dead_code)]
 struct SendEnteredSpan(tracing::span::EnteredSpan);
 
 #[cfg(feature = "tracing")]

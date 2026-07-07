@@ -20,6 +20,13 @@ been updated from tao+gtk3 to winit+gtk4.
 - GTK integration changed from gtk3 (`gtk::init`, `gtk::main_iteration_do`) to gtk4
   (`gtk4::init`, `gtk4::glib::MainContext::default()`)
 - `WebViewBuilderExtUnix::new_gtk` renamed to `WebViewBuilderExtUnix::build_gtk`
+- `WebViewExtUnix::reparent` renamed to `WebViewExtUnix::reparent_gtk` to avoid
+  shadowing by the new cross-platform `WebView::reparent(HasWindowHandle)` method
+- `linux-body` feature is now enabled by default; explicit opt-in can be removed from `Cargo.toml`
+- X11 embedding: `build_gtk` is the recommended path for webviews that need to work on
+  both X11 and Wayland. X11-native embedding via `WebViewBuilder::build` (using
+  `XReparentWindow` on the realized GTK surface XID) is supported and can be moved
+  between X11 windows with `WebView::reparent`
 
 **Bug fixes:**
 
