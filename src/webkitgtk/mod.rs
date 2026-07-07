@@ -1058,6 +1058,7 @@ pub fn platform_webview_version() -> Result<String> {
 
 // SAFETY: only use this when you are sure the span will be dropped on the same thread it was entered
 #[cfg(feature = "tracing")]
+#[allow(dead_code)]
 struct SendEnteredSpan(tracing::span::EnteredSpan);
 
 #[cfg(feature = "tracing")]
