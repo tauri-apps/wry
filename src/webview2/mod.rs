@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+mod composition;
 mod drag_drop;
 mod util;
+
+pub use composition::register_composition_visual_target;
 
 use std::{
   borrow::Cow, cell::RefCell, collections::HashSet, fmt::Write, fs, path::PathBuf, rc::Rc,
@@ -58,6 +61,11 @@ pub(crate) struct InnerWebView {
   parent: RefCell<HWND>,
   hwnd: HWND,
   is_child: bool,
+  /// True when hosted on a DirectComposition visual. `hwnd` is then the *host*
+  /// window (no container child window exists), and input/size plumbing goes
+  /// through `composition::attach_host_subclass` instead of the windowed
+  /// parent subclass.
+  is_composition: bool,
   pub controller: ICoreWebView2Controller,
   pub webview: ICoreWebView2,
   pub env: ICoreWebView2Environment,
@@ -73,7 +81,11 @@ impl Drop for InnerWebView {
     if self.is_child {
       let _ = unsafe { DestroyWindow(self.hwnd) };
     }
-    unsafe { Self::dettach_parent_subclass(*self.parent.borrow()) }
+    if self.is_composition {
+      unsafe { composition::detach_host_subclass(*self.parent.borrow()) }
+    } else {
+      unsafe { Self::dettach_parent_subclass(*self.parent.borrow()) }
+    }
   }
 }
 
@@ -114,7 +126,24 @@ impl InnerWebView {
   ) -> Result<Self> {
     let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
 
-    let hwnd = Self::create_container_hwnd(parent, &attributes, is_child)?;
+    // Composition hosting creates no container child window — the webview
+    // renders on the caller's DirectComposition visual and the *host* window
+    // is used for environment/input purposes. The visual comes from the
+    // builder (`with_composition_visual_target`) or, for webviews built by an
+    // embedding layer that never exposes the wry builder (e.g.
+    // tauri-runtime-wry), from the per-HWND registry
+    // (`register_composition_visual_target`).
+    let composition_visual = pl_attrs
+      .composition_visual_target
+      .clone()
+      .or_else(|| composition::take_registered_visual_target(parent.0 as isize));
+    let is_composition = composition_visual.is_some();
+
+    let hwnd = if is_composition {
+      parent
+    } else {
+      Self::create_container_hwnd(parent, &attributes, is_child)?
+    };
 
     let drop_handler = attributes.drag_drop_handler.take();
     let bounds = attributes.bounds;
@@ -135,13 +164,24 @@ impl InnerWebView {
     } else {
       Self::create_environment(&attributes, pl_attrs.clone())?
     };
-    let controller = Self::create_controller(
-      hwnd,
-      &env,
-      attributes.incognito,
-      background_color,
-      pl_attrs.profile_name.as_deref(),
-    )?;
+    let controller = if let Some(visual) = &composition_visual {
+      composition::create_composition_controller(
+        hwnd,
+        &env,
+        attributes.incognito,
+        background_color,
+        pl_attrs.profile_name.as_deref(),
+        visual,
+      )?
+    } else {
+      Self::create_controller(
+        hwnd,
+        &env,
+        attributes.incognito,
+        background_color,
+        pl_attrs.profile_name.as_deref(),
+      )?
+    };
     let webview = Self::init_webview(
       parent,
       hwnd,
@@ -151,6 +191,7 @@ impl InnerWebView {
       &controller,
       pl_attrs,
       is_child,
+      is_composition,
     )?;
 
     let drag_drop_controller = drop_handler.map(|handler| {
@@ -169,6 +210,7 @@ impl InnerWebView {
       hwnd,
       controller,
       is_child,
+      is_composition,
       webview,
       env,
       drag_drop_controller,
@@ -437,6 +479,7 @@ impl InnerWebView {
     controller: &ICoreWebView2Controller,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     is_child: bool,
+    is_composition: bool,
   ) -> Result<ICoreWebView2> {
     let webview = unsafe { controller.CoreWebView2()? };
 
@@ -600,7 +643,11 @@ impl InnerWebView {
     }
 
     // Subclass parent for resizing and focus
-    if !is_child {
+    if is_composition {
+      // The composition host subclass owns resize/focus AND forwards
+      // mouse/pointer input + cursor to the visual-hosted webview.
+      unsafe { composition::attach_host_subclass(parent, controller)? };
+    } else if !is_child {
       unsafe { Self::attach_parent_subclass(parent, controller) };
     }
 
@@ -1535,15 +1582,20 @@ impl InnerWebView {
         bottom: size.height,
       })?;
 
-      SetWindowPos(
-        self.hwnd,
-        None,
-        position.x,
-        position.y,
-        size.width,
-        size.height,
-        SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOZORDER,
-      )?;
+      // In composition mode `self.hwnd` IS the host window — never move or
+      // size it from here; the controller bounds above are the whole job (the
+      // visual is positioned by the caller's DirectComposition tree).
+      if !self.is_composition {
+        SetWindowPos(
+          self.hwnd,
+          None,
+          position.x,
+          position.y,
+          size.width,
+          size.height,
+          SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOZORDER,
+        )?;
+      }
     }
 
     Ok(())
@@ -1565,13 +1617,17 @@ impl InnerWebView {
 
   pub fn set_visible(&self, visible: bool) -> Result<()> {
     unsafe {
-      let _ = ShowWindow(
-        self.hwnd,
-        match visible {
-          true => SW_SHOW,
-          false => SW_HIDE,
-        },
-      );
+      // Don't show/hide the host window in composition mode; webview
+      // visibility is controller-only there.
+      if !self.is_composition {
+        let _ = ShowWindow(
+          self.hwnd,
+          match visible {
+            true => SW_SHOW,
+            false => SW_HIDE,
+          },
+        );
+      }
 
       self.controller.SetIsVisible(visible)?;
     }
@@ -1778,6 +1834,12 @@ impl InnerWebView {
   }
 
   pub fn reparent(&self, parent: isize) -> Result<()> {
+    // A composition-hosted webview has no child window to reparent; its host
+    // subclass and visual tree are bound to the original window.
+    if self.is_composition {
+      return Err(Error::UnsupportedWindowHandle);
+    }
+
     let parent = HWND(parent as _);
 
     unsafe {
