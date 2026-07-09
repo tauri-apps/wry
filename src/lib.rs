@@ -664,6 +664,8 @@ struct WebViewAttributes<'a> {
   /// - **Windows:** This will disable the HTML Drag and Drop APIs like `draggable="true"`,
   ///   since we replace the drag drop handler of WebView 2 on Windows.
   ///   `handler`'s return value is ignored on Windows.
+  /// - **macOS:** This will disable the HTML Drag and Drop APIs like `draggable="true"`.
+  /// - **Android / iOS:** Unsupported.
   pub drag_drop_handler: Option<Box<dyn Fn(DragDropEvent) -> bool>>,
 
   /// A navigation handler to decide if incoming url is allowed to navigate.
@@ -1184,7 +1186,7 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set a handler closure to process incoming [`DragDropEvent`] of the webview.
+  /// A handler closure to process incoming [`DragDropEvent`] of the webview.
   ///
   /// ## Blocking OS Default Behavior
   ///
@@ -1198,6 +1200,8 @@ impl<'a> WebViewBuilder<'a> {
   /// - **Windows:** This will disable the HTML Drag and Drop APIs like `draggable="true"`,
   ///   since we replace the drag drop handler of WebView 2 on Windows.
   ///   `handler`'s return value is ignored on Windows.
+  /// - **macOS:** This will disable the HTML Drag and Drop APIs like `draggable="true"`.
+  /// - **Android / iOS:** Unsupported.
   pub fn with_drag_drop_handler<F>(mut self, handler: F) -> Self
   where
     F: Fn(DragDropEvent) -> bool + 'static,
