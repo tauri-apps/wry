@@ -21,12 +21,6 @@ use {tao::platform::windows::WindowExtWindows, wry::WebViewExtWindows};
   target_os = "ios",
   target_os = "android"
 )))]
-#[cfg(not(any(
-  target_os = "windows",
-  target_os = "macos",
-  target_os = "ios",
-  target_os = "android"
-)))]
 use {
   tao::platform::unix::WindowExtUnix,
   wry::{WebViewBuilderExtUnix, WebViewExtUnix},
@@ -52,7 +46,7 @@ fn main() -> wry::Result<()> {
     target_os = "ios",
     target_os = "android"
   )))]
-  let mut webview = {
+  let webview = {
     use tao::platform::unix::WindowExtUnix;
     let vbox = window.default_vbox().unwrap();
     builder.build_gtk(vbox)?

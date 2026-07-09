@@ -32,11 +32,12 @@ fn main() -> wry::Result<()> {
     use tao::platform::unix::WindowExtUnix;
 
     let overlay = gtk::Overlay::new();
+    overlay.set_hexpand(true);
+    overlay.set_vexpand(true);
     let vbox = window.default_vbox().unwrap();
-    vbox.pack_start(&overlay, true, true, 0);
+    vbox.append(&overlay);
 
     let gl_area = gtk::GLArea::new();
-    gl_area.set_has_alpha(true);
     gl_area.set_auto_render(true);
 
     struct AppState {
@@ -168,12 +169,12 @@ fn main() -> wry::Result<()> {
       }
     });
 
-    overlay.add(&gl_area);
+    overlay.set_child(Some(&gl_area));
 
     let fixed = gtk::Fixed::new();
     overlay.add_overlay(&fixed);
 
-    overlay.show_all();
+    overlay.set_visible(true);
     (fixed, gl_area)
   };
 
