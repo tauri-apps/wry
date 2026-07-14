@@ -363,8 +363,7 @@ WEBKIT_DISABLE_DMABUF_RENDERER=1 cargo run --example gtk_simple
 
 **Fix — programmatic:**
 ```rust
-use wry::WebViewBuilderExtUnix;
-use webkit6::HardwareAccelerationPolicy;
+use wry::{HardwareAccelerationPolicy, WebViewBuilderExtUnix};
 
 let webview = WebViewBuilder::new()
     .with_hardware_acceleration_policy(HardwareAccelerationPolicy::Never)
