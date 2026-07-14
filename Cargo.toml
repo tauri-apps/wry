@@ -204,7 +204,7 @@ libc = "0.2"
 dom_query = { version = "0.28.0", default-features = false }
 
 [dev-dependencies]
-pollster = "0.4.0"
+pollster = "1.0.0"
 tao = "0.35"
 wgpu = "23"
 winit = "0.30"
