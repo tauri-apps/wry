@@ -302,8 +302,6 @@
 //!   for the crate to work. This feature was added in preparation of other ports like cef and servo.
 //! - `protocol` (default): Enables [`WebViewBuilder::with_custom_protocol`] to define custom URL scheme for handling tasks like
 //!   loading assets.
-//! - `drag-drop` (default): Enables [`WebViewBuilder::with_drag_drop_handler`] to control the behavior when there are files
-//!   interacting with the window.
 //! - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
 //!   On **macOS**, enabling devtools, requires calling private APIs so you should not enable this flag in release
 //!   build if your app needs to publish to App Store.
@@ -747,11 +745,19 @@ struct WebViewAttributes<'a> {
 
   /// A handler closure to process incoming [`DragDropEvent`] of the webview.
   ///
-  /// # Blocking OS Default Behavior
+  /// ## Blocking OS Default Behavior
+  ///
   /// Return `true` in the callback to block the OS' default behavior.
   ///
   /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows:** This will disable the HTML Drag and Drop APIs like `draggable="true"`,
+  ///   since we replace the drag drop handler of WebView 2 on Windows.
+  ///   `handler`'s return value is ignored on Windows.
+  /// - **Android / iOS:** Unsupported.
   pub drag_drop_handler: Option<Box<dyn Fn(DragDropEvent) -> bool>>,
 
   /// A navigation handler to decide if incoming url is allowed to navigate.
@@ -1310,13 +1316,21 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set a handler closure to process incoming [`DragDropEvent`] of the webview.
+  /// A handler closure to process incoming [`DragDropEvent`] of the webview.
   ///
-  /// # Blocking OS Default Behavior
+  /// ## Blocking OS Default Behavior
+  ///
   /// Return `true` in the callback to block the OS' default behavior.
   ///
   /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows:** This will disable the HTML Drag and Drop APIs like `draggable="true"`,
+  ///   since we replace the drag drop handler of WebView 2 on Windows.
+  ///   `handler`'s return value is ignored on Windows.
+  /// - **Android / iOS:** Unsupported.
   pub fn with_drag_drop_handler<F>(mut self, handler: F) -> Self
   where
     F: Fn(DragDropEvent) -> bool + 'static,
