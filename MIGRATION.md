@@ -88,6 +88,10 @@ wry::pump_platform_events();
 needed when targeting only those platforms. You still need `#[cfg(target_os = "linux")]`
 if your binary must also compile on Windows/macOS.
 
+If your host loop is GTK-based (`gtk4::main()`, a `gtk4::Application`, or anything else
+already running the default `GMainContext`), don't call `pump_platform_events()` — that
+loop is already draining it, and pumping again is redundant.
+
 ---
 
 ## 4. Builder API: `build_gtk` now takes a `gtk4::Widget`
@@ -277,13 +281,13 @@ wry = { version = "...", features = ["wayland"] }
 ```
 
 ```rust
-let webview = WebViewBuilder::new_as_child(&parent)
+let webview = WebViewBuilder::new()
     .with_bounds(wry::Rect {
         position: dpi::LogicalPosition::new(10, 10).into(),
         size:     dpi::LogicalSize::new(800, 600).into(),
     })
     .with_url("https://example.com")
-    .build()?;
+    .build_as_child(&parent)?;
 ```
 
 For Wayland apps that already own GTK4 windows, prefer `build_gtk` — it avoids the
@@ -324,6 +328,11 @@ bug that anchored the Fcitx IME popup at (0,0) instead of the cursor position. T
 bug was fixed upstream in WebKitGTK 2.44, so this branch removes the workaround.
 Fcitx/Fcitx5 and IBus inline preedit composition now work correctly for CJK users.
 
+**Runtime requirement:** wry's `webkit6` feature gate only requires WebKitGTK 2.42 at
+compile time. On a runtime older than 2.44, the original popup-positioning bug is back
+with no workaround left in the code — make sure your deployment target ships
+webkitgtk-6.0 ≥ 2.44 if inline CJK composition matters to you.
+
 **If your application added its own workaround** for broken preedit positioning or
 dropped first characters during composition, you can likely remove it after
 migrating — test CJK input to confirm.
@@ -350,6 +359,20 @@ VM 0x7f... on pid ... received NeedDebuggerBreak trap
 
 JavaScriptCore prints this when the JS VM hits a debug-trap with no native debugger
 attached. Not an error — the webview continues normally. Only appears in debug builds.
+
+### WebKit's bwrap sandbox aborts in unprivileged containers
+
+**Symptom:** No window ever appears; the `WebKitNetworkProcess` sandbox setup fails at
+startup. Common in CI runners and other unprivileged containers, where the `bwrap`
+sandbox WebKit uses to isolate its network/web processes can't be set up.
+
+**Fix — environment variable:**
+```bash
+WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 cargo run --example gtk_simple
+```
+
+As the name warns, this disables a real security boundary — fine for a throwaway CI
+container, not something to ship in a production build.
 
 ### DMA-BUF rendering issues
 

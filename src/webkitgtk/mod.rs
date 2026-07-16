@@ -980,12 +980,26 @@ impl InnerWebView {
       let _span = tracing::info_span!(parent: None, "wry::ipc::handle").entered();
 
       if let Some(ipc_handler) = &ipc_handler {
-        ipc_handler(
-          Request::builder()
-            .uri(webview.uri().unwrap().to_string())
-            .body(js.to_string())
-            .unwrap(),
-        );
+        // `webview.uri()` can be `None`, and `load_html`'s `file://` base with
+        // an empty authority isn't a valid `http::Uri`. This runs in a GObject
+        // trampoline that can't unwind, so fall back instead of unwrapping.
+        let uri = webview
+          .uri()
+          .map(|u| u.to_string())
+          .filter(|u| !u.is_empty())
+          .unwrap_or_else(|| "about:blank".into());
+
+        let request = Request::builder()
+          .uri(uri)
+          .body(js.to_string())
+          .unwrap_or_else(|_| {
+            Request::builder()
+              .uri("about:blank")
+              .body(js.to_string())
+              .expect("`about:blank` is always a valid URI")
+          });
+
+        ipc_handler(request);
       }
     });
 

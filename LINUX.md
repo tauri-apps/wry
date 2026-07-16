@@ -127,7 +127,7 @@ wry = { version = "...", features = ["wayland"] }
 
 **How it works:**
 
-`WebViewBuilder::new()` and `WebViewBuilder::new_as_child()` accept a
+`WebViewBuilder::build()` and `WebViewBuilder::build_as_child()` accept a
 `RawWindowHandle::Wayland` handle. The backend locates the `GtkWindow` that owns the
 given `wl_surface` by iterating `gtk::Window::list_toplevels()` and comparing raw surface
 pointers via `gdk_wayland_surface_get_wl_surface`. This means **the parent window must
@@ -136,12 +136,12 @@ and will return `Error::WaylandWindowNotFound`. Common causes of this error: the
 `wl_surface` comes from a non-GTK toolkit, `gtk4::init()` was not called before creating
 the webview, or the GTK4 window was not yet realized/shown.
 
-**Child mode** (`new_as_child`): finds-or-creates a `GtkFixed` as the root window's child
+**Child mode** (`build_as_child`): finds-or-creates a `GtkFixed` as the root window's child
 widget and places the WebView at `bounds.position`. `set_bounds()` uses `GtkFixed::move_`
 + `set_size_request`; `bounds()` returns the last-set position plus `widget.allocation()`
 for size.
 
-**Non-child mode** (`new`): replaces the root window's child with a `GtkBox` and expands
+**Non-child mode** (`build`): replaces the root window's child with a `GtkBox` and expands
 the WebView to fill it.
 
 **Example — child embed at a fixed rect:**
@@ -152,13 +152,13 @@ use raw_window_handle::HasWindowHandle;
 
 // `parent` is any type that returns RawWindowHandle::Wayland —
 // e.g. a gtk4::ApplicationWindow exposed via WindowHandle
-let webview = WebViewBuilder::new_as_child(&parent)
+let webview = WebViewBuilder::new()
     .with_bounds(wry::Rect {
         position: dpi::LogicalPosition::new(10, 10).into(),
         size:     dpi::LogicalSize::new(800, 600).into(),
     })
     .with_url("https://example.com")
-    .build()?;
+    .build_as_child(&parent)?;
 ```
 
 **HiDPI / Scaling:**
