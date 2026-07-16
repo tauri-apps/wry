@@ -135,8 +135,18 @@ impl<'a> MainPipe<'a> {
 
   pub fn recv(&mut self) -> JniResult<()> {
     let package = super::PACKAGE.get().unwrap();
-    // SAFETY: The `CHANNEL` is `static` that the sender never drops
-    let (activity_id, message) = CHANNEL.1.recv().unwrap();
+    while let Ok((activity_id, message)) = CHANNEL.1.try_recv() {
+      self.handle_message(package, activity_id, message)?;
+    }
+    Ok(())
+  }
+
+  fn handle_message(
+    &mut self,
+    package: &str,
+    activity_id: ActivityId,
+    message: WebViewMessage,
+  ) -> JniResult<()> {
     match message {
       WebViewMessage::CreateWebView(attrs) => {
         let Some(ActivityProxy { activity, .. }) = activity_proxy(activity_id) else {
