@@ -251,6 +251,13 @@ define_class!(
             // controller.
             window.setReleasedWhenClosed(false);
 
+            // Strip the opener's script handlers before reusing its
+            // configuration, or they get double-registered and abort on recent
+            // macOS. Reusing the configuration keeps `window.opener` wired.
+            let controller = configuration.userContentController();
+            controller.removeAllUserScripts();
+            controller.removeAllScriptMessageHandlers();
+
             let webview = objc2_web_kit::WKWebView::initWithFrame_configuration(
               mtm.alloc::<objc2_web_kit::WKWebView>(),
               window.frame(),
