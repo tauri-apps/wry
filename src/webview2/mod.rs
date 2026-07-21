@@ -971,7 +971,18 @@ impl InnerWebView {
 
         #[cfg(feature = "tracing")]
         let _span = tracing::info_span!(parent: None, "wry::ipc::handle").entered();
-        ipc_handler(Request::builder().uri(url).body(js).unwrap());
+        // The document that posted this message may have a `Source` URL that is not a
+        // valid `http::Uri` (e.g. `file:`, `data:` or `blob:` documents). Building the
+        // request then fails, and unwrapping here would panic inside a WebView2 callback
+        // that cannot unwind, aborting the whole process. Skip the message instead so a
+        // stray IPC post can't take down the app.
+        match Request::builder().uri(url.as_str()).body(js) {
+          Ok(request) => ipc_handler(request),
+          Err(_error) => {
+            #[cfg(feature = "tracing")]
+            tracing::warn!(url = %url, error = %_error, "ignoring IPC message with invalid source URL");
+          }
+        }
 
         Ok(())
       })),
