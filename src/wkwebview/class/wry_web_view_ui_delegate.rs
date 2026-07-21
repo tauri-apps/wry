@@ -124,6 +124,7 @@ define_class!(
       }
     }
 
+    #[cfg(macos_12_or_later)]
     #[unsafe(method(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:))]
     fn request_media_capture_permission(
       &self,

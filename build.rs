@@ -109,6 +109,35 @@ fn main() {
       || target.contains("openbsd"));
   alias("linux", linux);
   alias("gtk", cfg!(feature = "os-webview") && linux);
+
+  // Detect the macOS deployment target from the environment (set by Tauri or the user).
+  // This allows conditional compilation based on the minimum supported macOS version.
+  // We define two custom cfg flags:
+  // - macos_12_or_later: true if deployment target is macOS 12.0+
+  // - macos_11_or_earlier: true if deployment target is macOS 11.x or older
+  //
+  // These flags are used in the WebView implementation to conditionally compile APIs
+  // that were introduced in macOS 12 (e.g., requestMediaCapturePermissionForOrigin).
+  // On older deployment targets, the unsupported code is simply excluded,
+  // preventing compilation errors and removing the need for downstream patches.
+
+  println!("cargo::rustc-check-cfg=cfg(macos_12_or_later)");
+  println!("cargo::rustc-check-cfg=cfg(macos_11_or_earlier)");
+
+  let deployment_target =
+    std::env::var("MACOSX_DEPLOYMENT_TARGET").unwrap_or_else(|_| "10.15".to_string());
+  let major: u32 = deployment_target
+    .split('.')
+    .next()
+    .unwrap_or("10")
+    .parse()
+    .unwrap_or(10);
+
+  if major >= 12 {
+    println!("cargo:rustc-cfg=macos_12_or_later");
+  } else {
+    println!("cargo:rustc-cfg=macos_11_or_earlier");
+  }
 }
 
 fn alias(alias: &str, condition: bool) {
