@@ -11,7 +11,7 @@ fn main() {
   // TODO: Remove in objc2 0.7.0, ref https://github.com/madsmtm/objc2/issues/645
   if target_os == "macos"
     && std::env::var("CARGO_CFG_DEBUG_ASSERTIONS").is_ok()
-    && !objc2::available!(macos = 12.3)
+    && !objc2::available!(macos = 12.0)
   {
     println!("cargo:rustc-cfg=macos_12_3_unavailable")
   }
