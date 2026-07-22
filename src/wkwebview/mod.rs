@@ -380,7 +380,8 @@ impl InnerWebView {
       }
 
       if (cfg!(target_os = "macos") && (version.0 > 12 || (version.0 == 12 && version.1 >= 3)))
-        || (cfg!(target_os = "ios") && (version.0 > 15 || (version.0 == 15 && version.1 >= 4))) {
+        || (cfg!(target_os = "ios") && (version.0 > 15 || (version.0 == 15 && version.1 >= 4)))
+      {
         // NOTE: Public API alternative for private config fullScreenEnabled (see below)
         // Only available on macOS 12.3+ and iOS 15.4+
         _preference.setElementFullscreenEnabled(true);
