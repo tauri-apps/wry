@@ -203,6 +203,9 @@ tao-macros = "0.1"
 libc = "0.2"
 dom_query = { version = "0.28.0", default-features = false }
 
+[target.'cfg(target_vendor = "apple")'.build-dependencies]
+objc2 = { version = "0.6.4", default-features = false, features = ["std"] }
+
 [dev-dependencies]
 pollster = "1.0.0"
 tao = "0.35"
