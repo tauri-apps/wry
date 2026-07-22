@@ -538,17 +538,15 @@ impl InnerWebView {
       if attributes.devtools {
         // <https://developer.apple.com/documentation/webkit/wkwebview/isinspectable>
         // Available: macOS 13.3+, iOS 16.4+
+        // Enables debugging via Safari's Web Inspector, NOT via in-webview devtools.
         let has_inspectable_property: bool =
           NSObject::respondsToSelector(&webview, objc2::sel!(setInspectable:));
         if has_inspectable_property {
           webview.setInspectable(true);
         }
-        if (cfg!(target_os = "macos") && (version.0 < 13 || (version.0 == 13 && version.1 < 3)))
-          || (cfg!(target_os = "ios") && (version.0 < 16 || (version.0 == 16 && version.1 < 4)))
-        {
-          // NOTE: Private API — `developerExtrasEnabled` is a private KVC key on WKPreferences.
-          _preference.setValue_forKey(Some(&_yes), ns_string!("developerExtrasEnabled"));
-        }
+        // NOTE: Private API — `developerExtrasEnabled` is a private KVC key on WKPreferences.
+        // This enables the in-webview devtools
+        _preference.setValue_forKey(Some(&_yes), ns_string!("developerExtrasEnabled"));
       }
 
       // Message handler
