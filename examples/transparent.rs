@@ -32,6 +32,7 @@ fn main() -> wry::Result<()> {
 
   let builder = WebViewBuilder::new()
     // The second is on webview...
+    // Feature `transparent` is required for transparency to work.
     .with_transparent(true)
     // And the last is in html.
     .with_html(

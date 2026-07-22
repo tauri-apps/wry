@@ -304,6 +304,10 @@
 //! - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
 //!   On **macOS**, enabling devtools, requires calling private APIs so you should not enable this flag in release
 //!   build if your app needs to publish to App Store.
+//! - `transparent`: Transparent background on **macOS** requires calling private functions.
+//!   Avoid this in release build if your app needs to publish to App Store.
+//! - `fullscreen`: Fullscreen video and other media on **macOS** requires calling private functions.
+//!   Avoid this in release build if your app needs to publish to App Store.
 //! - `linux-body`: Enables body support of custom protocol request on Linux. Requires
 //!   WebKit2GTK v2.40 or above.
 //! - `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler`, and `custom_protocols`.
