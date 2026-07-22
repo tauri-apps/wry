@@ -17,11 +17,16 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
     var currentUrl: String = "about:blank"
     private var lastInterceptedUrl: Uri? = null
     private var pendingUrlRedirect: String? = null
+    private val useAssetLoader = Rust.withAssetLoader(webView.id)
 
-    private val assetLoader = WebViewAssetLoader.Builder()
-        .setDomain(Rust.assetLoaderDomain(webView.id))
-        .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(context))
-        .build()
+    private val assetLoader = if (useAssetLoader) {
+        WebViewAssetLoader.Builder()
+            .setDomain(Rust.assetLoaderDomain(webView.id))
+            .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(context))
+            .build()
+    } else {
+        null
+    }
 
     override fun shouldInterceptRequest(
         view: WebView,
@@ -36,10 +41,11 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         }
 
         lastInterceptedUrl = request.url
-        return if (Rust.withAssetLoader((view as RustWebView).id)) {
-            assetLoader.shouldInterceptRequest(request.url)
+        return if (useAssetLoader) {
+            assetLoader?.shouldInterceptRequest(request.url)
         } else {
-            val response = Rust.handleRequest(view.id, request, view.isDocumentStartScriptEnabled)
+            val rustWebView = view as RustWebView
+            val response = Rust.handleRequest(rustWebView.id, request, rustWebView.isDocumentStartScriptEnabled)
             if (response != null) {
                 if (response.responseHeaders != null) {
                     response.responseHeaders["Cache-Control"] = "no-store"
