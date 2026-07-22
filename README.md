@@ -282,12 +282,11 @@ Wry uses a set of feature flags to toggle several advanced features.
 - `drag-drop` (default): Enables [`WebViewBuilder::with_drag_drop_handler`] to control the behavior when there are files
   interacting with the window.
 - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
-  On **macOS**, enabling devtools, requires calling private APIs so you should not enable this flag in release
-  build if your app needs to publish to App Store.
+  On **macOS**, enabling devtools, requires calling private functions, so avoid this in release builds if you publish your app on the App Store.
 - `transparent`: Transparent background on **macOS** requires calling private functions.
-  Avoid this in release build if your app needs to publish to App Store.
-- `fullscreen`: Fullscreen video and other media on **macOS** requires calling private functions.
-  Avoid this in release build if your app needs to publish to App Store.
+  Avoid this in release builds if you publish your app on the App Store.
+- `fullscreen`: Fullscreen video and other media elements on **macOS** < 12.3 and **iOS** < 15.4 requires calling private functions.
+  Avoid this in release builds if you publish your app on the App Store.
 - `linux-body`: Enables body support of custom protocol request on Linux. Requires
   WebKit2GTK v2.40 or above.
 - `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler`, and `custom_protocols`.

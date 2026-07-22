@@ -13,10 +13,10 @@ use gdkx11::{
 };
 #[cfg(feature = "x11")]
 use gtk::glib::{self, translate::FromGlibPtrFull};
-use gtk::glib::{Cast, IsA};
 use gtk::{
   gdk::{self},
   gio::Cancellable,
+  glib::{Cast, IsA},
   prelude::*,
 };
 use http::Request;
