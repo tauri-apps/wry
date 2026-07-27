@@ -51,7 +51,7 @@
 //! event_loop.run_app(&mut app).unwrap();
 //! ```
 //!
-//! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::new_gtk`] on Linux.
+//! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::build_gtk`] on Linux.
 //! See the following example using [`tao`]:
 //!
 //! ```no_run
@@ -111,7 +111,7 @@
 //! ```
 //!
 //! If you want to support X11 and Wayland at the same time, we recommend using
-//! [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+//! [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
 //!
 //! ```no_run
 //! # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
@@ -775,7 +775,7 @@ struct WebViewAttributes<'a> {
 
   /// The webview bounds. Defaults to `x: 0, y: 0, width: 200, height: 200`.
   /// This is only effective if the webview was created by [`WebViewBuilder::new_as_child`]
-  /// or on Linux, if was created by [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+  /// or on Linux, if was created by [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
   pub bounds: Option<Rect>,
 
   /// Whether background throttling should be disabled.
@@ -1471,7 +1471,7 @@ impl<'a> WebViewBuilder<'a> {
   }
 
   /// Specify the webview position relative to its parent if it will be created as a child
-  /// or if created using [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+  /// or if created using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
   ///
   /// Defaults to `x: 0, y: 0, width: 200, height: 200`.
   pub fn with_bounds(mut self, bounds: Rect) -> Self {
@@ -1528,7 +1528,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// # Platform-specific:
   ///
-  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewBuilderExtUnix::new_gtk`].
+  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewBuilderExtUnix::build_gtk`].
   ///
   ///   Although this method only needs an X11 window handle, we use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
@@ -1561,7 +1561,7 @@ impl<'a> WebViewBuilder<'a> {
   ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
   ///
   ///   If you want to support child webviews on X11 and Wayland at the same time,
-  ///   we recommend using [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+  ///   we recommend using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
   /// - **Android/iOS:** Unsupported.
   ///
   /// # Panics:
@@ -2261,7 +2261,7 @@ impl WebView {
   /// Set the webview bounds.
   ///
   /// This is only effective if the webview was created as a child
-  /// or created using [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+  /// or created using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
   pub fn set_bounds(&self, bounds: Rect) -> Result<()> {
     self.webview.set_bounds(bounds)
   }

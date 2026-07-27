@@ -45,7 +45,7 @@ let mut app = App::default();
 event_loop.run_app(&mut app).unwrap();
 ```
 
-If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::new_gtk`] on Linux.
+If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::build_gtk`] on Linux.
 See the following example using [`tao`]:
 
 ```rust
@@ -97,7 +97,7 @@ event_loop.run_app(&mut app).unwrap();
 ```
 
 If you want to support X11 and Wayland at the same time, we recommend using
-[`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+[`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
 
 ```rust
 let event_loop = EventLoop::new();
