@@ -1072,7 +1072,6 @@ impl<'a> WebViewBuilder<'a> {
   ///   elsewhere in Android (provided the app has appropriate access), but not from the `assets`
   ///   folder which lives within the apk. For the cases where this can be used, it works the same as in macOS and Linux.
   /// - iOS: To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
-  #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
     F: Fn(WebViewId, Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> + Send + Sync + 'static,
@@ -1137,7 +1136,6 @@ impl<'a> WebViewBuilder<'a> {
   ///     });
   ///   });
   /// ```
-  #[cfg(feature = "protocol")]
   pub fn with_asynchronous_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
     F: Fn(WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + Send + Sync + 'static,
@@ -1961,7 +1959,6 @@ pub trait WebViewBuilderExtAndroid {
   /// String, similar to [`with_custom_protocol`], but also sets the WebViewAssetLoader with the
   /// necessary domain (which is fixed as `<protocol>.assets`). This cannot be used in conjunction
   /// to `with_custom_protocol` for Android, as it changes the way in which requests are handled.
-  #[cfg(feature = "protocol")]
   fn with_asset_loader(self, protocol: String) -> Self;
 
   /// Determines whether the custom protocols should use `https://<scheme>.localhost` instead of the default `http://<scheme>.localhost`.
@@ -1988,7 +1985,6 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     self
   }
 
-  #[cfg(feature = "protocol")]
   fn with_asset_loader(mut self, protocol: String) -> Self {
     // register custom protocol with empty Response return,
     // this is necessary due to the need of fixing a domain
