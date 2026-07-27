@@ -16,7 +16,7 @@ exclude = ["/.changes", "/.github", "/audits", "/wry-logo.svg"]
 
 [package.metadata.docs.rs]
 no-default-features = true
-features = ["protocol", "os-webview"]
+features = ["os-webview"]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
@@ -24,9 +24,8 @@ targets = [
 ]
 
 [features]
-default = ["protocol", "os-webview", "x11"]
+default = ["os-webview", "x11"]
 serde = ["dpi/serde"]
-protocol = []
 devtools = []
 linux-body = ["webkit2gtk/v2_40", "os-webview"]
 mac-proxy = []
