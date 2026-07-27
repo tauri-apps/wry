@@ -299,8 +299,6 @@
 //!
 //! - `os-webview` (default): Enables the default WebView framework on the platform. This must be enabled
 //!   for the crate to work. This feature was added in preparation of other ports like cef and servo.
-//! - `protocol` (default): Enables [`WebViewBuilder::with_custom_protocol`] to define custom URL scheme for handling tasks like
-//!   loading assets.
 //! - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
 //!   On **macOS**, enabling devtools, requires calling private APIs so you should not enable this flag in release
 //!   build if your app needs to publish to App Store.
