@@ -299,9 +299,12 @@
 //!
 //! - `os-webview` (default): Enables the default WebView framework on the platform. This must be enabled
 //!   for the crate to work. This feature was added in preparation of other ports like cef and servo.
+//! - `x11` (default): Enables x11 support and dependencies on Linux.
+//! - `serde`: Enables `dpi`'s `serde` feature.
 //! - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
 //!   On **macOS**, enabling devtools, requires calling private APIs so you should not enable this flag in release
 //!   build if your app needs to publish to App Store.
+//! - `mac-proxy`: Enables `WebViewBuilder::with_proxy_config` on macOS.
 //! - `linux-body`: Enables body support of custom protocol request on Linux. Requires
 //!   WebKit2GTK v2.40 or above.
 //! - `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler`, and `custom_protocols`.
