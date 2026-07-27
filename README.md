@@ -279,10 +279,11 @@ Wry uses a set of feature flags to toggle several advanced features.
   for the crate to work. This feature was added in preparation of other ports like cef and servo.
 - `protocol` (default): Enables [`WebViewBuilder::with_custom_protocol`] to define custom URL scheme for handling tasks like
   loading assets.
-- `drag-drop` (default): Enables [`WebViewBuilder::with_drag_drop_handler`] to control the behavior when there are files
-  interacting with the window.
+- `x11` (default): Enables x11 support and dependencies on Linux.
+- `serde`: Enables `dpi`'s `serde` feature.
 - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
   On **macOS**, enabling devtools, requires calling private functions, so avoid this in release builds if you publish your app on the App Store.
+- `mac-proxy`: Enables `WebViewBuilder::with_proxy_config` on macOS.
 - `linux-body`: Enables body support of custom protocol request on Linux. Requires
   WebKit2GTK v2.40 or above.
 - `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler`, and `custom_protocols`.
