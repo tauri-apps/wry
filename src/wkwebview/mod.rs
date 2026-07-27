@@ -341,7 +341,8 @@ impl InnerWebView {
         data_store.setValue_forKey(Some(&proxies), ns_string!("proxyConfigurations"));
       }
 
-      // NOTE: Private API — `allowsPictureInPictureMediaPlayback` is a private KVC key on WKPreferences.
+      // NOTE: Private API on macOS — `allowsPictureInPictureMediaPlayback` is a private KVC key on WKPreferences.
+      // On iOS it's public <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/allowspictureinpicturemediaplayback>
       _preference.setValue_forKey(
         Some(&_yes),
         ns_string!("allowsPictureInPictureMediaPlayback"),
@@ -367,16 +368,10 @@ impl InnerWebView {
 
       let version = util::operating_system_version();
 
-      #[cfg(feature = "transparent")]
       if attributes.transparent || attributes.background_color.is_some() {
         let no = NSNumber::numberWithBool(false);
-        {
-          if cfg!(target_os = "ios") || version.0 > 10 || (version.0 == 10 && version.1 >= 14) {
-            // NOTE: Private API — `drawsBackground`.
-            // Available: macOS 10.14+ (no public doc).
-            config.setValue_forKey(Some(&no), ns_string!("drawsBackground"));
-          }
-        }
+        // TODO: Check if this property exists or is used on iOS
+        config.setValue_forKey(Some(&no), ns_string!("drawsBackground"));
       }
 
       if (cfg!(target_os = "macos") && (version.0 > 12 || (version.0 == 12 && version.1 >= 3)))
@@ -385,12 +380,12 @@ impl InnerWebView {
         // NOTE: Public API alternative for private config fullScreenEnabled (see below)
         // Only available on macOS 12.3+ and iOS 15.4+
         _preference.setElementFullscreenEnabled(true);
+      } else {
+        // NOTE: Private API — `fullScreenEnabled` is a private KVC key on WKPreferences.
+        // This is the private API alternative to setElementFullscreenEnabled above that also works on older macOS/iOS versions.
+        // TODO: Remove this for Tauri v3?
+        _preference.setValue_forKey(Some(&_yes), ns_string!("fullScreenEnabled"));
       }
-
-      #[cfg(feature = "fullscreen")]
-      // NOTE: Private API — `fullScreenEnabled` is a private KVC key on WKPreferences.
-      // This is the private API alternative to setElementFullscreenEnabled above that also works on older macOS/iOS versions.
-      _preference.setValue_forKey(Some(&_yes), ns_string!("fullScreenEnabled"));
 
       #[cfg(target_os = "macos")]
       let webview = {
@@ -543,15 +538,15 @@ impl InnerWebView {
       if attributes.devtools {
         // <https://developer.apple.com/documentation/webkit/wkwebview/isinspectable>
         // Available: macOS 13.3+, iOS 16.4+
+        // Enables debugging via Safari's Web Inspector, NOT via in-webview devtools.
         let has_inspectable_property: bool =
           NSObject::respondsToSelector(&webview, objc2::sel!(setInspectable:));
         if has_inspectable_property {
           webview.setInspectable(true);
         }
         // NOTE: Private API — `developerExtrasEnabled` is a private KVC key on WKPreferences.
-        // this cannot be on an `else` statement, it does not work on macOS :(
-        let dev = ns_string!("developerExtrasEnabled");
-        _preference.setValue_forKey(Some(&_yes), dev);
+        // This enables the in-webview devtools
+        _preference.setValue_forKey(Some(&_yes), ns_string!("developerExtrasEnabled"));
       }
 
       // Message handler
@@ -986,7 +981,7 @@ r#"Object.defineProperty(window, 'ipc', {
       self.webview.setBackgroundColor(Some(&color));
     }
 
-    #[cfg(all(target_os = "macos", feature = "transparent"))]
+    #[cfg(target_os = "macos")]
     unsafe {
       let (red, green, blue, alpha) = _background_color;
 
