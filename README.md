@@ -282,12 +282,11 @@ Wry uses a set of feature flags to toggle several advanced features.
 - `x11` (default): Enables x11 support and dependencies on Linux.
 - `serde`: Enables `dpi`'s `serde` feature.
 - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
-  On **macOS**, enabling devtools, requires calling private APIs so you should not enable this flag in release
-  build if your app needs to publish to App Store.
+  On **macOS**, enabling devtools, requires calling private functions, so avoid this in release builds if you publish your app on the App Store.
 - `transparent`: Transparent background on **macOS** requires calling private functions.
-  Avoid this in release build if your app needs to publish to App Store.
-- `fullscreen`: Fullscreen video and other media on **macOS** requires calling private functions.
-  Avoid this in release build if your app needs to publish to App Store.
+  Avoid this in release builds if you publish your app on the App Store.
+- `fullscreen`: Fullscreen video and other media elements on **macOS** < 12.3 and **iOS** < 15.4 requires calling private functions.
+  Avoid this in release builds if you publish your app on the App Store.
 - `mac-proxy`: Enables `WebViewBuilder::with_proxy_config` on macOS.
 - `linux-body`: Enables body support of custom protocol request on Linux. Requires
   WebKit2GTK v2.40 or above.

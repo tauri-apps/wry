@@ -365,27 +365,31 @@ impl InnerWebView {
         config.setMediaTypesRequiringUserActionForPlayback(WKAudiovisualMediaTypes::None);
       }
 
+      let version = util::operating_system_version();
+
       #[cfg(feature = "transparent")]
       if attributes.transparent || attributes.background_color.is_some() {
         let no = NSNumber::numberWithBool(false);
-        #[cfg(target_os = "macos")]
         {
-          let version = util::operating_system_version();
-          if version.0 > 10 || (version.0 == 10 && version.1 >= 14) {
+          if cfg!(target_os = "ios") || version.0 > 10 || (version.0 == 10 && version.1 >= 14) {
             // NOTE: Private API — `drawsBackground`.
             // Available: macOS 10.14+ (no public doc).
             config.setValue_forKey(Some(&no), ns_string!("drawsBackground"));
           }
         }
-        #[cfg(target_os = "ios")]
-        {
-          // NOTE: Private API — `drawsBackground`.
-          config.setValue_forKey(Some(&no), ns_string!("drawsBackground"));
-        }
+      }
+
+      if (cfg!(target_os = "macos") && (version.0 > 12 || (version.0 == 12 && version.1 >= 3)))
+        || (cfg!(target_os = "ios") && (version.0 > 15 || (version.0 == 15 && version.1 >= 4)))
+      {
+        // NOTE: Public API alternative for private config fullScreenEnabled (see below)
+        // Only available on macOS 12.3+ and iOS 15.4+
+        _preference.setElementFullscreenEnabled(true);
       }
 
       #[cfg(feature = "fullscreen")]
       // NOTE: Private API — `fullScreenEnabled` is a private KVC key on WKPreferences.
+      // This is the private API alternative to setElementFullscreenEnabled above that also works on older macOS/iOS versions.
       _preference.setValue_forKey(Some(&_yes), ns_string!("fullScreenEnabled"));
 
       #[cfg(target_os = "macos")]
