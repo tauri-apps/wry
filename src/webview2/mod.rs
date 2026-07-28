@@ -30,8 +30,8 @@ use self::drag_drop::DragDropController;
 use super::Theme;
 use crate::{
   custom_protocol_workaround, proxy::ProxyConfig, Error, MemoryUsageLevel, NewWindowFeatures,
-  NewWindowOpener, NewWindowResponse, PageLoadEvent, Rect, RequestAsyncResponder, Result,
-  WebViewAttributes, RGBA,
+  NewWindowOpener, NewWindowResponse, PageLoadEvent, PermissionKind, PermissionResponse, Rect,
+  RequestAsyncResponder, Result, WebViewAttributes, RGBA,
 };
 
 type EventRegistrationToken = i64;
@@ -135,7 +135,13 @@ impl InnerWebView {
     } else {
       Self::create_environment(&attributes, pl_attrs.clone())?
     };
-    let controller = Self::create_controller(hwnd, &env, attributes.incognito, background_color)?;
+    let controller = Self::create_controller(
+      hwnd,
+      &env,
+      attributes.incognito,
+      background_color,
+      pl_attrs.profile_name.as_deref(),
+    )?;
     let webview = Self::init_webview(
       parent,
       hwnd,
@@ -369,6 +375,7 @@ impl InnerWebView {
     env: &ICoreWebView2Environment,
     incognito: bool,
     background_color: Option<(u8, u8, u8, u8)>,
+    profile_name: Option<&str>,
   ) -> Result<ICoreWebView2Controller> {
     let (tx, rx) = mpsc::channel();
 
@@ -405,6 +412,11 @@ impl InnerWebView {
         }
 
         controller_opts.SetIsInPrivateModeEnabled(incognito)?;
+
+        if let Some(name) = profile_name {
+          controller_opts.SetProfileName(&HSTRING::from(name))?;
+        }
+
         env10.CreateCoreWebView2ControllerWithOptions(hwnd, &controller_opts, &handler)?;
       } else {
         env.CreateCoreWebView2Controller(hwnd, &handler)?
@@ -505,6 +517,58 @@ impl InnerWebView {
             args.PermissionKind(&mut kind)?;
             if kind == COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ {
               args.SetState(COREWEBVIEW2_PERMISSION_STATE_ALLOW)?;
+            }
+
+            Ok(())
+          })),
+          &mut token,
+        )?;
+      }
+    }
+
+    // Permission handler
+    if let Some(permission_handler) = attributes.permission_handler.take() {
+      unsafe {
+        webview.add_PermissionRequested(
+          &PermissionRequestedEventHandler::create(Box::new(move |_, args| {
+            let Some(args) = args else { return Ok(()) };
+
+            let mut kind = COREWEBVIEW2_PERMISSION_KIND::default();
+            args.PermissionKind(&mut kind)?;
+
+            // Convert WebView2 permission kind to our PermissionKind
+            let permission_kind = match kind {
+              COREWEBVIEW2_PERMISSION_KIND_MICROPHONE => PermissionKind::Microphone,
+              COREWEBVIEW2_PERMISSION_KIND_CAMERA => PermissionKind::Camera,
+              COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION => PermissionKind::Geolocation,
+              COREWEBVIEW2_PERMISSION_KIND_NOTIFICATIONS => PermissionKind::Notifications,
+              COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ => PermissionKind::ClipboardRead,
+              COREWEBVIEW2_PERMISSION_KIND_LOCAL_FONTS => PermissionKind::LocalFonts,
+              COREWEBVIEW2_PERMISSION_KIND_OTHER_SENSORS => PermissionKind::Sensors,
+              COREWEBVIEW2_PERMISSION_KIND_MIDI_SYSTEM_EXCLUSIVE_MESSAGES => PermissionKind::Midi,
+              COREWEBVIEW2_PERMISSION_KIND_MULTIPLE_AUTOMATIC_DOWNLOADS => {
+                PermissionKind::AutomaticDownloads
+              }
+              COREWEBVIEW2_PERMISSION_KIND_FILE_READ_WRITE => PermissionKind::FileSystemAccess,
+              COREWEBVIEW2_PERMISSION_KIND_AUTOPLAY => PermissionKind::Autoplay,
+              COREWEBVIEW2_PERMISSION_KIND_WINDOW_MANAGEMENT => PermissionKind::WindowManagement,
+              _ => PermissionKind::Other,
+            };
+
+            // Call user's permission handler
+            let response = permission_handler(permission_kind);
+
+            // Apply the response
+            match response {
+              PermissionResponse::Allow => {
+                args.SetState(COREWEBVIEW2_PERMISSION_STATE_ALLOW)?;
+              }
+              PermissionResponse::Deny => {
+                args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY)?;
+              }
+              PermissionResponse::Default => {
+                // Do nothing, let WebView2 show default prompt
+              }
             }
 
             Ok(())
@@ -1414,6 +1478,26 @@ impl InnerWebView {
 
   pub fn reload(&self) -> Result<()> {
     unsafe { self.webview.Reload() }.map_err(Into::into)
+  }
+
+  pub fn go_forward(&self) -> Result<()> {
+    unsafe { self.webview.GoForward() }.map_err(Into::into)
+  }
+
+  pub fn go_back(&self) -> Result<()> {
+    unsafe { self.webview.GoBack() }.map_err(Into::into)
+  }
+
+  pub fn can_go_forward(&self) -> Result<bool> {
+    let mut can_go_forward = FALSE;
+    unsafe { self.webview.CanGoForward(&mut can_go_forward) }.map_err(Into::<Error>::into)?;
+    Ok(can_go_forward.into())
+  }
+
+  pub fn can_go_back(&self) -> Result<bool> {
+    let mut can_go_back = FALSE;
+    unsafe { self.webview.CanGoBack(&mut can_go_back) }.map_err(Into::<Error>::into)?;
+    Ok(can_go_back.into())
   }
 
   pub fn bounds(&self) -> Result<Rect> {

@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.55.1]
+
+- [`3860359`](https://github.com/tauri-apps/wry/commit/3860359e3dc75260fb9865f7a8eae00a9ec4733d) ([#1721](https://github.com/tauri-apps/wry/pull/1721) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Tweak ProGuard rules to keep the getId required activity method.
+
 ## \[0.55.0]
 
 - [`a535fd9`](https://github.com/tauri-apps/wry/commit/a535fd95025d126dd1d6ad10b101b81ed9ae40fe) ([#1699](https://github.com/tauri-apps/wry/pull/1699) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) On Android, fixed panics on custom protocol timeouts. Increased timeout for non-internal requests to 30 seconds.
