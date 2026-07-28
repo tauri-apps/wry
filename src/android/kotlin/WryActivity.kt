@@ -9,16 +9,27 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
+import android.view.KeyEvent
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResult
+import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import java.util.concurrent.atomic.AtomicBoolean
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 
-private const val ACTIVITY_ID_KEY = "__wryActivityId"
+private val ACTIVITY_ID_KEY = "__wryActivityId"
 
-val firstActivity = AtomicBoolean(true)
+object WryLifecycleObserver : DefaultLifecycleObserver {
+    // This only runs once: https://developer.android.com/reference/androidx/lifecycle/ProcessLifecycleOwner
+    override fun onCreate(owner: LifecycleOwner) {
+        super.onCreate(owner)
+        Rust.onFirstActivityCreate()
+        Rust.wryCreate()
+    }
+}
 
 abstract class WryActivity : AppCompatActivity() {
     private lateinit var mWebView: RustWebView
@@ -115,11 +126,8 @@ abstract class WryActivity : AppCompatActivity() {
             activityListener?.invoke(result)
         }
 
-        if (firstActivity.getAndSet(false)) {
-          Rust.onFirstActivityCreate()
-          Rust.wryCreate()
-        }
         Rust.onCreate(this)
+        ProcessLifecycleOwner.get().lifecycle.addObserver(WryLifecycleObserver)
     }
 
     override fun onStart() {
