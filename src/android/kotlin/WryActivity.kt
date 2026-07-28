@@ -125,8 +125,8 @@ abstract class WryActivity : AppCompatActivity() {
             activityListener?.invoke(result)
         }
 
-        ProcessLifecycleOwner.get().lifecycle.addObserver(WryLifecycleObserver)
         Rust.onCreate(this)
+        ProcessLifecycleOwner.get().lifecycle.addObserver(WryLifecycleObserver)
     }
 
     override fun onStart() {
