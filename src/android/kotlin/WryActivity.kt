@@ -23,6 +23,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 private val ACTIVITY_ID_KEY = "__wryActivityId"
 
 object WryLifecycleObserver : DefaultLifecycleObserver {
+    // This only runs once: https://developer.android.com/reference/androidx/lifecycle/ProcessLifecycleOwner
     override fun onCreate(owner: LifecycleOwner) {
         super.onCreate(owner)
         Rust.onFirstActivityCreate()
@@ -185,6 +186,7 @@ abstract class WryActivity : AppCompatActivity() {
         return Class.forName(name)
     }
 
+    // Called by tao through JNI
     fun startActivity(cls: Class<*>): Int {
         val intent = Intent(this, cls)
         val id = kotlin.random.Random.nextInt()
