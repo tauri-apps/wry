@@ -25,7 +25,7 @@ private val ACTIVITY_ID_KEY = "__wryActivityId"
 object WryLifecycleObserver : DefaultLifecycleObserver {
     override fun onCreate(owner: LifecycleOwner) {
         super.onCreate(owner)
-        Rust.create()
+        Rust.onFirstActivityCreate()
         Rust.wryCreate()
     }
 }
@@ -142,7 +142,6 @@ abstract class WryActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putInt(ACTIVITY_ID_KEY, id)
-        Rust.onSaveInstanceState(this)
     }
 
     override fun onPause() {
@@ -174,7 +173,7 @@ abstract class WryActivity : AppCompatActivity() {
 
     override fun onLowMemory() {
         super.onLowMemory()
-        Rust.onLowMemory(this)
+        Rust.onLowMemory()
     }
 
     override fun onNewIntent(intent: Intent) {

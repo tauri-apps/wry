@@ -16,18 +16,17 @@ object Rust {
         System.loadLibrary("{{library}}")
     }
 
+    // Tao bindings
+    @JvmStatic external fun onFirstActivityCreate()
     @JvmStatic external fun onCreate(activity: WryActivity)
     @JvmStatic external fun onStart(activity: WryActivity)
     @JvmStatic external fun onResume(activity: WryActivity)
     @JvmStatic external fun onPause(activity: WryActivity)
     @JvmStatic external fun onStop(activity: WryActivity)
-    @JvmStatic external fun onSaveInstanceState(activity: WryActivity)
     @JvmStatic external fun onDestroy(activity: WryActivity)
-    @JvmStatic external fun onLowMemory(activity: WryActivity)
     @JvmStatic external fun onWindowFocusChanged(activity: WryActivity, focus: Boolean)
+    @JvmStatic external fun onLowMemory()
     @JvmStatic external fun onNewIntent(intent: Intent)
-
-    @JvmStatic external fun create()
 
     @JvmStatic external fun wryCreate()
     @JvmStatic external fun onWebviewDestroy(activity: WryActivity, webviewId: String)
