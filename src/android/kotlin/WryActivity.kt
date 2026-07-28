@@ -126,12 +126,12 @@ abstract class WryActivity : AppCompatActivity() {
         }
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(WryLifecycleObserver)
-        Rust.onActivityCreate(this)
+        Rust.onCreate(this)
     }
 
     override fun onStart() {
         super.onStart()
-        Rust.start(this)
+        Rust.onStart(this)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -142,12 +142,12 @@ abstract class WryActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putInt(ACTIVITY_ID_KEY, id)
-        Rust.onActivitySaveInstanceState()
+        Rust.onSaveInstanceState(this)
     }
 
     override fun onPause() {
         super.onPause()
-        Rust.pause(this)
+        Rust.onPause(this)
         if (::mWebView.isInitialized) {
             mWebView.onPause()
         }
@@ -155,7 +155,7 @@ abstract class WryActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        Rust.resume(this)
+        Rust.onResume(this)
         if (::mWebView.isInitialized) {
             mWebView.onResume()
         }
@@ -163,18 +163,18 @@ abstract class WryActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        Rust.stop(this)
+        Rust.onStop(this)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        Rust.onActivityDestroy(this)
+        Rust.onDestroy(this)
         Rust.onWebviewDestroy(this, if (::mWebView.isInitialized) { mWebView.id } else { "" })
     }
 
     override fun onLowMemory() {
         super.onLowMemory()
-        Rust.onActivityLowMemory()
+        Rust.onLowMemory(this)
     }
 
     override fun onNewIntent(intent: Intent) {

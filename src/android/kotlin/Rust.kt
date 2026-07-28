@@ -16,18 +16,18 @@ object Rust {
         System.loadLibrary("{{library}}")
     }
 
-    @JvmStatic external fun onActivityCreate(activity: WryActivity)
-    @JvmStatic external fun onActivityDestroy(activity: WryActivity)
-    @JvmStatic external fun onActivitySaveInstanceState()
-    @JvmStatic external fun onActivityLowMemory()
+    @JvmStatic external fun onCreate(activity: WryActivity)
+    @JvmStatic external fun onStart(activity: WryActivity)
+    @JvmStatic external fun onResume(activity: WryActivity)
+    @JvmStatic external fun onPause(activity: WryActivity)
+    @JvmStatic external fun onStop(activity: WryActivity)
+    @JvmStatic external fun onSaveInstanceState(activity: WryActivity)
+    @JvmStatic external fun onDestroy(activity: WryActivity)
+    @JvmStatic external fun onLowMemory(activity: WryActivity)
     @JvmStatic external fun onWindowFocusChanged(activity: WryActivity, focus: Boolean)
     @JvmStatic external fun onNewIntent(intent: Intent)
 
     @JvmStatic external fun create()
-    @JvmStatic external fun start(activity: WryActivity)
-    @JvmStatic external fun resume(activity: WryActivity)
-    @JvmStatic external fun pause(activity: WryActivity)
-    @JvmStatic external fun stop(activity: WryActivity)
 
     @JvmStatic external fun wryCreate()
     @JvmStatic external fun onWebviewDestroy(activity: WryActivity, webviewId: String)
