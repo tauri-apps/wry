@@ -16,7 +16,7 @@ exclude = ["/.changes", "/.github", "/audits", "/wry-logo.svg"]
 
 [package.metadata.docs.rs]
 no-default-features = true
-features = ["protocol", "os-webview"]
+features = ["os-webview"]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
@@ -24,12 +24,9 @@ targets = [
 ]
 
 [features]
-default = ["protocol", "os-webview", "x11"]
+default = ["os-webview", "x11"]
 serde = ["dpi/serde"]
-protocol = []
 devtools = []
-transparent = []
-fullscreen = []
 linux-body = ["webkit2gtk/v2_40", "os-webview"]
 mac-proxy = []
 os-webview = [
@@ -103,7 +100,7 @@ objc2 = { version = "0.6.4", features = [
   # see https://github.com/tauri-apps/tauri/issues/12843
   "disable-encoding-assertions",
 ] }
-objc2-web-kit = { version = "0.3.0", default-features = false, features = [
+objc2-web-kit = { version = "0.3.2", default-features = false, features = [
   "std",
   "objc2-core-foundation",
   "objc2-app-kit",
@@ -132,12 +129,13 @@ objc2-web-kit = { version = "0.3.0", default-features = false, features = [
   "WKHTTPCookieStore",
   "WKWindowFeatures",
 ] }
-objc2-core-foundation = { version = "0.3.0", default-features = false, features = [
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = [
   "std",
   "CFCGTypes",
 ] }
-objc2-foundation = { version = "0.3.0", default-features = false, features = [
+objc2-foundation = { version = "0.3.2", default-features = false, features = [
   "std",
+  "block2",
   "objc2-core-foundation",
   "NSURLRequest",
   "NSURL",
@@ -160,7 +158,7 @@ objc2-foundation = { version = "0.3.0", default-features = false, features = [
 ] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
-objc2-ui-kit = { version = "0.3.0", default-features = false, features = [
+objc2-ui-kit = { version = "0.3.2", default-features = false, features = [
   "std",
   "objc2-core-foundation",
   "UIResponder",
@@ -173,7 +171,7 @@ objc2-ui-kit = { version = "0.3.0", default-features = false, features = [
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3.0", default-features = false, features = [
+objc2-app-kit = { version = "0.3.2", default-features = false, features = [
   "std",
   "objc2-core-foundation",
   "NSApplication",
@@ -200,10 +198,10 @@ jni = "0.21"
 ndk = "0.9"
 tao-macros = "0.1"
 libc = "0.2"
-dom_query = { version = "0.27.0", default-features = false }
+dom_query = { version = "0.28.0", default-features = false }
 
 [dev-dependencies]
-pollster = "0.4.0"
+pollster = "1.0.0"
 tao = "0.35"
 wgpu = "23"
 winit = "0.30"
@@ -215,7 +213,7 @@ libloading = "0.8.9"
 # For unit testing `inject_initialization_scripts` since we can't do it easily on Android
 sha2 = "0.10"
 base64 = "0.22"
-dom_query = { version = "0.27.0", default-features = false }
+dom_query = { version = "0.28.0", default-features = false }
 
 [lints.rust.unexpected_cfgs]
 level = "warn"
