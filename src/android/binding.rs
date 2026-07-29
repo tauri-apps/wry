@@ -318,7 +318,6 @@ pub unsafe fn onWebviewDestroy(mut env: JNIEnv, _: JClass, activity: JObject, we
   super::MainPipe::send(
     activity_id,
     super::WebViewMessage::OnDestroy {
-      activity_id,
       webview_id,
       is_changing_configurations,
     },

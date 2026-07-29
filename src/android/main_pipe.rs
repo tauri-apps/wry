@@ -511,14 +511,13 @@ impl<'a> MainPipe<'a> {
         }
       }
       WebViewMessage::OnDestroy {
-        activity_id,
         webview_id,
         is_changing_configurations,
       } => {
         // keep our webview references (callbacks etc) alive if the activity is going to be recreated due to configuration changes
         // e.g. rotation, multi-window mode change, etc
         if !is_changing_configurations {
-          super::destroy_webview(activity_id, &webview_id);
+          super::destroy_webview(&webview_id);
           remove_activity_proxy(activity_id);
         }
       }
@@ -622,7 +621,6 @@ pub(crate) enum WebViewMessage {
   CanGoBack(Sender<bool>),
   ClearAllBrowsingData,
   OnDestroy {
-    activity_id: ActivityId,
     webview_id: WebviewId,
     is_changing_configurations: bool,
   },

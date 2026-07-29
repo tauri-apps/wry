@@ -79,7 +79,6 @@ define_static_handlers! {
 define_static_handlers! {
   WebviewId, WITH_ASSET_LOADER = bool;
   WebviewId, ASSET_LOADER_DOMAIN = String;
-  ActivityId, WEBVIEW_ATTRIBUTES = CreateWebViewAttributes;
 }
 
 static PACKAGE: OnceCell<String> = OnceCell::new();
@@ -89,8 +88,7 @@ type EvalCallback = Box<dyn Fn(String) + Send + 'static>;
 static EVAL_ID_GENERATOR: Counter = Counter::new();
 static EVAL_CALLBACKS: OnceCell<Mutex<HashMap<i32, EvalCallback>>> = OnceCell::new();
 
-pub fn destroy_webview(activity_id: ActivityId, webview_id: &WebviewId) {
-  WEBVIEW_ATTRIBUTES.lock().unwrap().remove(&activity_id);
+pub fn destroy_webview(webview_id: &WebviewId) {
   IPC.lock().unwrap().remove(webview_id);
   REQUEST_HANDLER.lock().unwrap().remove(webview_id);
   TITLE_CHANGE_HANDLER.lock().unwrap().remove(webview_id);
@@ -134,13 +132,6 @@ pub unsafe fn android_setup(
   let window_manager = env.new_global_ref(window_manager).unwrap();
 
   register_activity_proxy(vm, activity_id, activity, window_manager);
-
-  if let Some(webview_attributes) = WEBVIEW_ATTRIBUTES.lock().unwrap().get(&activity_id) {
-    MainPipe::send(
-      activity_id,
-      WebViewMessage::CreateWebView(webview_attributes.clone()),
-    );
-  }
 }
 
 pub(crate) struct InnerWebView {
@@ -309,28 +300,24 @@ impl InnerWebView {
         .insert(id.clone(), UnsafePermissionHandler::new(permission_handler));
     }
 
-    let attributes = CreateWebViewAttributes {
-      id: id.clone(),
-      url,
-      html,
-      #[cfg(any(debug_assertions, feature = "devtools"))]
-      devtools,
-      background_color,
-      transparent,
-      headers,
-      on_webview_created,
-      autoplay,
-      user_agent,
-      initialization_scripts,
-      javascript_disabled,
-    };
-
-    WEBVIEW_ATTRIBUTES
-      .lock()
-      .unwrap()
-      .insert(activity_id, attributes.clone());
-
-    MainPipe::send(activity_id, WebViewMessage::CreateWebView(attributes));
+    MainPipe::send(
+      activity_id,
+      WebViewMessage::CreateWebView(CreateWebViewAttributes {
+        id: id.clone(),
+        url,
+        html,
+        #[cfg(any(debug_assertions, feature = "devtools"))]
+        devtools,
+        background_color,
+        transparent,
+        headers,
+        on_webview_created,
+        autoplay,
+        user_agent,
+        initialization_scripts,
+        javascript_disabled,
+      }),
+    );
 
     Ok(Self { id, activity_id })
   }
