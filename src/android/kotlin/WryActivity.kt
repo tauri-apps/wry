@@ -9,10 +9,8 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
-import android.view.KeyEvent
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResult
-import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -20,7 +18,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 
-private val ACTIVITY_ID_KEY = "__wryActivityId"
+private const val ACTIVITY_ID_KEY = "__wryActivityId"
 
 object WryLifecycleObserver : DefaultLifecycleObserver {
     // This only runs once: https://developer.android.com/reference/androidx/lifecycle/ProcessLifecycleOwner
