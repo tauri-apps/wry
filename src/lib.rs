@@ -1758,6 +1758,8 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   default_context_menus: bool,
   environment: Option<ICoreWebView2Environment>,
   profile_name: Option<String>,
+  use_native_custom_scheme: bool,
+  native_custom_scheme_origins: HashMap<String, Vec<String>>,
 }
 
 #[cfg(windows)]
@@ -1774,6 +1776,8 @@ impl Default for PlatformSpecificWebViewAttributes {
       extension_path: None,
       environment: None,
       profile_name: None,
+      use_native_custom_scheme: false,
+      native_custom_scheme_origins: HashMap::new(),
     }
   }
 }
@@ -1855,6 +1859,38 @@ pub trait WebViewBuilderExtWindows {
   /// Does nothing if browser extensions are disabled. See [`with_browser_extensions_enabled`](Self::with_browser_extensions_enabled)
   fn with_extensions_path(self, path: impl Into<PathBuf>) -> Self;
 
+  /// Use native custom scheme registration via [`ICoreWebView2CustomSchemeRegistration`].
+  ///
+  /// When enabled, custom protocol URLs keep their original format (e.g. `myscheme://localhost/path`)
+  /// instead of being rewritten to `http(s)://myscheme.localhost/path`.
+  ///
+  /// Requires WebView2 Runtime version 110.0.1587.40 or higher.
+  /// Falls back to the existing URL rewriting workaround on older versions.
+  /// Use [`crate::supports_native_custom_scheme`] to check the Runtime version
+  /// so you can handle different Runtime versions differently.
+  ///
+  /// The default value is `false`.
+  ///
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2customschemeregistration>
+  ///
+  /// ## Warning
+  ///
+  /// Webview instances with different native custom scheme registrations must also have different [data directories](WebContext::new).
+  fn with_native_custom_scheme(self, enabled: bool) -> Self;
+
+  /// Sets the list of origins allowed to issue requests for the given custom scheme.
+  ///
+  /// Only takes effect when [`with_native_custom_scheme`](Self::with_native_custom_scheme) is enabled.
+  /// Can be called multiple times for different schemes.
+  /// Origins support wildcard pattern matching, e.g. `"https://*.example.com"`.
+  ///
+  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2customschemeregistration#setallowedorigins>
+  fn with_native_custom_scheme_origins(
+    self,
+    scheme: impl Into<String>,
+    origins: impl IntoIterator<Item = impl Into<String>>,
+  ) -> Self;
+
   /// Set the environment for the webview.
   /// Useful if you need to share the same environment, for instance when using the [`WebViewBuilder::with_new_window_req_handler`].
   fn with_environment(self, environment: ICoreWebView2Environment) -> Self;
@@ -1907,6 +1943,25 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 
   fn with_browser_extensions_enabled(mut self, enabled: bool) -> Self {
     self.platform_specific.browser_extensions_enabled = enabled;
+    self
+  }
+
+  fn with_native_custom_scheme(mut self, enabled: bool) -> Self {
+    self.platform_specific.use_native_custom_scheme = enabled;
+    self
+  }
+
+  fn with_native_custom_scheme_origins(
+    mut self,
+    scheme: impl Into<String>,
+    origins: impl IntoIterator<Item = impl Into<String>>,
+  ) -> Self {
+    let scheme = scheme.into();
+    let scheme_origins: Vec<String> = origins.into_iter().map(|o| o.into()).collect();
+    self
+      .platform_specific
+      .native_custom_scheme_origins
+      .insert(scheme, scheme_origins);
     self
   }
 
@@ -2318,6 +2373,20 @@ pub enum DragDropEvent {
 #[cfg_attr(docsrs, doc(cfg(feature = "os-webview")))]
 pub fn webview_version() -> Result<String> {
   platform_webview_version()
+}
+
+/// Check if the installed WebView2 Runtime supports native custom scheme registration
+/// via `ICoreWebView2CustomSchemeRegistration` (requires Runtime >= 110.0.1587.40).
+///
+/// Only available on Windows. Returns `false` if the WebView2 Runtime is not installed
+/// or its version is below 110.0.1587.40.
+///
+/// Use this to check before calling [`WebViewBuilderExtWindows::with_native_custom_scheme`]
+/// so you can handle different Runtime versions differently instead of relying on
+/// the silent fallback.
+#[cfg(target_os = "windows")]
+pub fn supports_native_custom_scheme() -> bool {
+  crate::webview2::supports_native_custom_scheme()
 }
 
 /// The [memory usage target level][1]. There are two levels 'Low' and 'Normal' and the default
