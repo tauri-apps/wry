@@ -114,7 +114,6 @@ let builder = WebViewBuilder::new()
 let webview = builder.build_as_child(&window).unwrap();
 #[cfg(target_os = "linux")]
 let webview = {
-  # use gtk::prelude::*;
   let vbox = window.default_vbox().unwrap(); // tao adds a gtk::Box by default
   let fixed = gtk::Fixed::new();
   fixed.show_all();
@@ -280,7 +279,8 @@ Wry uses a set of feature flags to toggle several advanced features.
 - `x11` (default): Enables x11 support and dependencies on Linux.
 - `serde`: Enables `dpi`'s `serde` feature.
 - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
-  On **macOS**, enabling devtools, requires calling private functions, so avoid this in release builds if you publish your app on the App Store.
+  On **macOS**, enabling devtools, requires calling private APIs so you should not enable this flag in release
+  build if your app needs to publish to App Store.
 - `mac-proxy`: Enables `WebViewBuilder::with_proxy_config` on macOS.
 - `linux-body`: Enables body support of custom protocol request on Linux. Requires
   WebKit2GTK v2.40 or above.
