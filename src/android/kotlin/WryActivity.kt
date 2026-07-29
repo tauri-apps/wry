@@ -25,7 +25,7 @@ object WryLifecycleObserver : DefaultLifecycleObserver {
     override fun onCreate(owner: LifecycleOwner) {
         super.onCreate(owner)
         Rust.onFirstActivityCreate()
-        Rust.wryCreate()
+        Rust.onFirstActivityCreateWry()
     }
 }
 

@@ -35,7 +35,7 @@ macro_rules! android_binding {
   ($domain:ident, $package:ident, $wry:path) => {{
     use $wry::{android_setup as _, prelude::*};
 
-    android_fn!($domain, $package, Rust, wryCreate, []);
+    android_fn!($domain, $package, Rust, onFirstActivityCreateWry, []);
     android_fn!(
       $domain,
       $package,
@@ -273,9 +273,8 @@ fn handle_request(
   Ok(*web_resource_response)
 }
 
-/// This is called on the first activity created
 #[allow(non_snake_case)]
-pub unsafe fn wryCreate(env: JNIEnv, _: JClass) {
+pub unsafe fn onFirstActivityCreateWry(env: JNIEnv, _: JClass) {
   let mut main_pipe = MainPipe { env };
 
   let looper = ThreadLooper::for_thread().unwrap();
