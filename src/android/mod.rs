@@ -105,6 +105,10 @@ pub fn destroy_webview(activity_id: ActivityId, webview_id: &WebviewId) {
 ///
 /// This function must be run on the thread where the [`JNIEnv`] is registered and the looper is local,
 /// hence the requirement for a [`ThreadLooper`].
+///
+/// When used with tao, this is usually passed in like
+/// `tao::android_binding!($domain, $app_name, $activity, android_setup, $main)`
+/// to fill in `on_activity_create` which is run at the end of `onCreate` of an activiy
 pub unsafe fn android_setup(
   package: &str,
   mut env: JNIEnv,
