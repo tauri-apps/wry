@@ -5,6 +5,10 @@ on:
     branches:
       - dev
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/bench.yml'
+      - 'bench/**'
 
 env:
   RUST_BACKTRACE: 1
@@ -22,12 +26,14 @@ jobs:
       matrix:
         rust: [nightly]
         platform:
-          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, runner: 'xvfb-run --auto-servernum ' }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest, runner: '' }
+          - { target: aarch64-apple-darwin, os: macos-latest, runner: '' }
 
     runs-on: ${{ matrix.platform.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: install Rust ${{ matrix.rust }}
         uses: dtolnay/rust-toolchain@master
@@ -36,23 +42,30 @@ jobs:
           components: rust-src
           targets: ${{ matrix.platform.target }}
 
-      - name: Setup python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-          architecture: x64
-
-      - name: install dependencies
+      - name: install webkit2gtk and xvfb (ubuntu only)
+        if: contains(matrix.platform.target, 'gnu')
         run: |
-          python -m pip install --upgrade pip
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
             xvfb \
             at-spi2-core
-          wget https://github.com/sharkdp/hyperfine/releases/download/v1.18.0/hyperfine_1.18.0_amd64.deb
-          sudo dpkg -i hyperfine_1.18.0_amd64.deb
+
+      - name: Setup python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: install memory_profiler
+        run: |
+          python -m pip install --upgrade pip
           pip install memory_profiler
+
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.19.1
+
+      - name: Install hyperfine
+        run: cargo binstall hyperfine@1.20 --no-confirm
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -60,10 +73,13 @@ jobs:
             .
             bench/tests
 
+      - name: build benchmark binaries
+        env:
+          RUSTFLAGS: "-Zunstable-options -Cpanic=immediate-abort"
+        run: cargo +nightly build --release -Z build-std=std,panic_abort -Z build-std-features= --target ${{ matrix.platform.target }} --manifest-path bench/tests/Cargo.toml
+
       - name: run benchmarks
-        run: |
-          RUSTFLAGS="-Zunstable-options -Cpanic=immediate-abort" cargo +nightly build --release -Z build-std=std,panic_abort -Z build-std-features= --target ${{ matrix.platform.target }} --manifest-path bench/tests/Cargo.toml
-          xvfb-run --auto-servernum cargo run --manifest-path ./bench/Cargo.toml --bin run_benchmark
+        run: ${{ matrix.platform.runner }}cargo run --manifest-path ./bench/Cargo.toml --bin run_benchmark
 
       - name: clone benchmarks_results
         if: github.repository == 'tauri-apps/wry' && github.ref == 'refs/heads/dev'
@@ -86,6 +102,8 @@ jobs:
           git push origin gh-pages
 
       - name: Print worker info
+        # TODO: How to print this info on macOS and Windows
+        if: contains(matrix.platform.target, 'gnu')
         run: |
           cat /proc/cpuinfo
           cat /proc/meminfo

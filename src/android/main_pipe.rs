@@ -36,24 +36,17 @@ pub struct ActivityProxy {
   pub activity: GlobalRef,
   pub window_manager: GlobalRef,
   pub webview: Option<GlobalRef>,
-  pub webchrome_client: GlobalRef,
   pub java_vm: *mut c_void,
 }
 
 unsafe impl Send for ActivityProxy {}
 
 impl ActivityProxy {
-  pub fn new(
-    vm: JavaVM,
-    activity: GlobalRef,
-    window_manager: GlobalRef,
-    webchrome_client: GlobalRef,
-  ) -> Self {
+  pub fn new(vm: JavaVM, activity: GlobalRef, window_manager: GlobalRef) -> Self {
     Self {
       activity,
       window_manager,
       webview: None,
-      webchrome_client,
       java_vm: vm.get_java_vm_pointer() as *mut _,
     }
   }
@@ -75,16 +68,14 @@ pub fn register_activity_proxy(
   id: ActivityId,
   activity: GlobalRef,
   window_manager: GlobalRef,
-  webchrome_client: GlobalRef,
 ) {
   let mut activity_proxy = ACTIVITY_PROXY.lock().unwrap();
   if let Some(proxy) = activity_proxy.get_mut(&id) {
     proxy.activity = activity;
     proxy.window_manager = window_manager;
-    proxy.webchrome_client = webchrome_client;
     proxy.java_vm = vm.get_java_vm_pointer() as *mut _;
   } else {
-    let proxy = ActivityProxy::new(vm, activity, window_manager, webchrome_client);
+    let proxy = ActivityProxy::new(vm, activity, window_manager);
     activity_proxy.insert(id, proxy);
   }
 }
@@ -144,16 +135,21 @@ impl<'a> MainPipe<'a> {
 
   pub fn recv(&mut self) -> JniResult<()> {
     let package = super::PACKAGE.get().unwrap();
-    // SAFETY: The `CHANNEL` is `static` that the sender never drops
-    let (activity_id, message) = CHANNEL.1.recv().unwrap();
+    while let Ok((activity_id, message)) = CHANNEL.1.try_recv() {
+      self.handle_message(package, activity_id, message)?;
+    }
+    Ok(())
+  }
+
+  fn handle_message(
+    &mut self,
+    package: &str,
+    activity_id: ActivityId,
+    message: WebViewMessage,
+  ) -> JniResult<()> {
     match message {
       WebViewMessage::CreateWebView(attrs) => {
-        let Some(ActivityProxy {
-          activity,
-          webchrome_client,
-          ..
-        }) = activity_proxy(activity_id)
-        else {
+        let Some(ActivityProxy { activity, .. }) = activity_proxy(activity_id) else {
           #[cfg(debug_assertions)]
           eprintln!("no activity found for activity id: {}", activity_id);
           return Ok(());
@@ -284,12 +280,22 @@ impl<'a> MainPipe<'a> {
           "(Landroid/webkit/WebViewClient;)V",
           &[(&webview_client).into()],
         )?;
-        // set webchrome client
+        // Create and set webchrome client
+        let rust_webchrome_client_class = find_class(
+          &mut self.env,
+          &activity,
+          format!("{package}/RustWebChromeClient"),
+        )?;
+        let web_chrome_client = self.env.new_object(
+          &rust_webchrome_client_class,
+          format!("(L{package}/WryActivity;Ljava/lang/String;)V"),
+          &[(&activity).into(), (&id).into()],
+        )?;
         self.env.call_method(
           &webview,
           "setWebChromeClient",
           "(Landroid/webkit/WebChromeClient;)V",
-          &[webchrome_client.as_obj().into()],
+          &[(&web_chrome_client).into()],
         )?;
 
         // Add javascript interface (IPC)
@@ -452,6 +458,28 @@ impl<'a> MainPipe<'a> {
           reload(&mut self.env, webview.as_obj())?;
         }
       }
+      WebViewMessage::GoForward => {
+        if let Some(webview) = get_webview(activity_id) {
+          go_forward(&mut self.env, webview.as_obj())?;
+        }
+      }
+      WebViewMessage::GoBack => {
+        if let Some(webview) = get_webview(activity_id) {
+          go_back(&mut self.env, webview.as_obj())?;
+        }
+      }
+      WebViewMessage::CanGoForward(tx) => {
+        if let Some(webview) = get_webview(activity_id) {
+          tx.send(can_go_forward(&mut self.env, webview.as_obj())?)
+            .unwrap();
+        }
+      }
+      WebViewMessage::CanGoBack(tx) => {
+        if let Some(webview) = get_webview(activity_id) {
+          tx.send(can_go_back(&mut self.env, webview.as_obj())?)
+            .unwrap();
+        }
+      }
       WebViewMessage::GetCookies(tx, url) => {
         if let Some(webview) = get_webview(activity_id) {
           let url = self.env.new_string(url)?;
@@ -549,6 +577,24 @@ fn reload<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>) -> JniResult<()> {
   Ok(())
 }
 
+fn go_forward<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>) -> JniResult<()> {
+  env.call_method(webview, "goForward", "()V", &[])?;
+  Ok(())
+}
+
+fn go_back<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>) -> JniResult<()> {
+  env.call_method(webview, "goBack", "()V", &[])?;
+  Ok(())
+}
+
+fn can_go_forward<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>) -> JniResult<bool> {
+  Ok(env.call_method(webview, "canGoForward", "()Z", &[])?.z()?)
+}
+
+fn can_go_back<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>) -> JniResult<bool> {
+  Ok(env.call_method(webview, "canGoBack", "()Z", &[])?.z()?)
+}
+
 fn set_background_color<'a>(
   env: &mut JNIEnv<'a>,
   webview: &JObject<'a>,
@@ -570,6 +616,10 @@ pub(crate) enum WebViewMessage {
   LoadUrl(String, Option<http::HeaderMap>),
   LoadHtml(String),
   Reload,
+  GoForward,
+  GoBack,
+  CanGoForward(Sender<bool>),
+  CanGoBack(Sender<bool>),
   ClearAllBrowsingData,
   OnDestroy {
     activity_id: ActivityId,

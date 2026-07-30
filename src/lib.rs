@@ -51,7 +51,7 @@
 //! event_loop.run_app(&mut app).unwrap();
 //! ```
 //!
-//! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::new_gtk`] on Linux.
+//! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::build_gtk`] on Linux.
 //! See the following example using [`tao`]:
 //!
 //! ```no_run
@@ -111,7 +111,7 @@
 //! ```
 //!
 //! If you want to support X11 and Wayland at the same time, we recommend using
-//! [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+//! [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
 //!
 //! ```no_run
 //! # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
@@ -299,17 +299,12 @@
 //!
 //! - `os-webview` (default): Enables the default WebView framework on the platform. This must be enabled
 //!   for the crate to work. This feature was added in preparation of other ports like cef and servo.
-//! - `protocol` (default): Enables [`WebViewBuilder::with_custom_protocol`] to define custom URL scheme for handling tasks like
-//!   loading assets.
-//! - `drag-drop` (default): Enables [`WebViewBuilder::with_drag_drop_handler`] to control the behavior when there are files
-//!   interacting with the window.
+//! - `x11` (default): Enables x11 support and dependencies on Linux.
+//! - `serde`: Enables `dpi`'s `serde` feature.
 //! - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
 //!   On **macOS**, enabling devtools, requires calling private APIs so you should not enable this flag in release
 //!   build if your app needs to publish to App Store.
-//! - `transparent`: Transparent background on **macOS** requires calling private functions.
-//!   Avoid this in release build if your app needs to publish to App Store.
-//! - `fullscreen`: Fullscreen video and other media on **macOS** requires calling private functions.
-//!   Avoid this in release build if your app needs to publish to App Store.
+//! - `mac-proxy`: Enables `WebViewBuilder::with_proxy_config` on macOS.
 //! - `linux-body`: Enables body support of custom protocol request on Linux. Requires
 //!   WebKit2GTK v2.40 or above.
 //! - `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler`, and `custom_protocols`.
@@ -352,6 +347,7 @@ mod custom_protocol_workaround;
 mod error;
 #[cfg(any(target_os = "android", test))]
 mod inject_initialization_scripts;
+mod permissions;
 mod proxy;
 #[cfg(any(
   target_os = "macos",
@@ -421,6 +417,7 @@ pub use cookie;
 pub use dpi;
 pub use error::*;
 pub use http;
+pub use permissions::{PermissionKind, PermissionResponse};
 pub use proxy::{ProxyConfig, ProxyEndpoint};
 pub use web_context::WebContext;
 
@@ -598,11 +595,14 @@ struct WebViewAttributes<'a> {
   /// Headers used when loading the requested [`url`](Self::url).
   pub headers: Option<http::HeaderMap>,
 
-  /// Whether page zooming by hotkeys is enabled
+  /// Whether page zooming by hotkeys or gestures is enabled
   ///
   /// ## Platform-specific
   ///
-  /// **macOS / Linux / Android / iOS**: Unsupported
+  /// - Windows: Setting to `false` can't disable pinch zoom on WebView2 Runtime version before 91.0.865.0,
+  ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10865-prerelease>
+  ///
+  /// - **macOS / Linux / Android / iOS**: Unsupported
   pub zoom_hotkeys_enabled: bool,
 
   /// Whether load the provided html string to [`WebView`].
@@ -648,7 +648,7 @@ struct WebViewAttributes<'a> {
   /// if you wish to send requests with native `fetch` and `XmlHttpRequest` APIs. Here are the
   /// different Origin headers across platforms:
   ///
-  /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://path/to/page/`).
+  /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://path/to/page`).
   /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page`). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`].
   ///
   /// # Reading assets on mobile
@@ -657,7 +657,7 @@ struct WebViewAttributes<'a> {
   ///   locate your files in those directories. For more information, see [Loading in-app content](https://developer.android.com/guide/webapps/load-local-content) page.
   /// - iOS: To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
   pub custom_protocols:
-    HashMap<String, Box<dyn Fn(WebViewId, Request<Vec<u8>>, RequestAsyncResponder)>>,
+    HashMap<String, Box<dyn Fn(WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + Send + Sync>>,
 
   /// The IPC handler to receive the message from Javascript on webview
   /// using `window.ipc.postMessage("insert_message_here")` to host Rust code.
@@ -665,11 +665,19 @@ struct WebViewAttributes<'a> {
 
   /// A handler closure to process incoming [`DragDropEvent`] of the webview.
   ///
-  /// # Blocking OS Default Behavior
+  /// ## Blocking OS Default Behavior
+  ///
   /// Return `true` in the callback to block the OS' default behavior.
   ///
   /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows:** This will disable the HTML Drag and Drop APIs like `draggable="true"`,
+  ///   since we replace the drag drop handler of WebView 2 on Windows.
+  ///   `handler`'s return value is ignored on Windows.
+  /// - **Android / iOS:** Unsupported.
   pub drag_drop_handler: Option<Box<dyn Fn(DragDropEvent) -> bool>>,
 
   /// A navigation handler to decide if incoming url is allowed to navigate.
@@ -680,7 +688,7 @@ struct WebViewAttributes<'a> {
 
   /// A download started handler to manage incoming downloads.
   ///
-  /// The closure takes two parameters, the first is a `String` representing the url being downloaded from and and the
+  /// The closure takes two parameters, the first is a `String` representing the url being downloaded from and the
   /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
   /// parameter can be used to set the download location by assigning a new path to it, the assigned path _must_ be
   /// absolute. The closure returns a `bool` to allow or deny the download.
@@ -751,7 +759,7 @@ struct WebViewAttributes<'a> {
   /// Set a handler closure to process the change of the webview's document title.
   pub document_title_changed_handler: Option<Box<dyn Fn(String)>>,
 
-  /// Run the WebView with incognito mode. Note that WebContext will be ingored if incognito is
+  /// Run the WebView with incognito mode. Note that WebContext will be ignored if incognito is
   /// enabled.
   ///
   /// ## Platform-specific:
@@ -783,7 +791,7 @@ struct WebViewAttributes<'a> {
 
   /// The webview bounds. Defaults to `x: 0, y: 0, width: 200, height: 200`.
   /// This is only effective if the webview was created by [`WebViewBuilder::new_as_child`]
-  /// or on Linux, if was created by [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+  /// or on Linux, if was created by [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
   pub bounds: Option<Rect>,
 
   /// Whether background throttling should be disabled.
@@ -804,6 +812,39 @@ struct WebViewAttributes<'a> {
   /// Whether JavaScript should be disabled.
   pub javascript_disabled: bool,
 
+  /// A handler to intercept permission requests from the webview.
+  ///
+  /// The handler receives the [`PermissionKind`] and should return
+  /// the desired [`PermissionResponse`].
+  ///
+  /// > [!NOTE]
+  /// > This handler only triggers for new permission requests. If the user has already
+  /// > allowed or denied a permission persistently within the webview, the browser
+  /// > will use the saved preference instead of calling this handler.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows**: Fully supported via WebView2's PermissionRequested event.
+  /// - **macOS / iOS**: Fully supported via WKUIDelegate's requestMediaCapturePermission.
+  /// - **Linux**: Fully supported via WebKitGTK's permission-request signal.
+  /// - **Android**: Supported via JNI bridge for geolocation, microphone, camera,
+  ///   protected media, and MIDI requests. Android runtime permissions may still
+  ///   trigger native OS prompts before access is granted.
+  ///
+  /// ## Example
+  ///
+  /// ```no_run
+  /// # use wry::{WebViewBuilder, PermissionKind, PermissionResponse};
+  /// let webview = WebViewBuilder::new()
+  ///     .with_permission_handler(|kind| {
+  ///         match kind {
+  ///             PermissionKind::Microphone => PermissionResponse::Allow,
+  ///             PermissionKind::Camera => PermissionResponse::Allow,
+  ///             _ => PermissionResponse::Default,
+  ///         }
+  ///     });
+  /// ```
+  pub permission_handler: Option<Box<dyn Fn(PermissionKind) -> PermissionResponse + Send + Sync>>,
   /// Controls the WebView's browser-level general autofill behavior.
   ///
   /// **This option does not disable password or credit card autofill.**
@@ -863,6 +904,7 @@ impl Default for WebViewAttributes<'_> {
       }),
       background_throttling: None,
       javascript_disabled: false,
+      permission_handler: None,
       general_autofill_enabled: true,
     }
   }
@@ -936,7 +978,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// The color uses the RGBA format.
   ///
-  /// ## Platfrom-specific:
+  /// ## Platform-specific:
   ///
   /// - **macOS**: Disables the default white WKWebView background via the `drawsBackground` KVC key
   ///   (same as the `transparent` feature) and sets `underPageBackgroundColor` (macOS 12+) for overscroll areas.
@@ -1027,7 +1069,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// The closure takes a [Request] and returns a [Response]
   ///
-  /// When registering a custom protocol with the same name, only the last regisered one will be used.
+  /// When registering a custom protocol with the same name, only the last registered one will be used.
   ///
   /// # Warning
   ///
@@ -1047,10 +1089,9 @@ impl<'a> WebViewBuilder<'a> {
   ///   elsewhere in Android (provided the app has appropriate access), but not from the `assets`
   ///   folder which lives within the apk. For the cases where this can be used, it works the same as in macOS and Linux.
   /// - iOS: To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
-  #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(WebViewId, Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> + 'static,
+    F: Fn(WebViewId, Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> + Send + Sync + 'static,
   {
     #[cfg(all(
       any(
@@ -1088,7 +1129,7 @@ impl<'a> WebViewBuilder<'a> {
 
   /// Same as [`Self::with_custom_protocol`] but with an asynchronous responder.
   ///
-  /// When registering a custom protocol with the same name, only the last regisered one will be used.
+  /// When registering a custom protocol with the same name, only the last registered one will be used.
   ///
   /// # Warning
   ///
@@ -1115,10 +1156,9 @@ impl<'a> WebViewBuilder<'a> {
   ///     });
   ///   });
   /// ```
-  #[cfg(feature = "protocol")]
   pub fn with_asynchronous_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
-    F: Fn(WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + 'static,
+    F: Fn(WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + Send + Sync + 'static,
   {
     #[cfg(any(
       target_os = "linux",
@@ -1159,13 +1199,21 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set a handler closure to process incoming [`DragDropEvent`] of the webview.
+  /// A handler closure to process incoming [`DragDropEvent`] of the webview.
   ///
-  /// # Blocking OS Default Behavior
+  /// ## Blocking OS Default Behavior
+  ///
   /// Return `true` in the callback to block the OS' default behavior.
   ///
   /// Note, that if you do block this behavior, it won't be possible to drop files on `<input type="file">` forms.
   /// Also note, that it's not possible to manually set the value of a `<input type="file">` via JavaScript for security reasons.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows:** This will disable the HTML Drag and Drop APIs like `draggable="true"`,
+  ///   since we replace the drag drop handler of WebView 2 on Windows.
+  ///   `handler`'s return value is ignored on Windows.
+  /// - **Android / iOS:** Unsupported.
   pub fn with_drag_drop_handler<F>(mut self, handler: F) -> Self
   where
     F: Fn(DragDropEvent) -> bool + 'static,
@@ -1280,9 +1328,49 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
+  /// Set a handler to intercept permission requests from the webview.
+  ///
+  /// The handler receives the [`PermissionKind`] and should return
+  /// the desired [`PermissionResponse`].
+  ///
+  /// > [!NOTE]
+  /// > This handler only triggers for new permission requests. If the user has already
+  /// > allowed or denied a permission persistently within the webview, the browser
+  /// > will use the saved preference instead of calling this handler.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Windows**: Fully supported via WebView2's PermissionRequested event.
+  /// - **macOS / iOS**: Fully supported via WKUIDelegate's requestMediaCapturePermission.
+  /// - **Linux**: Fully supported via WebKitGTK's permission-request signal.
+  /// - **Android**: Supported via JNI bridge for geolocation, microphone, camera,
+  ///   protected media, and MIDI requests. Android runtime permissions may still
+  ///   trigger native OS prompts before access is granted.
+  ///
+  /// ## Example
+  ///
+  /// ```no_run
+  /// # use wry::{WebViewBuilder, PermissionKind, PermissionResponse};
+  /// let webview = WebViewBuilder::new()
+  ///     .with_permission_handler(|kind| {
+  ///         match kind {
+  ///             PermissionKind::Microphone => PermissionResponse::Allow,
+  ///             PermissionKind::Camera => PermissionResponse::Allow,
+  ///             _ => PermissionResponse::Default,
+  ///         }
+  ///     });
+  /// ```
+  pub fn with_permission_handler<F>(mut self, handler: F) -> Self
+  where
+    F: Fn(PermissionKind) -> PermissionResponse + Send + Sync + 'static,
+  {
+    self.attrs.permission_handler = Some(Box::new(handler));
+    self
+  }
+
   /// Set a download started handler to manage incoming downloads.
   ///
-  /// The closure takes two parameters, the first is a `String` representing the url being downloaded from and and the
+  /// The closure takes two parameters, the first is a `String` representing the url being downloaded from and the
   /// second is a mutable `PathBuf` reference that (possibly) represents where the file will be downloaded to. The latter
   /// parameter can be used to set the download location by assigning a new path to it, the assigned path _must_ be
   /// absolute. The closure returns a `bool` to allow or deny the download.
@@ -1360,7 +1448,7 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Run the WebView with incognito mode. Note that WebContext will be ingored if incognito is
+  /// Run the WebView with incognito mode. Note that WebContext will be ignored if incognito is
   /// enabled.
   ///
   /// ## Platform-specific:
@@ -1382,10 +1470,9 @@ impl<'a> WebViewBuilder<'a> {
     self
   }
 
-  /// Set a proxy configuration for the webview.
+  /// Set a proxy configuration for the webview. Supports HTTP CONNECT and SOCKSv5 proxies
   ///
-  /// - **macOS**: Requires macOS 14.0+ and the `mac-proxy` feature flag to be enabled. Supports HTTP CONNECT and SOCKSv5 proxies.
-  /// - **Windows / Linux**: Supports HTTP CONNECT and SOCKSv5 proxies.
+  /// - **macOS**: Requires macOS 14.0+ and the `mac-proxy` feature flag to be enabled.
   /// - **Android / iOS:** Not supported.
   pub fn with_proxy_config(mut self, configuration: ProxyConfig) -> Self {
     self.attrs.proxy_config = Some(configuration);
@@ -1403,7 +1490,7 @@ impl<'a> WebViewBuilder<'a> {
   }
 
   /// Specify the webview position relative to its parent if it will be created as a child
-  /// or if created using [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+  /// or if created using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
   ///
   /// Defaults to `x: 0, y: 0, width: 200, height: 200`.
   pub fn with_bounds(mut self, bounds: Rect) -> Self {
@@ -1460,9 +1547,9 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// # Platform-specific:
   ///
-  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewBuilderExtUnix::new_gtk`].
+  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewBuilderExtUnix::build_gtk`].
   ///
-  ///   Although this methods only needs an X11 window handle, we use webkit2gtk, so you still need to initialize gtk
+  ///   Although this method only needs an X11 window handle, we use webkit2gtk, so you still need to initialize gtk
   ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
   ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
   /// - **Windows**: The webview will auto-resize when the passed handle is resized.
@@ -1493,7 +1580,7 @@ impl<'a> WebViewBuilder<'a> {
   ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
   ///
   ///   If you want to support child webviews on X11 and Wayland at the same time,
-  ///   we recommend using [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+  ///   we recommend using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
   /// - **Android/iOS:** Unsupported.
   ///
   /// # Panics:
@@ -1892,7 +1979,6 @@ pub trait WebViewBuilderExtAndroid {
   /// String, similar to [`with_custom_protocol`], but also sets the WebViewAssetLoader with the
   /// necessary domain (which is fixed as `<protocol>.assets`). This cannot be used in conjunction
   /// to `with_custom_protocol` for Android, as it changes the way in which requests are handled.
-  #[cfg(feature = "protocol")]
   fn with_asset_loader(self, protocol: String) -> Self;
 
   /// Determines whether the custom protocols should use `https://<scheme>.localhost` instead of the default `http://<scheme>.localhost`.
@@ -1919,7 +2005,6 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     self
   }
 
-  #[cfg(feature = "protocol")]
   fn with_asset_loader(mut self, protocol: String) -> Self {
     // register custom protocol with empty Response return,
     // this is necessary due to the need of fixing a domain
@@ -2153,7 +2238,7 @@ impl WebView {
   ///
   /// The color uses the RGBA format.
   ///
-  /// ## Platfrom-specific:
+  /// ## Platform-specific:
   ///
   /// - **macOS**: Disables the default white WKWebView background via the `drawsBackground` KVC key
   ///   (same as the `transparent` feature) and sets `underPageBackgroundColor` (macOS 12+) for overscroll areas.
@@ -2172,6 +2257,24 @@ impl WebView {
   /// Reloads the current page.
   pub fn reload(&self) -> crate::Result<()> {
     self.webview.reload()
+  }
+
+  /// Go to the next page.
+  pub fn go_forward(&self) -> Result<()> {
+    self.webview.go_forward()
+  }
+
+  /// Go to the previous page.
+  pub fn go_back(&self) -> Result<()> {
+    self.webview.go_back()
+  }
+
+  pub fn can_go_forward(&self) -> Result<bool> {
+    self.webview.can_go_forward()
+  }
+
+  pub fn can_go_back(&self) -> Result<bool> {
+    self.webview.can_go_back()
   }
 
   /// Navigate to the specified url using the specified headers
@@ -2196,7 +2299,7 @@ impl WebView {
   /// Set the webview bounds.
   ///
   /// This is only effective if the webview was created as a child
-  /// or created using [`WebViewBuilderExtUnix::new_gtk`] with [`gtk::Fixed`].
+  /// or created using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
   pub fn set_bounds(&self, bounds: Rect) -> Result<()> {
     self.webview.set_bounds(bounds)
   }

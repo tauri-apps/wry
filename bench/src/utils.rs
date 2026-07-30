@@ -9,7 +9,7 @@ use std::{
   collections::HashMap,
   fs,
   io::{BufRead, BufReader},
-  path::PathBuf,
+  path::{Path, PathBuf},
   process::{Command, Output, Stdio},
 };
 
@@ -37,11 +37,11 @@ pub struct StraceOutput {
 
 pub fn get_target() -> &'static str {
   #[cfg(target_os = "macos")]
-  return "x86_64-apple-darwin";
+  return "aarch64-apple-darwin";
   #[cfg(target_os = "linux")]
   return "x86_64-unknown-linux-gnu";
   #[cfg(target_os = "windows")]
-  return unimplemented!();
+  return "x86_64-pc-windows-msvc";
 }
 
 pub fn target_dir() -> PathBuf {
@@ -200,7 +200,7 @@ pub fn read_json(filename: &str) -> Result<Value> {
 }
 
 #[allow(dead_code)]
-pub fn write_json(filename: &str, value: &Value) -> Result<()> {
+pub fn write_json(filename: &Path, value: &Value) -> Result<()> {
   let f = fs::File::create(filename)?;
   serde_json::to_writer(f, value)?;
   Ok(())
