@@ -5,6 +5,9 @@
 mod drag_drop;
 mod util;
 
+#[cfg(test)]
+mod tests;
+
 use std::{
   borrow::Cow, cell::RefCell, collections::HashSet, fmt::Write, fs, path::PathBuf, rc::Rc,
   sync::mpsc,
@@ -1284,6 +1287,13 @@ impl InnerWebView {
     _uidsubclass: usize,
     dwrefdata: usize,
   ) -> LRESULT {
+    // The controller refdata is cleared before it is dropped during teardown.
+    // A nested window message can re-enter this callback in that interval, so
+    // delegate immediately instead of dereferencing the cleared pointer.
+    if dwrefdata == 0 {
+      return DefSubclassProc(hwnd, msg, wparam, lparam);
+    }
+
     match msg {
       WM_SIZE => {
         if wparam.0 != SIZE_MINIMIZED as usize {
@@ -1326,17 +1336,19 @@ impl InnerWebView {
       }
 
       msg if msg == WM_DESTROY || msg == PARENT_DESTROY_MESSAGE => {
-        // check if `dwrefdata` is null to avoid double-freeing the controller
-        if !(dwrefdata as *mut ()).is_null() {
+        // Publish the cleared pointer before dropping the controller. Dropping
+        // COM objects can synchronously dispatch another parent-window message.
+        // If updating the subclass fails, retain the clone rather than leave a
+        // dangling pointer that a later dispatch could dereference.
+        if SetWindowSubclass(
+          hwnd,
+          Some(Self::parent_subclass_proc),
+          PARENT_SUBCLASS_ID as _,
+          std::ptr::null::<()>() as _,
+        )
+        .as_bool()
+        {
           drop(Box::from_raw(dwrefdata as *mut ICoreWebView2Controller));
-
-          // update `dwrefdata` to null to avoid double-freeing the controller
-          let _ = SetWindowSubclass(
-            hwnd,
-            Some(Self::parent_subclass_proc),
-            PARENT_SUBCLASS_ID as _,
-            std::ptr::null::<()>() as _,
-          );
         }
       }
 
