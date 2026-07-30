@@ -11,7 +11,7 @@ use crate::util::Counter;
 
 static COUNTER: Counter = Counter::new();
 
-pub struct InnerWebView {
+pub(crate) struct InnerWebView {
   id: String,
   webview: Webview,
 }
@@ -141,7 +141,7 @@ impl InnerWebView {
     Ok(())
   }
 
-  pub fn id(&self) -> crate::WebViewId {
+  pub fn id(&self) -> crate::WebViewId<'_> {
     &self.id
   }
 
