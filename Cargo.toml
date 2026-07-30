@@ -2,7 +2,7 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.55.1"
+version = "0.56.0"
 authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -16,7 +16,7 @@ exclude = ["/.changes", "/.github", "/audits", "/wry-logo.svg"]
 
 [package.metadata.docs.rs]
 no-default-features = true
-features = ["protocol", "os-webview"]
+features = ["os-webview"]
 targets = [
   "x86_64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
@@ -24,12 +24,9 @@ targets = [
 ]
 
 [features]
-default = ["protocol", "os-webview", "x11", "linux-body"]
+default = ["os-webview", "x11", "linux-body"]
 serde = ["dpi/serde"]
-protocol = []
 devtools = []
-transparent = []
-fullscreen = []
 linux-body = ["os-webview"]
 mac-proxy = []
 os-webview = [
@@ -202,9 +199,15 @@ sha2 = "0.10"
 base64 = "0.22"
 jni = "0.21"
 ndk = "0.9"
-tao-macros = "0.1"
+tao-macros = "0.1.4"
 libc = "0.2"
 dom_query = { version = "0.28.0", default-features = false }
+
+[target.'cfg(target_vendor = "apple")'.build-dependencies]
+objc2-foundation = { version = "0.3.2", default-features = false, features = [
+  "std",
+  "NSProcessInfo",
+] }
 
 [dev-dependencies]
 pollster = "1.0.0"

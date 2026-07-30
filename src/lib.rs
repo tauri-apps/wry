@@ -300,15 +300,14 @@
 //!
 //! - `os-webview` (default): Enables the default WebView framework on the platform. This must be enabled
 //!   for the crate to work. This feature was added in preparation of other ports like cef and servo.
-//! - `protocol` (default): Enables [`WebViewBuilder::with_custom_protocol`] to define custom URL scheme for handling tasks like
-//!   loading assets.
+//! - `x11` (default): Enables x11 support and dependencies on Linux.
+//! - `serde`: Enables `dpi`'s `serde` feature.
 //! - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
 //!   On **macOS**, enabling devtools, requires calling private APIs so you should not enable this flag in release
 //!   build if your app needs to publish to App Store.
-//! - `transparent`: Transparent background on **macOS** requires calling private functions.
-//!   Avoid this in release build if your app needs to publish to App Store.
-//! - `fullscreen`: Fullscreen video and other media on **macOS** requires calling private functions.
-//!   Avoid this in release build if your app needs to publish to App Store.
+//! - `wayland`: Enables passing Wayland window handles to [`build`](WebViewBuilder::build) and
+//!   [`build_as_child`](WebViewBuilder::build_as_child) on Linux.
+//! - `mac-proxy`: Enables `WebViewBuilder::with_proxy_config` on macOS.
 //! - `linux-body` *(enabled by default)*: Enables body support of custom protocol request on Linux. Requires
 //!   WebKit2GTK v2.40 or above (the gtk4-webkit6 backend requires WebKitGTK 6.x, so this
 //!   is always satisfied). Without this feature, `request.body()` in a custom protocol
@@ -1201,7 +1200,6 @@ impl<'a> WebViewBuilder<'a> {
   /// - **Linux**: Request bodies (e.g. POST data) are only available when the `linux-body`
   ///   feature is enabled. Without it, `request.body()` is always empty. The `linux-body`
   ///   feature is included in the default feature set since wry 0.x.
-  #[cfg(feature = "protocol")]
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
     F: Fn(WebViewId, Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> + Send + Sync + 'static,
@@ -1272,7 +1270,6 @@ impl<'a> WebViewBuilder<'a> {
   ///     });
   ///   });
   /// ```
-  #[cfg(feature = "protocol")]
   pub fn with_asynchronous_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
     F: Fn(WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + Send + Sync + 'static,
@@ -2134,7 +2131,6 @@ pub trait WebViewBuilderExtAndroid {
   /// String, similar to [`with_custom_protocol`], but also sets the WebViewAssetLoader with the
   /// necessary domain (which is fixed as `<protocol>.assets`). This cannot be used in conjunction
   /// to `with_custom_protocol` for Android, as it changes the way in which requests are handled.
-  #[cfg(feature = "protocol")]
   fn with_asset_loader(self, protocol: String) -> Self;
 
   /// Determines whether the custom protocols should use `https://<scheme>.localhost` instead of the default `http://<scheme>.localhost`.
@@ -2161,7 +2157,6 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
     self
   }
 
-  #[cfg(feature = "protocol")]
   fn with_asset_loader(mut self, protocol: String) -> Self {
     // register custom protocol with empty Response return,
     // this is necessary due to the need of fixing a domain

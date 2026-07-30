@@ -9,10 +9,8 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
-import android.view.KeyEvent
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResult
-import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -20,33 +18,14 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 
-private val ACTIVITY_ID_KEY = "__wryActivityId"
+private const val ACTIVITY_ID_KEY = "__wryActivityId"
 
 object WryLifecycleObserver : DefaultLifecycleObserver {
+    // This only runs once: https://developer.android.com/reference/androidx/lifecycle/ProcessLifecycleOwner
     override fun onCreate(owner: LifecycleOwner) {
         super.onCreate(owner)
-        Rust.create()
-        Rust.wryCreate()
-    }
-
-    override fun onStart(owner: LifecycleOwner) {
-        super.onStart(owner)
-        Rust.start()
-    }
-
-    override fun onResume(owner: LifecycleOwner) {
-        super.onResume(owner)
-        Rust.resume()
-    }
-
-    override fun onPause(owner: LifecycleOwner) {
-        super.onPause(owner)
-        Rust.pause()
-    }
-
-    override fun onStop(owner: LifecycleOwner) {
-        super.onStop(owner)
-        Rust.stop()
+        Rust.onFirstActivityCreate()
+        Rust.onFirstActivityCreateWry()
     }
 }
 
@@ -145,8 +124,13 @@ abstract class WryActivity : AppCompatActivity() {
             activityListener?.invoke(result)
         }
 
+        Rust.onCreate(this)
         ProcessLifecycleOwner.get().lifecycle.addObserver(WryLifecycleObserver)
-        Rust.onActivityCreate(this)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Rust.onStart(this)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -157,11 +141,11 @@ abstract class WryActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putInt(ACTIVITY_ID_KEY, id)
-        Rust.onActivitySaveInstanceState()
     }
 
     override fun onPause() {
         super.onPause()
+        Rust.onPause(this)
         if (::mWebView.isInitialized) {
             mWebView.onPause()
         }
@@ -169,20 +153,26 @@ abstract class WryActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        Rust.onResume(this)
         if (::mWebView.isInitialized) {
             mWebView.onResume()
         }
     }
 
+    override fun onStop() {
+        super.onStop()
+        Rust.onStop(this)
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        Rust.onActivityDestroy(this)
+        Rust.onDestroy(this)
         Rust.onWebviewDestroy(this, if (::mWebView.isInitialized) { mWebView.id } else { "" })
     }
 
     override fun onLowMemory() {
         super.onLowMemory()
-        Rust.onActivityLowMemory()
+        Rust.onLowMemory()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -194,6 +184,7 @@ abstract class WryActivity : AppCompatActivity() {
         return Class.forName(name)
     }
 
+    // Called by tao through JNI
     fun startActivity(cls: Class<*>): Int {
         val intent = Intent(this, cls)
         val id = kotlin.random.Random.nextInt()
