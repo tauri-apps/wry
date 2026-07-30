@@ -272,6 +272,22 @@ impl InnerWebView {
   pub fn focus_parent(&self) -> Result<()> {
     Ok(())
   }
+
+  pub fn go_forward(&self) -> Result<()> {
+    Ok(())
+  }
+
+  pub fn go_back(&self) -> Result<()> {
+    Ok(())
+  }
+
+  pub fn can_go_forward(&self) -> Result<bool> {
+    Ok(true)
+  }
+
+  pub fn can_go_back(&self) -> Result<bool> {
+    Ok(true)
+  }
 }
 
 pub fn platform_webview_version() -> Result<String> {
