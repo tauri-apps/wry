@@ -1,5 +1,44 @@
 # Changelog
 
+## \[0.56.0]
+
+- [`affbb3c`](https://github.com/tauri-apps/wry/commit/affbb3cbccc618663737f9b629f2aa21d3890159) ([#1720](https://github.com/tauri-apps/wry/pull/1720)) Updated Android lifecycle JNI calls in `WryActivity` for Tao 0.36's renames:
+
+  > - `create` to `onFirstActivityCreate`
+  > - `onActivityCreate` to `onCreate`
+  > - `start` to `onStart`
+  > - `resume` to `onResume`
+  > - `pause` to `onPause`
+  > - `stop` to `onStop`
+  > - Removed `onActivitySaveInstanceState`
+  > - `onActivityDestroy` to `onDestroy`
+  > - `onActivityLowMemory` to `onLowMemory`
+  >
+  > `onLowMemory` no longer takes any parameters.
+  > `onFirstActivityCreate` no longer takes any parameters.
+
+  and also emitting them as window-specific events.
+- [`145b36f`](https://github.com/tauri-apps/wry/commit/145b36fb5e3551851a9afbdf9c34154e2388f85d) ([#1736](https://github.com/tauri-apps/wry/pull/1736)) Remove Send, Sync bounds from NewWindowOpener.
+- [`871497a`](https://github.com/tauri-apps/wry/commit/871497a726adaa2a29ab4a51b8bff23f23d22182) ([#1748](https://github.com/tauri-apps/wry/pull/1748)) Add back/forward navigation APIs (`go_back`, `go_forward`, `can_go_back`, and `can_go_forward`) to `WebView`.
+- [`fe52ff9`](https://github.com/tauri-apps/wry/commit/fe52ff9374fb4d649eda7d7f6fccb8b047fb49ba) ([#1715](https://github.com/tauri-apps/wry/pull/1715)) On Android, release REQUEST_HANDLER mutex sooner by cloning the underlying Send + Sync handler.
+- [`9d0a9fe`](https://github.com/tauri-apps/wry/commit/9d0a9fe31321797b2fb4dd83e01408df9d7fedcc) ([#1712](https://github.com/tauri-apps/wry/pull/1712)) On Windows, Add `WebViewExtWindows::hwnd` getter to access the child HWND containing the webview.
+- [`4ee8c38`](https://github.com/tauri-apps/wry/commit/4ee8c38651683ca69530a837a830d0e4028a6c44) ([#1779](https://github.com/tauri-apps/wry/pull/1779)) Enable WebView element fullscreen support on macOS 12.3+ and iOS 15.4+ without using private APIs.
+- [`5bdda32`](https://github.com/tauri-apps/wry/commit/5bdda323937c01e497a9735ce83a3636202a8a6a) ([#1719](https://github.com/tauri-apps/wry/pull/1719)) On macOS, avoid an extra copy for owned custom protocol response bodies by transferring the body buffer into `NSData`.
+- [`6ef93b3`](https://github.com/tauri-apps/wry/commit/6ef93b3e99161446d8a829d8c985074c6f5d1c9c) ([#1737](https://github.com/tauri-apps/wry/pull/1737)) On macOS, updated `objc2-*` dependencies to 0.3.2
+- [`9f9a237`](https://github.com/tauri-apps/wry/commit/9f9a237d781ad972442ea7330ecce885de08a445) ([#1654](https://github.com/tauri-apps/wry/pull/1654)) Add an expanded permission handling API for WebView2, WKWebView, WebKitGTK, and Android.
+  This includes:
+
+  - `PermissionKind` expansion: `DisplayCapture`, `Midi`, `Sensors`, `MediaKeySystemAccess`, `LocalFonts`, `WindowManagement`, `PointerLock`, `AutomaticDownloads`, `FileSystemAccess`, `Autoplay`.
+  - Support for `PermissionResponse::Prompt` to trigger native system dialogs.
+  - Android support via JNI bridge (`onPermissionRequest` in `RustWebChromeClient`).
+  - macOS: Split camera/microphone requests; `CameraAndMicrophone` resolved from individual responses.
+  - Linux: `DisplayCapture` detection for WebKitGTK < 2.42 (getDisplayMedia fix).
+  - Windows: Full coverage of all 12 `COREWEBVIEW2_PERMISSION_KIND` values.
+- [`bd1decc`](https://github.com/tauri-apps/wry/commit/bd1decc497517cd5f035a65e75a965c1311dc62a) ([#1780](https://github.com/tauri-apps/wry/pull/1780)) **Breaking Change:** Removed the macOS/iOS specific `transparent` and `fullscreen` feature flags. The functionalities are now always enabled. Please reach out immediatly if you see issues in the App Store submission process.
+- [`d29cd57`](https://github.com/tauri-apps/wry/commit/d29cd576761770debeac351dc6ab96b8300465e3) ([#1787](https://github.com/tauri-apps/wry/pull/1787)) Removed `protocol` feature, previously gated `WebViewBuilder::with_custom_protocol`, `WebViewBuilder::with_asynchronous_custom_protocol` and `WebViewBuilder::with_asset_loader` are now always available
+- [`86ac6e8`](https://github.com/tauri-apps/wry/commit/86ac6e8891be99efa21756d751573bcbaa22554c) ([#1732](https://github.com/tauri-apps/wry/pull/1732)) Updated `dom_query` dependency to 0.28.0
+- [`10fdf73`](https://github.com/tauri-apps/wry/commit/10fdf7308013d40741990c60e960cf82b18d9372) ([#1738](https://github.com/tauri-apps/wry/pull/1738)) On Windows, add `WebViewBuilderExtWindows::with_profile_name` to opt the webview into a named WebView2 profile. Webviews with different profile names within the same environment have isolated cookies, storage, IndexedDB, and cache while sharing the runtime — matching WebView2's documented multi-profile pattern.
+
 ## \[0.55.1]
 
 - [`3860359`](https://github.com/tauri-apps/wry/commit/3860359e3dc75260fb9865f7a8eae00a9ec4733d) ([#1721](https://github.com/tauri-apps/wry/pull/1721) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) Tweak ProGuard rules to keep the getId required activity method.
