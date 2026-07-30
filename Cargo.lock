@@ -519,41 +519,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96a6ac251f4a2aca6b3f91340350eab87ae57c3f127ffeb585e92bd336717991"
 
 [[package]]
-name = "darling"
-version = "0.21.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cdf337090841a411e2a7f3deb9187445851f91b309c0c0a29e05f74a00a48c0"
-dependencies = [
- "darling_core",
- "darling_macro",
-]
-
-[[package]]
-name = "darling_core"
-version = "0.21.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1247195ecd7e3c85f83c8d2a366e4210d588e802133e1e355180a9870b517ea4"
-dependencies = [
- "fnv",
- "ident_case",
- "proc-macro2",
- "quote",
- "strsim",
- "syn 2.0.98",
-]
-
-[[package]]
-name = "darling_macro"
-version = "0.21.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d38308df82d1080de0afee5d069fa14b0326a88c14f15c5ccda35b4a6c414c81"
-dependencies = [
- "darling_core",
- "quote",
- "syn 2.0.98",
-]
-
-[[package]]
 name = "dbus"
 version = "0.9.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1478,12 +1443,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ident_case"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
-
-[[package]]
 name = "idna"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2298,9 +2257,9 @@ dependencies = [
 
 [[package]]
 name = "ohos-arkui-binding"
-version = "0.0.5"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "731d879cf95234bbd12e525bdce7da6475a6786a86dd2362fac0f3cfca760373"
+checksum = "9352f0db69271fc23fb565ad1f034c2118a9ea9c727ece344834b451fe2c2865"
 dependencies = [
  "bitflags 2.8.0",
  "napi-ohos",
@@ -2353,6 +2312,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "225be105b169f45a2bca86498988c1877568d82542c013b345d605eb915e48ae"
 
 [[package]]
+name = "ohos-resource-manager-binding"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33793d5fc06cf356b3d25aa6228785e62c9f2a0e913a2c285b1eb8efb7185b5e"
+dependencies = [
+ "napi-ohos",
+ "ohos-resource-manager-sys",
+]
+
+[[package]]
+name = "ohos-resource-manager-sys"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97398d3f86b80279f062bd872e04be851fc9e0eb1dba4dcaabef872201517ff6"
+dependencies = [
+ "napi-sys-ohos",
+]
+
+[[package]]
 name = "ohos-web-binding"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2371,14 +2349,13 @@ checksum = "aa646f3223c2bc90a400641c3a5cda4b350387ffda1a904b8bfb3db92b81ecbc"
 
 [[package]]
 name = "ohos-xcomponent-binding"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8f99c43b17408bb43ae53832a7b929dc6a359685f914624e82fec0a52e9d6ac"
+checksum = "6c5a9bb0fd157dc702863fe6b5e15b91a4ffdc08b4c47d57d080adcc73c36fa8"
 dependencies = [
  "napi-derive-ohos",
  "napi-ohos",
  "napi-sys-ohos",
- "ohos-display-binding",
  "ohos-xcomponent-sys",
  "ohos_enum_macro 0.0.2",
  "raw-window-handle",
@@ -2441,15 +2418,16 @@ checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
 [[package]]
 name = "openharmony-ability"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b68b0a56a8968f31a85024951451a2bb084ecdf08814e77011b47fb957478c7e"
+source = "git+https://github.com/harmony-contrib/openharmony-ability.git#295a276a699ba2352addc69b8cacb6acd3be6ab1"
 dependencies = [
+ "futures-channel",
  "http",
  "napi-derive-ohos",
  "napi-ohos",
  "ohos-arkui-binding",
  "ohos-display-binding",
  "ohos-ime-binding",
+ "ohos-resource-manager-binding",
  "ohos-web-binding",
  "ohos-xcomponent-binding",
 ]
@@ -2457,10 +2435,8 @@ dependencies = [
 [[package]]
 name = "openharmony-ability-derive"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da80e8fd70a5f6ebf88a804f969e299672ec6f39b259afcd5d39d23c12f12227"
+source = "git+https://github.com/harmony-contrib/openharmony-ability.git#295a276a699ba2352addc69b8cacb6acd3be6ab1"
 dependencies = [
- "darling",
  "proc-macro2",
  "quote",
  "syn 2.0.98",
@@ -3127,12 +3103,6 @@ dependencies = [
  "proc-macro2",
  "quote",
 ]
-
-[[package]]
-name = "strsim"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "syn"
