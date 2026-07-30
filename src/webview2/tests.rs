@@ -125,6 +125,7 @@ impl Drop for HiddenStaticWindow {
 }
 
 #[test]
+#[cfg_attr(miri, ignore = "requires native Win32 subclass dispatch")]
 fn cleared_parent_controller_refdata_delegates_controller_messages() {
   // Win32 subclass helpers are thread-affine. Keep this native window and all
   // synchronous dispatch on the test thread, and serialize this test if more
