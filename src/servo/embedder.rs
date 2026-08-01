@@ -1,6 +1,9 @@
 use std::{cell::Cell, collections::HashMap, rc::Rc, sync::Arc};
 
-use euclid::default::{Point2D, Rect as EuclidRect, Size2D};
+use euclid::{
+  default::{Point2D, Rect as EuclidRect, Size2D},
+  Scale,
+};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use servo::{
   protocol_handler::{
@@ -253,6 +256,13 @@ enum RenderingTarget {
 }
 
 impl RenderingTarget {
+  fn scale_factor(&self) -> f64 {
+    match self {
+      Self::Window { window, .. } => window.scale_factor(),
+      Self::Child { scale_factor, .. } => scale_factor.get(),
+    }
+  }
+
   fn rendering_context(&self) -> Rc<dyn RenderingContext> {
     match self {
       Self::Window { context, .. } => context.clone(),
@@ -308,6 +318,7 @@ impl RenderingTarget {
     parent_size: PhysicalSize<u32>,
     webview: &ServoWebView,
   ) {
+    webview.set_hidpi_scale_factor(Scale::new(scale_factor as f32));
     match self {
       Self::Window { .. } => webview.resize(non_zero_size(parent_size)),
       Self::Child {
@@ -564,6 +575,7 @@ impl Embedder {
       user_content_manager.add_script(Rc::new(UserScript::from(initialization_script.script)));
     }
     let webview_builder = ServoWebViewBuilder::new(&servo, target.rendering_context())
+      .hidpi_scale_factor(Scale::new(target.scale_factor() as f32))
       .delegate(delegate.clone())
       .user_content_manager(user_content_manager);
     let webview = match initial_headers {
