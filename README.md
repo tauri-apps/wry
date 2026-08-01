@@ -15,6 +15,22 @@ You can use a windowing library like [`tao`] or [`winit`].
 
 ### Examples
 
+#### Servo prototype
+
+This branch can use Servo instead of the platform webview backend. The Servo example is built
+against the pinned Servo `main` revision in `Cargo.toml`:
+
+```bash
+cargo run --no-default-features --features servo --example servo
+```
+
+The first build downloads a prebuilt SpiderMonkey archive. Leave `MOZJS_FROM_SOURCE` unset unless
+you explicitly want `mozjs_sys` to compile SpiderMonkey locally.
+
+The prototype supports URL and HTML navigation, custom request headers, per-URL cookies, browsing
+data clearing, zoom, visibility, focus, and background colors. Child webviews, printing, global
+cookie enumeration, and Wry's in-process devtools window controls are not supported yet.
+
 This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only).
 See the following example using [`winit`]:
 

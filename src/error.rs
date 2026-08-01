@@ -53,6 +53,9 @@ pub enum Error {
   WindowHandleError(#[from] raw_window_handle::HandleError),
   #[error("the window handle kind is not supported")]
   UnsupportedWindowHandle,
+  #[cfg(servo)]
+  #[error("Servo error: {0}")]
+  Servo(String),
   #[error(transparent)]
   Utf8Error(#[from] std::str::Utf8Error),
   #[cfg(target_os = "android")]

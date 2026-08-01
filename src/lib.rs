@@ -383,9 +383,9 @@ use webkitgtk::*;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use objc2::rc::Retained;
-#[cfg(target_os = "macos")]
+#[cfg(all(not(servo), target_os = "macos"))]
 use objc2_app_kit::NSWindow;
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(all(not(servo), any(target_os = "macos", target_os = "ios")))]
 use objc2_web_kit::WKUserContentController;
 #[cfg(all(not(servo), any(target_os = "macos", target_os = "ios")))]
 pub(crate) mod wkwebview;
@@ -2320,8 +2320,8 @@ pub enum DragDropEvent {
 }
 
 /// Get WebView/Webkit version on current platform.
-#[cfg(feature = "os-webview")]
-#[cfg_attr(docsrs, doc(cfg(feature = "os-webview")))]
+#[cfg(any(feature = "os-webview", servo))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "os-webview", servo))))]
 pub fn webview_version() -> Result<String> {
   platform_webview_version()
 }

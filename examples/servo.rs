@@ -3,77 +3,69 @@
 // SPDX-License-Identifier: MIT
 
 use winit::{
+  application::ApplicationHandler,
   dpi::PhysicalSize,
-  event::{Event, WindowEvent},
-  event_loop::{ControlFlow, EventLoop},
-  window::WindowBuilder,
+  event::WindowEvent,
+  event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
+  window::{Window, WindowId},
 };
-use wry::{WebViewBuilder, WebViewBuilderExtServo, WebViewExtServo};
+use wry::{WebView, WebViewBuilder, WebViewBuilderExtServo, WebViewExtServo};
 
-/* window decoration */
-#[cfg(target_os = "macos")]
-use cocoa::appkit::{NSWindowStyleMask, NSWindowTitleVisibility};
-#[cfg(target_os = "macos")]
-use cocoa::{
-  appkit::{NSView, NSWindow},
-  base::YES,
-};
-#[cfg(target_os = "macos")]
-use objc::{msg_send, runtime::Object, sel, sel_impl};
-#[cfg(target_os = "macos")]
-use raw_window_handle::{AppKitWindowHandle, HasRawWindowHandle, RawWindowHandle};
-#[cfg(target_os = "macos")]
-use winit::dpi::LogicalPosition;
-#[cfg(target_os = "macos")]
-use winit::platform::macos::WindowBuilderExtMacOS;
+struct App {
+  proxy: EventLoopProxy<()>,
+  webview: Option<WebView>,
+}
 
-fn main() -> wry::Result<()> {
-  let event_loop = EventLoop::new().unwrap();
-  let window = WindowBuilder::new()
-    .with_inner_size(PhysicalSize::new(1000, 500))
-    .build(&event_loop)
-    .unwrap();
+impl ApplicationHandler<()> for App {
+  fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+    if self.webview.is_some() {
+      return;
+    }
 
-  #[cfg(target_os = "macos")]
-  unsafe {
-    let rwh = window.raw_window_handle();
-    if let RawWindowHandle::AppKit(AppKitWindowHandle { ns_window, .. }) = rwh {
-      decorate_window(ns_window as *mut Object, LogicalPosition::new(8.0, 40.0));
+    let window = event_loop
+      .create_window(Window::default_attributes().with_inner_size(PhysicalSize::new(1000, 500)))
+      .expect("failed to create demo window");
+    let webview = WebViewBuilder::new()
+      .build_servo(window, self.proxy.clone())
+      .expect("failed to create Servo webview");
+    self.webview = Some(webview);
+  }
+
+  fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: ()) {
+    if let Some(webview) = &mut self.webview {
+      webview.servo().handle_user_event();
     }
   }
 
-  #[allow(unused_mut)]
-  let mut builder = WebViewBuilder::new_servo(window, event_loop.create_proxy());
-  let mut webview = builder.build()?;
+  fn window_event(
+    &mut self,
+    event_loop: &ActiveEventLoop,
+    _window_id: WindowId,
+    event: WindowEvent,
+  ) {
+    if let Some(webview) = &mut self.webview {
+      webview.servo().handle_window_event(event_loop, event);
+    }
+  }
 
-  event_loop
-    .run(move |event, evl| {
-      if !evl.exiting() && webview.servo().is_shutdown() {
-        if let Some(servo) = webview.servo().servo_client().take() {
-          servo.deinit();
-        }
-        evl.exit();
+  fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+    if let Some(webview) = &mut self.webview {
+      if webview.servo().is_shutdown() {
+        event_loop.exit();
       } else {
-        webview.servo().set_control_flow(&event, evl);
-        webview.servo().handle_winit_event(event);
-        webview.servo().handle_servo_messages();
+        webview.servo().set_control_flow(event_loop);
       }
-    })
-    .unwrap();
-
-  Ok(())
+    }
+  }
 }
 
-#[cfg(target_os = "macos")]
-pub unsafe fn decorate_window(window: *mut Object, position: LogicalPosition<f64>) {
-  NSWindow::setTitlebarAppearsTransparent_(window, YES);
-  NSWindow::setTitleVisibility_(window, NSWindowTitleVisibility::NSWindowTitleHidden);
-  NSWindow::setStyleMask_(
-    window,
-    NSWindowStyleMask::NSTitledWindowMask
-      | NSWindowStyleMask::NSFullSizeContentViewWindowMask
-      | NSWindowStyleMask::NSClosableWindowMask
-      | NSWindowStyleMask::NSResizableWindowMask
-      | NSWindowStyleMask::NSMiniaturizableWindowMask,
-  );
+fn main() {
+  let event_loop = EventLoop::with_user_event()
+    .build()
+    .expect("failed to create event loop");
+  let mut app = App {
+    proxy: event_loop.create_proxy(),
+    webview: None,
+  };
+  event_loop.run_app(&mut app).expect("Servo demo failed");
 }

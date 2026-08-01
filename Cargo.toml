@@ -38,7 +38,7 @@ os-webview = [
 ]
 x11 = ["x11-dl", "gdkx11", "tao/x11"]
 tracing = ["dep:tracing"]
-servo = []
+servo = ["dep:percent-encoding", "dep:servo", "dep:url", "dep:winit"]
 
 [dependencies]
 tracing = { version = "0.1", optional = true }
@@ -48,12 +48,10 @@ http = "1.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
 dpi = "0.1"
 cookie = "0.18"
-libservo = { git = "https://github.com/servo/servo.git", rev = "e7d2d23", features = ["max_log_level", "native-bluetooth", "webdriver"] }
-servo-media = { git = "https://github.com/servo/media" }
-crossbeam-channel = "0.5"
-getopts = "0.2.17"
-winit = "0.30"
-surfman = { version = "0.8", features = ["chains", "sm-angle", "sm-angle-default", "sm-x11", "sm-raw-window-handle"] }
+percent-encoding = { version = "2.3", optional = true }
+servo = { git = "https://github.com/servo/servo.git", rev = "3f08ca6d1664a50265140090b7faf3fcb86d82b1", optional = true }
+url = { version = "2.5", optional = true }
+winit = { version = "0.30", optional = true }
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
 javascriptcore-rs = { version = "=1.1.2", features = [
@@ -217,6 +215,7 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
 pollster = "1.0.0"
 tao = "0.36"
 wgpu = "23"
+winit = "0.30"
 getrandom = "0.3"
 http-range = "0.1"
 percent-encoding = "2.3"
@@ -230,13 +229,3 @@ dom_query = { version = "0.28.0", default-features = false }
 [lints.rust.unexpected_cfgs]
 level = "warn"
 check-cfg = ["cfg(linux)", "cfg(gtk)", "cfg(servo)"]
-
-[patch.crates-io]
-bindgen = { git = "https://github.com/sagudev/rust-bindgen", branch = "f16" }
-
-[patch."https://github.com/servo/webrender"]
-webrender = { git = "https://github.com/servo/servo.git" }
-webrender_api = { git = "https://github.com/servo/servo.git" }
-
-[patch."https://github.com/servo/mozjs"]
-mozjs = { git = "https://github.com/wusyong/mozjs", branch = "mozjs_download" }
