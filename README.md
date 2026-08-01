@@ -30,6 +30,7 @@ you explicitly want `mozjs_sys` to compile SpiderMonkey locally.
 The prototype supports URL and HTML navigation, custom request headers, per-URL cookies, browsing
 data clearing, zoom, visibility, focus, and background colors. Child webviews, printing, global
 cookie enumeration, and Wry's in-process devtools window controls are not supported yet.
+The example uses Tao 0.36, matching the window and event-loop types used by `tauri-runtime-wry`.
 
 This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only).
 See the following example using [`winit`]:

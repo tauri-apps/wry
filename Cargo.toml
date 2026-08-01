@@ -36,9 +36,9 @@ os-webview = [
   "dep:gtk",
   "soup3",
 ]
-x11 = ["x11-dl", "gdkx11", "tao/x11"]
+x11 = ["x11-dl", "gdkx11", "tao?/x11"]
 tracing = ["dep:tracing"]
-servo = ["dep:percent-encoding", "dep:servo", "dep:url", "dep:winit"]
+servo = ["dep:percent-encoding", "dep:servo", "dep:tao", "dep:url"]
 
 [dependencies]
 tracing = { version = "0.1", optional = true }
@@ -50,8 +50,8 @@ dpi = "0.1"
 cookie = "0.18"
 percent-encoding = { version = "2.3", optional = true }
 servo = { git = "https://github.com/servo/servo.git", rev = "3f08ca6d1664a50265140090b7faf3fcb86d82b1", optional = true }
+tao = { version = "0.36", default-features = false, features = ["rwh_06"], optional = true }
 url = { version = "2.5", optional = true }
-winit = { version = "0.30", optional = true }
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
 javascriptcore-rs = { version = "=1.1.2", features = [

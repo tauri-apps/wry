@@ -5,13 +5,14 @@ use servo::{
   UrlRequest, WebView as ServoWebView, WebViewBuilder as ServoWebViewBuilder, WebViewDelegate,
   WheelDelta, WheelEvent, WheelMode, WindowRenderingContext,
 };
-use url::Url;
-use winit::{
+use tao::{
   event::{MouseScrollDelta, WindowEvent},
-  event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy},
-  raw_window_handle::{HasDisplayHandle, HasWindowHandle},
+  event_loop::{ControlFlow, EventLoopProxy},
   window::Window,
 };
+use url::Url;
+
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 use crate::{Error, Result};
 
@@ -31,7 +32,7 @@ impl EventLoopWaker for EmbedderWaker {
 
   fn wake(&self) {
     if let Err(error) = self.0.send_event(()) {
-      eprintln!("Servo failed to wake the winit event loop: {error}");
+      eprintln!("Servo failed to wake the Tao event loop: {error}");
     }
   }
 }
@@ -120,23 +121,19 @@ impl Embedder {
     self.servo.spin_event_loop();
   }
 
-  pub fn set_control_flow(&self, event_loop: &ActiveEventLoop) {
-    event_loop.set_control_flow(if self.webview.animating() {
+  pub fn set_control_flow(&self, control_flow: &mut ControlFlow) {
+    *control_flow = if self.webview.animating() {
       ControlFlow::Poll
     } else {
       ControlFlow::Wait
-    });
+    };
   }
 
-  pub fn handle_window_event(&self, event_loop: &ActiveEventLoop, event: WindowEvent) {
+  pub fn handle_window_event(&self, control_flow: &mut ControlFlow, event: WindowEvent<'_>) {
     self.servo.spin_event_loop();
 
     match event {
-      WindowEvent::CloseRequested => event_loop.exit(),
-      WindowEvent::RedrawRequested => {
-        self.webview.paint();
-        self.rendering_context.present();
-      }
+      WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
       WindowEvent::Resized(size) => self.webview.resize(size),
       WindowEvent::MouseWheel { delta, .. } => {
         let (x, y, mode) = match delta {
@@ -144,6 +141,7 @@ impl Embedder {
             ((x * 76.0) as f64, (y * 76.0) as f64, WheelMode::DeltaLine)
           }
           MouseScrollDelta::PixelDelta(delta) => (delta.x, delta.y, WheelMode::DeltaPixel),
+          _ => return,
         };
         self
           .webview
@@ -156,6 +154,12 @@ impl Embedder {
     }
 
     self.servo.spin_event_loop();
+  }
+
+  pub fn paint(&self) {
+    self.servo.spin_event_loop();
+    self.webview.paint();
+    self.rendering_context.present();
   }
 
   pub fn is_shutdown(&self) -> bool {

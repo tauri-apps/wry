@@ -1,8 +1,8 @@
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use raw_window_handle::HasWindowHandle;
 use servo::{CookieSource, StorageType, UrlRequest};
+use tao::{event_loop::EventLoopProxy, window::Window};
 use url::Url;
-use winit::{event_loop::EventLoopProxy, window::Window};
 
 use crate::{Error, Rect, Result, WebViewAttributes, WebViewBuilder, WebViewId, RGBA};
 
@@ -300,14 +300,14 @@ impl InnerWebView {
   }
 
   pub fn focus(&self) -> Result<()> {
-    self.embedder.window().focus_window();
+    self.embedder.window().set_focus();
     self.embedder.webview().focus();
     self.embedder.servo().spin_event_loop();
     Ok(())
   }
 
   pub fn focus_parent(&self) -> Result<()> {
-    self.embedder.window().focus_window();
+    self.embedder.window().set_focus();
     Ok(())
   }
 
