@@ -1,12 +1,16 @@
-use std::{cell::Cell, rc::Rc, sync::Arc};
+use std::{cell::Cell, collections::HashMap, rc::Rc, sync::Arc};
 
 use euclid::default::{Point2D, Rect as EuclidRect, Size2D};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use servo::{
-  DevicePoint, EventLoopWaker, InputEvent, OffscreenRenderingContext, Preferences,
-  RenderingContext, Servo, ServoBuilder, UrlRequest, WebView as ServoWebView,
-  WebViewBuilder as ServoWebViewBuilder, WebViewDelegate, WheelDelta, WheelEvent, WheelMode,
-  WindowRenderingContext,
+  protocol_handler::{
+    DoneChannel, FetchContext, HttpStatus, NetworkError, ProtocolHandler, ProtocolRegistry,
+    Request as ServoRequest, ResourceFetchTiming, Response as ServoResponse, ResponseBody,
+  },
+  DevicePoint, EventLoopWaker, InputEvent, LoadStatus, NavigationRequest,
+  OffscreenRenderingContext, Preferences, RenderingContext, Servo, ServoBuilder, UrlRequest,
+  UserContentManager, UserScript, WebView as ServoWebView, WebViewBuilder as ServoWebViewBuilder,
+  WebViewDelegate, WheelDelta, WheelEvent, WheelMode, WindowRenderingContext,
 };
 use tao::{
   dpi::{PhysicalPosition, PhysicalSize},
@@ -16,7 +20,100 @@ use tao::{
 };
 use url::Url;
 
-use crate::{Error, Rect, Result};
+use crate::{
+  Error, InitializationScript, PageLoadEvent, Rect, RequestAsyncResponder, Result, WebViewId,
+};
+
+type CustomProtocolHandler =
+  Box<dyn Fn(WebViewId, http::Request<Vec<u8>>, RequestAsyncResponder) + Send + Sync>;
+
+const IPC_MESSAGE_PREFIX: &str = "__WRY_SERVO_IPC__:";
+const IPC_BRIDGE_SCRIPT: &str = r#"
+  Object.defineProperty(window, 'ipc', {
+    value: Object.freeze({
+      postMessage: function(message) {
+        console.debug('__WRY_SERVO_IPC__:' + String(message));
+      }
+    })
+  });
+"#;
+
+fn ipc_message_body(message: &str) -> Option<&str> {
+  message.strip_prefix(IPC_MESSAGE_PREFIX)
+}
+
+struct CustomProtocol {
+  webview_id: String,
+  handler: CustomProtocolHandler,
+}
+
+impl ProtocolHandler for CustomProtocol {
+  fn load<'a>(
+    &'a self,
+    request: &'a mut ServoRequest,
+    _done_chan: &mut DoneChannel,
+    _context: &FetchContext,
+  ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ServoResponse> + Send + 'a>> {
+    let url = request.current_url();
+    let timing_type = request.timing_type();
+    let method = request.method.clone();
+    let headers = request.headers.clone();
+    let request = http::Request::builder()
+      .method(method)
+      .uri(url.as_str())
+      .body(Vec::new());
+
+    let Ok(mut request) = request else {
+      return Box::pin(std::future::ready(ServoResponse::network_error(
+        NetworkError::ResourceLoadError(format!("invalid custom protocol URL: {url}")),
+      )));
+    };
+    *request.headers_mut() = headers;
+
+    let (sender, receiver) = futures_channel::oneshot::channel();
+    (self.handler)(
+      &self.webview_id,
+      request,
+      RequestAsyncResponder {
+        responder: Box::new(move |response| {
+          let _ = sender.send(response);
+        }),
+      },
+    );
+
+    Box::pin(async move {
+      match receiver.await {
+        Ok(response) => {
+          let (parts, body) = response.into_parts();
+          let mut response = ServoResponse::new(url, ResourceFetchTiming::new(timing_type));
+          response.status = HttpStatus::new_raw(
+            parts.status.as_u16(),
+            parts
+              .status
+              .canonical_reason()
+              .unwrap_or_default()
+              .as_bytes()
+              .to_vec(),
+          );
+          response.headers = parts.headers;
+          *response.body.lock() = ResponseBody::Done(body.into_owned());
+          response
+        }
+        Err(_) => ServoResponse::network_error(NetworkError::ResourceLoadError(
+          "custom protocol response channel closed".into(),
+        )),
+      }
+    })
+  }
+
+  fn is_fetchable(&self) -> bool {
+    true
+  }
+
+  fn is_secure(&self) -> bool {
+    true
+  }
+}
 
 #[derive(Clone)]
 struct EmbedderWaker(Arc<dyn Fn() + Send + Sync>);
@@ -42,6 +139,10 @@ struct Delegate {
   waker: EmbedderWaker,
   frame_ready: Cell<bool>,
   closed: Cell<bool>,
+  ipc_handler: Option<Box<dyn Fn(http::Request<String>)>>,
+  navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
+  document_title_changed_handler: Option<Box<dyn Fn(String)>>,
+  on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
 }
 
 impl Delegate {
@@ -56,6 +157,37 @@ impl Delegate {
 }
 
 impl WebViewDelegate for Delegate {
+  fn notify_page_title_changed(&self, _webview: ServoWebView, title: Option<String>) {
+    if let Some(handler) = &self.document_title_changed_handler {
+      handler(title.unwrap_or_default());
+    }
+  }
+
+  fn notify_load_status_changed(&self, webview: ServoWebView, status: LoadStatus) {
+    let Some(handler) = &self.on_page_load_handler else {
+      return;
+    };
+    let event = match status {
+      LoadStatus::Started => PageLoadEvent::Started,
+      LoadStatus::Complete => PageLoadEvent::Finished,
+      LoadStatus::HeadParsed => return,
+    };
+    let url = webview.url().map(|url| url.to_string()).unwrap_or_default();
+    handler(event, url);
+  }
+
+  fn request_navigation(&self, _webview: ServoWebView, request: NavigationRequest) {
+    if self
+      .navigation_handler
+      .as_ref()
+      .is_some_and(|handler| !handler(request.url.to_string()))
+    {
+      request.deny();
+    } else {
+      request.allow();
+    }
+  }
+
   fn notify_new_frame_ready(&self, _webview: ServoWebView) {
     self.request_repaint();
   }
@@ -63,6 +195,30 @@ impl WebViewDelegate for Delegate {
   fn notify_closed(&self, _webview: ServoWebView) {
     self.closed.set(true);
     self.waker.wake();
+  }
+
+  fn show_console_message(
+    &self,
+    webview: ServoWebView,
+    _level: servo::ConsoleLogLevel,
+    message: String,
+  ) {
+    let (Some(handler), Some(body)) = (self.ipc_handler.as_ref(), ipc_message_body(&message))
+    else {
+      return;
+    };
+    let uri = webview
+      .url()
+      .map(|url| url.to_string())
+      .unwrap_or_else(|| "about:blank".into());
+    let uri = uri
+      .parse::<http::Uri>()
+      .unwrap_or_else(|_| http::Uri::from_static("/"));
+    let request = http::Request::builder()
+      .uri(uri)
+      .body(body.to_owned())
+      .expect("the fallback IPC request URI is valid");
+    handler(request);
   }
 }
 
@@ -244,9 +400,16 @@ impl Embedder {
   pub fn new(
     window: Window,
     proxy: EventLoopProxy<()>,
+    webview_id: String,
     initial_url: Url,
     initial_headers: Option<http::HeaderMap>,
     background_color: Option<[f64; 4]>,
+    initialization_scripts: Vec<InitializationScript>,
+    ipc_handler: Option<Box<dyn Fn(http::Request<String>)>>,
+    custom_protocols: HashMap<String, CustomProtocolHandler>,
+    navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
+    document_title_changed_handler: Option<Box<dyn Fn(String)>>,
+    on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
   ) -> Result<Self> {
     let window = Rc::new(window);
     let context = Rc::new(
@@ -268,25 +431,39 @@ impl Embedder {
       waker: waker.clone(),
       frame_ready: Cell::new(false),
       closed: Cell::new(false),
+      ipc_handler,
+      navigation_handler,
+      document_title_changed_handler,
+      on_page_load_handler,
     });
     let target = RenderingTarget::Window { window, context };
     Self::build(
       target,
       waker,
       delegate,
+      webview_id,
       initial_url,
       initial_headers,
       background_color,
+      initialization_scripts,
+      custom_protocols,
     )
   }
 
   pub fn new_child(
     parent: &Window,
     wake: impl Fn() + Send + Sync + 'static,
+    webview_id: String,
     bounds: Rect,
     initial_url: Url,
     initial_headers: Option<http::HeaderMap>,
     background_color: Option<[f64; 4]>,
+    initialization_scripts: Vec<InitializationScript>,
+    ipc_handler: Option<Box<dyn Fn(http::Request<String>)>>,
+    custom_protocols: HashMap<String, CustomProtocolHandler>,
+    navigation_handler: Option<Box<dyn Fn(String) -> bool>>,
+    document_title_changed_handler: Option<Box<dyn Fn(String)>>,
+    on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
   ) -> Result<Self> {
     let parent_context = Rc::new(
       WindowRenderingContext::new(
@@ -309,6 +486,10 @@ impl Embedder {
       waker: waker.clone(),
       frame_ready: Cell::new(false),
       closed: Cell::new(false),
+      ipc_handler,
+      navigation_handler,
+      document_title_changed_handler,
+      on_page_load_handler,
     });
     let target = RenderingTarget::Child {
       parent_context,
@@ -321,9 +502,12 @@ impl Embedder {
       target,
       waker,
       delegate,
+      webview_id,
       initial_url,
       initial_headers,
       background_color,
+      initialization_scripts,
+      custom_protocols,
     )
   }
 
@@ -331,9 +515,12 @@ impl Embedder {
     target: RenderingTarget,
     waker: EmbedderWaker,
     delegate: Rc<Delegate>,
+    webview_id: String,
     initial_url: Url,
     initial_headers: Option<http::HeaderMap>,
     background_color: Option<[f64; 4]>,
+    initialization_scripts: Vec<InitializationScript>,
+    custom_protocols: HashMap<String, CustomProtocolHandler>,
   ) -> Result<Self> {
     target
       .rendering_context()
@@ -345,14 +532,40 @@ impl Embedder {
       preferences.shell_background_color_rgba = background_color;
     }
 
+    let mut protocol_registry = ProtocolRegistry::default();
+    for (scheme, handler) in custom_protocols {
+      protocol_registry
+        .register(
+          &scheme,
+          CustomProtocol {
+            webview_id: webview_id.clone(),
+            handler,
+          },
+        )
+        .map_err(|error| {
+          Error::Servo(format!(
+            "failed to register custom protocol {scheme}: {error:?}"
+          ))
+        })?;
+    }
+
     let servo = ServoBuilder::default()
       .preferences(preferences)
       .event_loop_waker(Box::new(waker))
+      .protocol_registry(protocol_registry)
       .build();
     servo.setup_logging();
 
-    let webview_builder =
-      ServoWebViewBuilder::new(&servo, target.rendering_context()).delegate(delegate.clone());
+    let user_content_manager = Rc::new(UserContentManager::new(&servo));
+    if delegate.ipc_handler.is_some() {
+      user_content_manager.add_script(Rc::new(UserScript::from(IPC_BRIDGE_SCRIPT)));
+    }
+    for initialization_script in initialization_scripts {
+      user_content_manager.add_script(Rc::new(UserScript::from(initialization_script.script)));
+    }
+    let webview_builder = ServoWebViewBuilder::new(&servo, target.rendering_context())
+      .delegate(delegate.clone())
+      .user_content_manager(user_content_manager);
     let webview = match initial_headers {
       Some(headers) => {
         let webview = webview_builder.build();
@@ -389,18 +602,21 @@ impl Embedder {
     };
   }
 
-  pub fn handle_window_event(&self, control_flow: &mut ControlFlow, event: WindowEvent<'_>) {
+  pub fn is_animating(&self) -> bool {
+    self.webview.animating()
+  }
+
+  pub fn handle_window_event(&self, event: &WindowEvent<'_>) {
     self.servo.spin_event_loop();
 
     match event {
-      WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-      WindowEvent::Resized(size) => self.target.handle_parent_resized(size, &self.webview),
+      WindowEvent::Resized(size) => self.target.handle_parent_resized(*size, &self.webview),
       WindowEvent::ScaleFactorChanged {
         scale_factor,
         new_inner_size,
       } => self
         .target
-        .handle_scale_factor_changed(scale_factor, *new_inner_size, &self.webview),
+        .handle_scale_factor_changed(*scale_factor, **new_inner_size, &self.webview),
       WindowEvent::MouseWheel { delta, .. } => {
         let (x, y, mode) = match delta {
           MouseScrollDelta::LineDelta(x, y) => {
@@ -484,8 +700,19 @@ impl Embedder {
 mod tests {
   use dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 
-  use super::PhysicalBounds;
+  use super::{ipc_message_body, PhysicalBounds, IPC_BRIDGE_SCRIPT, IPC_MESSAGE_PREFIX};
   use crate::Rect;
+
+  #[test]
+  fn recognizes_ipc_console_messages() {
+    assert_eq!(ipc_message_body("__WRY_SERVO_IPC__:hello"), Some("hello"));
+    assert_eq!(ipc_message_body("ordinary console message"), None);
+  }
+
+  #[test]
+  fn ipc_bridge_uses_the_embedder_prefix() {
+    assert!(IPC_BRIDGE_SCRIPT.contains(IPC_MESSAGE_PREFIX));
+  }
 
   #[test]
   fn converts_child_bounds_to_physical_pixels() {

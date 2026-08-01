@@ -64,14 +64,27 @@ impl InnerWebView {
     } else {
       attributes.background_color.map(servo_color)
     };
+    let initialization_scripts = attributes.initialization_scripts;
+    let ipc_handler = attributes.ipc_handler;
+    let custom_protocols = attributes.custom_protocols;
+    let navigation_handler = attributes.navigation_handler;
+    let document_title_changed_handler = attributes.document_title_changed_handler;
+    let on_page_load_handler = attributes.on_page_load_handler;
     window.set_visible(attributes.visible);
 
     let embedder = Embedder::new(
       window,
       proxy,
+      id.clone(),
       initial_url,
       initial_headers,
       background_color,
+      initialization_scripts,
+      ipc_handler,
+      custom_protocols,
+      navigation_handler,
+      document_title_changed_handler,
+      on_page_load_handler,
     )?;
     Ok(Self { id, embedder })
   }
@@ -107,13 +120,26 @@ impl InnerWebView {
     };
     let visible = attributes.visible;
     let bounds = attributes.bounds.unwrap_or_default();
+    let initialization_scripts = attributes.initialization_scripts;
+    let ipc_handler = attributes.ipc_handler;
+    let custom_protocols = attributes.custom_protocols;
+    let navigation_handler = attributes.navigation_handler;
+    let document_title_changed_handler = attributes.document_title_changed_handler;
+    let on_page_load_handler = attributes.on_page_load_handler;
     let embedder = Embedder::new_child(
       parent,
       wake,
+      id.clone(),
       bounds,
       initial_url,
       initial_headers,
       background_color,
+      initialization_scripts,
+      ipc_handler,
+      custom_protocols,
+      navigation_handler,
+      document_title_changed_handler,
+      on_page_load_handler,
     )?;
     if !visible {
       embedder.set_visible(false);
@@ -404,12 +430,12 @@ impl<'a> WebViewBuilderExtServo<'a> for WebViewBuilder<'a> {
 }
 
 pub trait WebViewExtServo {
-  fn servo(&mut self) -> &mut Embedder;
+  fn servo(&self) -> &Embedder;
 }
 
 impl WebViewExtServo for super::WebView {
-  fn servo(&mut self) -> &mut Embedder {
-    &mut self.webview.embedder
+  fn servo(&self) -> &Embedder {
+    &self.webview.embedder
   }
 }
 

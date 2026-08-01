@@ -10800,6 +10800,7 @@ dependencies = [
  "dpi",
  "dunce",
  "euclid",
+ "futures-channel",
  "gdkx11",
  "getrandom 0.3.1",
  "glow 0.16.0",

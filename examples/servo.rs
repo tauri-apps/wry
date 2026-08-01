@@ -18,7 +18,26 @@ fn main() {
     .expect("failed to create demo window");
   let window_id = window.id();
   let proxy = event_loop.create_proxy();
-  let mut webview = WebViewBuilder::new()
+  let webview = WebViewBuilder::new()
+    .with_initialization_script("window.__wryServoInit = 'servo-init-ready';")
+    .with_ipc_handler(|request| eprintln!("Servo IPC: {}", request.body()))
+    .with_asynchronous_custom_protocol("wry".into(), |_id, _request, responder| {
+      responder.respond(
+        wry::http::Response::builder()
+          .header(wry::http::header::CONTENT_TYPE, "text/html")
+          .body(
+            br#"<!doctype html>
+            <title>Wry Servo</title>
+            <h1>Wry + Servo</h1>
+            <p>The Servo backend is rendering inside a Tao-owned window.</p>
+            <script>
+              setTimeout(() => window.ipc.postMessage(window.__wryServoInit), 100);
+            </script>"#,
+          )
+          .expect("valid custom protocol response"),
+      );
+    })
+    .with_url("wry://localhost/")
     .with_bounds(Rect {
       position: PhysicalPosition::new(20, 20).into(),
       size: PhysicalSize::new(960, 460).into(),
@@ -40,7 +59,10 @@ fn main() {
         window_id: event_window_id,
         event,
         ..
-      } if event_window_id == window_id => webview.servo().handle_window_event(control_flow, event),
+      } if event_window_id == window_id => match event {
+        tao::event::WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+        event => webview.servo().handle_window_event(&event),
+      },
       Event::RedrawRequested(event_window_id) if event_window_id == window_id => {
         webview.servo().paint()
       }
