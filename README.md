@@ -28,8 +28,11 @@ The first build downloads a prebuilt SpiderMonkey archive. Leave `MOZJS_FROM_SOU
 you explicitly want `mozjs_sys` to compile SpiderMonkey locally.
 
 The prototype supports URL and HTML navigation, custom request headers, per-URL cookies, browsing
-data clearing, zoom, visibility, focus, and background colors. Child webviews, printing, global
-cookie enumeration, and Wry's in-process devtools window controls are not supported yet.
+data clearing, zoom, visibility, focus, background colors, and offscreen composition into a
+borrowed Tao window. Printing, global cookie enumeration, multiple Servo webviews in one native
+window, and Wry's in-process devtools window controls are not supported yet. The standard
+`WebViewBuilder::build_as_child` path is not wired to Servo; hosts must use
+`WebViewBuilderExtServo::build_servo_as_child` so they can provide an event-loop wake callback.
 The example uses Tao 0.36, matching the window and event-loop types used by `tauri-runtime-wry`.
 
 This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only).

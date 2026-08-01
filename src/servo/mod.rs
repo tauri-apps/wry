@@ -76,6 +76,51 @@ impl InnerWebView {
     Ok(Self { id, embedder })
   }
 
+  fn new_servo_as_child(
+    parent: &Window,
+    wake: impl Fn() + Send + Sync + 'static,
+    attributes: WebViewAttributes<'_>,
+    _platform_attributes: super::PlatformSpecificWebViewAttributes,
+  ) -> Result<Self> {
+    let id = attributes.id.unwrap_or("servo").to_owned();
+    let (initial_url, initial_headers) = match attributes.url {
+      Some(url) => (parse_url(&url, "initial URL")?, attributes.headers),
+      None => (
+        if let Some(html) = attributes.html {
+          html_url(&html)?
+        } else {
+          let demo_path = std::env::current_dir()?.join("examples/demo.html");
+          Url::from_file_path(&demo_path).map_err(|()| {
+            Error::Servo(format!(
+              "failed to convert demo path to URL: {}",
+              demo_path.display()
+            ))
+          })?
+        },
+        None,
+      ),
+    };
+    let background_color = if attributes.transparent {
+      Some([0.0; 4])
+    } else {
+      attributes.background_color.map(servo_color)
+    };
+    let visible = attributes.visible;
+    let bounds = attributes.bounds.unwrap_or_default();
+    let embedder = Embedder::new_child(
+      parent,
+      wake,
+      bounds,
+      initial_url,
+      initial_headers,
+      background_color,
+    )?;
+    if !visible {
+      embedder.set_visible(false);
+    }
+    Ok(Self { id, embedder })
+  }
+
   pub fn new<W: HasWindowHandle>(
     _window: &W,
     _attributes: WebViewAttributes<'_>,
@@ -272,43 +317,26 @@ impl InnerWebView {
   }
 
   pub fn bounds(&self) -> Result<Rect> {
-    let size = self.embedder.window().inner_size();
-    Ok(Rect {
-      position: dpi::PhysicalPosition::new(0, 0).into(),
-      size: dpi::PhysicalSize::new(size.width, size.height).into(),
-    })
+    Ok(self.embedder.bounds())
   }
 
   pub fn set_bounds(&self, bounds: Rect) -> Result<()> {
-    let size = bounds
-      .size
-      .to_physical::<u32>(self.embedder.window().scale_factor());
-    self.embedder.webview().resize(size);
-    self.embedder.servo().spin_event_loop();
+    self.embedder.set_bounds(bounds);
     Ok(())
   }
 
   pub fn set_visible(&self, visible: bool) -> Result<()> {
-    self.embedder.window().set_visible(visible);
-    if visible {
-      self.embedder.webview().show();
-    } else {
-      self.embedder.webview().hide();
-    }
-    self.embedder.servo().spin_event_loop();
+    self.embedder.set_visible(visible);
     Ok(())
   }
 
   pub fn focus(&self) -> Result<()> {
-    self.embedder.window().set_focus();
-    self.embedder.webview().focus();
-    self.embedder.servo().spin_event_loop();
+    self.embedder.focus();
     Ok(())
   }
 
   pub fn focus_parent(&self) -> Result<()> {
-    self.embedder.window().set_focus();
-    Ok(())
+    self.embedder.focus_parent()
   }
 
   fn url_for_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<Url> {
@@ -341,13 +369,36 @@ pub fn platform_webview_version() -> Result<String> {
 }
 
 pub trait WebViewBuilderExtServo<'a> {
+  /// Creates a top-level Servo webview that owns its Tao window.
   fn build_servo(self, window: Window, proxy: EventLoopProxy<()>) -> Result<super::WebView>;
+
+  /// Creates a Servo webview rendered into a region of a borrowed Tao window.
+  ///
+  /// The host must invoke `wake` by scheduling work on the thread that owns Servo, then call
+  /// `handle_user_event` on the value returned by [`WebViewExtServo::servo`] from that event.
+  /// Window events must likewise be forwarded through `handle_window_event`. Only one embedded
+  /// Servo webview per native window is currently supported.
+  fn build_servo_as_child(
+    self,
+    parent: &Window,
+    wake: impl Fn() + Send + Sync + 'static,
+  ) -> Result<super::WebView>;
 }
 
 impl<'a> WebViewBuilderExtServo<'a> for WebViewBuilder<'a> {
   fn build_servo(self, window: Window, proxy: EventLoopProxy<()>) -> Result<super::WebView> {
     self.error?;
     InnerWebView::new_servo(window, proxy, self.attrs, self.platform_specific)
+      .map(|webview| super::WebView { webview })
+  }
+
+  fn build_servo_as_child(
+    self,
+    parent: &Window,
+    wake: impl Fn() + Send + Sync + 'static,
+  ) -> Result<super::WebView> {
+    self.error?;
+    InnerWebView::new_servo_as_child(parent, wake, self.attrs, self.platform_specific)
       .map(|webview| super::WebView { webview })
   }
 }

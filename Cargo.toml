@@ -38,7 +38,7 @@ os-webview = [
 ]
 x11 = ["x11-dl", "gdkx11", "tao?/x11"]
 tracing = ["dep:tracing"]
-servo = ["dep:percent-encoding", "dep:servo", "dep:tao", "dep:url"]
+servo = ["dep:euclid", "dep:percent-encoding", "dep:servo", "dep:tao", "dep:url"]
 
 [dependencies]
 tracing = { version = "0.1", optional = true }
@@ -48,6 +48,7 @@ http = "1.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
 dpi = "0.1"
 cookie = "0.18"
+euclid = { version = "0.22", optional = true }
 percent-encoding = { version = "2.3", optional = true }
 servo = { git = "https://github.com/servo/servo.git", rev = "3f08ca6d1664a50265140090b7faf3fcb86d82b1", optional = true }
 tao = { version = "0.36", default-features = false, features = ["rwh_06"], optional = true }

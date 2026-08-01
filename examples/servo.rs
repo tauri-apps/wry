@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: MIT
 
 use tao::{
-  dpi::PhysicalSize,
+  dpi::{PhysicalPosition, PhysicalSize},
   event::Event,
   event_loop::{ControlFlow, EventLoopBuilder},
   window::WindowBuilder,
 };
-use wry::{WebViewBuilder, WebViewBuilderExtServo, WebViewExtServo};
+use wry::{Rect, WebViewBuilder, WebViewBuilderExtServo, WebViewExtServo};
 
 fn main() {
   let event_loop = EventLoopBuilder::<()>::with_user_event().build();
@@ -17,11 +17,21 @@ fn main() {
     .build(&event_loop)
     .expect("failed to create demo window");
   let window_id = window.id();
+  let proxy = event_loop.create_proxy();
   let mut webview = WebViewBuilder::new()
-    .build_servo(window, event_loop.create_proxy())
+    .with_bounds(Rect {
+      position: PhysicalPosition::new(20, 20).into(),
+      size: PhysicalSize::new(960, 460).into(),
+    })
+    .build_servo_as_child(&window, move || {
+      if let Err(error) = proxy.send_event(()) {
+        eprintln!("failed to wake the Tao event loop: {error}");
+      }
+    })
     .expect("failed to create Servo webview");
 
   event_loop.run(move |event, _event_loop, control_flow| {
+    let _keep_window_alive = &window;
     webview.servo().set_control_flow(control_flow);
 
     match event {
