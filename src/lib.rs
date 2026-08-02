@@ -349,7 +349,10 @@ mod error;
 mod inject_initialization_scripts;
 mod permissions;
 mod proxy;
-#[cfg(any(target_os = "macos", target_os = "android", target_os = "ios"))]
+#[cfg(any(
+  target_os = "android",
+  all(not(servo), any(target_os = "macos", target_os = "ios"))
+))]
 mod util;
 mod web_context;
 

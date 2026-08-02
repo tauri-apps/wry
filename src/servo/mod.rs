@@ -1,3 +1,7 @@
+// Copyright 2020-2026 Tauri Programme within The Commons Conservancy
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
+
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use raw_window_handle::HasWindowHandle;
 use servo::{CookieSource, StorageType, UrlRequest};

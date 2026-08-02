@@ -17,8 +17,8 @@ You can use a windowing library like [`tao`] or [`winit`].
 
 #### Servo prototype
 
-This branch can use Servo instead of the platform webview backend. The Servo example is built
-against the pinned Servo `main` revision in `Cargo.toml`:
+Wry can use Servo instead of the platform webview backend. The Servo example is built against the
+pinned Servo `main` revision in `Cargo.toml`:
 
 ```bash
 cargo run --no-default-features --features servo --example servo

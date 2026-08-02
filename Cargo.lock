@@ -289,7 +289,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
  "x11rb",
 ]
 
@@ -1629,7 +1629,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3180,7 +3180,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.62.0",
 ]
 
 [[package]]
@@ -4685,7 +4685,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 2.0.2",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -6266,7 +6266,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6323,7 +6323,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6617,7 +6617,7 @@ dependencies = [
 [[package]]
 name = "servo"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "accesskit",
  "arboard",
@@ -6681,7 +6681,7 @@ dependencies = [
 [[package]]
 name = "servo-allocator"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "libc",
  "tikv-jemalloc-sys",
@@ -6692,7 +6692,7 @@ dependencies = [
 [[package]]
 name = "servo-background-hang-monitor"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "backtrace",
  "crossbeam-channel",
@@ -6707,7 +6707,7 @@ dependencies = [
 [[package]]
 name = "servo-background-hang-monitor-api"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "serde",
  "servo-base",
@@ -6716,7 +6716,7 @@ dependencies = [
 [[package]]
 name = "servo-base"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "accesskit",
  "crossbeam-channel",
@@ -6741,7 +6741,7 @@ dependencies = [
 [[package]]
 name = "servo-canvas"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "bytemuck",
  "crossbeam-channel",
@@ -6766,7 +6766,7 @@ dependencies = [
 [[package]]
 name = "servo-canvas-traits"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "crossbeam-channel",
  "euclid",
@@ -6788,7 +6788,7 @@ dependencies = [
 [[package]]
 name = "servo-config"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "num_enum",
  "serde",
@@ -6801,7 +6801,7 @@ dependencies = [
 [[package]]
 name = "servo-config-macro"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6812,7 +6812,7 @@ dependencies = [
 [[package]]
 name = "servo-constellation"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "accesskit",
  "backtrace",
@@ -6856,7 +6856,7 @@ dependencies = [
 [[package]]
 name = "servo-constellation-traits"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "base64",
  "content-security-policy",
@@ -6891,7 +6891,7 @@ dependencies = [
 [[package]]
 name = "servo-default-resources"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "servo-embedder-traits",
 ]
@@ -6899,7 +6899,7 @@ dependencies = [
 [[package]]
 name = "servo-deny-public-fields"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "proc-macro2",
  "syn 2.0.119",
@@ -6909,7 +6909,7 @@ dependencies = [
 [[package]]
 name = "servo-devtools"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "atomic_refcell",
  "base64",
@@ -6939,7 +6939,7 @@ dependencies = [
 [[package]]
 name = "servo-devtools-traits"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "http 1.5.0",
  "malloc_size_of_derive",
@@ -6956,7 +6956,7 @@ dependencies = [
 [[package]]
 name = "servo-dom-struct"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -6967,7 +6967,7 @@ dependencies = [
 [[package]]
 name = "servo-embedder-traits"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "accesskit",
  "bitflags 2.13.1",
@@ -7001,7 +7001,7 @@ dependencies = [
 [[package]]
 name = "servo-fonts"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "app_units",
  "atomic_refcell",
@@ -7060,7 +7060,7 @@ dependencies = [
 [[package]]
 name = "servo-fonts-traits"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "atomic_refcell",
  "dwrote",
@@ -7085,7 +7085,7 @@ dependencies = [
 [[package]]
 name = "servo-geometry"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "app_units",
  "euclid",
@@ -7098,7 +7098,7 @@ dependencies = [
 [[package]]
 name = "servo-hyper-serde"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "cookie 0.18.1",
  "headers",
@@ -7112,7 +7112,7 @@ dependencies = [
 [[package]]
 name = "servo-jstraceable-derive"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "proc-macro2",
  "syn 2.0.119",
@@ -7122,7 +7122,7 @@ dependencies = [
 [[package]]
 name = "servo-layout"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "accesskit",
  "app_units",
@@ -7181,7 +7181,7 @@ dependencies = [
 [[package]]
 name = "servo-layout-api"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "app_units",
  "atomic_refcell",
@@ -7215,7 +7215,7 @@ dependencies = [
 [[package]]
 name = "servo-malloc-size-of"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "app_units",
  "atomic_refcell",
@@ -7258,7 +7258,7 @@ dependencies = [
 [[package]]
 name = "servo-media"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "servo-base",
  "servo-media-audio",
@@ -7271,7 +7271,7 @@ dependencies = [
 [[package]]
 name = "servo-media-audio"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "byte-slice-cast",
  "euclid",
@@ -7295,7 +7295,7 @@ dependencies = [
 [[package]]
 name = "servo-media-derive"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7305,7 +7305,7 @@ dependencies = [
 [[package]]
 name = "servo-media-dummy"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "servo-base",
  "servo-media",
@@ -7319,7 +7319,7 @@ dependencies = [
 [[package]]
 name = "servo-media-ohos"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "crossbeam-channel",
  "libc",
@@ -7342,7 +7342,7 @@ dependencies = [
 [[package]]
 name = "servo-media-player"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "malloc_size_of_derive",
  "serde",
@@ -7355,7 +7355,7 @@ dependencies = [
 [[package]]
 name = "servo-media-streams"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "malloc_size_of_derive",
  "servo-malloc-size-of",
@@ -7365,7 +7365,7 @@ dependencies = [
 [[package]]
 name = "servo-media-thread"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "euclid",
  "ipc-channel",
@@ -7384,7 +7384,7 @@ dependencies = [
 [[package]]
 name = "servo-media-traits"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "malloc_size_of_derive",
  "servo-malloc-size-of",
@@ -7393,7 +7393,7 @@ dependencies = [
 [[package]]
 name = "servo-media-webrtc"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "log",
  "servo-media-streams",
@@ -7403,7 +7403,7 @@ dependencies = [
 [[package]]
 name = "servo-metrics"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "malloc_size_of_derive",
  "servo-base",
@@ -7418,7 +7418,7 @@ dependencies = [
 [[package]]
 name = "servo-net"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "async-compression",
  "async-recursion",
@@ -7450,6 +7450,7 @@ dependencies = [
  "nom 8.0.0",
  "parking_lot",
  "quick_cache",
+ "rand 0.10.2",
  "regex",
  "resvg",
  "rustc-hash 2.1.3",
@@ -7489,7 +7490,7 @@ dependencies = [
 [[package]]
 name = "servo-net-traits"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "content-security-policy",
  "cookie 0.18.1",
@@ -7530,7 +7531,7 @@ dependencies = [
 [[package]]
 name = "servo-paint"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "bitflags 2.13.1",
  "crossbeam-channel",
@@ -7567,7 +7568,7 @@ dependencies = [
 [[package]]
 name = "servo-paint-api"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "bitflags 2.13.1",
  "crossbeam-channel",
@@ -7602,7 +7603,7 @@ dependencies = [
 [[package]]
 name = "servo-pixels"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "euclid",
  "image",
@@ -7617,7 +7618,7 @@ dependencies = [
 [[package]]
 name = "servo-profile"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "libc",
  "log",
@@ -7635,7 +7636,7 @@ dependencies = [
 [[package]]
 name = "servo-profile-traits"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "crossbeam-channel",
  "ipc-channel",
@@ -7651,7 +7652,7 @@ dependencies = [
 [[package]]
 name = "servo-script"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -7794,7 +7795,7 @@ dependencies = [
 [[package]]
 name = "servo-script-bindings"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "atomic_refcell",
  "bitflags 2.13.1",
@@ -7834,7 +7835,7 @@ dependencies = [
 [[package]]
 name = "servo-script-traits"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "accesskit",
  "crossbeam-channel",
@@ -7868,7 +7869,7 @@ dependencies = [
 [[package]]
 name = "servo-storage"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "libc",
  "log",
@@ -7893,7 +7894,7 @@ dependencies = [
 [[package]]
 name = "servo-storage-traits"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "malloc_size_of_derive",
  "serde",
@@ -7907,7 +7908,7 @@ dependencies = [
 [[package]]
 name = "servo-timers"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "crossbeam-channel",
  "malloc_size_of_derive",
@@ -7917,7 +7918,7 @@ dependencies = [
 [[package]]
 name = "servo-tracing"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7927,7 +7928,7 @@ dependencies = [
 [[package]]
 name = "servo-url"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "encoding_rs",
  "malloc_size_of_derive",
@@ -7941,7 +7942,7 @@ dependencies = [
 [[package]]
 name = "servo-wakelock"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "serde",
  "servo-embedder-traits",
@@ -7950,7 +7951,7 @@ dependencies = [
 [[package]]
 name = "servo-webgl"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "bitflags 2.13.1",
  "byteorder",
@@ -7974,7 +7975,7 @@ dependencies = [
 [[package]]
 name = "servo-webvtt"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "html5ever",
  "markup5ever",
@@ -7984,7 +7985,7 @@ dependencies = [
 [[package]]
 name = "servo-webxr-api"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "euclid",
  "ipc-channel",
@@ -8000,7 +8001,7 @@ dependencies = [
 [[package]]
 name = "servo-xpath"
 version = "0.4.0"
-source = "git+https://github.com/jonathanKingston/servo.git?rev=eaa6c602683ceb0a4a3c61de50a4380b866d4fd8#eaa6c602683ceb0a4a3c61de50a4380b866d4fd8"
+source = "git+https://github.com/servo/servo.git?rev=f4dde2701bacd4972e6cfa319a3f0cbc9be21f64#f4dde2701bacd4972e6cfa319a3f0cbc9be21f64"
 dependencies = [
  "log",
  "malloc_size_of_derive",
@@ -8774,10 +8775,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.1",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.4",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

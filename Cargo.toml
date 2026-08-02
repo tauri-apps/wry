@@ -60,7 +60,7 @@ euclid = { version = "0.22", optional = true }
 futures-channel = { version = "0.3", optional = true }
 keyboard-types = { version = "0.8.3", optional = true }
 percent-encoding = { version = "2.3", optional = true }
-servo = { git = "https://github.com/jonathanKingston/servo.git", rev = "eaa6c602683ceb0a4a3c61de50a4380b866d4fd8", optional = true }
+servo = { version = "0.4.0", git = "https://github.com/servo/servo.git", rev = "f4dde2701bacd4972e6cfa319a3f0cbc9be21f64", optional = true }
 tao = { version = "0.36", default-features = false, features = ["rwh_06"], optional = true }
 url = { version = "2.5", optional = true }
 

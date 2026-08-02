@@ -12,9 +12,9 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { target: x86_64-pc-windows-msvc, os: windows-latest, features: servo }
-          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, features: "servo,x11" }
-          - { target: aarch64-apple-darwin, os: macos-latest, features: servo }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest }
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
+          - { target: aarch64-apple-darwin, os: macos-latest }
           - { target: aarch64-apple-ios, os: macos-latest }
           - { target: x86_64-apple-darwin, os: macos-latest }
           - { target: aarch64-linux-android, os: ubuntu-latest }
@@ -81,9 +81,9 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { target: x86_64-pc-windows-msvc, os: windows-latest }
-          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
-          - { target: aarch64-apple-darwin, os: macos-latest }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest, features: servo }
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, features: "servo,x11" }
+          - { target: aarch64-apple-darwin, os: macos-latest, features: servo }
 
     runs-on: ${{ matrix.platform.os }}
     timeout-minutes: 45
@@ -102,6 +102,7 @@ jobs:
         uses: dtolnay/rust-toolchain@1.95.0
         with:
           targets: ${{ matrix.platform.target }}
+          components: clippy
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -109,6 +110,9 @@ jobs:
 
       - name: test Servo backend
         run: cargo test --locked --lib --target ${{ matrix.platform.target }} --no-default-features --features ${{ matrix.platform.features }}
+
+      - name: lint Servo backend
+        run: cargo clippy --locked --lib --target ${{ matrix.platform.target }} --no-default-features --features ${{ matrix.platform.features }} -- -D warnings
 
       - name: build Servo example
         run: cargo build --locked --example servo --target ${{ matrix.platform.target }} --no-default-features --features ${{ matrix.platform.features }}

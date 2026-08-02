@@ -1,3 +1,7 @@
+// Copyright 2020-2026 Tauri Programme within The Commons Conservancy
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
+
 use std::{
   cell::{Cell, RefCell},
   collections::HashMap,
@@ -546,6 +550,7 @@ pub struct Embedder {
 }
 
 impl Embedder {
+  #[allow(clippy::too_many_arguments)]
   pub fn new(
     window: Window,
     proxy: EventLoopProxy<()>,
@@ -599,6 +604,7 @@ impl Embedder {
     )
   }
 
+  #[allow(clippy::too_many_arguments)]
   pub fn new_child(
     parent: &Window,
     wake: impl Fn() + Send + Sync + 'static,
@@ -660,6 +666,7 @@ impl Embedder {
     )
   }
 
+  #[allow(clippy::too_many_arguments)]
   fn build(
     target: RenderingTarget,
     waker: EmbedderWaker,
@@ -867,14 +874,12 @@ impl Embedder {
           (None, None) => {}
         }
       }
-      WindowEvent::CursorLeft { .. } => {
-        if self.cursor_position.replace(None).is_some() {
-          self
-            .webview
-            .notify_input_event(InputEvent::MouseLeftViewport(
-              MouseLeftViewportEvent::default(),
-            ));
-        }
+      WindowEvent::CursorLeft { .. } if self.cursor_position.replace(None).is_some() => {
+        self
+          .webview
+          .notify_input_event(InputEvent::MouseLeftViewport(
+            MouseLeftViewportEvent::default(),
+          ));
       }
       WindowEvent::MouseInput { state, button, .. } => {
         let Some(point) = self.cursor_position.get() else {
