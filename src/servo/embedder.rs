@@ -472,6 +472,40 @@ fn servo_modifiers(modifiers: ModifiersState) -> Modifiers {
   result
 }
 
+fn servo_mouse_button(button: &TaoMouseButton) -> Option<servo::MouseButton> {
+  match button {
+    TaoMouseButton::Left => Some(servo::MouseButton::Left),
+    TaoMouseButton::Right => Some(servo::MouseButton::Right),
+    TaoMouseButton::Middle => Some(servo::MouseButton::Middle),
+    TaoMouseButton::Other(button) => Some(servo::MouseButton::Other(*button)),
+    _ => None,
+  }
+}
+
+fn servo_wheel_delta(delta: &MouseScrollDelta) -> Option<WheelDelta> {
+  let (x, y) = match delta {
+    MouseScrollDelta::LineDelta(x, y) => ((x * 76.0) as f64, (y * 76.0) as f64),
+    MouseScrollDelta::PixelDelta(delta) => (delta.x, delta.y),
+    _ => return None,
+  };
+  Some(WheelDelta {
+    x,
+    y,
+    z: 0.0,
+    mode: WheelMode::DeltaPixel,
+  })
+}
+
+fn servo_touch_phase(phase: TouchPhase) -> Option<TouchEventType> {
+  match phase {
+    TouchPhase::Started => Some(TouchEventType::Down),
+    TouchPhase::Moved => Some(TouchEventType::Move),
+    TouchPhase::Ended => Some(TouchEventType::Up),
+    TouchPhase::Cancelled => Some(TouchEventType::Cancel),
+    _ => None,
+  }
+}
+
 fn inserted_key_text(
   key: &TaoKey<'_>,
   text: Option<&str>,
@@ -861,15 +895,9 @@ impl Embedder {
             return;
           }
         };
-        let button = match button {
-          TaoMouseButton::Left => servo::MouseButton::Left,
-          TaoMouseButton::Right => servo::MouseButton::Right,
-          TaoMouseButton::Middle => servo::MouseButton::Middle,
-          TaoMouseButton::Other(button) => servo::MouseButton::Other(*button),
-          _ => {
-            self.servo.spin_event_loop();
-            return;
-          }
+        let Some(button) = servo_mouse_button(button) else {
+          self.servo.spin_event_loop();
+          return;
         };
         self
           .webview
@@ -884,37 +912,22 @@ impl Embedder {
           self.servo.spin_event_loop();
           return;
         };
-        let (x, y, mode) = match delta {
-          MouseScrollDelta::LineDelta(x, y) => {
-            ((x * 76.0) as f64, (y * 76.0) as f64, WheelMode::DeltaPixel)
-          }
-          MouseScrollDelta::PixelDelta(delta) => (delta.x, delta.y, WheelMode::DeltaPixel),
-          _ => {
-            self.servo.spin_event_loop();
-            return;
-          }
+        let Some(delta) = servo_wheel_delta(delta) else {
+          self.servo.spin_event_loop();
+          return;
         };
         self
           .webview
-          .notify_input_event(InputEvent::Wheel(WheelEvent::new(
-            WheelDelta { x, y, z: 0.0, mode },
-            point.into(),
-          )));
+          .notify_input_event(InputEvent::Wheel(WheelEvent::new(delta, point.into())));
       }
       WindowEvent::Touch(touch) => {
         let Some(point) = self.target.webview_point(touch.location) else {
           self.servo.spin_event_loop();
           return;
         };
-        let event_type = match touch.phase {
-          TouchPhase::Started => TouchEventType::Down,
-          TouchPhase::Moved => TouchEventType::Move,
-          TouchPhase::Ended => TouchEventType::Up,
-          TouchPhase::Cancelled => TouchEventType::Cancel,
-          _ => {
-            self.servo.spin_event_loop();
-            return;
-          }
+        let Some(event_type) = servo_touch_phase(touch.phase) else {
+          self.servo.spin_event_loop();
+          return;
         };
         if touch.phase == TouchPhase::Started {
           self.focus_webview();
@@ -1006,13 +1019,22 @@ impl Embedder {
 
 #[cfg(test)]
 mod tests {
+  use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+  };
+
   use dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
   use keyboard_types::{Code, Key, Modifiers, NamedKey};
-  use tao::keyboard::{Key as TaoKey, KeyCode as TaoKeyCode, ModifiersState};
+  use tao::{
+    event::{MouseButton as TaoMouseButton, MouseScrollDelta, TouchPhase},
+    keyboard::{Key as TaoKey, KeyCode as TaoKeyCode, KeyLocation, ModifiersState},
+  };
 
   use super::{
-    inserted_key_text, ipc_message_body, point_in_bounds, servo_code, servo_key, servo_modifiers,
-    PhysicalBounds, IPC_BRIDGE_SCRIPT, IPC_MESSAGE_PREFIX,
+    inserted_key_text, ipc_message_body, non_zero_size, point_in_bounds, servo_code, servo_key,
+    servo_location, servo_modifiers, servo_mouse_button, servo_touch_phase, servo_wheel_delta,
+    Delegate, EmbedderWaker, PhysicalBounds, IPC_BRIDGE_SCRIPT, IPC_MESSAGE_PREFIX,
   };
   use crate::Rect;
 
@@ -1093,6 +1115,79 @@ mod tests {
     assert!(modifiers.contains(Modifiers::SHIFT));
     assert!(modifiers.contains(Modifiers::META));
     assert!(!modifiers.contains(Modifiers::CONTROL));
+  }
+
+  #[test]
+  fn converts_tao_input_variants_to_servo_values() {
+    assert!(matches!(
+      servo_mouse_button(&TaoMouseButton::Left),
+      Some(servo::MouseButton::Left)
+    ));
+    assert!(matches!(
+      servo_mouse_button(&TaoMouseButton::Other(4)),
+      Some(servo::MouseButton::Other(4))
+    ));
+    assert_eq!(
+      servo_location(KeyLocation::Numpad),
+      keyboard_types::Location::Numpad
+    );
+    assert!(matches!(
+      servo_touch_phase(TouchPhase::Started),
+      Some(servo::TouchEventType::Down)
+    ));
+    assert!(matches!(
+      servo_touch_phase(TouchPhase::Cancelled),
+      Some(servo::TouchEventType::Cancel)
+    ));
+  }
+
+  #[test]
+  fn converts_line_and_pixel_wheel_deltas() {
+    let line = servo_wheel_delta(&MouseScrollDelta::LineDelta(1.5, -2.0)).unwrap();
+    assert_eq!((line.x, line.y, line.z), (114.0, -152.0, 0.0));
+    assert_eq!(line.mode, servo::WheelMode::DeltaPixel);
+
+    let pixel = servo_wheel_delta(&MouseScrollDelta::PixelDelta(PhysicalPosition::new(
+      3.25, -4.5,
+    )))
+    .unwrap();
+    assert_eq!((pixel.x, pixel.y, pixel.z), (3.25, -4.5, 0.0));
+    assert_eq!(pixel.mode, servo::WheelMode::DeltaPixel);
+  }
+
+  #[test]
+  fn clamps_each_zero_dimension() {
+    assert_eq!(
+      non_zero_size(PhysicalSize::new(0, 5)),
+      PhysicalSize::new(1, 5)
+    );
+    assert_eq!(
+      non_zero_size(PhysicalSize::new(7, 0)),
+      PhysicalSize::new(7, 1)
+    );
+  }
+
+  #[test]
+  fn repainting_an_offscreen_webview_marks_the_frame_and_wakes_the_host() {
+    let wake_count = Arc::new(AtomicUsize::new(0));
+    let wake_count_ = wake_count.clone();
+    let delegate = Delegate {
+      window: None,
+      waker: EmbedderWaker::new(move || {
+        wake_count_.fetch_add(1, Ordering::Relaxed);
+      }),
+      frame_ready: Default::default(),
+      closed: Default::default(),
+      ipc_handler: None,
+      navigation_handler: None,
+      document_title_changed_handler: None,
+      on_page_load_handler: None,
+    };
+
+    delegate.request_repaint();
+
+    assert!(delegate.frame_ready.get());
+    assert_eq!(wake_count.load(Ordering::Relaxed), 1);
   }
 
   #[test]

@@ -12,9 +12,9 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { target: x86_64-pc-windows-msvc, os: windows-latest }
-          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
-          - { target: aarch64-apple-darwin, os: macos-latest }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest, features: servo }
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, features: "servo,x11" }
+          - { target: aarch64-apple-darwin, os: macos-latest, features: servo }
           - { target: aarch64-apple-ios, os: macos-latest }
           - { target: x86_64-apple-darwin, os: macos-latest }
           - { target: aarch64-linux-android, os: ubuntu-latest }
@@ -23,7 +23,10 @@ jobs:
               args: --no-default-features --features os-webview,
               key: no-default,
             }
-          - { args: --all-features, key: all }
+          - {
+              args: --no-default-features --features devtools,linux-body,mac-proxy,os-webview,serde,tracing,x11,
+              key: native-all,
+            }
 
     runs-on: ${{ matrix.platform.os }}
 
@@ -49,7 +52,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          save-if: ${{ matrix.features.key == 'all' }}
+          save-if: ${{ matrix.features.key == 'native-all' }}
 
       - name: build wry
         run: cargo build --target ${{ matrix.platform.target }} ${{ matrix.features.args }}
@@ -72,6 +75,43 @@ jobs:
       - name: Run tests with miri
         if: (!contains(matrix.platform.target, 'android') && !contains(matrix.platform.target, 'ios'))
         run: cargo +nightly miri test --verbose --target ${{ matrix.platform.target }} --features linux-body ${{ matrix.features.args }}
+
+  servo:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { target: x86_64-pc-windows-msvc, os: windows-latest }
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
+          - { target: aarch64-apple-darwin, os: macos-latest }
+
+    runs-on: ${{ matrix.platform.os }}
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install Servo build dependencies (ubuntu only)
+        if: contains(matrix.platform.target, 'linux')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev libegl1-mesa-dev libfontconfig1-dev libfreetype6-dev libharfbuzz-dev libx11-dev libxkbcommon-x11-dev lld
+          echo "RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> "$GITHUB_ENV"
+
+      - name: install Servo toolchain
+        uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: ${{ matrix.platform.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: servo-${{ matrix.platform.target }}
+
+      - name: test Servo backend
+        run: cargo test --locked --lib --target ${{ matrix.platform.target }} --no-default-features --features ${{ matrix.platform.features }}
+
+      - name: build Servo example
+        run: cargo build --locked --example servo --target ${{ matrix.platform.target }} --no-default-features --features ${{ matrix.platform.features }}
 
   doc:
     runs-on: ubuntu-latest
