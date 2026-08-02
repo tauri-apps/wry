@@ -1,8 +1,16 @@
-use std::{cell::Cell, collections::HashMap, rc::Rc, sync::Arc};
+use std::{
+  cell::{Cell, RefCell},
+  collections::HashMap,
+  rc::Rc,
+  sync::Arc,
+};
 
 use euclid::{
   default::{Point2D, Rect as EuclidRect, Size2D},
   Scale,
+};
+use keyboard_types::{
+  Code, CompositionEvent, CompositionState, Key, KeyState, Location, Modifiers, NamedKey,
 };
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use servo::{
@@ -10,15 +18,18 @@ use servo::{
     DoneChannel, FetchContext, HttpStatus, NetworkError, ProtocolHandler, ProtocolRegistry,
     Request as ServoRequest, ResourceFetchTiming, Response as ServoResponse, ResponseBody,
   },
-  DevicePoint, EventLoopWaker, InputEvent, LoadStatus, NavigationRequest,
-  OffscreenRenderingContext, Preferences, RenderingContext, Servo, ServoBuilder, UrlRequest,
-  UserContentManager, UserScript, WebView as ServoWebView, WebViewBuilder as ServoWebViewBuilder,
-  WebViewDelegate, WheelDelta, WheelEvent, WheelMode, WindowRenderingContext,
+  DevicePoint, EventLoopWaker, ImeEvent, InputEvent, KeyboardEvent, LoadStatus, MouseButtonAction,
+  MouseButtonEvent, MouseLeftViewportEvent, MouseMoveEvent, NavigationRequest,
+  OffscreenRenderingContext, Preferences, RenderingContext, Servo, ServoBuilder, TouchEvent,
+  TouchEventType, TouchId, TouchPointerType, UrlRequest, UserContentManager, UserScript,
+  WebView as ServoWebView, WebViewBuilder as ServoWebViewBuilder, WebViewDelegate, WheelDelta,
+  WheelEvent, WheelMode, WindowRenderingContext,
 };
 use tao::{
   dpi::{PhysicalPosition, PhysicalSize},
-  event::{MouseScrollDelta, WindowEvent},
+  event::{ElementState, MouseButton as TaoMouseButton, MouseScrollDelta, TouchPhase, WindowEvent},
   event_loop::{ControlFlow, EventLoopProxy},
+  keyboard::{Key as TaoKey, KeyCode as TaoKeyCode, KeyLocation, ModifiersState},
   window::Window,
 };
 use url::Url;
@@ -256,6 +267,10 @@ enum RenderingTarget {
 }
 
 impl RenderingTarget {
+  fn is_window(&self) -> bool {
+    matches!(self, Self::Window { .. })
+  }
+
   fn scale_factor(&self) -> f64 {
     match self {
       Self::Window { window, .. } => window.scale_factor(),
@@ -391,6 +406,89 @@ impl RenderingTarget {
       )),
     }
   }
+
+  fn webview_point(&self, position: PhysicalPosition<f64>) -> Option<DevicePoint> {
+    match self {
+      Self::Window { window, .. } => {
+        let size = window.inner_size();
+        point_in_bounds(position, PhysicalPosition::new(0, 0), size)
+      }
+      Self::Child {
+        physical_bounds, ..
+      } => {
+        let bounds = physical_bounds.get();
+        point_in_bounds(position, bounds.position, bounds.size)
+      }
+    }
+  }
+}
+
+fn point_in_bounds(
+  point: PhysicalPosition<f64>,
+  origin: PhysicalPosition<i32>,
+  size: PhysicalSize<u32>,
+) -> Option<DevicePoint> {
+  let x = point.x - f64::from(origin.x);
+  let y = point.y - f64::from(origin.y);
+  (x >= 0.0 && y >= 0.0 && x < f64::from(size.width) && y < f64::from(size.height))
+    .then(|| DevicePoint::new(x as f32, y as f32))
+}
+
+fn servo_key(key: &TaoKey<'_>) -> Key {
+  match key {
+    TaoKey::Character(character) => Key::Character((*character).to_owned()),
+    TaoKey::Space => Key::Character(" ".into()),
+    TaoKey::Super => Key::Named(NamedKey::Meta),
+    TaoKey::Unidentified(_) | TaoKey::Dead(_) => Key::Named(NamedKey::Unidentified),
+    key => Key::Named(format!("{key:?}").parse().unwrap_or(NamedKey::Unidentified)),
+  }
+}
+
+fn servo_code(code: TaoKeyCode) -> Code {
+  match code {
+    TaoKeyCode::SuperLeft => Code::MetaLeft,
+    TaoKeyCode::SuperRight => Code::MetaRight,
+    TaoKeyCode::Unidentified(_) => Code::Unidentified,
+    code => code.to_string().parse().unwrap_or(Code::Unidentified),
+  }
+}
+
+fn servo_location(location: KeyLocation) -> Location {
+  match location {
+    KeyLocation::Standard => Location::Standard,
+    KeyLocation::Left => Location::Left,
+    KeyLocation::Right => Location::Right,
+    KeyLocation::Numpad => Location::Numpad,
+    _ => Location::Standard,
+  }
+}
+
+fn servo_modifiers(modifiers: ModifiersState) -> Modifiers {
+  let mut result = Modifiers::empty();
+  result.set(Modifiers::SHIFT, modifiers.shift_key());
+  result.set(Modifiers::CONTROL, modifiers.control_key());
+  result.set(Modifiers::ALT, modifiers.alt_key());
+  result.set(Modifiers::META, modifiers.super_key());
+  result
+}
+
+fn inserted_key_text(
+  key: &TaoKey<'_>,
+  text: Option<&str>,
+  mut modifiers: Modifiers,
+) -> Option<String> {
+  modifiers.remove(Modifiers::SHIFT);
+  if !modifiers.is_empty() {
+    return None;
+  }
+  if let Some(text) = text {
+    return Some(text.to_owned());
+  }
+  match key {
+    TaoKey::Character(character) => Some((*character).to_owned()),
+    TaoKey::Space => Some(" ".into()),
+    _ => None,
+  }
 }
 
 fn non_zero_size(mut size: PhysicalSize<u32>) -> PhysicalSize<u32> {
@@ -405,6 +503,12 @@ pub struct Embedder {
   webview: ServoWebView,
   target: RenderingTarget,
   delegate: Rc<Delegate>,
+  cursor_position: Cell<Option<DevicePoint>>,
+  modifiers: Cell<Modifiers>,
+  pending_ime_text: RefCell<Option<String>>,
+  pending_key_text: RefCell<Option<String>>,
+  pending_key_event: Cell<bool>,
+  focused: Cell<bool>,
 }
 
 impl Embedder {
@@ -594,10 +698,19 @@ impl Embedder {
       webview,
       target,
       delegate,
+      cursor_position: Cell::new(None),
+      modifiers: Cell::new(Modifiers::empty()),
+      pending_ime_text: RefCell::new(None),
+      pending_key_text: RefCell::new(None),
+      pending_key_event: Cell::new(false),
+      focused: Cell::new(false),
     })
   }
 
   pub fn handle_user_event(&self) {
+    if let Some(text) = self.pending_ime_text.borrow_mut().take() {
+      self.commit_ime_text(text);
+    }
     self.servo.spin_event_loop();
     if matches!(self.target, RenderingTarget::Child { .. })
       && self.delegate.frame_ready.replace(false)
@@ -618,6 +731,15 @@ impl Embedder {
     self.webview.animating()
   }
 
+  fn commit_ime_text(&self, text: String) {
+    self
+      .webview
+      .notify_input_event(InputEvent::Ime(ImeEvent::Composition(CompositionEvent {
+        state: CompositionState::End,
+        data: text,
+      })));
+  }
+
   pub fn handle_window_event(&self, event: &WindowEvent<'_>) {
     self.servo.spin_event_loop();
 
@@ -629,19 +751,181 @@ impl Embedder {
       } => self
         .target
         .handle_scale_factor_changed(*scale_factor, **new_inner_size, &self.webview),
+      WindowEvent::Focused(focused) => {
+        if *focused && self.target.is_window() {
+          self.focus_webview();
+        } else if !focused {
+          self.pending_ime_text.borrow_mut().take();
+          self.pending_key_text.borrow_mut().take();
+          self.pending_key_event.set(false);
+          self.blur_webview();
+        }
+      }
+      WindowEvent::ModifiersChanged(modifiers) => {
+        self.modifiers.set(servo_modifiers(*modifiers));
+      }
+      WindowEvent::KeyboardInput { event, .. } if self.focused.get() => {
+        let state = match event.state {
+          ElementState::Pressed => KeyState::Down,
+          ElementState::Released => KeyState::Up,
+          _ => {
+            self.servo.spin_event_loop();
+            return;
+          }
+        };
+        if state == KeyState::Down {
+          let key_text = inserted_key_text(&event.logical_key, event.text, self.modifiers.get());
+          if let Some(ime_text) = self.pending_ime_text.borrow_mut().take() {
+            if key_text.as_deref() != Some(ime_text.as_str()) {
+              self.commit_ime_text(ime_text);
+            }
+            self.pending_key_text.borrow_mut().take();
+            self.pending_key_event.set(false);
+          } else {
+            *self.pending_key_text.borrow_mut() = key_text;
+            self.pending_key_event.set(true);
+          }
+        } else {
+          self.pending_key_text.borrow_mut().take();
+          self.pending_key_event.set(false);
+        }
+        self
+          .webview
+          .notify_input_event(InputEvent::Keyboard(KeyboardEvent::new_without_event(
+            state,
+            servo_key(&event.logical_key),
+            servo_code(event.physical_key),
+            servo_location(event.location),
+            self.modifiers.get(),
+            event.repeat,
+            false,
+          )));
+      }
+      WindowEvent::ReceivedImeText(text) if self.focused.get() => {
+        if self.pending_key_event.replace(false) {
+          if self.pending_key_text.borrow_mut().take().as_deref() != Some(text.as_str()) {
+            self.commit_ime_text(text.clone());
+          }
+        } else {
+          if let Some(previous) = self.pending_ime_text.borrow_mut().replace(text.clone()) {
+            self.commit_ime_text(previous);
+          }
+          self.delegate.waker.wake();
+        }
+      }
+      WindowEvent::CursorMoved { position, .. } => {
+        let previous_position = self.cursor_position.get();
+        let position = self.target.webview_point(*position);
+        self.cursor_position.set(position);
+        match (previous_position, position) {
+          (_, Some(point)) => {
+            self
+              .webview
+              .notify_input_event(InputEvent::MouseMove(MouseMoveEvent::new(point.into())));
+          }
+          (Some(_), None) => {
+            self
+              .webview
+              .notify_input_event(InputEvent::MouseLeftViewport(
+                MouseLeftViewportEvent::default(),
+              ));
+          }
+          (None, None) => {}
+        }
+      }
+      WindowEvent::CursorLeft { .. } => {
+        if self.cursor_position.replace(None).is_some() {
+          self
+            .webview
+            .notify_input_event(InputEvent::MouseLeftViewport(
+              MouseLeftViewportEvent::default(),
+            ));
+        }
+      }
+      WindowEvent::MouseInput { state, button, .. } => {
+        let Some(point) = self.cursor_position.get() else {
+          if *state == ElementState::Pressed {
+            self.blur_webview();
+          }
+          self.servo.spin_event_loop();
+          return;
+        };
+        if *state == ElementState::Pressed {
+          self.focus_webview();
+        }
+        let action = match state {
+          ElementState::Pressed => MouseButtonAction::Down,
+          ElementState::Released => MouseButtonAction::Up,
+          _ => {
+            self.servo.spin_event_loop();
+            return;
+          }
+        };
+        let button = match button {
+          TaoMouseButton::Left => servo::MouseButton::Left,
+          TaoMouseButton::Right => servo::MouseButton::Right,
+          TaoMouseButton::Middle => servo::MouseButton::Middle,
+          TaoMouseButton::Other(button) => servo::MouseButton::Other(*button),
+          _ => {
+            self.servo.spin_event_loop();
+            return;
+          }
+        };
+        self
+          .webview
+          .notify_input_event(InputEvent::MouseButton(MouseButtonEvent::new(
+            action,
+            button,
+            point.into(),
+          )));
+      }
       WindowEvent::MouseWheel { delta, .. } => {
+        let Some(point) = self.cursor_position.get() else {
+          self.servo.spin_event_loop();
+          return;
+        };
         let (x, y, mode) = match delta {
           MouseScrollDelta::LineDelta(x, y) => {
-            ((x * 76.0) as f64, (y * 76.0) as f64, WheelMode::DeltaLine)
+            ((x * 76.0) as f64, (y * 76.0) as f64, WheelMode::DeltaPixel)
           }
           MouseScrollDelta::PixelDelta(delta) => (delta.x, delta.y, WheelMode::DeltaPixel),
-          _ => return,
+          _ => {
+            self.servo.spin_event_loop();
+            return;
+          }
         };
         self
           .webview
           .notify_input_event(InputEvent::Wheel(WheelEvent::new(
             WheelDelta { x, y, z: 0.0, mode },
-            DevicePoint::default().into(),
+            point.into(),
+          )));
+      }
+      WindowEvent::Touch(touch) => {
+        let Some(point) = self.target.webview_point(touch.location) else {
+          self.servo.spin_event_loop();
+          return;
+        };
+        let event_type = match touch.phase {
+          TouchPhase::Started => TouchEventType::Down,
+          TouchPhase::Moved => TouchEventType::Move,
+          TouchPhase::Ended => TouchEventType::Up,
+          TouchPhase::Cancelled => TouchEventType::Cancel,
+          _ => {
+            self.servo.spin_event_loop();
+            return;
+          }
+        };
+        if touch.phase == TouchPhase::Started {
+          self.focus_webview();
+        }
+        self
+          .webview
+          .notify_input_event(InputEvent::Touch(TouchEvent::new(
+            event_type,
+            TouchId(touch.id as i32),
+            point.into(),
+            TouchPointerType::Touch,
           )));
       }
       _ => {}
@@ -691,8 +975,20 @@ impl Embedder {
 
   pub(crate) fn focus(&self) {
     let _ = self.target.focus_parent();
-    self.webview.focus();
+    self.focus_webview();
     self.servo.spin_event_loop();
+  }
+
+  fn focus_webview(&self) {
+    if !self.focused.replace(true) {
+      self.webview.focus();
+    }
+  }
+
+  fn blur_webview(&self) {
+    if self.focused.replace(false) {
+      self.webview.blur();
+    }
   }
 
   pub(crate) fn focus_parent(&self) -> Result<()> {
@@ -711,8 +1007,13 @@ impl Embedder {
 #[cfg(test)]
 mod tests {
   use dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
+  use keyboard_types::{Code, Key, Modifiers, NamedKey};
+  use tao::keyboard::{Key as TaoKey, KeyCode as TaoKeyCode, ModifiersState};
 
-  use super::{ipc_message_body, PhysicalBounds, IPC_BRIDGE_SCRIPT, IPC_MESSAGE_PREFIX};
+  use super::{
+    inserted_key_text, ipc_message_body, point_in_bounds, servo_code, servo_key, servo_modifiers,
+    PhysicalBounds, IPC_BRIDGE_SCRIPT, IPC_MESSAGE_PREFIX,
+  };
   use crate::Rect;
 
   #[test]
@@ -751,5 +1052,66 @@ mod tests {
     );
 
     assert_eq!(bounds.size, PhysicalSize::new(1, 1));
+  }
+
+  #[test]
+  fn converts_parent_coordinates_to_child_device_coordinates() {
+    assert_eq!(
+      point_in_bounds(
+        PhysicalPosition::new(125.0, 90.0),
+        PhysicalPosition::new(100, 50),
+        PhysicalSize::new(200, 100),
+      ),
+      Some(servo::DevicePoint::new(25.0, 40.0))
+    );
+    assert_eq!(
+      point_in_bounds(
+        PhysicalPosition::new(99.0, 90.0),
+        PhysicalPosition::new(100, 50),
+        PhysicalSize::new(200, 100),
+      ),
+      None
+    );
+  }
+
+  #[test]
+  fn converts_tao_keyboard_values_to_dom_values() {
+    assert_eq!(
+      servo_key(&TaoKey::Character("x")),
+      Key::Character("x".into())
+    );
+    assert_eq!(servo_key(&TaoKey::Enter), Key::Named(NamedKey::Enter));
+    assert_eq!(servo_key(&TaoKey::Space), Key::Character(" ".into()));
+    assert_eq!(servo_key(&TaoKey::Super), Key::Named(NamedKey::Meta));
+    assert_eq!(servo_code(TaoKeyCode::KeyA), Code::KeyA);
+    assert_eq!(servo_code(TaoKeyCode::SuperLeft), Code::MetaLeft);
+  }
+
+  #[test]
+  fn converts_tao_modifier_state() {
+    let modifiers = servo_modifiers(ModifiersState::SHIFT | ModifiersState::SUPER);
+    assert!(modifiers.contains(Modifiers::SHIFT));
+    assert!(modifiers.contains(Modifiers::META));
+    assert!(!modifiers.contains(Modifiers::CONTROL));
+  }
+
+  #[test]
+  fn identifies_text_already_inserted_by_a_keydown() {
+    assert_eq!(
+      inserted_key_text(&TaoKey::Character("A"), Some("A"), Modifiers::SHIFT),
+      Some("A".into())
+    );
+    assert_eq!(
+      inserted_key_text(&TaoKey::Character("c"), Some("c"), Modifiers::META),
+      None
+    );
+    assert_eq!(
+      inserted_key_text(&TaoKey::Process, None, Modifiers::empty()),
+      None
+    );
+    assert_eq!(
+      inserted_key_text(&TaoKey::Dead(Some('´')), Some("é"), Modifiers::empty()),
+      Some("é".into())
+    );
   }
 }

@@ -41,6 +41,7 @@ tracing = ["dep:tracing"]
 servo = [
   "dep:euclid",
   "dep:futures-channel",
+  "dep:keyboard-types",
   "dep:percent-encoding",
   "dep:servo",
   "dep:tao",
@@ -57,8 +58,9 @@ dpi = "0.1"
 cookie = "0.18"
 euclid = { version = "0.22", optional = true }
 futures-channel = { version = "0.3", optional = true }
+keyboard-types = { version = "0.8.3", optional = true }
 percent-encoding = { version = "2.3", optional = true }
-servo = { git = "https://github.com/servo/servo.git", rev = "3f08ca6d1664a50265140090b7faf3fcb86d82b1", optional = true }
+servo = { git = "https://github.com/jonathanKingston/servo.git", rev = "eaa6c602683ceb0a4a3c61de50a4380b866d4fd8", optional = true }
 tao = { version = "0.36", default-features = false, features = ["rwh_06"], optional = true }
 url = { version = "2.5", optional = true }
 
