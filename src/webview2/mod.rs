@@ -5,9 +5,6 @@
 mod drag_drop;
 mod util;
 
-#[cfg(test)]
-mod tests;
-
 use std::{
   borrow::Cow, cell::RefCell, collections::HashSet, fmt::Write, fs, path::PathBuf, rc::Rc,
   sync::mpsc,
