@@ -1320,12 +1320,12 @@ impl InnerWebView {
         let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
       }
 
-      msg if msg == WM_MOVE || msg == WM_MOVING => {
+      WM_MOVE | WM_MOVING => {
         let controller = dwrefdata as *mut ICoreWebView2Controller;
         let _ = (*controller).NotifyParentWindowPositionChanged();
       }
 
-      msg if msg == WM_DESTROY || msg == PARENT_DESTROY_MESSAGE => {
+      WM_DESTROY | PARENT_DESTROY_MESSAGE => {
         let _ = RemoveWindowSubclass(
           hwnd,
           Some(Self::parent_subclass_proc),
@@ -1334,7 +1334,7 @@ impl InnerWebView {
         drop(Box::from_raw(dwrefdata as *mut ICoreWebView2Controller));
       }
 
-      _ => (),
+      _ => {}
     }
 
     DefSubclassProc(hwnd, msg, wparam, lparam)
