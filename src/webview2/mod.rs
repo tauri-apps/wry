@@ -1286,33 +1286,31 @@ impl InnerWebView {
     dwrefdata: usize,
   ) -> LRESULT {
     match msg {
-      WM_SIZE => {
-        if wparam.0 != SIZE_MINIMIZED as usize {
-          let controller = dwrefdata as *mut ICoreWebView2Controller;
+      WM_SIZE if wparam.0 != SIZE_MINIMIZED as usize => {
+        let controller = dwrefdata as *mut ICoreWebView2Controller;
 
-          let Ok(PhysicalSize { width, height }) = Self::parent_bounds(hwnd) else {
-            return DefSubclassProc(hwnd, msg, wparam, lparam);
-          };
+        let Ok(PhysicalSize { width, height }) = Self::parent_bounds(hwnd) else {
+          return DefSubclassProc(hwnd, msg, wparam, lparam);
+        };
 
-          let _ = (*controller).SetBounds(RECT {
-            left: 0,
-            top: 0,
-            right: width,
-            bottom: height,
-          });
+        let _ = (*controller).SetBounds(RECT {
+          left: 0,
+          top: 0,
+          right: width,
+          bottom: height,
+        });
 
-          let mut hwnd = HWND::default();
-          if (*controller).ParentWindow(&mut hwnd).is_ok() {
-            let _ = SetWindowPos(
-              hwnd,
-              None,
-              0,
-              0,
-              width,
-              height,
-              SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOZORDER,
-            );
-          }
+        let mut hwnd = HWND::default();
+        if (*controller).ParentWindow(&mut hwnd).is_ok() {
+          let _ = SetWindowPos(
+            hwnd,
+            None,
+            0,
+            0,
+            width,
+            height,
+            SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOZORDER,
+          );
         }
       }
 
