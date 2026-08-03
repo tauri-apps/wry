@@ -608,7 +608,8 @@ impl InnerWebView {
       controller.SetIsVisible(attributes.visible)?;
 
       if attributes.focused {
-        controller.MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC)?;
+        // Ignore this error since it fails when the window is minimized
+        let _ = controller.MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
       }
     }
 
