@@ -68,7 +68,9 @@ fn linux_main() -> wry::Result<()> {
     let mut ctx = WebContext::default();
     ctx.set_cookie_accept_policy(CookieAcceptPolicy::Never);
     println!("[policy] CookieAcceptPolicy::Never");
-    println!("         HTTP Set-Cookie headers are blocked — 'foo=bar' from httpbin will not appear");
+    println!(
+      "         HTTP Set-Cookie headers are blocked — 'foo=bar' from httpbin will not appear"
+    );
     println!("         Programmatic set_cookie() calls bypass the policy and still work");
 
     let webview = wry::WebViewBuilder::new_with_web_context(&mut ctx)

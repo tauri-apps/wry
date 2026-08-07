@@ -31,10 +31,11 @@ use webkit6::prelude::*;
 use webkit6::{gdk, gio, gtk};
 use webkit6::{
   AutoplayPolicy, ClipboardPermissionRequest, GeolocationPermissionRequest, LoadEvent,
-  MediaKeySystemPermissionRequest, NavigationPolicyDecision, NetworkProxyMode, NetworkProxySettings,
-  NotificationPermissionRequest, PointerLockPermissionRequest, PolicyDecisionType, PrintOperation,
-  URIRequest, UserContentInjectedFrames, UserContentManager, UserMediaPermissionRequest,
-  UserScript, UserScriptInjectionTime, WebView, WebsiteDataTypes, WebsitePolicies,
+  MediaKeySystemPermissionRequest, NavigationPolicyDecision, NetworkProxyMode,
+  NetworkProxySettings, NotificationPermissionRequest, PointerLockPermissionRequest,
+  PolicyDecisionType, PrintOperation, URIRequest, UserContentInjectedFrames, UserContentManager,
+  UserMediaPermissionRequest, UserScript, UserScriptInjectionTime, WebView, WebsiteDataTypes,
+  WebsitePolicies,
 };
 #[cfg(feature = "x11")]
 use x11_dl::xlib::*;
@@ -291,11 +292,8 @@ impl InnerWebView {
       if let Ok(win) = widget.downcast::<gtk::Window>() {
         if let Some(surface) = webkit6::prelude::NativeExt::surface(&win) {
           if let Ok(wl_surf) = surface.downcast::<gdk4_wayland::WaylandSurface>() {
-            let raw = unsafe {
-              gdk4_wayland::ffi::gdk_wayland_surface_get_wl_surface(
-                wl_surf.as_ptr(),
-              )
-            };
+            let raw =
+              unsafe { gdk4_wayland::ffi::gdk_wayland_surface_get_wl_surface(wl_surf.as_ptr()) };
             if raw == target {
               return Some(win);
             }
@@ -496,7 +494,11 @@ impl InnerWebView {
     if let Some(handler) = pl_attrs.on_keyboard_handler {
       let key_ctrl = gtk::EventControllerKey::new();
       key_ctrl.connect_key_pressed(move |_, keyval, keycode, modifiers| {
-        if handler(glib::translate::IntoGlib::into_glib(keyval), keycode, modifiers) {
+        if handler(
+          glib::translate::IntoGlib::into_glib(keyval),
+          keycode,
+          modifiers,
+        ) {
           glib::Propagation::Stop
         } else {
           glib::Propagation::Proceed
@@ -525,8 +527,7 @@ impl InnerWebView {
 
     // Scroll handler (intercept before WebKit)
     if let Some(handler) = pl_attrs.on_scroll_handler {
-      let scroll_ctrl =
-        gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::BOTH_AXES);
+      let scroll_ctrl = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::BOTH_AXES);
       scroll_ctrl.connect_scroll(move |_, dx, dy| {
         if handler(dx, dy) {
           glib::Propagation::Stop
@@ -1343,9 +1344,13 @@ impl InnerWebView {
     if let Some(x11_data) = &self.x11 {
       if x11_data.is_child {
         if visible {
-          unsafe { (x11_data.xlib.XMapWindow)(x11_data.x11_display as _, x11_data.x11_window.get()) };
+          unsafe {
+            (x11_data.xlib.XMapWindow)(x11_data.x11_display as _, x11_data.x11_window.get())
+          };
         } else {
-          unsafe { (x11_data.xlib.XUnmapWindow)(x11_data.x11_display as _, x11_data.x11_window.get()) };
+          unsafe {
+            (x11_data.xlib.XUnmapWindow)(x11_data.x11_display as _, x11_data.x11_window.get())
+          };
         }
       }
     }
@@ -1585,7 +1590,13 @@ impl InnerWebView {
         if let Ok(x11_surf) = surface.downcast::<gdk4_x11::X11Surface>() {
           let gtk_xid = x11_surf.xid();
           unsafe {
-            (x11_data.xlib.XReparentWindow)(x11_data.x11_display as _, gtk_xid as _, new_parent, 0, 0);
+            (x11_data.xlib.XReparentWindow)(
+              x11_data.x11_display as _,
+              gtk_xid as _,
+              new_parent,
+              0,
+              0,
+            );
             (x11_data.xlib.XFlush)(x11_data.x11_display as _);
           }
           x11_data.x11_window.set(new_parent);

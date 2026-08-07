@@ -124,9 +124,8 @@ fn linux_main() -> wry::Result<()> {
     // align correctly when the WM title bar is removed.  GTK4 CSD windows
     // have rounded top corners by default; border-radius: 0 overrides that.
     let provider = gtk4::CssProvider::new();
-    provider.load_from_data(
-      "window, .background { background-color: transparent; border-radius: 0; }",
-    );
+    provider
+      .load_from_data("window, .background { background-color: transparent; border-radius: 0; }");
     if let Some(display) = gtk4::gdk::Display::default() {
       gtk4::style_context_add_provider_for_display(
         &display,

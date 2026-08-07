@@ -476,10 +476,8 @@ pub struct WebViewHandle(
     target_os = "openbsd",
   ))]
   pub(crate) webkit6::WebView,
-  #[cfg(windows)]
-  pub(crate) ICoreWebView2,
-  #[cfg(target_os = "macos")]
-  pub(crate) Retained<objc2_web_kit::WKWebView>,
+  #[cfg(windows)] pub(crate) ICoreWebView2,
+  #[cfg(target_os = "macos")] pub(crate) Retained<objc2_web_kit::WKWebView>,
 );
 
 /// Additional methods on [`WebViewHandle`] specific to Linux and BSD.
@@ -583,9 +581,7 @@ pub enum NewWindowResponse {
   /// **Windows**: The webview must use the same environment as the caller webview. See [`WebViewBuilderExtWindows::with_environment`].
   /// **macOS**: The webview must use the same configuration as the caller webview. See [`WebViewBuilderExtMacos::with_webview_configuration`].
   #[cfg(not(any(target_os = "android", target_os = "ios")))]
-  Create {
-    webview: WebViewHandle,
-  },
+  Create { webview: WebViewHandle },
   /// Deny the window from being opened.
   Deny,
 }
@@ -2494,10 +2490,7 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
     self
   }
 
-  fn with_monitors_changed_handler(
-    mut self,
-    handler: impl Fn(Vec<MonitorInfo>) + 'static,
-  ) -> Self {
+  fn with_monitors_changed_handler(mut self, handler: impl Fn(Vec<MonitorInfo>) + 'static) -> Self {
     self.platform_specific.on_monitors_changed_handler = Some(Box::new(handler));
     self
   }

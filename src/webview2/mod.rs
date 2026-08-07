@@ -1878,8 +1878,7 @@ impl InnerWebView {
       if window_pid == target_pid && IsWindowVisible(hwnd).as_bool() {
         let mut class_name = [0u16; 256];
         let len = GetClassNameW(hwnd, &mut class_name);
-        if len > 0
-          && String::from_utf16_lossy(&class_name[..len as usize]) == "Chrome_WidgetWin_1"
+        if len > 0 && String::from_utf16_lossy(&class_name[..len as usize]) == "Chrome_WidgetWin_1"
         {
           let _ = PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
         }

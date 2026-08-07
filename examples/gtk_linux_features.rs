@@ -113,18 +113,18 @@ fn linux_main() -> wry::Result<()> {
     // so it can't reload. This signal handler has the view in scope and can.
     {
       use webkit6::prelude::WebViewExt as WK;
-      webview.webview().connect_web_process_terminated(|view, reason| {
-        println!("[web_process_terminated] reason: {reason:?}");
-        view.load_html(HTML, None::<&str>);
-      });
+      webview
+        .webview()
+        .connect_web_process_terminated(|view, reason| {
+          println!("[web_process_terminated] reason: {reason:?}");
+          view.load_html(HTML, None::<&str>);
+        });
     }
 
     // --- 3b: data_directory() accessor ---
     // Returns None until a NetworkSession with a data directory is created,
     // which happens during webview construction when with_data_directory is set.
-    println!(
-      "[hardware_acceleration] policy = Never (software rendering)"
-    );
+    println!("[hardware_acceleration] policy = Never (software rendering)");
     println!("[theme]                 started in Dark mode");
     println!("[data_directory]        requested: {}", data_dir.display());
     match webview.data_directory() {

@@ -95,10 +95,7 @@ fn linux_main() -> wry::Result<()> {
             "deny" => PermissionResponse::Deny,
             _ => PermissionResponse::Default,
           };
-          state_ipc
-            .lock()
-            .unwrap()
-            .insert(kind.to_string(), response);
+          state_ipc.lock().unwrap().insert(kind.to_string(), response);
           println!("[toggle]      {kind:24} = {value}");
         }
       })
