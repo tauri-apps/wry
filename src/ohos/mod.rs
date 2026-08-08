@@ -274,19 +274,31 @@ impl InnerWebView {
   }
 
   pub fn go_forward(&self) -> Result<()> {
-    Ok(())
+    self
+      .webview
+      .forward()
+      .map_err(|e| Error::OpenHarmonyWebviewError(format!("Failed to go forward: {}", e)))
   }
 
   pub fn go_back(&self) -> Result<()> {
-    Ok(())
+    self
+      .webview
+      .back()
+      .map_err(|e| Error::OpenHarmonyWebviewError(format!("Failed to go back: {}", e)))
   }
 
   pub fn can_go_forward(&self) -> Result<bool> {
-    Ok(true)
+    self
+      .webview
+      .can_go_forward()
+      .map_err(|e| Error::OpenHarmonyWebviewError(format!("Failed to check forward: {}", e)))
   }
 
   pub fn can_go_back(&self) -> Result<bool> {
-    Ok(true)
+    self
+      .webview
+      .can_go_back()
+      .map_err(|e| Error::OpenHarmonyWebviewError(format!("Failed to check back: {}", e)))
   }
 }
 
