@@ -14,6 +14,7 @@ import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.DialogInterface
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -117,6 +118,13 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
    * @return one of the PERMISSION_REQUEST_* constants.
    */
   private external fun onPermissionRequestNative(webviewId: String, resource: String): Int
+
+  override fun getDefaultVideoPoster(): Bitmap {
+    // Return a transparent bitmap so Chromium doesn't paint its default gray play-button placeholder on <video> elements.
+    // Matches react-native-webview's approach — see https://github.com/react-native-webview/react-native-webview/blob/58daac9e2e532ca1dcb49003b86568218b9b2b1d/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManager.kt
+    return Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888)
+  }
+
   /**
    * @return true when Rust denies geolocation; false continues the normal Android permission flow.
    */

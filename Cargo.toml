@@ -206,6 +206,11 @@ dom_query = { version = "0.28.0", default-features = false }
 openharmony-ability = { git = "https://github.com/harmony-contrib/openharmony-ability.git", features = ["webview"] }
 openharmony-ability-derive = { git = "https://github.com/harmony-contrib/openharmony-ability.git" }
 
+[target.'cfg(target_vendor = "apple")'.build-dependencies]
+objc2-foundation = { version = "0.3.2", default-features = false, features = [
+  "std",
+  "NSProcessInfo",
+] }
 
 [dev-dependencies]
 pollster = "1.0.0"

@@ -2,10 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+#[cfg(target_os = "macos")]
+#[path = "src/wkwebview/util.rs"]
+mod util;
+
 fn main() {
   let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
   if target_os == "macos" || target_os == "ios" {
     println!("cargo:rustc-link-lib=framework=WebKit");
+  }
+
+  // TODO: Remove in objc2 0.7.0, ref <https://github.com/madsmtm/objc2/issues/645>
+  #[cfg(target_os = "macos")]
+  {
+    if std::env::var("CARGO_CFG_DEBUG_ASSERTIONS").is_ok() {
+      let os = util::operating_system_version();
+      if os.0 < 12 {
+        println!("cargo:rustc-cfg=macos_12_unavailable")
+      }
+    }
   }
 
   if target_os == "android" {
