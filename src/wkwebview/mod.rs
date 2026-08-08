@@ -637,8 +637,10 @@ impl InnerWebView {
       };
 
       // Initialize scripts
+      // Keep the bridge configurable so it does not block a page's global lexical `ipc` binding.
       w.init(
 r#"Object.defineProperty(window, 'ipc', {
+  configurable: true,
   value: Object.freeze({postMessage: function(s) {window.webkit.messageHandlers.ipc.postMessage(s);}})
 });"#,
       true

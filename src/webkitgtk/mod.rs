@@ -345,7 +345,8 @@ impl InnerWebView {
     };
 
     // Initialize message handler
-    w.init("Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })", true)?;
+    // Keep the bridge configurable so it does not block a page's global lexical `ipc` binding.
+    w.init("Object.defineProperty(window, 'ipc', { configurable: true, value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })", true)?;
 
     // Initialize scripts
     for init_script in attributes.initialization_scripts {

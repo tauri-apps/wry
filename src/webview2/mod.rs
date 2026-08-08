@@ -944,10 +944,11 @@ impl InnerWebView {
     attributes: &mut WebViewAttributes,
     token: &mut EventRegistrationToken,
   ) -> Result<()> {
+    // Keep the bridge configurable so it does not block a page's global lexical `ipc` binding.
     Self::add_script_to_execute_on_document_created(
       webview,
       String::from(
-        r#"Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: s=> window.chrome.webview.postMessage(s) }) });"#,
+        r#"Object.defineProperty(window, 'ipc', { configurable: true, value: Object.freeze({ postMessage: s=> window.chrome.webview.postMessage(s) }) });"#,
       ),
     )?;
 
