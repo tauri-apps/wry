@@ -972,7 +972,14 @@ impl InnerWebView {
 
         #[cfg(feature = "tracing")]
         let _span = tracing::info_span!(parent: None, "wry::ipc::handle").entered();
-        ipc_handler(Request::builder().uri(url).body(js).unwrap());
+
+        match Request::builder().uri(url).body(js) {
+          Ok(request) => ipc_handler(request),
+          Err(_error) => {
+            #[cfg(feature = "tracing")]
+            tracing::warn!("WebView received invalid IPC request: {_error}")
+          }
+        }
 
         Ok(())
       })),

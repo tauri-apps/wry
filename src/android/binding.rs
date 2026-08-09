@@ -418,7 +418,13 @@ pub unsafe fn ipc(mut env: JNIEnv, _: JClass, webview_id: JString, url: JString,
       let body = body.to_string_lossy().to_string();
       let webview_id = webview_id.to_string_lossy().to_string();
       if let Some(ipc) = IPC.lock().unwrap().get(&webview_id) {
-        (ipc.handler)(Request::builder().uri(url).body(body).unwrap())
+        match Request::builder().uri(url).body(body) {
+          Ok(request) => (ipc.handler)(request),
+          Err(_error) => {
+            #[cfg(feature = "tracing")]
+            tracing::warn!("WebView received invalid IPC request: {_error}")
+          }
+        }
       }
     }
     (Err(_e), _, _) | (_, Err(_e), _) | (_, _, Err(_e)) => {

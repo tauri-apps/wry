@@ -732,12 +732,14 @@ impl InnerWebView {
 
       if let Some(js) = msg.js_value() {
         if let Some(ipc_handler) = &ipc_handler {
-          ipc_handler(
-            Request::builder()
-              .uri(webview.uri().unwrap().to_string())
-              .body(js.to_string())
-              .unwrap(),
-          );
+          let uri = webview.uri().map(|u| u.to_string()).unwrap_or_default();
+          match Request::builder().uri(uri).body(js.to_string()) {
+            Ok(request) => ipc_handler(request),
+            Err(_error) => {
+              #[cfg(feature = "tracing")]
+              tracing::warn!("WebView received invalid IPC request: {_error}")
+            }
+          }
         }
       }
     });
