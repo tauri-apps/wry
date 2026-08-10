@@ -214,7 +214,7 @@ winit = "0.30"
 getrandom = "0.3"
 http-range = "0.1"
 percent-encoding = "2.3"
-glow = "0.16.0"
+glow = "0.18.0"
 libloading = "0.8.9"
 # For unit testing `inject_initialization_scripts` since we can't do it easily on Android
 sha2 = "0.10"
