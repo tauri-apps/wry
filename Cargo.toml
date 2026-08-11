@@ -203,8 +203,8 @@ dom_query = { version = "0.28.0", default-features = false }
 [target.'cfg(target_env = "ohos")'.dependencies]
 # openharmony-ability = { version = "0.3.0", features = ["webview"] }
 # openharmony-ability-derive = { version = "0.3.0" }
-openharmony-ability = { git = "https://github.com/harmony-contrib/openharmony-ability.git", features = ["webview"] }
-openharmony-ability-derive = { git = "https://github.com/harmony-contrib/openharmony-ability.git" }
+openharmony-ability = { git = "https://github.com/harmony-contrib/openharmony-ability.git", rev = "16719fc0ee0b1399d364cc85a5125cbb21d2749e", features = ["webview"] }
+openharmony-ability-derive = { git = "https://github.com/harmony-contrib/openharmony-ability.git", rev = "16719fc0ee0b1399d364cc85a5125cbb21d2749e" }
 
 [target.'cfg(target_vendor = "apple")'.build-dependencies]
 objc2-foundation = { version = "0.3.2", default-features = false, features = [

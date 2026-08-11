@@ -2418,7 +2418,7 @@ checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
 [[package]]
 name = "openharmony-ability"
 version = "0.3.0"
-source = "git+https://github.com/harmony-contrib/openharmony-ability.git#295a276a699ba2352addc69b8cacb6acd3be6ab1"
+source = "git+https://github.com/harmony-contrib/openharmony-ability.git?rev=16719fc0ee0b1399d364cc85a5125cbb21d2749e#16719fc0ee0b1399d364cc85a5125cbb21d2749e"
 dependencies = [
  "futures-channel",
  "http",
@@ -2435,7 +2435,7 @@ dependencies = [
 [[package]]
 name = "openharmony-ability-derive"
 version = "0.3.0"
-source = "git+https://github.com/harmony-contrib/openharmony-ability.git#295a276a699ba2352addc69b8cacb6acd3be6ab1"
+source = "git+https://github.com/harmony-contrib/openharmony-ability.git?rev=16719fc0ee0b1399d364cc85a5125cbb21d2749e#16719fc0ee0b1399d364cc85a5125cbb21d2749e"
 dependencies = [
  "proc-macro2",
  "quote",
