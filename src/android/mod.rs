@@ -77,7 +77,6 @@ define_static_handlers! {
   PERMISSION_HANDLER = UnsafePermissionHandler { handler: Box<dyn Fn(PermissionKind) -> PermissionResponse> };
 }
 define_static_handlers! {
-  WebviewId, WITH_ASSET_LOADER = bool;
   WebviewId, ASSET_LOADER_DOMAIN = String;
   ActivityId, WEBVIEW_ATTRIBUTES = CreateWebViewAttributes;
 }
@@ -97,7 +96,6 @@ pub fn destroy_webview(activity_id: ActivityId, webview_id: &WebviewId) {
   URL_LOADING_OVERRIDE.lock().unwrap().remove(webview_id);
   ON_LOAD_HANDLER.lock().unwrap().remove(webview_id);
   PERMISSION_HANDLER.lock().unwrap().remove(webview_id);
-  WITH_ASSET_LOADER.lock().unwrap().remove(webview_id);
   ASSET_LOADER_DOMAIN.lock().unwrap().remove(webview_id);
 }
 
@@ -197,7 +195,6 @@ impl InnerWebView {
 
     let super::PlatformSpecificWebViewAttributes {
       on_webview_created,
-      with_asset_loader,
       asset_loader_domain,
       https_scheme,
     } = pl_attrs;
@@ -221,10 +218,6 @@ impl InnerWebView {
       .map(|id| id.to_string())
       .unwrap_or_else(|| COUNTER.next().to_string());
 
-    WITH_ASSET_LOADER
-      .lock()
-      .unwrap()
-      .insert(id.clone(), with_asset_loader);
     if let Some(domain) = asset_loader_domain {
       ASSET_LOADER_DOMAIN
         .lock()
