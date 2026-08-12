@@ -2,7 +2,7 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.55.1"
+version = "0.56.0"
 authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -200,6 +200,12 @@ tao-macros = "0.1.4"
 libc = "0.2"
 dom_query = { version = "0.28.0", default-features = false }
 
+[target.'cfg(target_vendor = "apple")'.build-dependencies]
+objc2-foundation = { version = "0.3.2", default-features = false, features = [
+  "std",
+  "NSProcessInfo",
+] }
+
 [dev-dependencies]
 pollster = "1.0.0"
 tao = "0.36"
@@ -208,7 +214,7 @@ winit = "0.30"
 getrandom = "0.3"
 http-range = "0.1"
 percent-encoding = "2.3"
-glow = "0.16.0"
+glow = "0.18.0"
 libloading = "0.8.9"
 # For unit testing `inject_initialization_scripts` since we can't do it easily on Android
 sha2 = "0.10"

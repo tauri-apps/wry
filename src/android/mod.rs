@@ -139,6 +139,9 @@ pub unsafe fn android_setup(
 
   register_activity_proxy(vm, activity_id, activity, window_manager);
 
+  // We don't always destroy the rust window when `onDestroy` if it's caused by a configuration change.
+  // This is used to re-create the webview to match in that case.
+  // See https://developer.android.com/guide/topics/resources/runtime-changes
   if let Some(webview_attributes) = WEBVIEW_ATTRIBUTES.lock().unwrap().get(&activity_id) {
     MainPipe::send(
       activity_id,
