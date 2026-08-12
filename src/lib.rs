@@ -1759,7 +1759,6 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   environment: Option<ICoreWebView2Environment>,
   profile_name: Option<String>,
   use_native_custom_scheme: bool,
-  native_custom_scheme_origins: HashMap<String, Vec<String>>,
 }
 
 #[cfg(windows)]
@@ -1777,7 +1776,6 @@ impl Default for PlatformSpecificWebViewAttributes {
       environment: None,
       profile_name: None,
       use_native_custom_scheme: false,
-      native_custom_scheme_origins: HashMap::new(),
     }
   }
 }
@@ -1878,19 +1876,6 @@ pub trait WebViewBuilderExtWindows {
   /// Webview instances with different native custom scheme registrations must also have different [data directories](WebContext::new).
   fn with_native_custom_scheme(self, enabled: bool) -> Self;
 
-  /// Sets the list of origins allowed to issue requests for the given custom scheme.
-  ///
-  /// Only takes effect when [`with_native_custom_scheme`](Self::with_native_custom_scheme) is enabled.
-  /// Can be called multiple times for different schemes.
-  /// Origins support wildcard pattern matching, e.g. `"https://*.example.com"`.
-  ///
-  /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2customschemeregistration#setallowedorigins>
-  fn with_native_custom_scheme_origins(
-    self,
-    scheme: impl Into<String>,
-    origins: impl IntoIterator<Item = impl Into<String>>,
-  ) -> Self;
-
   /// Set the environment for the webview.
   /// Useful if you need to share the same environment, for instance when using the [`WebViewBuilder::with_new_window_req_handler`].
   fn with_environment(self, environment: ICoreWebView2Environment) -> Self;
@@ -1948,20 +1933,6 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 
   fn with_native_custom_scheme(mut self, enabled: bool) -> Self {
     self.platform_specific.use_native_custom_scheme = enabled;
-    self
-  }
-
-  fn with_native_custom_scheme_origins(
-    mut self,
-    scheme: impl Into<String>,
-    origins: impl IntoIterator<Item = impl Into<String>>,
-  ) -> Self {
-    let scheme = scheme.into();
-    let scheme_origins: Vec<String> = origins.into_iter().map(|o| o.into()).collect();
-    self
-      .platform_specific
-      .native_custom_scheme_origins
-      .insert(scheme, scheme_origins);
     self
   }
 

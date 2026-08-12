@@ -372,21 +372,14 @@ impl InnerWebView {
       // Register native custom schemes if enabled and Runtime >= 110.0.1587.40
       if pl_attrs.use_native_custom_scheme && !attributes.custom_protocols.is_empty() {
         if supports_native_custom_scheme() {
+          let allowed_origins = [w!("*")];
           let mut registrations = Vec::new();
           for name in attributes.custom_protocols.keys() {
             let scheme: ICoreWebView2CustomSchemeRegistration =
               CoreWebView2CustomSchemeRegistration::new(name.clone()).into();
             scheme.SetHasAuthorityComponent(true)?;
             scheme.SetTreatAsSecure(true)?;
-            if let Some(origins) = pl_attrs.native_custom_scheme_origins.get(name) {
-              let origins: Vec<HSTRING> =
-                origins.iter().map(|o| HSTRING::from(o.as_str())).collect();
-              let pwcs: Vec<PCWSTR> = origins
-                .iter()
-                .map(|o| PCWSTR::from_raw(o.as_ptr()))
-                .collect();
-              scheme.SetAllowedOrigins(pwcs.len() as u32, pwcs.as_ptr())?;
-            }
+            scheme.SetAllowedOrigins(1, allowed_origins.as_ptr())?;
             registrations.push(Some(scheme));
           }
           options.set_scheme_registrations(registrations);
