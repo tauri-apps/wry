@@ -17,15 +17,12 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
     var currentUrl: String = "about:blank"
     private var lastInterceptedUrl: Uri? = null
     private var pendingUrlRedirect: String? = null
-    private val useAssetLoader = Rust.withAssetLoader(webView.id)
 
-    private val assetLoader = if (useAssetLoader) {
+    private val assetLoader = Rust.assetLoaderDomain(webView.id)?.let { domain ->
         WebViewAssetLoader.Builder()
-            .setDomain(Rust.assetLoaderDomain(webView.id))
+            .setDomain(domain)
             .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(context))
             .build()
-    } else {
-        null
     }
 
     override fun shouldInterceptRequest(
@@ -41,8 +38,8 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         }
 
         lastInterceptedUrl = request.url
-        return if (useAssetLoader) {
-            assetLoader?.shouldInterceptRequest(request.url)
+        return if (assetLoader != null) {
+            assetLoader.shouldInterceptRequest(request.url)
         } else {
             val rustWebView = view as RustWebView
             val response = Rust.handleRequest(rustWebView.id, request, rustWebView.isDocumentStartScriptEnabled)
