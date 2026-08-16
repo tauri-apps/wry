@@ -20,7 +20,7 @@ use std::os::fd::{AsFd, AsRawFd};
 use super::{
   main_pipe::{MainPipe, MAIN_PIPE},
   ASSET_LOADER_DOMAIN, EVAL_CALLBACKS, IPC, ON_LOAD_HANDLER, PERMISSION_HANDLER, REQUEST_HANDLER,
-  TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE, WITH_ASSET_LOADER,
+  TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE,
 };
 
 use crate::{PageLoadEvent, PermissionKind, PermissionResponse};
@@ -51,14 +51,6 @@ macro_rules! android_binding {
       handleRequest,
       [JString, JObject, jboolean],
       jobject
-    );
-    android_fn!(
-      $domain,
-      $package,
-      Rust,
-      withAssetLoader,
-      [JString],
-      jboolean
     );
     android_fn!(
       $domain,
@@ -418,7 +410,13 @@ pub unsafe fn ipc(mut env: JNIEnv, _: JClass, webview_id: JString, url: JString,
       let body = body.to_string_lossy().to_string();
       let webview_id = webview_id.to_string_lossy().to_string();
       if let Some(ipc) = IPC.lock().unwrap().get(&webview_id) {
-        (ipc.handler)(Request::builder().uri(url).body(body).unwrap())
+        match Request::builder().uri(url).body(body) {
+          Ok(request) => (ipc.handler)(request),
+          Err(_error) => {
+            #[cfg(feature = "tracing")]
+            tracing::warn!("WebView received invalid IPC request: {_error}")
+          }
+        }
       }
     }
     (Err(_e), _, _) | (_, Err(_e), _) | (_, _, Err(_e)) => {
@@ -446,30 +444,15 @@ pub unsafe fn handleReceivedTitle(mut env: JNIEnv, _: JClass, webview_id: JStrin
 }
 
 #[allow(non_snake_case)]
-pub unsafe fn withAssetLoader(mut env: JNIEnv, _: JClass, webview_id: JString) -> jboolean {
-  let Ok(webview_id) = env.get_string(&webview_id) else {
-    return false.into();
-  };
-  let webview_id = webview_id.to_str().unwrap_or_default();
-  (*WITH_ASSET_LOADER
-    .lock()
-    .unwrap()
-    .get(webview_id)
-    .unwrap_or(&false))
-  .into()
-}
-
-#[allow(non_snake_case)]
-pub unsafe fn assetLoaderDomain(mut env: JNIEnv, _: JClass, webview_id: JString) -> jstring {
-  let Ok(webview_id) = env.get_string(&webview_id) else {
-    return env.new_string("wry.assets").unwrap().as_raw();
-  };
-  let webview_id = webview_id.to_str().unwrap_or_default();
-  if let Some(domain) = ASSET_LOADER_DOMAIN.lock().unwrap().get(webview_id) {
-    env.new_string(domain).unwrap().as_raw()
-  } else {
-    env.new_string("wry.assets").unwrap().as_raw()
+pub unsafe fn assetLoaderDomain(env: JNIEnv, _: JClass, webview_id: JString) -> jstring {
+  fn asset_loader_domain_inner(mut env: JNIEnv, webview_id: JString) -> Option<jstring> {
+    let webview_id = env.get_string(&webview_id).ok()?;
+    let webview_id = webview_id.to_str().ok()?;
+    let asset_loader_domain = ASSET_LOADER_DOMAIN.lock().unwrap();
+    let domain = asset_loader_domain.get(webview_id)?;
+    Some(env.new_string(domain).unwrap().as_raw())
   }
+  asset_loader_domain_inner(env, webview_id).unwrap_or_else(|| (*JObject::null()).into())
 }
 
 #[allow(non_snake_case)]

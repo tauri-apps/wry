@@ -984,6 +984,8 @@ impl InnerWebView {
         // `webview.uri()` can be `None`, and `load_html`'s `file://` base with
         // an empty authority isn't a valid `http::Uri`. This runs in a GObject
         // trampoline that can't unwind, so fall back instead of unwrapping.
+        // Unlike the other backends we keep delivering the message rather than
+        // dropping it, otherwise IPC would be dead for every `load_html` page.
         let uri = webview
           .uri()
           .map(|u| u.to_string())
@@ -993,7 +995,10 @@ impl InnerWebView {
         let request = Request::builder()
           .uri(uri)
           .body(js.to_string())
-          .unwrap_or_else(|_| {
+          .unwrap_or_else(|_error| {
+            #[cfg(feature = "tracing")]
+            tracing::warn!("WebView received IPC request with invalid URI: {_error}");
+
             Request::builder()
               .uri("about:blank")
               .body(js.to_string())
