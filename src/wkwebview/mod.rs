@@ -636,7 +636,7 @@ impl InnerWebView {
         parent_view: None,
       };
 
-      if self.ipc_handler_delegate.is_some() {
+      if w.ipc_handler_delegate.is_some() {
         // Initialize scripts
         w.init(
           r#"Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(s) { window.webkit.messageHandlers.ipc.postMessage(s) } }) });"#,
