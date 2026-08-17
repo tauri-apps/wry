@@ -311,7 +311,9 @@ impl InnerWebView {
     Self::attach_handlers(&webview, web_context, &mut attributes);
 
     // IPC handler
-    Self::attach_ipc_handler(webview.clone(), &mut attributes);
+    if let Some(ipc_handler) = attributes.ipc_handler.take() {
+      Self::attach_ipc_handler(webview.clone(), ipc_handler);
+    }
 
     // Drag drop handler
     if let Some(drag_drop_handler) = attributes.drag_drop_handler.take() {
@@ -718,9 +720,8 @@ impl InnerWebView {
     is_in_fixed_parent
   }
 
-  fn attach_ipc_handler(webview: WebView, attributes: &mut WebViewAttributes) {
+  fn attach_ipc_handler(webview: WebView, ipc_handler: Box<dyn Fn(Request<String>)>) {
     // Message handler
-    let ipc_handler = attributes.ipc_handler.take();
     let manager = webview
       .user_content_manager()
       .expect("WebView does not have UserContentManager");
@@ -731,14 +732,12 @@ impl InnerWebView {
       let _span = tracing::info_span!(parent: None, "wry::ipc::handle").entered();
 
       if let Some(js) = msg.js_value() {
-        if let Some(ipc_handler) = &ipc_handler {
-          let uri = webview.uri().map(|u| u.to_string()).unwrap_or_default();
-          match Request::builder().uri(uri).body(js.to_string()) {
-            Ok(request) => ipc_handler(request),
-            Err(_error) => {
-              #[cfg(feature = "tracing")]
-              tracing::warn!("WebView received invalid IPC request: {_error}")
-            }
+        let uri = webview.uri().map(|u| u.to_string()).unwrap_or_default();
+        match Request::builder().uri(uri).body(js.to_string()) {
+          Ok(request) => ipc_handler(request),
+          Err(_error) => {
+            #[cfg(feature = "tracing")]
+            tracing::warn!("WebView received invalid IPC request: {_error}")
           }
         }
       }
