@@ -72,8 +72,13 @@ impl Drop for InnerWebView {
     let _ = unsafe { self.controller.Close() };
     if self.is_child {
       let _ = unsafe { DestroyWindow(self.hwnd) };
+    } else {
+      // Only top-level webviews install the parent resize/focus subclass in
+      // `init_webview`. A child webview shares that parent HWND but does not
+      // own its subclass; removing it here would detach the host webview's
+      // WM_SIZE handler and freeze the host at its current bounds.
+      unsafe { Self::dettach_parent_subclass(*self.parent.borrow()) }
     }
-    unsafe { Self::dettach_parent_subclass(*self.parent.borrow()) }
   }
 }
 
