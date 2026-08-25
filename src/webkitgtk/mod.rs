@@ -466,7 +466,9 @@ impl InnerWebView {
     }
 
     // IPC handler
-    Self::attach_ipc_handler(webview.clone(), &mut attributes);
+    if let Some(ipc_handler) = attributes.ipc_handler.take() {
+      Self::attach_ipc_handler(webview.clone(), ipc_handler);
+    }
 
     // Drag drop handler (incoming drops onto the webview)
     if let Some(drag_drop_handler) = attributes.drag_drop_handler.take() {
@@ -968,9 +970,8 @@ impl InnerWebView {
     is_in_fixed_parent
   }
 
-  fn attach_ipc_handler(webview: WebView, attributes: &mut WebViewAttributes) {
+  fn attach_ipc_handler(webview: WebView, ipc_handler: Box<dyn Fn(Request<String>)>) {
     // Message handler
-    let ipc_handler = attributes.ipc_handler.take();
     let manager = webview
       .user_content_manager()
       .expect("WebView does not have UserContentManager");
@@ -980,33 +981,31 @@ impl InnerWebView {
       #[cfg(feature = "tracing")]
       let _span = tracing::info_span!(parent: None, "wry::ipc::handle").entered();
 
-      if let Some(ipc_handler) = &ipc_handler {
-        // `webview.uri()` can be `None`, and `load_html`'s `file://` base with
-        // an empty authority isn't a valid `http::Uri`. This runs in a GObject
-        // trampoline that can't unwind, so fall back instead of unwrapping.
-        // Unlike the other backends we keep delivering the message rather than
-        // dropping it, otherwise IPC would be dead for every `load_html` page.
-        let uri = webview
-          .uri()
-          .map(|u| u.to_string())
-          .filter(|u| !u.is_empty())
-          .unwrap_or_else(|| "about:blank".into());
+      // `webview.uri()` can be `None`, and `load_html`'s `file://` base with
+      // an empty authority isn't a valid `http::Uri`. This runs in a GObject
+      // trampoline that can't unwind, so fall back instead of unwrapping.
+      // Unlike the other backends we keep delivering the message rather than
+      // dropping it, otherwise IPC would be dead for every `load_html` page.
+      let uri = webview
+        .uri()
+        .map(|u| u.to_string())
+        .filter(|u| !u.is_empty())
+        .unwrap_or_else(|| "about:blank".into());
 
-        let request = Request::builder()
-          .uri(uri)
-          .body(js.to_string())
-          .unwrap_or_else(|_error| {
-            #[cfg(feature = "tracing")]
-            tracing::warn!("WebView received IPC request with invalid URI: {_error}");
+      let request = Request::builder()
+        .uri(uri)
+        .body(js.to_string())
+        .unwrap_or_else(|_error| {
+          #[cfg(feature = "tracing")]
+          tracing::warn!("WebView received IPC request with invalid URI: {_error}");
 
-            Request::builder()
-              .uri("about:blank")
-              .body(js.to_string())
-              .expect("`about:blank` is always a valid URI")
-          });
+          Request::builder()
+            .uri("about:blank")
+            .body(js.to_string())
+            .expect("`about:blank` is always a valid URI")
+        });
 
-        ipc_handler(request);
-      }
+      ipc_handler(request);
     });
 
     // Register the handler we just connected

@@ -18,7 +18,7 @@ pub fn is_work_around_uri(uri: &str, http_or_https: &str, protocol: &str) -> boo
     .is_some()
 }
 
-/// Conveting `{protocol}://localhost/abc` to `{http_or_https}://{protocol}.localhost/abc`
+/// Converting `{protocol}://localhost/abc` to `{http_or_https}://{protocol}.localhost/abc`
 pub fn apply_uri_work_around(uri: &str, http_or_https: &str, protocol: &str) -> String {
   uri.replace(
     &original_uri_prefix(protocol),
@@ -26,7 +26,7 @@ pub fn apply_uri_work_around(uri: &str, http_or_https: &str, protocol: &str) -> 
   )
 }
 
-/// Conveting `{http_or_https}://{protocol}.localhost/abc` back to `{protocol}://localhost/abc`
+/// Converting `{http_or_https}://{protocol}.localhost/abc` back to `{protocol}://localhost/abc`
 pub fn revert_uri_work_around(uri: &str, http_or_https: &str, protocol: &str) -> String {
   uri.replace(
     &work_around_uri_prefix(http_or_https, protocol),

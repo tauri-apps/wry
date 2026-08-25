@@ -636,13 +636,13 @@ impl InnerWebView {
         parent_view: None,
       };
 
-      // Initialize scripts
-      w.init(
-r#"Object.defineProperty(window, 'ipc', {
-  value: Object.freeze({postMessage: function(s) {window.webkit.messageHandlers.ipc.postMessage(s);}})
-});"#,
-      true
-      );
+      if w.ipc_handler_delegate.is_some() {
+        // Initialize scripts
+        w.init(
+          r#"Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(s) { window.webkit.messageHandlers.ipc.postMessage(s) } }) });"#,
+          true,
+        );
+      }
       for init_script in attributes.initialization_scripts {
         w.init(&init_script.script, init_script.for_main_frame_only);
       }
