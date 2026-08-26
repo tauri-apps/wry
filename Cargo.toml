@@ -168,6 +168,7 @@ objc2-ui-kit = { version = "0.3.2", default-features = false, features = [
   "UIApplication",
   "UIEvent",
   "UIColor",
+  "UIInterface",
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]

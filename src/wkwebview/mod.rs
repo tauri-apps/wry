@@ -466,6 +466,15 @@ impl InnerWebView {
           // This has to be monitored as it may clash with isOpaque = true.
           // The webview background color may also applied too late so actually not that useful.
           webview.setBackgroundColor(Some(&color));
+        } else {
+          // Without a color the webview stays opaque and white, flashing before the page paints.
+          // Fall back to the system background so it follows the current appearance instead.
+          webview.setOpaque(false);
+          let color = objc2_ui_kit::UIColor::systemBackgroundColor();
+          if !is_child {
+            ns_view.setBackgroundColor(Some(&color));
+          }
+          webview.setBackgroundColor(Some(&color));
         }
         webview
       };
