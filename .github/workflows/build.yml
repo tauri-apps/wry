@@ -34,11 +34,14 @@ jobs:
         with:
           targets: ${{ matrix.platform.target }}
 
-      - name: install webkit2gtk (ubuntu only)
+      - name: install webkitgtk6 (ubuntu only)
         if: contains(matrix.platform.target, 'gnu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev
+          sudo apt-get install -y --no-install-recommends \
+            libwebkitgtk-6.0-dev \
+            libgtk-4-dev \
+            at-spi2-core
 
       - name: install webview2 (windows only)
         if: contains(matrix.platform.target, 'windows')
@@ -79,10 +82,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: install nightly
         uses: dtolnay/rust-toolchain@nightly
-      - name: install webkit2gtk
+      - name: install webkitgtk6
         run: |
           sudo apt-get update -y -q
-          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev
+          sudo apt-get install -y --no-install-recommends \
+            libwebkitgtk-6.0-dev \
+            libgtk-4-dev
       - name: Run cargo doc with each targets
         env:
           DOCS_RS: true

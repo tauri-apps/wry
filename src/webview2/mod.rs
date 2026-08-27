@@ -6,8 +6,17 @@ mod drag_drop;
 mod util;
 
 use std::{
-  borrow::Cow, cell::RefCell, collections::HashSet, fmt::Write, fs, path::PathBuf, rc::Rc,
-  sync::mpsc,
+  borrow::Cow,
+  cell::RefCell,
+  collections::HashSet,
+  fmt::Write,
+  fs,
+  path::PathBuf,
+  rc::Rc,
+  sync::{
+    atomic::{AtomicBool, Ordering},
+    mpsc, Arc,
+  },
 };
 
 use dpi::{PhysicalPosition, PhysicalSize};
@@ -31,7 +40,7 @@ use super::Theme;
 use crate::{
   custom_protocol_workaround, proxy::ProxyConfig, Error, MemoryUsageLevel, NewWindowFeatures,
   NewWindowOpener, NewWindowResponse, PageLoadEvent, PermissionKind, PermissionResponse, Rect,
-  RequestAsyncResponder, Result, WebViewAttributes, RGBA,
+  RequestAsyncResponder, Result, WebViewAttributes, WebViewHandle, RGBA,
 };
 
 type EventRegistrationToken = i64;
@@ -65,6 +74,8 @@ pub(crate) struct InnerWebView {
   // the webview gets dropped, otherwise we'll have a memory leak
   #[allow(dead_code)]
   drag_drop_controller: Option<DragDropController>,
+  #[cfg(any(debug_assertions, feature = "devtools"))]
+  is_inspector_open: Arc<AtomicBool>,
 }
 
 impl Drop for InnerWebView {
@@ -172,6 +183,8 @@ impl InnerWebView {
       webview,
       env,
       drag_drop_controller,
+      #[cfg(any(debug_assertions, feature = "devtools"))]
+      is_inspector_open: Arc::new(AtomicBool::new(false)),
     };
 
     if is_child {
@@ -811,7 +824,7 @@ impl InnerWebView {
                 position,
                 size,
                 opener: NewWindowOpener {
-                  webview: webview.clone(),
+                  webview: WebViewHandle(webview.clone()),
                   environment: env_.clone(),
                 },
               }
@@ -820,7 +833,7 @@ impl InnerWebView {
               position: None,
               size: None,
               opener: NewWindowOpener {
-                webview: webview.clone(),
+                webview: WebViewHandle(webview.clone()),
                 environment: env_.clone(),
               },
             });
@@ -837,7 +850,7 @@ impl InnerWebView {
             }
             NewWindowResponse::Create { webview } => {
               let _ = args.SetHandled(true);
-              let _ = args.SetNewWindow(&webview);
+              let _ = args.SetNewWindow(&webview.0);
               let _ = deferral.Complete();
             }
             NewWindowResponse::Deny => {
@@ -1799,6 +1812,14 @@ impl InnerWebView {
     Ok(())
   }
 
+  pub fn reparent_window(&self, window: &impl HasWindowHandle) -> Result<()> {
+    let hwnd = match window.window_handle()?.as_raw() {
+      RawWindowHandle::Win32(w) => w.hwnd.get() as isize,
+      _ => return Err(crate::Error::UnsupportedWindowHandle),
+    };
+    self.reparent(hwnd)
+  }
+
   pub fn print(&self) -> Result<()> {
     self.eval(
       "window.print()",
@@ -1842,14 +1863,39 @@ impl InnerWebView {
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn open_devtools(&self) {
     let _ = unsafe { self.webview.OpenDevToolsWindow() };
+    self.is_inspector_open.store(true, Ordering::Relaxed);
   }
 
   #[cfg(any(debug_assertions, feature = "devtools"))]
-  pub fn close_devtools(&self) {}
+  pub fn close_devtools(&self) {
+    // WebView2 has no CloseDevToolsWindow() API. Enumerate top-level windows
+    // belonging to the browser process and close any Chromium widget windows
+    // (the class used for the DevTools popup).
+    unsafe extern "system" fn close_devtools_window(hwnd: HWND, lparam: LPARAM) -> BOOL {
+      let target_pid = lparam.0 as u32;
+      let mut window_pid: u32 = 0;
+      GetWindowThreadProcessId(hwnd, Some(&mut window_pid));
+      if window_pid == target_pid && IsWindowVisible(hwnd).as_bool() {
+        let mut class_name = [0u16; 256];
+        let len = GetClassNameW(hwnd, &mut class_name);
+        if len > 0 && String::from_utf16_lossy(&class_name[..len as usize]) == "Chrome_WidgetWin_1"
+        {
+          let _ = PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
+        }
+      }
+      BOOL(1) // continue enumeration
+    }
+
+    let mut browser_pid: u32 = 0;
+    if unsafe { self.webview.BrowserProcessId(&mut browser_pid) }.is_ok() {
+      let _ = unsafe { EnumWindows(Some(close_devtools_window), LPARAM(browser_pid as isize)) };
+    }
+    self.is_inspector_open.store(false, Ordering::Relaxed);
+  }
 
   #[cfg(any(debug_assertions, feature = "devtools"))]
   pub fn is_devtools_open(&self) -> bool {
-    false
+    self.is_inspector_open.load(Ordering::Relaxed)
   }
 }
 

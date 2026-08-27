@@ -2,132 +2,226 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use tao::{
-  event::{Event, WindowEvent},
-  event_loop::{ControlFlow, EventLoop},
-  window::WindowBuilder,
-};
-use wry::{
-  dpi::{LogicalPosition, LogicalSize},
-  Rect, WebViewBuilder,
-};
-
 fn main() -> wry::Result<()> {
-  let event_loop = EventLoop::new();
-  let window = WindowBuilder::new().build(&event_loop).unwrap();
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+  ))]
+  return linux_main();
 
   #[cfg(not(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "android"
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
   )))]
-  let fixed = {
-    use gtk::prelude::*;
-    use tao::platform::unix::WindowExtUnix;
-    let fixed = gtk::Fixed::new();
-    let vbox = window.default_vbox().unwrap();
-    vbox.pack_start(&fixed, true, true, 0);
-    fixed.show_all();
-    fixed
-  };
+  return non_linux_main();
+}
 
-  let build_webview = |builder: WebViewBuilder<'_>| -> wry::Result<wry::WebView> {
-    #[cfg(any(
-      target_os = "windows",
-      target_os = "macos",
-      target_os = "ios",
-      target_os = "android"
-    ))]
-    let webview = builder.build(&window)?;
+/// Linux / BSD: GTK4-native, works on both X11 and Wayland.
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd",
+))]
+fn linux_main() -> wry::Result<()> {
+  use std::cell::RefCell;
 
-    #[cfg(not(any(
-      target_os = "windows",
-      target_os = "macos",
-      target_os = "ios",
-      target_os = "android"
-    )))]
-    let webview = {
-      use wry::WebViewBuilderExtUnix;
-      builder.build_gtk(&fixed)?
-    };
+  use gtk4::prelude::*;
+  use wry::WebViewBuilderExtUnix;
 
-    Ok(webview)
-  };
+  let app = gtk4::Application::new(None::<&str>, Default::default());
 
-  let size = window.inner_size().to_logical::<u32>(window.scale_factor());
+  app.connect_activate(|app| {
+    let window = gtk4::ApplicationWindow::new(app);
+    window.set_title(Some("Multi WebView (GTK4 / Wayland)"));
+    window.set_default_size(1200, 800);
 
-  let builder = WebViewBuilder::new()
-    .with_bounds(Rect {
-      position: LogicalPosition::new(0, 0).into(),
-      size: LogicalSize::new(size.width / 2, size.height / 2).into(),
-    })
-    .with_url("https://tauri.app");
-  let webview = build_webview(builder)?;
+    // 2×2 grid via nested boxes:
+    //   vbox
+    //   ├── top_row    (hbox: wv1 | wv2)
+    //   └── bottom_row (hbox: wv3 | wv4)
+    let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    vbox.set_homogeneous(true);
+    window.set_child(Some(&vbox));
 
-  let builder2 = WebViewBuilder::new()
-    .with_bounds(Rect {
-      position: LogicalPosition::new(size.width / 2, 0).into(),
-      size: LogicalSize::new(size.width / 2, size.height / 2).into(),
-    })
-    .with_url("https://github.com/tauri-apps/wry");
-  let webview2 = build_webview(builder2)?;
+    let top_row = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+    top_row.set_vexpand(true);
+    top_row.set_homogeneous(true);
+    vbox.append(&top_row);
 
-  let builder3 = WebViewBuilder::new()
-    .with_bounds(Rect {
-      position: LogicalPosition::new(0, size.height / 2).into(),
-      size: LogicalSize::new(size.width / 2, size.height / 2).into(),
-    })
-    .with_url("https://twitter.com/TauriApps");
-  let webview3 = build_webview(builder3)?;
+    let bottom_row = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+    bottom_row.set_vexpand(true);
+    bottom_row.set_homogeneous(true);
+    vbox.append(&bottom_row);
 
-  let builder4 = WebViewBuilder::new()
-    .with_bounds(Rect {
-      position: LogicalPosition::new(size.width / 2, size.height / 2).into(),
-      size: LogicalSize::new(size.width / 2, size.height / 2).into(),
-    })
-    .with_url("https://google.com");
-  let webview4 = build_webview(builder4)?;
+    window.present();
 
-  event_loop.run(move |event, _, control_flow| {
-    *control_flow = ControlFlow::Wait;
+    let wv1 = wry::WebViewBuilder::new()
+      .with_url("https://tauri.app")
+      .build_gtk(&top_row)
+      .unwrap();
 
-    match event {
-      Event::WindowEvent {
-        event: WindowEvent::Resized(size),
-        ..
-      } => {
-        let size = size.to_logical::<u32>(window.scale_factor());
-        webview
-          .set_bounds(Rect {
-            position: LogicalPosition::new(0, 0).into(),
-            size: LogicalSize::new(size.width / 2, size.height / 2).into(),
-          })
-          .unwrap();
-        webview2
-          .set_bounds(Rect {
-            position: LogicalPosition::new(size.width / 2, 0).into(),
-            size: LogicalSize::new(size.width / 2, size.height / 2).into(),
-          })
-          .unwrap();
-        webview3
-          .set_bounds(Rect {
-            position: LogicalPosition::new(0, size.height / 2).into(),
-            size: LogicalSize::new(size.width / 2, size.height / 2).into(),
-          })
-          .unwrap();
-        webview4
-          .set_bounds(Rect {
-            position: LogicalPosition::new(size.width / 2, size.height / 2).into(),
-            size: LogicalSize::new(size.width / 2, size.height / 2).into(),
-          })
-          .unwrap();
-      }
-      Event::WindowEvent {
-        event: WindowEvent::CloseRequested,
-        ..
-      } => *control_flow = ControlFlow::Exit,
-      _ => {}
-    }
+    let wv2 = wry::WebViewBuilder::new()
+      .with_url("https://github.com/tauri-apps/wry")
+      .build_gtk(&top_row)
+      .unwrap();
+
+    let wv3 = wry::WebViewBuilder::new()
+      .with_url("https://tauri.app/blog")
+      .build_gtk(&bottom_row)
+      .unwrap();
+
+    let wv4 = wry::WebViewBuilder::new()
+      .with_url("https://github.com/tauri-apps/tauri")
+      .build_gtk(&bottom_row)
+      .unwrap();
+
+    // Keep webviews alive for the window's lifetime.
+    let webviews = RefCell::new(Some([wv1, wv2, wv3, wv4]));
+    window.connect_close_request(move |_| {
+      webviews.borrow_mut().take();
+      gtk4::glib::Propagation::Proceed
+    });
   });
+
+  app.run();
+  Ok(())
+}
+
+/// macOS / Windows: winit + build_as_child.
+#[cfg(not(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd",
+)))]
+fn non_linux_main() -> wry::Result<()> {
+  use dpi::{LogicalPosition, LogicalSize};
+  use winit::{
+    application::ApplicationHandler,
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, EventLoop},
+    window::{Window, WindowId},
+  };
+  use wry::{Rect, WebViewBuilder};
+
+  struct App {
+    window: Option<Window>,
+    webviews: Option<[wry::WebView; 4]>,
+  }
+
+  impl Default for App {
+    fn default() -> Self {
+      App {
+        window: None,
+        webviews: None,
+      }
+    }
+  }
+
+  impl ApplicationHandler for App {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+      let window = event_loop
+        .create_window(Window::default_attributes().with_title("Multi WebView"))
+        .unwrap();
+
+      let size = window.inner_size().to_logical::<u32>(window.scale_factor());
+
+      let wv1 = WebViewBuilder::new()
+        .with_bounds(Rect {
+          position: LogicalPosition::new(0, 0).into(),
+          size: LogicalSize::new(size.width / 2, size.height / 2).into(),
+        })
+        .with_url("https://tauri.app")
+        .build_as_child(&window)
+        .unwrap();
+
+      let wv2 = WebViewBuilder::new()
+        .with_bounds(Rect {
+          position: LogicalPosition::new(size.width / 2, 0).into(),
+          size: LogicalSize::new(size.width / 2, size.height / 2).into(),
+        })
+        .with_url("https://github.com/tauri-apps/wry")
+        .build_as_child(&window)
+        .unwrap();
+
+      let wv3 = WebViewBuilder::new()
+        .with_bounds(Rect {
+          position: LogicalPosition::new(0, size.height / 2).into(),
+          size: LogicalSize::new(size.width / 2, size.height / 2).into(),
+        })
+        .with_url("https://tauri.app/blog")
+        .build_as_child(&window)
+        .unwrap();
+
+      let wv4 = WebViewBuilder::new()
+        .with_bounds(Rect {
+          position: LogicalPosition::new(size.width / 2, size.height / 2).into(),
+          size: LogicalSize::new(size.width / 2, size.height / 2).into(),
+        })
+        .with_url("https://github.com/tauri-apps/tauri")
+        .build_as_child(&window)
+        .unwrap();
+
+      self.window = Some(window);
+      self.webviews = Some([wv1, wv2, wv3, wv4]);
+    }
+
+    fn window_event(
+      &mut self,
+      event_loop: &ActiveEventLoop,
+      _window_id: WindowId,
+      event: WindowEvent,
+    ) {
+      match event {
+        WindowEvent::Resized(size) => {
+          let window = self.window.as_ref().unwrap();
+          let webviews = self.webviews.as_ref().unwrap();
+          let size = size.to_logical::<u32>(window.scale_factor());
+
+          webviews[0]
+            .set_bounds(Rect {
+              position: LogicalPosition::new(0, 0).into(),
+              size: LogicalSize::new(size.width / 2, size.height / 2).into(),
+            })
+            .unwrap();
+          webviews[1]
+            .set_bounds(Rect {
+              position: LogicalPosition::new(size.width / 2, 0).into(),
+              size: LogicalSize::new(size.width / 2, size.height / 2).into(),
+            })
+            .unwrap();
+          webviews[2]
+            .set_bounds(Rect {
+              position: LogicalPosition::new(0, size.height / 2).into(),
+              size: LogicalSize::new(size.width / 2, size.height / 2).into(),
+            })
+            .unwrap();
+          webviews[3]
+            .set_bounds(Rect {
+              position: LogicalPosition::new(size.width / 2, size.height / 2).into(),
+              size: LogicalSize::new(size.width / 2, size.height / 2).into(),
+            })
+            .unwrap();
+        }
+        WindowEvent::CloseRequested => event_loop.exit(),
+        _ => {}
+      }
+    }
+
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {}
+  }
+
+  let event_loop = EventLoop::new().unwrap();
+  let mut app = App::default();
+  event_loop.run_app(&mut app).unwrap();
+  Ok(())
 }

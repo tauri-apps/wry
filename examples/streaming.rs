@@ -7,81 +7,123 @@ use std::{
   path::PathBuf,
 };
 
+use dpi::{LogicalPosition, LogicalSize};
 use http::{header, StatusCode};
 use http_range::HttpRange;
-use tao::{
-  event::{Event, WindowEvent},
-  event_loop::{ControlFlow, EventLoop},
-  window::WindowBuilder,
+use winit::{
+  application::ApplicationHandler,
+  event::WindowEvent,
+  event_loop::{ActiveEventLoop, EventLoop},
+  window::{Window, WindowId},
 };
 use wry::{
   http::{header::*, Request, Response},
-  WebViewBuilder,
+  Rect, WebViewBuilder,
 };
 
-pub fn main() -> wry::Result<()> {
-  let event_loop = EventLoop::new();
-  let window = WindowBuilder::new().build(&event_loop).unwrap();
+#[derive(Default)]
+struct App {
+  window: Option<Window>,
+  webview: Option<wry::WebView>,
+}
 
-  let builder = WebViewBuilder::new()
-    .with_custom_protocol(
-      "wry".into(),
-      move |_webview_id, request| match wry_protocol(request) {
-        Ok(r) => r.map(Into::into),
-        Err(e) => http::Response::builder()
-          .header(CONTENT_TYPE, "text/plain")
-          .status(500)
-          .body(e.to_string().as_bytes().to_vec())
-          .unwrap()
-          .map(Into::into),
-      },
-    )
-    .with_custom_protocol(
-      "stream".into(),
-      move |_webview_id, request| match stream_protocol(request) {
-        Ok(r) => r.map(Into::into),
-        Err(e) => http::Response::builder()
-          .header(CONTENT_TYPE, "text/plain")
-          .status(500)
-          .body(e.to_string().as_bytes().to_vec())
-          .unwrap()
-          .map(Into::into),
-      },
-    )
-    // tell the webview to load the custom protocol
-    .with_url("wry://localhost");
+impl ApplicationHandler for App {
+  fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+    let window = event_loop
+      .create_window(Window::default_attributes())
+      .unwrap();
 
-  #[cfg(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "android"
-  ))]
-  let _webview = builder.build(&window)?;
-  #[cfg(not(any(
-    target_os = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "android"
-  )))]
-  let _webview = {
-    use tao::platform::unix::WindowExtUnix;
-    use wry::WebViewBuilderExtUnix;
-    let vbox = window.default_vbox().unwrap();
-    builder.build_gtk(vbox)?
-  };
+    let webview = WebViewBuilder::new()
+      .with_custom_protocol(
+        "wry".into(),
+        move |_webview_id, request| match wry_protocol(request) {
+          Ok(r) => r.map(Into::into),
+          Err(e) => http::Response::builder()
+            .header(CONTENT_TYPE, "text/plain")
+            .status(500)
+            .body(e.to_string().as_bytes().to_vec())
+            .unwrap()
+            .map(Into::into),
+        },
+      )
+      .with_custom_protocol(
+        "stream".into(),
+        move |_webview_id, request| match stream_protocol(request) {
+          Ok(r) => r.map(Into::into),
+          Err(e) => http::Response::builder()
+            .header(CONTENT_TYPE, "text/plain")
+            .status(500)
+            .body(e.to_string().as_bytes().to_vec())
+            .unwrap()
+            .map(Into::into),
+        },
+      )
+      // tell the webview to load the custom protocol
+      .with_url("wry://localhost")
+      .build_as_child(&window)
+      .unwrap();
 
-  event_loop.run(move |event, _, control_flow| {
-    *control_flow = ControlFlow::Wait;
+    self.window = Some(window);
+    self.webview = Some(webview);
+  }
 
-    if let Event::WindowEvent {
-      event: WindowEvent::CloseRequested,
-      ..
-    } = event
-    {
-      *control_flow = ControlFlow::Exit
+  fn window_event(
+    &mut self,
+    event_loop: &ActiveEventLoop,
+    _window_id: WindowId,
+    event: WindowEvent,
+  ) {
+    match event {
+      WindowEvent::Resized(size) => {
+        let window = self.window.as_ref().unwrap();
+        let webview = self.webview.as_ref().unwrap();
+        let size = size.to_logical::<u32>(window.scale_factor());
+        webview
+          .set_bounds(Rect {
+            position: LogicalPosition::new(0, 0).into(),
+            size: LogicalSize::new(size.width, size.height).into(),
+          })
+          .unwrap();
+      }
+      WindowEvent::CloseRequested => event_loop.exit(),
+      _ => {}
     }
-  });
+  }
+
+  fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+    #[cfg(any(
+      target_os = "linux",
+      target_os = "dragonfly",
+      target_os = "freebsd",
+      target_os = "netbsd",
+      target_os = "openbsd",
+    ))]
+    while gtk4::glib::MainContext::default().iteration(false) {}
+  }
+}
+
+fn main() -> wry::Result<()> {
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+  ))]
+  {
+    gtk4::init().unwrap();
+
+    #[cfg(feature = "x11")]
+    winit::platform::x11::register_xlib_error_hook(Box::new(|_display, error| {
+      let error = error as *mut x11_dl::xlib::XErrorEvent;
+      (unsafe { (*error).error_code }) == 170
+    }));
+  }
+
+  let event_loop = EventLoop::new().unwrap();
+  let mut app = App::default();
+  event_loop.run_app(&mut app).unwrap();
+  Ok(())
 }
 
 fn wry_protocol(
@@ -115,6 +157,48 @@ fn wry_protocol(
     .map_err(Into::into)
 }
 
+fn video_mime(path: &str) -> &'static str {
+  let ext = std::path::Path::new(path)
+    .extension()
+    .and_then(|e| e.to_str())
+    .unwrap_or("")
+    .to_ascii_lowercase();
+
+  match ext.as_str() {
+    // MPEG-4 container
+    "mp4" | "m4v" | "m4p" => "video/mp4",
+    // WebM (VP8 / VP9 / AV1)
+    "webm" => "video/webm",
+    // Ogg (Theora)
+    "ogg" | "ogv" => "video/ogg",
+    // QuickTime
+    "mov" | "qt" => "video/quicktime",
+    // Matroska / MKV
+    "mkv" | "mk3d" => "video/x-matroska",
+    // AVI
+    "avi" => "video/x-msvideo",
+    // Flash video
+    "flv" | "f4v" => "video/x-flv",
+    // Windows Media
+    "wmv" | "asf" => "video/x-ms-wmv",
+    // MPEG-1 / MPEG-2
+    "mpeg" | "mpg" | "mpe" | "m2v" | "m1v" => "video/mpeg",
+    // MPEG-2 Transport Stream
+    "ts" | "m2ts" | "mts" => "video/mp2t",
+    // 3GPP (mobile)
+    "3gp" | "3gpp" => "video/3gpp",
+    "3g2" | "3gpp2" => "video/3gpp2",
+    // HEVC / H.265 in raw annex-b form
+    "hevc" | "h265" => "video/hevc",
+    // AVCHD / Blu-ray disc clip
+    "mxf" => "application/mxf",
+    // RealMedia
+    "rm" | "rmvb" => "application/vnd.rn-realmedia",
+    // fallback — assume MP4 container
+    _ => "video/mp4",
+  }
+}
+
 fn stream_protocol(
   request: http::Request<Vec<u8>>,
 ) -> Result<http::Response<Vec<u8>>, Box<dyn std::error::Error>> {
@@ -123,7 +207,7 @@ fn stream_protocol(
     .decode_utf8_lossy()
     .to_string();
 
-  let mut file = std::fs::File::open(path)?;
+  let mut file = std::fs::File::open(&path)?;
 
   // get file length
   let len = {
@@ -133,7 +217,7 @@ fn stream_protocol(
     len
   };
 
-  let mut resp = Response::builder().header(CONTENT_TYPE, "video/mp4");
+  let mut resp = Response::builder().header(CONTENT_TYPE, video_mime(&path));
 
   // if the webview sent a range header, we need to send a 206 in return
   // Actually only macOS and Windows are supported. Linux will ALWAYS return empty headers.
@@ -220,7 +304,7 @@ fn stream_protocol(
         buf.write_all(boundary_sep.as_bytes())?;
 
         // write the needed headers `Content-Type` and `Content-Range`
-        buf.write_all(format!("{CONTENT_TYPE}: video/mp4\r\n").as_bytes())?;
+        buf.write_all(format!("{CONTENT_TYPE}: {}\r\n", video_mime(&path)).as_bytes())?;
         buf.write_all(format!("{CONTENT_RANGE}: bytes {start}-{end}/{len}\r\n").as_bytes())?;
 
         // write the separator to indicate the start of the range body

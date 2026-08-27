@@ -985,14 +985,17 @@ impl InnerWebView {
     unsafe {
       let (red, green, blue, alpha) = _background_color;
 
-      // Disable the default white background using the same drawsBackground KVC key
-      // as the `transparent` feature. On the webview instance (vs config) for runtime changes.
-      // NOTE: Private API — `drawsBackground` is a private KVC key on WKWebView instance.
+      // NOTE: Private API — `drawsBackground` must be disabled to let the color show through
+      // the webview's own background. On the webview instance (vs config) for runtime changes.
       let no = NSNumber::numberWithBool(false);
       self
         .webview
         .setValue_forKey(Some(&no), ns_string!("drawsBackground"));
 
+      // Public API (macOS 12+) — sets the color visible in overscroll (rubber-band) areas
+      // and behind the page. Full background replacement additionally requires
+      // `drawsBackground = false` above.
+      // <https://developer.apple.com/documentation/webkit/wkwebview/underpagebackgroundcolor>
       let (os_major_version, _, _) = util::operating_system_version();
       if os_major_version >= 12 {
         let color = objc2_app_kit::NSColor::colorWithSRGBRed_green_blue_alpha(
@@ -1001,8 +1004,6 @@ impl InnerWebView {
           blue as f64 / 255.0,
           alpha as f64 / 255.0,
         );
-        // <https://developer.apple.com/documentation/webkit/wkwebview/underpagebackgroundcolor>
-        // Available: macOS 12+, iOS 15+
         self.webview.setUnderPageBackgroundColor(Some(&color));
       }
     }
@@ -1295,6 +1296,26 @@ impl InnerWebView {
     }
 
     Ok(())
+  }
+
+  pub(crate) fn reparent_window(&self, window: &impl HasWindowHandle) -> crate::Result<()> {
+    let ns_view = match window.window_handle()?.as_raw() {
+      RawWindowHandle::AppKit(w) => w.ns_view.as_ptr(),
+      #[cfg(target_os = "ios")]
+      RawWindowHandle::UiKit(w) => w.ui_view.as_ptr(),
+      _ => return Err(crate::Error::UnsupportedWindowHandle),
+    };
+
+    unsafe {
+      let ns_view: &objc2_app_kit::NSView = &*(ns_view as *const objc2_app_kit::NSView);
+      if let Some(ns_window) = ns_view.window() {
+        self.reparent(Retained::as_ptr(&ns_window) as *mut NSWindow)
+      } else {
+        // view not yet attached to a window — add directly as subview
+        ns_view.addSubview(&self.webview);
+        Ok(())
+      }
+    }
   }
 
   #[cfg(target_os = "macos")]

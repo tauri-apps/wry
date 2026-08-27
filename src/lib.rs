@@ -13,13 +13,16 @@
 //!
 //! Wry is a cross-platform WebView rendering library.
 //!
-//! The webview requires a running event loop and a window type that implements [`HasWindowHandle`],
-//! or a gtk container widget if you need to support X11 and Wayland.
+//! The webview requires a running event loop and a window type that implements [`HasWindowHandle`].
+//! On Linux, enable `--features x11` for X11 support or `--features wayland` for native Wayland
+//! support. Alternatively, use a GTK container widget via [`WebViewBuilderExtUnix::build_gtk`],
+//! which works on both X11 and Wayland without a feature flag.
 //! You can use a windowing library like [`tao`] or [`winit`].
 //!
 //! ## Examples
 //!
-//! This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only).
+//! This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android,
+//! Linux X11 (with `--features x11`) and Linux Wayland (with `--features wayland`).
 //! See the following example using [`winit`]:
 //!
 //! ```no_run
@@ -51,31 +54,36 @@
 //! event_loop.run_app(&mut app).unwrap();
 //! ```
 //!
-//! If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::build_gtk`] on Linux.
-//! See the following example using [`tao`]:
+//! On Linux, `--features wayland` enables passing a `RawWindowHandle::Wayland` directly to
+//! [`build`](WebViewBuilder::build). The parent window must be a GTK4 window — a foreign
+//! toolkit's `wl_surface` will not be found and returns an error. Alternatively,
+//! [`WebViewBuilderExtUnix::build_gtk`] accepts any GTK container and works on both X11 and
+//! Wayland without a feature flag. See the following example using [`gtk4`] on Linux:
 //!
 //! ```no_run
 //! # use wry::WebViewBuilder;
-//! # use tao::{window::WindowBuilder, event_loop::EventLoop};
-//! # #[cfg(target_os = "linux")]
-//! # use tao::platform::unix::WindowExtUnix;
-//! # #[cfg(target_os = "linux")]
+//! # #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
 //! # use wry::WebViewBuilderExtUnix;
-//! let event_loop = EventLoop::new();
-//! let window = WindowBuilder::new().build(&event_loop).unwrap();
-//!
-//! let builder = WebViewBuilder::new().with_url("https://tauri.app");
-//!
-//! #[cfg(not(target_os = "linux"))]
-//! let webview = builder.build(&window).unwrap();
-//! #[cfg(target_os = "linux")]
-//! let webview = builder.build_gtk(window.gtk_window()).unwrap();
+//! # #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+//! # use gtk4::prelude::*;
+//! #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+//! {
+//!   gtk4::init().unwrap();
+//!   let window = gtk4::Window::new();
+//!   let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+//!   window.set_child(Some(&vbox));
+//!   let _webview = WebViewBuilder::new()
+//!     .with_url("https://tauri.app")
+//!     .build_gtk(&vbox)
+//!     .unwrap();
+//!   window.present();
+//! }
 //! ```
 //!
 //! ## Child webviews
 //!
 //! You can use [`WebViewBuilder::build_as_child`] to create the webview as a child inside another window. This is supported on
-//! macOS, Windows and Linux (X11 Only).
+//! macOS, Windows, Linux X11 (with `--features x11`) and Linux Wayland (with `--features wayland`).
 //!
 //! ```no_run
 //! # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
@@ -110,37 +118,32 @@
 //! event_loop.run_app(&mut app).unwrap();
 //! ```
 //!
-//! If you want to support X11 and Wayland at the same time, we recommend using
-//! [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
+//! With `--features wayland`, [`build_as_child`](WebViewBuilder::build_as_child) also accepts
+//! Wayland handles and places the webview in a `GtkFixed`. For a GTK-native approach that works
+//! on both X11 and Wayland without a feature flag, use [`WebViewBuilderExtUnix::build_gtk`] with [`gtk4::Fixed`].
 //!
 //! ```no_run
-//! # use wry::{WebViewBuilder, raw_window_handle, Rect, dpi::*};
-//! # use tao::{window::WindowBuilder, event_loop::EventLoop};
-//! # #[cfg(target_os = "linux")]
+//! # use wry::{WebViewBuilder, Rect, dpi::*};
+//! # #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
 //! # use wry::WebViewBuilderExtUnix;
-//! # #[cfg(target_os = "linux")]
-//! # use tao::platform::unix::WindowExtUnix;
-//! let event_loop = EventLoop::new();
-//! let window = WindowBuilder::new().build(&event_loop).unwrap();
-//!
-//! let builder = WebViewBuilder::new()
-//!   .with_url("https://tauri.app")
-//!   .with_bounds(Rect {
-//!     position: LogicalPosition::new(100, 100).into(),
-//!     size: LogicalSize::new(200, 200).into(),
-//!   });
-//!
-//! #[cfg(not(target_os = "linux"))]
-//! let webview = builder.build_as_child(&window).unwrap();
-//! #[cfg(target_os = "linux")]
-//! let webview = {
-//!   # use gtk::prelude::*;
-//!   let vbox = window.default_vbox().unwrap(); // tao adds a gtk::Box by default
-//!   let fixed = gtk::Fixed::new();
-//!   fixed.show_all();
-//!   vbox.pack_start(&fixed, true, true, 0);
-//!   builder.build_gtk(&fixed).unwrap()
-//! };
+//! # #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+//! # use gtk4::prelude::*;
+//! #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+//! {
+//!   gtk4::init().unwrap();
+//!   let window = gtk4::Window::new();
+//!   let fixed = gtk4::Fixed::new();
+//!   window.set_child(Some(&fixed));
+//!   let _webview = WebViewBuilder::new()
+//!     .with_url("https://tauri.app")
+//!     .with_bounds(Rect {
+//!       position: LogicalPosition::new(100, 100).into(),
+//!       size: LogicalSize::new(200, 200).into(),
+//!     })
+//!     .build_gtk(&fixed)
+//!     .unwrap();
+//!   window.present();
+//! }
 //! ```
 //!
 //! ## Platform Considerations
@@ -151,8 +154,8 @@
 //!
 //! [WebKitGTK](https://webkitgtk.org/) is used to provide webviews on Linux which requires GTK,
 //! so if the windowing library doesn't support GTK (as in [`winit`])
-//! you'll need to call [`gtk::init`] before creating the webview and then call [`gtk::main_iteration_do`] alongside
-//! your windowing library event loop.
+//! you'll need to call [`gtk4::init`] before creating the webview and then pump GTK events alongside
+//! your windowing library event loop using [`gtk4::glib::MainContext::default()`].
 //!
 //! ```no_run
 //! # use wry::{WebView, WebViewBuilder};
@@ -177,10 +180,8 @@
 //!
 //!   // Advance GTK event loop <!----- IMPORTANT
 //!   fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-//!     #[cfg(target_os = "linux")]
-//!     while gtk::events_pending() {
-//!       gtk::main_iteration_do(false);
-//!     }
+//!     #[cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+//!     while gtk4::glib::MainContext::default().iteration(false) {}
 //!   }
 //! }
 //!
@@ -194,19 +195,19 @@
 //! ##### Arch Linux / Manjaro:
 //!
 //! ```bash
-//! sudo pacman -S webkit2gtk-4.1
+//! sudo pacman -S webkitgtk-6.0
 //! ```
 //!
 //! ##### Debian / Ubuntu:
 //!
 //! ```bash
-//! sudo apt install libwebkit2gtk-4.1-dev
+//! sudo apt install libwebkitgtk-6.0-dev
 //! ```
 //!
 //! ##### Fedora
 //!
 //! ```bash
-//! sudo dnf install gtk3-devel webkit2gtk4.1-devel
+//! sudo dnf install gtk4-devel webkitgtk6.0-devel
 //! ```
 //!
 //! ##### Nix & NixOS
@@ -219,7 +220,7 @@
 //!    pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
 //!    packages = with pkgs; [
 //!      pkg-config
-//!      webkitgtk_4_1
+//!      webkitgtk_6_0
 //!    ];
 //!  in
 //!  pkgs.mkShell {
@@ -238,7 +239,7 @@
 //!
 //! (specifications->manifest
 //!   '("pkg-config"                ; Helper tool used when compiling
-//!     "webkitgtk"                 ; Web content engine fot GTK+
+//!     "webkitgtk"                 ; Web content engine for GTK+
 //!  ))
 //! ```
 //!
@@ -304,9 +305,13 @@
 //! - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
 //!   On **macOS**, enabling devtools, requires calling private APIs so you should not enable this flag in release
 //!   build if your app needs to publish to App Store.
+//! - `wayland`: Enables passing Wayland window handles to [`build`](WebViewBuilder::build) and
+//!   [`build_as_child`](WebViewBuilder::build_as_child) on Linux.
 //! - `mac-proxy`: Enables `WebViewBuilder::with_proxy_config` on macOS.
-//! - `linux-body`: Enables body support of custom protocol request on Linux. Requires
-//!   WebKit2GTK v2.40 or above.
+//! - `linux-body` *(enabled by default)*: Enables body support of custom protocol request on Linux. Requires
+//!   WebKit2GTK v2.40 or above (the gtk4-webkit6 backend requires WebKitGTK 6.x, so this
+//!   is always satisfied). Without this feature, `request.body()` in a custom protocol
+//!   handler always returns an empty slice on Linux.
 //! - `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler`, and `custom_protocols`.
 //!
 //! ## Partners
@@ -453,6 +458,115 @@ impl RequestAsyncResponder {
   }
 }
 
+/// An opaque handle to the underlying platform webview instance.
+///
+/// Obtained from [`NewWindowOpener`] or [`NewWindowResponse::Create`].
+/// Use the platform-specific extension traits to access the underlying type:
+/// - Linux/BSD: [`WebViewHandleExtUnix`]
+/// - Windows: [`WebViewHandleExtWindows`]
+/// - macOS: [`WebViewHandleExtDarwin`]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[derive(Debug, Clone)]
+pub struct WebViewHandle(
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+  ))]
+  pub(crate) webkit6::WebView,
+  #[cfg(windows)] pub(crate) ICoreWebView2,
+  #[cfg(target_os = "macos")] pub(crate) Retained<objc2_web_kit::WKWebView>,
+);
+
+/// Additional methods on [`WebViewHandle`] specific to Linux and BSD.
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd",
+))]
+pub trait WebViewHandleExtUnix {
+  /// Returns a reference to the underlying `webkit6::WebView`.
+  fn as_webkit_webview(&self) -> &webkit6::WebView;
+  /// Consumes the handle and returns the underlying `webkit6::WebView`.
+  fn into_webkit_webview(self) -> webkit6::WebView;
+}
+
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd",
+))]
+impl WebViewHandleExtUnix for WebViewHandle {
+  fn as_webkit_webview(&self) -> &webkit6::WebView {
+    &self.0
+  }
+  fn into_webkit_webview(self) -> webkit6::WebView {
+    self.0
+  }
+}
+
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd",
+))]
+impl WebViewHandle {
+  /// Wraps an existing [`webkit6::WebView`] in an opaque handle.
+  ///
+  /// Useful when answering [`WebViewBuilder::with_new_window_req_handler`]
+  /// with a webview the embedder created itself, e.g. for
+  /// [`NewWindowResponse::Create`] or [`WebViewBuilderExtUnix::with_related_view`].
+  pub fn from_webkit_webview(webview: webkit6::WebView) -> Self {
+    Self(webview)
+  }
+}
+
+/// Additional methods on [`WebViewHandle`] specific to Windows.
+#[cfg(windows)]
+pub trait WebViewHandleExtWindows {
+  /// Returns a reference to the underlying `ICoreWebView2`.
+  fn as_core_webview2(&self) -> &ICoreWebView2;
+  /// Consumes the handle and returns the underlying `ICoreWebView2`.
+  fn into_core_webview2(self) -> ICoreWebView2;
+}
+
+#[cfg(windows)]
+impl WebViewHandleExtWindows for WebViewHandle {
+  fn as_core_webview2(&self) -> &ICoreWebView2 {
+    &self.0
+  }
+  fn into_core_webview2(self) -> ICoreWebView2 {
+    self.0
+  }
+}
+
+/// Additional methods on [`WebViewHandle`] specific to macOS.
+#[cfg(target_os = "macos")]
+pub trait WebViewHandleExtDarwin {
+  /// Returns a reference to the underlying `WKWebView`.
+  fn as_wk_webview(&self) -> &Retained<objc2_web_kit::WKWebView>;
+  /// Consumes the handle and returns the underlying `WKWebView`.
+  fn into_wk_webview(self) -> Retained<objc2_web_kit::WKWebView>;
+}
+
+#[cfg(target_os = "macos")]
+impl WebViewHandleExtDarwin for WebViewHandle {
+  fn as_wk_webview(&self) -> &Retained<objc2_web_kit::WKWebView> {
+    &self.0
+  }
+  fn into_wk_webview(self) -> Retained<objc2_web_kit::WKWebView> {
+    self.0
+  }
+}
+
 /// Response for the new window request handler.
 ///
 /// See [`WebViewBuilder::with_new_window_req_handler`].
@@ -467,20 +581,7 @@ pub enum NewWindowResponse {
   /// **Windows**: The webview must use the same environment as the caller webview. See [`WebViewBuilderExtWindows::with_environment`].
   /// **macOS**: The webview must use the same configuration as the caller webview. See [`WebViewBuilderExtMacos::with_webview_configuration`].
   #[cfg(not(any(target_os = "android", target_os = "ios")))]
-  Create {
-    #[cfg(any(
-      target_os = "linux",
-      target_os = "dragonfly",
-      target_os = "freebsd",
-      target_os = "netbsd",
-      target_os = "openbsd",
-    ))]
-    webview: webkit2gtk::WebView,
-    #[cfg(windows)]
-    webview: ICoreWebView2,
-    #[cfg(target_os = "macos")]
-    webview: Retained<objc2_web_kit::WKWebView>,
-  },
+  Create { webview: WebViewHandle },
   /// Deny the window from being opened.
   Deny,
 }
@@ -488,29 +589,19 @@ pub enum NewWindowResponse {
 /// Information about the webview that initiated a new window request.
 #[derive(Debug)]
 pub struct NewWindowOpener {
-  /// The instance of the webview that initiated the new window request.
+  /// The opener webview handle.
   ///
-  /// This must be set as the related view of the new webview. See [`WebViewBuilderExtUnix::with_related_view`].
-  #[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-  ))]
-  pub webview: webkit2gtk::WebView,
-  /// The instance of the webview that initiated the new window request.
-  #[cfg(windows)]
-  pub webview: ICoreWebView2,
-  /// The environment of the webview that initiated the new window request.
+  /// On Linux, pass this to [`WebViewBuilderExtUnix::with_related_view`] when creating
+  /// the new webview. On Windows, use the `environment` field. On macOS, use
+  /// `target_configuration`.
+  #[cfg(not(any(target_os = "android", target_os = "ios")))]
+  pub webview: WebViewHandle,
+  /// The environment of the opener webview (Windows only).
   ///
-  /// The target webview environment **MUST** match the environment of the opener webview. See [`WebViewBuilderExtWindows::with_environment`].
+  /// The target webview environment **MUST** match the environment of the opener. See [`WebViewBuilderExtWindows::with_environment`].
   #[cfg(windows)]
   pub environment: ICoreWebView2Environment,
-  /// The instance of the webview that initiated the new window request.
-  #[cfg(target_os = "macos")]
-  pub webview: Retained<objc2_web_kit::WKWebView>,
-  /// Configuration of the target webview.
+  /// Configuration to pass to the new webview (macOS only).
   ///
   /// This **MUST** be used when creating the target webview. See [`WebViewBuilderExtMacos::with_webview_configuration`].
   #[cfg(target_os = "macos")]
@@ -775,7 +866,7 @@ struct WebViewAttributes<'a> {
 
   /// The webview bounds. Defaults to `x: 0, y: 0, width: 200, height: 200`.
   /// This is only effective if the webview was created by [`WebViewBuilder::new_as_child`]
-  /// or on Linux, if was created by [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
+  /// or on Linux, if was created by [`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::build_gtk`] with [`gtk4::Fixed`].
   pub bounds: Option<Rect>,
 
   /// Whether background throttling should be disabled.
@@ -809,7 +900,8 @@ struct WebViewAttributes<'a> {
   /// ## Platform-specific:
   ///
   /// - **Windows**: Fully supported via WebView2's PermissionRequested event.
-  /// - **macOS / iOS**: Fully supported via WKUIDelegate's requestMediaCapturePermission.
+  /// - **macOS**: Supported for Camera, Microphone, Geolocation (macOS 12+), and Sensors via `WKUIDelegate`. Notifications, ClipboardRead, and PointerLock have no `WKUIDelegate` hook and are not routed through this handler.
+  /// - **iOS**: Supported for Camera and Microphone via `WKUIDelegate`'s `requestMediaCapturePermission`.
   /// - **Linux**: Fully supported via WebKitGTK's permission-request signal.
   /// - **Android**: Supported via JNI bridge for geolocation, microphone, camera,
   ///   protected media, and MIDI requests. Android runtime permissions may still
@@ -846,6 +938,29 @@ struct WebViewAttributes<'a> {
   ///   behavior will be disabled.
   /// - **macOS / Linux / Android / iOS**: Unsupported and ignored.
   pub general_autofill_enabled: bool,
+
+  /// Whether media streaming (camera and microphone access via `getUserMedia`) should be enabled.
+  ///
+  /// Defaults to `false`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux**: Enables `webkit_settings_set_enable_media_stream`. Must be `true` for
+  ///   `getUserMedia()` calls to succeed; granting the permission via [`with_permission_handler`](Self::with_permission_handler)
+  ///   is still required in addition.
+  /// - **Windows / macOS / Android / iOS**: Unsupported and ignored (media stream is enabled by default on those platforms).
+  pub enable_media_stream: bool,
+
+  /// Whether Encrypted Media Extensions (EME / DRM) should be enabled.
+  ///
+  /// Defaults to `false`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux**: Enables `webkit_settings_set_enable_encrypted_media`. Required for
+  ///   `MediaKeySystemAccess` (e.g. Widevine DRM).
+  /// - **Windows / macOS / Android / iOS**: Unsupported and ignored (EME is enabled by default on those platforms).
+  pub enable_encrypted_media: bool,
 }
 
 impl Default for WebViewAttributes<'_> {
@@ -890,6 +1005,8 @@ impl Default for WebViewAttributes<'_> {
       javascript_disabled: false,
       permission_handler: None,
       general_autofill_enabled: true,
+      enable_media_stream: false,
+      enable_encrypted_media: false,
     }
   }
 }
@@ -1073,6 +1190,12 @@ impl<'a> WebViewBuilder<'a> {
   ///   elsewhere in Android (provided the app has appropriate access), but not from the `assets`
   ///   folder which lives within the apk. For the cases where this can be used, it works the same as in macOS and Linux.
   /// - iOS: To get the path of your assets, you can call [`CFBundle::resources_path`](https://docs.rs/core-foundation/latest/core_foundation/bundle/struct.CFBundle.html#method.resources_path). So url like `wry://assets/index.html` could get the html file in assets directory.
+  ///
+  /// # Platform-specific
+  ///
+  /// - **Linux**: Request bodies (e.g. POST data) are only available when the `linux-body`
+  ///   feature is enabled. Without it, `request.body()` is always empty. The `linux-body`
+  ///   feature is included in the default feature set since wry 0.x.
   pub fn with_custom_protocol<F>(mut self, name: String, handler: F) -> Self
   where
     F: Fn(WebViewId, Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> + Send + Sync + 'static,
@@ -1111,6 +1234,12 @@ impl<'a> WebViewBuilder<'a> {
   /// Same as [`Self::with_custom_protocol`] but with an asynchronous responder.
   ///
   /// When registering a custom protocol with the same name, only the last registered one will be used.
+  ///
+  /// # Platform-specific
+  ///
+  /// - **Linux**: Request bodies (e.g. POST data) are only available when the `linux-body`
+  ///   feature is enabled. Without it, `request.body()` is always empty. The `linux-body`
+  ///   feature is included in the default feature set since wry 0.x.
   ///
   /// # Warning
   ///
@@ -1294,7 +1423,8 @@ impl<'a> WebViewBuilder<'a> {
   /// - Windows: Setting to `false` can't disable pinch zoom on WebView2 Runtime version before 91.0.865.0,
   ///   see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10865-prerelease>
   ///
-  /// - **macOS / Linux / Android / iOS**: Unsupported
+  /// - **macOS / Linux / Android / iOS**: Unsupported. This option is silently ignored — WebKitGTK6
+  ///   has no per-view zoom-key toggle.
   pub fn with_hotkeys_zoom(mut self, zoom: bool) -> Self {
     self.attrs.zoom_hotkeys_enabled = zoom;
     self
@@ -1322,7 +1452,8 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific:
   ///
   /// - **Windows**: Fully supported via WebView2's PermissionRequested event.
-  /// - **macOS / iOS**: Fully supported via WKUIDelegate's requestMediaCapturePermission.
+  /// - **macOS**: Supported for Camera, Microphone, Geolocation (macOS 12+), and Sensors via `WKUIDelegate`. Notifications, ClipboardRead, and PointerLock have no `WKUIDelegate` hook and are not routed through this handler.
+  /// - **iOS**: Supported for Camera and Microphone via `WKUIDelegate`'s `requestMediaCapturePermission`.
   /// - **Linux**: Fully supported via WebKitGTK's permission-request signal.
   /// - **Android**: Supported via JNI bridge for geolocation, microphone, camera,
   ///   protected media, and MIDI requests. Android runtime permissions may still
@@ -1414,7 +1545,10 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific
   ///
-  /// This configuration only impacts macOS.
+  /// - **macOS**: Supported — controls whether a click on an inactive window is forwarded to
+  ///   the webview.
+  /// - **Linux / Windows / Android / iOS**: No-op. This is a macOS hit-testing concept with no
+  ///   equivalent on other platforms.
   pub fn with_accept_first_mouse(mut self, accept_first_mouse: bool) -> Self {
     self.attrs.accept_first_mouse = accept_first_mouse;
     self
@@ -1471,7 +1605,7 @@ impl<'a> WebViewBuilder<'a> {
   }
 
   /// Specify the webview position relative to its parent if it will be created as a child
-  /// or if created using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
+  /// or if created using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk4::Fixed`].
   ///
   /// Defaults to `x: 0, y: 0, width: 200, height: 200`.
   pub fn with_bounds(mut self, bounds: Rect) -> Self {
@@ -1487,7 +1621,8 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific
   ///
-  /// - **Linux / Windows / Android**: Unsupported. Workarounds like a pending WebLock transaction might suffice.
+  /// - **Linux / Windows / Android**: No-op. This is a macOS 14+ / iOS 17+ only feature with no
+  ///   WebKitGTK6 or WebView2 equivalent. Workarounds like a pending WebLock transaction might suffice.
   /// - **iOS**: Supported since version 17.0+.
   /// - **macOS**: Supported since version 14.0+.
   ///
@@ -1518,9 +1653,39 @@ impl<'a> WebViewBuilder<'a> {
   ///   "Suggestions") may not honor `autocomplete="off"` attributes on input
   ///   elements in some cases. When this option is `false`, that autofill
   ///   behavior will be disabled.
-  /// - **macOS / Linux / Android / iOS**: Unsupported and ignored.
+  /// - **macOS / Linux / Android / iOS**: No-op. This is a Windows-only browser feature; the
+  ///   option is silently ignored on all other platforms.
   pub fn with_general_autofill_enabled(mut self, enabled: bool) -> Self {
     self.attrs.general_autofill_enabled = enabled;
+    self
+  }
+
+  /// Enables media streaming (`getUserMedia` — camera and microphone access).
+  ///
+  /// Defaults to `false`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux**: Enables `webkit_settings_set_enable_media_stream`. Must be `true` for
+  ///   `getUserMedia()` calls to succeed; granting the permission via
+  ///   [`with_permission_handler`](Self::with_permission_handler) is still required in addition.
+  /// - **Windows / macOS / Android / iOS**: Unsupported and ignored (media stream is enabled by default on those platforms).
+  pub fn with_enable_media_stream(mut self, enabled: bool) -> Self {
+    self.attrs.enable_media_stream = enabled;
+    self
+  }
+
+  /// Enables Encrypted Media Extensions (EME / DRM).
+  ///
+  /// Defaults to `false`.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux**: Enables `webkit_settings_set_enable_encrypted_media`. Required for
+  ///   `MediaKeySystemAccess` (e.g. Widevine DRM).
+  /// - **Windows / macOS / Android / iOS**: Unsupported and ignored (EME is enabled by default on those platforms).
+  pub fn with_enable_encrypted_media(mut self, enabled: bool) -> Self {
+    self.attrs.enable_encrypted_media = enabled;
     self
   }
 
@@ -1528,18 +1693,21 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// # Platform-specific:
   ///
-  /// - **Linux**: Only X11 is supported, if you want to support Wayland too, use [`WebViewBuilderExtUnix::build_gtk`].
-  ///
-  ///   Although this method only needs an X11 window handle, we use webkit2gtk, so you still need to initialize gtk
-  ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
-  ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
+  /// - **Linux X11** (`--features x11`): The GTK window is reparented under the X11 window via
+  ///   `XReparentWindow`. The webview will not auto-resize; call [`WebView::set_bounds`] manually.
+  /// - **Linux Wayland** (`--features wayland`): Accepts a `RawWindowHandle::Wayland` handle.
+  ///   The backend locates the GTK4 window owning that Wayland surface. The parent window must be
+  ///   a GTK4 window; a foreign-toolkit surface returns `Error::UnsupportedWindowHandle`.
+  ///   Use [`WebViewBuilderExtUnix::build_gtk`] for a feature-flag-free GTK-native alternative.
+  /// - **Linux**: wry uses webkit6 (WebKitGTK 6), so you need to call [`gtk4::init`] and advance
+  ///   the GTK loop alongside your event loop via [`gtk4::glib::MainContext::default()`].
+  ///   See the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section.
   /// - **Windows**: The webview will auto-resize when the passed handle is resized.
-  /// - **Linux (X11)**: Unlike macOS and Windows, the webview will not auto-resize and you'll need to call [`WebView::set_bounds`] manually.
   ///
   /// # Panics:
   ///
   /// - Panics if the provided handle was not supported or invalid.
-  /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
+  /// - Panics on Linux, if [`gtk4::init`] was not called in this thread.
   pub fn build<W: HasWindowHandle>(self, window: &'a W) -> Result<WebView> {
     self.error?;
 
@@ -1553,21 +1721,20 @@ impl<'a> WebViewBuilder<'a> {
   /// - **Windows**: This will create the webview as a child window of the `parent` window.
   /// - **macOS**: This will create the webview as a `NSView` subview of the `parent` window's
   ///   content view.
-  /// - **Linux**: This will create the webview as a child window of the `parent` window. Only X11
-  ///   is supported. This method won't work on Wayland.
-  ///
-  ///   Although this methods only needs an X11 window handle, you use webkit2gtk, so you still need to initialize gtk
-  ///   by callling [`gtk::init`] and advance its loop alongside your event loop using [`gtk::main_iteration_do`].
-  ///   Checkout the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section in the crate root documentation.
-  ///
-  ///   If you want to support child webviews on X11 and Wayland at the same time,
-  ///   we recommend using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
+  /// - **Linux X11** (`--features x11`): Creates a child X11 window reparented under the parent.
+  /// - **Linux Wayland** (`--features wayland`): Accepts a `RawWindowHandle::Wayland` handle and
+  ///   positions the webview in a `GtkFixed` at `bounds.position`. The parent window must be a
+  ///   GTK4 window. Use [`WebViewBuilderExtUnix::build_gtk`] with [`gtk4::Fixed`] for a
+  ///   feature-flag-free GTK-native alternative that works on both X11 and Wayland.
+  /// - **Linux**: wry uses webkit6 (WebKitGTK 6), so you need to call [`gtk4::init`] and advance
+  ///   the GTK loop alongside your event loop via [`gtk4::glib::MainContext::default()`].
+  ///   See the [Platform Considerations](https://docs.rs/wry/latest/wry/#platform-considerations) section.
   /// - **Android/iOS:** Unsupported.
   ///
   /// # Panics:
   ///
-  /// - Panics if the provided handle was not support or invalid.
-  /// - Panics on Linux, if [`gtk::init`] was not called in this thread.
+  /// - Panics if the provided handle was not supported or invalid.
+  /// - Panics on Linux, if [`gtk4::init`] was not called in this thread.
   pub fn build_as_child<W: HasWindowHandle>(self, window: &'a W) -> Result<WebView> {
     self.error?;
 
@@ -2014,8 +2181,68 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
 ))]
 #[derive(Default)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
+  data_directory: Option<PathBuf>,
   extension_path: Option<PathBuf>,
-  related_view: Option<webkit2gtk::WebView>,
+  related_view: Option<webkit6::WebView>,
+  on_web_content_process_terminate_handler: Option<Box<dyn Fn()>>,
+  hardware_acceleration_policy: Option<HardwareAccelerationPolicy>,
+  theme: Option<crate::Theme>,
+  on_focus_handler: Option<Box<dyn Fn(bool)>>,
+  on_keyboard_handler: Option<Box<dyn Fn(u32, u32, webkit6::gdk::ModifierType) -> bool>>,
+  on_drag_source_handler: Option<Box<dyn Fn(i32, i32) -> Option<String>>>,
+  on_motion_handler: Option<Box<dyn Fn(f64, f64)>>,
+  on_pointer_enter_handler: Option<Box<dyn Fn(f64, f64)>>,
+  on_pointer_leave_handler: Option<Box<dyn Fn()>>,
+  on_scroll_handler: Option<Box<dyn Fn(f64, f64) -> bool>>,
+  on_monitors_changed_handler: Option<Box<dyn Fn(Vec<MonitorInfo>)>>,
+}
+
+/// Information about a connected monitor, provided by `GdkDisplay::monitors()`.
+///
+/// ## Platform-specific
+///
+/// **Linux/BSD only.** Received in the handler registered with
+/// [`WebViewBuilderExtUnix::with_monitors_changed_handler`].
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd",
+))]
+#[derive(Debug, Clone)]
+pub struct MonitorInfo {
+  /// The monitor geometry in logical pixels (physical pixels divided by scale factor).
+  pub geometry: Rect,
+  /// The display scale factor (e.g. `2` for HiDPI).
+  pub scale_factor: i32,
+  /// The manufacturer-provided model name, if available.
+  pub model: Option<String>,
+}
+
+/// Hardware acceleration policy for the WebKitGTK webview.
+///
+/// - [`HardwareAccelerationPolicy::Always`] — GPU compositing is always enabled
+///   (default WebKit behaviour).
+/// - [`HardwareAccelerationPolicy::Never`] — forces software rendering. Useful
+///   for headless environments, CI runners, or systems without a working EGL/DRM stack
+///   where GPU compositing causes a blank or corrupted webview. Equivalent to setting the
+///   `WEBKIT_DISABLE_DMABUF_RENDERER=1` / `WEBKIT_DISABLE_COMPOSITING_MODE=1` environment
+///   variables, but scoped to this webview instance.
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd",
+))]
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HardwareAccelerationPolicy {
+  /// GPU compositing always enabled (WebKit default).
+  Always,
+  /// Force software rendering.
+  Never,
 }
 
 #[cfg(any(
@@ -2026,26 +2253,148 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   target_os = "openbsd",
 ))]
 pub trait WebViewBuilderExtUnix<'a> {
-  /// Consume the builder and create the webview inside a GTK container widget, such as GTK window.
+  /// Consume the builder and create the webview inside a GTK4 widget, such as a GTK window.
   ///
-  /// - If the container is [`gtk::Box`], it is added using [`Box::pack_start(webview, true, true, 0)`](gtk::prelude::BoxExt::pack_start).
-  /// - If the container is [`gtk::Fixed`], its [size request](gtk::prelude::WidgetExt::set_size_request) will be set using the (width, height) bounds passed in
-  ///   and will be added to the container using [`Fixed::put`](gtk::prelude::FixedExt::put) using the (x, y) bounds passed in.
-  /// - For all other containers, it will be added using [`gtk::prelude::ContainerExt::add`]
+  /// - If the widget is [`gtk4::Box`], the webview is appended using [`gtk4::prelude::BoxExt::append`].
+  /// - If the widget is [`gtk4::Fixed`], its [size request](gtk4::prelude::WidgetExt::set_size_request) will be set
+  ///   using the (width, height) bounds passed in and it will be placed using
+  ///   [`Fixed::put`](gtk4::prelude::FixedExt::put) at the (x, y) bounds passed in.
+  /// - For all other widgets, the webview is set as the child using [`gtk4::prelude::WindowExt::set_child`].
   ///
   /// # Panics:
   ///
-  /// - Panics if [`gtk::init`] was not called in this thread.
+  /// - Panics if [`gtk4::init`] was not called in this thread.
   fn build_gtk<W>(self, widget: &'a W) -> Result<WebView>
   where
-    W: gtk::prelude::IsA<gtk::Container>;
+    W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>;
+
+  /// Set a custom directory for the WebKit website data (cache, IndexedDB, cookies, …).
+  ///
+  /// This is the Linux equivalent of [`WebViewBuilderExtWindows::with_profile_name`] and
+  /// [`WebViewBuilderExtDarwin::with_data_store_identifier`]: it creates an isolated
+  /// `NetworkSession` whose persistent data lives under `path` rather than the default
+  /// system-wide WebKit data directory.
+  ///
+  /// **Note:** This option is ignored when an explicit [`WebContext`] is also supplied via
+  /// [`WebViewBuilder::with_web_context`], since the context already owns its `NetworkSession`.
+  /// In that case configure the data directory on the [`WebContext`] directly.
+  fn with_data_directory(self, path: impl Into<PathBuf>) -> Self;
 
   /// Set the path from which to load extensions from.
   fn with_extensions_path(self, path: impl Into<PathBuf>) -> Self;
 
-  /// Creates a new webview sharing the same web process with the provided webview.
-  /// Useful if you need to link a webview to another, for instance when using the [`WebViewBuilder::with_new_window_req_handler`].
-  fn with_related_view(self, webview: webkit2gtk::WebView) -> Self;
+  /// Creates a new webview sharing the same web process as the opener.
+  ///
+  /// Pass the [`WebViewHandle`] obtained from [`NewWindowOpener::webview`].
+  fn with_related_view(self, webview: WebViewHandle) -> Self;
+
+  /// Set a handler closure to respond to web content process termination.
+  ///
+  /// This is called when the WebKit web process (which renders pages and runs JavaScript)
+  /// crashes or is killed due to exceeding memory limits. Use it to show an error page
+  /// or reload the webview.
+  ///
+  /// The `webkit6::WebProcessTerminationReason` passed to the underlying signal is not
+  /// forwarded — the handler is a plain `Fn()`. Use [`WebViewExtUnix::webview`] and
+  /// connect `connect_web_process_terminated` directly if you need the reason.
+  fn with_on_web_content_process_terminate_handler(self, handler: impl Fn() + 'static) -> Self;
+
+  /// Set the hardware acceleration policy for the webview.
+  ///
+  /// See [`HardwareAccelerationPolicy`] for the available options.
+  fn with_hardware_acceleration_policy(self, policy: HardwareAccelerationPolicy) -> Self;
+
+  /// Set the preferred color scheme (`prefers-color-scheme` CSS media feature).
+  ///
+  /// - [`Theme::Dark`]  — forces dark mode.
+  /// - [`Theme::Light`] — forces light mode.
+  /// - [`Theme::Auto`]  — follows the system/desktop preference (default, no-op).
+  ///
+  /// ## Platform-specific
+  ///
+  /// **Linux:** Sets GTK4's `gtk-application-prefer-dark-theme` display setting,
+  /// which WebKitGTK reads to determine the `prefers-color-scheme` CSS media feature.
+  ///
+  /// > **Warning — display-wide side effect.** This is a GTK display-level setting,
+  /// > not a per-webview one. It affects every GTK widget in the process for the
+  /// > lifetime of the GDK display — including native dialogs, menus, and other
+  /// > webviews. If you build multiple webviews with different themes, the last
+  /// > builder to call `with_theme` wins for the entire process. For most WRY
+  /// > applications (a single fullscreen webview) this is the intended behaviour.
+  /// > If you need per-page colour control without the display-wide effect, inject
+  /// > a `<style>:root { color-scheme: dark }</style>` override via
+  /// > [`WebViewBuilder::with_initialization_script`] instead.
+  ///
+  /// [`Theme::Auto`] is always a no-op — it leaves the GTK setting unchanged so
+  /// the system/desktop preference is followed.
+  fn with_theme(self, theme: Theme) -> Self;
+
+  /// Set a handler that is called when the webview gains or loses keyboard focus.
+  ///
+  /// The argument is `true` when focus is gained and `false` when focus is lost.
+  fn with_focus_handler(self, handler: impl Fn(bool) + 'static) -> Self;
+
+  /// Set a handler that is called on every key-press event before WebKit processes it.
+  ///
+  /// The handler receives `(keyval, keycode, modifiers)`. Return `true` to consume the
+  /// event (WebKit will not see it); return `false` to let it propagate normally.
+  fn with_keyboard_handler(
+    self,
+    handler: impl Fn(u32, u32, webkit6::gdk::ModifierType) -> bool + 'static,
+  ) -> Self;
+
+  /// Set a handler that is called when the user begins dragging content out of the webview.
+  ///
+  /// The handler receives the pointer `(x, y)` position and should return the text content
+  /// to start dragging, or `None` to cancel the drag.
+  fn with_drag_source_handler(self, handler: impl Fn(i32, i32) -> Option<String> + 'static)
+    -> Self;
+
+  /// Set a handler called on every pointer-motion event over the webview.
+  ///
+  /// The handler receives `(x, y)` in widget-local coordinates (logical pixels).
+  ///
+  /// ## Platform-specific
+  ///
+  /// **Linux/BSD only.** Uses `GtkEventControllerMotion`.
+  fn with_motion_handler(self, handler: impl Fn(f64, f64) + 'static) -> Self;
+
+  /// Set a handler called when the pointer enters the webview's widget area.
+  ///
+  /// The handler receives `(x, y)` — the entry position in logical pixels.
+  ///
+  /// ## Platform-specific
+  ///
+  /// **Linux/BSD only.** Uses `GtkEventControllerMotion`.
+  fn with_pointer_enter_handler(self, handler: impl Fn(f64, f64) + 'static) -> Self;
+
+  /// Set a handler called when the pointer leaves the webview's widget area.
+  ///
+  /// ## Platform-specific
+  ///
+  /// **Linux/BSD only.** Uses `GtkEventControllerMotion`.
+  fn with_pointer_leave_handler(self, handler: impl Fn() + 'static) -> Self;
+
+  /// Set a handler called on every scroll event before WebKit processes it.
+  ///
+  /// The handler receives `(delta_x, delta_y)` in scroll units (positive = right/down).
+  /// Return `true` to consume (suppress) the event; `false` to let it propagate to WebKit.
+  ///
+  /// ## Platform-specific
+  ///
+  /// **Linux/BSD only.** Uses `GtkEventControllerScroll` with `BOTH_AXES` flag.
+  fn with_scroll_handler(self, handler: impl Fn(f64, f64) -> bool + 'static) -> Self;
+
+  /// Set a handler called whenever the monitor configuration changes (monitor connected,
+  /// disconnected, or reconfigured).
+  ///
+  /// The callback receives a snapshot `Vec<MonitorInfo>` representing the current monitor
+  /// list at the time of the change.
+  ///
+  /// ## Platform-specific
+  ///
+  /// **Linux/BSD only.** Uses `GdkDisplay::monitors()` → `GListModel::connect_items_changed`.
+  fn with_monitors_changed_handler(self, handler: impl Fn(Vec<MonitorInfo>) + 'static) -> Self;
 }
 
 #[cfg(any(
@@ -2058,7 +2407,7 @@ pub trait WebViewBuilderExtUnix<'a> {
 impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
   fn build_gtk<W>(self, widget: &'a W) -> Result<WebView>
   where
-    W: gtk::prelude::IsA<gtk::Container>,
+    W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>,
   {
     self.error?;
 
@@ -2066,13 +2415,81 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
       .map(|webview| WebView { webview })
   }
 
+  fn with_data_directory(mut self, path: impl Into<PathBuf>) -> Self {
+    self.platform_specific.data_directory = Some(path.into());
+    self
+  }
+
   fn with_extensions_path(mut self, path: impl Into<PathBuf>) -> Self {
     self.platform_specific.extension_path = Some(path.into());
     self
   }
 
-  fn with_related_view(mut self, webview: webkit2gtk::WebView) -> Self {
-    self.platform_specific.related_view.replace(webview);
+  fn with_related_view(mut self, webview: WebViewHandle) -> Self {
+    self.platform_specific.related_view.replace(webview.0);
+    self
+  }
+
+  fn with_on_web_content_process_terminate_handler(mut self, handler: impl Fn() + 'static) -> Self {
+    self
+      .platform_specific
+      .on_web_content_process_terminate_handler = Some(Box::new(handler));
+    self
+  }
+
+  fn with_hardware_acceleration_policy(mut self, policy: HardwareAccelerationPolicy) -> Self {
+    self.platform_specific.hardware_acceleration_policy = Some(policy);
+    self
+  }
+
+  fn with_theme(mut self, theme: Theme) -> Self {
+    self.platform_specific.theme = Some(theme);
+    self
+  }
+
+  fn with_focus_handler(mut self, handler: impl Fn(bool) + 'static) -> Self {
+    self.platform_specific.on_focus_handler = Some(Box::new(handler));
+    self
+  }
+
+  fn with_keyboard_handler(
+    mut self,
+    handler: impl Fn(u32, u32, webkit6::gdk::ModifierType) -> bool + 'static,
+  ) -> Self {
+    self.platform_specific.on_keyboard_handler = Some(Box::new(handler));
+    self
+  }
+
+  fn with_drag_source_handler(
+    mut self,
+    handler: impl Fn(i32, i32) -> Option<String> + 'static,
+  ) -> Self {
+    self.platform_specific.on_drag_source_handler = Some(Box::new(handler));
+    self
+  }
+
+  fn with_motion_handler(mut self, handler: impl Fn(f64, f64) + 'static) -> Self {
+    self.platform_specific.on_motion_handler = Some(Box::new(handler));
+    self
+  }
+
+  fn with_pointer_enter_handler(mut self, handler: impl Fn(f64, f64) + 'static) -> Self {
+    self.platform_specific.on_pointer_enter_handler = Some(Box::new(handler));
+    self
+  }
+
+  fn with_pointer_leave_handler(mut self, handler: impl Fn() + 'static) -> Self {
+    self.platform_specific.on_pointer_leave_handler = Some(Box::new(handler));
+    self
+  }
+
+  fn with_scroll_handler(mut self, handler: impl Fn(f64, f64) -> bool + 'static) -> Self {
+    self.platform_specific.on_scroll_handler = Some(Box::new(handler));
+    self
+  }
+
+  fn with_monitors_changed_handler(mut self, handler: impl Fn(Vec<MonitorInfo>) + 'static) -> Self {
+    self.platform_specific.on_monitors_changed_handler = Some(Box::new(handler));
     self
   }
 }
@@ -2116,12 +2533,36 @@ impl WebView {
     self.webview.eval(js, Some(callback))
   }
 
+  /// Reparent the webview to a new window or surface.
+  ///
+  /// Moves this webview so that it renders inside `window` instead of its current parent.
+  /// Accepts any type that implements [`HasWindowHandle`], the same trait accepted by
+  /// [`WebViewBuilder::build`].
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Calls `SetParent` on the WebView2 HWND, matching `WebViewExtWindows::reparent`.
+  /// - **macOS / iOS**: Adds the WKWebView as a subview of the target window's content view,
+  ///   matching `WebViewExtMacOS::reparent` / `WebViewExtIOS::reparent`.
+  /// - **Linux (X11)**: Calls `XReparentWindow` to move the embedded GTK surface under the new
+  ///   X11 parent. Only applies to webviews created via [`WebViewBuilder::build`]. Webviews
+  ///   created via [`WebViewBuilderExtUnix::build_gtk`] should use [`WebViewExtUnix::reparent_gtk`].
+  pub fn reparent<W: HasWindowHandle>(&self, window: &W) -> Result<()> {
+    self.webview.reparent_window(window)
+  }
+
   /// Launch print modal for the webview content.
   pub fn print(&self) -> Result<()> {
     self.webview.print()
   }
 
   /// Get a list of cookies for specific url.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux**: Blocks the calling thread by pumping the GLib main loop until the
+  ///   async WebKit cookie operation completes. Must be called from the thread that owns
+  ///   the GLib [`MainContext`](webkit6::glib::MainContext) (i.e. the UI/main thread).
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
     self.webview.cookies_for_url(url)
   }
@@ -2130,6 +2571,9 @@ impl WebView {
   ///
   /// ## Platform-specific
   ///
+  /// - **Linux**: Blocks the calling thread by pumping the GLib main loop until the
+  ///   async WebKit cookie operation completes. Must be called from the thread that owns
+  ///   the GLib [`MainContext`](webkit6::glib::MainContext) (i.e. the UI/main thread).
   /// - **Android**: Unsupported, always returns an empty [`Vec`].
   pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {
     self.webview.cookies()
@@ -2139,6 +2583,9 @@ impl WebView {
   ///
   /// ## Platform-specific
   ///
+  /// - **Linux**: Blocks the calling thread by pumping the GLib main loop until the
+  ///   async WebKit cookie operation completes. Must be called from the thread that owns
+  ///   the GLib [`MainContext`](webkit6::glib::MainContext) (i.e. the UI/main thread).
   /// - **Android**: Not supported.
   pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
     self.webview.set_cookie(cookie)
@@ -2148,6 +2595,9 @@ impl WebView {
   ///
   /// ## Platform-specific
   ///
+  /// - **Linux**: Blocks the calling thread by pumping the GLib main loop until the
+  ///   async WebKit cookie operation completes. Must be called from the thread that owns
+  ///   the GLib [`MainContext`](webkit6::glib::MainContext) (i.e. the UI/main thread).
   /// - **Android**: Not supported.
   pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
     self.webview.delete_cookie(cookie)
@@ -2259,7 +2709,7 @@ impl WebView {
   /// Set the webview bounds.
   ///
   /// This is only effective if the webview was created as a child
-  /// or created using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
+  /// or created using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk4::Fixed`].
   pub fn set_bounds(&self, bounds: Rect) -> Result<()> {
     self.webview.set_bounds(bounds)
   }
@@ -2309,6 +2759,22 @@ pub enum DragDropEvent {
   },
   /// The drag operation has been cancelled or left the window.
   Leave,
+  /// A drag operation originating from the webview has started.
+  ///
+  /// This variant is emitted on Linux/GTK4 when the user begins dragging
+  /// content out of the webview. It is informational — the drag content is
+  /// supplied via [`WebViewBuilderExtUnix::with_drag_source_handler`].
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+  ))]
+  Start {
+    /// Pointer position where the drag originated, relative to the webview.
+    position: (i32, i32),
+  },
 }
 
 /// Get WebView/Webkit version on current platform.
@@ -2316,6 +2782,28 @@ pub enum DragDropEvent {
 #[cfg_attr(docsrs, doc(cfg(feature = "os-webview")))]
 pub fn webview_version() -> Result<String> {
   platform_webview_version()
+}
+
+/// Pump pending platform events to advance GTK/GLib state.
+///
+/// On Linux, wry embeds WebKitGTK which relies on the GLib main loop for
+/// network requests, rendering callbacks, IPC, and JavaScript execution.
+/// When you drive your own event loop (e.g. winit) you must call this
+/// once per outer-loop iteration so that GTK/GLib can process its pending work.
+///
+/// ```no_run
+/// // Inside your event-loop's about_to_wait / poll hook:
+/// wry::pump_platform_events();
+/// ```
+///
+/// ## Platform-specific
+///
+/// - **Linux**: Drains all pending GLib [`MainContext`](webkit6::glib::MainContext) events.
+/// - **Other platforms**: No-op — the function is only exported on Linux/BSD.
+#[cfg(gtk)]
+#[cfg_attr(docsrs, doc(cfg(gtk)))]
+pub fn pump_platform_events() {
+  while webkit6::glib::MainContext::default().iteration(false) {}
 }
 
 /// The [memory usage target level][1]. There are two levels 'Low' and 'Normal' and the default
@@ -2409,47 +2897,128 @@ impl WebViewExtWindows for WebView {
 /// Additional methods on `WebView` that are specific to Linux.
 #[cfg(gtk)]
 pub trait WebViewExtUnix: Sized {
-  /// Create the webview inside a GTK container widget, such as GTK window.
+  /// Create the webview inside a GTK4 widget, such as a GTK window.
   ///
-  /// - If the container is [`gtk::Box`], it is added using [`Box::pack_start(webview, true, true, 0)`](gtk::prelude::BoxExt::pack_start).
-  /// - If the container is [`gtk::Fixed`], its [size request](gtk::prelude::WidgetExt::set_size_request) will be set using the (width, height) bounds passed in
-  ///   and will be added to the container using [`Fixed::put`](gtk::prelude::FixedExt::put) using the (x, y) bounds passed in.
-  /// - For all other containers, it will be added using [`gtk::prelude::ContainerExt::add`]
+  /// - If the widget is [`gtk4::Box`], the webview is appended using [`gtk4::prelude::BoxExt::append`].
+  /// - If the widget is [`gtk4::Fixed`], its [size request](gtk4::prelude::WidgetExt::set_size_request) will be set
+  ///   using the (width, height) bounds passed in and it will be placed using
+  ///   [`Fixed::put`](gtk4::prelude::FixedExt::put) at the (x, y) bounds passed in.
+  /// - For all other widgets, the webview is set as the child using [`gtk4::prelude::WindowExt::set_child`].
   ///
   /// # Panics:
   ///
-  /// - Panics if [`gtk::init`] was not called in this thread.
+  /// - Panics if [`gtk4::init`] was not called in this thread.
   fn new_gtk<W>(widget: &W) -> Result<Self>
   where
-    W: gtk::prelude::IsA<gtk::Container>;
+    W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>;
 
-  /// Returns Webkit2gtk Webview handle
-  fn webview(&self) -> webkit2gtk::WebView;
+  /// Returns webkit6 WebView handle
+  fn webview(&self) -> webkit6::WebView;
 
-  /// Attaches this webview to the given Widget and removes it from the current one.
-  fn reparent<W>(&self, widget: &W) -> Result<()>
+  /// Attaches this webview to the given GTK widget and removes it from the current one.
+  fn reparent_gtk<W>(&self, widget: &W) -> Result<()>
   where
-    W: gtk::prelude::IsA<gtk::Container>;
+    W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>;
+
+  /// Returns the base data directory used by the underlying `NetworkSession`, if one was set.
+  ///
+  /// Returns `None` when the webview uses a default or ephemeral session without a custom
+  /// data directory. Callers can use this path to enumerate or delete stored data on the
+  /// filesystem, which is the Linux equivalent of the macOS `fetch_data_store_identifiers` /
+  /// `remove_data_store` APIs.
+  fn data_directory(&self) -> Option<PathBuf>;
+
+  /// Write text to the system clipboard via the default GDK display.
+  ///
+  /// This is an instant, synchronous write that does not require
+  /// `with_clipboard(true)` or a JavaScript round-trip.
+  fn write_clipboard_text(&self, text: &str);
+
+  /// Read text from the system clipboard asynchronously.
+  ///
+  /// The `callback` is invoked on the GLib main context with the clipboard
+  /// text, or `None` if the clipboard is empty or unavailable.
+  fn read_clipboard_text(&self, callback: impl FnOnce(Option<String>) + 'static);
+
+  /// Override the cursor shown over the webview widget.
+  ///
+  /// Pass a named CSS cursor string (e.g. `"crosshair"`, `"grab"`, `"zoom-in"`) to set a
+  /// custom cursor, or `None` to restore the default browser cursor.
+  ///
+  /// This overrides the GTK widget cursor independently of any CSS `cursor:` property
+  /// on the page content.
+  ///
+  /// ## Platform-specific
+  ///
+  /// **Linux/BSD only.** Uses `gtk::Widget::set_cursor_from_name`.
+  fn set_cursor_from_name(&self, name: Option<&str>);
+
+  /// Write text into the X11 primary selection (middle-click clipboard).
+  ///
+  /// On Wayland compositors the primary selection may be non-functional depending on
+  /// the compositor's security policy.
+  ///
+  /// ## Platform-specific
+  ///
+  /// **Linux/BSD only.** Uses `GdkDisplay::primary_clipboard`.
+  fn write_primary_clipboard_text(&self, text: &str);
+
+  /// Read text from the X11 primary selection (middle-click clipboard) asynchronously.
+  ///
+  /// The `callback` is invoked on the GLib main context with the selected text, or `None`
+  /// if the primary selection is empty or unavailable.
+  ///
+  /// On Wayland compositors the callback will typically receive `None` since compositors
+  /// restrict primary-clipboard access.
+  ///
+  /// ## Platform-specific
+  ///
+  /// **Linux/BSD only.** Uses `GdkDisplay::primary_clipboard`.
+  fn read_primary_clipboard_text(&self, callback: impl FnOnce(Option<String>) + 'static);
 }
 
 #[cfg(gtk)]
 impl WebViewExtUnix for WebView {
   fn new_gtk<W>(widget: &W) -> Result<Self>
   where
-    W: gtk::prelude::IsA<gtk::Container>,
+    W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>,
   {
     WebViewBuilder::new().build_gtk(widget)
   }
 
-  fn webview(&self) -> webkit2gtk::WebView {
+  fn webview(&self) -> webkit6::WebView {
     self.webview.webview.clone()
   }
 
-  fn reparent<W>(&self, widget: &W) -> Result<()>
+  fn reparent_gtk<W>(&self, widget: &W) -> Result<()>
   where
-    W: gtk::prelude::IsA<gtk::Container>,
+    W: webkit6::gtk::prelude::IsA<webkit6::gtk::Widget>,
   {
     self.webview.reparent(widget)
+  }
+
+  fn data_directory(&self) -> Option<PathBuf> {
+    self.webview.data_directory()
+  }
+
+  fn write_clipboard_text(&self, text: &str) {
+    self.webview.write_clipboard_text(text);
+  }
+
+  fn read_clipboard_text(&self, callback: impl FnOnce(Option<String>) + 'static) {
+    self.webview.read_clipboard_text(callback);
+  }
+
+  fn set_cursor_from_name(&self, name: Option<&str>) {
+    self.webview.set_cursor_from_name(name);
+  }
+
+  fn write_primary_clipboard_text(&self, text: &str) {
+    self.webview.write_primary_clipboard_text(text);
+  }
+
+  fn read_primary_clipboard_text(&self, callback: impl FnOnce(Option<String>) + 'static) {
+    self.webview.read_primary_clipboard_text(callback);
   }
 }
 
