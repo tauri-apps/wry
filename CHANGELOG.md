@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.56.1]
+
+- [`62080fa`](https://github.com/tauri-apps/wry/commit/62080fabeb154e7951a1d42d1e77e5146a984a9a) ([#1811](https://github.com/tauri-apps/wry/pull/1811) by [@gimenete](https://github.com/tauri-apps/wry/../../gimenete)) On Android, cache the asset-loader setting in `RustWebViewClient` so intercepted requests avoid repeated JNI calls into Rust state.
+- [`a5612a8`](https://github.com/tauri-apps/wry/commit/a5612a8475ec2c3072b4cc302b6ea1aa01a4f670) ([#1812](https://github.com/tauri-apps/wry/pull/1812) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) On Android, removed unused `withAssetLoader` binding and `assetLoaderDomain` can now return `null`.
+- [`5ce72b0`](https://github.com/tauri-apps/wry/commit/5ce72b0a9b9a8f72111aef10fb4d9242469cfda4) ([#1772](https://github.com/tauri-apps/wry/pull/1772) by [@degant](https://github.com/tauri-apps/wry/../../degant)) Don't panic in the IPC handler when the webview's current document URL is not a valid `http::Uri` (for example a `file://` URL, or one containing a raw space or non-ASCII characters). Such invalid IPC requests are now logged (under the `tracing` feature) and dropped instead of aborting the process, matching the existing behavior of the WKWebView backend.
+- [`b95a7f8`](https://github.com/tauri-apps/wry/commit/b95a7f81cbdaab80b13dff2f79472ea28589f210) ([#1799](https://github.com/tauri-apps/wry/pull/1799) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) On Windows, ignore set webview focus error on create as it fails if the hosting window is minimized.
+- [`aff28ef`](https://github.com/tauri-apps/wry/commit/aff28ef5a48e717e1b14b716e452124663cc4df1) ([#1781](https://github.com/tauri-apps/wry/pull/1781) by [@FabianLars](https://github.com/tauri-apps/wry/../../FabianLars)) On macOS in debug mode, don't register `requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:` delegate method on macOS 11 or older to prevent a debug_assertion startup panic.
+- [`be729e3`](https://github.com/tauri-apps/wry/commit/be729e302c7cd5a504038cabc9aa2610fb36a3d9) ([#1804](https://github.com/tauri-apps/wry/pull/1804) by [@velocitysystems](https://github.com/tauri-apps/wry/../../velocitysystems)) Override `getDefaultVideoPoster()` on Android to return a transparent bitmap instead of null, preventing Chromium from painting its default gray play-button placeholder on `<video>` elements.
+- [`3fbf592`](https://github.com/tauri-apps/wry/commit/3fbf592feab29ffb269778a6f5573746a2f25a4a) ([#1795](https://github.com/tauri-apps/wry/pull/1795) by [@qwerfunch](https://github.com/tauri-apps/wry/../../qwerfunch)) Fix a Windows crash when the WebView2 parent subclass is re-entered after its controller reference data is cleared during teardown.
+
 ## \[0.56.0]
 
 - [`affbb3c`](https://github.com/tauri-apps/wry/commit/affbb3cbccc618663737f9b629f2aa21d3890159) ([#1720](https://github.com/tauri-apps/wry/pull/1720)) Updated Android lifecycle JNI calls in `WryActivity` for Tao 0.36's renames:

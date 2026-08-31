@@ -478,7 +478,9 @@ impl InnerWebView {
     unsafe { Self::attach_handlers(hwnd, &webview, &mut attributes, &mut token, env)? };
 
     // IPC handler
-    unsafe { Self::attach_ipc_handler(&webview, &mut attributes, &mut token)? };
+    if let Some(ipc_handler) = attributes.ipc_handler.take() {
+      unsafe { Self::attach_ipc_handler(&webview, ipc_handler, &mut token)? };
+    };
 
     // Custom protocols handler
     let http_or_https = if pl_attrs.use_https { "https" } else { "http" };
@@ -941,20 +943,19 @@ impl InnerWebView {
   #[inline]
   unsafe fn attach_ipc_handler(
     webview: &ICoreWebView2,
-    attributes: &mut WebViewAttributes,
+    ipc_handler: Box<dyn Fn(Request<String>)>,
     token: &mut EventRegistrationToken,
   ) -> Result<()> {
     Self::add_script_to_execute_on_document_created(
       webview,
       String::from(
-        r#"Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: s=> window.chrome.webview.postMessage(s) }) });"#,
+        r#"Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: s => window.chrome.webview.postMessage(s) }) });"#,
       ),
     )?;
 
-    let ipc_handler = attributes.ipc_handler.take();
     webview.add_WebMessageReceived(
       &WebMessageReceivedEventHandler::create(Box::new(move |_, args| {
-        let (Some(args), Some(ipc_handler)) = (args, &ipc_handler) else {
+        let Some(args) = args else {
           return Ok(());
         };
 
