@@ -11,7 +11,7 @@ readme = "README.md"
 repository = "https://github.com/tauri-apps/wry"
 documentation = "https://docs.rs/wry"
 categories = ["gui"]
-rust-version = "1.77"
+rust-version = "1.85"
 exclude = ["/.changes", "/.github", "/audits", "/wry-logo.svg"]
 
 [package.metadata.docs.rs]
@@ -65,13 +65,13 @@ dirs = "6"
 x11-dl = { version = "2.21" }
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.38"
+webview2-com = "0.39"
 windows-version = "0.1"
-windows-core = "0.61"
+windows-core = "0.62"
 dunce = "1"
 
 [target."cfg(target_os = \"windows\")".dependencies.windows]
-version = "0.61"
+version = "0.62"
 features = [
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
@@ -209,7 +209,7 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
 
 [dev-dependencies]
 pollster = "1.0.0"
-tao = "0.36"
+tao = "0.37"
 wgpu = "23"
 winit = "0.30"
 getrandom = "0.3"
