@@ -1190,7 +1190,7 @@ impl InnerWebView {
     for (name, value) in sent_response.headers().iter() {
       let header_key = name.to_string();
       if let Ok(value) = value.to_str() {
-        let _ = writeln!(headers_map, "{}: {}", header_key, value);
+        let _ = writeln!(headers_map, "{header_key}: {value}");
       }
     }
     let headers_map = HSTRING::from(headers_map);
@@ -1662,14 +1662,8 @@ impl InnerWebView {
   ) -> windows::core::Result<ICoreWebView2Cookie> {
     let name = HSTRING::from(cookie.name());
     let value = HSTRING::from(cookie.value());
-    let domain = match cookie.domain() {
-      Some(domain) => HSTRING::from(domain),
-      None => HSTRING::new(),
-    };
-    let path = match cookie.path() {
-      Some(path) => HSTRING::from(path),
-      None => HSTRING::new(),
-    };
+    let domain = cookie.domain().map(HSTRING::from).unwrap_or_default();
+    let path = cookie.path().map(HSTRING::from).unwrap_or_default();
 
     let win32_cookie = cookie_manager.CreateCookie(&name, &value, &domain, &path)?;
 
@@ -1878,7 +1872,7 @@ fn load_url_with_headers(
     for (name, value) in headers.iter() {
       let header_key = name.to_string();
       if let Ok(value) = value.to_str() {
-        let _ = writeln!(headers_map, "{}: {}", header_key, value);
+        let _ = writeln!(headers_map, "{header_key}: {value}");
       }
     }
     HSTRING::from(headers_map)
