@@ -277,8 +277,15 @@ pub unsafe fn onFirstActivityCreateWry(env: JNIEnv, _: JClass) {
       if libc::read(fd.as_raw_fd(), buf.as_mut_ptr() as *mut _, buf.len())
         == buf.len() as libc::ssize_t
       {
-        // unregister itself on errors
-        main_pipe.recv().is_ok()
+        match main_pipe.recv() {
+          Ok(()) => true,
+          Err(_error) => {
+            #[cfg(feature = "tracing")]
+            tracing::error!("Failed to process Android main pipe message: {_error}");
+            let _ = main_pipe.env.exception_clear();
+            false
+          }
+        }
       } else {
         // unregister itself
         false
