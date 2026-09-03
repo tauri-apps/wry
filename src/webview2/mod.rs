@@ -39,6 +39,9 @@ type EventRegistrationToken = i64;
 const PARENT_SUBCLASS_ID: u32 = WM_USER + 0x64;
 const PARENT_DESTROY_MESSAGE: u32 = WM_USER + 0x65;
 const MAIN_THREAD_DISPATCHER_SUBCLASS_ID: u32 = WM_USER + 0x66;
+// Private message used to trigger a late drag&drop (re)registration after the HWND is created.
+// This avoids relying on WM_SHOWWINDOW/WM_SIZE timing (which can happen before we set GWLP_USERDATA).
+const REINIT_DRAG_DROP_MESSAGE: u32 = WM_APP + 0x2A7;
 static EXEC_MSG_ID: Lazy<u32> = Lazy::new(|| unsafe { RegisterWindowMessageA(s!("Wry::ExecMsg")) });
 
 impl From<webview2_com::Error> for Error {
@@ -64,11 +67,19 @@ pub(crate) struct InnerWebView {
   // Store FileDropController in here to make sure it gets dropped when
   // the webview gets dropped, otherwise we'll have a memory leak
   #[allow(dead_code)]
-  drag_drop_controller: Option<DragDropController>,
+  // Wrapped in Rc<RefCell<..>> so the container WndProc can trigger a late `reinit()` via HWND
+  // user data (no dependency on external callers like Tauri).
+  drag_drop_controller: Option<Rc<RefCell<DragDropController>>>,
 }
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
+    unsafe {
+      // We store a raw pointer in GWLP_USERDATA; clear it on drop to avoid WndProc dereferencing
+      // a dangling pointer if the window outlives `InnerWebView`.
+      let _ = SetWindowLongPtrW(self.hwnd, GWLP_USERDATA, 0);
+    }
+
     let _ = unsafe { self.controller.Close() };
     if self.is_child {
       let _ = unsafe { DestroyWindow(self.hwnd) };
@@ -160,8 +171,23 @@ impl InnerWebView {
           .cast::<ICoreWebView2Controller4>()
           .and_then(|c| c.SetAllowExternalDrop(false));
       }
-      DragDropController::new(hwnd, handler)
+      // Allocate on the heap and keep it alive for the lifetime of the webview.
+      Rc::new(RefCell::new(DragDropController::new(hwnd, handler)))
     });
+
+    if let Some(dd) = &drag_drop_controller {
+      // Expose a stable address to the container WndProc so it can reinit on WM_SHOWWINDOW/WM_SIZE.
+      // Intentionally does NOT bump the refcount: lifetime is managed by `InnerWebView`.
+      unsafe {
+        let _ = SetWindowLongPtrW(hwnd, GWLP_USERDATA, Rc::as_ptr(dd) as isize);
+      }
+
+      // Ensure we attempt at least one late reinit after GWLP_USERDATA is set.
+      // On Windows, WM_SHOWWINDOW/WM_SIZE can be delivered during CreateWindowExW, before we get here.
+      unsafe {
+        let _ = PostMessageW(Some(hwnd), REINIT_DRAG_DROP_MESSAGE, WPARAM(0), LPARAM(0));
+      }
+    }
 
     let w = Self {
       id,
@@ -189,20 +215,79 @@ impl InnerWebView {
     attributes: &WebViewAttributes,
     is_child: bool,
   ) -> Result<HWND> {
+    #[inline]
+    unsafe fn try_reinit_drag_drop_from_userdata(hwnd: HWND) {
+      // Fetch the controller pointer previously stored in GWLP_USERDATA.
+      let ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *const RefCell<DragDropController>;
+      if ptr.is_null() {
+        return;
+      }
+
+      let dd = &*ptr;
+      // WndProc can be re-entrant; avoid panicking on RefCell borrow violations.
+      let should_reinit = dd.try_borrow().map(|dd| !dd.is_inited()).unwrap_or(false);
+
+      if should_reinit {
+        if let Ok(mut dd) = dd.try_borrow_mut() {
+          dd.reinit();
+        }
+      }
+    }
+
+    #[inline]
+    unsafe fn force_reinit_drag_drop_from_userdata(hwnd: HWND) {
+      // Same as `try_reinit_*`, but intentionally bypasses `is_inited()`.
+      // WebView2 can create/replace its child HWNDs after the container is shown.
+      let ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *const RefCell<DragDropController>;
+      if ptr.is_null() {
+        return;
+      }
+
+      let dd = &*ptr;
+      if let Ok(mut dd) = dd.try_borrow_mut() {
+        dd.reinit();
+      }
+    }
+
     unsafe extern "system" fn default_window_proc(
       hwnd: HWND,
       msg: u32,
       wparam: WPARAM,
       lparam: LPARAM,
     ) -> LRESULT {
-      if msg == WM_SETFOCUS {
-        // Fix https://github.com/DioxusLabs/dioxus/issues/2900
-        // Get the first child window of the window
-        let child = GetWindow(hwnd, GW_CHILD).ok();
-        if child.is_some() {
-          // Set focus to the child window(WebView document)
-          let _ = SetFocus(child);
+      match msg {
+        WM_SETFOCUS => {
+          // Fix https://github.com/DioxusLabs/dioxus/issues/2900
+          // Get the first child window of the window
+          let child = GetWindow(hwnd, GW_CHILD).ok();
+          if child.is_some() {
+            // Set focus to the child window(WebView document)
+            let _ = SetFocus(child);
+          }
         }
+
+        // When the container window becomes visible, re-register drop target.
+        // This makes drag&drop work even if the embedding framework never calls `webview.set_visible(true)`.
+        WM_SHOWWINDOW => {
+          if wparam.0 != 0 {
+            // Force one reinit when the container becomes visible to catch HWNDs that are
+            // created/replaced by WebView2 during first show.
+            unsafe { force_reinit_drag_drop_from_userdata(hwnd) };
+          }
+        }
+
+        // Late initialization hook after `GWLP_USERDATA` is populated.
+        REINIT_DRAG_DROP_MESSAGE => unsafe { force_reinit_drag_drop_from_userdata(hwnd) },
+
+        // Often the WebView2 child is only ready after the first layout/resize.
+        WM_SIZE => unsafe { try_reinit_drag_drop_from_userdata(hwnd) },
+
+        // Extra safety: clear user data when the HWND is going away.
+        WM_NCDESTROY => {
+          let _ = unsafe { SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0) };
+        }
+
+        _ => {}
       }
 
       DefWindowProcW(hwnd, msg, wparam, lparam)
@@ -1575,6 +1660,16 @@ impl InnerWebView {
       );
 
       self.controller.SetIsVisible(visible)?;
+    }
+
+    if visible {
+      if let Some(dd) = &self.drag_drop_controller {
+        // If the controller was created before WebView2's internal child HWNDs were ready,
+        // make sure we (re)register the drop targets when the user explicitly shows it.
+        if !dd.borrow().is_inited() {
+          dd.borrow_mut().reinit();
+        }
+      }
     }
 
     Ok(())
