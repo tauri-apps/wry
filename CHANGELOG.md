@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.57.0]
+
+- [`f701e13`](https://github.com/tauri-apps/wry/commit/f701e13af8426f7775737f5283a9c386521d4dbf) ([#1824](https://github.com/tauri-apps/wry/pull/1824) by [@IntellyCode](https://github.com/tauri-apps/wry/../../IntellyCode)) On iOS, follow the system background color when no `background_color` is set, so the webview no longer flashes its opaque white default before the page paints.
+- [`bb69d62`](https://github.com/tauri-apps/wry/commit/bb69d628a905d65042c71a95e85f6921ec9b3264) ([#1809](https://github.com/tauri-apps/wry/pull/1809) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Bumped MSRV to 1.85
+- [`d293751`](https://github.com/tauri-apps/wry/commit/d2937514ee5b01f4b52b6132f895180e90dd0fc7) ([#1816](https://github.com/tauri-apps/wry/pull/1816) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Only inject `window.ipc` if the webview is built with `WebViewBuilder::with_ipc_handler`
+- [`bb69d62`](https://github.com/tauri-apps/wry/commit/bb69d628a905d65042c71a95e85f6921ec9b3264) ([#1809](https://github.com/tauri-apps/wry/pull/1809) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Updated `windows` and `windows-core` to 0.62, `webview2-com` to 0.39, this drops Windows 7 support, see https://github.com/microsoft/windows-rs/issues/3808
+
 ## [0.56.1]
 
 - [`62080fa`](https://github.com/tauri-apps/wry/commit/62080fabeb154e7951a1d42d1e77e5146a984a9a) ([#1811](https://github.com/tauri-apps/wry/pull/1811) by [@gimenete](https://github.com/tauri-apps/wry/../../gimenete)) On Android, cache the asset-loader setting in `RustWebViewClient` so intercepted requests avoid repeated JNI calls into Rust state.
