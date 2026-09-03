@@ -53,6 +53,29 @@ impl From<windows::core::Error> for Error {
   }
 }
 
+/// Check if the installed WebView2 Runtime supports native custom scheme registration
+/// via `ICoreWebView2CustomSchemeRegistration` (requires Runtime >= 110.0.1587.40).
+pub fn supports_native_custom_scheme() -> bool {
+  unsafe {
+    let mut version_str = PWSTR::null();
+    if GetAvailableCoreWebView2BrowserVersionString(PCWSTR::null(), &mut version_str).is_err() {
+      return false;
+    }
+    let version = take_pwstr(version_str);
+    let mut result = 0i32;
+    if CompareBrowserVersions(
+      &HSTRING::from(version.as_str()),
+      &HSTRING::from("110.0.1587.40"),
+      &mut result,
+    )
+    .is_err()
+    {
+      return false;
+    }
+    result >= 0
+  }
+}
+
 pub(crate) struct InnerWebView {
   id: String,
   parent: RefCell<HWND>,
@@ -346,6 +369,29 @@ impl InnerWebView {
 
       options.set_scroll_bar_style(scroll_bar_style);
 
+      // Register native custom schemes if enabled and Runtime >= 110.0.1587.40
+      if pl_attrs.use_native_custom_scheme && !attributes.custom_protocols.is_empty() {
+        if supports_native_custom_scheme() {
+          let allowed_origins = [w!("*")];
+          let mut registrations = Vec::new();
+          for name in attributes.custom_protocols.keys() {
+            let scheme: ICoreWebView2CustomSchemeRegistration =
+              CoreWebView2CustomSchemeRegistration::new(name.clone()).into();
+            scheme.SetHasAuthorityComponent(true)?;
+            scheme.SetTreatAsSecure(true)?;
+            scheme.SetAllowedOrigins(1, allowed_origins.as_ptr())?;
+            registrations.push(Some(scheme));
+          }
+          options.set_scheme_registrations(registrations);
+        } else {
+          #[cfg(feature = "tracing")]
+          tracing::warn!(
+            "with_native_custom_scheme enabled but WebView2 Runtime < 110.0.1587.40, \
+             falling back to URL rewriting workaround"
+          );
+        }
+      }
+
       CreateCoreWebView2EnvironmentWithOptions(
         PCWSTR::null(),
         &data_directory.unwrap_or_default(),
@@ -484,6 +530,7 @@ impl InnerWebView {
 
     // Custom protocols handler
     let http_or_https = if pl_attrs.use_https { "https" } else { "http" };
+    let use_native_url = pl_attrs.use_native_custom_scheme && supports_native_custom_scheme();
     let custom_protocols: HashSet<String> = attributes
       .custom_protocols
       .iter()
@@ -497,6 +544,7 @@ impl InnerWebView {
           hwnd,
           webview_id,
           http_or_https,
+          use_native_url,
           &mut attributes,
           &mut token,
         )?
@@ -583,7 +631,7 @@ impl InnerWebView {
     // Navigation
     if let Some(mut url) = attributes.url {
       if let Some((protocol, _)) = url.split_once("://") {
-        if custom_protocols.contains(protocol) {
+        if custom_protocols.contains(protocol) && !use_native_url {
           // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
           // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
           url = custom_protocol_workaround::apply_uri_work_around(&url, http_or_https, protocol)
@@ -997,14 +1045,20 @@ impl InnerWebView {
     hwnd: HWND,
     webview_id: String,
     http_or_https: &'static str,
+    use_native_url: bool,
     attributes: &mut WebViewAttributes,
     token: &mut EventRegistrationToken,
   ) -> Result<()> {
     for name in attributes.custom_protocols.keys() {
-      // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
-      // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
-      let work_around_uri = custom_protocol_workaround::work_around_uri_prefix(http_or_https, name);
-      let filter = HSTRING::from(format!("{work_around_uri}*"));
+      let filter = if use_native_url {
+        HSTRING::from(format!("{name}://*"))
+      } else {
+        // WebView2 supports non-standard protocols only on Windows 10+, so we have to use this workaround
+        // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/73
+        let work_around_uri =
+          custom_protocol_workaround::work_around_uri_prefix(http_or_https, name);
+        HSTRING::from(format!("{work_around_uri}*"))
+      };
 
       // If WebView2 version is high enough, use the new API to add the filter to allow Shared Workers and
       // iframes to work with custom protocols
@@ -1047,12 +1101,29 @@ impl InnerWebView {
         #[cfg(feature = "tracing")]
         span.record("uri", &uri);
 
-        if let Some((custom_protocol, custom_protocol_handler)) = custom_protocols
-          .iter()
-          .find(|(protocol, _)| custom_protocol_workaround::is_work_around_uri(&uri, http_or_https, protocol))
-        {
-          let request = match Self::prepare_request(http_or_https, custom_protocol, &webview_request, &uri)
-          {
+        let matched = if use_native_url {
+          custom_protocols
+            .iter()
+            .find(|(protocol, _)| {
+              let prefix = format!("{protocol}://");
+              uri.starts_with(&prefix)
+            })
+        } else {
+          custom_protocols
+            .iter()
+            .find(|(protocol, _)| {
+              custom_protocol_workaround::is_work_around_uri(&uri, http_or_https, protocol)
+            })
+        };
+
+        if let Some((custom_protocol, custom_protocol_handler)) = matched {
+          let request = match Self::prepare_request(
+            http_or_https,
+            custom_protocol,
+            &webview_request,
+            &uri,
+            use_native_url,
+          ) {
             Ok(req) => req,
             Err(e) => {
               let err_response = Self::prepare_web_request_err(&env, e)?;
@@ -1116,6 +1187,7 @@ impl InnerWebView {
     custom_protocol: &str,
     webview_request: &ICoreWebView2WebResourceRequest,
     webview_request_uri: &str,
+    use_native_url: bool,
   ) -> Result<http::Request<Vec<u8>>> {
     let mut request = Request::builder();
 
@@ -1164,11 +1236,15 @@ impl InnerWebView {
     }
 
     // Undo the protocol workaround when giving path to resolver
-    let path = custom_protocol_workaround::revert_uri_work_around(
-      webview_request_uri,
-      http_or_https,
-      custom_protocol,
-    );
+    let path = if use_native_url {
+      webview_request_uri.to_string()
+    } else {
+      custom_protocol_workaround::revert_uri_work_around(
+        webview_request_uri,
+        http_or_https,
+        custom_protocol,
+      )
+    };
 
     let request = request.uri(&path).body(body_sent)?;
 
