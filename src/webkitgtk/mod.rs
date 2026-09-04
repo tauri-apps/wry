@@ -462,8 +462,10 @@ impl InnerWebView {
     web_context: &mut WebContext,
     attributes: &mut WebViewAttributes,
   ) {
-    // window.close()
-    webview.connect_close(move |webview| unsafe { webview.destroy() });
+    // Simply destroying the webview would leave blank window which is not good.
+    // TODO: we need to add api to register callback on `window.close`
+    //   and ask user code if close the window, or just ignore `window.close`.
+    //webview.connect_close(move |webview| unsafe { webview.destroy() });
 
     // Synthetic mouse events
     synthetic_mouse_events::setup(webview);

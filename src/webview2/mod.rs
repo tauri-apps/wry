@@ -679,11 +679,13 @@ impl InnerWebView {
     token: &mut EventRegistrationToken,
     env: &ICoreWebView2Environment,
   ) -> Result<()> {
-    // Close container HWND when `window.close` is called in JS
-    webview.add_WindowCloseRequested(
-      &WindowCloseRequestedEventHandler::create(Box::new(move |_, _| DestroyWindow(hwnd))),
-      token,
-    )?;
+    // Simply destroying the hwnd would cause inconsistent window state so ignoring for now.
+    // TODO: we need to add api to register callback on `window.close`
+    //   and ask user code if close the window, or just ignore `window.close`.
+    // webview.add_WindowCloseRequested(
+    //   &WindowCloseRequestedEventHandler::create(Box::new(move |_, _| DestroyWindow(hwnd))),
+    //   token,
+    // )?;
 
     // Document title changed handler
     if let Some(document_title_changed_handler) = attributes.document_title_changed_handler.take() {
