@@ -297,7 +297,7 @@ impl InnerWebView {
       .map(HSTRING::from);
 
     // additional browser args
-    let additional_browser_args = pl_attrs.additional_browser_args.unwrap_or_else(|| {
+    let mut additional_browser_args = pl_attrs.additional_browser_args.unwrap_or_else(|| {
       // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
       // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
       let default_args = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
@@ -326,6 +326,24 @@ impl InnerWebView {
 
       arguments
     });
+
+    // WebView2 Runtime 150 hardened elevated (high-integrity) host processes to
+    // ignore the `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` environment variable. That
+    // silently breaks WebDriver automation, where msedgedriver injects
+    // `--remote-debugging-port` through that env var: with the port dropped the
+    // DevTools/CDP endpoint never opens and session creation times out. Fold the env
+    // var into the args passed via the API (`AdditionalBrowserArguments`), which is
+    // still honored when elevated, so automation keeps working.
+    // See https://github.com/MicrosoftEdge/WebView2Feedback/issues/5645.
+    if let Ok(env_args) = std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS") {
+      let env_args = env_args.trim();
+      if !env_args.is_empty() {
+        if !additional_browser_args.is_empty() {
+          additional_browser_args.push(' ');
+        }
+        additional_browser_args.push_str(env_args);
+      }
+    }
 
     let (tx, rx) = mpsc::channel();
     let options = CoreWebView2EnvironmentOptions::default();
