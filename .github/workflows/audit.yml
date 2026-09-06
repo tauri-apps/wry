@@ -25,6 +25,8 @@ concurrency:
 
 permissions:
   contents: read
+  issues: write
+  checks: write
 
 jobs:
   audit:
