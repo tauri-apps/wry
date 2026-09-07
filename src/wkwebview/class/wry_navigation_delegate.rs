@@ -6,6 +6,10 @@ use std::sync::{Arc, Mutex};
 
 use objc2::{define_class, msg_send, rc::Retained, runtime::NSObject, MainThreadOnly};
 use objc2_foundation::{MainThreadMarker, NSObjectProtocol};
+#[cfg(target_os = "macos")]
+use objc2_foundation::{
+  NSURLAuthenticationChallenge, NSURLCredential, NSURLSessionAuthChallengeDisposition,
+};
 use objc2_web_kit::{
   WKDownload, WKNavigation, WKNavigationAction, WKNavigationActionPolicy, WKNavigationDelegate,
   WKNavigationResponse, WKNavigationResponsePolicy,
@@ -37,6 +41,9 @@ pub struct WryNavigationDelegateIvars {
   pub download_delegate: Option<Retained<WryDownloadDelegate>>,
   pub on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent)>>,
   pub on_web_content_process_terminate_handler: Option<Box<dyn Fn()>>,
+  pub client_certificate_p12: Option<Vec<u8>>,
+  pub client_certificate_password: Option<String>,
+  pub trusted_ca_certificate: Option<Vec<u8>>,
 }
 
 define_class!(
@@ -102,6 +109,21 @@ define_class!(
     fn web_content_process_did_terminate(&self, webview: &WKWebView) {
       web_content_process_did_terminate(self, webview);
     }
+
+    #[cfg(target_os = "macos")]
+    #[unsafe(method(webView:didReceiveAuthenticationChallenge:completionHandler:))]
+    fn did_receive_authentication_challenge(
+      &self,
+      _webview: &WKWebView,
+      challenge: &NSURLAuthenticationChallenge,
+      handler: &block2::Block<
+        dyn Fn(NSURLSessionAuthChallengeDisposition, *mut NSURLCredential),
+      >,
+    ) {
+      crate::wkwebview::navigation_auth::did_receive_authentication_challenge(
+        self, challenge, handler,
+      );
+    }
   }
 );
 
@@ -115,6 +137,9 @@ impl WryNavigationDelegate {
     download_delegate: Option<Retained<WryDownloadDelegate>>,
     on_page_load_handler: Option<Box<dyn Fn(PageLoadEvent, String)>>,
     on_web_content_process_terminate_handler: Option<Box<dyn Fn()>>,
+    client_certificate_p12: Option<Vec<u8>>,
+    client_certificate_password: Option<String>,
+    trusted_ca_certificate: Option<Vec<u8>>,
     mtm: MainThreadMarker,
   ) -> Retained<Self> {
     let navigation_policy_function = Box::new(move |url: String| -> bool {
@@ -151,6 +176,9 @@ impl WryNavigationDelegate {
         download_delegate,
         on_page_load_handler,
         on_web_content_process_terminate_handler,
+        client_certificate_p12,
+        client_certificate_password,
+        trusted_ca_certificate,
       });
 
     unsafe { msg_send![super(delegate), init] }
