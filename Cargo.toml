@@ -59,7 +59,7 @@ soup3 = { version = "0.5", optional = true }
 x11-dl = { version = "2.21", optional = true }
 gdkx11 = { version = "0.18", optional = true }
 percent-encoding = "2.3"
-dirs = "6"
+dirs = "7"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dev-dependencies]
 x11-dl = { version = "2.21" }
@@ -91,7 +91,7 @@ features = [
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 url = "2.5"
-dirs = "6"
+dirs = "7"
 block2 = "0.6"
 objc2 = { version = "0.6.4", features = [
   "exception",
