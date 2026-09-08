@@ -7,18 +7,13 @@
 use crate::DragDropEvent;
 
 use std::{
-  cell::UnsafeCell,
-  ffi::OsString,
-  os::{raw::c_void, windows::ffi::OsStringExt},
-  path::PathBuf,
-  ptr,
-  rc::Rc,
+  cell::UnsafeCell, ffi::OsString, os::windows::ffi::OsStringExt, path::PathBuf, ptr, rc::Rc,
 };
 
 use windows::{
   core::{implement, BOOL},
   Win32::{
-    Foundation::{DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINT, POINTL},
+    Foundation::{HWND, LPARAM, POINT, POINTL},
     Graphics::Gdi::ScreenToClient,
     System::{
       Com::{IDataObject, DVASPECT_CONTENT, FORMATETC, TYMED_HGLOBAL},
@@ -35,44 +30,95 @@ use windows::{
   },
 };
 
-#[derive(Default)]
 pub(crate) struct DragDropController {
-  drop_targets: Vec<IDropTarget>,
+  // Keep (HWND, IDropTarget) pairs so we can reliably revoke the registration per HWND.
+  drop_targets: Vec<(HWND, IDropTarget)>,
+
+  // The container HWND that owns the WebView2 child windows.
+  parent: HWND,
+
+  // Shared handler so each injected IDropTarget can call back without borrowing `self`.
+  handler: Rc<dyn Fn(DragDropEvent) -> bool>,
 }
 
 impl DragDropController {
   #[inline]
-  pub(crate) fn new(hwnd: HWND, handler: Box<dyn Fn(DragDropEvent) -> bool>) -> Self {
-    let mut controller = DragDropController::default();
+  pub(crate) fn new(parent: HWND, handler: Box<dyn Fn(DragDropEvent) -> bool>) -> Self {
+    let mut controller = DragDropController {
+      drop_targets: Vec::new(),
+      parent,
+      handler: Rc::new(handler),
+    };
 
-    let handler = Rc::new(handler);
-
-    // Enumerate child windows to find the WebView2 "window" and override!
-    {
-      let mut callback = |hwnd| controller.inject_in_hwnd(hwnd, handler.clone());
-      let mut trait_obj: &mut dyn FnMut(HWND) -> bool = &mut callback;
-      let closure_pointer_pointer: *mut c_void = unsafe { std::mem::transmute(&mut trait_obj) };
-      let lparam = LPARAM(closure_pointer_pointer as _);
-      unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
-        let closure = &mut *(lparam.0 as *mut c_void as *mut &mut dyn FnMut(HWND) -> bool);
-        closure(hwnd).into()
-      }
-      let _ = unsafe { EnumChildWindows(Some(hwnd), Some(enumerate_callback), lparam) };
-    }
-
+    // WebView2's internal child HWNDs may not be stable until after show/resize, but we can
+    // opportunistically register now and later call `reinit()` when the window actually shows.
+    controller.register_targets();
     controller
   }
 
   #[inline]
-  fn inject_in_hwnd(&mut self, hwnd: HWND, handler: Rc<dyn Fn(DragDropEvent) -> bool>) -> bool {
-    let drag_drop_target: IDropTarget = DragDropTarget::new(hwnd, handler).into();
-    if unsafe { RevokeDragDrop(hwnd) } != Err(DRAGDROP_E_INVALIDHWND.into())
-      && unsafe { RegisterDragDrop(hwnd, &drag_drop_target) }.is_ok()
-    {
-      self.drop_targets.push(drag_drop_target);
+  pub(crate) fn reinit(&mut self) {
+    // WebView2 can recreate/replace its internal child HWNDs; revoke and re-enumerate to keep
+    // the drop target registered on the current live windows.
+    for (hwnd, _) in self.drop_targets.drain(..) {
+      let _ = unsafe { RevokeDragDrop(hwnd) };
     }
 
-    true
+    self.register_targets();
+  }
+
+  #[inline]
+  pub(crate) fn is_inited(&self) -> bool {
+    !self.drop_targets.is_empty()
+  }
+
+  #[inline]
+  fn register_targets(&mut self) {
+    // EnumChildWindows requires a C callback; pass `self` through LPARAM.
+    // Safety: EnumChildWindows is synchronous, so `self` stays valid for the duration.
+    let this = self as *mut DragDropController;
+    let lparam = LPARAM(this as isize);
+
+    unsafe extern "system" fn enumerate_callback(child: HWND, lparam: LPARAM) -> BOOL {
+      let controller = &mut *(lparam.0 as *mut DragDropController);
+      controller.inject_in_hwnd(child);
+      true.into()
+    }
+
+    let ok = unsafe { EnumChildWindows(Some(self.parent), Some(enumerate_callback), lparam) };
+    if !ok.as_bool() {
+      #[cfg(feature = "tracing")]
+      tracing::debug!("EnumChildWindows failed for parent {:?}", self.parent);
+    }
+  }
+
+  #[inline]
+  fn inject_in_hwnd(&mut self, hwnd: HWND) -> bool {
+    // Avoid double-registering the same HWND.
+    if self.drop_targets.iter().any(|(h, _)| *h == hwnd) {
+      return true;
+    }
+
+    let handler = self.handler.clone();
+    let target: IDropTarget = DragDropTarget::new(hwnd, handler).into();
+
+    // Override any existing drop target on that HWND (if present), then register ours.
+    let _ = unsafe { RevokeDragDrop(hwnd) };
+    if unsafe { RegisterDragDrop(hwnd, &target) }.is_ok() {
+      self.drop_targets.push((hwnd, target));
+      true
+    } else {
+      false
+    }
+  }
+}
+
+impl Drop for DragDropController {
+  fn drop(&mut self) {
+    // Ensure we don't leave HWNDs registered after the webview/controller is dropped.
+    for (hwnd, _) in self.drop_targets.drain(..) {
+      let _ = unsafe { RevokeDragDrop(hwnd) };
+    }
   }
 }
 
