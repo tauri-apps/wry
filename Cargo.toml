@@ -210,7 +210,7 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
 [dev-dependencies]
 pollster = "1.0.0"
 tao = "0.37"
-wgpu = "23"
+wgpu = "30"
 winit = "0.30"
 getrandom = "0.3"
 http-range = "0.1"
