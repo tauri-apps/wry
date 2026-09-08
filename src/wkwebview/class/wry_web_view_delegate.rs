@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{ffi::CStr, panic::AssertUnwindSafe};
+use std::{cell::Cell, ffi::CStr, panic::AssertUnwindSafe};
 
 use http::Request;
 use objc2::{
@@ -19,6 +19,7 @@ pub const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
 pub struct WryWebViewDelegateIvars {
   pub controller: Retained<WKUserContentController>,
   pub ipc_handler: Box<dyn Fn(Request<String>)>,
+  pub registered_ipc_handler: Cell<bool>,
 }
 
 define_class!(
@@ -85,20 +86,26 @@ impl WryWebViewDelegate {
       .set_ivars(WryWebViewDelegateIvars {
         ipc_handler,
         controller,
+        registered_ipc_handler: Cell::new(false),
       });
 
     let delegate: Retained<Self> = unsafe { msg_send![super(delegate), init] };
 
     let proto_delegate = ProtocolObject::from_ref(&*delegate);
-    unsafe {
+    let did_register_ipc_handler = unsafe {
       // this will increase the retain count of the delegate
-      let _res = objc2::exception::catch(AssertUnwindSafe(|| {
+      objc2::exception::catch(AssertUnwindSafe(|| {
         delegate
           .ivars()
           .controller
           .addScriptMessageHandler_name(proto_delegate, ns_string!(IPC_MESSAGE_HANDLER_NAME));
-      }));
-    }
+      }))
+      .is_ok()
+    };
+    delegate
+      .ivars()
+      .registered_ipc_handler
+      .set(did_register_ipc_handler);
 
     delegate
   }
