@@ -8,12 +8,20 @@ use objc2::{
   runtime::{Bool, ProtocolObject},
   DeclaredClass,
 };
-use objc2_app_kit::{NSDragOperation, NSDraggingInfo, NSFilenamesPboardType};
+use objc2_app_kit::{
+  NSDragOperation, NSDraggingInfo, NSFilenamesPboardType, NSPasteboardTypeFileURL,
+};
 use objc2_foundation::{NSArray, NSPoint, NSRect, NSString};
 
 use crate::DragDropEvent;
 
 use super::WryWebView;
+
+unsafe fn has_file_urls(drag_info: &ProtocolObject<dyn NSDraggingInfo>) -> bool {
+  let pb = drag_info.draggingPasteboard();
+  let types = NSArray::arrayWithObject(NSPasteboardTypeFileURL);
+  pb.availableTypeFromArray(&types).is_some()
+}
 
 pub(crate) unsafe fn collect_paths(drag_info: &ProtocolObject<dyn NSDraggingInfo>) -> Vec<PathBuf> {
   let pb = drag_info.draggingPasteboard();
@@ -36,6 +44,11 @@ pub(crate) fn dragging_entered(
   this: &WryWebView,
   drag_info: &ProtocolObject<dyn NSDraggingInfo>,
 ) -> NSDragOperation {
+  if !unsafe { has_file_urls(drag_info) } {
+    // Let WebKit handle HTML5 drags within the page.
+    return unsafe { objc2::msg_send![super(this), draggingEntered: drag_info] };
+  }
+
   let paths = unsafe { collect_paths(drag_info) };
   let dl: NSPoint = unsafe { drag_info.draggingLocation() };
   let frame: NSRect = this.frame();
@@ -54,6 +67,10 @@ pub(crate) fn dragging_updated(
   this: &WryWebView,
   drag_info: &ProtocolObject<dyn NSDraggingInfo>,
 ) -> NSDragOperation {
+  if !unsafe { has_file_urls(drag_info) } {
+    return unsafe { objc2::msg_send![super(this), draggingUpdated: drag_info] };
+  }
+
   let dl: NSPoint = unsafe { drag_info.draggingLocation() };
   let frame: NSRect = this.frame();
   let position = (dl.x as i32, (frame.size.height - dl.y) as i32);
@@ -81,6 +98,10 @@ pub(crate) fn perform_drag_operation(
   this: &WryWebView,
   drag_info: &ProtocolObject<dyn NSDraggingInfo>,
 ) -> Bool {
+  if !unsafe { has_file_urls(drag_info) } {
+    return unsafe { objc2::msg_send![super(this), performDragOperation: drag_info] };
+  }
+
   let paths = unsafe { collect_paths(drag_info) };
   let dl: NSPoint = unsafe { drag_info.draggingLocation() };
   let frame: NSRect = this.frame();
@@ -96,6 +117,11 @@ pub(crate) fn perform_drag_operation(
 }
 
 pub(crate) fn dragging_exited(this: &WryWebView, drag_info: &ProtocolObject<dyn NSDraggingInfo>) {
+  if !unsafe { has_file_urls(drag_info) } {
+    unsafe { objc2::msg_send![super(this), draggingExited: drag_info] }
+    return;
+  }
+
   let listener = &this.ivars().drag_drop_handler;
   if !listener(DragDropEvent::Leave) {
     // Reject the Wry drop (invoke the OS default behaviour)
