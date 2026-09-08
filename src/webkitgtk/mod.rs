@@ -976,6 +976,20 @@ impl InnerWebView {
     }
 
     if self.is_in_fixed_parent {
+      // Position the webview via its parent `gtk::Fixed`'s `move_` (which persists
+      // across layout passes) and `set_size_request`, in addition to the
+      // immediate `size_allocate`. A bare `size_allocate` only sets a transient
+      // allocation that the `gtk::Fixed` resets to the child's stored
+      // put-coordinate on the next size-allocate, so the requested position was
+      // dropped on the first relayout.
+      if let Some(fixed) = self
+        .webview
+        .parent()
+        .and_then(|p| p.downcast::<gtk::Fixed>().ok())
+      {
+        fixed.move_(&self.webview, x, y);
+      }
+      self.webview.set_size_request(width, height);
       self
         .webview
         .size_allocate(&gtk::Allocation::new(x, y, width, height));
