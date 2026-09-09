@@ -89,7 +89,11 @@ class RustWebView(context: Context, val initScripts: Array<String>, val id: Stri
 
     fun getCookies(url: String): String {
         val cookieManager = CookieManager.getInstance()
-        return cookieManager.getCookie(url)
+        // `getCookie` returns null when the URL has no cookies, which is a
+        // documented, ordinary result — not an error. Returning it from a
+        // non-null `String` throws an uncaught NullPointerException on the
+        // main thread and takes the whole app down.
+        return cookieManager.getCookie(url) ?: ""
     }
 
     {{class-extension}}
