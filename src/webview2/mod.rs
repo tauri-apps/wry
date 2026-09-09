@@ -297,7 +297,7 @@ impl InnerWebView {
       .map(HSTRING::from);
 
     // additional browser args
-    let additional_browser_args = pl_attrs.additional_browser_args.unwrap_or_else(|| {
+    let mut additional_browser_args = pl_attrs.additional_browser_args.unwrap_or_else(|| {
       // remove "mini menu" - See https://github.com/tauri-apps/wry/issues/535
       // and "smart screen" - See https://github.com/tauri-apps/tauri/issues/1345
       let default_args = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
@@ -326,6 +326,15 @@ impl InnerWebView {
 
       arguments
     });
+
+    if let Some(extra_args) = pl_attrs.extra_browser_args {
+      if !extra_args.is_empty() {
+        if !additional_browser_args.is_empty() {
+          additional_browser_args.push(' ');
+        }
+        additional_browser_args.push_str(&extra_args);
+      }
+    }
 
     let (tx, rx) = mpsc::channel();
     let options = CoreWebView2EnvironmentOptions::default();

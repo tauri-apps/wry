@@ -1749,6 +1749,7 @@ impl WebViewBuilderExtIos for WebViewBuilder<'_> {
 #[derive(Clone)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   additional_browser_args: Option<String>,
+  extra_browser_args: Option<String>,
   browser_accelerator_keys: bool,
   theme: Option<Theme>,
   use_https: bool,
@@ -1765,6 +1766,7 @@ impl Default for PlatformSpecificWebViewAttributes {
   fn default() -> Self {
     Self {
       additional_browser_args: None,
+      extra_browser_args: None,
       browser_accelerator_keys: true, // This is WebView2's default behavior
       default_context_menus: true,    // This is WebView2's default behavior
       theme: None,
@@ -1789,7 +1791,22 @@ pub trait WebViewBuilderExtWindows {
   ///   `--autoplay-policy=no-user-gesture-required` if autoplay is enabled
   ///   and `--proxy-server=<scheme>://<host>:<port>` if a proxy is set.
   ///   so if you use this method, you have to add these arguments yourself if you want to keep the same behavior.
+  ///
+  /// Prefer [`Self::with_extra_browser_args`] when you only need to append switches and want wry's
+  /// conditional defaults (`autoplay`, `proxy_config`) to keep applying.
   fn with_additional_browser_args<S: Into<String>>(self, additional_args: S) -> Self;
+
+  /// Append extra args to WebView2 upon creating the webview, after wry's default browser arguments.
+  ///
+  /// Unlike [`Self::with_additional_browser_args`], this does **not** replace wry's defaults, so
+  /// `autoplay` and `proxy_config` continue to contribute their switches.
+  ///
+  /// When both methods are used, the extra args are appended after the replaced argument string.
+  ///
+  /// ## Warning
+  ///
+  /// Webview instances with different browser arguments must also have different [data directories](WebContext::new).
+  fn with_extra_browser_args<S: Into<String>>(self, extra_args: S) -> Self;
 
   /// Determines whether browser-specific accelerator keys are enabled. When this setting is set to
   /// `false`, it disables all accelerator keys that access features specific to a web browser.
@@ -1877,6 +1894,11 @@ pub trait WebViewBuilderExtWindows {
 impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
   fn with_additional_browser_args<S: Into<String>>(mut self, additional_args: S) -> Self {
     self.platform_specific.additional_browser_args = Some(additional_args.into());
+    self
+  }
+
+  fn with_extra_browser_args<S: Into<String>>(mut self, extra_args: S) -> Self {
+    self.platform_specific.extra_browser_args = Some(extra_args.into());
     self
   }
 
