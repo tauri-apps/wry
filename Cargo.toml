@@ -87,6 +87,8 @@ features = [
   "Win32_UI_HiDpi",
   "Win32_UI_Input",
   "Win32_UI_Input_KeyboardAndMouse",
+  # touch/pen forwarding for composition hosting (src/webview2/composition.rs)
+  "Win32_UI_Input_Pointer",
 ]
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
