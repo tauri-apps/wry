@@ -63,6 +63,11 @@ use crate::{
 use self::web_context::WebContextExt;
 
 const WEBVIEW_ID: &str = "webview_id";
+const IPC_INIT_SCRIPT: &str = "Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })";
+
+fn ipc_init_script(ipc_enabled: bool) -> Option<&'static str> {
+  ipc_enabled.then_some(IPC_INIT_SCRIPT)
+}
 
 mod drag_drop;
 mod synthetic_mouse_events;
@@ -310,7 +315,9 @@ impl InnerWebView {
     // Webview handlers
     Self::attach_handlers(&webview, web_context, &mut attributes);
 
-    // IPC handler
+    // IPC handler. The browser-facing bridge must only exist when its native
+    // endpoint exists too.
+    let ipc_enabled = attributes.ipc_handler.is_some();
     if let Some(ipc_handler) = attributes.ipc_handler.take() {
       Self::attach_ipc_handler(webview.clone(), ipc_handler);
     }
@@ -346,8 +353,9 @@ impl InnerWebView {
       is_inspector_open,
     };
 
-    // Initialize message handler
-    w.init("Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })", true)?;
+    if let Some(ipc_init_script) = ipc_init_script(ipc_enabled) {
+      w.init(ipc_init_script, true)?;
+    }
 
     // Initialize scripts
     for init_script in attributes.initialization_scripts {
@@ -1271,6 +1279,17 @@ fn scale_factor_from_x11(xlib: &Xlib, display: *mut _XDisplay, parent: c_ulong) 
   unsafe { (xlib.XGetWindowAttributes)(display, parent, &mut attrs) };
   let scale_factor = unsafe { (*attrs.screen).width as f64 * 25.4 / (*attrs.screen).mwidth as f64 };
   scale_factor / BASE_DPI
+}
+
+#[cfg(test)]
+mod tests {
+  use super::ipc_init_script;
+
+  #[test]
+  fn ipc_bridge_script_requires_an_ipc_handler() {
+    assert!(ipc_init_script(false).is_none());
+    assert!(ipc_init_script(true).is_some());
+  }
 }
 
 mod ffi {
