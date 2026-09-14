@@ -225,3 +225,10 @@ dom_query = { version = "0.28.0", default-features = false }
 [lints.rust.unexpected_cfgs]
 level = "warn"
 check-cfg = ["cfg(linux)", "cfg(gtk)"]
+
+[patch.crates-io]
+javascriptcore-rs = { git = "https://github.com/tauri-apps/javascriptcore-rs.git" }
+javascriptcore-rs-sys = { git = "https://github.com/tauri-apps/javascriptcore-rs.git" }
+webkit2gtk = { git = "https://github.com/tauri-apps/webkit2gtk-rs.git", branch = "bump-gir" }
+webkit2gtk-sys = { git = "https://github.com/tauri-apps/webkit2gtk-rs.git", branch = "bump-gir" }
+tao = { git = "https://github.com/tauri-apps/tao.git", branch = "gtk-0.19" }
