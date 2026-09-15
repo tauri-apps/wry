@@ -105,11 +105,18 @@ pub fn first_activity_id() -> Option<ActivityId> {
 }
 
 pub fn get_webview(activity_id: ActivityId) -> Option<GlobalRef> {
+  // `?`, not `.unwrap()`. `WebViewMessage::OnDestroy` removes the activity from
+  // this map whenever Android destroys it — the back gesture being the ordinary
+  // case — while the process keeps running. Any message handled after that point
+  // looks the id up, finds nothing, and unwrapping aborts the whole process.
+  //
+  // All nine call sites are already written as
+  // `if let Some(webview) = get_webview(activity_id)`, so `None` is the case they
+  // were written to handle; the `.unwrap()` is what denied it to them.
   ACTIVITY_PROXY
     .lock()
     .unwrap()
-    .get(&activity_id)
-    .unwrap()
+    .get(&activity_id)?
     .webview
     .as_ref()
     .cloned()
