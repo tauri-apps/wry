@@ -2,11 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-#[cfg(target_os = "windows")]
-use wry::WebViewExtWindows;
-#[cfg(target_os = "macos")]
-use {objc2_app_kit::NSWindow, wry::WebViewExtMacOS};
-
 #[cfg(not(any(
   target_os = "windows",
   target_os = "macos",
@@ -127,32 +122,16 @@ fn non_linux_main() -> wry::Result<()> {
 
           if self.webview_in_window1 {
             let window2 = self.window2.as_ref().unwrap();
-            #[cfg(target_os = "macos")]
-            {
-              use winit::platform::macos::WindowExtMacOS;
-              webview
-                .reparent(window2.ns_window().cast::<NSWindow>().as_ptr())
-                .unwrap();
-            }
-            #[cfg(target_os = "windows")]
-            {
-              use winit::platform::windows::WindowExtWindows;
-              webview.reparent(window2.hwnd().0 as isize).unwrap();
-            }
+            #[cfg(any(target_os = "windows", target_os = "macos"))]
+            webview.reparent(window2).unwrap();
+            #[cfg(any(target_os = "ios", target_os = "android"))]
+            let _ = (webview, window2);
           } else {
             let window = self.window.as_ref().unwrap();
-            #[cfg(target_os = "macos")]
-            {
-              use winit::platform::macos::WindowExtMacOS;
-              webview
-                .reparent(window.ns_window().cast::<NSWindow>().as_ptr())
-                .unwrap();
-            }
-            #[cfg(target_os = "windows")]
-            {
-              use winit::platform::windows::WindowExtWindows;
-              webview.reparent(window.hwnd().0 as isize).unwrap();
-            }
+            #[cfg(any(target_os = "windows", target_os = "macos"))]
+            webview.reparent(window).unwrap();
+            #[cfg(any(target_os = "ios", target_os = "android"))]
+            let _ = (webview, window);
           }
           self.webview_in_window1 = !self.webview_in_window1;
         }
