@@ -688,7 +688,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33d852cb9b869c2a9b3df2f71a3074817f01e1844f839a144f5fcef059a4eb5d"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -993,7 +993,7 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps 9.0.0",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2451,7 +2451,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3359,7 +3359,7 @@ dependencies = [
 [[package]]
 name = "webkit2gtk"
 version = "2.0.2"
-source = "git+https://github.com/tauri-apps/webkit2gtk-rs.git?branch=bump-gir#6417c98d87d7213846f94dcdc75aac8024cfd62b"
+source = "git+https://github.com/tauri-apps/webkit2gtk-rs.git?branch=bump-gir#2987fea2a5403bc180c305fc3415b5b433978541"
 dependencies = [
  "bitflags 2.13.2",
  "cairo-rs",
@@ -3382,7 +3382,7 @@ dependencies = [
 [[package]]
 name = "webkit2gtk-sys"
 version = "2.0.2"
-source = "git+https://github.com/tauri-apps/webkit2gtk-rs.git?branch=bump-gir#6417c98d87d7213846f94dcdc75aac8024cfd62b"
+source = "git+https://github.com/tauri-apps/webkit2gtk-rs.git?branch=bump-gir#2987fea2a5403bc180c305fc3415b5b433978541"
 dependencies = [
  "bitflags 2.13.2",
  "cairo-sys-rs",
@@ -3560,7 +3560,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
