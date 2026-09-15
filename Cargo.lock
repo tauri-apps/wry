@@ -95,6 +95,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-channel"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "924ed96dd52d1b75e9c1a3e6275715fd320f5f9439fb5a4a11fa51f4221158d2"
+dependencies = [
+ "concurrent-queue",
+ "event-listener-strategy",
+ "futures-core",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "atk"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -688,7 +700,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33d852cb9b869c2a9b3df2f71a3074817f01e1844f839a144f5fcef059a4eb5d"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "event-listener"
+version = "5.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a23add41df1562121a9393cb065eab5146a1242410f23a644851e90cfd669d2"
+dependencies = [
+ "parking",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "event-listener-strategy"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
+dependencies = [
+ "event-listener",
+ "pin-project-lite",
 ]
 
 [[package]]
@@ -993,7 +1025,7 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps 9.0.0",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2167,6 +2199,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "parking"
+version = "2.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f38d5652c16fde515bb1ecef450ab0f6a219d619a7274976324d5e377f7dceba"
+
+[[package]]
 name = "parking_lot"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2451,7 +2489,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2787,8 +2825,9 @@ dependencies = [
 [[package]]
 name = "tao"
 version = "0.37.0"
-source = "git+https://github.com/tauri-apps/tao.git?branch=gtk-0.19#aa9c6adfe2028b4b1c549c27b7631b6cb4bdaaeb"
+source = "git+https://github.com/tauri-apps/tao.git?branch=gtk-0.19#f3862b505d347d9721ea41644c9bc4d2d70600d2"
 dependencies = [
+ "async-channel",
  "bitflags 2.13.2",
  "block2 0.6.2",
  "core-foundation 0.10.0",
@@ -2838,7 +2877,7 @@ dependencies = [
 [[package]]
 name = "tao-macros"
 version = "0.1.4"
-source = "git+https://github.com/tauri-apps/tao.git?branch=gtk-0.19#aa9c6adfe2028b4b1c549c27b7631b6cb4bdaaeb"
+source = "git+https://github.com/tauri-apps/tao.git?branch=gtk-0.19#f3862b505d347d9721ea41644c9bc4d2d70600d2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3560,7 +3599,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
