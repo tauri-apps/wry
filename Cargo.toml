@@ -2,7 +2,7 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.56.1"
+version = "0.57.0"
 authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -11,7 +11,7 @@ readme = "README.md"
 repository = "https://github.com/tauri-apps/wry"
 documentation = "https://docs.rs/wry"
 categories = ["gui"]
-rust-version = "1.77"
+rust-version = "1.85"
 exclude = ["/.changes", "/.github", "/audits", "/wry-logo.svg"]
 
 [package.metadata.docs.rs]
@@ -61,20 +61,20 @@ gdk4 = { version = "0.11", features = ["v4_6", "v4_12"], optional = true }
 gdk4-x11 = { version = "0.11", optional = true }
 gdk4-wayland = { version = "0.11", optional = true }
 percent-encoding = "2.3"
-dirs = "6"
+dirs = "7"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dev-dependencies]
 x11-dl = { version = "2.21" }
 gtk4 = "0.11"
 
 [target."cfg(target_os = \"windows\")".dependencies]
-webview2-com = "0.38"
+webview2-com = "0.39"
 windows-version = "0.1"
-windows-core = "0.61"
+windows-core = "0.62"
 dunce = "1"
 
 [target."cfg(target_os = \"windows\")".dependencies.windows]
-version = "0.61"
+version = "0.62"
 features = [
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
@@ -94,7 +94,7 @@ features = [
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 url = "2.5"
-dirs = "6"
+dirs = "7"
 block2 = "0.6"
 objc2 = { version = "0.6.4", features = [
   "exception",
@@ -171,6 +171,7 @@ objc2-ui-kit = { version = "0.3.2", default-features = false, features = [
   "UIApplication",
   "UIEvent",
   "UIColor",
+  "UIInterface",
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]

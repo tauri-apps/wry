@@ -449,24 +449,24 @@ impl InnerWebView {
         let frame = ns_view.frame();
         let webview: Retained<WryWebView> =
           objc2::msg_send![super(webview), initWithFrame: frame, configuration: &**config];
-        if let Some((red, green, blue, alpha)) = attributes.background_color {
-          // This is required first since the webview color is applied too late.
-          webview.setOpaque(false);
-
-          let color = objc2_ui_kit::UIColor::colorWithRed_green_blue_alpha(
+        // Without a background color the webview stays opaque and white, flashing before the
+        // page paints, so fall back to the system background to follow the current appearance.
+        let color = if let Some((red, green, blue, alpha)) = attributes.background_color {
+          objc2_ui_kit::UIColor::colorWithRed_green_blue_alpha(
             red as f64 / 255.0,
             green as f64 / 255.0,
             blue as f64 / 255.0,
             alpha as f64 / 255.0,
-          );
-
-          if !is_child {
-            ns_view.setBackgroundColor(Some(&color));
-          }
-          // This has to be monitored as it may clash with isOpaque = true.
-          // The webview background color may also applied too late so actually not that useful.
-          webview.setBackgroundColor(Some(&color));
+          )
+        } else {
+          objc2_ui_kit::UIColor::systemBackgroundColor()
+        };
+        // setOpaque must come first since the color is applied too late on its own.
+        webview.setOpaque(false);
+        if !is_child {
+          ns_view.setBackgroundColor(Some(&color));
         }
+        webview.setBackgroundColor(Some(&color));
         webview
       };
 
