@@ -66,7 +66,7 @@ fn linux_main() -> wry::Result<()> {
     // Layer 1: make the GTK window surface transparent via CSS so the
     // compositor can blend it against the desktop background.
     let provider = gtk4::CssProvider::new();
-    provider.load_from_data("window, .background { background-color: transparent; }");
+    provider.load_from_string("window, .background { background-color: transparent; }");
     if let Some(display) = gtk4::gdk::Display::default() {
       gtk4::style_context_add_provider_for_display(
         &display,

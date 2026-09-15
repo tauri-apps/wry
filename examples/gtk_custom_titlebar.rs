@@ -95,7 +95,7 @@ fn linux_main() -> wry::Result<()> {
 
     // Apply minimal CSS so the titlebar is visually distinct.
     let css = gtk4::CssProvider::new();
-    css.load_from_data(
+    css.load_from_string(
       ".titlebar-row {
         background-color: #1f1f1f;
         color: white;

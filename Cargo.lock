@@ -192,9 +192,9 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
 name = "cairo-rs"
-version = "0.22.0"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cc8d9aa793480744cd9a0524fef1a2e197d9eaa0f739cde19d16aba530dcb95"
+checksum = "df683f1d30b457964673a5541a4603208ef95ab6873d2a55871895cf310f3b56"
 dependencies = [
  "bitflags 2.13.0",
  "cairo-sys-rs",
@@ -204,13 +204,13 @@ dependencies = [
 
 [[package]]
 name = "cairo-sys-rs"
-version = "0.22.0"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8b4985713047f5faee02b8db6a6ef32bbb50269ff53c1aee716d1d195b76d54"
+checksum = "ee548131103ad8f698c6725669647b9c757b3b66992dd6a026037596417bee21"
 dependencies = [
  "glib-sys",
  "libc",
- "system-deps",
+ "system-deps 9.0.0",
 ]
 
 [[package]]
@@ -417,7 +417,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10a2a99df6e410a8ff4245aa2006499ea662245f967cc7c0a38c83ef8eb44dbf"
 dependencies = [
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -452,7 +452,7 @@ checksum = "bda628edc44c4bb645fbe0f758797143e4e07926f7ebf4e9bdfbd3d2ce621df3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -510,7 +510,7 @@ checksum = "97369cbbc041bc366949bc74d34658d6cda5621039731c6310521892a3a20ae0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -595,7 +595,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33d852cb9b869c2a9b3df2f71a3074817f01e1844f839a144f5fcef059a4eb5d"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -650,7 +650,7 @@ checksum = "1a5c6c585bc94aaf2c7b51dd4c2ba22680844aba4c687be581871a6f518c5742"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -708,7 +708,7 @@ checksum = "162ee34ebcb7c64a8abebc059ce0fee27c2262618d7b60ed8faf72fef13c3650"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -745,22 +745,22 @@ dependencies = [
 
 [[package]]
 name = "gdk-pixbuf-sys"
-version = "0.22.0"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48f31b37b1fc4b48b54f6b91b7ef04c18e00b4585d98359dd7b998774bbd91fb"
+checksum = "9d5209294ba3775f9b650bf78bfadeba4332089f2329b3e2f6ce0a4957a45bff"
 dependencies = [
  "gio-sys",
  "glib-sys",
  "gobject-sys",
  "libc",
- "system-deps",
+ "system-deps 9.0.0",
 ]
 
 [[package]]
 name = "gdk4"
-version = "0.11.2"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd42fdbbf48612c6e8f47c65fb92d2e8f39c25aecd6af047e83897c1a22d2a4e"
+checksum = "d81e2a6c6ecba2aab60633a98df1868b03fa0bfdce8105edc27c1bccf71f0e39"
 dependencies = [
  "cairo-rs",
  "gdk-pixbuf",
@@ -773,9 +773,9 @@ dependencies = [
 
 [[package]]
 name = "gdk4-sys"
-version = "0.11.2"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d974ac4f15e67472c3a9728daf612590b4a5762a4b33f0edd298df0b80d043c"
+checksum = "3d8f608d8d7d229975c4d0d026f5d3071598c4ddab3c5262b0a31840fec78d13"
 dependencies = [
  "cairo-sys-rs",
  "gdk-pixbuf-sys",
@@ -785,14 +785,14 @@ dependencies = [
  "libc",
  "pango-sys",
  "pkg-config",
- "system-deps",
+ "system-deps 7.0.8",
 ]
 
 [[package]]
 name = "gdk4-wayland"
-version = "0.11.0"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7027433b8f19075ab22f01d0e0ba4373e303ffdb4ce4f846a2763cb020ea9bdc"
+checksum = "32d95828dadc0357dee236cc6a5712808bd894d3217159982592ce24f2b8aaf7"
 dependencies = [
  "gdk4",
  "gdk4-wayland-sys",
@@ -809,14 +809,14 @@ checksum = "653cafb8715f2ac1c56edaf8060d9360ae3acbe3c6fb61b676a2917d42b668cf"
 dependencies = [
  "glib-sys",
  "libc",
- "system-deps",
+ "system-deps 7.0.8",
 ]
 
 [[package]]
 name = "gdk4-x11"
-version = "0.11.0"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13a00e4c617d6570633e44ba3ff221350669edf6cf3447a40f882dfb6f1dfdc3"
+checksum = "9d892b4cf5a07e90e1390e93cd792975746c68b59f790a2de9e96ce77211ea9a"
 dependencies = [
  "gdk4",
  "gdk4-x11-sys",
@@ -834,7 +834,7 @@ dependencies = [
  "gdk4-sys",
  "glib-sys",
  "libc",
- "system-deps",
+ "system-deps 7.0.8",
 ]
 
 [[package]]
@@ -882,9 +882,9 @@ dependencies = [
 
 [[package]]
 name = "gio"
-version = "0.22.6"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3848bcba3a35cc0a71df8ba8ecfd799d6bfb862342a53a4a915fb62213aa4e6"
+checksum = "b399f4650bb52c051f3fdf49a234e8a27ab5725c8cd774556c55eee64b2c0350"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -899,15 +899,15 @@ dependencies = [
 
 [[package]]
 name = "gio-sys"
-version = "0.22.0"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64729ba2772c080448f9f966dba8f4456beeb100d8c28a865ef8a0f2ef4987e1"
+checksum = "6c28739f914c15b87a9856000bed9cbd5b3a8afbca5e982d9a299e1601422cb5"
 dependencies = [
  "glib-sys",
  "gobject-sys",
  "libc",
- "system-deps",
- "windows-sys 0.59.0",
+ "system-deps 9.0.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -923,9 +923,9 @@ dependencies = [
 
 [[package]]
 name = "glib"
-version = "0.22.7"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c207e04e51605dcf7b2924c41591b3a10e1438eaac5bcf448fb91f325381104a"
+checksum = "18b9b8d350db41f690ec1b87109f202782748bbd8ab2f2ede17cb40d29e2838c"
 dependencies = [
  "bitflags 2.13.0",
  "futures-channel",
@@ -944,24 +944,24 @@ dependencies = [
 
 [[package]]
 name = "glib-macros"
-version = "0.22.6"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "506d23499707c7142898429757e8d9a3871d965239a2cb66dfa05052be6d6f19"
+checksum = "c9597c68fa7bdf4154a3079642cd21c4dccac0b0bdd2897d82861523bf91e7b9"
 dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 3.0.5",
 ]
 
 [[package]]
 name = "glib-sys"
-version = "0.22.6"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f7fbac234ed5bc2a28359b7bde8e1b9cdf1441cc2d7f068e4824672d7db9445"
+checksum = "99b38907e67e40dec9b60f858bcada952598719cb512a13eb13d6cdcd16f8295"
 dependencies = [
  "libc",
- "system-deps",
+ "system-deps 9.0.0",
 ]
 
 [[package]]
@@ -999,13 +999,13 @@ dependencies = [
 
 [[package]]
 name = "gobject-sys"
-version = "0.22.6"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22a861859b887a79cf461359c192c97a57d8fb0229dd291232e57aa11f6fa72c"
+checksum = "07595c9ba696bd9819cb6a8df39f08078f3dd679508fe052dd558492c2053834"
 dependencies = [
  "glib-sys",
  "libc",
- "system-deps",
+ "system-deps 9.0.0",
 ]
 
 [[package]]
@@ -1061,32 +1061,30 @@ dependencies = [
 
 [[package]]
 name = "graphene-rs"
-version = "0.22.0"
+version = "0.22.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7d1b7881f96869f49808b6adfe906a93a57a34204952253444d68c3208d71f1"
+checksum = "eb856b9c558971c3f13ab692358926da710b046932a4e087aedcc35b040d7dff"
 dependencies = [
  "glib",
  "graphene-sys",
- "libc",
 ]
 
 [[package]]
 name = "graphene-sys"
-version = "0.22.0"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "517f062f3fd6b7fd3e57a3f038a74b3c23ca32f51199ff028aa704609943f79c"
+checksum = "97842c7543828f98aa5583aa54fcda28aa84fa2b0f8c556142177f7bbb638057"
 dependencies = [
  "glib-sys",
  "libc",
- "pkg-config",
- "system-deps",
+ "system-deps 9.0.0",
 ]
 
 [[package]]
 name = "gsk4"
-version = "0.11.1"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53c912dfcbd28acace5fc99c40bb9f25e1dcb73efb1f2608327f66a99acdcb62"
+checksum = "b867be1c5f14dcb8f552c0eff6e9a9b1da5f8b43943e8efc3a63c889d84952ff"
 dependencies = [
  "cairo-rs",
  "gdk4",
@@ -1099,9 +1097,9 @@ dependencies = [
 
 [[package]]
 name = "gsk4-sys"
-version = "0.11.1"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7d54bbc7a9d8b6ffe4f0c95eede15ccfb365c8bf521275abe6bcfb57b18fb8a"
+checksum = "5b7c7eb2e681ee896646cfb8872b431f24d09f53ba9283289d9b10caa6707088"
 dependencies = [
  "cairo-sys-rs",
  "gdk4-sys",
@@ -1110,14 +1108,14 @@ dependencies = [
  "graphene-sys",
  "libc",
  "pango-sys",
- "system-deps",
+ "system-deps 7.0.8",
 ]
 
 [[package]]
 name = "gtk4"
-version = "0.11.3"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7181b837f04cbe93f79441475f7a00560a92cba7a72e38cc1a68b6f8b78eaae2"
+checksum = "98a0a0466484f64b07b5b8184d43fa46be78eb0b8e04ae4e179af31d770b76d9"
 dependencies = [
  "cairo-rs",
  "field-offset",
@@ -1136,21 +1134,21 @@ dependencies = [
 
 [[package]]
 name = "gtk4-macros"
-version = "0.11.0"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3581b242ba62fdff122ebb626ea641582ec326031622bd19d60f85029c804a87"
+checksum = "5ac7179400a36a04de039c24206bb841c5596992b907b43b23ee8d5bdc40d00e"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
 name = "gtk4-sys"
-version = "0.11.3"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20ba8e695e2640455561274e65e45f0a151619e450746007667f4b23ceae4e1b"
+checksum = "82b8f954786af0b1984425c4446b77f5ff6594346181316be3f850caab1c6f01"
 dependencies = [
  "cairo-sys-rs",
  "gdk-pixbuf-sys",
@@ -1162,7 +1160,7 @@ dependencies = [
  "gsk4-sys",
  "libc",
  "pango-sys",
- "system-deps",
+ "system-deps 7.0.8",
 ]
 
 [[package]]
@@ -1340,7 +1338,7 @@ checksum = "1ec89e9337638ecdc08744df490b221a7399bf8d164eb52a665454e60e075ad6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -1400,7 +1398,7 @@ dependencies = [
  "glib-sys",
  "gobject-sys",
  "libc",
- "system-deps",
+ "system-deps 7.0.8",
 ]
 
 [[package]]
@@ -1672,7 +1670,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -1999,26 +1997,25 @@ dependencies = [
 
 [[package]]
 name = "pango"
-version = "0.22.6"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "251bdc6e6487b811be0e406a21e301e07e45c0aa8fa39e00c0c8e12a91752438"
+checksum = "0b2022dbbd82e1c42bd950a6f1df9b98c796e725dce5ec275e03cbf9772e4efa"
 dependencies = [
  "gio",
  "glib",
- "libc",
  "pango-sys",
 ]
 
 [[package]]
 name = "pango-sys"
-version = "0.22.0"
+version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbd111a20ca90fedf03e09c59783c679c00900f1d8491cca5399f5e33609d5d6"
+checksum = "ca02d64761b74d56cdd4b437db6d73dc95e6c0d40f27e1c707952c0f09052948"
 dependencies = [
  "glib-sys",
  "gobject-sys",
  "libc",
- "system-deps",
+ "system-deps 9.0.0",
 ]
 
 [[package]]
@@ -2052,9 +2049,9 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "percent-encoding"
-version = "2.3.1"
+version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
+checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "phf"
@@ -2097,7 +2094,7 @@ dependencies = [
  "phf_shared",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -2126,7 +2123,7 @@ checksum = "f6e859e6e5bd50440ab63c47e3ebabc90f26251f7c73c3d3e837b74a1cc3fa67"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -2143,9 +2140,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "pkg-config"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
+checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
 name = "polling"
@@ -2306,7 +2303,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2401,7 +2398,7 @@ checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -2526,7 +2523,7 @@ dependencies = [
  "glib-sys",
  "gobject-sys",
  "libc",
- "system-deps",
+ "system-deps 7.0.8",
 ]
 
 [[package]]
@@ -2592,6 +2589,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "syn"
+version = "3.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12df2e0110f65b775f769bb17ef989067a1d931b2eb822bd4346631eeada89f9"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
 name = "synstructure"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2599,7 +2607,7 @@ checksum = "c8af7666ab7b6390ab78131fb5b0fce11d6b7a6951602017c35fa82800708971"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -2616,6 +2624,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "system-deps"
+version = "9.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a0dae2cbca1f0ff93795713cfe0a4c02f760e3c0b8ae2ab4ec4045808ff429f"
+dependencies = [
+ "cfg-expr",
+ "heck",
+ "pkg-config",
+ "toml",
+ "version-compare",
+]
+
+[[package]]
 name = "tao-macros"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2623,7 +2644,7 @@ checksum = "5f7eeb6d99155545da6150a1795945f16ac9c178deb2a5f2e74d776107bd5849"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -2677,7 +2698,7 @@ checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -2688,7 +2709,7 @@ checksum = "26afc1baea8a989337eeb52b6e72a039780ce45c3edfcc9c5b9d112feeb173c2"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -2827,7 +2848,7 @@ checksum = "395ae124c09f9e6918a2310af6038fba074bcf474ac352496d5910dd59a2226d"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -2983,7 +3004,7 @@ dependencies = [
  "bumpalo",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
  "wasm-bindgen-shared",
 ]
 
@@ -3167,7 +3188,7 @@ dependencies = [
  "javascriptcore6-sys",
  "libc",
  "soup3-sys",
- "system-deps",
+ "system-deps 7.0.8",
 ]
 
 [[package]]
@@ -3190,7 +3211,7 @@ checksum = "67a921c1b6914c367b2b823cd4cde6f96beec77d30a939c8199bb377cf9b9b54"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -3316,7 +3337,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3395,7 +3416,7 @@ checksum = "2bbd5b46c938e506ecbce286b6628a02171d56153ba733b6c741fc627ec9579b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -3406,7 +3427,7 @@ checksum = "053e2e040ab57b9dc951b72c264860db7eb3b0200ba345b4e4c3b14f67855ddf"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -3417,7 +3438,7 @@ checksum = "053c4c462dc91d3b1504c6fe5a726dd15e216ba718e84a0e46a88fbe5ded3515"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -3428,7 +3449,7 @@ checksum = "3f316c4a2570ba26bbec722032c4099d8c8bc095efccdc15688708623367e358"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -3930,7 +3951,7 @@ checksum = "2380878cad4ac9aac1e2435f3eb4020e8374b5f13c296cb75b4620ff8e229154"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
  "synstructure",
 ]
 
@@ -3951,7 +3972,7 @@ checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]
 
 [[package]]
@@ -3971,7 +3992,7 @@ checksum = "595eed982f7d355beb85837f651fa22e90b3c044842dc7f2c2842c086f295808"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
  "synstructure",
 ]
 
@@ -3994,5 +4015,5 @@ checksum = "6eafa6dfb17584ea3e2bd6e76e0cc15ad7af12b09abdd1ca55961bed9b1063c6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.118",
 ]

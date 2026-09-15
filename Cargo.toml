@@ -54,7 +54,7 @@ cookie = "0.18"
 javascriptcore6 = { version = "0.6", optional = true }
 webkit6 = { version = "0.6", features = ["v2_42"], optional = true }
 webkit6-sys = { version = "0.6", optional = true }
-gtk4 = { version = "0.11", optional = true }
+gtk4 = { version = "0.11", features = ["v4_12"], optional = true }
 soup3 = { version = "0.9", optional = true }
 x11-dl = { version = "2.21", optional = true }
 gdk4 = { version = "0.11", features = ["v4_6", "v4_12"], optional = true }

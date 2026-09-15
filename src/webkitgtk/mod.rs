@@ -189,9 +189,9 @@ impl InnerWebView {
       // for some reason, if the webview starts as hidden,
       // we will need about 3 calls to `webview.set_visible`
       // with alternating value.
-      // calling gtk_window.show() then hiding it again
+      // calling gtk_window.set_visible(true) then hiding it again
       // seems to fix the issue.
-      gtk_window.show();
+      gtk_window.set_visible(true);
       if !visible {
         let _ = w.set_visible(false);
       }
@@ -612,7 +612,7 @@ impl InnerWebView {
     }
 
     if attributes.visible {
-      w.webview.show();
+      w.webview.set_visible(true);
     }
 
     if attributes.focused {
@@ -769,7 +769,7 @@ impl InnerWebView {
                 related_webviews_.lock().unwrap().remove(&id);
               });
 
-              window.show();
+              window.set_visible(true);
               Self::new_gtk(
                 &box_,
                 WebViewAttributes {
@@ -791,7 +791,7 @@ impl InnerWebView {
               window.set_title(Some(&url));
               let box_ = gtk::Box::new(gtk::Orientation::Vertical, 0);
               window.set_child(Some(&box_));
-              window.show();
+              window.set_visible(true);
               Self::new_gtk(
                 &box_,
                 WebViewAttributes {
@@ -1274,13 +1274,12 @@ impl InnerWebView {
         let (x, y) = wayland_data.position.get();
         bounds.position = LogicalPosition::new(x, y).into();
       }
-      let size = self.webview.allocation();
-      bounds.size = LogicalSize::new(size.width(), size.height()).into();
+      bounds.size = LogicalSize::new(self.webview.width(), self.webview.height()).into();
       return Ok(bounds);
     }
 
-    let size = self.webview.allocation();
-    bounds.size = LogicalSize::new(size.width(), size.height()).into();
+    let size = LogicalSize::new(self.webview.width(), self.webview.height());
+    bounds.size = size.into();
 
     Ok(bounds)
   }
@@ -1364,11 +1363,7 @@ impl InnerWebView {
   fn set_visible_gtk(&self, visible: bool) {
     if let Some(x11_data) = &self.x11 {
       if x11_data.is_child {
-        if visible {
-          x11_data.gtk_window.show();
-        } else {
-          x11_data.gtk_window.hide();
-        }
+        x11_data.gtk_window.set_visible(visible);
       }
     }
   }
@@ -1377,11 +1372,7 @@ impl InnerWebView {
     #[cfg(feature = "x11")]
     self.set_visible_x11(visible);
 
-    if visible {
-      self.webview.show();
-    } else {
-      self.webview.hide();
-    }
+    self.webview.set_visible(visible);
 
     #[cfg(feature = "x11")]
     self.set_visible_gtk(visible);
@@ -1389,11 +1380,7 @@ impl InnerWebView {
     #[cfg(feature = "wayland")]
     if let Some(wayland_data) = &self.wayland {
       if wayland_data.is_child {
-        if visible {
-          wayland_data.gtk_window.borrow().show();
-        } else {
-          wayland_data.gtk_window.borrow().hide();
-        }
+        wayland_data.gtk_window.borrow().set_visible(visible);
       }
     }
 
