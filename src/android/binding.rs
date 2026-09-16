@@ -267,24 +267,26 @@ fn handle_request(
 
 #[allow(non_snake_case)]
 pub unsafe fn onFirstActivityCreateWry(env: JNIEnv, _: JClass) {
-  let mut main_pipe = MainPipe { env };
+  unsafe {
+    let mut main_pipe = MainPipe { env };
 
-  let looper = ThreadLooper::for_thread().unwrap();
+    let looper = ThreadLooper::for_thread().unwrap();
 
-  looper
-    .add_fd_with_callback(MAIN_PIPE[0].as_fd(), FdEvent::INPUT, move |fd, _event| {
-      let mut buf = [0u8];
-      if libc::read(fd.as_raw_fd(), buf.as_mut_ptr() as *mut _, buf.len())
-        == buf.len() as libc::ssize_t
-      {
-        // unregister itself on errors
-        main_pipe.recv().is_ok()
-      } else {
-        // unregister itself
-        false
-      }
-    })
-    .unwrap();
+    looper
+      .add_fd_with_callback(MAIN_PIPE[0].as_fd(), FdEvent::INPUT, move |fd, _event| {
+        let mut buf = [0u8];
+        if libc::read(fd.as_raw_fd(), buf.as_mut_ptr() as *mut _, buf.len())
+          == buf.len() as libc::ssize_t
+        {
+          // unregister itself on errors
+          main_pipe.recv().is_ok()
+        } else {
+          // unregister itself
+          false
+        }
+      })
+      .unwrap();
+  }
 }
 
 #[allow(non_snake_case)]
