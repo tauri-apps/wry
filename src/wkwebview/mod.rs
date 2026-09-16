@@ -1550,6 +1550,10 @@ mod tests {
       Some("notexample.com")
     ));
     assert!(!cookie_domain_matches(
+      Some(".example.com"),
+      Some("notexample.com")
+    ));
+    assert!(!cookie_domain_matches(
       Some("www.example.com"),
       Some("example.com")
     ));
