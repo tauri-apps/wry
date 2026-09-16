@@ -1808,7 +1808,12 @@ pub trait WebViewBuilderExtWindows {
   /// and [MicrosoftEdge/WebView2Feedback#5613](https://github.com/MicrosoftEdge/WebView2Feedback/issues/5613).
   ///
   /// See <https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2controlleroptions4#put_allowhostinputprocessing>.
-  fn with_allow_host_input_processing(self, enabled: bool) -> Self;
+  fn with_allow_host_input_processing(self, _enabled: bool) -> Self
+  where
+    Self: Sized,
+  {
+    self
+  }
 
   /// Determines whether browser-specific accelerator keys are enabled. When this setting is set to
   /// `false`, it disables all accelerator keys that access features specific to a web browser.
