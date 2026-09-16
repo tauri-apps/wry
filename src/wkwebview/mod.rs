@@ -1201,8 +1201,8 @@ impl InnerWebView {
     self.cookies().map(|cookies| {
       cookies.into_iter().filter(|cookie: &cookie::Cookie| {
         let secure = cookie.secure().unwrap_or_default();
-        // domain is the same
-        cookie.domain() == url.domain()
+        // domain-match (includes parent Domain cookies for subdomain URLs)
+        cookie_domain_matches(cookie.domain(), url.domain())
           // and one of
           && (
             // cookie is secure and url is https
@@ -1437,6 +1437,37 @@ impl Drop for InnerWebView {
   }
 }
 
+/// Whether `request_host` domain-matches `cookie_domain` per RFC 6265 §5.1.3.
+///
+/// Exact host matches always succeed. Parent-domain cookies match subdomain
+/// request hosts only when the cookie domain begins with `.`, as required by
+/// `NSHTTPCookie`'s domain semantics.
+fn cookie_domain_matches(cookie_domain: Option<&str>, request_host: Option<&str>) -> bool {
+  let (Some(cookie_domain), Some(request_host)) = (cookie_domain, request_host) else {
+    return false;
+  };
+
+  let Some(domain_cookie) = cookie_domain.strip_prefix('.') else {
+    return cookie_domain.eq_ignore_ascii_case(request_host);
+  };
+
+  if domain_cookie.eq_ignore_ascii_case(request_host) {
+    return true;
+  }
+
+  // Domain cookie: request-host is a subdomain of cookie-domain.
+  if request_host.len() > domain_cookie.len() {
+    let start = request_host.len() - domain_cookie.len();
+    if request_host.as_bytes().get(start - 1) == Some(&b'.')
+      && request_host[start..].eq_ignore_ascii_case(domain_cookie)
+    {
+      return true;
+    }
+  }
+
+  false
+}
+
 /// Converts from wry screen-coordinates to macOS screen-coordinates.
 /// wry: top-left is (0, 0) and y increasing downwards
 /// macOS:
@@ -1489,5 +1520,42 @@ unsafe fn wait_for_blocking_operation<T>(rx: std::sync::mpsc::Receiver<T>) -> Re
     let mode = ns_string!("NSDefaultRunLoopMode");
 
     rl.acceptInputForMode_beforeDate(mode, &limit_date);
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::cookie_domain_matches;
+
+  #[test]
+  fn cookie_domain_matches_exact_and_subdomain() {
+    assert!(cookie_domain_matches(
+      Some("www.example.com"),
+      Some("www.example.com")
+    ));
+    assert!(cookie_domain_matches(
+      Some(".example.com"),
+      Some("example.com")
+    ));
+    assert!(!cookie_domain_matches(
+      Some("example.com"),
+      Some("www.example.com")
+    ));
+    assert!(cookie_domain_matches(
+      Some(".example.com"),
+      Some("www.example.com")
+    ));
+    assert!(!cookie_domain_matches(
+      Some("example.com"),
+      Some("notexample.com")
+    ));
+    assert!(!cookie_domain_matches(
+      Some(".example.com"),
+      Some("notexample.com")
+    ));
+    assert!(!cookie_domain_matches(
+      Some("www.example.com"),
+      Some("example.com")
+    ));
   }
 }
