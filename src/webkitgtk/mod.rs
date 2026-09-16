@@ -793,6 +793,13 @@ impl InnerWebView {
 
       self.webview.run_javascript(js, cancellable, |result| {
         #[cfg(feature = "tracing")]
+        if callback.is_none() {
+          if let Err(error) = &result {
+            tracing::debug!(?error, "JavaScript evaluation failed");
+          }
+        }
+
+        #[cfg(feature = "tracing")]
         drop(span);
 
         if let Some(callback) = callback {
