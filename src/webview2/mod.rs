@@ -141,6 +141,7 @@ impl InnerWebView {
       attributes.incognito,
       background_color,
       pl_attrs.profile_name.as_deref(),
+      pl_attrs.allow_host_input_processing,
     )?;
     let webview = Self::init_webview(
       parent,
@@ -376,6 +377,7 @@ impl InnerWebView {
     incognito: bool,
     background_color: Option<(u8, u8, u8, u8)>,
     profile_name: Option<&str>,
+    allow_host_input_processing: bool,
   ) -> Result<ICoreWebView2Controller> {
     let (tx, rx) = mpsc::channel();
 
@@ -415,6 +417,12 @@ impl InnerWebView {
 
         if let Some(name) = profile_name {
           controller_opts.SetProfileName(&HSTRING::from(name))?;
+        }
+
+        if allow_host_input_processing {
+          if let Ok(opts4) = controller_opts.cast::<ICoreWebView2ControllerOptions4>() {
+            opts4.SetAllowHostInputProcessing(true)?;
+          }
         }
 
         env10.CreateCoreWebView2ControllerWithOptions(hwnd, &controller_opts, &handler)?;

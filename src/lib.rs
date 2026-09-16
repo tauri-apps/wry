@@ -1749,6 +1749,7 @@ impl WebViewBuilderExtIos for WebViewBuilder<'_> {
 #[derive(Clone)]
 pub(crate) struct PlatformSpecificWebViewAttributes {
   additional_browser_args: Option<String>,
+  allow_host_input_processing: bool,
   browser_accelerator_keys: bool,
   theme: Option<Theme>,
   use_https: bool,
@@ -1765,8 +1766,9 @@ impl Default for PlatformSpecificWebViewAttributes {
   fn default() -> Self {
     Self {
       additional_browser_args: None,
-      browser_accelerator_keys: true, // This is WebView2's default behavior
-      default_context_menus: true,    // This is WebView2's default behavior
+      allow_host_input_processing: false, // This is WebView2's default behavior
+      browser_accelerator_keys: true,     // This is WebView2's default behavior
+      default_context_menus: true,        // This is WebView2's default behavior
       theme: None,
       use_https: false, // To match macOS & Linux behavior in the context of mixed content.
       scroll_bar_style: ScrollBarStyle::default(),
@@ -1790,6 +1792,28 @@ pub trait WebViewBuilderExtWindows {
   ///   and `--proxy-server=<scheme>://<host>:<port>` if a proxy is set.
   ///   so if you use this method, you have to add these arguments yourself if you want to keep the same behavior.
   fn with_additional_browser_args<S: Into<String>>(self, additional_args: S) -> Self;
+
+  /// Determines whether keyboard, mouse, touch, and pen input messages pass through the host
+  /// application's message queue before they are delivered to WebView2.
+  ///
+  /// The default value is `false`. Enabling this option makes WebView2's accelerator key events
+  /// asynchronous. It only applies to windowed controllers and has no effect with visual hosting.
+  ///
+  /// Requires WebView2 Runtime version 138.0.3351.48 or higher and does nothing on older versions.
+  ///
+  /// ## Warning
+  ///
+  /// WebView2 has known input-handling issues when this option is enabled, including
+  /// [MicrosoftEdge/WebView2Feedback#5375](https://github.com/MicrosoftEdge/WebView2Feedback/issues/5375)
+  /// and [MicrosoftEdge/WebView2Feedback#5613](https://github.com/MicrosoftEdge/WebView2Feedback/issues/5613).
+  ///
+  /// See <https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2controlleroptions4#put_allowhostinputprocessing>.
+  fn with_allow_host_input_processing(self, _enabled: bool) -> Self
+  where
+    Self: Sized,
+  {
+    self
+  }
 
   /// Determines whether browser-specific accelerator keys are enabled. When this setting is set to
   /// `false`, it disables all accelerator keys that access features specific to a web browser.
@@ -1877,6 +1901,11 @@ pub trait WebViewBuilderExtWindows {
 impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
   fn with_additional_browser_args<S: Into<String>>(mut self, additional_args: S) -> Self {
     self.platform_specific.additional_browser_args = Some(additional_args.into());
+    self
+  }
+
+  fn with_allow_host_input_processing(mut self, enabled: bool) -> Self {
+    self.platform_specific.allow_host_input_processing = enabled;
     self
   }
 
