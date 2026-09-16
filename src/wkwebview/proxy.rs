@@ -15,7 +15,7 @@ pub type nw_protocol_options_t = *mut NSObject;
 pub type nw_proxy_config_t = *mut NSObject;
 
 #[link(name = "Network", kind = "framework")]
-extern "C" {
+unsafe extern "C" {
   fn nw_endpoint_create_host(host: *const c_char, port: *const c_char) -> nw_endpoint_t;
   pub fn nw_proxy_config_create_socksv5(proxy_endpoint: nw_endpoint_t) -> nw_proxy_config_t;
   pub fn nw_proxy_config_create_http_connect(
