@@ -1439,25 +1439,27 @@ impl Drop for InnerWebView {
 
 /// Whether `request_host` domain-matches `cookie_domain` per RFC 6265 §5.1.3.
 ///
-/// Exact host matches always succeed. Parent-domain cookies also match subdomain
-/// request hosts (e.g. `example.com` for `www.example.com`). A leading `.` on the
-/// cookie domain is stripped before comparison when present.
+/// Exact host matches always succeed. Parent-domain cookies match subdomain
+/// request hosts only when the cookie domain begins with `.`, as required by
+/// `NSHTTPCookie`'s domain semantics.
 fn cookie_domain_matches(cookie_domain: Option<&str>, request_host: Option<&str>) -> bool {
   let (Some(cookie_domain), Some(request_host)) = (cookie_domain, request_host) else {
     return false;
   };
 
-  let cookie_domain = cookie_domain.strip_prefix('.').unwrap_or(cookie_domain);
+  let Some(domain_cookie) = cookie_domain.strip_prefix('.') else {
+    return cookie_domain.eq_ignore_ascii_case(request_host);
+  };
 
-  if cookie_domain.eq_ignore_ascii_case(request_host) {
+  if domain_cookie.eq_ignore_ascii_case(request_host) {
     return true;
   }
 
   // Domain cookie: request-host is a subdomain of cookie-domain.
-  if request_host.len() > cookie_domain.len() {
-    let start = request_host.len() - cookie_domain.len();
+  if request_host.len() > domain_cookie.len() {
+    let start = request_host.len() - domain_cookie.len();
     if request_host.as_bytes().get(start - 1) == Some(&b'.')
-      && request_host[start..].eq_ignore_ascii_case(cookie_domain)
+      && request_host[start..].eq_ignore_ascii_case(domain_cookie)
     {
       return true;
     }
@@ -1532,6 +1534,10 @@ mod tests {
       Some("www.example.com")
     ));
     assert!(cookie_domain_matches(
+      Some(".example.com"),
+      Some("example.com")
+    ));
+    assert!(!cookie_domain_matches(
       Some("example.com"),
       Some("www.example.com")
     ));
