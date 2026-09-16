@@ -54,8 +54,10 @@ impl DragDropController {
       let closure_pointer_pointer: *mut c_void = unsafe { std::mem::transmute(&mut trait_obj) };
       let lparam = LPARAM(closure_pointer_pointer as _);
       unsafe extern "system" fn enumerate_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
-        let closure = &mut *(lparam.0 as *mut c_void as *mut &mut dyn FnMut(HWND) -> bool);
-        closure(hwnd).into()
+        unsafe {
+          let closure = &mut *(lparam.0 as *mut c_void as *mut &mut dyn FnMut(HWND) -> bool);
+          closure(hwnd).into()
+        }
       }
       let _ = unsafe { EnumChildWindows(Some(hwnd), Some(enumerate_callback), lparam) };
     }
@@ -101,54 +103,56 @@ impl DragDropTarget {
   where
     F: FnMut(PathBuf),
   {
-    let drop_format = FORMATETC {
-      cfFormat: CF_HDROP.0,
-      ptd: ptr::null_mut(),
-      dwAspect: DVASPECT_CONTENT.0,
-      lindex: -1,
-      tymed: TYMED_HGLOBAL.0 as u32,
-    };
+    unsafe {
+      let drop_format = FORMATETC {
+        cfFormat: CF_HDROP.0,
+        ptd: ptr::null_mut(),
+        dwAspect: DVASPECT_CONTENT.0,
+        lindex: -1,
+        tymed: TYMED_HGLOBAL.0 as u32,
+      };
 
-    match data_obj
-      .as_ref()
-      .expect("Received null IDataObject")
-      .GetData(&drop_format)
-    {
-      Ok(medium) => {
-        let hdrop = HDROP(medium.u.hGlobal.0 as _);
+      match data_obj
+        .as_ref()
+        .expect("Received null IDataObject")
+        .GetData(&drop_format)
+      {
+        Ok(medium) => {
+          let hdrop = HDROP(medium.u.hGlobal.0 as _);
 
-        // The second parameter (0xFFFFFFFF) instructs the function to return the item count
-        let item_count = DragQueryFileW(hdrop, 0xFFFFFFFF, None);
+          // The second parameter (0xFFFFFFFF) instructs the function to return the item count
+          let item_count = DragQueryFileW(hdrop, 0xFFFFFFFF, None);
 
-        for i in 0..item_count {
-          // Get the length of the path string NOT including the terminating null character.
-          // Previously, this was using a fixed size array of MAX_PATH length, but the
-          // Windows API allows longer paths under certain circumstances.
-          let character_count = DragQueryFileW(hdrop, i, None) as usize;
+          for i in 0..item_count {
+            // Get the length of the path string NOT including the terminating null character.
+            // Previously, this was using a fixed size array of MAX_PATH length, but the
+            // Windows API allows longer paths under certain circumstances.
+            let character_count = DragQueryFileW(hdrop, i, None) as usize;
 
-          // Fill path_buf with the null-terminated file name
-          let str_len = character_count + 1;
-          let mut path_buf = vec![0; str_len];
-          DragQueryFileW(hdrop, i, Some(&mut path_buf));
-          callback(OsString::from_wide(&path_buf[0..character_count]).into());
-        }
-
-        Some(hdrop)
-      }
-      Err(_error) => {
-        #[cfg(feature = "tracing")]
-        tracing::warn!(
-          "{}",
-          match _error.code() {
-            windows::Win32::Foundation::DV_E_FORMATETC => {
-              // If the dropped item is not a file this error will occur.
-              // In this case it is OK to return without taking further action.
-              "Error occurred while processing dropped/hovered item: item is not a file."
-            }
-            _ => "Unexpected error occurred while processing dropped/hovered item.",
+            // Fill path_buf with the null-terminated file name
+            let str_len = character_count + 1;
+            let mut path_buf = vec![0; str_len];
+            DragQueryFileW(hdrop, i, Some(&mut path_buf));
+            callback(OsString::from_wide(&path_buf[0..character_count]).into());
           }
-        );
-        None
+
+          Some(hdrop)
+        }
+        Err(_error) => {
+          #[cfg(feature = "tracing")]
+          tracing::warn!(
+            "{}",
+            match _error.code() {
+              windows::Win32::Foundation::DV_E_FORMATETC => {
+                // If the dropped item is not a file this error will occur.
+                // In this case it is OK to return without taking further action.
+                "Error occurred while processing dropped/hovered item: item is not a file."
+              }
+              _ => "Unexpected error occurred while processing dropped/hovered item.",
+            }
+          );
+          None
+        }
       }
     }
   }
