@@ -362,7 +362,12 @@ impl InnerWebView {
         if let Some(pending_scripts) = pending_scripts_.take() {
           let cancellable: Option<&Cancellable> = None;
           for script in pending_scripts {
-            webview.run_javascript(&script, cancellable, |_| ());
+            webview.run_javascript(&script, cancellable, |_result| {
+              #[cfg(feature = "tracing")]
+              if let Err(error) = _result {
+                tracing::debug!(?error, "JavaScript evaluation failed");
+              }
+            });
           }
         }
       }
@@ -792,6 +797,13 @@ impl InnerWebView {
       let span = SendEnteredSpan(tracing::debug_span!("wry::eval").entered());
 
       self.webview.run_javascript(js, cancellable, |result| {
+        #[cfg(feature = "tracing")]
+        if callback.is_none() {
+          if let Err(error) = &result {
+            tracing::debug!(?error, "JavaScript evaluation failed");
+          }
+        }
+
         #[cfg(feature = "tracing")]
         drop(span);
 
