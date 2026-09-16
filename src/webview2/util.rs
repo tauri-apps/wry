@@ -4,11 +4,10 @@
 
 use once_cell::sync::Lazy;
 use windows::{
-  core::{HRESULT, HSTRING, PCSTR},
   Win32::{
     Foundation::{FARPROC, HWND, S_OK},
     Graphics::Gdi::{
-      GetDC, GetDeviceCaps, MonitorFromWindow, HMONITOR, LOGPIXELSX, MONITOR_DEFAULTTONEAREST,
+      GetDC, GetDeviceCaps, HMONITOR, LOGPIXELSX, MONITOR_DEFAULTTONEAREST, MonitorFromWindow,
     },
     System::LibraryLoader::{GetProcAddress, LoadLibraryW},
     UI::{
@@ -16,6 +15,7 @@ use windows::{
       WindowsAndMessaging::IsProcessDPIAware,
     },
   },
+  core::{HRESULT, HSTRING, PCSTR},
 };
 
 fn get_function_impl(library: &str, function: &str) -> FARPROC {

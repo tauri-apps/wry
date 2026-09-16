@@ -8,8 +8,8 @@ use dpi::LogicalSize;
 use ffi::CookieManageExt;
 #[cfg(feature = "x11")]
 use gdkx11::{
-  ffi::{gdk_x11_window_foreign_new_for_display, GdkX11Display},
   X11Display,
+  ffi::{GdkX11Display, gdk_x11_window_foreign_new_for_display},
 };
 #[cfg(feature = "x11")]
 use gtk::glib::{self, translate::FromGlibPtrFull};
@@ -55,9 +55,9 @@ use x11_dl::xlib::*;
 pub use web_context::WebContextImpl;
 
 use crate::{
-  proxy::ProxyConfig, web_context::WebContext, Error, NewWindowFeatures, NewWindowOpener,
-  NewWindowResponse, PageLoadEvent, PermissionKind, PermissionResponse, Rect, Result,
-  WebViewAttributes, RGBA,
+  Error, NewWindowFeatures, NewWindowOpener, NewWindowResponse, PageLoadEvent, PermissionKind,
+  PermissionResponse, RGBA, Rect, Result, WebViewAttributes, proxy::ProxyConfig,
+  web_context::WebContext,
 };
 
 use self::web_context::WebContextExt;
@@ -1277,10 +1277,9 @@ mod ffi {
   use gtk::{
     gdk,
     gio::{
-      self,
+      self, Cancellable,
       ffi::{GAsyncReadyCallback, GCancellable},
       prelude::*,
-      Cancellable,
     },
     glib::{
       self,

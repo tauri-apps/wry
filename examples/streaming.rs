@@ -7,7 +7,7 @@ use std::{
   path::PathBuf,
 };
 
-use http::{header, StatusCode};
+use http::{StatusCode, header};
 use http_range::HttpRange;
 use tao::{
   event::{Event, WindowEvent},
@@ -15,8 +15,8 @@ use tao::{
   window::WindowBuilder,
 };
 use wry::{
-  http::{header::*, Request, Response},
   WebViewBuilder,
+  http::{Request, Response, header::*},
 };
 
 pub fn main() -> wry::Result<()> {

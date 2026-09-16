@@ -4,19 +4,19 @@
 
 use std::{
   borrow::Cow,
-  ffi::{c_char, CStr},
+  ffi::{CStr, c_char},
   panic::AssertUnwindSafe,
   ptr::NonNull,
 };
 
 use http::{
-  header::{CONTENT_LENGTH, CONTENT_TYPE},
   Request, Response as HttpResponse, StatusCode, Version,
+  header::{CONTENT_LENGTH, CONTENT_TYPE},
 };
 use objc2::{
+  AllocAnyThread, ClassType, Message,
   rc::Retained,
   runtime::{AnyClass, AnyObject, ClassBuilder, ProtocolObject},
-  AllocAnyThread, ClassType, Message,
 };
 use objc2_foundation::{
   NSData, NSHTTPURLResponse, NSMutableDictionary, NSObject, NSObjectProtocol, NSString, NSURL,
@@ -24,7 +24,7 @@ use objc2_foundation::{
 };
 use objc2_web_kit::{WKURLSchemeHandler, WKURLSchemeTask};
 
-use crate::{wkwebview::WEBVIEW_STATE, RequestAsyncResponder, WryWebView};
+use crate::{RequestAsyncResponder, WryWebView, wkwebview::WEBVIEW_STATE};
 
 pub fn create(name: &str) -> &AnyClass {
   unsafe {

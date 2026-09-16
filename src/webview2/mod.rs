@@ -16,7 +16,6 @@ use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 use windows::{
-  core::{s, w, Interface, BOOL, HSTRING, PCWSTR, PWSTR},
   Win32::{
     Foundation::*,
     Globalization::*,
@@ -24,14 +23,15 @@ use windows::{
     System::{Com::*, LibraryLoader::GetModuleHandleW},
     UI::{Input::KeyboardAndMouse::SetFocus, Shell::*, WindowsAndMessaging::*},
   },
+  core::{BOOL, HSTRING, Interface, PCWSTR, PWSTR, s, w},
 };
 
 use self::drag_drop::DragDropController;
 use super::Theme;
 use crate::{
-  custom_protocol_workaround, proxy::ProxyConfig, Error, MemoryUsageLevel, NewWindowFeatures,
-  NewWindowOpener, NewWindowResponse, PageLoadEvent, PermissionKind, PermissionResponse, Rect,
-  RequestAsyncResponder, Result, WebViewAttributes, RGBA,
+  Error, MemoryUsageLevel, NewWindowFeatures, NewWindowOpener, NewWindowResponse, PageLoadEvent,
+  PermissionKind, PermissionResponse, RGBA, Rect, RequestAsyncResponder, Result, WebViewAttributes,
+  custom_protocol_workaround, proxy::ProxyConfig,
 };
 
 type EventRegistrationToken = i64;

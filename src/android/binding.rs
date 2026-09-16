@@ -3,24 +3,23 @@
 // SPDX-License-Identifier: MIT
 
 use http::{
-  header::{HeaderName, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE},
   Request,
+  header::{CONTENT_LENGTH, CONTENT_TYPE, HeaderName, HeaderValue},
 };
 use jni::errors::Result as JniResult;
 pub use jni::{
-  self,
+  self, JNIEnv,
   objects::{GlobalRef, JClass, JMap, JObject, JString},
   sys::{jboolean, jint, jobject, jstring},
-  JNIEnv,
 };
 pub use ndk;
 use ndk::looper::{FdEvent, ThreadLooper};
 use std::os::fd::{AsFd, AsRawFd};
 
 use super::{
-  main_pipe::{MainPipe, MAIN_PIPE},
   ASSET_LOADER_DOMAIN, EVAL_CALLBACKS, IPC, ON_LOAD_HANDLER, PERMISSION_HANDLER, REQUEST_HANDLER,
   TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE,
+  main_pipe::{MAIN_PIPE, MainPipe},
 };
 
 use crate::{PageLoadEvent, PermissionKind, PermissionResponse};

@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: MIT
 
 use objc2_foundation::NSObject;
-use std::ffi::{c_char, CString};
+use std::ffi::{CString, c_char};
 
-use crate::{proxy::ProxyEndpoint, Error};
+use crate::{Error, proxy::ProxyEndpoint};
 
 #[allow(non_camel_case_types)]
 pub type nw_endpoint_t = *mut NSObject;
