@@ -11,8 +11,10 @@ pub enum PermissionKind {
   /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_MICROPHONE`.
   /// - **macOS / iOS**: Supported via `WKMediaCaptureType::Microphone`. A combined
   ///   camera and microphone request invokes the handler once for each kind and
-  ///   is granted only when both calls return [`PermissionResponse::Allow`]. If
-  ///   no permission handler is configured, Wry grants media capture requests.
+  ///   is denied if either call returns [`PermissionResponse::Deny`], granted
+  ///   directly if both return [`PermissionResponse::Allow`], and otherwise
+  ///   deferred to the system prompt. If no permission handler is configured,
+  ///   Wry grants media capture requests.
   /// - **Linux**: Supported via `UserMediaPermissionRequest` audio requests.
   /// - **Android**: Supported via `android.webkit.resource.AUDIO_CAPTURE`.
   Microphone,
@@ -23,8 +25,10 @@ pub enum PermissionKind {
   /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_CAMERA`.
   /// - **macOS / iOS**: Supported via `WKMediaCaptureType::Camera`. A combined
   ///   camera and microphone request invokes the handler once for each kind and
-  ///   is granted only when both calls return [`PermissionResponse::Allow`]. If
-  ///   no permission handler is configured, Wry grants media capture requests.
+  ///   is denied if either call returns [`PermissionResponse::Deny`], granted
+  ///   directly if both return [`PermissionResponse::Allow`], and otherwise
+  ///   deferred to the system prompt. If no permission handler is configured,
+  ///   Wry grants media capture requests.
   /// - **Linux**: Supported via `UserMediaPermissionRequest` video requests.
   /// - **Android**: Supported via `android.webkit.resource.VIDEO_CAPTURE`.
   Camera,
