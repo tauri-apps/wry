@@ -1390,6 +1390,10 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// macOS doesn't provide such method and is always enabled by default. But your app will still need to add menu
   /// item accelerators to use the clipboard shortcuts.
+  ///
+  /// On Windows, enabling this option installs a separate permission handler that
+  /// grants clipboard-read requests. Leave it disabled if
+  /// [`Self::with_permission_handler`] should decide clipboard-read permissions.
   pub fn with_clipboard(mut self, clipboard: bool) -> Self {
     self.attrs.clipboard = clipboard;
     self
