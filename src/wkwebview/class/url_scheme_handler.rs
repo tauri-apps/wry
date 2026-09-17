@@ -27,6 +27,38 @@ use objc2_web_kit::{WKURLSchemeHandler, WKURLSchemeTask};
 
 use crate::{RequestAsyncResponder, WryWebView, wkwebview::WEBVIEW_STATE};
 
+/// Keeps main-thread-only values safe to send without synchronously blocking
+/// the dropping thread when the value is abandoned there.
+struct AsyncMainThreadBound<T: 'static>(Option<MainThreadBound<T>>);
+
+impl<T: 'static> AsyncMainThreadBound<T> {
+  fn new(inner: T, mtm: MainThreadMarker) -> Self {
+    Self(Some(MainThreadBound::new(inner, mtm)))
+  }
+
+  fn into_inner(mut self, mtm: MainThreadMarker) -> T {
+    self.0.take().unwrap().into_inner(mtm)
+  }
+}
+
+impl<T: 'static> Drop for AsyncMainThreadBound<T> {
+  fn drop(&mut self) {
+    let Some(inner) = self.0.take() else {
+      return;
+    };
+
+    if let Some(mtm) = MainThreadMarker::new() {
+      drop(inner.into_inner(mtm));
+    } else {
+      DispatchQueue::main().exec_async(move || {
+        // SAFETY: this closure is executing on the main dispatch queue.
+        let mtm = unsafe { MainThreadMarker::new_unchecked() };
+        drop(inner.into_inner(mtm));
+      });
+    }
+  }
+}
+
 pub fn create(name: &str) -> &AnyClass {
   unsafe {
     // Include the address of WEBVIEW_STATE in the class name so that each dylib in the process
@@ -188,12 +220,13 @@ extern "C" fn start_task(
         let Some(mtm) = MainThreadMarker::new() else {
           #[cfg(feature = "tracing")]
           tracing::error!("WKURLSchemeHandler callback did not run on the main thread");
+          webview.remove_custom_task_key(task_key);
           return;
         };
         // These WebKit objects originate on the main thread and must only be
         // accessed there, even when the responder is sent to a worker thread.
         let response_context =
-          MainThreadBound::new((task.retain(), webview.retain(), task_uuid, url), mtm);
+          AsyncMainThreadBound::new((task.retain(), webview.retain(), task_uuid, url), mtm);
         let responder_webview_id = webview_id.to_owned();
         let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
           Box::new(move |sent_response| {
