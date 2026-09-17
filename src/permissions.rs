@@ -5,8 +5,28 @@
 #[non_exhaustive]
 pub enum PermissionKind {
   /// Microphone access permission.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_MICROPHONE`.
+  /// - **macOS / iOS**: Supported via `WKMediaCaptureType::Microphone`. A combined
+  ///   camera and microphone request invokes the handler once for each kind and
+  ///   is granted only when both calls return [`PermissionResponse::Allow`]. If
+  ///   no permission handler is configured, Wry grants media capture requests.
+  /// - **Linux**: Supported via `UserMediaPermissionRequest` audio requests.
+  /// - **Android**: Supported via `android.webkit.resource.AUDIO_CAPTURE`.
   Microphone,
   /// Camera access permission.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_CAMERA`.
+  /// - **macOS / iOS**: Supported via `WKMediaCaptureType::Camera`. A combined
+  ///   camera and microphone request invokes the handler once for each kind and
+  ///   is granted only when both calls return [`PermissionResponse::Allow`]. If
+  ///   no permission handler is configured, Wry grants media capture requests.
+  /// - **Linux**: Supported via `UserMediaPermissionRequest` video requests.
+  /// - **Android**: Supported via `android.webkit.resource.VIDEO_CAPTURE`.
   Camera,
   /// Geolocation access permission.
   ///
@@ -33,6 +53,13 @@ pub enum PermissionKind {
   /// - **macOS / Linux / Android / iOS**: Not yet supported by platform backends.
   ClipboardRead,
   /// Display capture permission (for getDisplayMedia).
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Linux**: Supported via `UserMediaPermissionRequest` display requests.
+  /// - **Windows / macOS / iOS**: Display capture requests are reported as
+  ///   [`Self::Other`].
+  /// - **Android**: Not yet supported by the platform backend.
   DisplayCapture,
   /// Midi access permission.
   ///
