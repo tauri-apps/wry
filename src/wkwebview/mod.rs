@@ -390,7 +390,7 @@ impl InnerWebView {
           config.setMediaTypesRequiringUserActionForPlayback(WKAudiovisualMediaTypes::None);
         } else {
           #[cfg(target_os = "ios")]
-          let _: () = objc2::msg_send![&config, setRequiresUserActionForMediaPlayback: false];
+          let _: () = objc2::msg_send![&config, setMediaPlaybackRequiresUserAction: false];
         }
       }
 
@@ -1126,12 +1126,11 @@ impl InnerWebView {
     let secure = cookie.isSecure();
     cookie_builder = cookie_builder.secure(secure);
 
-    // Using string comparison because of https://github.com/tauri-apps/wry/issues/1616
-    let (major, minor, _) = util::operating_system_version();
-    if major > 10 || (major == 10 && minor >= 15) {
+    if operating_system_version_at_least((10, 15), (13, 0)) {
       // <https://developer.apple.com/documentation/foundation/httpcookie/samesitepolicy>
       // Available: macOS 10.15+, iOS 13+
       let same_site = cookie.sameSitePolicy();
+      // Using string comparison because of https://github.com/tauri-apps/wry/issues/1616
       let same_site = match same_site {
         Some(policy) if policy.to_string() == "lax" => cookie::SameSite::Lax,
         Some(policy) if policy.to_string() == "strict" => cookie::SameSite::Strict,
