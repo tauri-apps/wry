@@ -305,7 +305,7 @@ impl InnerWebView {
     }
 
     // Webview Settings
-    Self::set_webview_settings(&webview, &attributes);
+    Self::set_webview_settings(&webview, &attributes, &pl_attrs);
 
     // Webview handlers
     Self::attach_handlers(&webview, web_context, &mut attributes);
@@ -417,10 +417,19 @@ impl InnerWebView {
     builder.build()
   }
 
-  fn set_webview_settings(webview: &WebView, attributes: &WebViewAttributes) {
-    // Disable input preedit,fcitx input editor can anchor at edit cursor position
+  fn set_webview_settings(
+    webview: &WebView,
+    attributes: &WebViewAttributes,
+    pl_attrs: &super::PlatformSpecificWebViewAttributes,
+  ) {
+    // Configure input method preedit per the platform-specific
+    // attribute. Default is `false` (disabled) — fcitx-style IMEs
+    // anchor their popup at the edit cursor (see
+    // tauri-apps/tauri#5986 for the original motivation). When
+    // `true`, WebKit reports composition events to the DOM and
+    // CJK IMEs render preedit inline.
     if let Some(input_context) = webview.input_method_context() {
-      input_context.set_enable_preedit(false);
+      input_context.set_enable_preedit(pl_attrs.input_method_preedit);
     }
 
     // use system scrollbars
