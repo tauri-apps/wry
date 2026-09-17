@@ -53,6 +53,9 @@ pub enum Error {
   WindowHandleError(#[from] raw_window_handle::HandleError),
   #[error("the window handle kind is not supported")]
   UnsupportedWindowHandle,
+  #[cfg(any(target_os = "macos", target_os = "ios"))]
+  #[error("{0} is not supported on this OS version")]
+  UnsupportedOsVersion(&'static str),
   #[error(transparent)]
   Utf8Error(#[from] std::str::Utf8Error),
   #[cfg(target_os = "android")]
