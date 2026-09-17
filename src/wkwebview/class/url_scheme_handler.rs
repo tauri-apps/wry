@@ -9,12 +9,13 @@ use std::{
   ptr::NonNull,
 };
 
+use dispatch2::{DispatchQueue, MainThreadBound};
 use http::{
   Request, Response as HttpResponse, StatusCode, Version,
   header::{CONTENT_LENGTH, CONTENT_TYPE},
 };
 use objc2::{
-  AllocAnyThread, ClassType, Message,
+  AllocAnyThread, ClassType, MainThreadMarker, Message,
   rc::Retained,
   runtime::{AnyClass, AnyObject, ClassBuilder, ProtocolObject},
 };
@@ -184,24 +185,18 @@ extern "C" fn start_task(
     // send response
     match http_request.body(sent_form_body) {
       Ok(final_request) => {
-        let webview = webview.retain();
-        let task = task.retain();
+        let Some(mtm) = MainThreadMarker::new() else {
+          #[cfg(feature = "tracing")]
+          tracing::error!("WKURLSchemeHandler callback did not run on the main thread");
+          return;
+        };
+        // These WebKit objects originate on the main thread and must only be
+        // accessed there, even when the responder is sent to a worker thread.
+        let response_context =
+          MainThreadBound::new((task.retain(), webview.retain(), task_uuid, url), mtm);
+        let responder_webview_id = webview_id.to_owned();
         let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
           Box::new(move |sent_response| {
-            // Consolidate checks before calling into `did*` methods.
-            let validate = || -> crate::Result<()> {
-              check_webview_id_valid(webview_id)?;
-              check_task_is_valid(&webview, task_key, task_uuid.clone())?;
-              Ok(())
-            };
-
-            // Perform an upfront validation
-            if let Err(_e) = validate() {
-              #[cfg(feature = "tracing")]
-              tracing::warn!("Task invalid before sending response: {:?}", _e);
-              return; // If invalid, return early without calling task methods.
-            }
-
             fn response(
               // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
               task: Retained<ProtocolObject<dyn WKURLSchemeTask>>,
@@ -297,20 +292,36 @@ extern "C" fn start_task(
               }
             }
 
-            #[cfg(feature = "tracing")]
-            let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
+            let deliver_response = move |mtm| {
+              let (task, webview, task_uuid, url) = response_context.into_inner(mtm);
 
-            if let Err(_e) = response(
-              task,
-              webview,
-              task_key,
-              task_uuid,
-              webview_id,
-              url,
-              sent_response,
-            ) {
               #[cfg(feature = "tracing")]
-              tracing::error!("Error responding to task: {:?}", _e);
+              let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
+
+              if let Err(_e) = response(
+                task,
+                webview,
+                task_key,
+                task_uuid,
+                &responder_webview_id,
+                url,
+                sent_response,
+              ) {
+                #[cfg(feature = "tracing")]
+                tracing::error!("Error responding to task: {:?}", _e);
+              }
+            };
+
+            if let Some(mtm) = MainThreadMarker::new() {
+              deliver_response(mtm);
+            } else {
+              // Queue validation and the complete response sequence as one
+              // unit so stopURLSchemeTask cannot interleave with the did* calls.
+              DispatchQueue::main().exec_async(move || {
+                // SAFETY: this closure is executing on the main dispatch queue.
+                let mtm = unsafe { MainThreadMarker::new_unchecked() };
+                deliver_response(mtm);
+              });
             }
           });
 
