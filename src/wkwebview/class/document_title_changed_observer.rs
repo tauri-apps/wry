@@ -5,14 +5,13 @@
 use std::{ffi::c_void, ptr::null_mut};
 
 use objc2::{
-  define_class, msg_send,
+  AllocAnyThread, DefinedClass, define_class, msg_send,
   rc::Retained,
   runtime::{AnyObject, NSObject},
-  AllocAnyThread, DefinedClass,
 };
 use objc2_foundation::{
-  ns_string, NSDictionary, NSKeyValueChangeKey, NSKeyValueObservingOptions,
-  NSObjectNSKeyValueObserverRegistration, NSObjectProtocol, NSString,
+  NSDictionary, NSKeyValueChangeKey, NSKeyValueObservingOptions,
+  NSObjectNSKeyValueObserverRegistration, NSObjectProtocol, NSString, ns_string,
 };
 
 use crate::WryWebView;

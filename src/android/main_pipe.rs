@@ -5,9 +5,9 @@
 use crate::{Error, InitializationScript, RGBA};
 use crossbeam_channel::*;
 use jni::{
+  JNIEnv, JavaVM,
   errors::Result as JniResult,
   objects::{GlobalRef, JMap, JObject, JString},
-  JNIEnv, JavaVM,
 };
 use once_cell::sync::Lazy;
 use std::{
@@ -17,7 +17,7 @@ use std::{
   sync::{Arc, Mutex},
 };
 
-use super::{find_class, EvalCallback, WebviewId, EVAL_CALLBACKS, EVAL_ID_GENERATOR};
+use super::{EVAL_CALLBACKS, EVAL_ID_GENERATOR, EvalCallback, WebviewId, find_class};
 
 pub type ActivityId = i32;
 
