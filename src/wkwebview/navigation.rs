@@ -63,7 +63,12 @@ pub(crate) fn navigation_policy(
       false
     };
     let request = action.request();
-    let url = request.URL().unwrap().absoluteString().unwrap();
+    // The request URL is nullable: a navigation with no URL cannot be
+    // evaluated against the navigation policy, so cancel it.
+    let Some(url) = request.URL().and_then(|url| url.absoluteString()) else {
+      (*handler).call((WKNavigationActionPolicy::Cancel,));
+      return;
+    };
 
     if should_download {
       let has_download_handler = this.ivars().has_download_handler;
