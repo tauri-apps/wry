@@ -20,9 +20,9 @@ use std::{
   path::PathBuf,
 };
 
-use http::{header, StatusCode};
+use http::{StatusCode, header};
 use http_range::HttpRange;
-use wry::http::{header::*, Request, Response};
+use wry::http::{Request, Response, header::*};
 
 fn main() -> wry::Result<()> {
   #[cfg(any(

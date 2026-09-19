@@ -364,7 +364,7 @@ pub(crate) mod android;
 pub use crate::android::android_setup;
 #[cfg(target_os = "android")]
 pub mod prelude {
-  pub use crate::android::{binding::*, dispatch, find_class, Context};
+  pub use crate::android::{Context, binding::*, dispatch, find_class};
   pub use tao_macros::{android_fn, generate_package_name};
 }
 #[cfg(target_os = "android")]
@@ -2348,7 +2348,7 @@ pub trait WebViewBuilderExtUnix<'a> {
   /// The handler receives the pointer `(x, y)` position and should return the text content
   /// to start dragging, or `None` to cancel the drag.
   fn with_drag_source_handler(self, handler: impl Fn(i32, i32) -> Option<String> + 'static)
-    -> Self;
+  -> Self;
 
   /// Set a handler called on every pointer-motion event over the webview.
   ///

@@ -8,11 +8,11 @@ use std::{
   rc::Rc,
 };
 
+use webkit6::WebView;
 use webkit6::gdk;
 use webkit6::glib;
 use webkit6::gtk;
 use webkit6::prelude::*;
-use webkit6::WebView;
 
 use crate::DragDropEvent;
 

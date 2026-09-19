@@ -9,7 +9,7 @@ use winit::{
   event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
   window::{Window, WindowId},
 };
-use wry::{http::Request, WebViewBuilder};
+use wry::{WebViewBuilder, http::Request};
 
 #[derive(Debug)]
 enum UserEvent {

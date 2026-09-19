@@ -11,7 +11,7 @@ use winit::{
   event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
   window::{Window, WindowId},
 };
-use wry::{http::Request, Rect, WebView, WebViewBuilder};
+use wry::{Rect, WebView, WebViewBuilder, http::Request};
 
 enum UserEvent {
   CloseWindow(WindowId),

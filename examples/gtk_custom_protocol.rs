@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use wry::http::{header::CONTENT_TYPE, Request, Response};
+use wry::http::{Request, Response, header::CONTENT_TYPE};
 
 fn main() -> wry::Result<()> {
   #[cfg(any(

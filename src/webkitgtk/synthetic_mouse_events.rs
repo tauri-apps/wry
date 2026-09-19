@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
-use webkit6::prelude::*;
 use webkit6::WebView;
+use webkit6::prelude::*;
 use webkit6::{gdk, gio, gtk};
 
 pub fn setup(webview: &WebView) {

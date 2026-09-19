@@ -8,7 +8,7 @@ use std::{
 };
 
 use dpi::{LogicalPosition, LogicalSize};
-use http::{header, StatusCode};
+use http::{StatusCode, header};
 use http_range::HttpRange;
 use winit::{
   application::ApplicationHandler,
@@ -17,8 +17,8 @@ use winit::{
   window::{Window, WindowId},
 };
 use wry::{
-  http::{header::*, Request, Response},
   Rect, WebViewBuilder,
+  http::{Request, Response, header::*},
 };
 
 #[derive(Default)]

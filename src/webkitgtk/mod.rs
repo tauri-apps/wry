@@ -28,7 +28,6 @@ use webkit6::ffi::{
 };
 use webkit6::glib;
 use webkit6::prelude::*;
-use webkit6::{gdk, gio, gtk};
 use webkit6::{
   AutoplayPolicy, ClipboardPermissionRequest, GeolocationPermissionRequest, LoadEvent,
   MediaKeySystemPermissionRequest, NavigationPolicyDecision, NetworkProxyMode,
@@ -37,15 +36,16 @@ use webkit6::{
   UserMediaPermissionRequest, UserScript, UserScriptInjectionTime, WebView, WebsiteDataTypes,
   WebsitePolicies,
 };
+use webkit6::{gdk, gio, gtk};
 #[cfg(feature = "x11")]
 use x11_dl::xlib::*;
 
 pub use web_context::WebContextImpl;
 
 use crate::{
-  proxy::ProxyConfig, web_context::WebContext, Error, HardwareAccelerationPolicy,
-  NewWindowFeatures, NewWindowOpener, NewWindowResponse, PageLoadEvent, PermissionKind,
-  PermissionResponse, Rect, Result, WebViewAttributes, WebViewHandle, RGBA,
+  Error, HardwareAccelerationPolicy, NewWindowFeatures, NewWindowOpener, NewWindowResponse,
+  PageLoadEvent, PermissionKind, PermissionResponse, RGBA, Rect, Result, WebViewAttributes,
+  WebViewHandle, proxy::ProxyConfig, web_context::WebContext,
 };
 
 use self::web_context::WebContextExt;

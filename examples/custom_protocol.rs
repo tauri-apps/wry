@@ -12,8 +12,8 @@ use winit::{
   window::{Window, WindowId},
 };
 use wry::{
-  http::{header::CONTENT_TYPE, Request, Response},
   Rect, WebViewBuilder,
+  http::{Request, Response, header::CONTENT_TYPE},
 };
 
 #[derive(Default)]

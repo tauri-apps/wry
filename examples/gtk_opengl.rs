@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MIT
 
 use wry::{
-  dpi::{LogicalPosition, LogicalSize},
   Rect, WebViewBuilder,
+  dpi::{LogicalPosition, LogicalSize},
 };
 
 fn main() -> wry::Result<()> {

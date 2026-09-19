@@ -9,7 +9,7 @@ use winit::{
   event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
   window::{CursorIcon, ResizeDirection, Window, WindowId},
 };
-use wry::{http::Request, Rect, WebViewBuilder};
+use wry::{Rect, WebViewBuilder, http::Request};
 
 #[derive(Debug)]
 enum HitTestResult {
