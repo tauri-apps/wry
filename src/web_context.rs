@@ -91,6 +91,20 @@ impl WebContext {
   pub fn set_allows_automation(&mut self, flag: bool) {
     self.os.set_allows_automation(flag);
   }
+
+  /// Set the cookie accept policy for all webviews sharing this context.
+  ///
+  /// - [`webkit6::CookieAcceptPolicy::Always`] — accept all cookies (default WebKit behaviour).
+  /// - [`webkit6::CookieAcceptPolicy::Never`] — reject all cookies.
+  /// - [`webkit6::CookieAcceptPolicy::NoThirdParty`] — accept only first-party cookies.
+  ///
+  /// ## Platform-specific
+  ///
+  /// **Linux only.** This is a no-op on Windows and macOS.
+  #[cfg(gtk)]
+  pub fn set_cookie_accept_policy(&self, policy: webkit6::CookieAcceptPolicy) {
+    self.os.set_cookie_accept_policy(policy);
+  }
 }
 
 impl Default for WebContext {

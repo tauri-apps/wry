@@ -15,7 +15,8 @@ You can use a windowing library like [`tao`] or [`winit`].
 
 ### Examples
 
-This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android and Linux (X11 Only).
+This example leverages the [`HasWindowHandle`] and supports Windows, macOS, iOS, Android,
+Linux X11 (with `--features x11`) and Linux Wayland (with `--features wayland`).
 See the following example using [`winit`]:
 
 ```rust
@@ -46,24 +47,27 @@ event_loop.run_app(&mut app).unwrap();
 ```
 
 If you also want to support Wayland too, then we recommend you use [`WebViewBuilderExtUnix::build_gtk`] on Linux.
-See the following example using [`tao`]:
+See the following example using [`gtk4`] directly:
 
 ```rust
-let event_loop = EventLoop::new();
-let window = WindowBuilder::new().build(&event_loop).unwrap();
-
 let builder = WebViewBuilder::new().with_url("https://tauri.app");
 
 #[cfg(not(target_os = "linux"))]
 let webview = builder.build(&window).unwrap();
 #[cfg(target_os = "linux")]
-let webview = builder.build_gtk(window.gtk_window()).unwrap();
+let webview = {
+  use gtk4::prelude::*;
+  gtk4::init().unwrap();
+  let gtk_window = gtk4::Window::new();
+  gtk_window.present();
+  builder.build_gtk(&gtk_window).unwrap()
+};
 ```
 
 ### Child webviews
 
 You can use [`WebViewBuilder::build_as_child`] to create the webview as a child inside another window. This is supported on
-macOS, Windows and Linux (X11 Only).
+macOS, Windows, Linux X11 (with `--features x11`) and Linux Wayland (with `--features wayland`).
 
 ```rust
 #[derive(Default)]
@@ -97,12 +101,9 @@ event_loop.run_app(&mut app).unwrap();
 ```
 
 If you want to support X11 and Wayland at the same time, we recommend using
-[`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
+[`WebViewExtUnix::new_gtk`] or [`WebViewBuilderExtUnix::build_gtk`] with [`gtk4::Fixed`].
 
 ```rust
-let event_loop = EventLoop::new();
-let window = WindowBuilder::new().build(&event_loop).unwrap();
-
 let builder = WebViewBuilder::new()
   .with_url("https://tauri.app")
   .with_bounds(Rect {
@@ -114,10 +115,12 @@ let builder = WebViewBuilder::new()
 let webview = builder.build_as_child(&window).unwrap();
 #[cfg(target_os = "linux")]
 let webview = {
-  let vbox = window.default_vbox().unwrap(); // tao adds a gtk::Box by default
-  let fixed = gtk::Fixed::new();
-  fixed.show_all();
-  vbox.pack_start(&fixed, true, true, 0);
+  use gtk4::prelude::*;
+  gtk4::init().unwrap();
+  let gtk_window = gtk4::Window::new();
+  let fixed = gtk4::Fixed::new();
+  gtk_window.set_child(Some(&fixed));
+  gtk_window.present();
   builder.build_gtk(&fixed).unwrap()
 };
 ```
@@ -128,10 +131,10 @@ Here is the underlying web engine each platform uses, and some dependencies you 
 
 #### Linux
 
-[WebKitGTK](https://webkitgtk.org/) is used to provide webviews on Linux which requires GTK,
+[WebKitGTK](https://webkitgtk.org/) is used to provide webviews on Linux which requires GTK4,
 so if the windowing library doesn't support GTK (as in [`winit`])
-you'll need to call [`gtk::init`] before creating the webview and then call [`gtk::main_iteration_do`] alongside
-your windowing library event loop.
+you'll need to call [`gtk4::init`] before creating the webview and then pump GTK events alongside
+your windowing library event loop using [`wry::pump_platform_events`].
 
 ```rust
 #[derive(Default)]
@@ -152,12 +155,10 @@ impl ApplicationHandler for App {
 
   fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {}
 
-  // Advance GTK event loop <!----- IMPORTANT
+  // Advance GTK event loop — IMPORTANT on Linux
   fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
     #[cfg(target_os = "linux")]
-    while gtk::events_pending() {
-      gtk::main_iteration_do(false);
-    }
+    wry::pump_platform_events();
   }
 }
 
@@ -171,19 +172,19 @@ event_loop.run_app(&mut app).unwrap();
 ###### Arch Linux / Manjaro:
 
 ```bash
-sudo pacman -S webkit2gtk-4.1
+sudo pacman -S webkitgtk-6.0
 ```
 
 ###### Debian / Ubuntu:
 
 ```bash
-sudo apt install libwebkit2gtk-4.1-dev
+sudo apt install libwebkitgtk-6.0-dev
 ```
 
 ###### Fedora
 
 ```bash
-sudo dnf install gtk3-devel webkit2gtk4.1-devel
+sudo dnf install gtk4-devel webkitgtk6.0-devel
 ```
 
 ###### Nix & NixOS
@@ -196,7 +197,7 @@ let
    pkgs = import (fetchTarball("channel:nixpkgs-unstable")) { };
    packages = with pkgs; [
      pkg-config
-     webkitgtk_4_1
+     webkitgtk_6_0
    ];
  in
  pkgs.mkShell {
@@ -215,7 +216,7 @@ nix-shell shell.nix
 
 (specifications->manifest
   '("pkg-config"                ; Helper tool used when compiling
-    "webkitgtk"                 ; Web content engine fot GTK+
+    "webkitgtk"                 ; Web content engine for GTK+
  ))
 ```
 
@@ -279,11 +280,11 @@ Wry uses a set of feature flags to toggle several advanced features.
 - `x11` (default): Enables x11 support and dependencies on Linux.
 - `serde`: Enables `dpi`'s `serde` feature.
 - `devtools`: Enables devtools on release builds. Devtools are always enabled in debug builds.
-  On **macOS**, enabling devtools, requires calling private APIs so you should not enable this flag in release
-  build if your app needs to publish to App Store.
+  On **macOS**, enabling devtools, requires calling private functions, so avoid this in release builds if you publish your app on the App Store.
+- `wayland`: Enables passing Wayland window handles to `WebViewBuilder::build` and `WebViewBuilder::build_as_child` on Linux.
 - `mac-proxy`: Enables `WebViewBuilder::with_proxy_config` on macOS.
-- `linux-body`: Enables body support of custom protocol request on Linux. Requires
-  WebKit2GTK v2.40 or above.
+- `linux-body` *(enabled by default)*: Enables body support of custom protocol request on Linux. Requires
+  WebKitGTK 6.x (always satisfied by the gtk4-webkit6 backend). Without this feature, `request.body()` always returns an empty slice on Linux.
 - `tracing`: enables [`tracing`] for `evaluate_script`, `ipc_handler`, and `custom_protocols`.
 
 ### Partners
