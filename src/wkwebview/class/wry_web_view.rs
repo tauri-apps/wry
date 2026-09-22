@@ -6,7 +6,7 @@ use std::{collections::HashMap, sync::Mutex};
 
 #[cfg(target_os = "macos")]
 use objc2::runtime::ProtocolObject;
-use objc2::{define_class, rc::Retained, runtime::Bool, DeclaredClass};
+use objc2::{DeclaredClass, define_class, rc::Retained, runtime::Bool};
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSDraggingDestination, NSEvent};
 use objc2_foundation::{NSObjectProtocol, NSUUID};
@@ -15,8 +15,8 @@ use objc2_foundation::{NSObjectProtocol, NSUUID};
 use crate::wkwebview::ios::WKWebView::WKWebView;
 #[cfg(target_os = "macos")]
 use crate::{
-  wkwebview::{drag_drop, synthetic_mouse_events},
   DragDropEvent,
+  wkwebview::{drag_drop, synthetic_mouse_events},
 };
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::UIEvent as NSEvent;

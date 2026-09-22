@@ -5,8 +5,8 @@
 use std::{ffi::CStr, path::PathBuf};
 
 use objc2::{
-  runtime::{Bool, ProtocolObject},
   DeclaredClass,
+  runtime::{Bool, ProtocolObject},
 };
 use objc2_app_kit::{NSDragOperation, NSDraggingInfo, NSFilenamesPboardType};
 use objc2_foundation::{NSArray, NSPoint, NSRect, NSString};
