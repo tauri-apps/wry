@@ -509,15 +509,20 @@ impl InnerWebView {
         ) {
           NewWindowResponse::Allow => {
             let related_webviews = related_webviews.clone();
-            let toplevel = webview.toplevel().unwrap();
-            let window = toplevel.downcast::<gtk::ApplicationWindow>().unwrap();
-            let id = window.id();
-            let app = window.application().unwrap();
-
-            let window = gtk::ApplicationWindow::builder()
-              .application(&app)
-              .title(&url)
-              .build();
+            let toplevel = webview.toplevel()?;
+            let parent_window = toplevel.downcast::<gtk::Window>().ok()?;
+            let window = if let Some(app) = parent_window.application() {
+              gtk::ApplicationWindow::builder()
+                .application(&app)
+                .title(&url)
+                .build()
+                .upcast()
+            } else {
+              let window = gtk::Window::new(gtk::WindowType::Toplevel);
+              window.set_title(&url);
+              window
+            };
+            let id = window.as_ptr() as usize;
             let box_ = gtk::Box::new(gtk::Orientation::Vertical, 0);
             window.add(&box_);
 
