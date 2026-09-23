@@ -6,13 +6,18 @@ mod drag_drop;
 mod util;
 
 use std::{
-  borrow::Cow, cell::RefCell, collections::HashSet, fmt::Write, fs, path::PathBuf, rc::Rc,
-  sync::mpsc,
+  borrow::Cow,
+  cell::RefCell,
+  collections::HashSet,
+  fmt::Write,
+  fs,
+  path::PathBuf,
+  rc::Rc,
+  sync::{LazyLock, mpsc},
 };
 
 use dpi::{PhysicalPosition, PhysicalSize};
 use http::{Request, Response as HttpResponse, StatusCode};
-use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 use windows::{
@@ -39,7 +44,8 @@ type EventRegistrationToken = i64;
 const PARENT_SUBCLASS_ID: u32 = WM_USER + 0x64;
 const PARENT_DESTROY_MESSAGE: u32 = WM_USER + 0x65;
 const MAIN_THREAD_DISPATCHER_SUBCLASS_ID: u32 = WM_USER + 0x66;
-static EXEC_MSG_ID: Lazy<u32> = Lazy::new(|| unsafe { RegisterWindowMessageA(s!("Wry::ExecMsg")) });
+static EXEC_MSG_ID: LazyLock<u32> =
+  LazyLock::new(|| unsafe { RegisterWindowMessageA(s!("Wry::ExecMsg")) });
 
 impl From<webview2_com::Error> for Error {
   fn from(err: webview2_com::Error) -> Self {
