@@ -11,7 +11,7 @@ readme = "README.md"
 repository = "https://github.com/tauri-apps/wry"
 documentation = "https://docs.rs/wry"
 categories = ["gui"]
-rust-version = "1.85"
+rust-version = "1.92"
 exclude = ["/.changes", "/.github", "/audits", "/wry-logo.svg"]
 
 [package.metadata.docs.rs]
@@ -53,10 +53,10 @@ javascriptcore-rs = { version = "=1.1.2", features = [
 ], optional = true }
 webkit2gtk = { version = "=2.0.2", features = ["v2_38"], optional = true }
 webkit2gtk-sys = { version = "=2.0.2", optional = true }
-gtk = { version = "0.18", optional = true }
-soup3 = { version = "0.5", optional = true }
+gtk = { version = "0.19.0", optional = true }
+soup3 = { version = "0.9.0", optional = true }
 x11-dl = { version = "2.21", optional = true }
-gdkx11 = { version = "0.18", optional = true }
+gdkx11 = { version = "0.19.0", optional = true }
 percent-encoding = "2.3"
 dirs = "7"
 
@@ -224,3 +224,10 @@ dom_query = { version = "0.28.0", default-features = false }
 [lints.rust.unexpected_cfgs]
 level = "warn"
 check-cfg = ["cfg(linux)", "cfg(gtk)"]
+
+[patch.crates-io]
+javascriptcore-rs = { git = "https://github.com/tauri-apps/javascriptcore-rs.git" }
+javascriptcore-rs-sys = { git = "https://github.com/tauri-apps/javascriptcore-rs.git" }
+webkit2gtk = { git = "https://github.com/tauri-apps/webkit2gtk-rs.git", branch = "bump-gir" }
+webkit2gtk-sys = { git = "https://github.com/tauri-apps/webkit2gtk-rs.git", branch = "bump-gir" }
+tao = { git = "https://github.com/tauri-apps/tao.git", branch = "gtk-0.19" }
