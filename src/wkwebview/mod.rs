@@ -109,6 +109,17 @@ static COUNTER: Counter = Counter::new();
 static WEBVIEW_STATE: LazyLock<RwLock<HashMap<String, WebViewState>>> =
   LazyLock::new(Default::default);
 
+fn operating_system_version_at_least(macos: (isize, isize), ios: (isize, isize)) -> bool {
+  let (major, minor, _) = util::operating_system_version();
+  let required = if cfg!(target_os = "macos") {
+    macos
+  } else {
+    ios
+  };
+
+  (major, minor) >= required
+}
+
 struct WebViewState {
   pub protocol_ptrs:
     Vec<Rc<dyn Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + Send + Sync>>,
@@ -249,6 +260,12 @@ impl InnerWebView {
       };
 
       // Register Custom Protocols
+      if !attributes.custom_protocols.is_empty()
+        && !operating_system_version_at_least((10, 13), (11, 0))
+      {
+        return Err(Error::UnsupportedOsVersion("custom protocols"));
+      }
+
       let mut protocol_ptrs = Vec::new();
       for (name, function) in attributes.custom_protocols {
         // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/urlschemehandler(forurlscheme:)>
@@ -350,21 +367,31 @@ impl InnerWebView {
       );
 
       if attributes.javascript_disabled {
-        // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/defaultwebpagepreferences>
-        // Available: macOS 10.15+, iOS 13+
-        let web_page_preferences = config.defaultWebpagePreferences();
-        // <https://developer.apple.com/documentation/webkit/wkwebpagepreferences/allowscontentjavascript>
-        // Available: macOS 10.15+, iOS 13+
-        web_page_preferences.setAllowsContentJavaScript(false);
+        if operating_system_version_at_least((10, 15), (13, 0)) {
+          // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/defaultwebpagepreferences>
+          // Available: macOS 10.15+, iOS 13+
+          let web_page_preferences = config.defaultWebpagePreferences();
+          // <https://developer.apple.com/documentation/webkit/wkwebpagepreferences/allowscontentjavascript>
+          // Available: macOS 10.15+, iOS 13+
+          web_page_preferences.setAllowsContentJavaScript(false);
+        } else {
+          #[allow(deprecated)]
+          _preference.setJavaScriptEnabled(false);
+        }
       }
 
       #[cfg(target_os = "ios")]
       config.setValue_forKey(Some(&_yes), ns_string!("allowsInlineMediaPlayback"));
 
       if attributes.autoplay {
-        // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/mediatypesrequiringuseractionforplayback>
-        // Available: macOS 10.12+, iOS 10+
-        config.setMediaTypesRequiringUserActionForPlayback(WKAudiovisualMediaTypes::None);
+        if operating_system_version_at_least((10, 12), (10, 0)) {
+          // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/mediatypesrequiringuseractionforplayback>
+          // Available: macOS 10.12+, iOS 10+
+          config.setMediaTypesRequiringUserActionForPlayback(WKAudiovisualMediaTypes::None);
+        } else {
+          #[cfg(target_os = "ios")]
+          let _: () = objc2::msg_send![&config, setMediaPlaybackRequiresUserAction: false];
+        }
       }
 
       let version = util::operating_system_version();
@@ -953,6 +980,10 @@ impl InnerWebView {
   }
 
   pub fn zoom(&self, scale_factor: f64) -> crate::Result<()> {
+    if !operating_system_version_at_least((11, 0), (14, 0)) {
+      return Err(Error::UnsupportedOsVersion("page zoom"));
+    }
+
     unsafe {
       // <https://developer.apple.com/documentation/webkit/wkwebview/pagezoom>
       // Available: macOS 11+, iOS 14+
@@ -1095,12 +1126,11 @@ impl InnerWebView {
     let secure = cookie.isSecure();
     cookie_builder = cookie_builder.secure(secure);
 
-    // Using string comparison because of https://github.com/tauri-apps/wry/issues/1616
-    let (major, minor, _) = util::operating_system_version();
-    if major > 10 || (major == 10 && minor >= 15) {
+    if operating_system_version_at_least((10, 15), (13, 0)) {
       // <https://developer.apple.com/documentation/foundation/httpcookie/samesitepolicy>
       // Available: macOS 10.15+, iOS 13+
       let same_site = cookie.sameSitePolicy();
+      // Using string comparison because of https://github.com/tauri-apps/wry/issues/1616
       let same_site = match same_site {
         Some(policy) if policy.to_string() == "lax" => cookie::SameSite::Lax,
         Some(policy) if policy.to_string() == "strict" => cookie::SameSite::Strict,
@@ -1221,6 +1251,10 @@ impl InnerWebView {
   }
 
   pub fn cookies(&self) -> Result<Vec<cookie::Cookie<'static>>> {
+    if !operating_system_version_at_least((10, 13), (11, 0)) {
+      return Err(Error::UnsupportedOsVersion("HTTP cookies"));
+    }
+
     let (tx, rx) = std::sync::mpsc::channel();
 
     unsafe {
@@ -1247,6 +1281,10 @@ impl InnerWebView {
   }
 
   pub fn set_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    if !operating_system_version_at_least((10, 13), (11, 0)) {
+      return Err(Error::UnsupportedOsVersion("HTTP cookies"));
+    }
+
     let (tx, rx) = std::sync::mpsc::channel();
 
     unsafe {
@@ -1268,6 +1306,10 @@ impl InnerWebView {
   }
 
   pub fn delete_cookie(&self, cookie: &cookie::Cookie<'_>) -> Result<()> {
+    if !operating_system_version_at_least((10, 13), (11, 0)) {
+      return Err(Error::UnsupportedOsVersion("HTTP cookies"));
+    }
+
     let (tx, rx) = std::sync::mpsc::channel();
 
     unsafe {
@@ -1313,6 +1355,10 @@ impl InnerWebView {
   pub fn fetch_data_store_identifiers<F: FnOnce(Vec<[u8; 16]>) + Send + 'static>(
     cb: F,
   ) -> crate::Result<()> {
+    if !operating_system_version_at_least((14, 0), (17, 0)) {
+      return Err(Error::UnsupportedOsVersion("persistent data stores"));
+    }
+
     // make the RcBlock callback be a FnOnce
     let cb = RefCell::new(Some(cb));
     let block = block2::RcBlock::new(move |stores: NonNull<NSArray<NSUUID>>| {
@@ -1341,6 +1387,11 @@ impl InnerWebView {
   ///
   /// Needs to run on main thread and needs an event loop to run.
   pub fn remove_data_store<F: FnOnce(crate::Result<()>) + Send + 'static>(uuid: &[u8; 16], cb: F) {
+    if !operating_system_version_at_least((14, 0), (17, 0)) {
+      cb(Err(Error::UnsupportedOsVersion("persistent data stores")));
+      return;
+    }
+
     let Some(mtm) = MainThreadMarker::new() else {
       cb(Err(Error::NotMainThread));
       return;

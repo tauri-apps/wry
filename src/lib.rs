@@ -2461,12 +2461,14 @@ pub trait WebViewExtDarwin {
   /// Fetches all Data Store Identifiers of this application
   ///
   /// Needs to run on main thread and needs an event loop to run.
+  /// Available on macOS 14+ and iOS 17+ only.
   fn fetch_data_store_identifiers<F: FnOnce(Vec<[u8; 16]>) + Send + 'static>(cb: F) -> Result<()>;
   /// Deletes a Data Store by an identifier.
   ///
   /// You must drop any WebView instances using the data store before you call this method.
   ///
   /// Needs to run on main thread and needs an event loop to run.
+  /// Available on macOS 14+ and iOS 17+ only.
   fn remove_data_store<F: FnOnce(Result<()>) + Send + 'static>(uuid: &[u8; 16], cb: F);
 }
 
