@@ -186,9 +186,11 @@ abstract class WryActivity : AppCompatActivity() {
 
     // Called by tao through JNI
     fun startActivity(cls: Class<*>): Int {
-        val intent = Intent(this, cls)
         val id = kotlin.random.Random.nextInt()
-        intent.putExtra(ACTIVITY_ID_KEY, id)
+        val intent = Intent(this, cls).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+            putExtra(ACTIVITY_ID_KEY, id)
+        }
         startActivity(intent)
         return id
     }
