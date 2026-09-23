@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.57.1]
+
+- [`d8fe88d`](https://github.com/tauri-apps/wry/commit/d8fe88dc7be2f6ff00c671f823e985335a14f7ad) ([#1847](https://github.com/tauri-apps/wry/pull/1847) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Moved to edition 2024
+
 ## [0.57.0]
 
 - [`105ca17`](https://github.com/tauri-apps/wry/commit/105ca17188a4d590a364c4e9e2d0845eeccc491c) ([#1834](https://github.com/tauri-apps/wry/pull/1834) by [@renovate](https://github.com/tauri-apps/wry/../../renovate)) Updated dependency `dirs` from v6 to v7
