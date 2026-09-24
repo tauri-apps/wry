@@ -393,6 +393,10 @@ pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
 pub use self::webview2::ScrollBarStyle;
 #[cfg(target_os = "windows")]
+pub use self::webview2::process_failed::{
+  WebView2ProcessFailedInfo, WebView2ProcessFailedKind, WebView2ProcessFailedReason,
+};
+#[cfg(target_os = "windows")]
 use self::webview2::*;
 #[cfg(target_os = "windows")]
 use webview2_com::Microsoft::Web::WebView2::Win32::{
@@ -1758,6 +1762,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   default_context_menus: bool,
   environment: Option<ICoreWebView2Environment>,
   profile_name: Option<String>,
+  process_failed_handler: Option<Rc<dyn Fn(WebView2ProcessFailedInfo)>>,
 }
 
 #[cfg(windows)]
@@ -1774,6 +1779,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       extension_path: None,
       environment: None,
       profile_name: None,
+      process_failed_handler: None,
     }
   }
 }
@@ -1871,6 +1877,21 @@ pub trait WebViewBuilderExtWindows {
   /// Profile names must follow the WebView2 naming rules (alphanumeric, `.`,
   /// `_`, `-`, ` `, up to 64 chars, not starting/ending with `.` or ` `).
   fn with_profile_name<S: Into<String>>(self, name: S) -> Self;
+
+  /// Sets a handler for WebView2 `ProcessFailed` events for this webview.
+  ///
+  /// The handler runs on the webview's UI thread and must not block. Dispatch recovery work
+  /// through the application's event loop rather than creating or destroying webviews inside
+  /// the callback. A shared process failure can notify multiple webviews independently.
+  ///
+  /// No handler is registered by default. This only reports failures; it does not reload or
+  /// recreate the webview. Not all failure kinds require recovery of the entire webview.
+  ///
+  /// See <https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/process-related-events>.
+  fn with_process_failed_handler<F: Fn(WebView2ProcessFailedInfo) + 'static>(
+    self,
+    handler: F,
+  ) -> Self;
 }
 
 #[cfg(windows)]
@@ -1922,6 +1943,14 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 
   fn with_profile_name<S: Into<String>>(mut self, name: S) -> Self {
     self.platform_specific.profile_name = Some(name.into());
+    self
+  }
+
+  fn with_process_failed_handler<F: Fn(WebView2ProcessFailedInfo) + 'static>(
+    mut self,
+    handler: F,
+  ) -> Self {
+    self.platform_specific.process_failed_handler = Some(Rc::new(handler));
     self
   }
 }
