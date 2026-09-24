@@ -103,6 +103,110 @@ impl Drop for InnerWebView {
   }
 }
 
+/// WebKitGTK renders a blank window in environments without GPU acceleration,
+/// such as containers, virtual machines and CI, unless one of its rendering
+/// escape hatches is set.
+/// Nothing is painted and nothing is reported, so the workaround is
+/// undiscoverable; hint at it once when the environment says software GL.
+#[cfg(any(debug_assertions, feature = "tracing"))]
+mod software_rendering {
+  const ESCAPE_HATCHES: [&str; 2] = [
+    "WEBKIT_DISABLE_DMABUF_RENDERER",
+    "WEBKIT_DISABLE_COMPOSITING_MODE",
+  ];
+
+  /// Returns the environment variable and value indicating software GL rendering.
+  fn indicator(get: impl Fn(&str) -> Option<String>) -> Option<(&'static str, String)> {
+    if let Some(value) = get("LIBGL_ALWAYS_SOFTWARE") {
+      if value.eq_ignore_ascii_case("1") || value.eq_ignore_ascii_case("true") {
+        return Some(("LIBGL_ALWAYS_SOFTWARE", value));
+      }
+    }
+
+    if let Some(value) = get("GALLIUM_DRIVER") {
+      if ["llvmpipe", "softpipe", "swrast"]
+        .iter()
+        .any(|driver| value.eq_ignore_ascii_case(driver))
+      {
+        return Some(("GALLIUM_DRIVER", value));
+      }
+    }
+
+    None
+  }
+
+  /// Warns once, before the first webview is created, when a blank window is likely.
+  pub fn hint_once() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+      let get = |name: &str| std::env::var(name).ok().filter(|value| !value.is_empty());
+
+      if let Some(hatch) = ESCAPE_HATCHES.iter().find(|var| get(var).is_some()) {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("WebKitGTK rendering workaround already active ({hatch} is set)");
+        let _ = hatch;
+        return;
+      }
+
+      #[cfg(feature = "tracing")]
+      tracing::debug!(
+        "WebKitGTK rendering issues (blank or white window) can often be worked around by setting WEBKIT_DISABLE_DMABUF_RENDERER=1 or WEBKIT_DISABLE_COMPOSITING_MODE=1"
+      );
+
+      if let Some((var, value)) = indicator(get) {
+        let msg = format!(
+          "software GL rendering detected ({var}={value}); WebKitGTK may show a blank window in this environment. If that happens, set WEBKIT_DISABLE_DMABUF_RENDERER=1 (WebKitGTK 2.42+) or WEBKIT_DISABLE_COMPOSITING_MODE=1 before launching the app"
+        );
+        #[cfg(feature = "tracing")]
+        tracing::warn!("{msg}");
+        #[cfg(debug_assertions)]
+        eprintln!("{msg}");
+      }
+    });
+  }
+
+  #[cfg(test)]
+  mod tests {
+    use super::indicator;
+
+    fn env<'a>(vars: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<String> + 'a {
+      move |name| {
+        vars
+          .iter()
+          .find(|(var, _)| *var == name)
+          .map(|(_, value)| value.to_string())
+      }
+    }
+
+    #[test]
+    fn detects_software_gl() {
+      assert_eq!(
+        indicator(env(&[("LIBGL_ALWAYS_SOFTWARE", "1")])),
+        Some(("LIBGL_ALWAYS_SOFTWARE", "1".into()))
+      );
+      assert_eq!(
+        indicator(env(&[("LIBGL_ALWAYS_SOFTWARE", "TRUE")])),
+        Some(("LIBGL_ALWAYS_SOFTWARE", "TRUE".into()))
+      );
+      assert_eq!(
+        indicator(env(&[("GALLIUM_DRIVER", "llvmpipe")])),
+        Some(("GALLIUM_DRIVER", "llvmpipe".into()))
+      );
+      assert_eq!(
+        indicator(env(&[("GALLIUM_DRIVER", "LLVMpipe")])),
+        Some(("GALLIUM_DRIVER", "LLVMpipe".into()))
+      );
+    }
+
+    #[test]
+    fn ignores_hardware_gl() {
+      assert_eq!(indicator(env(&[])), None);
+      assert_eq!(indicator(env(&[("LIBGL_ALWAYS_SOFTWARE", "0")])), None);
+      assert_eq!(indicator(env(&[("GALLIUM_DRIVER", "radeonsi")])), None);
+    }
+  }
+}
+
 impl InnerWebView {
   pub fn new<W: HasWindowHandle>(
     window: &W,
@@ -254,6 +358,11 @@ impl InnerWebView {
   where
     W: IsA<gtk::Container>,
   {
+    // runs before the web context, and therefore the web processes that read
+    // WebKit's rendering environment variables, are created below
+    #[cfg(any(debug_assertions, feature = "tracing"))]
+    software_rendering::hint_once();
+
     // default_context allows us to create a scoped context on-demand
     let mut default_context;
     let web_context = if attributes.incognito {
