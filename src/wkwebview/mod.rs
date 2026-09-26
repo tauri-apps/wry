@@ -687,20 +687,24 @@ impl InnerWebView {
           // Tell the webview receive keyboard events in the window.
           // See https://github.com/tauri-apps/wry/issues/739
           ns_window.setContentView(Some(&parent_view));
-          ns_window.makeFirstResponder(Some(&webview));
+          if attributes.visible && attributes.focused {
+            ns_window.makeFirstResponder(Some(&webview));
+          }
 
           w.parent_view = Some(parent_view);
         }
 
-        // make sure the window is always on top when we create a new webview
-        let app = NSApplication::sharedApplication(mtm);
-        if os_major_version >= 14 {
-          // <https://developer.apple.com/documentation/appkit/nsapplication/activate()>
-          // Available: macOS 14+
-          NSApplication::activate(&app);
-        } else {
-          #[allow(deprecated)]
-          NSApplication::activateIgnoringOtherApps(&app, true);
+        // Hidden or unfocused webviews must not activate their containing application.
+        if attributes.visible && attributes.focused {
+          let app = NSApplication::sharedApplication(mtm);
+          if os_major_version >= 14 {
+            // <https://developer.apple.com/documentation/appkit/nsapplication/activate()>
+            // Available: macOS 14+
+            NSApplication::activate(&app);
+          } else {
+            #[allow(deprecated)]
+            NSApplication::activateIgnoringOtherApps(&app, true);
+          }
         }
       }
 
