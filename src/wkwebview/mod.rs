@@ -742,7 +742,7 @@ impl InnerWebView {
 
             #[cfg(feature = "tracing")]
             if !_err.is_null() {
-              let description = _err.localizedDescription().to_string();
+              let description = (*_err).localizedDescription().to_string();
               tracing::debug!("Exception during script eval: {description}");
             }
 
@@ -775,7 +775,7 @@ impl InnerWebView {
               span.lock().unwrap().take();
               #[cfg(feature = "tracing")]
               if !_err.is_null() {
-                let description = _err.localizedDescription().to_string();
+                let description = (*_err).localizedDescription().to_string();
                 tracing::debug!("Exception during script eval: {description}");
               }
             },
