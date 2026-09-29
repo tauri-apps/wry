@@ -1445,8 +1445,9 @@ checksum = "d75a2a4b1b190afb6f5425f10f6a8f959d2ea0b9c2b1d79553551850539e4674"
 
 [[package]]
 name = "javascriptcore-rs"
-version = "1.1.2"
-source = "git+https://github.com/tauri-apps/javascriptcore-rs.git#1e15afba6ed9ad56d3b499e58c36a5e222d84c5e"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3806310bf87dd1858b0cd99dad0c49efb06ee56d346e77385d89e7f8db04f5d0"
 dependencies = [
  "bitflags 2.13.2",
  "glib",
@@ -1455,8 +1456,9 @@ dependencies = [
 
 [[package]]
 name = "javascriptcore-rs-sys"
-version = "1.1.1"
-source = "git+https://github.com/tauri-apps/javascriptcore-rs.git#1e15afba6ed9ad56d3b499e58c36a5e222d84c5e"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2844fb472dd4f76e43a15ee27d2f140b9113adeab21403be084fb653d7a704f9"
 dependencies = [
  "glib-sys",
  "gobject-sys",
@@ -3398,7 +3400,7 @@ dependencies = [
 [[package]]
 name = "webkit2gtk"
 version = "2.0.2"
-source = "git+https://github.com/tauri-apps/webkit2gtk-rs.git?branch=bump-gir#2987fea2a5403bc180c305fc3415b5b433978541"
+source = "git+https://github.com/tauri-apps/webkit2gtk-rs.git?branch=bump-gir#f5c3825c3f21c44ce346a5aa42e8c33a762f9f72"
 dependencies = [
  "bitflags 2.13.2",
  "cairo-rs",
@@ -3421,7 +3423,7 @@ dependencies = [
 [[package]]
 name = "webkit2gtk-sys"
 version = "2.0.2"
-source = "git+https://github.com/tauri-apps/webkit2gtk-rs.git?branch=bump-gir#2987fea2a5403bc180c305fc3415b5b433978541"
+source = "git+https://github.com/tauri-apps/webkit2gtk-rs.git?branch=bump-gir#f5c3825c3f21c44ce346a5aa42e8c33a762f9f72"
 dependencies = [
  "bitflags 2.13.2",
  "cairo-sys-rs",

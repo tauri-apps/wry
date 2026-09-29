@@ -49,7 +49,7 @@ dpi = "0.1"
 cookie = "0.18"
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
-javascriptcore-rs = { version = "=1.1.2", features = [
+javascriptcore-rs = { version = "2", features = [
   "v2_28",
 ], optional = true }
 webkit2gtk = { version = "=2.0.2", features = ["v2_38"], optional = true }
@@ -227,8 +227,6 @@ level = "warn"
 check-cfg = ["cfg(linux)", "cfg(gtk)"]
 
 [patch.crates-io]
-javascriptcore-rs = { git = "https://github.com/tauri-apps/javascriptcore-rs.git" }
-javascriptcore-rs-sys = { git = "https://github.com/tauri-apps/javascriptcore-rs.git" }
 webkit2gtk = { git = "https://github.com/tauri-apps/webkit2gtk-rs.git", branch = "bump-gir" }
 webkit2gtk-sys = { git = "https://github.com/tauri-apps/webkit2gtk-rs.git", branch = "bump-gir" }
 tao = { git = "https://github.com/tauri-apps/tao.git", branch = "gtk-0.19" }
