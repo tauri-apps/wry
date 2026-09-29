@@ -311,6 +311,7 @@ impl InnerWebView {
     Self::attach_handlers(&webview, web_context, &mut attributes);
 
     // IPC handler
+    let ipc_enabled = attributes.ipc_handler.is_some();
     if let Some(ipc_handler) = attributes.ipc_handler.take() {
       Self::attach_ipc_handler(webview.clone(), ipc_handler);
     }
@@ -347,7 +348,9 @@ impl InnerWebView {
     };
 
     // Initialize message handler
-    w.init("Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })", true)?;
+    if ipc_enabled {
+      w.init("Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })", true)?;
+    }
 
     // Initialize scripts
     for init_script in attributes.initialization_scripts {
