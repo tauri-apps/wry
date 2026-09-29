@@ -2,34 +2,33 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use super::{PageLoadEvent, WebViewAttributes, RGBA};
+use super::{PageLoadEvent, RGBA, WebViewAttributes};
 use crate::{
-  custom_protocol_workaround, inject_initialization_scripts::inject_scripts_into_html, Error,
-  PermissionKind, PermissionResponse, RequestAsyncResponder, Result,
+  Error, PermissionKind, PermissionResponse, RequestAsyncResponder, Result,
+  custom_protocol_workaround, inject_initialization_scripts::inject_scripts_into_html,
 };
 use crossbeam_channel::*;
 
 use http::{Request, Response as HttpResponse};
 use jni::{
+  JNIEnv,
   errors::Result as JniResult,
   objects::{GlobalRef, JClass, JObject},
-  JNIEnv,
 };
 use ndk::looper::ThreadLooper;
-use once_cell::sync::{Lazy, OnceCell};
 use raw_window_handle::HasWindowHandle;
 use std::{
   borrow::Cow,
   collections::HashMap,
-  sync::{mpsc::channel, Arc, Mutex},
+  sync::{Arc, LazyLock, Mutex, OnceLock, mpsc::channel},
   time::Duration,
 };
 
 pub(crate) mod binding;
 mod main_pipe;
 use main_pipe::{
-  activity_id_for_window_manager, first_activity_id, register_activity_proxy, ActivityId,
-  CreateWebViewAttributes, MainPipe, WebViewMessage,
+  ActivityId, CreateWebViewAttributes, MainPipe, WebViewMessage, activity_id_for_window_manager,
+  first_activity_id, register_activity_proxy,
 };
 
 use crate::util::Counter;
@@ -47,12 +46,12 @@ type WebviewId = String;
 
 macro_rules! define_static_handlers {
   ($($key: ident, $var:ident = $type_name:ident);+ $(;)?) => {
-    $(static $var: Lazy<Mutex<HashMap<$key, $type_name>>> = Lazy::new(||Mutex::new(HashMap::new()));)*
+    $(static $var: LazyLock<Mutex<HashMap<$key, $type_name>>> = LazyLock::new(||Mutex::new(HashMap::new()));)*
   };
 
   ($($var:ident = $type_name:ident { $($fields:ident:$types:ty),+ $(,)? });+ $(;)?) => {
     $(
-    static $var: Lazy<Mutex<HashMap<WebviewId, $type_name>>> = Lazy::new(||Mutex::new(HashMap::new()));
+    static $var: LazyLock<Mutex<HashMap<WebviewId, $type_name>>> = LazyLock::new(||Mutex::new(HashMap::new()));
     struct $type_name {
       $($fields: $types,)*
     }
@@ -81,12 +80,12 @@ define_static_handlers! {
   ActivityId, WEBVIEW_ATTRIBUTES = CreateWebViewAttributes;
 }
 
-static PACKAGE: OnceCell<String> = OnceCell::new();
+static PACKAGE: OnceLock<String> = OnceLock::new();
 
 type EvalCallback = Box<dyn Fn(String) + Send + 'static>;
 
 static EVAL_ID_GENERATOR: Counter = Counter::new();
-static EVAL_CALLBACKS: OnceCell<Mutex<HashMap<i32, EvalCallback>>> = OnceCell::new();
+static EVAL_CALLBACKS: OnceLock<Mutex<HashMap<i32, EvalCallback>>> = OnceLock::new();
 
 pub fn destroy_webview(activity_id: ActivityId, webview_id: &WebviewId) {
   WEBVIEW_ATTRIBUTES.lock().unwrap().remove(&activity_id);

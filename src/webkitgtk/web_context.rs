@@ -6,7 +6,7 @@
 
 use crate::{Error, RequestAsyncResponder};
 use gtk::glib::{self, MainContext, ObjectExt};
-use http::{header::CONTENT_TYPE, HeaderName, HeaderValue, Request, Response as HttpResponse};
+use http::{HeaderName, HeaderValue, Request, Response as HttpResponse, header::CONTENT_TYPE};
 use soup::{MessageHeaders, MessageHeadersType};
 use std::{
   borrow::Cow,

@@ -3,24 +3,23 @@
 // SPDX-License-Identifier: MIT
 
 use http::{
-  header::{HeaderName, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE},
   Request,
+  header::{CONTENT_LENGTH, CONTENT_TYPE, HeaderName, HeaderValue},
 };
 use jni::errors::Result as JniResult;
 pub use jni::{
-  self,
+  self, JNIEnv,
   objects::{GlobalRef, JClass, JMap, JObject, JString},
   sys::{jboolean, jint, jobject, jstring},
-  JNIEnv,
 };
 pub use ndk;
 use ndk::looper::{FdEvent, ThreadLooper};
 use std::os::fd::{AsFd, AsRawFd};
 
 use super::{
-  main_pipe::{MainPipe, MAIN_PIPE},
   ASSET_LOADER_DOMAIN, EVAL_CALLBACKS, IPC, ON_LOAD_HANDLER, PERMISSION_HANDLER, REQUEST_HANDLER,
   TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE,
+  main_pipe::{MAIN_PIPE, MainPipe},
 };
 
 use crate::{PageLoadEvent, PermissionKind, PermissionResponse};
@@ -267,24 +266,26 @@ fn handle_request(
 
 #[allow(non_snake_case)]
 pub unsafe fn onFirstActivityCreateWry(env: JNIEnv, _: JClass) {
-  let mut main_pipe = MainPipe { env };
+  unsafe {
+    let mut main_pipe = MainPipe { env };
 
-  let looper = ThreadLooper::for_thread().unwrap();
+    let looper = ThreadLooper::for_thread().unwrap();
 
-  looper
-    .add_fd_with_callback(MAIN_PIPE[0].as_fd(), FdEvent::INPUT, move |fd, _event| {
-      let mut buf = [0u8];
-      if libc::read(fd.as_raw_fd(), buf.as_mut_ptr() as *mut _, buf.len())
-        == buf.len() as libc::ssize_t
-      {
-        // unregister itself on errors
-        main_pipe.recv().is_ok()
-      } else {
-        // unregister itself
-        false
-      }
-    })
-    .unwrap();
+    looper
+      .add_fd_with_callback(MAIN_PIPE[0].as_fd(), FdEvent::INPUT, move |fd, _event| {
+        let mut buf = [0u8];
+        if libc::read(fd.as_raw_fd(), buf.as_mut_ptr() as *mut _, buf.len())
+          == buf.len() as libc::ssize_t
+        {
+          // unregister itself on errors
+          main_pipe.recv().is_ok()
+        } else {
+          // unregister itself
+          false
+        }
+      })
+      .unwrap();
+  }
 }
 
 #[allow(non_snake_case)]
