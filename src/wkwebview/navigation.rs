@@ -29,7 +29,21 @@ pub(crate) fn did_commit_navigation(
     let mut pending_scripts = this.ivars().pending_scripts.lock().unwrap();
     if let Some(scripts) = &*pending_scripts {
       for script in scripts {
-        webview.evaluateJavaScript_completionHandler(&NSString::from_str(script), None);
+        #[cfg(feature = "tracing")]
+        let handler = block2::RcBlock::new(
+          |_val: *mut objc2::runtime::AnyObject, err: *mut objc2_foundation::NSError| {
+            if !err.is_null() {
+              let description = err.localizedDescription().to_string();
+              tracing::debug!("Exception during script eval: {description}");
+            }
+          },
+        );
+        #[cfg(feature = "tracing")]
+        let handler = Some(&*handler);
+        #[cfg(not(feature = "tracing"))]
+        let handler = None;
+
+        webview.evaluateJavaScript_completionHandler(&NSString::from_str(script), handler);
       }
       *pending_scripts = None;
     }

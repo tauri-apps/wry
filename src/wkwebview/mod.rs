@@ -740,6 +740,12 @@ impl InnerWebView {
             #[cfg(feature = "tracing")]
             span.lock().unwrap().take();
 
+            #[cfg(feature = "tracing")]
+            if !_err.is_null() {
+              let description = _err.localizedDescription().to_string();
+              tracing::debug!("Exception during script eval: {description}");
+            }
+
             let mut result = String::new();
 
             if !val.is_null() {
@@ -767,6 +773,11 @@ impl InnerWebView {
           let handler = Some(block2::RcBlock::new(
             move |_val: *mut AnyObject, _err: *mut NSError| {
               span.lock().unwrap().take();
+              #[cfg(feature = "tracing")]
+              if !_err.is_null() {
+                let description = _err.localizedDescription().to_string();
+                tracing::debug!("Exception during script eval: {description}");
+              }
             },
           ));
           #[cfg(not(feature = "tracing"))]
