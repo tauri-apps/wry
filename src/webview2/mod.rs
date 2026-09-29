@@ -1471,10 +1471,16 @@ impl InnerWebView {
       } else {
         webview.ExecuteScript(
           &js,
-          &ExecuteScriptCompletedHandler::create(Box::new(|_, res| {
+          &ExecuteScriptCompletedHandler::create(Box::new(|error, res| {
             #[cfg(feature = "tracing")]
             drop(span);
+
+            if let Err(_error) = error {
+              #[cfg(feature = "tracing")]
+              tracing::error!("Failed to eval script: {_error}");
+            }
             callback(res);
+
             Ok(())
           })),
         )
