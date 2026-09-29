@@ -11,6 +11,7 @@ import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
 import androidx.webkit.WebViewAssetLoader
+import java.io.InputStream
 
 class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient() {
     private val interceptedState = mutableMapOf<String, Boolean>()
@@ -49,6 +50,7 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
                 } else {
                     response.responseHeaders = mapOf("Cache-Control" to "no-store")
                 }
+                wrapPartialContentBody(request, response)
             }
             interceptedState[request.url.toString()] = response != null
             return response
@@ -97,5 +99,101 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         }
     }
 
+    /**
+     * Before it reads an intercepted stream, the WebView skips to the first byte of a
+     * single range (embedder_support/android/util/input_stream_reader.cc). A 206 body
+     * already starts at that byte. This wrapper prevents a second skip.
+     *
+     * See https://github.com/tauri-apps/wry/issues/1864
+     */
+    private fun wrapPartialContentBody(request: WebResourceRequest, response: WebResourceResponse) {
+        if (response.statusCode != 206) {
+            return
+        }
+
+        val range = findHeader(request.requestHeaders, "Range")
+        if (range == null || !SINGLE_RANGE_WITH_START.matches(range.trim())) {
+            return
+        }
+
+        val bodyStart = parseContentRangeStart(findHeader(response.responseHeaders, "Content-Range"))
+        if (bodyStart == null) {
+            return
+        }
+
+        response.data = SkippedPrefixInputStream(bodyStart, response.data)
+    }
+
+    private fun findHeader(headers: Map<String, String>, name: String): String? {
+        return headers.entries.firstOrNull { it.key.equals(name, ignoreCase = true) }?.value
+    }
+
+    /** Returns the start position of a Content-Range value. "bytes 100-199/1000" returns 100. */
+    private fun parseContentRangeStart(contentRange: String?): Long? {
+        if (contentRange == null || !contentRange.startsWith("bytes ")) {
+            return null
+        }
+        return contentRange.substringAfter("bytes ").substringBefore('-').toLongOrNull()
+    }
+
     {{class-extension}}
+}
+
+/**
+ * The WebView does not skip for a multi-range value. It computes a suffix range
+ * ("bytes=-100") from available(), so a prefix would move the start.
+ */
+private val SINGLE_RANGE_WITH_START = Regex("""bytes=\d+-\d*""")
+
+/**
+ * Puts a prefix of [prefixLength] bytes before [body]. Skips use the prefix first.
+ * Reads return only bytes from [body].
+ */
+private class SkippedPrefixInputStream(
+    prefixLength: Long,
+    private val body: InputStream
+) : InputStream() {
+    private var prefixRemaining = prefixLength
+
+    override fun available(): Int {
+        // Includes the prefix. The WebView checks the range against this value.
+        val total = prefixRemaining + body.available()
+
+        // NOTE: Workaround for a Chromium limitation. The WebView reads this value as an
+        // Int32. It cannot check a range that ends past Int.MAX_VALUE. When this value is
+        // 0, the WebView does not check the range (InputStreamReader::VerifyRequestedRange).
+        // It still skips to the start. It sets Content-Length: 0 but sends the full body.
+        if (total > Int.MAX_VALUE) {
+            return 0
+        }
+        return total.toInt()
+    }
+
+    override fun skip(n: Long): Long {
+        if (n <= 0) {
+            return 0
+        }
+
+        if (prefixRemaining == 0L) {
+            return body.skip(n)
+        }
+
+        // The WebView reads each skip result as an Int32. It calls skip() again until it
+        // reaches the start.
+        val skipped = minOf(n, prefixRemaining, Int.MAX_VALUE.toLong())
+        prefixRemaining -= skipped
+        return skipped
+    }
+
+    override fun read(): Int {
+        return body.read()
+    }
+
+    override fun read(b: ByteArray, off: Int, len: Int): Int {
+        return body.read(b, off, len)
+    }
+
+    override fun close() {
+        body.close()
+    }
 }
