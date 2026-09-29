@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.57.1]
+
+- [`d8fe88d`](https://github.com/tauri-apps/wry/commit/d8fe88dc7be2f6ff00c671f823e985335a14f7ad) ([#1847](https://github.com/tauri-apps/wry/pull/1847) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Moved to edition 2024
+- [`9a5f3aa`](https://github.com/tauri-apps/wry/commit/9a5f3aad86d610037f9afc8c22412691f59153da) ([#1868](https://github.com/tauri-apps/wry/pull/1868) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Log `eval` exceptions when `tracing` feature's enabled at `debug` level.
+- [`66cdfa1`](https://github.com/tauri-apps/wry/commit/66cdfa1d76265cd9a5b1773087d7eec98918adc5) ([#1866](https://github.com/tauri-apps/wry/pull/1866) by [@steipete](https://github.com/tauri-apps/wry/../../steipete)) On macOS, only activate the application and request initial keyboard focus when the new webview is both visible and focused. Creating hidden or unfocused webviews no longer steals focus.
+
+### bug
+
+- [`cab3eac`](https://github.com/tauri-apps/wry/commit/cab3eace983007a16f132c14a34d0a220c707bea) ([#1839](https://github.com/tauri-apps/wry/pull/1839) by [@zackees](https://github.com/tauri-apps/wry/../../zackees)) Only inject the Linux WebKitGTK `window.ipc` bridge when an IPC handler is configured.
+
 ## [0.57.0]
 
 - [`105ca17`](https://github.com/tauri-apps/wry/commit/105ca17188a4d590a364c4e9e2d0845eeccc491c) ([#1834](https://github.com/tauri-apps/wry/pull/1834) by [@renovate](https://github.com/tauri-apps/wry/../../renovate)) Updated dependency `dirs` from v6 to v7
