@@ -1758,6 +1758,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   default_context_menus: bool,
   environment: Option<ICoreWebView2Environment>,
   profile_name: Option<String>,
+  allow_single_sign_on_using_os_primary_account: bool,
 }
 
 #[cfg(windows)]
@@ -1774,6 +1775,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       extension_path: None,
       environment: None,
       profile_name: None,
+      allow_single_sign_on_using_os_primary_account: false, // This is WebView2's default behavior
     }
   }
 }
@@ -1871,6 +1873,26 @@ pub trait WebViewBuilderExtWindows {
   /// Profile names must follow the WebView2 naming rules (alphanumeric, `.`,
   /// `_`, `-`, ` `, up to 64 chars, not starting/ending with `.` or ` `).
   fn with_profile_name<S: Into<String>>(self, name: S) -> Self;
+
+  /// Determines whether the webview can sign in with the Windows account the user is signed in
+  /// with (the OS primary account), the way Microsoft Edge does.
+  ///
+  /// When enabled, the webview signs in to Microsoft Entra ID (Azure AD) resources with the
+  /// signed-in Windows account, and to websites with the Microsoft account linked to it. On an
+  /// Entra-joined device this also presents the device identity, which Conditional Access
+  /// policies that require a compliant or managed device need. Without it, those policies block
+  /// sign-in inside the webview even though the same account signs in fine in Edge.
+  ///
+  /// By default, this is disabled.
+  ///
+  /// See <https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2environmentoptions#get_allowsinglesignonusingosprimaryaccount>
+  ///
+  /// ## Warning
+  ///
+  /// Webview instances with different single sign-on settings must also have different [data directories](WebContext::new).
+  ///
+  /// Has no effect if an environment is supplied with [`with_environment`](Self::with_environment), since this option is applied when wry creates the environment.
+  fn with_allow_single_sign_on_using_os_primary_account(self, enabled: bool) -> Self;
 }
 
 #[cfg(windows)]
@@ -1922,6 +1944,13 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 
   fn with_profile_name<S: Into<String>>(mut self, name: S) -> Self {
     self.platform_specific.profile_name = Some(name.into());
+    self
+  }
+
+  fn with_allow_single_sign_on_using_os_primary_account(mut self, enabled: bool) -> Self {
+    self
+      .platform_specific
+      .allow_single_sign_on_using_os_primary_account = enabled;
     self
   }
 }
