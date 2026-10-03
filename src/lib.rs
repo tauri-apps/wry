@@ -2016,6 +2016,7 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
 pub(crate) struct PlatformSpecificWebViewAttributes {
   extension_path: Option<PathBuf>,
   related_view: Option<webkit2gtk::WebView>,
+  on_web_content_process_terminate_handler: Option<Box<dyn Fn()>>,
 }
 
 #[cfg(any(
@@ -2046,6 +2047,11 @@ pub trait WebViewBuilderExtUnix<'a> {
   /// Creates a new webview sharing the same web process with the provided webview.
   /// Useful if you need to link a webview to another, for instance when using the [`WebViewBuilder::with_new_window_req_handler`].
   fn with_related_view(self, webview: webkit2gtk::WebView) -> Self;
+
+  /// Set a GTK-thread handler for web process termination, including API termination.
+  ///
+  /// Recover [`WebViewBuilder::with_html`] content with [`WebView::load_html`].
+  fn with_on_web_content_process_terminate_handler(self, handler: impl Fn() + 'static) -> Self;
 }
 
 #[cfg(any(
@@ -2073,6 +2079,13 @@ impl<'a> WebViewBuilderExtUnix<'a> for WebViewBuilder<'a> {
 
   fn with_related_view(mut self, webview: webkit2gtk::WebView) -> Self {
     self.platform_specific.related_view.replace(webview);
+    self
+  }
+
+  fn with_on_web_content_process_terminate_handler(mut self, handler: impl Fn() + 'static) -> Self {
+    self
+      .platform_specific
+      .on_web_content_process_terminate_handler = Some(Box::new(handler));
     self
   }
 }
