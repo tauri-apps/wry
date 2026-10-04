@@ -70,9 +70,15 @@ impl InnerWebView {
       .autoplay(autoplay)
       .initialization_scripts(vec![initialization_scripts
         .iter()
-        .map(|s| s.script.clone())
+        .map(|s| {
+          if s.for_main_frame_only {
+            format!("if (window === window.top) {{\n{}\n}}", s.script)
+          } else {
+            s.script.clone()
+          }
+        })
         .collect::<Vec<_>>()
-        .join("\n")])
+        .join("\n;\n")])
       .transparent(transparent);
 
     #[cfg(any(debug_assertions, feature = "devtools"))]
