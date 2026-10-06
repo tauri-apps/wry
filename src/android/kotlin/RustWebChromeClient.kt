@@ -392,8 +392,9 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
     }
     activity.launchActivityForResult(takeVideoIntent) { result ->
       var res: Array<Uri?>? = null
-      if (result?.resultCode == Activity.RESULT_OK) {
-        res = arrayOf(result.data!!.data)
+      val uri = result?.data?.data
+      if (result?.resultCode == Activity.RESULT_OK && uri != null) {
+        res = arrayOf(uri)
       }
       filePathCallback.onReceiveValue(res)
     }
@@ -408,10 +409,10 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
     if (fileChooserParams.mode == FileChooserParams.MODE_OPEN_MULTIPLE) {
       intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
     }
-    if (fileChooserParams.acceptTypes.size > 1 || intent.type!!.startsWith(".")) {
+    if (fileChooserParams.acceptTypes.size > 1 || intent.type?.startsWith(".") == true) {
       val validTypes = getValidTypes(fileChooserParams.acceptTypes)
       intent.putExtra(Intent.EXTRA_MIME_TYPES, validTypes)
-      if (intent.type!!.startsWith(".")) {
+      if (intent.type?.startsWith(".") == true) {
         intent.type = validTypes[0]
       }
     }
@@ -419,7 +420,7 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
       activity.launchActivityForResult(intent) { result ->
         val res: Array<Uri?>?
         val resultIntent = result?.data
-        if (result?.resultCode == Activity.RESULT_OK && resultIntent!!.clipData != null) {
+        if (result?.resultCode == Activity.RESULT_OK && resultIntent?.clipData != null) {
           val numFiles = resultIntent.clipData!!.itemCount
           res = arrayOfNulls(numFiles)
           for (i in 0 until numFiles) {
