@@ -1584,7 +1584,6 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   on_web_content_process_terminate_handler: Option<Box<dyn Fn()>>,
   #[cfg(target_os = "ios")]
   input_accessory_view_builder: Option<Box<InputAccessoryViewBuilder>>,
-  #[cfg(target_os = "ios")]
   limit_navigations_to_app_bound_domains: bool,
   #[cfg(target_os = "macos")]
   webview_configuration: Option<Retained<objc2_web_kit::WKWebViewConfiguration>>,
@@ -1601,7 +1600,6 @@ impl Default for PlatformSpecificWebViewAttributes {
       on_web_content_process_terminate_handler: None,
       #[cfg(target_os = "ios")]
       input_accessory_view_builder: None,
-      #[cfg(target_os = "ios")]
       limit_navigations_to_app_bound_domains: false,
       #[cfg(target_os = "macos")]
       webview_configuration: None,
@@ -1661,6 +1659,15 @@ impl WebViewBuilderExtDarwin for WebViewBuilder<'_> {
 
 #[cfg(target_os = "macos")]
 pub trait WebViewBuilderExtMacos {
+  /// Limit navigations to the domains listed in `WKAppBoundDomains` in Info.plist.
+  /// Available on macOS 11 and later. Defaults to `false`.
+  ///
+  /// When a configuration is supplied with [`Self::with_webview_configuration`],
+  /// that configuration's setting takes precedence and is left unchanged.
+  ///
+  /// See <https://webkit.org/blog/10882/app-bound-domains/>.
+  fn with_limit_navigations_to_app_bound_domains(self, limit_navigations: bool) -> Self;
+
   /// Set the webview configuration that must be used to create the new webview.
   fn with_webview_configuration(
     self,
@@ -1670,6 +1677,13 @@ pub trait WebViewBuilderExtMacos {
 
 #[cfg(target_os = "macos")]
 impl WebViewBuilderExtMacos for WebViewBuilder<'_> {
+  fn with_limit_navigations_to_app_bound_domains(mut self, limit_navigations: bool) -> Self {
+    self
+      .platform_specific
+      .limit_navigations_to_app_bound_domains = limit_navigations;
+    self
+  }
+
   fn with_webview_configuration(
     mut self,
     configuration: Retained<objc2_web_kit::WKWebViewConfiguration>,

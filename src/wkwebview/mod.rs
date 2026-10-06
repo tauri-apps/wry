@@ -325,6 +325,16 @@ impl InnerWebView {
           config.setLimitsNavigationsToAppBoundDomains(true);
         }
       }
+      #[cfg(target_os = "macos")]
+      if pl_attrs.limit_navigations_to_app_bound_domains
+        && !using_existing_config
+        && NSObject::respondsToSelector(
+          &config,
+          objc2::sel!(setLimitsNavigationsToAppBoundDomains:),
+        )
+      {
+        config.setLimitsNavigationsToAppBoundDomains(true);
+      }
       #[cfg(feature = "mac-proxy")]
       if let Some(proxy_config) = attributes.proxy_config {
         let proxy_config = match proxy_config {
