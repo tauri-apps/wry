@@ -79,4 +79,7 @@ pub enum Error {
   #[cfg(target_os = "android")]
   #[error("Activity not found")]
   ActivityNotFound,
+  #[cfg(target_os = "android")]
+  #[error("Invalid custom protocol host: {0}")]
+  InvalidCustomProtocolHost(String),
 }
