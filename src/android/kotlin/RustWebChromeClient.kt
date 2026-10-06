@@ -413,7 +413,7 @@ class RustWebChromeClient(private val activity: WryActivity, private val webView
       val validTypes = getValidTypes(fileChooserParams.acceptTypes)
       intent.putExtra(Intent.EXTRA_MIME_TYPES, validTypes)
       if (intent.type?.startsWith(".") == true) {
-        intent.type = validTypes[0]
+        intent.type = validTypes.firstOrNull() ?: "*/*"
       }
     }
     try {
