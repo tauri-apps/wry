@@ -4,7 +4,7 @@
 
 #[cfg(target_os = "macos")]
 use objc2::DefinedClass;
-use objc2::{define_class, msg_send, rc::Retained, MainThreadOnly};
+use objc2::{MainThreadOnly, define_class, msg_send, rc::Retained};
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSApplication, NSEvent, NSView, NSWindow, NSWindowButton};
 use objc2_foundation::MainThreadMarker;

@@ -4,7 +4,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use objc2::{define_class, msg_send, rc::Retained, runtime::NSObject, MainThreadOnly};
+use objc2::{MainThreadOnly, define_class, msg_send, rc::Retained, runtime::NSObject};
 use objc2_foundation::{MainThreadMarker, NSObjectProtocol};
 use objc2_web_kit::{
   WKDownload, WKNavigation, WKNavigationAction, WKNavigationActionPolicy, WKNavigationDelegate,
@@ -17,7 +17,7 @@ use crate::wkwebview::ios::WKWebView::WKWebView;
 use objc2_web_kit::WKWebView;
 
 use crate::{
-  url_from_webview,
+  PageLoadEvent, WryWebView, url_from_webview,
   wkwebview::{
     download::{navigation_download_action, navigation_download_response},
     navigation::{
@@ -25,7 +25,6 @@ use crate::{
       web_content_process_did_terminate,
     },
   },
-  PageLoadEvent, WryWebView,
 };
 
 use super::wry_download_delegate::WryDownloadDelegate;

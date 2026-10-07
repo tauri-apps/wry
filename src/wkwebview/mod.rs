@@ -25,7 +25,7 @@ use class::{
   wry_download_delegate::WryDownloadDelegate,
   wry_navigation_delegate::WryNavigationDelegate,
   wry_web_view::WryWebViewIvars,
-  wry_web_view_delegate::{WryWebViewDelegate, IPC_MESSAGE_HANDLER_NAME},
+  wry_web_view_delegate::{IPC_MESSAGE_HANDLER_NAME, WryWebViewDelegate},
   wry_web_view_ui_delegate::WryWebViewUIDelegate,
 };
 
@@ -33,9 +33,9 @@ use dpi::{LogicalPosition, LogicalSize};
 #[cfg(target_os = "macos")]
 use objc2::runtime::Bool;
 use objc2::{
+  AllocAnyThread, DeclaredClass, MainThreadOnly, Message,
   rc::Retained,
   runtime::{AnyObject, NSObject, ProtocolObject},
-  AllocAnyThread, DeclaredClass, MainThreadOnly, Message,
 };
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSApplication, NSAutoresizingMaskOptions, NSTitlebarSeparatorStyle, NSView};
@@ -43,11 +43,12 @@ use objc2_app_kit::{NSApplication, NSAutoresizingMaskOptions, NSTitlebarSeparato
 use objc2_core_foundation::CGSize;
 use objc2_core_foundation::{CGPoint, CGRect};
 use objc2_foundation::{
-  ns_string, MainThreadMarker, NSArray, NSBundle, NSDate, NSError, NSHTTPCookie,
-  NSHTTPCookieDomain, NSHTTPCookieExpires, NSHTTPCookieMaximumAge, NSHTTPCookieName,
-  NSHTTPCookiePath, NSHTTPCookiePropertyKey, NSHTTPCookieSecure, NSHTTPCookieValue,
-  NSHTTPCookieVersion, NSJSONSerialization, NSMutableDictionary, NSMutableURLRequest, NSNumber,
-  NSObjectNSKeyValueCoding, NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL, NSUUID,
+  MainThreadMarker, NSArray, NSBundle, NSDate, NSError, NSHTTPCookie, NSHTTPCookieDomain,
+  NSHTTPCookieExpires, NSHTTPCookieMaximumAge, NSHTTPCookieName, NSHTTPCookiePath,
+  NSHTTPCookiePropertyKey, NSHTTPCookieSecure, NSHTTPCookieValue, NSHTTPCookieVersion,
+  NSJSONSerialization, NSMutableDictionary, NSMutableURLRequest, NSNumber,
+  NSObjectNSKeyValueCoding, NSObjectProtocol, NSString, NSURL, NSUTF8StringEncoding, NSUUID,
+  ns_string,
 };
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::{UIScrollView, UIViewAutoresizing};
@@ -56,7 +57,6 @@ use objc2_ui_kit::{UIScrollView, UIViewAutoresizing};
 use objc2_app_kit::NSWindow;
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::UIView as NSView;
-use once_cell::sync::Lazy;
 // #[cfg(target_os = "ios")]
 // use objc2_ui_kit::UIWindow as NSWindow;
 
@@ -84,7 +84,7 @@ use std::{
   ptr::NonNull,
   rc::Rc,
   str::{self, FromStr},
-  sync::{Arc, Mutex, RwLock},
+  sync::{Arc, LazyLock, Mutex, RwLock},
   time::Duration,
 };
 
@@ -97,7 +97,7 @@ use crate::{
 };
 
 use crate::{
-  BackgroundThrottlingPolicy, Error, Rect, RequestAsyncResponder, Result, WebViewAttributes, RGBA,
+  BackgroundThrottlingPolicy, Error, RGBA, Rect, RequestAsyncResponder, Result, WebViewAttributes,
 };
 
 use http::Request;
@@ -106,7 +106,8 @@ use crate::util::Counter;
 
 static COUNTER: Counter = Counter::new();
 
-static WEBVIEW_STATE: Lazy<RwLock<HashMap<String, WebViewState>>> = Lazy::new(Default::default);
+static WEBVIEW_STATE: LazyLock<RwLock<HashMap<String, WebViewState>>> =
+  LazyLock::new(Default::default);
 
 thread_local! {
   /// Live webviews per `WKUserContentController`, keyed by its address.
@@ -715,20 +716,24 @@ impl InnerWebView {
           // Tell the webview receive keyboard events in the window.
           // See https://github.com/tauri-apps/wry/issues/739
           ns_window.setContentView(Some(&parent_view));
-          ns_window.makeFirstResponder(Some(&webview));
+          if attributes.visible && attributes.focused {
+            ns_window.makeFirstResponder(Some(&webview));
+          }
 
           w.parent_view = Some(parent_view);
         }
 
-        // make sure the window is always on top when we create a new webview
-        let app = NSApplication::sharedApplication(mtm);
-        if os_major_version >= 14 {
-          // <https://developer.apple.com/documentation/appkit/nsapplication/activate()>
-          // Available: macOS 14+
-          NSApplication::activate(&app);
-        } else {
-          #[allow(deprecated)]
-          NSApplication::activateIgnoringOtherApps(&app, true);
+        // Hidden or unfocused webviews must not activate their containing application.
+        if attributes.visible && attributes.focused {
+          let app = NSApplication::sharedApplication(mtm);
+          if os_major_version >= 14 {
+            // <https://developer.apple.com/documentation/appkit/nsapplication/activate()>
+            // Available: macOS 14+
+            NSApplication::activate(&app);
+          } else {
+            #[allow(deprecated)]
+            NSApplication::activateIgnoringOtherApps(&app, true);
+          }
         }
       }
 
@@ -764,6 +769,12 @@ impl InnerWebView {
             #[cfg(feature = "tracing")]
             span.lock().unwrap().take();
 
+            #[cfg(feature = "tracing")]
+            if !_err.is_null() {
+              let description = (*_err).localizedDescription().to_string();
+              tracing::debug!("Exception during script eval: {description}");
+            }
+
             let mut result = String::new();
 
             if !val.is_null() {
@@ -791,6 +802,11 @@ impl InnerWebView {
           let handler = Some(block2::RcBlock::new(
             move |_val: *mut AnyObject, _err: *mut NSError| {
               span.lock().unwrap().take();
+              #[cfg(feature = "tracing")]
+              if !_err.is_null() {
+                let description = (*_err).localizedDescription().to_string();
+                tracing::debug!("Exception during script eval: {description}");
+              }
             },
           ));
           #[cfg(not(feature = "tracing"))]

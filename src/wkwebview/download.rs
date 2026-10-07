@@ -1,7 +1,7 @@
 use std::{env::current_dir, ptr::null_mut};
 
-use objc2::{rc::Retained, runtime::ProtocolObject, DeclaredClass};
-use objc2_foundation::{NSData, NSError, NSString, NSURLResponse, NSURL};
+use objc2::{DeclaredClass, rc::Retained, runtime::ProtocolObject};
+use objc2_foundation::{NSData, NSError, NSString, NSURL, NSURLResponse};
 use objc2_web_kit::{WKDownload, WKNavigationAction, WKNavigationResponse};
 
 #[cfg(target_os = "ios")]

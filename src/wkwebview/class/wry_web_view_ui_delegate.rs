@@ -7,7 +7,7 @@ use std::{cell::RefCell, ptr::null_mut, rc::Rc};
 
 use block2::Block;
 use objc2::{
-  define_class, msg_send, rc::Retained, runtime::NSObject, DefinedClass, MainThreadOnly,
+  DefinedClass, MainThreadOnly, define_class, msg_send, rc::Retained, runtime::NSObject,
 };
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSModalResponse, NSModalResponseOK, NSOpenPanel, NSWindowDelegate};

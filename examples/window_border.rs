@@ -8,7 +8,7 @@ use tao::{
   event_loop::{ControlFlow, EventLoopBuilder},
   window::WindowBuilder,
 };
-use wry::{http::Request, WebViewBuilder};
+use wry::{WebViewBuilder, http::Request};
 
 #[derive(Debug)]
 enum UserEvent {

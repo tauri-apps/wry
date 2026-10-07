@@ -5,11 +5,11 @@
 use std::{ffi::c_double, ptr::NonNull};
 
 use objc2::{
+  MainThreadOnly,
   encode::{Encode, Encoding, RefEncode},
   extern_class, extern_methods,
   rc::{Allocated, Retained},
   runtime::{AnyObject, ProtocolObject},
-  MainThreadOnly,
 };
 use objc2_core_foundation::*;
 use objc2_foundation::*;

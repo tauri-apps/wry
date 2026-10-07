@@ -4,7 +4,7 @@ workspace = {}
 name = "wry"
 version = "0.57.0"
 authors = ["Tauri Programme within The Commons Conservancy"]
-edition = "2021"
+edition = "2024"
 license = "Apache-2.0 OR MIT"
 description = "Cross-platform WebView rendering library"
 readme = "README.md"
@@ -41,7 +41,6 @@ tracing = ["dep:tracing"]
 
 [dependencies]
 tracing = { version = "0.1", optional = true }
-once_cell = "1"
 thiserror = "2.0"
 http = "1.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
