@@ -4,9 +4,9 @@
 
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
-use objc2::{define_class, msg_send, rc::Retained, runtime::NSObject, MainThreadOnly};
+use objc2::{MainThreadOnly, define_class, msg_send, rc::Retained, runtime::NSObject};
 use objc2_foundation::{
-  MainThreadMarker, NSData, NSError, NSObjectProtocol, NSString, NSURLResponse, NSURL,
+  MainThreadMarker, NSData, NSError, NSObjectProtocol, NSString, NSURL, NSURLResponse,
 };
 use objc2_web_kit::{WKDownload, WKDownloadDelegate};
 

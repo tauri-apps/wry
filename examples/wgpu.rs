@@ -6,8 +6,8 @@ use winit::{
   window::{Window, WindowId},
 };
 use wry::{
-  dpi::{LogicalPosition, LogicalSize},
   Rect, WebViewBuilder,
+  dpi::{LogicalPosition, LogicalSize},
 };
 
 #[derive(Default)]

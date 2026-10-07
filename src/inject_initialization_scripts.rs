@@ -5,11 +5,11 @@
 //! This is an internal implementation detail used by the Android backend to inject
 //! initialization scripts when `addDocumentStartJavaScript` is not supported.
 
-use base64::{prelude::BASE64_STANDARD, Engine};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use dom_query::Document;
 use http::{
-  header::{HeaderValue, CONTENT_SECURITY_POLICY, CONTENT_TYPE},
   Response as HttpResponse,
+  header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, HeaderValue},
 };
 use sha2::{Digest, Sha256};
 use std::borrow::Cow;

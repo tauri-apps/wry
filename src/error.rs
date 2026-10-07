@@ -62,7 +62,9 @@ pub enum Error {
   NotMainThread,
   #[error("Custom protocol task is invalid.")]
   CustomProtocolTaskInvalid,
-  #[error("Failed to register URL scheme: {0}, could be due to invalid URL scheme or the scheme is already registered.")]
+  #[error(
+    "Failed to register URL scheme: {0}, could be due to invalid URL scheme or the scheme is already registered."
+  )]
   UrlSchemeRegisterError(String),
   #[error("Duplicate custom protocol '{0}' registered on the WebViewBuilder")]
   DuplicateCustomProtocol(String),

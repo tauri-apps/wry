@@ -359,7 +359,7 @@ pub(crate) mod android;
 pub use crate::android::android_setup;
 #[cfg(target_os = "android")]
 pub mod prelude {
-  pub use crate::android::{binding::*, dispatch, find_class, Context};
+  pub use crate::android::{Context, binding::*, dispatch, find_class};
   pub use tao_macros::{android_fn, generate_package_name};
 }
 #[cfg(target_os = "android")]
@@ -1937,7 +1937,6 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
         + 'static,
     >,
   >,
-  with_asset_loader: bool,
   asset_loader_domain: Option<String>,
   https_scheme: bool,
 }
@@ -1996,8 +1995,7 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
         api.respond(Response::builder().body(Vec::new()).unwrap());
       }),
     );
-    self.platform_specific.with_asset_loader = true;
-    self.platform_specific.asset_loader_domain = Some(format!("{}.assets", protocol));
+    self.platform_specific.asset_loader_domain = Some(format!("{protocol}.assets"));
     self
   }
 
@@ -2109,7 +2107,8 @@ impl WebView {
   /// Evaluate and run javascript code with callback function. The evaluation result will be
   /// serialized into a JSON string and passed to the callback function.
   ///
-  /// Exception is ignored because of the limitation on windows. You can catch it yourself and return as string as a workaround.
+  /// Exception is ignored because of the limitation on Android and Windows WebView2 before 121.0.2277.86.
+  /// You can catch it yourself and return as string as a workaround.
   pub fn evaluate_script_with_callback(
     &self,
     js: &str,
