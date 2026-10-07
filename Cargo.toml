@@ -29,6 +29,7 @@ serde = ["dpi/serde"]
 devtools = []
 linux-body = ["webkit2gtk/v2_40", "os-webview"]
 mac-proxy = []
+macos-private-pip = []
 os-webview = [
   "javascriptcore-rs",
   "webkit2gtk",

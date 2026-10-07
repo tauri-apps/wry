@@ -342,8 +342,9 @@ impl InnerWebView {
         data_store.setValue_forKey(Some(&proxies), ns_string!("proxyConfigurations"));
       }
 
-      // NOTE: Private API on macOS — `allowsPictureInPictureMediaPlayback` is a private KVC key on WKPreferences.
-      // On iOS it's public <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/allowspictureinpicturemediaplayback>
+      // iOS uses WKWebViewConfiguration's public default (true).
+      // macOS requires an explicit opt-in to this private WKPreferences key.
+      #[cfg(all(target_os = "macos", feature = "macos-private-pip"))]
       _preference.setValue_forKey(
         Some(&_yes),
         ns_string!("allowsPictureInPictureMediaPlayback"),
