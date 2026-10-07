@@ -6,6 +6,8 @@
 use std::{cell::RefCell, ptr::null_mut, rc::Rc};
 
 use block2::Block;
+#[cfg(target_os = "macos")]
+use objc2::ClassType;
 use objc2::{
   define_class, msg_send, rc::Retained, runtime::NSObject, DefinedClass, MainThreadOnly,
 };
@@ -106,8 +108,16 @@ define_class!(
       handler: &block2::Block<dyn Fn(*const NSArray<NSURL>)>,
     ) {
       unsafe {
-        if let Some(mtm) = MainThreadMarker::new() {
-          let open_panel = NSOpenPanel::openPanel(mtm);
+        if MainThreadMarker::new().is_some() {
+          // `+[NSOpenPanel openPanel]` returns nil when AppKit can't reach the
+          // panel's XPC service, e.g. after the app bundle was replaced on
+          // disk while running. Cancel the upload instead of panicking.
+          let open_panel: Option<Retained<NSOpenPanel>> =
+            msg_send![NSOpenPanel::class(), openPanel];
+          let Some(open_panel) = open_panel else {
+            (*handler).call((null_mut(),));
+            return;
+          };
           open_panel.setCanChooseFiles(true);
           let allow_multi = open_panel_params.allowsMultipleSelection();
           open_panel.setAllowsMultipleSelection(allow_multi);
