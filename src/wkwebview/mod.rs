@@ -57,7 +57,6 @@ use objc2_ui_kit::{UIScrollView, UIViewAutoresizing};
 use objc2_app_kit::NSWindow;
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::UIView as NSView;
-use once_cell::sync::Lazy;
 // #[cfg(target_os = "ios")]
 // use objc2_ui_kit::UIWindow as NSWindow;
 
@@ -85,7 +84,7 @@ use std::{
   ptr::NonNull,
   rc::Rc,
   str::{self, FromStr},
-  sync::{Arc, Mutex, RwLock},
+  sync::{Arc, LazyLock, Mutex, RwLock},
   time::Duration,
 };
 
@@ -107,7 +106,8 @@ use crate::util::Counter;
 
 static COUNTER: Counter = Counter::new();
 
-static WEBVIEW_STATE: Lazy<RwLock<HashMap<String, WebViewState>>> = Lazy::new(Default::default);
+static WEBVIEW_STATE: LazyLock<RwLock<HashMap<String, WebViewState>>> =
+  LazyLock::new(Default::default);
 
 struct WebViewState {
   pub protocol_ptrs:
@@ -687,20 +687,24 @@ impl InnerWebView {
           // Tell the webview receive keyboard events in the window.
           // See https://github.com/tauri-apps/wry/issues/739
           ns_window.setContentView(Some(&parent_view));
-          ns_window.makeFirstResponder(Some(&webview));
+          if attributes.visible && attributes.focused {
+            ns_window.makeFirstResponder(Some(&webview));
+          }
 
           w.parent_view = Some(parent_view);
         }
 
-        // make sure the window is always on top when we create a new webview
-        let app = NSApplication::sharedApplication(mtm);
-        if os_major_version >= 14 {
-          // <https://developer.apple.com/documentation/appkit/nsapplication/activate()>
-          // Available: macOS 14+
-          NSApplication::activate(&app);
-        } else {
-          #[allow(deprecated)]
-          NSApplication::activateIgnoringOtherApps(&app, true);
+        // Hidden or unfocused webviews must not activate their containing application.
+        if attributes.visible && attributes.focused {
+          let app = NSApplication::sharedApplication(mtm);
+          if os_major_version >= 14 {
+            // <https://developer.apple.com/documentation/appkit/nsapplication/activate()>
+            // Available: macOS 14+
+            NSApplication::activate(&app);
+          } else {
+            #[allow(deprecated)]
+            NSApplication::activateIgnoringOtherApps(&app, true);
+          }
         }
       }
 
@@ -736,6 +740,12 @@ impl InnerWebView {
             #[cfg(feature = "tracing")]
             span.lock().unwrap().take();
 
+            #[cfg(feature = "tracing")]
+            if !_err.is_null() {
+              let description = (*_err).localizedDescription().to_string();
+              tracing::debug!("Exception during script eval: {description}");
+            }
+
             let mut result = String::new();
 
             if !val.is_null() {
@@ -763,6 +773,11 @@ impl InnerWebView {
           let handler = Some(block2::RcBlock::new(
             move |_val: *mut AnyObject, _err: *mut NSError| {
               span.lock().unwrap().take();
+              #[cfg(feature = "tracing")]
+              if !_err.is_null() {
+                let description = (*_err).localizedDescription().to_string();
+                tracing::debug!("Exception during script eval: {description}");
+              }
             },
           ));
           #[cfg(not(feature = "tracing"))]

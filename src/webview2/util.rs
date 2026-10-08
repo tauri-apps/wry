@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use windows::{
   Win32::{
     Foundation::{FARPROC, HWND, S_OK},
@@ -46,10 +46,10 @@ pub type GetDpiForMonitor = unsafe extern "system" fn(
   dpi_y: *mut u32,
 ) -> HRESULT;
 
-static GET_DPI_FOR_WINDOW: Lazy<Option<GetDpiForWindow>> =
-  Lazy::new(|| get_function!("user32.dll", GetDpiForWindow));
-static GET_DPI_FOR_MONITOR: Lazy<Option<GetDpiForMonitor>> =
-  Lazy::new(|| get_function!("shcore.dll", GetDpiForMonitor));
+static GET_DPI_FOR_WINDOW: LazyLock<Option<GetDpiForWindow>> =
+  LazyLock::new(|| get_function!("user32.dll", GetDpiForWindow));
+static GET_DPI_FOR_MONITOR: LazyLock<Option<GetDpiForMonitor>> =
+  LazyLock::new(|| get_function!("shcore.dll", GetDpiForMonitor));
 
 pub const BASE_DPI: u32 = 96;
 pub fn dpi_to_scale_factor(dpi: u32) -> f64 {

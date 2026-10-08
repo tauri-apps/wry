@@ -6,13 +6,18 @@ mod drag_drop;
 mod util;
 
 use std::{
-  borrow::Cow, cell::RefCell, collections::HashSet, fmt::Write, fs, path::PathBuf, rc::Rc,
-  sync::mpsc,
+  borrow::Cow,
+  cell::RefCell,
+  collections::HashSet,
+  fmt::Write,
+  fs,
+  path::PathBuf,
+  rc::Rc,
+  sync::{LazyLock, mpsc},
 };
 
 use dpi::{PhysicalPosition, PhysicalSize};
 use http::{Request, Response as HttpResponse, StatusCode};
-use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 use windows::{
@@ -39,7 +44,8 @@ type EventRegistrationToken = i64;
 const PARENT_SUBCLASS_ID: u32 = WM_USER + 0x64;
 const PARENT_DESTROY_MESSAGE: u32 = WM_USER + 0x65;
 const MAIN_THREAD_DISPATCHER_SUBCLASS_ID: u32 = WM_USER + 0x66;
-static EXEC_MSG_ID: Lazy<u32> = Lazy::new(|| unsafe { RegisterWindowMessageA(s!("Wry::ExecMsg")) });
+static EXEC_MSG_ID: LazyLock<u32> =
+  LazyLock::new(|| unsafe { RegisterWindowMessageA(s!("Wry::ExecMsg")) });
 
 impl From<webview2_com::Error> for Error {
   fn from(err: webview2_com::Error) -> Self {
@@ -1427,15 +1433,58 @@ impl InnerWebView {
       #[cfg(feature = "tracing")]
       let span = tracing::debug_span!("wry::eval").entered();
       let js = HSTRING::from(js);
-      webview.ExecuteScript(
-        &js,
-        &ExecuteScriptCompletedHandler::create(Box::new(|_, res| {
-          #[cfg(feature = "tracing")]
-          drop(span);
-          callback(res);
-          Ok(())
-        })),
-      )
+
+      if let Ok(webview_21) = webview.cast::<ICoreWebView2_21>() {
+        webview_21.ExecuteScriptWithResult(
+          &js,
+          &ExecuteScriptWithResultCompletedHandler::create(Box::new(|error, res| {
+            #[cfg(feature = "tracing")]
+            drop(span);
+
+            let Some(res) = res else {
+              #[cfg(feature = "tracing")]
+              tracing::error!("Failed to eval script: {error:?}");
+              return error;
+            };
+
+            let mut succeeded = FALSE;
+            if res.Succeeded(&mut succeeded).is_ok() && succeeded.as_bool() {
+              let mut pwstr = PWSTR::null();
+              let _ = res.ResultAsJson(&mut pwstr);
+              callback(take_pwstr(pwstr));
+            } else {
+              #[cfg(feature = "tracing")]
+              {
+                let mut pwstr = PWSTR::null();
+                if let Ok(exception) = res.Exception() {
+                  let _ = exception.ToJson(&mut pwstr);
+                }
+                let error_message = take_pwstr(pwstr);
+                tracing::debug!("Exception during script eval: {error_message}");
+              }
+              callback(String::new());
+            }
+
+            Ok(())
+          })),
+        )
+      } else {
+        webview.ExecuteScript(
+          &js,
+          &ExecuteScriptCompletedHandler::create(Box::new(|_error, res| {
+            #[cfg(feature = "tracing")]
+            drop(span);
+
+            #[cfg(feature = "tracing")]
+            if let Err(error) = _error {
+              tracing::debug!("Failed to eval script: {error}");
+            }
+            callback(res);
+
+            Ok(())
+          })),
+        )
+      }
     }
   }
 

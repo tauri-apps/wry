@@ -9,23 +9,22 @@ use jni::{
   errors::Result as JniResult,
   objects::{GlobalRef, JMap, JObject, JString},
 };
-use once_cell::sync::Lazy;
 use std::{
   collections::BTreeMap,
   ffi::c_void,
   os::unix::prelude::*,
-  sync::{Arc, Mutex},
+  sync::{Arc, LazyLock, Mutex},
 };
 
 use super::{EVAL_CALLBACKS, EVAL_ID_GENERATOR, EvalCallback, WebviewId, find_class};
 
 pub type ActivityId = i32;
 
-static CHANNEL: Lazy<(
+static CHANNEL: LazyLock<(
   Sender<(ActivityId, WebViewMessage)>,
   Receiver<(ActivityId, WebViewMessage)>,
-)> = Lazy::new(|| bounded(8));
-pub static MAIN_PIPE: Lazy<[OwnedFd; 2]> = Lazy::new(|| {
+)> = LazyLock::new(|| bounded(8));
+pub static MAIN_PIPE: LazyLock<[OwnedFd; 2]> = LazyLock::new(|| {
   let mut pipe: [RawFd; 2] = Default::default();
   unsafe { libc::pipe(pipe.as_mut_ptr()) };
   unsafe { pipe.map(|fd| OwnedFd::from_raw_fd(fd)) }
@@ -52,8 +51,8 @@ impl ActivityProxy {
   }
 }
 
-static ACTIVITY_PROXY: once_cell::sync::Lazy<Mutex<BTreeMap<ActivityId, ActivityProxy>>> =
-  Lazy::new(|| Mutex::new(BTreeMap::new()));
+static ACTIVITY_PROXY: LazyLock<Mutex<BTreeMap<ActivityId, ActivityProxy>>> =
+  LazyLock::new(|| Mutex::new(BTreeMap::new()));
 
 pub fn activity_proxy(id: ActivityId) -> Option<ActivityProxy> {
   ACTIVITY_PROXY.lock().unwrap().get(&id).cloned()
