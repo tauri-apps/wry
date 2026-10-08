@@ -5,6 +5,8 @@
 #[cfg(gtk)]
 use crate::webkitgtk::WebContextImpl;
 
+#[cfg(gtk)]
+use std::time::Duration;
 use std::{
   collections::HashSet,
   path::{Path, PathBuf},
@@ -14,6 +16,11 @@ use std::{
 ///
 /// A browser would have a context for all the normal tabs and a different context for all the
 /// private/incognito tabs.
+///
+/// ## Platform-specific
+///
+/// - **Linux**: [`WebContextExtUnix::new_with_memory_pressure_settings`] creates a context whose
+///   WebKitGTK web processes use custom memory-pressure settings.
 ///
 /// # Warning
 ///
@@ -96,6 +103,99 @@ impl WebContext {
 impl Default for WebContext {
   fn default() -> Self {
     Self::new(None)
+  }
+}
+
+/// WebKitGTK memory-pressure settings for the web processes of a [`WebContext`].
+///
+/// WebKitGTK measures the memory of every web process once per `poll_interval` and, when it
+/// exceeds a fraction of `memory_limit_mb`, releases non-critical memory (the conservative
+/// policy), also releases critical memory (the strict policy) or kills the process. Every field
+/// left as `None` keeps WebKitGTK's default, listed below. WebKitGTK does not accept values
+/// outside the ranges below: it logs a critical warning and keeps the previous value.
+///
+/// See WebKitGTK's [`WebKitMemoryPressureSettings`](https://webkitgtk.org/reference/webkit2gtk/stable/struct.MemoryPressureSettings.html)
+/// and [`WebContextExtUnix::new_with_memory_pressure_settings`].
+#[cfg(gtk)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct MemoryPressureSettings {
+  /// Memory limit, in MB, that the thresholds are fractions of. Must be bigger than 0.
+  ///
+  /// WebKitGTK's default is the system's RAM size, with a maximum of 3 GB.
+  pub memory_limit_mb: Option<u32>,
+  /// Fraction of the memory limit from which the conservative policy releases non-critical
+  /// memory. Must be bigger than 0, smaller than 1 and smaller than `strict_threshold`.
+  ///
+  /// WebKitGTK's default is 0.33.
+  pub conservative_threshold: Option<f64>,
+  /// Fraction of the memory limit from which the strict policy also releases critical memory.
+  /// Must be bigger than `conservative_threshold`, smaller than 1 and, when `kill_threshold` is
+  /// not 0, smaller than it.
+  ///
+  /// WebKitGTK's default is 0.5.
+  pub strict_threshold: Option<f64>,
+  /// Fraction of the memory limit from which the web process is killed. 0 never kills it; any
+  /// other value must be bigger than `strict_threshold` and may exceed 1.
+  ///
+  /// WebKitGTK's default is 0 (never).
+  pub kill_threshold: Option<f64>,
+  /// Period between two memory measurements. Must be longer than zero.
+  ///
+  /// WebKitGTK's default is 30 seconds.
+  pub poll_interval: Option<Duration>,
+}
+
+/// Additional methods on `WebContext` that are specific to Linux.
+#[cfg(gtk)]
+pub trait WebContextExtUnix: Sized {
+  /// Create a new [`WebContext`] whose web processes use the given WebKitGTK memory-pressure
+  /// settings.
+  ///
+  /// WebKitGTK takes these settings only when the `WebKitWebContext` is constructed (its
+  /// `memory-pressure-settings` property is construct-only), so they cannot be changed on an
+  /// existing context, and they apply to every webview created with this one. They affect the
+  /// web processes only, not the network process. Webviews created with
+  /// [`WebViewBuilder::with_incognito`](crate::WebViewBuilder::with_incognito) use their own
+  /// ephemeral context and keep WebKitGTK's defaults.
+  ///
+  /// See [`WebContext::new`] for `data_directory`.
+  ///
+  /// # Example
+  ///
+  /// Let a web process use half of a 16 GB machine before WebKitGTK's strict policy starts
+  /// (with the default limit of 3 GB it starts at 1.5 GB):
+  ///
+  /// ```no_run
+  /// use wry::{MemoryPressureSettings, WebContext, WebContextExtUnix};
+  ///
+  /// let context = WebContext::new_with_memory_pressure_settings(
+  ///   None,
+  ///   MemoryPressureSettings {
+  ///     memory_limit_mb: Some(8192),
+  ///     ..Default::default()
+  ///   },
+  /// );
+  /// ```
+  fn new_with_memory_pressure_settings(
+    data_directory: Option<PathBuf>,
+    memory_pressure_settings: MemoryPressureSettings,
+  ) -> Self;
+}
+
+#[cfg(gtk)]
+impl WebContextExtUnix for WebContext {
+  fn new_with_memory_pressure_settings(
+    data_directory: Option<PathBuf>,
+    memory_pressure_settings: MemoryPressureSettings,
+  ) -> Self {
+    Self {
+      os: WebContextImpl::new_with_memory_pressure_settings(
+        data_directory.as_deref(),
+        Some(&memory_pressure_settings),
+      ),
+      data_directory,
+      custom_protocols: Default::default(),
+    }
   }
 }
 

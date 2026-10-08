@@ -30,6 +30,13 @@ pub struct WebContextImpl {
 
 impl WebContextImpl {
   pub fn new(data_directory: Option<&Path>) -> Self {
+    Self::new_with_memory_pressure_settings(data_directory, None)
+  }
+
+  pub fn new_with_memory_pressure_settings(
+    data_directory: Option<&Path>,
+    memory_pressure_settings: Option<&crate::MemoryPressureSettings>,
+  ) -> Self {
     use webkit2gtk::{CookieManagerExt, WebsiteDataManager, WebsiteDataManagerExt};
     let mut context_builder = WebContext::builder();
     if let Some(data_directory) = data_directory {
@@ -45,6 +52,10 @@ impl WebContextImpl {
         );
       }
       context_builder = context_builder.website_data_manager(&data_manager);
+    }
+    if let Some(memory_pressure_settings) = memory_pressure_settings {
+      context_builder = context_builder
+        .memory_pressure_settings(&webkit_memory_pressure_settings(memory_pressure_settings));
     }
     let context = context_builder.build();
 
@@ -93,6 +104,39 @@ impl WebContextImpl {
       .context
       .set_web_extensions_directory(&path.to_string_lossy());
   }
+}
+
+/// The WebKitGTK counterpart of a [`MemoryPressureSettings`](crate::MemoryPressureSettings);
+/// fields left as `None` keep WebKitGTK's defaults.
+fn webkit_memory_pressure_settings(
+  settings: &crate::MemoryPressureSettings,
+) -> webkit2gtk::MemoryPressureSettings {
+  let mut webkit_settings = webkit2gtk::MemoryPressureSettings::new();
+  if let Some(memory_limit_mb) = settings.memory_limit_mb {
+    webkit_settings.set_memory_limit(memory_limit_mb);
+  }
+  // WebKitGTK checks every threshold against the current values of the other two
+  // (conservative < strict, and strict < kill unless kill is 0), so raise the strict threshold
+  // before the conservative one, lower it after, and set the kill threshold last.
+  let strict_threshold = settings.strict_threshold;
+  let raise_strict_first =
+    strict_threshold.is_some_and(|strict| strict > webkit_settings.strict_threshold());
+  if let (true, Some(strict)) = (raise_strict_first, strict_threshold) {
+    webkit_settings.set_strict_threshold(strict);
+  }
+  if let Some(conservative) = settings.conservative_threshold {
+    webkit_settings.set_conservative_threshold(conservative);
+  }
+  if let (false, Some(strict)) = (raise_strict_first, strict_threshold) {
+    webkit_settings.set_strict_threshold(strict);
+  }
+  if let Some(kill) = settings.kill_threshold {
+    webkit_settings.set_kill_threshold(kill);
+  }
+  if let Some(poll_interval) = settings.poll_interval {
+    webkit_settings.set_poll_interval(poll_interval.as_secs_f64());
+  }
+  webkit_settings
 }
 
 /// [`WebContext`](super::WebContext) items that only matter on unix.

@@ -410,6 +410,8 @@ pub use http;
 pub use permissions::{PermissionKind, PermissionResponse};
 pub use proxy::{ProxyConfig, ProxyEndpoint};
 pub use web_context::WebContext;
+#[cfg(gtk)]
+pub use web_context::{MemoryPressureSettings, WebContextExtUnix};
 
 #[cfg(target_os = "ios")]
 pub type InputAccessoryViewBuilder =
