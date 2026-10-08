@@ -17,8 +17,8 @@ use ndk::looper::{FdEvent, ThreadLooper};
 use std::os::fd::{AsFd, AsRawFd};
 
 use super::{
-  ASSET_LOADER_DOMAIN, EVAL_CALLBACKS, IPC, ON_LOAD_HANDLER, PERMISSION_HANDLER, REQUEST_HANDLER,
-  TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE,
+  ASSET_LOADER_DOMAIN, CUSTOM_PROTOCOL_HOSTS, EVAL_CALLBACKS, IPC, ON_LOAD_HANDLER,
+  PERMISSION_HANDLER, REQUEST_HANDLER, TITLE_CHANGE_HANDLER, URL_LOADING_OVERRIDE,
   main_pipe::{MAIN_PIPE, MainPipe},
 };
 
@@ -58,6 +58,14 @@ macro_rules! android_binding {
       assetLoaderDomain,
       [JString],
       jstring
+    );
+    android_fn!(
+      $domain,
+      $package,
+      Rust,
+      customProtocolHosts,
+      [JString],
+      jobject
     );
     android_fn!(
       $domain,
@@ -454,6 +462,24 @@ pub unsafe fn assetLoaderDomain(env: JNIEnv, _: JClass, webview_id: JString) -> 
     Some(env.new_string(domain).unwrap().as_raw())
   }
   asset_loader_domain_inner(env, webview_id).unwrap_or_else(|| (*JObject::null()).into())
+}
+
+#[allow(non_snake_case)]
+pub unsafe fn customProtocolHosts(mut env: JNIEnv, _: JClass, webview_id: JString) -> jobject {
+  fn custom_protocol_hosts_inner(env: &mut JNIEnv, webview_id: JString) -> Option<jobject> {
+    let webview_id: String = env.get_string(&webview_id).ok()?.into();
+    let custom_protocol_hosts = CUSTOM_PROTOCOL_HOSTS.lock().unwrap();
+    let hosts = custom_protocol_hosts.get(&webview_id)?;
+    let array = env
+      .new_object_array(hosts.len() as jint, "java/lang/String", JObject::null())
+      .ok()?;
+    for (i, host) in hosts.iter().enumerate() {
+      let host = env.new_string(host).ok()?;
+      env.set_object_array_element(&array, i as jint, host).ok()?;
+    }
+    Some(array.as_raw())
+  }
+  custom_protocol_hosts_inner(&mut env, webview_id).unwrap_or_else(|| JObject::null().as_raw())
 }
 
 #[allow(non_snake_case)]
