@@ -16,7 +16,7 @@ use gtk::glib::{self, translate::FromGlibPtrFull};
 use gtk::{
   gdk::{self},
   gio::Cancellable,
-  glib::{Cast, IsA},
+  glib::prelude::{Cast, IsA},
   prelude::*,
 };
 use http::Request;
@@ -235,7 +235,11 @@ impl InnerWebView {
 
     // Gtk.Window
     let window = gtk::Window::new(gtk::WindowType::Toplevel);
-    window.connect_realize(glib::clone!(@weak gdk_window as wd => move |w| w.set_window(wd)));
+    window.connect_realize(glib::clone!(
+      #[weak]
+      gdk_window,
+      move |w| w.set_window(gdk_window)
+    ));
     window.set_has_window(true);
     window.realize();
 
