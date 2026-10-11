@@ -60,6 +60,18 @@ pub enum Error {
   CrossBeamRecvError(#[from] crossbeam_channel::RecvError),
   #[error("not on the main thread")]
   NotMainThread,
+  /// An unattached webview needs the configuration supplied by WebKit.
+  #[cfg(target_os = "macos")]
+  #[error("missing WebKit webview configuration")]
+  MissingWebViewConfiguration,
+  /// Builder options specify incompatible initialization paths.
+  #[cfg(target_os = "macos")]
+  #[error("conflicting webview initialization options")]
+  ConflictingInitialization,
+  /// An unattached webview needs a positive, finite logical size.
+  #[cfg(target_os = "macos")]
+  #[error("webview logical size must be positive and finite")]
+  InvalidLogicalSize,
   #[error("Custom protocol task is invalid.")]
   CustomProtocolTaskInvalid,
   #[error(

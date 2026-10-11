@@ -2,14 +2,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+#[cfg(target_os = "macos")]
+use std::sync::Weak;
+#[cfg(target_os = "ios")]
 use std::{collections::HashMap, sync::Mutex};
 
+#[cfg(target_os = "ios")]
+use objc2::rc::Retained;
 #[cfg(target_os = "macos")]
 use objc2::runtime::ProtocolObject;
-use objc2::{DeclaredClass, define_class, rc::Retained, runtime::Bool};
+use objc2::{DeclaredClass, define_class, runtime::Bool};
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSDraggingDestination, NSEvent};
-use objc2_foundation::{NSObjectProtocol, NSUUID};
+use objc2_foundation::NSObjectProtocol;
+#[cfg(target_os = "ios")]
+use objc2_foundation::NSUUID;
+
+#[cfg(target_os = "macos")]
+use super::url_scheme_handler::ProtocolViewState;
 
 #[cfg(target_os = "ios")]
 use crate::wkwebview::ios::WKWebView::WKWebView;
@@ -31,7 +41,10 @@ pub struct WryWebViewIvars {
   pub(crate) accept_first_mouse: objc2::runtime::Bool,
   #[cfg(target_os = "ios")]
   pub(crate) input_accessory_view_builder: Option<Box<crate::InputAccessoryViewBuilder>>,
+  #[cfg(target_os = "ios")]
   pub(crate) custom_protocol_task_ids: Mutex<HashMap<usize, Retained<NSUUID>>>,
+  #[cfg(target_os = "macos")]
+  pub(crate) protocol_state: Weak<ProtocolViewState>,
 }
 
 define_class!(
@@ -122,6 +135,7 @@ define_class!(
 );
 
 // Custom Protocol Task Checker
+#[cfg(target_os = "ios")]
 impl WryWebView {
   pub(crate) fn add_custom_task_key(&self, task_id: usize) -> Retained<NSUUID> {
     let task_uuid = NSUUID::new();
