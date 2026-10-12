@@ -40,14 +40,28 @@ define_class!(
     #[cfg(target_os = "macos")]
     #[unsafe(method(drawRect:))]
     fn draw(&self, _dirty_rect: NSRect) {
-      if let Some((x, y)) = self.ivars().traffic_light_inset.get() {
-        unsafe { inset_traffic_lights(&self.window().unwrap(), x, y) };
+      self.update_traffic_light_inset();
+    }
+
+    #[cfg(target_os = "macos")]
+    #[unsafe(method(layout))]
+    fn layout(&self) {
+      unsafe {
+        let _: () = msg_send![super(self), layout];
       }
+      self.update_traffic_light_inset();
     }
   }
 );
 
 impl WryWebViewParent {
+  #[cfg(target_os = "macos")]
+  fn update_traffic_light_inset(&self) {
+    if let (Some((x, y)), Some(window)) = (self.ivars().traffic_light_inset.get(), self.window()) {
+      unsafe { inset_traffic_lights(&window, x, y) };
+    }
+  }
+
   #[allow(dead_code)]
   pub fn new(mtm: MainThreadMarker) -> Retained<Self> {
     let delegate = WryWebViewParent::alloc(mtm).set_ivars(WryWebViewParentIvars {
