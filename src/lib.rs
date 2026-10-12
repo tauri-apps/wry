@@ -391,6 +391,8 @@ pub use wkwebview::{PrintMargin, PrintOptions, WryWebView};
 #[cfg(target_os = "windows")]
 pub(crate) mod webview2;
 #[cfg(target_os = "windows")]
+pub use self::webview2::register_composition_visual_target;
+#[cfg(target_os = "windows")]
 pub use self::webview2::ScrollBarStyle;
 #[cfg(target_os = "windows")]
 use self::webview2::*;
@@ -1758,6 +1760,11 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   default_context_menus: bool,
   environment: Option<ICoreWebView2Environment>,
   profile_name: Option<String>,
+  /// When set, the webview is created through
+  /// `CreateCoreWebView2CompositionController` targeting this
+  /// `IDCompositionVisual` (passed as `IUnknown`) instead of the windowed
+  /// controller path.
+  composition_visual_target: Option<windows::core::IUnknown>,
 }
 
 #[cfg(windows)]
@@ -1774,6 +1781,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       extension_path: None,
       environment: None,
       profile_name: None,
+      composition_visual_target: None,
     }
   }
 }
@@ -1871,6 +1879,32 @@ pub trait WebViewBuilderExtWindows {
   /// Profile names must follow the WebView2 naming rules (alphanumeric, `.`,
   /// `_`, `-`, ` `, up to 64 chars, not starting/ending with `.` or ` `).
   fn with_profile_name<S: Into<String>>(self, name: S) -> Self;
+
+  /// Host the webview on a caller-supplied DirectComposition visual instead of
+  /// a child HWND.
+  ///
+  /// `visual` must be an `IDCompositionVisual` (any version), passed as
+  /// `IUnknown`. The webview is created through
+  /// `CreateCoreWebView2CompositionController` with the window passed to
+  /// [`WebViewBuilder::build`] as the input/parent HWND; that window receives
+  /// a subclass that forwards mouse and touch/pen input to the webview
+  /// (`SendMouseInput`/`SendPointerInput`), applies the webview cursor on
+  /// `WM_SETCURSOR`, and keeps controller bounds in sync on `WM_SIZE`.
+  /// Keyboard and IME input reach the webview natively once it takes focus
+  /// (on click, or via `MoveFocus`).
+  ///
+  /// In this mode the webview has no HWND of its own: [`WebView::set_bounds`]
+  /// only updates the controller bounds, [`WebView::set_visible`] only toggles
+  /// controller visibility, and [`WebView::reparent`] returns an error. The
+  /// visual's position and size in the host window are controlled entirely by
+  /// the caller's DirectComposition tree.
+  ///
+  /// Combine with [`WebViewBuilder::with_transparent`] for a webview that
+  /// composites over content drawn on sibling visuals below it.
+  ///
+  /// For embedders that construct the `WebViewBuilder` internally (so this
+  /// method cannot be called), see [`register_composition_visual_target`].
+  fn with_composition_visual_target(self, visual: windows::core::IUnknown) -> Self;
 }
 
 #[cfg(windows)]
@@ -1922,6 +1956,14 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 
   fn with_profile_name<S: Into<String>>(mut self, name: S) -> Self {
     self.platform_specific.profile_name = Some(name.into());
+    self
+  }
+
+  fn with_composition_visual_target(mut self, visual: windows::core::IUnknown) -> Self {
+    self
+      .platform_specific
+      .composition_visual_target
+      .replace(visual);
     self
   }
 }
