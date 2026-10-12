@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.57.1]
+
+- [`f9b8bee`](https://github.com/tauri-apps/wry/commit/f9b8bee1de7cfa68d1ee17000c630abeb551b66e) ([#1885](https://github.com/tauri-apps/wry/pull/1885) by [@LucaCappelletti94](https://github.com/tauri-apps/wry/../../LucaCappelletti94)) On Android, read `__wryActivityId` only when the intent or saved state contains it.
+- [`b6bef41`](https://github.com/tauri-apps/wry/commit/b6bef4124469d0525f604961c187123ae8a2e469) ([#1865](https://github.com/tauri-apps/wry/pull/1865) by [@velocitysystems](https://github.com/tauri-apps/wry/../../velocitysystems)) On Android, stop the WebView from applying the `Range` header a second time to a custom protocol `206` response, and serve ranges past 2 GiB.
+- [`d8fe88d`](https://github.com/tauri-apps/wry/commit/d8fe88dc7be2f6ff00c671f823e985335a14f7ad) ([#1847](https://github.com/tauri-apps/wry/pull/1847) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Moved to edition 2024
+- [`9a5f3aa`](https://github.com/tauri-apps/wry/commit/9a5f3aad86d610037f9afc8c22412691f59153da) ([#1868](https://github.com/tauri-apps/wry/pull/1868) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Log `eval` exceptions when `tracing` feature's enabled at `debug` level.
+- [`66cdfa1`](https://github.com/tauri-apps/wry/commit/66cdfa1d76265cd9a5b1773087d7eec98918adc5) ([#1866](https://github.com/tauri-apps/wry/pull/1866) by [@steipete](https://github.com/tauri-apps/wry/../../steipete)) On macOS, only activate the application and request initial keyboard focus when the new webview is both visible and focused. Creating hidden or unfocused webviews no longer steals focus.
+
+### bug
+
+- [`78a7056`](https://github.com/tauri-apps/wry/commit/78a705644fd9b59fb47f12a8c8105c48be403332) ([#1883](https://github.com/tauri-apps/wry/pull/1883) by [@LucaCappelletti94](https://github.com/tauri-apps/wry/../../LucaCappelletti94)) On Android, load `with_html` and `load_html` content at `about:blank` so IPC messages reach the handler.
+- [`cab3eac`](https://github.com/tauri-apps/wry/commit/cab3eace983007a16f132c14a34d0a220c707bea) ([#1839](https://github.com/tauri-apps/wry/pull/1839) by [@zackees](https://github.com/tauri-apps/wry/../../zackees)) Only inject the Linux WebKitGTK `window.ipc` bridge when an IPC handler is configured.
+
 ## [0.57.0]
 
 - [`105ca17`](https://github.com/tauri-apps/wry/commit/105ca17188a4d590a364c4e9e2d0845eeccc491c) ([#1834](https://github.com/tauri-apps/wry/pull/1834) by [@renovate](https://github.com/tauri-apps/wry/../../renovate)) Updated dependency `dirs` from v6 to v7
