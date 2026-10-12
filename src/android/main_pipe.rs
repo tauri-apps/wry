@@ -176,11 +176,13 @@ impl<'a> MainPipe<'a> {
           string_class,
           self.env.new_string("")?,
         )?;
-        for (i, init_script) in initialization_scripts.into_iter().enumerate() {
+        for (i, init_script) in initialization_scripts.iter().enumerate() {
+          // `addDocumentStartJavaScript` injects into every frame matching the allowed origin
+          // rules, so main-frame-only scripts are guarded to only execute in the top-level frame.
           self.env.set_object_array_element(
             &initialization_scripts_array,
             i as i32,
-            self.env.new_string(init_script.script)?,
+            self.env.new_string(init_script.source_for_all_frames())?,
           )?;
         }
         let id = self.env.new_string(id)?;

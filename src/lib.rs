@@ -347,6 +347,8 @@ mod custom_protocol_workaround;
 mod error;
 #[cfg(any(target_os = "android", test))]
 mod inject_initialization_scripts;
+#[cfg(any(target_os = "windows", target_os = "android", test))]
+mod main_frame_only;
 mod permissions;
 mod proxy;
 #[cfg(any(target_os = "macos", target_os = "android", target_os = "ios"))]
@@ -607,7 +609,9 @@ struct WebViewAttributes<'a> {
   ///
   /// ## Platform-specific
   ///
-  /// - **Windows**: scripts are always injected into sub frames.
+  /// - **Windows** and **Android**: scripts with [`InitializationScript::for_main_frame_only`] set
+  ///   are wrapped in an `if (window === window.top) { ... }` guard, since the native APIs inject
+  ///   into every frame.
   /// - **Android:** When [addDocumentStartJavaScript] is not supported,
   ///   we prepend them to each HTML head (implementation only supported on custom protocol URLs).
   ///   For remote URLs, we use [onPageStarted] which is not guaranteed to run before other scripts.
@@ -1001,7 +1005,9 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific
   ///
-  ///- **Windows:** scripts are always added to subframes.
+  /// - **Windows** and **Android:** the native APIs inject into every frame, so the script is
+  ///   wrapped in an `if (window === window.top) { ... }` guard to keep it out of subframes.
+  ///   See [`InitializationScript::for_main_frame_only`] for the differences this wrapping implies.
   /// - **Android:** When [addDocumentStartJavaScript] is not supported,
   ///   we prepend them to each HTML head (implementation only supported on custom protocol URLs).
   ///   For remote URLs, we use [onPageStarted] which is not guaranteed to run before other scripts.
@@ -1026,7 +1032,9 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific:
   ///
-  /// - **Windows:** scripts are always added to subframes regardless of the `for_main_frame_only` option.
+  /// - **Windows** and **Android:** the native APIs inject into every frame, so scripts with
+  ///   `for_main_frame_only` set to `true` are wrapped in an `if (window === window.top) { ... }` guard.
+  ///   See [`InitializationScript::for_main_frame_only`] for the differences this wrapping implies.
   /// - **Android**: When [addDocumentStartJavaScript] is not supported, scripts are always injected into main frame only.
   ///
   /// [addDocumentStartJavaScript]: https://developer.android.com/reference/androidx/webkit/WebViewCompat#addDocumentStartJavaScript(android.webkit.WebView,java.lang.String,java.util.Set%3Cjava.lang.String%3E)
@@ -2615,8 +2623,13 @@ pub struct InitializationScript {
   ///
   /// ## Platform-specific
   ///
-  /// - **Windows**: scripts are always injected into subframes regardless of this option.
-  ///   This will be the case until Webview2 implements a proper API to inject a script only on the main frame.
+  /// - **Windows** and **Android**: WebView2 and `addDocumentStartJavaScript` have no API to inject a
+  ///   script into the main frame only, so wry wraps the script in an `if (window === window.top) { ... }`
+  ///   block. The script is still delivered to subframes but does not execute there. Because the body
+  ///   becomes a block instead of top-level script code, top-level `let`, `const` and `class`
+  ///   declarations (and function declarations in strict mode) are scoped to that block; assign to
+  ///   `window` explicitly to share them with page scripts. `var` declarations, sloppy-mode function
+  ///   declarations and a leading `"use strict";` directive keep their top-level behavior.
   /// - **Android**: When [addDocumentStartJavaScript] is not supported, scripts are always injected into main frame only.
   ///
   /// [addDocumentStartJavaScript]: https://developer.android.com/reference/androidx/webkit/WebViewCompat#addDocumentStartJavaScript(android.webkit.WebView,java.lang.String,java.util.Set%3Cjava.lang.String%3E)
