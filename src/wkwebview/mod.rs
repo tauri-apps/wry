@@ -17,23 +17,24 @@ mod ios;
 
 mod class;
 pub use class::wry_web_view::WryWebView;
+#[cfg(target_os = "ios")]
+use class::wry_web_view_delegate::IPC_MESSAGE_HANDLER_NAME;
 #[cfg(target_os = "macos")]
 use class::wry_web_view_parent::WryWebViewParent;
 use class::{
-  document_title_changed_observer::*,
-  url_scheme_handler,
-  wry_download_delegate::WryDownloadDelegate,
-  wry_navigation_delegate::WryNavigationDelegate,
-  wry_web_view::WryWebViewIvars,
-  wry_web_view_delegate::{IPC_MESSAGE_HANDLER_NAME, WryWebViewDelegate},
+  document_title_changed_observer::*, url_scheme_handler,
+  wry_download_delegate::WryDownloadDelegate, wry_navigation_delegate::WryNavigationDelegate,
+  wry_web_view::WryWebViewIvars, wry_web_view_delegate::WryWebViewDelegate,
   wry_web_view_ui_delegate::WryWebViewUIDelegate,
 };
 
 use dpi::{LogicalPosition, LogicalSize};
+#[cfg(target_os = "ios")]
+use objc2::DeclaredClass;
 #[cfg(target_os = "macos")]
 use objc2::runtime::Bool;
 use objc2::{
-  AllocAnyThread, DeclaredClass, MainThreadOnly, Message,
+  AllocAnyThread, MainThreadOnly, Message,
   rc::Retained,
   runtime::{AnyObject, NSObject, ProtocolObject},
 };
@@ -76,16 +77,20 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use std::{
   cell::RefCell,
-  collections::HashMap,
-  ffi::CString,
   net::Ipv4Addr,
   os::raw::c_char,
   panic::AssertUnwindSafe,
   ptr::NonNull,
-  rc::Rc,
   str::{self, FromStr},
-  sync::{Arc, LazyLock, Mutex, RwLock},
+  sync::{Arc, Mutex},
   time::Duration,
+};
+#[cfg(target_os = "ios")]
+use std::{
+  collections::HashMap,
+  ffi::CString,
+  rc::Rc,
+  sync::{LazyLock, RwLock},
 };
 
 #[cfg(feature = "mac-proxy")]
@@ -96,25 +101,30 @@ use crate::{
   },
 };
 
-use crate::{
-  BackgroundThrottlingPolicy, Error, RGBA, Rect, RequestAsyncResponder, Result, WebViewAttributes,
-};
+#[cfg(target_os = "ios")]
+use crate::RequestAsyncResponder;
+use crate::{BackgroundThrottlingPolicy, Error, RGBA, Rect, Result, WebViewAttributes};
 
+#[cfg(target_os = "ios")]
 use http::Request;
 
 use crate::util::Counter;
 
 static COUNTER: Counter = Counter::new();
 
+#[cfg(target_os = "ios")]
 static WEBVIEW_STATE: LazyLock<RwLock<HashMap<String, WebViewState>>> =
   LazyLock::new(Default::default);
 
+#[cfg(target_os = "ios")]
 struct WebViewState {
   pub protocol_ptrs:
     Vec<Rc<dyn Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + Send + Sync>>,
 }
 
+#[cfg(target_os = "ios")]
 unsafe impl Send for WebViewState {}
+#[cfg(target_os = "ios")]
 unsafe impl Sync for WebViewState {}
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -130,12 +140,24 @@ pub struct PrintOptions {
   pub margins: PrintMargin,
 }
 
+#[derive(Clone, Copy)]
+enum WebViewParent<'a> {
+  Native(&'a NSView, bool),
+  #[cfg(target_os = "macos")]
+  Unattached(LogicalSize<f64>),
+}
+
 pub(crate) struct InnerWebView {
   id: String,
+  #[cfg(target_os = "macos")]
+  protocol_state: Arc<url_scheme_handler::ProtocolViewState>,
   mtm: MainThreadMarker,
   pub webview: Retained<WryWebView>,
   pub manager: Retained<WKUserContentController>,
   data_store: Retained<WKWebsiteDataStore>,
+  #[cfg(target_os = "macos")]
+  ns_view: Option<Retained<NSView>>,
+  #[cfg(target_os = "ios")]
   ns_view: Retained<NSView>,
   #[allow(dead_code)]
   is_child: bool,
@@ -174,7 +196,13 @@ impl InnerWebView {
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 
-    unsafe { Self::new_ns_view(&*(ns_view as *mut NSView), attributes, pl_attrs, false) }
+    unsafe {
+      Self::new_ns_view(
+        WebViewParent::Native(&*(ns_view as *mut NSView), false),
+        attributes,
+        pl_attrs,
+      )
+    }
   }
 
   pub fn new_as_child(
@@ -190,21 +218,46 @@ impl InnerWebView {
       _ => return Err(Error::UnsupportedWindowHandle),
     };
 
-    unsafe { Self::new_ns_view(&*(ns_view as *mut NSView), attributes, pl_attrs, true) }
+    unsafe {
+      Self::new_ns_view(
+        WebViewParent::Native(&*(ns_view as *mut NSView), true),
+        attributes,
+        pl_attrs,
+      )
+    }
+  }
+
+  #[cfg(target_os = "macos")]
+  pub fn new_unattached(
+    size: LogicalSize<f64>,
+    attributes: WebViewAttributes,
+    pl_attrs: super::PlatformSpecificWebViewAttributes,
+  ) -> Result<Self> {
+    Self::new_ns_view(WebViewParent::Unattached(size), attributes, pl_attrs)
   }
 
   fn new_ns_view(
-    ns_view: &NSView,
+    parent: WebViewParent<'_>,
     attributes: WebViewAttributes,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
-    is_child: bool,
   ) -> Result<Self> {
     let mtm = MainThreadMarker::new().ok_or(Error::NotMainThread)?;
+    #[cfg(target_os = "macos")]
+    let (ns_view, is_child) = match parent {
+      WebViewParent::Native(view, is_child) => (Some(view), is_child),
+      WebViewParent::Unattached(_) => (None, true),
+    };
+    #[cfg(target_os = "ios")]
+    let WebViewParent::Native(ns_view, is_child) = parent;
 
     let webview_id = attributes
       .id
       .map(|id| id.to_string())
       .unwrap_or_else(|| COUNTER.next().to_string());
+    #[cfg(target_os = "macos")]
+    let protocol_state = Arc::new(url_scheme_handler::ProtocolViewState::new(
+      webview_id.clone(),
+    ));
 
     // Safety: objc runtime calls are unsafe
     unsafe {
@@ -249,6 +302,7 @@ impl InnerWebView {
       };
 
       // Register Custom Protocols
+      #[cfg(target_os = "ios")]
       let mut protocol_ptrs = Vec::new();
       for (name, function) in attributes.custom_protocols {
         // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/urlschemehandler(forurlscheme:)>
@@ -264,21 +318,29 @@ impl InnerWebView {
           continue;
         }
 
-        let url_scheme_handler_cls = url_scheme_handler::create(&name);
-        let handler: *mut AnyObject = objc2::msg_send![url_scheme_handler_cls, new];
-        let protocol_index = protocol_ptrs.len();
-        protocol_ptrs.push(Rc::from(function));
+        #[cfg(target_os = "macos")]
+        let retained_handler = url_scheme_handler::new(&name, function, &protocol_state);
+        #[cfg(target_os = "macos")]
+        let handler = Retained::as_ptr(&retained_handler);
+        #[cfg(target_os = "ios")]
+        let handler: *mut AnyObject = {
+          let url_scheme_handler_cls = url_scheme_handler::create(&name);
+          let handler: *mut AnyObject = objc2::msg_send![url_scheme_handler_cls, new];
+          let protocol_index = protocol_ptrs.len();
+          protocol_ptrs.push(Rc::from(function));
 
-        let ivar = (*handler)
-          .class()
-          .instance_variable(c"protocol_index")
-          .unwrap();
-        let ivar_delegate: &mut usize = ivar.load_mut(&mut *handler);
-        *ivar_delegate = protocol_index;
+          let ivar = (*handler)
+            .class()
+            .instance_variable(c"protocol_index")
+            .unwrap();
+          let ivar_delegate: &mut usize = ivar.load_mut(&mut *handler);
+          *ivar_delegate = protocol_index;
 
-        let ivar = (*handler).class().instance_variable(c"webview_id").unwrap();
-        let ivar_delegate: &mut *mut c_char = ivar.load_mut(&mut *handler);
-        *ivar_delegate = CString::new(webview_id.as_bytes()).unwrap().into_raw();
+          let ivar = (*handler).class().instance_variable(c"webview_id").unwrap();
+          let ivar_delegate: &mut *mut c_char = ivar.load_mut(&mut *handler);
+          *ivar_delegate = CString::new(webview_id.as_bytes()).unwrap().into_raw();
+          handler
+        };
 
         let set_result = objc2::exception::catch(AssertUnwindSafe(|| {
           // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/seturlschemehandler(_:forurlscheme:)>
@@ -293,6 +355,7 @@ impl InnerWebView {
         }
       }
 
+      #[cfg(target_os = "ios")]
       WEBVIEW_STATE
         .write()
         .unwrap()
@@ -311,7 +374,10 @@ impl InnerWebView {
         accept_first_mouse: Bool::new(attributes.accept_first_mouse),
         #[cfg(target_os = "ios")]
         input_accessory_view_builder: pl_attrs.input_accessory_view_builder,
+        #[cfg(target_os = "ios")]
         custom_protocol_task_ids: Default::default(),
+        #[cfg(target_os = "macos")]
+        protocol_state: Arc::downgrade(&protocol_state),
       });
 
       let _preference = config.preferences();
@@ -390,38 +456,46 @@ impl InnerWebView {
 
       #[cfg(target_os = "macos")]
       let webview = {
-        let window = ns_view.window().unwrap();
+        let frame = match parent {
+          WebViewParent::Native(ns_view, _) => {
+            let window = ns_view.window().unwrap();
 
-        let scale_factor = window.backingScaleFactor();
-        let (x, y) = attributes
-          .bounds
-          .map(|b| b.position.to_logical::<f64>(scale_factor))
-          .map(Into::into)
-          .unwrap_or((0, 0));
-        let (w, h) = if is_child {
-          attributes
-            .bounds
-            .map(|b| b.size.to_logical::<u32>(scale_factor))
-            .map(Into::into)
-        } else {
-          None
-        }
-        .unwrap_or_else(|| {
-          if is_child {
-            let frame = NSView::frame(ns_view);
-            (frame.size.width as u32, frame.size.height as u32)
-          } else {
-            (0, 0)
+            let scale_factor = window.backingScaleFactor();
+            let (x, y) = attributes
+              .bounds
+              .map(|b| b.position.to_logical::<f64>(scale_factor))
+              .map(Into::into)
+              .unwrap_or((0, 0));
+            let (w, h) = if is_child {
+              attributes
+                .bounds
+                .map(|b| b.size.to_logical::<u32>(scale_factor))
+                .map(Into::into)
+            } else {
+              None
+            }
+            .unwrap_or_else(|| {
+              if is_child {
+                let frame = NSView::frame(ns_view);
+                (frame.size.width as u32, frame.size.height as u32)
+              } else {
+                (0, 0)
+              }
+            });
+
+            CGRect {
+              origin: if is_child {
+                window_position(ns_view, x, y, h as f64)
+              } else {
+                CGPoint::new(x as f64, (0 - y - h as i32) as f64)
+              },
+              size: CGSize::new(w as f64, h as f64),
+            }
           }
-        });
-
-        let frame = CGRect {
-          origin: if is_child {
-            window_position(ns_view, x, y, h as f64)
-          } else {
-            CGPoint::new(x as f64, (0 - y - h as i32) as f64)
+          WebViewParent::Unattached(size) => CGRect {
+            origin: CGPoint::new(0.0, 0.0),
+            size: CGSize::new(size.width, size.height),
           },
-          size: CGSize::new(w as f64, h as f64),
         };
         let webview: Retained<WryWebView> =
           objc2::msg_send![super(webview), initWithFrame: frame, configuration: &**config];
@@ -551,11 +625,25 @@ impl InnerWebView {
       }
 
       // Message handler
+      #[cfg(target_os = "ios")]
       let ipc_handler_delegate = if let Some(ipc_handler) = attributes.ipc_handler {
         let delegate = WryWebViewDelegate::new(manager.clone(), ipc_handler, mtm);
         Some(delegate)
       } else {
         None
+      };
+      #[cfg(target_os = "macos")]
+      let ipc_handler_delegate = match WryWebViewDelegate::register(
+        manager.clone(),
+        &webview,
+        attributes.ipc_handler,
+        mtm,
+      ) {
+        Ok(delegate) => delegate,
+        Err(()) if matches!(parent, WebViewParent::Unattached(_)) => {
+          return Err(Error::ConflictingInitialization);
+        }
+        Err(()) => None,
       };
 
       // Document title changed handler
@@ -600,6 +688,10 @@ impl InnerWebView {
       let ui_delegate: Retained<WryWebViewUIDelegate> = WryWebViewUIDelegate::new(
         mtm,
         attributes.new_window_req_handler,
+        #[cfg(target_os = "macos")]
+        pl_attrs.new_window_request_handler,
+        #[cfg(target_os = "macos")]
+        pl_attrs.on_webview_close_handler,
         attributes.permission_handler,
       );
       let proto_ui_delegate = ProtocolObject::from_ref(&*ui_delegate);
@@ -607,8 +699,7 @@ impl InnerWebView {
 
       // ns window is required for the print operation
       #[cfg(target_os = "macos")]
-      {
-        let ns_window = ns_view.window().unwrap();
+      if let Some(ns_window) = ns_view.and_then(|view| view.window()) {
         // <https://developer.apple.com/documentation/appkit/nswindow/titlebarseparatorstyle>
         // Available: macOS 11+
         let can_set_titlebar_style =
@@ -621,9 +712,14 @@ impl InnerWebView {
       #[cfg_attr(target_os = "ios", allow(unused_mut))]
       let mut w = Self {
         id: webview_id,
+        #[cfg(target_os = "macos")]
+        protocol_state,
         mtm,
         webview: webview.clone(),
         manager,
+        #[cfg(target_os = "macos")]
+        ns_view: ns_view.map(|view| view.retain()),
+        #[cfg(target_os = "ios")]
         ns_view: ns_view.retain(),
         data_store,
         pending_scripts,
@@ -665,7 +761,7 @@ impl InnerWebView {
 
       // Inject the web view into the window as main content
       #[cfg(target_os = "macos")]
-      {
+      if let Some(ns_view) = ns_view {
         if is_child {
           ns_view.addSubview(&webview);
         } else {
@@ -1082,7 +1178,13 @@ impl InnerWebView {
   pub fn focus_parent(&self) -> Result<()> {
     if let Some(window) = self.webview.window() {
       #[cfg(target_os = "macos")]
-      window.makeFirstResponder(Some(&self.ns_view));
+      {
+        let parent = self
+          .ns_view
+          .clone()
+          .or_else(|| unsafe { self.webview.superview() });
+        window.makeFirstResponder(parent.as_deref().map(|view| &**view));
+      }
       #[cfg(target_os = "ios")]
       unsafe {
         window.becomeFirstResponder()
@@ -1432,17 +1534,25 @@ pub fn platform_webview_version() -> Result<String> {
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
+    #[cfg(target_os = "macos")]
+    self.protocol_state.retire();
+    #[cfg(target_os = "ios")]
     WEBVIEW_STATE.write().unwrap().remove(&self.id);
 
     // We need to drop handler closures here
     unsafe {
       if let Some(ipc_handler) = self.ipc_handler_delegate.take() {
-        let ipc = ns_string!(IPC_MESSAGE_HANDLER_NAME);
-        // this will decrease the retain count of the ipc handler and trigger the drop
-        ipc_handler
-          .ivars()
-          .controller
-          .removeScriptMessageHandlerForName(ipc);
+        #[cfg(target_os = "macos")]
+        ipc_handler.retire(&self.webview);
+        #[cfg(target_os = "ios")]
+        {
+          let ipc = ns_string!(IPC_MESSAGE_HANDLER_NAME);
+          // this will decrease the retain count of the ipc handler and trigger the drop
+          ipc_handler
+            .ivars()
+            .controller
+            .removeScriptMessageHandlerForName(ipc);
+        }
       }
 
       // Remove webview from window's NSView before dropping.
