@@ -5,7 +5,9 @@
 package {{package}}
 
 import android.annotation.SuppressLint
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
@@ -189,11 +191,62 @@ abstract class WryActivity : AppCompatActivity() {
 
     // Called by tao through JNI
     fun startActivity(cls: Class<*>): Int {
-        val intent = Intent(this, cls)
+        return startActivity(cls, false)
+    }
+
+    // Called by tao through JNI.
+    // Starts an activity of the given class, or of the launcher activity when it is null, and returns its ID.
+    // With newTask, the activity gets a task of its own, which the system shows as a separate window
+    // (Recents entry, split-screen pane, desktop window); a finished one leaves no stale entry in Recents.
+    // Otherwise it is stacked on this activity's task, where activity embedding rules can show the two side by side.
+    fun startActivity(cls: Class<*>?, newTask: Boolean): Int {
+        val component = if (cls != null) {
+            ComponentName(this, cls)
+        } else {
+            (packageManager.getLaunchIntentForPackage(packageName)
+                ?: packageManager.getLeanbackLaunchIntentForPackage(packageName))?.component
+                ?: throw IllegalStateException("$packageName has no launcher activity")
+        }
+
+        // these launch modes hand the intent to an existing instance instead of creating the activity
+        @Suppress("DEPRECATION")
+        when (packageManager.getActivityInfo(component, 0).launchMode) {
+            ActivityInfo.LAUNCH_SINGLE_TASK, ActivityInfo.LAUNCH_SINGLE_INSTANCE ->
+                throw IllegalStateException(
+                    "${component.className} can only have one instance (launchMode singleTask or singleInstance); " +
+                        "use launchMode standard${if (newTask) " or singleInstancePerTask" else ""} in AndroidManifest.xml"
+                )
+            ActivityInfo.LAUNCH_SINGLE_INSTANCE_PER_TASK -> if (!newTask) {
+                throw IllegalStateException(
+                    "${component.className} can only have one instance per task (launchMode singleInstancePerTask); " +
+                        "use launchMode standard in AndroidManifest.xml to start it in an existing task"
+                )
+            }
+        }
+
+        val intent = Intent().setComponent(component)
         val id = kotlin.random.Random.nextInt()
         intent.putExtra(ACTIVITY_ID_KEY, id)
+        if (newTask) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+        }
         startActivity(intent)
         return id
+    }
+
+    // Called by tao through JNI.
+    // With removeTask, the task is removed as well when this activity is its root, so it is gone from Recents too.
+    fun closeActivity(removeTask: Boolean) {
+        runOnUiThread {
+            if (isFinishing || isDestroyed) {
+                return@runOnUiThread
+            }
+            if (removeTask && isTaskRoot) {
+                finishAndRemoveTask()
+            } else {
+                finish()
+            }
+        }
     }
 
     {{class-extension}}
