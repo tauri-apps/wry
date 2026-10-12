@@ -5,6 +5,7 @@
 package {{package}}
 
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -25,6 +26,9 @@ private const val ACTIVITY_ID_KEY = "__wryActivityId"
 private fun Bundle?.activityId(): Int? =
     this?.takeIf { it.containsKey(ACTIVITY_ID_KEY) }?.getInt(ACTIVITY_ID_KEY)
 
+// The activities hosting a window, the most recently resumed last. Only touched on the main thread.
+private val windowActivities = ArrayList<WryActivity>()
+
 object WryLifecycleObserver : DefaultLifecycleObserver {
     // This only runs once: https://developer.android.com/reference/androidx/lifecycle/ProcessLifecycleOwner
     override fun onCreate(owner: LifecycleOwner) {
@@ -42,6 +46,10 @@ abstract class WryActivity : AppCompatActivity() {
     private var activityListener: ((ActivityResult?) -> Unit)? = null
     var id: Int = 0
     open val handleBackNavigation: Boolean = true
+    // Whether this activity handed its intent to a running window and finished in onCreate,
+    // so it never reached Rust and must not be torn down there either.
+    protected var forwardedToWindow: Boolean = false
+        private set
 
     open fun onWebViewCreate(webView: WebView) { }
 
@@ -113,6 +121,11 @@ abstract class WryActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null && forwardToRunningWindow()) {
+            forwardedToWindow = true
+            return
+        }
+        windowActivities.add(this)
         id = savedInstanceState.activityId() ?: intent.extras.activityId() ?: hashCode()
 
         permissionLauncher = registerForActivityResult(
@@ -158,6 +171,8 @@ abstract class WryActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        windowActivities.remove(this)
+        windowActivities.add(this)
         Rust.onResume(this)
         if (::mWebView.isInitialized) {
             mWebView.onResume()
@@ -171,6 +186,10 @@ abstract class WryActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        if (forwardedToWindow) {
+            return
+        }
+        windowActivities.remove(this)
         Rust.onDestroy(this)
         Rust.onWebviewDestroy(this, if (::mWebView.isInitialized) { mWebView.id } else { "" })
     }
@@ -183,6 +202,37 @@ abstract class WryActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         Rust.onNewIntent(intent)
+    }
+
+    // An activity started without a window ID while a window is open was started by another app
+    // (a deep link, a notification or a share) instead of for a window, so no window would claim it and
+    // it would show a blank screen. The system only delivers such an intent to the running activity
+    // for launchMode singleInstancePerTask from Android 12 (API 31); before that the mode is unknown
+    // and behaves as standard, creating a new instance. Hands the intent to the most recently resumed
+    // window instead, brings its task to the front and finishes this instance.
+    private fun forwardToRunningWindow(): Boolean {
+        if (intent.extras.activityId() != null) {
+            return false
+        }
+        val window = windowActivities.lastOrNull { !it.isFinishing } ?: return false
+
+        finish()
+        // launched without FLAG_ACTIVITY_NEW_TASK, this instance is in the other app's task,
+        // so finishing it does not reveal the window
+        (getSystemService(ACTIVITY_SERVICE) as ActivityManager).appTasks
+            .firstOrNull {
+                val info = it.taskInfo ?: return@firstOrNull false
+                @Suppress("DEPRECATION")
+                val taskId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    info.taskId
+                } else {
+                    info.persistentId
+                }
+                taskId == window.taskId
+            }
+            ?.moveToFront()
+        window.onNewIntent(intent)
+        return true
     }
 
     fun getAppClass(name: String): Class<*> {
