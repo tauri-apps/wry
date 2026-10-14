@@ -42,8 +42,8 @@ mod macos {
     window::{Window, WindowBuilder},
   };
   use wry::{
-    http::Request, NewWindowResponse, WebView, WebViewBuilder, WebViewBuilderExtMacos,
-    WebViewExtMacOS,
+    NewWindowResponse, WebView, WebViewBuilder, WebViewBuilderExtMacos, WebViewExtMacOS,
+    http::Request,
   };
 
   enum UserEvent {

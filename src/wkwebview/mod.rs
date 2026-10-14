@@ -572,7 +572,9 @@ impl InnerWebView {
       });
       #[cfg(feature = "tracing")]
       if shares_controller {
-        tracing::debug!("WebView shares its opener's user content controller; skipping its init scripts and IPC handler");
+        tracing::debug!(
+          "WebView shares its opener's user content controller; skipping its init scripts and IPC handler"
+        );
       }
 
       // Message handler
