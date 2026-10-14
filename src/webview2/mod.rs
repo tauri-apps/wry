@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 mod drag_drop;
+pub(crate) mod process_failed;
 mod util;
 
 use std::{
@@ -32,6 +33,7 @@ use windows::{
 };
 
 use self::drag_drop::DragDropController;
+use self::process_failed::ProcessFailedHandler;
 use super::Theme;
 use crate::{
   Error, MemoryUsageLevel, NewWindowFeatures, NewWindowOpener, NewWindowResponse, PageLoadEvent,
@@ -71,10 +73,12 @@ pub(crate) struct InnerWebView {
   // the webview gets dropped, otherwise we'll have a memory leak
   #[allow(dead_code)]
   drag_drop_controller: Option<DragDropController>,
+  process_failed_handler: Option<ProcessFailedHandler>,
 }
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
+    self.process_failed_handler.take();
     let _ = unsafe { self.controller.Close() };
     if self.is_child {
       let _ = unsafe { DestroyWindow(self.hwnd) };
@@ -148,7 +152,7 @@ impl InnerWebView {
       background_color,
       pl_attrs.profile_name.as_deref(),
     )?;
-    let webview = Self::init_webview(
+    let (webview, process_failed_handler) = Self::init_webview(
       parent,
       hwnd,
       id.clone(),
@@ -178,6 +182,7 @@ impl InnerWebView {
       webview,
       env,
       drag_drop_controller,
+      process_failed_handler,
     };
 
     if is_child {
@@ -446,7 +451,7 @@ impl InnerWebView {
     controller: &ICoreWebView2Controller,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
     is_child: bool,
-  ) -> Result<ICoreWebView2> {
+  ) -> Result<(ICoreWebView2, Option<ProcessFailedHandler>)> {
     let webview = unsafe { controller.CoreWebView2()? };
 
     // Theme
@@ -589,6 +594,11 @@ impl InnerWebView {
       }
     }
 
+    let process_failed_handler = pl_attrs
+      .process_failed_handler
+      .map(|handler| ProcessFailedHandler::register(&webview, handler))
+      .transpose()?;
+
     // Navigation
     if let Some(mut url) = attributes.url {
       if let Some((protocol, _)) = url.split_once("://") {
@@ -633,7 +643,7 @@ impl InnerWebView {
       }
     }
 
-    Ok(webview)
+    Ok((webview, process_failed_handler))
   }
 
   #[inline]
