@@ -109,6 +109,42 @@ static COUNTER: Counter = Counter::new();
 static WEBVIEW_STATE: LazyLock<RwLock<HashMap<String, WebViewState>>> =
   LazyLock::new(Default::default);
 
+thread_local! {
+  /// A manual reference count of the live webviews using each `WKUserContentController`, keyed by
+  /// the controller's address.
+  ///
+  /// `InnerWebView::new` increments it and `InnerWebView::drop` decrements it, removing the entry
+  /// at zero. A webview built on its opener's configuration (`NewWindowResponse::Create`) shares
+  /// the opener's controller. When the count is already above zero, the new webview skips its init
+  /// scripts and `ipc` handler: the opener's already serve the controller, and removing the
+  /// handler on drop would remove the opener's.
+  static CONTROLLER_REF_COUNT: RefCell<HashMap<usize, usize>> = RefCell::new(HashMap::new());
+}
+
+/// Increments `controller`'s reference count, returning whether another live webview already uses it.
+fn retain_controller(controller: &WKUserContentController) -> bool {
+  CONTROLLER_REF_COUNT.with(|counts| {
+    let mut counts = counts.borrow_mut();
+    let count = counts.entry(controller as *const _ as usize).or_default();
+    *count += 1;
+    *count > 1
+  })
+}
+
+/// Decrements `controller`'s reference count.
+fn release_controller(controller: &WKUserContentController) {
+  CONTROLLER_REF_COUNT.with(|counts| {
+    let mut counts = counts.borrow_mut();
+    let key = controller as *const _ as usize;
+    if let Some(count) = counts.get_mut(&key) {
+      *count -= 1;
+      if *count == 0 {
+        counts.remove(&key);
+      }
+    }
+  });
+}
+
 struct WebViewState {
   pub protocol_ptrs:
     Vec<Rc<dyn Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder) + Send + Sync>>,
@@ -550,8 +586,19 @@ impl InnerWebView {
         _preference.setValue_forKey(Some(&_yes), ns_string!("developerExtrasEnabled"));
       }
 
+      // See `CONTROLLER_REF_COUNT`.
+      let shares_controller = retain_controller(&manager);
+      #[cfg(feature = "tracing")]
+      if shares_controller {
+        tracing::debug!(
+          "WebView shares its opener's user content controller; skipping its init scripts and IPC handler"
+        );
+      }
+
       // Message handler
-      let ipc_handler_delegate = if let Some(ipc_handler) = attributes.ipc_handler {
+      let ipc_handler_delegate = if shares_controller {
+        None
+      } else if let Some(ipc_handler) = attributes.ipc_handler {
         let delegate = WryWebViewDelegate::new(manager.clone(), ipc_handler, mtm);
         Some(delegate)
       } else {
@@ -644,8 +691,10 @@ impl InnerWebView {
           true,
         );
       }
-      for init_script in attributes.initialization_scripts {
-        w.init(&init_script.script, init_script.for_main_frame_only);
+      if !shares_controller {
+        for init_script in attributes.initialization_scripts {
+          w.init(&init_script.script, init_script.for_main_frame_only);
+        }
       }
 
       // Set user agent
@@ -1433,6 +1482,7 @@ pub fn platform_webview_version() -> Result<String> {
 impl Drop for InnerWebView {
   fn drop(&mut self) {
     WEBVIEW_STATE.write().unwrap().remove(&self.id);
+    release_controller(&self.manager);
 
     // We need to drop handler closures here
     unsafe {
