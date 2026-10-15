@@ -110,11 +110,39 @@ static WEBVIEW_STATE: LazyLock<RwLock<HashMap<String, WebViewState>>> =
   LazyLock::new(Default::default);
 
 thread_local! {
-  /// Live webviews per `WKUserContentController`, keyed by its address.
+  /// A manual reference count of the live webviews using each `WKUserContentController`, keyed by
+  /// the controller's address.
   ///
-  /// WebKit's `WKWebViewConfiguration` copy shares the user content controller, so a webview built
-  /// on its opener's configuration (`NewWindowResponse::Create`) uses the opener's controller.
-  static CONTROLLER_USERS: RefCell<HashMap<usize, usize>> = RefCell::new(HashMap::new());
+  /// `InnerWebView::new` increments it and `InnerWebView::drop` decrements it, removing the entry
+  /// at zero. A webview built on its opener's configuration (`NewWindowResponse::Create`) shares
+  /// the opener's controller. When the count is already above zero, the new webview skips its init
+  /// scripts and `ipc` handler: the opener's already serve the controller, and removing the
+  /// handler on drop would remove the opener's.
+  static CONTROLLER_REF_COUNT: RefCell<HashMap<usize, usize>> = RefCell::new(HashMap::new());
+}
+
+/// Increments `controller`'s reference count, returning whether another live webview already uses it.
+fn retain_controller(controller: &WKUserContentController) -> bool {
+  CONTROLLER_REF_COUNT.with(|counts| {
+    let mut counts = counts.borrow_mut();
+    let count = counts.entry(controller as *const _ as usize).or_default();
+    *count += 1;
+    *count > 1
+  })
+}
+
+/// Decrements `controller`'s reference count.
+fn release_controller(controller: &WKUserContentController) {
+  CONTROLLER_REF_COUNT.with(|counts| {
+    let mut counts = counts.borrow_mut();
+    let key = controller as *const _ as usize;
+    if let Some(count) = counts.get_mut(&key) {
+      *count -= 1;
+      if *count == 0 {
+        counts.remove(&key);
+      }
+    }
+  });
 }
 
 struct WebViewState {
@@ -558,18 +586,8 @@ impl InnerWebView {
         _preference.setValue_forKey(Some(&_yes), ns_string!("developerExtrasEnabled"));
       }
 
-      // A controller another live webview already uses (an opener's) keeps that webview's init
-      // scripts and `ipc` handler, which already serve this one: adding ours would grow the
-      // opener's script set, and our `ipc` handler clashes with its handler, so removing it on
-      // drop would remove the opener's.
-      let shares_controller = CONTROLLER_USERS.with(|users| {
-        let mut users = users.borrow_mut();
-        let count = users
-          .entry(Retained::as_ptr(&manager) as usize)
-          .or_default();
-        *count += 1;
-        *count > 1
-      });
+      // See `CONTROLLER_REF_COUNT`.
+      let shares_controller = retain_controller(&manager);
       #[cfg(feature = "tracing")]
       if shares_controller {
         tracing::debug!(
@@ -1464,16 +1482,7 @@ pub fn platform_webview_version() -> Result<String> {
 impl Drop for InnerWebView {
   fn drop(&mut self) {
     WEBVIEW_STATE.write().unwrap().remove(&self.id);
-    CONTROLLER_USERS.with(|users| {
-      let mut users = users.borrow_mut();
-      let key = Retained::as_ptr(&self.manager) as usize;
-      if let Some(count) = users.get_mut(&key) {
-        *count -= 1;
-        if *count == 0 {
-          users.remove(&key);
-        }
-      }
-    });
+    release_controller(&self.manager);
 
     // We need to drop handler closures here
     unsafe {
