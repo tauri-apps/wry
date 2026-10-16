@@ -184,7 +184,8 @@ private object CustomProtocolHostGuard {
         ByteArrayInputStream(ByteArray(0))
     )
 
-    // the service worker client is process-wide, so it covers every webview's hosts
+    // the service worker client is process-wide, so it covers every webview's hosts.
+    // hosts stay blocked after their webview is destroyed, as another webview may still map them
     @Synchronized
     fun blockServiceWorkers(hosts: Set<String>) {
         if (hosts.isEmpty()) return
