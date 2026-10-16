@@ -1,5 +1,5 @@
 use objc2::DeclaredClass;
-use objc2_foundation::{NSObjectProtocol, NSString};
+use objc2_foundation::{NSHTTPURLResponse, NSObjectProtocol, NSString, NSURLResponse};
 use objc2_web_kit::{
   WKNavigation, WKNavigationAction, WKNavigationActionPolicy, WKNavigationResponse,
   WKNavigationResponsePolicy,
@@ -106,7 +106,10 @@ pub(crate) fn navigation_policy_response(
   unsafe {
     let can_show_mime_type = response.canShowMIMEType();
 
-    if !can_show_mime_type {
+    // WebKit leaves `Content-Disposition: attachment` to the client and commits a
+    // displayable attachment (PDF, image, text...) as a page otherwise, which shows
+    // up blank. Download it instead, as browsers and the other backends do.
+    if !can_show_mime_type || is_attachment(&response.response()) {
       let has_download_handler = this.ivars().has_download_handler;
       if has_download_handler {
         (*handler).call((WKNavigationResponsePolicy::Download,));
@@ -116,6 +119,22 @@ pub(crate) fn navigation_policy_response(
 
     (*handler).call((WKNavigationResponsePolicy::Allow,));
   }
+}
+
+/// Whether the response is an HTTP response with `Content-Disposition: attachment`.
+fn is_attachment(response: &NSURLResponse) -> bool {
+  let Some(response) = response.downcast_ref::<NSHTTPURLResponse>() else {
+    return false;
+  };
+  response
+    .valueForHTTPHeaderField(&NSString::from_str("Content-Disposition"))
+    .is_some_and(|disposition| {
+      disposition
+        .to_string()
+        .split(';')
+        .next()
+        .is_some_and(|kind| kind.trim().eq_ignore_ascii_case("attachment"))
+    })
 }
 
 pub(crate) fn web_content_process_did_terminate(
