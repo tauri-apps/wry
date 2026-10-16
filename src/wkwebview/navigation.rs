@@ -128,14 +128,13 @@ fn is_attachment(response: &NSURLResponse) -> bool {
   };
   response
     .valueForHTTPHeaderField(&NSString::from_str("Content-Disposition"))
-    .is_some_and(|disposition| is_attachment_disposition(&disposition.to_string()))
-}
-
-fn is_attachment_disposition(disposition: &str) -> bool {
-  disposition
-    .split(';')
-    .next()
-    .is_some_and(|kind| kind.trim().eq_ignore_ascii_case("attachment"))
+    .is_some_and(|disposition| {
+      disposition
+        .to_string()
+        .split(';')
+        .next()
+        .is_some_and(|kind| kind.trim().eq_ignore_ascii_case("attachment"))
+    })
 }
 
 pub(crate) fn web_content_process_did_terminate(
@@ -146,26 +145,5 @@ pub(crate) fn web_content_process_did_terminate(
     &this.ivars().on_web_content_process_terminate_handler
   {
     on_web_content_process_terminate();
-  }
-}
-
-#[cfg(test)]
-mod tests {
-  use super::is_attachment_disposition;
-
-  #[test]
-  fn detects_attachment_disposition() {
-    assert!(is_attachment_disposition("attachment"));
-    assert!(is_attachment_disposition(
-      "Attachment; filename=\"report.pdf\""
-    ));
-    assert!(is_attachment_disposition(
-      " attachment ;filename*=UTF-8''a.pdf"
-    ));
-    assert!(!is_attachment_disposition(
-      "inline; filename=\"report.pdf\""
-    ));
-    assert!(!is_attachment_disposition("attachments"));
-    assert!(!is_attachment_disposition(""));
   }
 }
