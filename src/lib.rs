@@ -1979,6 +1979,7 @@ pub trait WebViewBuilderExtAndroid {
   /// for example to link the host to the app with [Digital Asset Links](https://developers.google.com/digital-asset-links).
   /// The handler still receives `<protocol>://localhost/<path>` URIs. Requests to the host over `http`, on another port
   /// or from a service worker get `403 Forbidden`, and setting this replaces the process-wide service worker client.
+  /// Only the initial URL is rewritten, so pass `https://<host>/<path>` to [`WebView::load_url`].
   ///
   /// Building fails with [`Error::InvalidCustomProtocolHost`] if `host` isn't a lowercase domain name such as
   /// `app.example.com`, `protocol` isn't registered, either is already mapped, or [`Self::with_asset_loader`] is set.
