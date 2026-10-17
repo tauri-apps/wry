@@ -23,6 +23,9 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
     var currentUrl: String = "about:blank"
     private var lastInterceptedUrl: Uri? = null
     private var pendingUrlRedirect: String? = null
+    // the main-frame URL wry last answered, without its fragment; consumed by the next onPageStarted
+    @Volatile
+    private var servedMainFrameUrl: String? = null
 
     private val assetLoader = Rust.assetLoaderDomain(webView.id)?.let { domain ->
         WebViewAssetLoader.Builder()
@@ -65,6 +68,9 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
                 wrapPartialContentBody(request, response)
             }
             interceptedState[request.url.toString()] = response != null
+            if (request.isForMainFrame && response != null) {
+                servedMainFrameUrl = request.url.toString().substringBefore('#')
+            }
             return response
         }
     }
@@ -84,7 +90,10 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
         // a POST redirected with 307 or 308 skips shouldOverrideUrlLoading and shouldInterceptRequest,
         // so the real server's response would load on the custom protocol host; reload it locally instead
-        if (interceptedState[url] != true && isCustomProtocolHost(Uri.parse(url))) {
+        // interceptedState can't tell: it keeps every URL ever served, so a repeated POST to one would pass
+        val served = servedMainFrameUrl == url.substringBefore('#')
+        servedMainFrameUrl = null
+        if (!served && isCustomProtocolHost(Uri.parse(url))) {
             view.stopLoading()
             view.loadUrl(url)
             return
