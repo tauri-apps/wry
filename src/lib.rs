@@ -1986,9 +1986,13 @@ pub trait WebViewBuilderExtAndroid {
   ///
   /// ## Warning
   ///
-  /// Requests redirected to the host and WebSocket connections to it can reach the real server, so use
-  /// a host that serves only `/.well-known/assetlinks.json`. This includes the body of a form POST that a
-  /// remote page redirects to the host with `307` or `308`; the page that loads is replaced with the local one.
+  /// Requests redirected to the host and WebSocket connections to it can reach the real server, including the
+  /// body of a form POST redirected to the host with `307` or `308`. The real server's response to that POST is
+  /// rendered at the app's origin, where its scripts can use the app's storage and IPC, before wry replaces it
+  /// with the local page. If the local response isn't a page, such as a download, the real server's page stays.
+  /// So the host's server must answer every request except `GET /.well-known/assetlinks.json` with an empty-body
+  /// error status such as `404` (error pages with a body are rendered too), optionally with
+  /// `Content-Security-Policy: sandbox`.
   fn with_custom_protocol_host(self, protocol: String, host: String) -> Self;
 }
 
