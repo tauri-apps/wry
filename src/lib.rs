@@ -1987,7 +1987,8 @@ pub trait WebViewBuilderExtAndroid {
   /// ## Warning
   ///
   /// Requests redirected to the host and WebSocket connections to it can reach the real server, so use
-  /// a host that serves only `/.well-known/assetlinks.json`.
+  /// a host that serves only `/.well-known/assetlinks.json`. This includes the body of a form POST that a
+  /// remote page redirects to the host with `307` or `308`; the page that loads is replaced with the local one.
   fn with_custom_protocol_host(self, protocol: String, host: String) -> Self;
 }
 

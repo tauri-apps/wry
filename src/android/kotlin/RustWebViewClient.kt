@@ -82,6 +82,13 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
     }
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+        // a POST redirected with 307 or 308 skips shouldOverrideUrlLoading and shouldInterceptRequest,
+        // so the real server's response would load on the custom protocol host; reload it locally instead
+        if (interceptedState[url] != true && isCustomProtocolHost(Uri.parse(url))) {
+            view.stopLoading()
+            view.loadUrl(url)
+            return
+        }
         currentUrl = url
         if (interceptedState[url] == false) {
             val webView = view as RustWebView
