@@ -28,6 +28,8 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
     private var newestMainFrameRequest: WebResourceRequest? = null
     // the URL of the page the onPageStarted guard replaced, until the next page starts
     private var replacedPageUrl: String? = null
+    // the custom protocol host URL to reload once its page commits, so the reload replaces its history entry
+    private var reloadOnCommitUrl: String? = null
 
     private val assetLoader = Rust.assetLoaderDomain(webView.id)?.let { domain ->
         WebViewAssetLoader.Builder()
@@ -98,11 +100,13 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         // interceptedState can't tell: it keeps every URL ever served, so a repeated POST to one would pass
         val served = synchronized(this) { servedMainFrameUrl.also { servedMainFrameUrl = null } } == url.substringBefore('#')
         if (!served && isCustomProtocolHost(Uri.parse(url))) {
-            view.stopLoading()
-            view.loadUrl(url)
+            // reload once the page commits: for a failed load this runs before its error page commits,
+            // and a reload started now would add an entry after it
+            reloadOnCommitUrl = url
             replacedPageUrl = url
             return
         }
+        reloadOnCommitUrl = null
         replacedPageUrl = null
         currentUrl = url
         if (interceptedState[url] == false) {
@@ -112,6 +116,15 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
             }
         }
         return Rust.onPageLoading((view as RustWebView).id, url)
+    }
+
+    override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+        // the page committed (error pages report nothing else), so loading its URL again replaces its entry
+        if (url == reloadOnCommitUrl) {
+            reloadOnCommitUrl = null
+            view.stopLoading()
+            view.loadUrl(url)
+        }
     }
 
     override fun onPageFinished(view: WebView, url: String) {
@@ -130,6 +143,11 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         // so we must force retry here with loadUrl() to get a chance of the custom protocol to kick in
         // custom protocol hosts are real domains, so their loads can fail with any error code
         if ((error.errorCode == ERROR_CONNECT || isCustomProtocolHost(request.url)) && request.isForMainFrame && request.url != lastInterceptedUrl) {
+            if (isCustomProtocolHost(request.url)) {
+                // reloading before the error page commits would leave it in history, so reload once it commits
+                reloadOnCommitUrl = request.url.toString()
+                return
+            }
             // prevent the default error page from showing
             view.stopLoading()
             // without this initial loadUrl the app is stuck
