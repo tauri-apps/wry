@@ -23,9 +23,9 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
     var currentUrl: String = "about:blank"
     private var lastInterceptedUrl: Uri? = null
     private var pendingUrlRedirect: String? = null
-    // the main-frame URL wry last answered, without its fragment; consumed by the next onPageStarted
-    @Volatile
+    // the URL wry answered for the newest main-frame request, without its fragment; consumed by the next onPageStarted
     private var servedMainFrameUrl: String? = null
+    private var newestMainFrameRequest: WebResourceRequest? = null
 
     private val assetLoader = Rust.assetLoaderDomain(webView.id)?.let { domain ->
         WebViewAssetLoader.Builder()
@@ -44,12 +44,17 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         view: WebView,
         request: WebResourceRequest
     ): WebResourceResponse? {
+        if (request.isForMainFrame) {
+            synchronized(this) { newestMainFrameRequest = request }
+        }
         pendingUrlRedirect?.let {
             Handler(Looper.getMainLooper()).post {
               view.loadUrl(it)
             }
             pendingUrlRedirect = null
-            return forbiddenIfCustomProtocolHost(request.url)
+            val response = forbiddenIfCustomProtocolHost(request.url)
+            recordMainFrameResponse(request, response)
+            return response
         }
 
         lastInterceptedUrl = request.url
@@ -68,9 +73,7 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
                 wrapPartialContentBody(request, response)
             }
             interceptedState[request.url.toString()] = response != null
-            if (request.isForMainFrame && response != null) {
-                servedMainFrameUrl = request.url.toString().substringBefore('#')
-            }
+            recordMainFrameResponse(request, response)
             return response
         }
     }
@@ -91,8 +94,7 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         // a POST redirected with 307 or 308 skips shouldOverrideUrlLoading and shouldInterceptRequest,
         // so the real server's response would load on the custom protocol host; reload it locally instead
         // interceptedState can't tell: it keeps every URL ever served, so a repeated POST to one would pass
-        val served = servedMainFrameUrl == url.substringBefore('#')
-        servedMainFrameUrl = null
+        val served = synchronized(this) { servedMainFrameUrl.also { servedMainFrameUrl = null } } == url.substringBefore('#')
         if (!served && isCustomProtocolHost(Uri.parse(url))) {
             view.stopLoading()
             view.loadUrl(url)
@@ -130,6 +132,14 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
             pendingUrlRedirect = request.url.toString()
         } else {
             super.onReceivedError(view, request, error)
+        }
+    }
+
+    // shouldInterceptRequest calls run in parallel, so only the newest main-frame request may set servedMainFrameUrl:
+    // one that a newer navigation cancelled can finish later, and must not vouch for a redirect to its URL
+    private fun recordMainFrameResponse(request: WebResourceRequest, response: WebResourceResponse?) = synchronized(this) {
+        if (request === newestMainFrameRequest) {
+            servedMainFrameUrl = if (response != null) request.url.toString().substringBefore('#') else null
         }
     }
 
