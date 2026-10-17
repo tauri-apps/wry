@@ -26,6 +26,8 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
     // the URL wry answered for the newest main-frame request, without its fragment; consumed by the next onPageStarted
     private var servedMainFrameUrl: String? = null
     private var newestMainFrameRequest: WebResourceRequest? = null
+    // the URL of the page the onPageStarted guard replaced, until the next page starts
+    private var replacedPageUrl: String? = null
 
     private val assetLoader = Rust.assetLoaderDomain(webView.id)?.let { domain ->
         WebViewAssetLoader.Builder()
@@ -98,8 +100,10 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         if (!served && isCustomProtocolHost(Uri.parse(url))) {
             view.stopLoading()
             view.loadUrl(url)
+            replacedPageUrl = url
             return
         }
+        replacedPageUrl = null
         currentUrl = url
         if (interceptedState[url] == false) {
             val webView = view as RustWebView
@@ -111,6 +115,8 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
     }
 
     override fun onPageFinished(view: WebView, url: String) {
+        // the replaced page can still finish before the reload starts; it never reported onPageLoading
+        if (url == replacedPageUrl) return
         Rust.onPageLoaded((view as RustWebView).id, url)
     }
 
