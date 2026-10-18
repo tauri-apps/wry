@@ -6,9 +6,30 @@
 
 package {{package}}
 
+import android.net.Uri
 import android.webkit.*
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
+import java.util.concurrent.Executors
 
 class Ipc(val webView: RustWebView, val webViewClient: RustWebViewClient) {
+    init {
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            // The sender's origin stays correct while onPageStarted is still queued.
+            WebViewCompat.addWebMessageListener(webView, "ipc", setOf("*")) { _, message, sourceOrigin, _, _ ->
+                // getData throws on ArrayBuffer payloads.
+                val body = try { message.data } catch (e: IllegalStateException) { null }
+                body?.let { m ->
+                    val url = requestUrl(sourceOrigin)
+                    // Handlers may block on the main pipe.
+                    dispatcher.execute { Rust.ipc(webView.id, url, m) }
+                }
+            }
+        } else {
+            webView.addJavascriptInterface(this, "ipc")
+        }
+    }
+
     @JavascriptInterface
     fun postMessage(message: String?) {
         message?.let {m ->
@@ -17,6 +38,20 @@ class Ipc(val webView: RustWebView, val webViewClient: RustWebViewClient) {
             // so instead we track the current URL on the webview client
             Rust.ipc(webView.id, webViewClient.currentUrl, m)
         }
+    }
+
+    /** The tracked URL if it shares [origin], else the origin. Opaque origins give about:blank. */
+    private fun requestUrl(origin: Uri): String {
+        if (origin.host == null) {
+            return "about:blank"
+        }
+        val current = Uri.parse(webViewClient.currentUrl)
+        val sameOrigin = current.scheme == origin.scheme && current.host == origin.host && current.port == origin.port
+        return (if (sameOrigin) current else origin.buildUpon().path("/").build()).toString()
+    }
+
+    companion object {
+        private val dispatcher = Executors.newSingleThreadExecutor()
     }
 
     {{class-extension}}
