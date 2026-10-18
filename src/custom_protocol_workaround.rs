@@ -11,13 +11,7 @@
 //! On Android, a protocol mapped with `WebViewBuilderExtAndroid::with_custom_protocol_host` is served
 //! from exactly `https://{host}` instead, using [`apply_mapped_host`] and [`match_mapped_host`].
 
-use std::borrow::Cow;
-
-use http::{
-  Response, StatusCode, Uri,
-  header::{CACHE_CONTROL, CONTENT_TYPE},
-  uri::Scheme,
-};
+use http::{Uri, uri::Scheme};
 
 /// If the URI is a work around URI for this protocol which starts with `{http_or_https}://{protocol}.`
 pub fn is_work_around_uri(uri: &str, http_or_https: &str, protocol: &str) -> bool {
@@ -53,44 +47,27 @@ pub fn work_around_uri_prefix(http_or_https: &str, protocol: &str) -> String {
   format!("{http_or_https}://{protocol}.")
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum MappedHost<'a> {
-  /// `https://{host}` on the default port, which `protocol` serves as `canonical`.
-  Serve {
-    protocol: &'a str,
-    canonical: Uri,
-  },
-  /// Any other form of a mapped host, e.g. `http`, another port, userinfo or a trailing dot.
-  Block,
-  NoMatch,
-}
-
-/// Routes `uri` against validated `(protocol, host)` mappings.
-pub fn match_mapped_host<'a>(uri: &Uri, mappings: &'a [(String, String)]) -> MappedHost<'a> {
-  let Some(authority) = uri.authority() else {
-    return MappedHost::NoMatch;
-  };
+/// Routes `uri` against validated `(protocol, host)` mappings, returning the protocol that serves it
+/// and the URI to serve, for `https://{host}` on the default port only.
+/// Any other form of a mapped host, e.g. `http`, another port, userinfo or a trailing dot, returns `None`
+/// like unmapped hosts, so the Kotlin side answers it with `403 Forbidden`.
+pub fn match_mapped_host<'a>(
+  uri: &Uri,
+  mappings: &'a [(String, String)],
+) -> Option<(&'a str, Uri)> {
+  let authority = uri.authority()?;
   let host = authority.host().trim_end_matches('.');
-  let Some((protocol, mapped_host)) = mappings
+  let (protocol, mapped_host) = mappings
     .iter()
-    .find(|(_, mapped_host)| mapped_host.eq_ignore_ascii_case(host))
-  else {
-    return MappedHost::NoMatch;
-  };
+    .find(|(_, mapped_host)| mapped_host.eq_ignore_ascii_case(host))?;
 
   let authority = authority.as_str();
   let authority = authority.strip_suffix(":443").unwrap_or(authority);
   if uri.scheme() != Some(&Scheme::HTTPS) || !authority.eq_ignore_ascii_case(mapped_host) {
-    return MappedHost::Block;
+    return None;
   }
 
-  match canonical_uri(protocol, uri) {
-    Some(canonical) => MappedHost::Serve {
-      protocol,
-      canonical,
-    },
-    None => MappedHost::Block,
-  }
+  Some((protocol, canonical_uri(protocol, uri)?))
 }
 
 fn canonical_uri(protocol: &str, uri: &Uri) -> Option<Uri> {
@@ -186,15 +163,6 @@ fn ends_in_number(label: &str) -> bool {
       .is_some_and(|hex| hex.bytes().all(|b| b.is_ascii_hexdigit()))
 }
 
-pub fn forbidden_response() -> Response<Cow<'static, [u8]>> {
-  Response::builder()
-    .status(StatusCode::FORBIDDEN)
-    .header(CACHE_CONTROL, "no-store")
-    .header(CONTENT_TYPE, "text/plain")
-    .body(Cow::Borrowed(&[][..]))
-    .unwrap()
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -211,8 +179,9 @@ mod tests {
     (protocol.to_string(), host.to_string())
   }
 
-  fn route<'a>(uri: &str, mappings: &'a [(String, String)]) -> MappedHost<'a> {
+  fn route<'a>(uri: &str, mappings: &'a [(String, String)]) -> Option<(&'a str, String)> {
     match_mapped_host(&uri.parse().unwrap(), mappings)
+      .map(|(protocol, canonical)| (protocol, canonical.to_string()))
   }
 
   #[test]
@@ -243,13 +212,11 @@ mod tests {
         "tauri://localhost/https://app.example.com/",
       ),
     ] {
-      match route(uri, &mappings) {
-        MappedHost::Serve {
-          protocol: "tauri",
-          canonical: served,
-        } => assert_eq!(served.to_string(), canonical, "{uri}"),
-        other => panic!("{uri} routed to {other:?}"),
-      }
+      assert_eq!(
+        route(uri, &mappings),
+        Some(("tauri", canonical.to_string())),
+        "{uri}"
+      );
     }
   }
 
@@ -272,7 +239,7 @@ mod tests {
       "wss://app.example.com/",
       "ftp://app.example.com/",
     ] {
-      assert_eq!(route(uri, &mappings), MappedHost::Block, "{uri}");
+      assert_eq!(route(uri, &mappings), None, "{uri}");
     }
   }
 
@@ -294,10 +261,10 @@ mod tests {
       "http://tauri.localhost/",
       "/relative/app.example.com",
     ] {
-      assert_eq!(route(uri, &mappings), MappedHost::NoMatch, "{uri}");
+      assert_eq!(route(uri, &mappings), None, "{uri}");
     }
     for uri in ["https://app.example.com/", "http://wry.localhost/path"] {
-      assert_eq!(route(uri, &[]), MappedHost::NoMatch, "{uri}");
+      assert_eq!(route(uri, &[]), None, "{uri}");
     }
   }
 
@@ -309,22 +276,13 @@ mod tests {
     ];
     assert_eq!(
       route("https://static.example.com/a", &mappings),
-      MappedHost::Serve {
-        protocol: "assets",
-        canonical: "assets://localhost/a".parse().unwrap()
-      }
+      Some(("assets", "assets://localhost/a".to_string()))
     );
     assert_eq!(
       route("https://app.example.com/a", &mappings),
-      MappedHost::Serve {
-        protocol: "tauri",
-        canonical: "tauri://localhost/a".parse().unwrap()
-      }
+      Some(("tauri", "tauri://localhost/a".to_string()))
     );
-    assert_eq!(
-      route("http://static.example.com/a", &mappings),
-      MappedHost::Block
-    );
+    assert_eq!(route("http://static.example.com/a", &mappings), None);
   }
 
   #[test]
@@ -456,13 +414,5 @@ mod tests {
     }
 
     assert!(validate_mappings(&[mapping("not a scheme", "app.example.com")], |_| true).is_err());
-  }
-
-  #[test]
-  fn forbidden_response_is_empty_and_not_cached() {
-    let response = forbidden_response();
-    assert_eq!(response.status(), StatusCode::FORBIDDEN);
-    assert_eq!(response.headers()[CACHE_CONTROL], "no-store");
-    assert!(response.body().is_empty());
   }
 }

@@ -5,8 +5,7 @@
 use super::{PageLoadEvent, RGBA, WebViewAttributes};
 use crate::{
   Error, PermissionKind, PermissionResponse, RequestAsyncResponder, Result,
-  custom_protocol_workaround::{self, MappedHost},
-  inject_initialization_scripts::inject_scripts_into_html,
+  custom_protocol_workaround, inject_initialization_scripts::inject_scripts_into_html,
 };
 use crossbeam_channel::*;
 
@@ -217,10 +216,7 @@ impl InnerWebView {
 
     let url = if let Some(mut url) = url {
       if let Some((protocol, _)) = url.split_once("://") {
-        let mapped_host = mapped_hosts
-          .iter()
-          .find_map(|(mapped, host)| (mapped == protocol).then_some(host));
-        if let Some(host) = mapped_host {
+        if let Some((_, host)) = mapped_hosts.iter().find(|(mapped, _)| mapped == protocol) {
           if let Some(mapped_url) =
             custom_protocol_workaround::apply_mapped_host(&url, protocol, host)
           {
@@ -260,38 +256,29 @@ impl InnerWebView {
       id.clone(),
       UnsafeRequestHandler::new(Arc::new(
         move |webview_id, mut request, is_document_start_script_enabled| {
-          let custom_protocol_handler =
-            match custom_protocol_workaround::match_mapped_host(request.uri(), &mapped_hosts) {
-              MappedHost::Serve {
-                protocol,
-                canonical,
-              } => {
-                *request.uri_mut() = canonical;
-                custom_protocols.get(protocol)?
-              }
-              MappedHost::Block => return Some(custom_protocol_workaround::forbidden_response()),
-              MappedHost::NoMatch => {
-                let uri = request.uri().to_string();
-                let (custom_protocol, custom_protocol_handler) =
-                  custom_protocols.iter().find(|(protocol, _)| {
-                    !mapped_hosts.iter().any(|(mapped, _)| mapped == *protocol)
-                      && custom_protocol_workaround::is_work_around_uri(&uri, http_or_https, protocol)
-                  })?;
+          let custom_protocol_handler = if let Some((protocol, canonical)) =
+            custom_protocol_workaround::match_mapped_host(request.uri(), &mapped_hosts)
+          {
+            *request.uri_mut() = canonical;
+            custom_protocols.get(protocol)?
+          } else {
+            let uri = request.uri().to_string();
+            let (custom_protocol, custom_protocol_handler) =
+              custom_protocols.iter().find(|(protocol, _)| {
+                !mapped_hosts.iter().any(|(mapped, _)| mapped == *protocol)
+                  && custom_protocol_workaround::is_work_around_uri(&uri, http_or_https, protocol)
+              })?;
 
-                let uri_res = custom_protocol_workaround::revert_uri_work_around(
-                  &uri,
-                  http_or_https,
-                  custom_protocol,
-                )
+            let uri_res =
+              custom_protocol_workaround::revert_uri_work_around(&uri, http_or_https, custom_protocol)
                 .parse();
 
-                if let Ok(uri) = uri_res {
-                  *request.uri_mut() = uri;
-                }
+            if let Ok(uri) = uri_res {
+              *request.uri_mut() = uri;
+            }
 
-                custom_protocol_handler
-              }
-            };
+            custom_protocol_handler
+          };
 
           let (tx, rx) = channel();
           let initialization_scripts = initialization_scripts_.clone();

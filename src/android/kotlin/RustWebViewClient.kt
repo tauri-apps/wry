@@ -98,8 +98,7 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         // a POST redirected with 307 or 308 skips shouldOverrideUrlLoading and shouldInterceptRequest,
         // so the real server's response would load on the custom protocol host; reload it locally instead
         // interceptedState can't tell: it keeps every URL ever served, so a repeated POST to one would pass
-        val served = synchronized(this) { servedMainFrameUrl.also { servedMainFrameUrl = null } } == url.substringBefore('#')
-        if (!served && isCustomProtocolHost(Uri.parse(url))) {
+        if (takeServedMainFrameUrl() != url.substringBefore('#') && isCustomProtocolHost(Uri.parse(url))) {
             // reload once the page commits: for a failed load this runs before its error page commits,
             // and a reload started now would add an entry after it
             reloadOnCommitUrl = url
@@ -141,13 +140,8 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         // we get a net::ERR_CONNECTION_REFUSED when an external URL redirects to a custom protocol
         // e.g. oauth flow, because shouldInterceptRequest is not called on redirects
         // so we must force retry here with loadUrl() to get a chance of the custom protocol to kick in
-        // custom protocol hosts are real domains, so their loads can fail with any error code
-        if ((error.errorCode == ERROR_CONNECT || isCustomProtocolHost(request.url)) && request.isForMainFrame && request.url != lastInterceptedUrl) {
-            if (isCustomProtocolHost(request.url)) {
-                // reloading before the error page commits would leave it in history, so reload once it commits
-                reloadOnCommitUrl = request.url.toString()
-                return
-            }
+        // failed custom protocol host loads are left to onPageStarted, which reloads them once their error page commits
+        if (error.errorCode == ERROR_CONNECT && request.isForMainFrame && request.url != lastInterceptedUrl && !isCustomProtocolHost(request.url)) {
             // prevent the default error page from showing
             view.stopLoading()
             // without this initial loadUrl the app is stuck
@@ -166,6 +160,8 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
             servedMainFrameUrl = if (response != null) request.url.toString().substringBefore('#') else null
         }
     }
+
+    private fun takeServedMainFrameUrl() = synchronized(this) { servedMainFrameUrl.also { servedMainFrameUrl = null } }
 
     private fun isCustomProtocolHost(url: Uri) = CustomProtocolHostGuard.matches(customProtocolHosts, url)
 
@@ -223,7 +219,7 @@ private object CustomProtocolHostGuard {
     private var serviceWorkerClientInstalled = false
 
     fun matches(hosts: Set<String>, url: Uri) =
-        hosts.isNotEmpty() && url.host?.lowercase()?.trimEnd('.') in hosts
+        url.host?.lowercase()?.trimEnd('.') in hosts
 
     fun forbiddenResponse() = WebResourceResponse(
         "text/plain",
