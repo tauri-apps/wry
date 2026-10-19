@@ -66,13 +66,13 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
         currentUrl = url
-        if (interceptedState[url] == false) {
-            val webView = view as RustWebView
+        val webView = view as RustWebView
+        if (interceptedState[url] == false && !webView.isDocumentStartScriptEnabled) {
             for (script in webView.initScripts) {
                 view.evaluateJavascript(script, null)
             }
         }
-        return Rust.onPageLoading((view as RustWebView).id, url)
+        return Rust.onPageLoading(webView.id, url)
     }
 
     override fun onPageFinished(view: WebView, url: String) {
