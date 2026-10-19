@@ -954,10 +954,27 @@ impl InnerWebView {
       return Ok(bounds);
     }
 
+    if self.is_in_fixed_parent {
+      if let Some(fixed) = self.fixed_parent() {
+        // the requested geometry, the allocation is only updated on the next layout pass
+        let (width, height) = self.webview.size_request();
+        bounds.position = LogicalPosition::new(fixed.child_x(&self.webview), fixed.child_y(&self.webview)).into();
+        bounds.size = LogicalSize::new(width.max(0), height.max(0)).into();
+        return Ok(bounds);
+      }
+    }
+
     let (size, _) = self.webview.allocated_size();
     bounds.size = LogicalSize::new(size.width(), size.height()).into();
 
     Ok(bounds)
+  }
+
+  fn fixed_parent(&self) -> Option<gtk::Fixed> {
+    self
+      .webview
+      .parent()
+      .and_then(|p| p.downcast::<gtk::Fixed>().ok())
   }
 
   pub fn set_bounds(&self, bounds: Rect) -> Result<()> {
@@ -976,9 +993,12 @@ impl InnerWebView {
     }
 
     if self.is_in_fixed_parent {
-      self
-        .webview
-        .size_allocate(&gtk::Allocation::new(x, y, width, height));
+      if let Some(fixed) = self.fixed_parent() {
+        // let the GtkFixed lay the webview out, so the geometry survives the next layout pass
+        // and is relative to the GtkFixed rather than to its parent GdkWindow
+        self.webview.set_size_request(width, height);
+        fixed.move_(&self.webview, x, y);
+      }
     }
 
     Ok(())
