@@ -1492,15 +1492,16 @@ impl Drop for InnerWebView {
     unsafe {
       // This prevents a segfault on the did_receive hook,
       // see https://github.com/tauri-apps/wry/pull/700
-      if last_webview && let Some(ipc_handler) = self.ipc_handler_delegate.take() {
-        let ipc = ns_string!(IPC_MESSAGE_HANDLER_NAME);
-        // this will decrease the retain count of the ipc handler and trigger the drop
-        ipc_handler
-          .ivars()
-          .controller
-          .removeScriptMessageHandlerForName(ipc);
+      if last_webview {
+        if let Some(ipc_handler) = self.ipc_handler_delegate.take() {
+          let ipc = ns_string!(IPC_MESSAGE_HANDLER_NAME);
+          // this will decrease the retain count of the ipc handler and trigger the drop
+          ipc_handler
+            .ivars()
+            .controller
+            .removeScriptMessageHandlerForName(ipc);
+        }
       }
-
       // Remove webview from window's NSView before dropping.
       self.webview.removeFromSuperview();
       self.webview.retain();
