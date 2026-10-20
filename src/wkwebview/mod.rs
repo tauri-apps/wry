@@ -131,8 +131,8 @@ fn retain_controller(controller: &WKUserContentController) -> bool {
   })
 }
 
-/// Decrements `controller`'s reference count.
-fn release_controller(controller: &WKUserContentController) {
+/// Decrements `controller`'s reference count, returning if this is the last webview using it.
+fn release_controller(controller: &WKUserContentController) -> bool {
   CONTROLLER_REF_COUNT.with(|counts| {
     let mut counts = counts.borrow_mut();
     let key = controller as *const _ as usize;
@@ -140,9 +140,14 @@ fn release_controller(controller: &WKUserContentController) {
       *count -= 1;
       if *count == 0 {
         counts.remove(&key);
+        true
+      } else {
+        false
       }
+    } else {
+      false
     }
-  });
+  })
 }
 
 struct WebViewState {
@@ -1482,11 +1487,12 @@ pub fn platform_webview_version() -> Result<String> {
 impl Drop for InnerWebView {
   fn drop(&mut self) {
     WEBVIEW_STATE.write().unwrap().remove(&self.id);
-    release_controller(&self.manager);
+    let last_webview = release_controller(&self.manager);
 
-    // We need to drop handler closures here
     unsafe {
-      if let Some(ipc_handler) = self.ipc_handler_delegate.take() {
+      // This prevents a segfault on the did_receive hook,
+      // see https://github.com/tauri-apps/wry/pull/700
+      if last_webview && let Some(ipc_handler) = self.ipc_handler_delegate.take() {
         let ipc = ns_string!(IPC_MESSAGE_HANDLER_NAME);
         // this will decrease the retain count of the ipc handler and trigger the drop
         ipc_handler
