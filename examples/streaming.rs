@@ -98,7 +98,13 @@ impl ApplicationHandler for App {
       target_os = "netbsd",
       target_os = "openbsd",
     ))]
-    while gtk4::glib::MainContext::default().iteration(false) {}
+    {
+      while gtk4::glib::MainContext::default().iteration(false) {}
+      // GTK/WebKit need the GLib loop driven even when winit has no events of its own.
+      _event_loop.set_control_flow(winit::event_loop::ControlFlow::wait_duration(
+        std::time::Duration::from_millis(16),
+      ));
+    }
   }
 }
 

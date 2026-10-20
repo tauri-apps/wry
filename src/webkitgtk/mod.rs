@@ -63,13 +63,46 @@ struct X11Data {
   x11_display: *mut std::ffi::c_void,
   x11_window: std::cell::Cell<c_ulong>,
   gtk_window: gtk::Window,
+  gtk_xid: c_ulong,
+  gdk_display: X11Display,
+}
+
+#[cfg(feature = "x11")]
+impl X11Data {
+  /// GTK4 doesn't track the geometry of a reparented toplevel, so move/resize its X window
+  /// to match the area it lives in. GDK picks up the ConfigureNotify and relayouts the webview.
+  ///
+  /// Don't go through GTK sizing APIs (e.g. `set_default_size`) here: they make GDK re-present
+  /// the toplevel, and GDK then moves it to its *root* coordinates, which places it outside the
+  /// parent window (black screen). Call this after every `set_visible(true)` for the same reason.
+  fn resize_gtk_window(&self, x: i32, y: i32, width: i32, height: i32) {
+    unsafe {
+      (self.xlib.XMoveResizeWindow)(
+        self.x11_display as _,
+        self.gtk_xid,
+        x,
+        y,
+        width.max(1) as _,
+        height.max(1) as _,
+      );
+      (self.xlib.XFlush)(self.x11_display as _);
+    }
+  }
 }
 
 #[cfg(feature = "x11")]
 impl Drop for X11Data {
   fn drop(&mut self) {
-    unsafe { (self.xlib.XDestroyWindow)(self.x11_display as _, self.x11_window.get()) };
-    self.gtk_window.close();
+    // The parent X window may already be gone (e.g. winit destroyed it first),
+    // taking our container and the GTK window with it, so ignore BadWindow here.
+    self.gdk_display.error_trap_push();
+    // Destroy the GTK window before its X parent so GDK still owns a valid window.
+    self.gtk_window.destroy();
+    // Only destroy the container we created, never the caller's window.
+    if self.is_child {
+      unsafe { (self.xlib.XDestroyWindow)(self.x11_display as _, self.x11_window.get()) };
+    }
+    self.gdk_display.error_trap_pop_ignored();
   }
 }
 
@@ -182,27 +215,38 @@ impl InnerWebView {
     };
 
     let (gtk_window, vbox) = Self::create_gtk_window(&xlib, x11_display as _, x11_window);
+    let gtk_xid = gtk_window
+      .surface()
+      .and_then(|s| s.downcast::<gdk4_x11::X11Surface>().ok())
+      .map(|s| s.xid() as c_ulong)
+      .ok_or(Error::UnsupportedWindowHandle)?;
 
     let visible = attributes.visible;
 
     Self::new_gtk(&vbox, attributes, pl_attrs).map(|mut w| {
-      // for some reason, if the webview starts as hidden,
-      // we will need about 3 calls to `webview.set_visible`
-      // with alternating value.
-      // calling gtk_window.set_visible(true) then hiding it again
-      // seems to fix the issue.
-      gtk_window.set_visible(true);
-      if !visible {
-        let _ = w.set_visible(false);
-      }
-
-      w.x11.replace(X11Data {
+      let x11_data = X11Data {
         is_child,
         xlib,
         x11_display: x11_display as _,
         x11_window: std::cell::Cell::new(x11_window),
         gtk_window,
-      });
+        gtk_xid,
+        gdk_display: gx11_display.clone(),
+      };
+
+      // for some reason, if the webview starts as hidden,
+      // we will need about 3 calls to `webview.set_visible`
+      // with alternating value.
+      // calling gtk_window.set_visible(true) then hiding it again
+      // seems to fix the issue.
+      x11_data.gtk_window.set_visible(true);
+      // Fill the container (or the parent, when not a child).
+      let (width, height) = x11_window_size(&x11_data.xlib, x11_display as _, x11_window);
+      x11_data.resize_gtk_window(0, 0, width, height);
+      w.x11.replace(x11_data);
+      if !visible {
+        let _ = w.set_visible(false);
+      }
 
       w
     })
@@ -257,10 +301,14 @@ impl InnerWebView {
 
     // In GTK4, realize the window to allocate its native GDK surface, then
     // reparent that surface under the target X11 window via XReparentWindow.
-    webkit6::prelude::NativeExt::realize(&window);
+    // `WidgetExt::realize` creates the surface; `NativeExt::realize` assumes it already exists.
+    webkit6::prelude::WidgetExt::realize(&window);
 
     if let Some(surface) = window.surface() {
       if let Ok(x11_surf) = surface.downcast::<gdk4_x11::X11Surface>() {
+        // The window manager doesn't manage an embedded window, so it never sends
+        // `_NET_WM_FRAME_DRAWN` and GDK's frame clock would stall after the first frame.
+        x11_surf.set_frame_sync_enabled(false);
         let gtk_xid = x11_surf.xid();
         unsafe {
           (xlib.XReparentWindow)(x11_display, gtk_xid as _, x11_window, 0, 0);
@@ -1324,10 +1372,13 @@ impl InnerWebView {
             x11_data.x11_window.get(),
             x as _,
             y as _,
-            width as _,
-            height as _,
+            width.max(1) as _,
+            height.max(1) as _,
           );
         }
+        x11_data.resize_gtk_window(0, 0, width, height);
+      } else {
+        x11_data.resize_gtk_window(x, y, width, height);
       }
     }
 
@@ -1383,6 +1434,15 @@ impl InnerWebView {
     if let Some(x11_data) = &self.x11 {
       if x11_data.is_child {
         x11_data.gtk_window.set_visible(visible);
+        if visible {
+          // Showing re-presents the toplevel, which moves it out of the container.
+          let (width, height) = x11_window_size(
+            &x11_data.xlib,
+            x11_data.x11_display as _,
+            x11_data.x11_window.get(),
+          );
+          x11_data.resize_gtk_window(0, 0, width, height);
+        }
       }
     }
   }
@@ -1596,23 +1656,32 @@ impl InnerWebView {
         _ => return Err(Error::UnsupportedWindowHandle),
       };
 
-      if let Some(surface) = x11_data.gtk_window.surface() {
-        if let Ok(x11_surf) = surface.downcast::<gdk4_x11::X11Surface>() {
-          let gtk_xid = x11_surf.xid();
-          unsafe {
-            (x11_data.xlib.XReparentWindow)(
-              x11_data.x11_display as _,
-              gtk_xid as _,
-              new_parent,
-              0,
-              0,
-            );
-            (x11_data.xlib.XFlush)(x11_data.x11_display as _);
-          }
-          x11_data.x11_window.set(new_parent);
-          return Ok(());
-        }
+      // A child webview moves its container (keeping its bounds); otherwise the GTK window
+      // itself moves and `x11_window` tracks the caller's new window.
+      let (window_to_move, x, y) = if x11_data.is_child {
+        let (x, y) = x11_window_position(
+          &x11_data.xlib,
+          x11_data.x11_display as _,
+          x11_data.x11_window.get(),
+        );
+        (x11_data.x11_window.get(), x, y)
+      } else {
+        (x11_data.gtk_xid, 0, 0)
+      };
+      unsafe {
+        (x11_data.xlib.XReparentWindow)(
+          x11_data.x11_display as _,
+          window_to_move,
+          new_parent,
+          x,
+          y,
+        );
+        (x11_data.xlib.XFlush)(x11_data.x11_display as _);
       }
+      if !x11_data.is_child {
+        x11_data.x11_window.set(new_parent);
+      }
+      return Ok(());
     }
 
     #[cfg(feature = "wayland")]
@@ -1673,6 +1742,31 @@ struct SendEnteredSpan(tracing::span::EnteredSpan);
 
 #[cfg(feature = "tracing")]
 unsafe impl Send for SendEnteredSpan {}
+
+#[cfg(feature = "x11")]
+fn x11_window_attributes(
+  xlib: &Xlib,
+  display: *mut _XDisplay,
+  window: c_ulong,
+) -> Option<XWindowAttributes> {
+  let mut attributes = std::mem::MaybeUninit::<XWindowAttributes>::zeroed();
+  let ok = unsafe { (xlib.XGetWindowAttributes)(display, window, attributes.as_mut_ptr()) };
+  (ok != 0).then(|| unsafe { attributes.assume_init() })
+}
+
+#[cfg(feature = "x11")]
+fn x11_window_size(xlib: &Xlib, display: *mut _XDisplay, window: c_ulong) -> (i32, i32) {
+  x11_window_attributes(xlib, display, window)
+    .map(|a| (a.width, a.height))
+    .unwrap_or((1, 1))
+}
+
+#[cfg(feature = "x11")]
+fn x11_window_position(xlib: &Xlib, display: *mut _XDisplay, window: c_ulong) -> (i32, i32) {
+  x11_window_attributes(xlib, display, window)
+    .map(|a| (a.x, a.y))
+    .unwrap_or((0, 0))
+}
 
 #[cfg(feature = "x11")]
 fn scale_factor_from_x11(xlib: &Xlib, display: *mut _XDisplay, parent: c_ulong) -> f64 {
