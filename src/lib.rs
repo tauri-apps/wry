@@ -1172,8 +1172,9 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// - **Linux**: The request URL is not supported on iframes and the main frame URL is used instead.
-  /// - **Android**: A frame from another origin sends that origin, or `about:blank` if it is opaque.
-  ///   WebViews without `WEB_MESSAGE_LISTENER` send the main frame URL.
+  /// - **Android**: The request URL is `about:blank` if the origin is opaque.
+  ///   If the WebViews doesn't support `WebViewFeature.WEB_MESSAGE_LISTENER`,
+  ///   the request URL is not supported on iframes and the main frame URL is used instead.
   pub fn with_ipc_handler<F>(mut self, handler: F) -> Self
   where
     F: Fn(Request<String>) + 'static,
