@@ -2,4 +2,4 @@
 "wry": patch:bug
 ---
 
-On Android, take the IPC request URL from the sending frame's origin, so a page's first IPC call no longer arrives as `about:blank`.
+On Android WebViews supporting `WEB_MESSAGE_LISTENER`, use the sending frame's origin to avoid misattributing early IPC messages to `about:blank`.

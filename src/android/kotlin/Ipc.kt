@@ -20,11 +20,13 @@ class Ipc(val webView: RustWebView, val webViewClient: RustWebViewClient) {
                 val body = try { message.data } catch (e: IllegalStateException) { null }
                 body?.let { m ->
                     val url = requestUrl(sourceOrigin)
-                    // Handlers may block on the main pipe.
+                    // Keep the UI thread available for handlers that wait on the main pipe.
                     dispatcher.execute { Rust.ipc(webView.id, url, m) }
                 }
             }
         } else {
+            // No sender origin is available, so all frames use the tracked main-frame URL.
+            // The URL may remain stale or `about:blank` until `onPageStarted` runs.
             webView.addJavascriptInterface(this, "ipc")
         }
     }
