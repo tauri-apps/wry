@@ -119,7 +119,7 @@ impl WryNavigationDelegate {
     let navigation_policy_function = Box::new(move |url: String| -> bool {
       navigation_handler
         .as_ref()
-        .map_or(true, |navigation_handler| (navigation_handler)(url))
+        .is_none_or(|navigation_handler| (navigation_handler)(url))
     });
 
     let on_page_load_handler = if let Some(handler) = on_page_load_handler {

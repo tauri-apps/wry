@@ -40,9 +40,7 @@ unsafe impl Send for NewWindow {}
 #[cfg(target_os = "macos")]
 impl Drop for NewWindow {
   fn drop(&mut self) {
-    unsafe {
-      self.webview.removeFromSuperview();
-    }
+    self.webview.removeFromSuperview();
   }
 }
 
@@ -178,7 +176,7 @@ define_class!(
       window_features: &objc2_web_kit::WKWindowFeatures,
     ) -> Option<Retained<objc2_web_kit::WKWebView>> {
       if let Some(new_window_req_handler) = &self.ivars().new_window_req_handler {
-        let request = action.request();
+        let request = unsafe { action.request() };
         let url = request.URL().unwrap().absoluteString().unwrap();
 
         let current_window = webview.window().unwrap();
@@ -189,7 +187,7 @@ define_class!(
           url.to_string(),
           NewWindowFeatures {
             size: if let (Some(width), Some(height)) =
-              (window_features.width(), window_features.height())
+              unsafe { (window_features.width(), window_features.height()) }
             {
               Some(dpi::LogicalSize::new(
                 width.doubleValue(),
@@ -198,7 +196,9 @@ define_class!(
             } else {
               None
             },
-            position: if let (Some(x), Some(y)) = (window_features.x(), window_features.y()) {
+            position: if let (Some(x), Some(y)) =
+              unsafe { (window_features.x(), window_features.y()) }
+            {
               Some(dpi::LogicalPosition::new(x.doubleValue(), y.doubleValue()))
             } else {
               None
@@ -214,18 +214,14 @@ define_class!(
 
             let defaults = current_window.frame();
             let size = objc2_foundation::NSSize::new(
-              window_features
-                .width()
+              unsafe { window_features.width() }
                 .map_or(defaults.size.width, |width| width.doubleValue()),
-              window_features
-                .height()
+              unsafe { window_features.height() }
                 .map_or(defaults.size.height, |height| height.doubleValue()),
             );
             let position = objc2_foundation::NSPoint::new(
-              window_features
-                .x()
-                .map_or(defaults.origin.x, |x| x.doubleValue()),
-              window_features.y().map_or(defaults.origin.y, |y| {
+              unsafe { window_features.x() }.map_or(defaults.origin.x, |x| x.doubleValue()),
+              unsafe { window_features.y() }.map_or(defaults.origin.y, |y| {
                 screen_frame.size.height - y.doubleValue() - size.height
               }),
             );
@@ -234,31 +230,34 @@ define_class!(
             let mut flags = objc2_app_kit::NSWindowStyleMask::Titled
               | objc2_app_kit::NSWindowStyleMask::Closable
               | objc2_app_kit::NSWindowStyleMask::Miniaturizable;
-            let resizable = window_features
-              .allowsResizing()
-              .map_or(true, |resizable| resizable.boolValue());
+            let resizable = unsafe { window_features.allowsResizing() }
+              .is_none_or(|resizable| resizable.boolValue());
             if resizable {
               flags |= objc2_app_kit::NSWindowStyleMask::Resizable;
             }
 
-            let window = objc2_app_kit::NSWindow::initWithContentRect_styleMask_backing_defer(
-              mtm.alloc::<objc2_app_kit::NSWindow>(),
-              rect,
-              flags,
-              objc2_app_kit::NSBackingStoreType::Buffered,
-              false,
-            );
+            let window = unsafe {
+              objc2_app_kit::NSWindow::initWithContentRect_styleMask_backing_defer(
+                mtm.alloc::<objc2_app_kit::NSWindow>(),
+                rect,
+                flags,
+                objc2_app_kit::NSBackingStoreType::Buffered,
+                false,
+              )
+            };
 
             // SAFETY: Disable auto-release when closing windows.
             // This is required when creating `NSWindow` outside a window
             // controller.
-            window.setReleasedWhenClosed(false);
+            unsafe { window.setReleasedWhenClosed(false) };
 
-            let webview = objc2_web_kit::WKWebView::initWithFrame_configuration(
-              mtm.alloc::<objc2_web_kit::WKWebView>(),
-              window.frame(),
-              configuration,
-            );
+            let webview = unsafe {
+              objc2_web_kit::WKWebView::initWithFrame_configuration(
+                mtm.alloc::<objc2_web_kit::WKWebView>(),
+                window.frame(),
+                configuration,
+              )
+            };
 
             let new_windows = self.ivars().new_windows.clone();
             let window_id = Retained::as_ptr(&window) as usize;
