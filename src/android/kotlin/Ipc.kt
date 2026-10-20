@@ -15,7 +15,6 @@ import java.util.concurrent.Executors
 class Ipc(val webView: RustWebView, val webViewClient: RustWebViewClient) {
     init {
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
-            // The sender's origin stays correct while onPageStarted is still queued.
             WebViewCompat.addWebMessageListener(webView, "ipc", setOf("*")) { _, message, sourceOrigin, _, _ ->
                 // getData throws on ArrayBuffer payloads.
                 val body = try { message.data } catch (e: IllegalStateException) { null }
