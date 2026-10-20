@@ -322,9 +322,10 @@ impl WebContextExt for super::WebContext {
     let network_session = &self.os.network_session;
 
     let download_started_handler = Rc::new(RefCell::new(download_started_handler));
-    let failed = Rc::new(RefCell::new(false));
 
     network_session.connect_download_started(move |_ns, download| {
+      // Failure belongs to this download, not every download in the context.
+      let failed = Rc::new(RefCell::new(false));
       let download_started_handler = download_started_handler.clone();
       download.connect_decide_destination(move |download, suggested_filename| {
         if let Some(uri) = download.request().and_then(|req| req.uri()) {

@@ -466,6 +466,7 @@ impl InnerWebView {
     }
 
     // IPC handler
+    let ipc_enabled = attributes.ipc_handler.is_some();
     if let Some(ipc_handler) = attributes.ipc_handler.take() {
       Self::attach_ipc_handler(webview.clone(), ipc_handler);
     }
@@ -579,7 +580,9 @@ impl InnerWebView {
     };
 
     // Initialize message handler
-    w.init("Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })", true)?;
+    if ipc_enabled {
+      w.init("Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })", true)?;
+    }
 
     // Initialize scripts
     for init_script in attributes.initialization_scripts {
@@ -593,7 +596,18 @@ impl InnerWebView {
         let mut pending_scripts_ = pending_scripts.lock().unwrap();
         if let Some(pending_scripts) = pending_scripts_.take() {
           for script in pending_scripts {
-            webview.evaluate_javascript(&script, None, None, None::<&gio::Cancellable>, |_| ());
+            webview.evaluate_javascript(
+              &script,
+              None,
+              None,
+              None::<&gio::Cancellable>,
+              |_result| {
+                #[cfg(feature = "tracing")]
+                if let Err(error) = _result {
+                  tracing::debug!("Exception during script eval: {error}");
+                }
+              },
+            );
           }
         }
       }
@@ -1059,6 +1073,11 @@ impl InnerWebView {
         .evaluate_javascript(js, None, None, None::<&gio::Cancellable>, move |result| {
           #[cfg(feature = "tracing")]
           drop(span);
+
+          #[cfg(feature = "tracing")]
+          if let Err(error) = &result {
+            tracing::debug!("Exception during script eval: {error}");
+          }
 
           if let Some(callback) = callback {
             let result = result

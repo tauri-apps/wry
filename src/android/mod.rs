@@ -16,12 +16,11 @@ use jni::{
   objects::{GlobalRef, JClass, JObject},
 };
 use ndk::looper::ThreadLooper;
-use once_cell::sync::{Lazy, OnceCell};
 use raw_window_handle::HasWindowHandle;
 use std::{
   borrow::Cow,
   collections::HashMap,
-  sync::{Arc, Mutex, mpsc::channel},
+  sync::{Arc, LazyLock, Mutex, OnceLock, mpsc::channel},
   time::Duration,
 };
 
@@ -47,12 +46,12 @@ type WebviewId = String;
 
 macro_rules! define_static_handlers {
   ($($key: ident, $var:ident = $type_name:ident);+ $(;)?) => {
-    $(static $var: Lazy<Mutex<HashMap<$key, $type_name>>> = Lazy::new(||Mutex::new(HashMap::new()));)*
+    $(static $var: LazyLock<Mutex<HashMap<$key, $type_name>>> = LazyLock::new(||Mutex::new(HashMap::new()));)*
   };
 
   ($($var:ident = $type_name:ident { $($fields:ident:$types:ty),+ $(,)? });+ $(;)?) => {
     $(
-    static $var: Lazy<Mutex<HashMap<WebviewId, $type_name>>> = Lazy::new(||Mutex::new(HashMap::new()));
+    static $var: LazyLock<Mutex<HashMap<WebviewId, $type_name>>> = LazyLock::new(||Mutex::new(HashMap::new()));
     struct $type_name {
       $($fields: $types,)*
     }
@@ -81,12 +80,12 @@ define_static_handlers! {
   ActivityId, WEBVIEW_ATTRIBUTES = CreateWebViewAttributes;
 }
 
-static PACKAGE: OnceCell<String> = OnceCell::new();
+static PACKAGE: OnceLock<String> = OnceLock::new();
 
 type EvalCallback = Box<dyn Fn(String) + Send + 'static>;
 
 static EVAL_ID_GENERATOR: Counter = Counter::new();
-static EVAL_CALLBACKS: OnceCell<Mutex<HashMap<i32, EvalCallback>>> = OnceCell::new();
+static EVAL_CALLBACKS: OnceLock<Mutex<HashMap<i32, EvalCallback>>> = OnceLock::new();
 
 pub fn destroy_webview(activity_id: ActivityId, webview_id: &WebviewId) {
   WEBVIEW_ATTRIBUTES.lock().unwrap().remove(&activity_id);
