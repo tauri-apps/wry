@@ -59,6 +59,28 @@ impl WebContext {
     }
   }
 
+  /// Set the memory pressure settings for the web processes of every [`WebContext`] created
+  /// after this call, including the ones wry creates for webviews without a context and for
+  /// incognito webviews. `None` restores WebKitGTK's defaults.
+  ///
+  /// WebKitGTK only accepts these settings when a context is created, so call this before
+  /// building the first webview. By default the memory limit is the system RAM capped at 3 GB,
+  /// and the web process starts releasing caches at 33% of it.
+  /// The network process has its own static setter:
+  /// [`webkit2gtk::WebsiteDataManager::set_memory_pressure_settings`].
+  ///
+  /// Must be called on the thread that creates the webviews (the main thread). Building
+  /// [`webkit2gtk::MemoryPressureSettings`] requires GTK to be initialized, so apps that create
+  /// their webviews during startup can call `gtk::init()` first.
+  ///
+  /// ## Platform-specific:
+  ///
+  /// - **Linux**: Only.
+  #[cfg(gtk)]
+  pub fn set_memory_pressure_settings(settings: Option<webkit2gtk::MemoryPressureSettings>) {
+    crate::webkitgtk::set_memory_pressure_settings(settings);
+  }
+
   /// A reference to the data directory the context was created with.
   pub fn data_directory(&self) -> Option<&Path> {
     self.data_directory.as_deref()
