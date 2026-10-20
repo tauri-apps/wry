@@ -1406,6 +1406,10 @@ impl<'a> WebViewBuilder<'a> {
     mut self,
     callback: impl Fn(String, NewWindowFeatures) -> NewWindowResponse + 'static,
   ) -> Self {
+    #[cfg(target_os = "macos")]
+    if self.platform_specific.new_window_request_handler.is_some() {
+      self.error = self.error.and(Err(Error::ConflictingInitialization));
+    }
     self.attrs.new_window_req_handler = Some(Box::new(callback));
     self
   }
@@ -1588,6 +1592,11 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   limit_navigations_to_app_bound_domains: bool,
   #[cfg(target_os = "macos")]
   webview_configuration: Option<Retained<objc2_web_kit::WKWebViewConfiguration>>,
+  #[cfg(target_os = "macos")]
+  new_window_request_handler:
+    Option<Box<dyn Fn(Option<String>, NewWindowFeatures) -> NewWindowResponse>>,
+  #[cfg(target_os = "macos")]
+  on_webview_close_handler: Option<Box<dyn Fn()>>,
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -1605,6 +1614,10 @@ impl Default for PlatformSpecificWebViewAttributes {
       limit_navigations_to_app_bound_domains: false,
       #[cfg(target_os = "macos")]
       webview_configuration: None,
+      #[cfg(target_os = "macos")]
+      new_window_request_handler: None,
+      #[cfg(target_os = "macos")]
+      on_webview_close_handler: None,
     }
   }
 }
@@ -1666,6 +1679,43 @@ pub trait WebViewBuilderExtMacos {
     self,
     configuration: Retained<objc2_web_kit::WKWebViewConfiguration>,
   ) -> Self;
+
+  /// Handle a native new-window request even when its URL, source window or screen is absent.
+  ///
+  /// The URL is `None` when WebKit does not supply one. The original configuration is in
+  /// [`NewWindowFeatures::opener`]. Return [`NewWindowResponse::Create`] with a webview built
+  /// from that configuration to let WebKit continue the original navigation.
+  /// Screen-dependent position metadata is absent when the source has no screen.
+  /// [`NewWindowResponse::Allow`] requires an attached source window and screen; otherwise it denies.
+  ///
+  /// Combining this with [`WebViewBuilder::with_new_window_req_handler`] returns
+  /// [`Error::ConflictingInitialization`] when building.
+  fn with_new_window_request_handler(
+    self,
+    handler: impl Fn(Option<String>, NewWindowFeatures) -> NewWindowResponse + 'static,
+  ) -> Self;
+
+  /// Build an owned webview from WebKit's supplied configuration without attaching or presenting it.
+  ///
+  /// Requires [`Self::with_webview_configuration`] and a positive, finite size in logical points.
+  /// WebKit performs the initial navigation after the creation callback returns the native view.
+  /// URL, HTML, headers, web context, incognito, data-store, proxy and traffic-light initialization
+  /// conflict with this path and return [`Error::ConflictingInitialization`]. Initial bounds are
+  /// determined by `size`; builder bounds do not apply.
+  /// A non-Wry `ipc` script handler already registered on the supplied configuration also
+  /// conflicts when this builder requests IPC handling.
+  ///
+  /// This does not create a window, activate the application or focus the view. The caller must
+  /// retain the returned owner and attach its [`WebViewExtMacOS::webview`] to an app-owned view
+  /// before calling window-dependent operations such as bounds, resizing or focus.
+  /// Must be called on the main thread.
+  fn build_unattached(self, size: dpi::LogicalSize<f64>) -> Result<WebView>;
+
+  /// Forward WebKit's `webViewDidClose:` notification for this webview.
+  ///
+  /// This reports a native close, not detachment, content-process termination or dropping the
+  /// Rust owner. Defer destroying the owner until after the callback returns.
+  fn with_on_webview_close_handler(self, handler: impl Fn() + 'static) -> Self;
 }
 
 #[cfg(target_os = "macos")]
@@ -1678,6 +1728,49 @@ impl WebViewBuilderExtMacos for WebViewBuilder<'_> {
       .platform_specific
       .webview_configuration
       .replace(configuration);
+    self
+  }
+
+  fn with_new_window_request_handler(
+    mut self,
+    handler: impl Fn(Option<String>, NewWindowFeatures) -> NewWindowResponse + 'static,
+  ) -> Self {
+    if self.attrs.new_window_req_handler.is_some() {
+      self.error = self.error.and(Err(Error::ConflictingInitialization));
+    }
+    self.platform_specific.new_window_request_handler = Some(Box::new(handler));
+    self
+  }
+
+  fn build_unattached(self, size: dpi::LogicalSize<f64>) -> Result<WebView> {
+    self.error?;
+    if !size.width.is_finite()
+      || !size.height.is_finite()
+      || size.width <= 0.0
+      || size.height <= 0.0
+    {
+      return Err(Error::InvalidLogicalSize);
+    }
+    if self.attrs.url.is_some()
+      || self.attrs.html.is_some()
+      || self.attrs.headers.is_some()
+      || self.attrs.context.is_some()
+      || self.attrs.incognito
+      || self.attrs.proxy_config.is_some()
+      || self.platform_specific.data_store_identifier.is_some()
+      || self.platform_specific.traffic_light_inset.is_some()
+    {
+      return Err(Error::ConflictingInitialization);
+    }
+    if self.platform_specific.webview_configuration.is_none() {
+      return Err(Error::MissingWebViewConfiguration);
+    }
+    InnerWebView::new_unattached(size, self.attrs, self.platform_specific)
+      .map(|webview| WebView { webview })
+  }
+
+  fn with_on_webview_close_handler(mut self, handler: impl Fn() + 'static) -> Self {
+    self.platform_specific.on_webview_close_handler = Some(Box::new(handler));
     self
   }
 }
@@ -2626,6 +2719,65 @@ pub struct InitializationScript {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[cfg(target_os = "macos")]
+  mod macos_child_builder {
+    use super::*;
+    use dpi::LogicalSize;
+
+    #[test]
+    fn rejects_invalid_extents_before_native_construction() {
+      for invalid in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        for size in [
+          LogicalSize::new(invalid, 200.0),
+          LogicalSize::new(200.0, invalid),
+        ] {
+          assert!(matches!(
+            WebViewBuilder::new().build_unattached(size),
+            Err(Error::InvalidLogicalSize)
+          ));
+        }
+      }
+    }
+
+    #[test]
+    fn requires_original_configuration_without_competing_initialization() {
+      let size = LogicalSize::new(200.0, 100.0);
+      assert!(matches!(
+        WebViewBuilder::new().build_unattached(size),
+        Err(Error::MissingWebViewConfiguration)
+      ));
+      for builder in [
+        WebViewBuilder::new().with_url("about:blank"),
+        WebViewBuilder::new().with_html("<p>replacement</p>"),
+        WebViewBuilder::new().with_incognito(true),
+        WebViewBuilder::new().with_data_store_identifier([1; 16]),
+      ] {
+        assert!(matches!(
+          builder.build_unattached(size),
+          Err(Error::ConflictingInitialization)
+        ));
+      }
+    }
+
+    #[test]
+    fn rejects_conflicting_request_handlers_in_both_setter_orders() {
+      let builders = [
+        WebViewBuilder::new()
+          .with_new_window_req_handler(|_, _| NewWindowResponse::Deny)
+          .with_new_window_request_handler(|_, _| NewWindowResponse::Deny),
+        WebViewBuilder::new()
+          .with_new_window_request_handler(|_, _| NewWindowResponse::Deny)
+          .with_new_window_req_handler(|_, _| NewWindowResponse::Deny),
+      ];
+      for builder in builders {
+        assert!(matches!(
+          builder.build_unattached(LogicalSize::new(200.0, 100.0)),
+          Err(Error::ConflictingInitialization)
+        ));
+      }
+    }
+  }
 
   #[test]
   #[cfg_attr(miri, ignore)]
