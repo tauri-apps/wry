@@ -9,27 +9,29 @@ use objc2::{
   runtime::{Bool, ProtocolObject},
 };
 use objc2_app_kit::{NSDragOperation, NSDraggingInfo, NSFilenamesPboardType};
-use objc2_foundation::{NSArray, NSPoint, NSRect, NSString};
+use objc2_foundation::{NSArray, NSRect, NSString};
 
 use crate::DragDropEvent;
 
 use super::WryWebView;
 
 pub(crate) unsafe fn collect_paths(drag_info: &ProtocolObject<dyn NSDraggingInfo>) -> Vec<PathBuf> {
-  let pb = drag_info.draggingPasteboard();
-  let mut drag_drop_paths = Vec::new();
-  let types = NSArray::arrayWithObject(NSFilenamesPboardType);
+  unsafe {
+    let pb = drag_info.draggingPasteboard();
+    let mut drag_drop_paths = Vec::new();
+    let types = NSArray::arrayWithObject(NSFilenamesPboardType);
 
-  if pb.availableTypeFromArray(&types).is_some() {
-    let paths = pb.propertyListForType(NSFilenamesPboardType).unwrap();
-    let paths = paths.downcast::<NSArray>().unwrap();
-    for path in paths {
-      let path = path.downcast::<NSString>().unwrap();
-      let path = CStr::from_ptr(path.UTF8String()).to_string_lossy();
-      drag_drop_paths.push(PathBuf::from(path.into_owned()));
+    if pb.availableTypeFromArray(&types).is_some() {
+      let paths = pb.propertyListForType(NSFilenamesPboardType).unwrap();
+      let paths = paths.downcast::<NSArray>().unwrap();
+      for path in paths {
+        let path = path.downcast::<NSString>().unwrap();
+        let path = CStr::from_ptr(path.UTF8String()).to_string_lossy();
+        drag_drop_paths.push(PathBuf::from(path.into_owned()));
+      }
     }
+    drag_drop_paths
   }
-  drag_drop_paths
 }
 
 pub(crate) fn dragging_entered(
@@ -37,7 +39,7 @@ pub(crate) fn dragging_entered(
   drag_info: &ProtocolObject<dyn NSDraggingInfo>,
 ) -> NSDragOperation {
   let paths = unsafe { collect_paths(drag_info) };
-  let dl: NSPoint = unsafe { drag_info.draggingLocation() };
+  let dl = drag_info.draggingLocation();
   let frame: NSRect = this.frame();
   let position = (dl.x as i32, (frame.size.height - dl.y) as i32);
 
@@ -54,7 +56,7 @@ pub(crate) fn dragging_updated(
   this: &WryWebView,
   drag_info: &ProtocolObject<dyn NSDraggingInfo>,
 ) -> NSDragOperation {
-  let dl: NSPoint = unsafe { drag_info.draggingLocation() };
+  let dl = drag_info.draggingLocation();
   let frame: NSRect = this.frame();
   let position = (dl.x as i32, (frame.size.height - dl.y) as i32);
 
@@ -82,7 +84,7 @@ pub(crate) fn perform_drag_operation(
   drag_info: &ProtocolObject<dyn NSDraggingInfo>,
 ) -> Bool {
   let paths = unsafe { collect_paths(drag_info) };
-  let dl: NSPoint = unsafe { drag_info.draggingLocation() };
+  let dl = drag_info.draggingLocation();
   let frame: NSRect = this.frame();
   let position = (dl.x as i32, (frame.size.height - dl.y) as i32);
 

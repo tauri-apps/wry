@@ -1210,27 +1210,27 @@ impl InnerWebView {
     let properties: Retained<NSMutableDictionary<NSHTTPCookiePropertyKey, AnyObject>> =
       NSMutableDictionary::from_slices(
         &[
-          NSHTTPCookieName,
-          NSHTTPCookieValue,
-          NSHTTPCookiePath,
-          NSHTTPCookieDomain,
+          unsafe { NSHTTPCookieName },
+          unsafe { NSHTTPCookieValue },
+          unsafe { NSHTTPCookiePath },
+          unsafe { NSHTTPCookieDomain },
         ],
         &[&name, &value, &path, &domain],
       );
 
     if let Some(max_age_) = cookie.max_age() {
       let max_age = NSString::from_str(&max_age_.whole_seconds().to_string());
-      properties.insert(NSHTTPCookieMaximumAge, &*max_age);
-      properties.insert(NSHTTPCookieVersion, nstring_1);
+      properties.insert(unsafe { NSHTTPCookieMaximumAge }, &*max_age);
+      properties.insert(unsafe { NSHTTPCookieVersion }, nstring_1);
     } else if let Some(dt) = cookie.expires_datetime() {
       let expires = NSDate::dateWithTimeIntervalSince1970(dt.unix_timestamp() as f64);
-      properties.insert(NSHTTPCookieExpires, &*expires);
-      properties.insert(NSHTTPCookieVersion, nstring_0);
+      properties.insert(unsafe { NSHTTPCookieExpires }, &*expires);
+      properties.insert(unsafe { NSHTTPCookieVersion }, nstring_0);
     }
 
     if let Some(secure) = cookie.secure() {
       let secure = if secure { nstring_true } else { nstring_false };
-      properties.insert(NSHTTPCookieSecure, secure);
+      properties.insert(unsafe { NSHTTPCookieSecure }, secure);
     }
 
     if let Some(http_only) = cookie.http_only() {
@@ -1261,8 +1261,10 @@ impl InnerWebView {
       };
     }
 
-    NSHTTPCookie::cookieWithProperties(&properties)
-      .expect("failed to create wkwebview cookie, report this as bug to `wry`")
+    unsafe {
+      NSHTTPCookie::cookieWithProperties(&properties)
+        .expect("failed to create wkwebview cookie, report this as bug to `wry`")
+    }
   }
 
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
