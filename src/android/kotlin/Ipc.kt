@@ -10,7 +10,6 @@ import android.net.Uri
 import android.webkit.*
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
-import java.util.concurrent.Executors
 
 class Ipc(val webView: RustWebView, val webViewClient: RustWebViewClient) {
     init {
@@ -19,9 +18,7 @@ class Ipc(val webView: RustWebView, val webViewClient: RustWebViewClient) {
                 // getData throws on ArrayBuffer payloads.
                 val body = try { message.data } catch (e: IllegalStateException) { null }
                 body?.let { m ->
-                    val url = requestUrl(sourceOrigin, isMainFrame)
-                    // Keep the UI thread available for handlers that wait on the main pipe.
-                    dispatcher.execute { Rust.ipc(webView.id, url, m) }
+                    Rust.ipc(webView.id, requestUrl(sourceOrigin, isMainFrame), m)
                 }
             }
         } else {
@@ -52,10 +49,6 @@ class Ipc(val webView: RustWebView, val webViewClient: RustWebViewClient) {
             return page.toString()
         }
         return origin.buildUpon().path("/").build().toString()
-    }
-
-    companion object {
-        private val dispatcher = Executors.newSingleThreadExecutor()
     }
 
     {{class-extension}}
