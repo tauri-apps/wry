@@ -2232,10 +2232,22 @@ impl WebView {
     self.webview.go_back()
   }
 
+  /// Whether there is a next page in the history.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Android**: Off the UI thread, back and forward steps inside an iframe show up after the
+  ///   next main-frame navigation.
   pub fn can_go_forward(&self) -> Result<bool> {
     self.webview.can_go_forward()
   }
 
+  /// Whether there is a previous page in the history.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Android**: Off the UI thread, back and forward steps inside an iframe show up after the
+  ///   next main-frame navigation.
   pub fn can_go_back(&self) -> Result<bool> {
     self.webview.can_go_back()
   }

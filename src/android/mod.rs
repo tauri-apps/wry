@@ -7,13 +7,12 @@ use crate::{
   Error, PermissionKind, PermissionResponse, RequestAsyncResponder, Result,
   custom_protocol_workaround, inject_initialization_scripts::inject_scripts_into_html,
 };
-use crossbeam_channel::*;
 
 use http::{Request, Response as HttpResponse};
 use jni::{
-  JNIEnv,
+  JNIEnv, JavaVM,
   errors::Result as JniResult,
-  objects::{GlobalRef, JClass, JObject},
+  objects::{GlobalRef, JClass, JObject, JString},
 };
 use ndk::looper::ThreadLooper;
 use raw_window_handle::HasWindowHandle;
@@ -343,9 +342,18 @@ impl InnerWebView {
   }
 
   pub fn url(&self) -> crate::Result<String> {
-    let (tx, rx) = bounded(1);
-    MainPipe::send(self.activity_id, WebViewMessage::GetUrl(tx));
-    rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
+    read_on_calling_thread(self.activity_id, |env, _, webview| {
+      if webview.is_null() {
+        return Ok(String::new());
+      }
+      let url = env
+        .call_method(webview, "urlFromAnyThread", "()Ljava/lang/String;", &[])?
+        .l()?;
+      if url.is_null() {
+        return Ok(String::new());
+      }
+      Ok(env.get_string(&JString::from(url))?.into())
+    })
   }
 
   pub fn eval(&self, js: &str, callback: Option<impl Fn(String) + Send + 'static>) -> Result<()> {
@@ -419,15 +427,25 @@ impl InnerWebView {
   }
 
   pub fn can_go_forward(&self) -> Result<bool> {
-    let (tx, rx) = bounded(1);
-    MainPipe::send(self.activity_id, WebViewMessage::CanGoForward(tx));
-    rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
+    read_on_calling_thread(self.activity_id, |env, _, webview| {
+      if webview.is_null() {
+        return Ok(false);
+      }
+      env
+        .call_method(webview, "canGoForwardFromAnyThread", "()Z", &[])?
+        .z()
+    })
   }
 
   pub fn can_go_back(&self) -> Result<bool> {
-    let (tx, rx) = bounded(1);
-    MainPipe::send(self.activity_id, WebViewMessage::CanGoBack(tx));
-    rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
+    read_on_calling_thread(self.activity_id, |env, _, webview| {
+      if webview.is_null() {
+        return Ok(false);
+      }
+      env
+        .call_method(webview, "canGoBackFromAnyThread", "()Z", &[])?
+        .z()
+    })
   }
 
   pub fn clear_all_browsing_data(&self) -> Result<()> {
@@ -436,12 +454,35 @@ impl InnerWebView {
   }
 
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
-    let (tx, rx) = bounded(1);
-    MainPipe::send(
-      self.activity_id,
-      WebViewMessage::GetCookies(tx, url.to_string()),
-    );
-    rx.recv_timeout(MAIN_PIPE_TIMEOUT).map_err(Into::into)
+    read_on_calling_thread(self.activity_id, |env, _, _| {
+      let manager = env
+        .call_static_method(
+          "android/webkit/CookieManager",
+          "getInstance",
+          "()Landroid/webkit/CookieManager;",
+          &[],
+        )?
+        .l()?;
+      let url = env.new_string(url)?;
+      let header = env
+        .call_method(
+          &manager,
+          "getCookie",
+          "(Ljava/lang/String;)Ljava/lang/String;",
+          &[(&url).into()],
+        )?
+        .l()?;
+      if header.is_null() {
+        return Ok(Vec::new());
+      }
+      let header: String = env.get_string(&JString::from(header))?.into();
+      Ok(
+        header
+          .split("; ")
+          .flat_map(|c| cookie::Cookie::parse(c.to_string()))
+          .collect(),
+      )
+    })
   }
 
   pub fn set_cookie(&self, #[allow(unused)] cookie: &cookie::Cookie<'_>) -> Result<()> {
@@ -499,8 +540,30 @@ impl JniHandle {
   }
 }
 
+/// Runs `read` on the calling thread with the activity and its `RustWebView`, which is `null`
+/// until the main pipe has created it.
+fn read_on_calling_thread<T>(
+  activity_id: ActivityId,
+  read: impl FnOnce(&mut JNIEnv, &JObject, &JObject) -> JniResult<T>,
+) -> Result<T> {
+  let proxy = main_pipe::activity_proxy(activity_id).ok_or(Error::ActivityNotFound)?;
+  // SAFETY: Activity proxies hold the VM of the `JNIEnv` passed to `android_setup`, which lives as
+  // long as the process.
+  let vm = unsafe { JavaVM::from_raw(proxy.java_vm.cast()) }?;
+  let mut env = vm.attach_current_thread_as_daemon()?;
+  let null = JObject::null();
+  let webview = proxy
+    .webview
+    .as_ref()
+    .map_or(&null, |webview| webview.as_obj());
+  let result = env.with_local_frame(8, |env| read(env, proxy.activity.as_obj(), webview));
+  if env.exception_check()? {
+    env.exception_clear()?;
+  }
+  result.map_err(Into::into)
+}
+
 pub fn platform_webview_version() -> Result<String> {
-  let (tx, rx) = bounded(1);
   let activity_id = loop {
     match first_activity_id() {
       Some(id) => break id,
@@ -509,8 +572,12 @@ pub fn platform_webview_version() -> Result<String> {
       }
     }
   };
-  MainPipe::send(activity_id, WebViewMessage::GetWebViewVersion(tx));
-  rx.recv_timeout(MAIN_PIPE_TIMEOUT)?
+  read_on_calling_thread(activity_id, |env, activity, _| {
+    let version = env
+      .call_method(activity, "getVersion", "()Ljava/lang/String;", &[])?
+      .l()?;
+    Ok(env.get_string(&JString::from(version))?.into())
+  })
 }
 
 /// Finds a class in the project scope.
