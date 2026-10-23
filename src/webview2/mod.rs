@@ -512,9 +512,14 @@ impl InnerWebView {
       };
     }
 
-    // Initialize main and subframe scripts
+    // Initialize main and subframe scripts.
+    // `AddScriptToExecuteOnDocumentCreated` injects into every frame, so main-frame-only scripts
+    // are guarded to only execute in the top-level frame.
     for init_script in attributes.initialization_scripts {
-      Self::add_script_to_execute_on_document_created(&webview, init_script.script)?;
+      Self::add_script_to_execute_on_document_created(
+        &webview,
+        init_script.source_for_all_frames().into_owned(),
+      )?;
     }
 
     // Enable clipboard
@@ -961,9 +966,10 @@ impl InnerWebView {
     token: &mut EventRegistrationToken,
   ) -> Result<()> {
     unsafe {
+      // Like on the other platforms, only expose `window.ipc` to the main frame.
       Self::add_script_to_execute_on_document_created(
         webview,
-        String::from(
+        crate::main_frame_only::guard_main_frame_only(
           r#"Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: s => window.chrome.webview.postMessage(s) }) });"#,
         ),
       )?;
