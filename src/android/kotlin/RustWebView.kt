@@ -9,6 +9,7 @@ package {{package}}
 import android.annotation.SuppressLint
 import android.webkit.*
 import android.content.Context
+import android.os.Looper
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import kotlin.collections.Map
@@ -52,19 +53,37 @@ class RustWebView(context: Context, val initScripts: Array<String>, val id: Stri
     override fun loadUrl(url: String) {
         if (!Rust.shouldOverride(id, url)) {
             super.loadUrl(url);
+            recordNavigationState()
         }
     }
 
     override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
         if (!Rust.shouldOverride(id, url)) {
             super.loadUrl(url, additionalHttpHeaders);
+            recordNavigationState()
         }
+    }
+
+    override fun goBack() {
+        super.goBack()
+        recordNavigationState()
+    }
+
+    override fun goForward() {
+        super.goForward()
+        recordNavigationState()
+    }
+
+    override fun clearHistory() {
+        super.clearHistory()
+        recordNavigationState()
     }
 
     fun loadHTMLMainThread(html: String) {
         post {
           // A null base URL gives about:blank, which IPC accepts as a request URI.
           super.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+          recordNavigationState()
         }
     }
 
@@ -81,17 +100,33 @@ class RustWebView(context: Context, val initScripts: Array<String>, val id: Stri
             super.getContext().deleteDatabase("webviewCache.db")
             super.getContext().deleteDatabase("webview.db")
             super.clearCache(true)
-            super.clearHistory()
+            clearHistory()
             super.clearFormData()
         } catch (ex: Exception) {
             Logger.error("Unable to create temporary media capture file: " + ex.message)
         }
     }
 
-    fun getCookies(url: String): String {
-        val cookieManager = CookieManager.getInstance()
-        return cookieManager.getCookie(url)
+    // WebView methods only run on the UI thread, so other threads read the state recorded at the
+    // last navigation callback. Back and forward steps inside an iframe fire no callback, and other
+    // threads see them at the next main-frame navigation.
+    @Volatile private var lastUrl: String? = null
+    @Volatile private var lastCanGoBack = false
+    @Volatile private var lastCanGoForward = false
+
+    fun recordNavigationState() {
+        lastUrl = url
+        lastCanGoBack = canGoBack()
+        lastCanGoForward = canGoForward()
     }
+
+    private fun onUiThread() = Looper.myLooper() == Looper.getMainLooper()
+
+    fun urlFromAnyThread(): String? = if (onUiThread()) url else lastUrl
+
+    fun canGoBackFromAnyThread(): Boolean = if (onUiThread()) canGoBack() else lastCanGoBack
+
+    fun canGoForwardFromAnyThread(): Boolean = if (onUiThread()) canGoForward() else lastCanGoForward
 
     {{class-extension}}
 }

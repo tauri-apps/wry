@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use crate::{Error, InitializationScript, RGBA};
+use crate::{InitializationScript, RGBA};
 use crossbeam_channel::*;
 use jni::{
   JNIEnv, JavaVM,
@@ -373,46 +373,6 @@ impl<'a> MainPipe<'a> {
           set_background_color(&mut self.env, webview.as_obj(), background_color)?;
         }
       }
-      WebViewMessage::GetWebViewVersion(tx) => {
-        if let Some(activity) = activity_proxy(activity_id).map(|p| p.activity) {
-          match self
-            .env
-            .call_method(activity, "getVersion", "()Ljava/lang/String;", &[])
-            .and_then(|v| v.l())
-            .and_then(|s| {
-              let s = JString::from(s);
-              self
-                .env
-                .get_string(&s)
-                .map(|v| v.to_string_lossy().to_string())
-            }) {
-            Ok(version) => {
-              tx.send(Ok(version)).unwrap();
-            }
-            Err(e) => tx.send(Err(e.into())).unwrap(),
-          }
-        } else {
-          tx.send(Err(Error::ActivityNotFound)).unwrap();
-        }
-      }
-      WebViewMessage::GetUrl(tx) => {
-        if let Some(webview) = get_webview(activity_id) {
-          let url = self
-            .env
-            .call_method(webview.as_obj(), "getUrl", "()Ljava/lang/String;", &[])
-            .and_then(|v| v.l())
-            .and_then(|s| {
-              let s = JString::from(s);
-              self
-                .env
-                .get_string(&s)
-                .map(|v| v.to_string_lossy().to_string())
-            })
-            .unwrap_or_default();
-
-          tx.send(url).unwrap()
-        }
-      }
       WebViewMessage::Jni(f) => {
         match activity_proxy(activity_id).map(|p| (p.activity.clone(), p.webview)) {
           Some((activity, Some(webview))) => {
@@ -458,48 +418,6 @@ impl<'a> MainPipe<'a> {
       WebViewMessage::GoBack => {
         if let Some(webview) = get_webview(activity_id) {
           go_back(&mut self.env, webview.as_obj())?;
-        }
-      }
-      WebViewMessage::CanGoForward(tx) => {
-        if let Some(webview) = get_webview(activity_id) {
-          tx.send(can_go_forward(&mut self.env, webview.as_obj())?)
-            .unwrap();
-        }
-      }
-      WebViewMessage::CanGoBack(tx) => {
-        if let Some(webview) = get_webview(activity_id) {
-          tx.send(can_go_back(&mut self.env, webview.as_obj())?)
-            .unwrap();
-        }
-      }
-      WebViewMessage::GetCookies(tx, url) => {
-        if let Some(webview) = get_webview(activity_id) {
-          let url = self.env.new_string(url)?;
-          let cookies = self
-            .env
-            .call_method(
-              webview,
-              "getCookies",
-              "(Ljava/lang/String;)Ljava/lang/String;",
-              &[(&url).into()],
-            )
-            .and_then(|v| v.l())
-            .and_then(|s| {
-              let s = JString::from(s);
-              self
-                .env
-                .get_string(&s)
-                .map(|v| v.to_string_lossy().to_string())
-            })
-            .unwrap_or_default();
-
-          tx.send(
-            cookies
-              .split("; ")
-              .flat_map(|c| cookie::Cookie::parse(c.to_string()))
-              .collect(),
-          )
-          .unwrap();
         }
       }
       WebViewMessage::OnDestroy {
@@ -579,14 +497,6 @@ fn go_back<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>) -> JniResult<()> {
   Ok(())
 }
 
-fn can_go_forward<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>) -> JniResult<bool> {
-  Ok(env.call_method(webview, "canGoForward", "()Z", &[])?.z()?)
-}
-
-fn can_go_back<'a>(env: &mut JNIEnv<'a>, webview: &JObject<'a>) -> JniResult<bool> {
-  Ok(env.call_method(webview, "canGoBack", "()Z", &[])?.z()?)
-}
-
 fn set_background_color<'a>(
   env: &mut JNIEnv<'a>,
   webview: &JObject<'a>,
@@ -601,17 +511,12 @@ pub(crate) enum WebViewMessage {
   CreateWebView(CreateWebViewAttributes),
   Eval(String, Option<EvalCallback>),
   SetBackgroundColor(RGBA),
-  GetWebViewVersion(Sender<Result<String, Error>>),
-  GetUrl(Sender<String>),
-  GetCookies(Sender<Vec<cookie::Cookie<'static>>>, String),
   Jni(Box<dyn FnOnce(&mut JNIEnv, &JObject, &JObject) + Send>),
   LoadUrl(String, Option<http::HeaderMap>),
   LoadHtml(String),
   Reload,
   GoForward,
   GoBack,
-  CanGoForward(Sender<bool>),
-  CanGoBack(Sender<bool>),
   ClearAllBrowsingData,
   OnDestroy {
     activity_id: ActivityId,

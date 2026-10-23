@@ -67,6 +67,7 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
         currentUrl = url
         val webView = view as RustWebView
+        webView.recordNavigationState()
         if (interceptedState[url] == false && !webView.isDocumentStartScriptEnabled) {
             for (script in webView.initScripts) {
                 view.evaluateJavascript(script, null)
@@ -76,7 +77,14 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
     }
 
     override fun onPageFinished(view: WebView, url: String) {
-        Rust.onPageLoaded((view as RustWebView).id, url)
+        val webView = view as RustWebView
+        webView.recordNavigationState()
+        Rust.onPageLoaded(webView.id, url)
+    }
+
+    override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+        (view as RustWebView).recordNavigationState()
+        super.doUpdateVisitedHistory(view, url, isReload)
     }
 
     override fun onReceivedError(
