@@ -43,7 +43,9 @@ class Ipc(val webView: RustWebView, val webViewClient: RustWebViewClient) {
         if (origin.host == null) {
             return "about:blank"
         }
-        // The origin check rejects a pending navigation's URL while the old page still sends.
+        // webView.url is Chromium's visible URL, which can already name a pending loadUrl target while
+        // the previous page still sends, so it is used only when it matches the sender's origin.
+        // https://chromium.googlesource.com/chromium/src/+/00e1412eb97d2149f4b63ff16154065f4c0eced2/content/public/browser/web_contents.h#510
         val page = if (isMainFrame) webView.url?.let(Uri::parse) else null
         if (page != null && page.scheme == origin.scheme && page.host == origin.host && page.port == origin.port) {
             return page.toString()
