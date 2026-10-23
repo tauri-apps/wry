@@ -198,7 +198,7 @@ jni = "0.21"
 ndk = "0.9"
 tao-macros = "0.1.4"
 libc = "0.2"
-dom_query = { version = "0.28.0", default-features = false }
+dom_query = { version = "0.29.0", default-features = false }
 
 [target.'cfg(target_vendor = "apple")'.build-dependencies]
 objc2-foundation = { version = "0.3.2", default-features = false, features = [
@@ -219,7 +219,7 @@ libloading = "0.8.9"
 # For unit testing `inject_initialization_scripts` since we can't do it easily on Android
 sha2 = "0.10"
 base64 = "0.23"
-dom_query = { version = "0.28.0", default-features = false }
+dom_query = { version = "0.29.0", default-features = false }
 
 [lints.rust.unexpected_cfgs]
 level = "warn"
