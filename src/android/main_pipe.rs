@@ -297,19 +297,12 @@ impl<'a> MainPipe<'a> {
           &[(&web_chrome_client).into()],
         )?;
 
-        // Add javascript interface (IPC)
+        // Ipc registers itself as `window.ipc`
         let ipc_class = find_class(&mut self.env, &activity, format!("{package}/Ipc"))?;
-        let ipc = self.env.new_object(
+        self.env.new_object(
           ipc_class,
           format!("(L{webview_class_name};L{client_class_name};)V"),
           &[(&webview).into(), (&webview_client).into()],
-        )?;
-        let ipc_str = self.env.new_string("ipc")?;
-        self.env.call_method(
-          &webview,
-          "addJavascriptInterface",
-          "(Ljava/lang/Object;Ljava/lang/String;)V",
-          &[(&ipc).into(), (&ipc_str).into()],
         )?;
 
         // Set content view

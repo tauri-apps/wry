@@ -15,7 +15,7 @@ import java.io.InputStream
 
 class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient() {
     private val interceptedState = mutableMapOf<String, Boolean>()
-    var currentUrl: String = "about:blank"
+    @Volatile var currentUrl: String = "about:blank"
     private var lastInterceptedUrl: Uri? = null
     private var pendingUrlRedirect: String? = null
 
