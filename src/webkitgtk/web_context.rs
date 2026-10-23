@@ -5,7 +5,7 @@
 //! Unix platform extensions for [`WebContext`](super::WebContext).
 
 use crate::{Error, RequestAsyncResponder};
-use gtk::glib::{self, MainContext, ObjectExt};
+use gtk::glib::{self, MainContext, object::ObjectExt};
 use http::{HeaderName, HeaderValue, Request, Response as HttpResponse, header::CONTENT_TYPE};
 use soup::{MessageHeaders, MessageHeadersType};
 use std::{
