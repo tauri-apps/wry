@@ -60,7 +60,7 @@ fn run_strace_benchmarks(new_data: &mut utils::BenchResult) -> Result<()> {
     let clone = 1
       + strace_result.get("clone").map(|d| d.calls).unwrap_or(0)
       + strace_result.get("clone3").map(|d| d.calls).unwrap_or(0);
-    let total = strace_result.get("total").unwrap().calls;
+    let total = strace_result.get("total").map(|d| d.calls).unwrap_or(0);
     thread_count.insert(name.to_string(), clone);
     syscall_count.insert(name.to_string(), total);
   }
@@ -88,7 +88,16 @@ fn run_max_mem_benchmark() -> Result<HashMap<String, u64>> {
       ])
       .stdout(Stdio::null())
       .stderr(Stdio::piped())
-      .spawn()?;
+      .spawn();
+
+    let proc = match proc {
+      Ok(p) => p,
+      Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+        eprintln!("mprof not found, skipping max memory benchmark");
+        return Ok(results);
+      }
+      Err(e) => return Err(e.into()),
+    };
 
     let proc_result = proc.wait_with_output()?;
     println!("{:?}", proc_result);
@@ -154,13 +163,13 @@ fn get_binary_sizes(target_dir: &Path) -> Result<HashMap<String, u64>> {
   println!("wry {} bytes", wry_size);
   sizes.insert("wry_rlib".to_string(), wry_size);
 
-  let tao_size = rlib_size(target_dir, "tao")?;
-  println!("tao {} bytes", tao_size);
-  sizes.insert("tao_rlib".to_string(), tao_size);
+  let winit_size = rlib_size(target_dir, "winit")?;
+  println!("winit {} bytes", winit_size);
+  sizes.insert("winit_rlib".to_string(), winit_size);
 
   // add size for all EXEC_TIME_BENCHMARKS
   for (name, example_exe) in get_all_benchmarks() {
-    let meta = std::fs::metadata(example_exe).unwrap();
+    let meta = std::fs::metadata(utils::bench_root_path().join(example_exe)).unwrap();
     sizes.insert(name.to_string(), meta.len());
   }
 
@@ -287,7 +296,8 @@ fn main() -> Result<()> {
   env::set_current_dir(utils::bench_root_path())?;
 
   let format =
-    time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]:[second]Z").unwrap();
+    time::format_description::parse_borrowed::<2>("[year]-[month]-[day]T[hour]:[minute]:[second]Z")
+      .unwrap();
   let now = time::OffsetDateTime::now_utc();
   let mut new_data = utils::BenchResult {
     created_at: now.format(&format).unwrap(),

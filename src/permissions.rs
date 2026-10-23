@@ -15,7 +15,8 @@ pub enum PermissionKind {
   /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION`.
   /// - **Linux**: Supported via `GeolocationPermissionRequest`.
   /// - **Android**: Supported via `WebChromeClient.onGeolocationPermissionsShowPrompt`.
-  /// - **macOS / iOS**: Not yet supported by platform backends.
+  /// - **macOS**: Supported via `WKUIDelegate` `requestGeolocationPermissionForOrigin` (macOS 12+).
+  /// - **iOS**: Not yet supported by platform backends.
   Geolocation,
   /// Notifications permission.
   ///
@@ -30,9 +31,17 @@ pub enum PermissionKind {
   /// ## Platform-specific
   ///
   /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ`.
-  /// - **macOS / Linux / Android / iOS**: Not yet supported by platform backends.
+  /// - **Linux**: Supported via `ClipboardPermissionRequest` (webkit6).
+  /// - **macOS / Android / iOS**: Not yet supported by platform backends.
   ClipboardRead,
   /// Display capture permission (for getDisplayMedia).
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_SCREEN_CAPTURE`.
+  /// - **Linux**: Not routed through the permission handler; webkit6 handles `getDisplayMedia`
+  ///   natively at the compositor/OS level.
+  /// - **macOS / Android / iOS**: Not yet supported by platform backends.
   DisplayCapture,
   /// Midi access permission.
   ///
@@ -47,14 +56,16 @@ pub enum PermissionKind {
   /// ## Platform-specific
   ///
   /// - **Windows**: Supported via `COREWEBVIEW2_PERMISSION_KIND_OTHER_SENSORS`.
-  /// - **macOS / Linux / Android / iOS**: Not yet supported by platform backends.
+  /// - **macOS**: Supported via `WKUIDelegate` `requestDeviceOrientationAndMotionPermissionForOrigin`.
+  /// - **Linux / Android / iOS**: Not yet supported by platform backends.
   Sensors,
   /// Media key system access permission.
   ///
   /// ## Platform-specific
   ///
   /// - **Android**: Supported via `android.webkit.resource.PROTECTED_MEDIA_ID`.
-  /// - **Windows / macOS / Linux / iOS**: Not yet supported by platform backends.
+  /// - **Linux**: Supported via `MediaKeySystemPermissionRequest` (webkit6).
+  /// - **Windows / macOS / iOS**: Not yet supported by platform backends.
   MediaKeySystemAccess,
   /// Local fonts access permission.
   ///

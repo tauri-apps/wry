@@ -7,3 +7,5 @@ gh-pages
 .DS_Store
 examples/test_video.mp4
 .vscode/
+bench/Cargo.lock
+bench/tests/Cargo.lock
