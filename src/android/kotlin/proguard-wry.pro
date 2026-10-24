@@ -14,6 +14,7 @@
   int getId();
   java.lang.String getVersion();
   int startActivity(...);
+  void closeActivity(boolean);
 }
 
 -keep class {{package-unescaped}}.Ipc {
