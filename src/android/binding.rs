@@ -385,7 +385,7 @@ pub unsafe fn onEval(mut env: JNIEnv, _: JClass, _webview_id: JString, id: jint,
         .get_or_init(Default::default)
         .lock()
         .unwrap()
-        .get(&id)
+        .remove(&id)
       {
         cb(result.into());
       }
