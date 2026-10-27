@@ -66,6 +66,7 @@ const WEBVIEW_ID: &str = "webview_id";
 
 mod drag_drop;
 mod synthetic_mouse_events;
+mod undo_redo;
 mod web_context;
 
 #[cfg(feature = "x11")]
@@ -351,6 +352,9 @@ impl InnerWebView {
     if ipc_enabled {
       w.init("Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })", true)?;
     }
+
+    // WebKitGTK has no key bindings for undo and redo on GTK 3, so add them in the page
+    w.init(undo_redo::INIT_SCRIPT, false)?;
 
     // Initialize scripts
     for init_script in attributes.initialization_scripts {
