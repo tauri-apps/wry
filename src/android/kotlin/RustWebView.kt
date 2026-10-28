@@ -90,7 +90,8 @@ class RustWebView(context: Context, val initScripts: Array<String>, val id: Stri
 
     fun getCookies(url: String): String {
         val cookieManager = CookieManager.getInstance()
-        return cookieManager.getCookie(url)
+        // `getCookie` returns null when the URL has no cookies
+        return cookieManager.getCookie(url) ?: ""
     }
 
     {{class-extension}}
