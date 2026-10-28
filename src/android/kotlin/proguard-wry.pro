@@ -28,6 +28,9 @@
   void loadUrlMainThread(...);
   void loadHTMLMainThread(...);
   void evalScript(...);
+  java.lang.String urlFromAnyThread();
+  boolean canGoBackFromAnyThread();
+  boolean canGoForwardFromAnyThread();
 }
 
 -keep class {{package-unescaped}}.RustWebChromeClient,{{package-unescaped}}.RustWebViewClient {
