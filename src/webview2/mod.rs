@@ -7,7 +7,7 @@ mod util;
 
 use std::{
   borrow::Cow,
-  cell::RefCell,
+  cell::{Cell, RefCell},
   collections::HashSet,
   fmt::Write,
   fs,
@@ -25,7 +25,7 @@ use windows::{
     Foundation::*,
     Globalization::*,
     Graphics::Gdi::*,
-    System::{Com::*, LibraryLoader::GetModuleHandleW},
+    System::{Com::*, LibraryLoader::GetModuleHandleW, Threading::GetCurrentThreadId},
     UI::{Input::KeyboardAndMouse::SetFocus, Shell::*, WindowsAndMessaging::*},
   },
   core::{BOOL, HSTRING, Interface, PCWSTR, PWSTR, s, w},
@@ -59,6 +59,70 @@ impl From<windows::core::Error> for Error {
   }
 }
 
+/// Physical-pixel inset that keeps the webview content clear of a frame drawn
+/// by the window itself, e.g. the DWM-drawn border of an undecorated shadowed
+/// window (see `tao`'s `Window::undecorated_frame_inset`). `(left, top,
+/// right, bottom)`.
+///
+/// Shared between the webview and the parent-window subclass that keeps the
+/// webview filling its parent, so a runtime update is picked up by the next
+/// resize. Window procs always run on the thread that owns the window and
+/// `WebView` is not `Send`, so a plain `Cell` carries the shared state.
+#[derive(Debug, Default)]
+struct FrameInset(Cell<(i32, i32, i32, i32)>);
+
+impl FrameInset {
+  fn get(&self) -> (i32, i32, i32, i32) {
+    self.0.get()
+  }
+
+  fn set(&self, inset: (i32, i32, i32, i32)) {
+    // An inset is inherently non-negative; clamp here so every writer
+    // (creation and `set_frame_inset`) upholds the invariant `fill_bounds_at`
+    // relies on.
+    self.0.set((
+      inset.0.max(0),
+      inset.1.max(0),
+      inset.2.max(0),
+      inset.3.max(0),
+    ));
+  }
+}
+
+/// Compute the content rect inside `size` after reserving `inset` on every
+/// edge, clamped to a non-negative result.
+fn fill_bounds_at(
+  position: PhysicalPosition<i32>,
+  size: PhysicalSize<i32>,
+  inset: (i32, i32, i32, i32),
+) -> (PhysicalPosition<i32>, PhysicalSize<i32>) {
+  let (inset_left, inset_top, inset_right, inset_bottom) = inset;
+  let width = size
+    .width
+    .saturating_sub(inset_left)
+    .saturating_sub(inset_right)
+    .max(0);
+  let height = size
+    .height
+    .saturating_sub(inset_top)
+    .saturating_sub(inset_bottom)
+    .max(0);
+  (
+    PhysicalPosition::new(
+      position.x.saturating_add(inset_left),
+      position.y.saturating_add(inset_top),
+    ),
+    PhysicalSize::new(width, height),
+  )
+}
+
+/// State carried by the parent-window subclass: the controller it keeps
+/// resized and the frame inset the fill bounds must respect.
+struct ParentSubclassData {
+  controller: ICoreWebView2Controller,
+  frame_inset: Rc<FrameInset>,
+}
+
 pub(crate) struct InnerWebView {
   id: String,
   parent: RefCell<HWND>,
@@ -67,6 +131,7 @@ pub(crate) struct InnerWebView {
   pub controller: ICoreWebView2Controller,
   pub webview: ICoreWebView2,
   pub env: ICoreWebView2Environment,
+  frame_inset: Rc<FrameInset>,
   // Store FileDropController in here to make sure it gets dropped when
   // the webview gets dropped, otherwise we'll have a memory leak
   #[allow(dead_code)]
@@ -121,6 +186,16 @@ impl InnerWebView {
   ) -> Result<Self> {
     let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
 
+    if !is_child {
+      // The parent-window subclass reads the shared `FrameInset` and must run
+      // on the same thread that writes it (see `FrameInset`); enforce that at
+      // the boundary instead of racing.
+      let owner_thread = unsafe { GetWindowThreadProcessId(parent, None) };
+      if owner_thread == 0 || owner_thread != unsafe { GetCurrentThreadId() } {
+        return Err(Error::UnsupportedWindowHandle);
+      }
+    }
+
     let hwnd = Self::create_container_hwnd(parent, &attributes, is_child)?;
 
     let drop_handler = attributes.drag_drop_handler.take();
@@ -149,6 +224,9 @@ impl InnerWebView {
       background_color,
       pl_attrs.profile_name.as_deref(),
     )?;
+    let frame_inset = Rc::new(FrameInset::default());
+    frame_inset.set(pl_attrs.frame_inset);
+
     let webview = Self::init_webview(
       parent,
       hwnd,
@@ -157,6 +235,7 @@ impl InnerWebView {
       &env,
       &controller,
       pl_attrs,
+      &frame_inset,
       is_child,
     )?;
 
@@ -178,6 +257,7 @@ impl InnerWebView {
       is_child,
       webview,
       env,
+      frame_inset,
       drag_drop_controller,
     };
 
@@ -446,6 +526,7 @@ impl InnerWebView {
     env: &ICoreWebView2Environment,
     controller: &ICoreWebView2Controller,
     pl_attrs: super::PlatformSpecificWebViewAttributes,
+    frame_inset: &Rc<FrameInset>,
     is_child: bool,
   ) -> Result<ICoreWebView2> {
     let webview = unsafe { controller.CoreWebView2()? };
@@ -613,7 +694,19 @@ impl InnerWebView {
 
     // Subclass parent for resizing and focus
     if !is_child {
-      unsafe { Self::attach_parent_subclass(parent, controller) };
+      let data = ParentSubclassData {
+        controller: controller.clone(),
+        frame_inset: Rc::clone(frame_inset),
+      };
+      if let Err(e) = unsafe { Self::attach_parent_subclass(parent, data) } {
+        // Unwind the container this function created: leaving it behind
+        // would orphan a visible, full-parent-sized blank window.
+        let _ = unsafe { DestroyWindow(hwnd) };
+        unsafe {
+          let _ = controller.Close();
+        }
+        return Err(e);
+      }
     }
 
     unsafe {
@@ -1332,41 +1425,50 @@ impl InnerWebView {
     unsafe {
       match msg {
         WM_SIZE if wparam.0 != SIZE_MINIMIZED as usize => {
-          let controller = dwrefdata as *mut ICoreWebView2Controller;
+          let data = &*(dwrefdata as *const ParentSubclassData);
+          let controller = &data.controller;
 
           let Ok(PhysicalSize { width, height }) = Self::parent_bounds(hwnd) else {
             return DefSubclassProc(hwnd, msg, wparam, lparam);
           };
 
-          let _ = (*controller).SetBounds(RECT {
+          let (position, size) = fill_bounds_at(
+            PhysicalPosition::new(0, 0),
+            PhysicalSize::new(width, height),
+            data.frame_inset.get(),
+          );
+
+          let _ = controller.SetBounds(RECT {
             left: 0,
             top: 0,
-            right: width,
-            bottom: height,
+            right: size.width,
+            bottom: size.height,
           });
 
           let mut hwnd = HWND::default();
-          if (*controller).ParentWindow(&mut hwnd).is_ok() {
+          if controller.ParentWindow(&mut hwnd).is_ok() {
             let _ = SetWindowPos(
               hwnd,
               None,
-              0,
-              0,
-              width,
-              height,
+              position.x,
+              position.y,
+              size.width,
+              size.height,
               SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOZORDER,
             );
           }
         }
 
         WM_SETFOCUS => {
-          let controller = dwrefdata as *mut ICoreWebView2Controller;
-          let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+          let data = &*(dwrefdata as *const ParentSubclassData);
+          let _ = data
+            .controller
+            .MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
         }
 
         WM_MOVE | WM_MOVING => {
-          let controller = dwrefdata as *mut ICoreWebView2Controller;
-          let _ = (*controller).NotifyParentWindowPositionChanged();
+          let data = &*(dwrefdata as *const ParentSubclassData);
+          let _ = data.controller.NotifyParentWindowPositionChanged();
         }
 
         WM_DESTROY | PARENT_DESTROY_MESSAGE => {
@@ -1375,7 +1477,7 @@ impl InnerWebView {
             Some(Self::parent_subclass_proc),
             PARENT_SUBCLASS_ID as _,
           );
-          drop(Box::from_raw(dwrefdata as *mut ICoreWebView2Controller));
+          drop(Box::from_raw(dwrefdata as *mut ParentSubclassData));
         }
 
         _ => {}
@@ -1386,15 +1488,32 @@ impl InnerWebView {
   }
 
   #[inline]
-  unsafe fn attach_parent_subclass(parent: HWND, controller: &ICoreWebView2Controller) {
+  /// Installs the parent-window subclass, transferring ownership of `data`
+  /// (boxed and passed as the subclass ref-data; freed in the
+  /// `WM_DESTROY | PARENT_DESTROY_MESSAGE` arm). If installation fails, the
+  /// box is freed again here and the webview will not receive resize events.
+  ///
+  /// # Safety
+  ///
+  /// Must be called on the thread that owns `parent`, so the window proc can
+  /// only ever dereference the `ParentSubclassData` allocated here.
+  unsafe fn attach_parent_subclass(parent: HWND, data: ParentSubclassData) -> Result<()> {
     unsafe {
-      let _ = SetWindowSubclass(
+      let data = Box::into_raw(Box::new(data));
+      let installed = SetWindowSubclass(
         parent,
         Some(Self::parent_subclass_proc),
         PARENT_SUBCLASS_ID as _,
-        Box::into_raw(Box::new(controller.clone())) as _,
-      );
+        data as _,
+      )
+      .as_bool();
+      if !installed {
+        // Nothing will deliver the destroy message, so the ref-data would leak.
+        drop(Box::from_raw(data));
+        return Err(windows::core::Error::from(E_UNEXPECTED).into());
+      }
     }
+    Ok(())
   }
 
   #[inline]
@@ -1602,7 +1721,50 @@ impl InnerWebView {
 
       bounds.position = PhysicalPosition::new(position_point[0].x, position_point[0].y).into();
     } else {
+      // Report the fill-request space in parent coordinates: translate the
+      // container-relative content rect into parent coordinates and re-inflate
+      // it by the frame inset, so the value round-trips through `set_bounds`
+      // without double-applying the inset and explicitly set geometry reads
+      // back at its real size.
       unsafe { self.controller.Bounds(&mut rect) }?;
+      let mut rect_points = [
+        POINT {
+          x: rect.left,
+          y: rect.top,
+        },
+        POINT {
+          x: rect.right,
+          y: rect.bottom,
+        },
+      ];
+      // `bounds()` is load-bearing for `set_frame_inset`, so a failed mapping
+      // must not feed unmapped (container-relative) points into the geometry.
+      // MapWindowPoints returns MAKELONG(dx, dy), which is legitimately 0 for
+      // a zero offset: reset the last error first and only treat 0 as failure
+      // when the error was actually set.
+      unsafe { SetLastError(ERROR_SUCCESS) };
+      let mapped = unsafe {
+        MapWindowPoints(
+          Some(self.hwnd),
+          Some(*self.parent.borrow()),
+          &mut rect_points,
+        )
+      };
+      if mapped == 0 && unsafe { GetLastError() } != ERROR_SUCCESS {
+        return Err(windows::core::Error::from(E_UNEXPECTED).into());
+      }
+      let (inset_left, inset_top, inset_right, inset_bottom) = self.frame_inset.get();
+      let left = rect_points[0].x.saturating_sub(inset_left);
+      let top = rect_points[0].y.saturating_sub(inset_top);
+      let right = rect_points[1].x.saturating_add(inset_right);
+      let bottom = rect_points[1].y.saturating_add(inset_bottom);
+      bounds.position = PhysicalPosition::new(left, top).into();
+      rect = RECT {
+        left,
+        top,
+        right,
+        bottom,
+      };
     }
 
     bounds.size = PhysicalSize::new(rect.right - rect.left, rect.bottom - rect.top).into();
@@ -1615,7 +1777,21 @@ impl InnerWebView {
     size: PhysicalSize<i32>,
     position: PhysicalPosition<i32>,
   ) -> Result<()> {
+    // Reserve the frame inset so the content stays clear of a border drawn by
+    // the window itself (see `FrameInset`). Only the filling webview is
+    // inset: child webviews are positioned explicitly, and interior content
+    // never overlaps the border ring.
+    let inset = if self.is_child {
+      (0, 0, 0, 0)
+    } else {
+      self.frame_inset.get()
+    };
+    let (position, size) = fill_bounds_at(position, size, inset);
+
     unsafe {
+      // `SetBounds` is relative to the container window, which the
+      // `SetWindowPos` below moves to `position`; repeating the offset there
+      // would double-offset the content.
       self.controller.SetBounds(RECT {
         top: 0,
         left: 0,
@@ -1634,6 +1810,52 @@ impl InnerWebView {
       )?;
     }
 
+    Ok(())
+  }
+
+  /// Sets the physical-pixel frame inset the webview content keeps from its
+  /// parent window's edges, and re-applies the current fill bounds when the
+  /// value changed. Negative components are clamped to zero.
+  ///
+  /// Only webviews that fill their parent are affected: for child webviews
+  /// this is a no-op, since they are positioned explicitly. Note that
+  /// re-applying the fill bounds insets any explicitly set geometry again
+  /// (see `WebViewBuilderExtWindows::with_frame_inset`).
+  pub fn set_frame_inset(&self, inset: (i32, i32, i32, i32)) -> Result<()> {
+    // Clamp before comparing so a negative caller input matches an
+    // already-clamped stored value.
+    let inset = (
+      inset.0.max(0),
+      inset.1.max(0),
+      inset.2.max(0),
+      inset.3.max(0),
+    );
+    if self.is_child || self.frame_inset.get() == inset {
+      return Ok(());
+    }
+
+    let previous = self.frame_inset.get();
+    // Read the outer geometry while the previous inset is still in effect:
+    // `bounds()` re-inflates by the stored inset, so reading after the update
+    // would cancel the size change out. `bounds()` only reads the inset, so
+    // there is nothing to restore on this path yet.
+    let outer = self.bounds()?;
+
+    self.frame_inset.set(inset);
+
+    // Re-apply the outer geometry with the new inset (instead of fabricating
+    // a WM_SIZE, which other window procs would interpret as a real resize):
+    // `bounds()` reports the fill-request space for a filling webview and the
+    // exact rect for an explicitly positioned one, so either way the new
+    // inset is applied to the geometry currently in place.
+    if let Err(err) = self.set_bounds(outer) {
+      self.frame_inset.set(previous);
+      // Symmetric rollback: re-apply the geometry that was in place before
+      // the failed update (read with the previous inset) instead of falling
+      // back to fill bounds, which would discard an explicitly set rect.
+      let _ = self.set_bounds(outer);
+      return Err(err);
+    }
     Ok(())
   }
 
@@ -1866,14 +2088,36 @@ impl InnerWebView {
   pub fn reparent(&self, parent: isize) -> Result<()> {
     let parent = HWND(parent as _);
 
+    // The parent-window subclass reads the shared `FrameInset` and must run
+    // on the same thread that writes it (see `FrameInset`); enforce that at
+    // the API boundary instead of racing. Child webviews install no parent
+    // subclass, so they keep working across threads as before.
+    if !self.is_child {
+      let owner_thread = unsafe { GetWindowThreadProcessId(parent, None) };
+      if owner_thread == 0 || owner_thread != unsafe { GetCurrentThreadId() } {
+        return Err(Error::UnsupportedWindowHandle);
+      }
+    }
+
     unsafe {
       SetParent(self.hwnd, Some(parent))?;
 
       if !self.is_child {
-        Self::dettach_parent_subclass(*self.parent.borrow());
-        Self::attach_parent_subclass(parent, &self.controller);
-
+        // Track the new parent before the fallible attach: on failure the
+        // container already lives on the new window, so `self.parent` must
+        // agree with it even though the subclass is gone (the error surfaces
+        // to the caller; retrying `reparent` to the same target re-installs
+        // the subclass and resumes resize handling).
+        let previous_parent = *self.parent.borrow();
         *self.parent.borrow_mut() = parent;
+        Self::dettach_parent_subclass(previous_parent);
+        Self::attach_parent_subclass(
+          parent,
+          ParentSubclassData {
+            controller: self.controller.clone(),
+            frame_inset: Rc::clone(&self.frame_inset),
+          },
+        )?;
 
         let parent_bounds = Self::parent_bounds(parent)?;
 
