@@ -2,4 +2,4 @@
 wry: patch
 ---
 
-On Windows, preserve the parent window's resize and focus subclass when dropping a child webview.
+On Windows, skip dettaching parent subclass when the webview's built with `new_as_child`.
