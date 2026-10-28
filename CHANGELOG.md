@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.57.2]
+
+- [`790ca0d`](https://github.com/tauri-apps/wry/commit/790ca0df48c12a565d0fd88db4ef79104e6edf23) ([#1846](https://github.com/tauri-apps/wry/pull/1846) by [@bbmediaco](https://github.com/tauri-apps/wry/../../bbmediaco)) On Android, fix a crash when the main pipe receives a webview command message after the activity's destroyed
+- [`eccc972`](https://github.com/tauri-apps/wry/commit/eccc972d3ad5937e1c275ec2ceb2ae5daf1b14ee) ([#1838](https://github.com/tauri-apps/wry/pull/1838) by [@bbmediaco](https://github.com/tauri-apps/wry/../../bbmediaco)) On Android, fix a crash when reading cookies for a URL that has none.
+- [`952c692`](https://github.com/tauri-apps/wry/commit/952c69256c31ea864610cb59f417e80b4a0b9e7d) ([#1909](https://github.com/tauri-apps/wry/pull/1909) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) On Android, fix a memory leak when running `evaluate_script`/`evaluate_script_with_callback`.
+- [`a665cc6`](https://github.com/tauri-apps/wry/commit/a665cc67748d2207ac6b46dbb8a470daae001b09) ([#1907](https://github.com/tauri-apps/wry/pull/1907) by [@renovate](https://github.com/tauri-apps/wry/../../renovate)) Updated dependency `dom_query` to 0.29
+- [`b3dc94a`](https://github.com/tauri-apps/wry/commit/b3dc94a7834bcbf1b3814f0e351d5a1d1758eb09) ([#1913](https://github.com/tauri-apps/wry/pull/1913) by [@LucaCappelletti94](https://github.com/tauri-apps/wry/../../LucaCappelletti94)) On Android, keep `RustWebView.getCookies` and `RustWebView.clearAllBrowsingData` in the ProGuard rules so `WebView::cookies_for_url` and `WebView::clear_all_browsing_data` don't abort minified release builds.
+- [`ba7e1da`](https://github.com/tauri-apps/wry/commit/ba7e1dadfd6fccb3e19669a3c44c276d7bcff9b9) ([#1881](https://github.com/tauri-apps/wry/pull/1881) by [@alecraso](https://github.com/tauri-apps/wry/../../alecraso)) On macOS, cancel a file upload instead of panicking when `NSOpenPanel` can't be created, for example after the app bundle was replaced on disk while the app was running.
+- [`5006b49`](https://github.com/tauri-apps/wry/commit/5006b49b3a643b5544263ff9863b797a810d549b) ([#1914](https://github.com/tauri-apps/wry/pull/1914) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) On Windows, skip dettaching parent subclass when the webview's built with `new_as_child`.
+- [`a52412f`](https://github.com/tauri-apps/wry/commit/a52412f8b978c79af5b5948b512ae021154cd7fb) ([#1910](https://github.com/tauri-apps/wry/pull/1910) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) On Windows, fix moving the window blurs and re-focuses the webview.
+
+### bug
+
+- [`713aee4`](https://github.com/tauri-apps/wry/commit/713aee46beffba6c49577380cd7cdc52b474f336) ([#1891](https://github.com/tauri-apps/wry/pull/1891) by [@LucaCappelletti94](https://github.com/tauri-apps/wry/../../LucaCappelletti94)) On Android WebViews supporting `WEB_MESSAGE_LISTENER`, take the IPC request URL from the WebView for main-frame messages and from the sender's origin for iframes, so a page's first IPC call no longer arrives as `about:blank`.
+
 ## [0.57.1]
 
 - [`f9b8bee`](https://github.com/tauri-apps/wry/commit/f9b8bee1de7cfa68d1ee17000c630abeb551b66e) ([#1885](https://github.com/tauri-apps/wry/pull/1885) by [@LucaCappelletti94](https://github.com/tauri-apps/wry/../../LucaCappelletti94)) On Android, read `__wryActivityId` only when the intent or saved state contains it.
