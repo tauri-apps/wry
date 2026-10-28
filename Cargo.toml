@@ -2,9 +2,9 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.57.0"
+version = "0.57.1"
 authors = ["Tauri Programme within The Commons Conservancy"]
-edition = "2021"
+edition = "2024"
 license = "Apache-2.0 OR MIT"
 description = "Cross-platform WebView rendering library"
 readme = "README.md"
@@ -41,7 +41,6 @@ tracing = ["dep:tracing"]
 
 [dependencies]
 tracing = { version = "0.1", optional = true }
-once_cell = "1"
 thiserror = "2.0"
 http = "1.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
@@ -194,12 +193,12 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
 [target."cfg(target_os = \"android\")".dependencies]
 crossbeam-channel = "0.5"
 sha2 = "0.10"
-base64 = "0.22"
+base64 = "0.23"
 jni = "0.21"
 ndk = "0.9"
 tao-macros = "0.1.4"
 libc = "0.2"
-dom_query = { version = "0.28.0", default-features = false }
+dom_query = { version = "0.29.0", default-features = false }
 
 [target.'cfg(target_vendor = "apple")'.build-dependencies]
 objc2-foundation = { version = "0.3.2", default-features = false, features = [
@@ -219,8 +218,8 @@ glow = "0.18.0"
 libloading = "0.8.9"
 # For unit testing `inject_initialization_scripts` since we can't do it easily on Android
 sha2 = "0.10"
-base64 = "0.22"
-dom_query = { version = "0.28.0", default-features = false }
+base64 = "0.23"
+dom_query = { version = "0.29.0", default-features = false }
 
 [lints.rust.unexpected_cfgs]
 level = "warn"

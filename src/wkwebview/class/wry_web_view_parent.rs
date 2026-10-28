@@ -4,7 +4,7 @@
 
 #[cfg(target_os = "macos")]
 use objc2::DefinedClass;
-use objc2::{define_class, msg_send, rc::Retained, MainThreadOnly};
+use objc2::{MainThreadOnly, define_class, msg_send, rc::Retained};
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSApplication, NSEvent, NSView, NSWindow, NSWindowButton};
 use objc2_foundation::MainThreadMarker;
@@ -30,10 +30,8 @@ define_class!(
     fn key_down(&self, event: &NSEvent) {
       let mtm = MainThreadMarker::new().unwrap();
       let app = NSApplication::sharedApplication(mtm);
-      unsafe {
-        if let Some(menu) = app.mainMenu() {
-          menu.performKeyEquivalent(event);
-        }
+      if let Some(menu) = app.mainMenu() {
+        menu.performKeyEquivalent(event);
       }
     }
 
@@ -74,37 +72,39 @@ impl WryWebViewParent {
 
 #[cfg(target_os = "macos")]
 pub unsafe fn inset_traffic_lights(window: &NSWindow, x: f64, y: f64) {
-  let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) else {
-    #[cfg(feature = "tracing")]
-    tracing::warn!("skipping inset_traffic_lights, close button not found");
-    return;
-  };
-  let Some(miniaturize) = window.standardWindowButton(NSWindowButton::MiniaturizeButton) else {
-    #[cfg(feature = "tracing")]
-    tracing::warn!("skipping inset_traffic_lights, miniaturize button not found");
-    return;
-  };
-  let zoom = window.standardWindowButton(NSWindowButton::ZoomButton);
+  unsafe {
+    let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) else {
+      #[cfg(feature = "tracing")]
+      tracing::warn!("skipping inset_traffic_lights, close button not found");
+      return;
+    };
+    let Some(miniaturize) = window.standardWindowButton(NSWindowButton::MiniaturizeButton) else {
+      #[cfg(feature = "tracing")]
+      tracing::warn!("skipping inset_traffic_lights, miniaturize button not found");
+      return;
+    };
+    let zoom = window.standardWindowButton(NSWindowButton::ZoomButton);
 
-  let title_bar_container_view = close.superview().unwrap().superview().unwrap();
+    let title_bar_container_view = close.superview().unwrap().superview().unwrap();
 
-  let close_rect = NSView::frame(&close);
-  let title_bar_frame_height = close_rect.size.height + y;
-  let mut title_bar_rect = NSView::frame(&title_bar_container_view);
-  title_bar_rect.size.height = title_bar_frame_height;
-  title_bar_rect.origin.y = window.frame().size.height - title_bar_frame_height;
-  title_bar_container_view.setFrame(title_bar_rect);
+    let close_rect = NSView::frame(&close);
+    let title_bar_frame_height = close_rect.size.height + y;
+    let mut title_bar_rect = NSView::frame(&title_bar_container_view);
+    title_bar_rect.size.height = title_bar_frame_height;
+    title_bar_rect.origin.y = window.frame().size.height - title_bar_frame_height;
+    title_bar_container_view.setFrame(title_bar_rect);
 
-  let space_between = NSView::frame(&miniaturize).origin.x - close_rect.origin.x;
+    let space_between = NSView::frame(&miniaturize).origin.x - close_rect.origin.x;
 
-  let mut window_buttons = vec![close, miniaturize];
-  if let Some(zoom) = zoom {
-    window_buttons.push(zoom);
-  }
+    let mut window_buttons = vec![close, miniaturize];
+    if let Some(zoom) = zoom {
+      window_buttons.push(zoom);
+    }
 
-  for (i, button) in window_buttons.into_iter().enumerate() {
-    let mut rect = NSView::frame(&button);
-    rect.origin.x = x + (i as f64 * space_between);
-    button.setFrameOrigin(rect.origin);
+    for (i, button) in window_buttons.into_iter().enumerate() {
+      let mut rect = NSView::frame(&button);
+      rect.origin.x = x + (i as f64 * space_between);
+      button.setFrameOrigin(rect.origin);
+    }
   }
 }

@@ -6,7 +6,7 @@
 
 use crate::{Error, RequestAsyncResponder};
 use gtk::glib::{self, MainContext, ObjectExt};
-use http::{header::CONTENT_TYPE, HeaderName, HeaderValue, Request, Response as HttpResponse};
+use http::{HeaderName, HeaderValue, Request, Response as HttpResponse, header::CONTENT_TYPE};
 use soup::{MessageHeaders, MessageHeadersType};
 use std::{
   borrow::Cow,
@@ -312,9 +312,10 @@ impl WebContextExt for super::WebContext {
     let context = &self.os.context;
 
     let download_started_handler = Rc::new(RefCell::new(download_started_handler));
-    let failed = Rc::new(RefCell::new(false));
 
     context.connect_download_started(move |_context, download| {
+      // Failure belongs to this download, not every download in the context.
+      let failed = Rc::new(RefCell::new(false));
       let download_started_handler = download_started_handler.clone();
       download.connect_decide_destination(move |download, suggested_filename| {
         if let Some(uri) = download.request().and_then(|req| req.uri()) {

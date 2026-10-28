@@ -6,12 +6,11 @@ use std::{ffi::CStr, panic::AssertUnwindSafe};
 
 use http::Request;
 use objc2::{
-  define_class, msg_send,
+  DeclaredClass, MainThreadOnly, define_class, msg_send,
   rc::Retained,
   runtime::{NSObject, ProtocolObject},
-  DeclaredClass, MainThreadOnly,
 };
-use objc2_foundation::{ns_string, MainThreadMarker, NSObjectProtocol, NSString};
+use objc2_foundation::{MainThreadMarker, NSObjectProtocol, NSString, ns_string};
 use objc2_web_kit::{WKScriptMessage, WKScriptMessageHandler, WKUserContentController};
 
 pub const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";

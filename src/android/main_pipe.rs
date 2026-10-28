@@ -5,27 +5,26 @@
 use crate::{Error, InitializationScript, RGBA};
 use crossbeam_channel::*;
 use jni::{
+  JNIEnv, JavaVM,
   errors::Result as JniResult,
   objects::{GlobalRef, JMap, JObject, JString},
-  JNIEnv, JavaVM,
 };
-use once_cell::sync::Lazy;
 use std::{
   collections::BTreeMap,
   ffi::c_void,
   os::unix::prelude::*,
-  sync::{Arc, Mutex},
+  sync::{Arc, LazyLock, Mutex},
 };
 
-use super::{find_class, EvalCallback, WebviewId, EVAL_CALLBACKS, EVAL_ID_GENERATOR};
+use super::{EVAL_CALLBACKS, EVAL_ID_GENERATOR, EvalCallback, WebviewId, find_class};
 
 pub type ActivityId = i32;
 
-static CHANNEL: Lazy<(
+static CHANNEL: LazyLock<(
   Sender<(ActivityId, WebViewMessage)>,
   Receiver<(ActivityId, WebViewMessage)>,
-)> = Lazy::new(|| bounded(8));
-pub static MAIN_PIPE: Lazy<[OwnedFd; 2]> = Lazy::new(|| {
+)> = LazyLock::new(|| bounded(8));
+pub static MAIN_PIPE: LazyLock<[OwnedFd; 2]> = LazyLock::new(|| {
   let mut pipe: [RawFd; 2] = Default::default();
   unsafe { libc::pipe(pipe.as_mut_ptr()) };
   unsafe { pipe.map(|fd| OwnedFd::from_raw_fd(fd)) }
@@ -52,8 +51,8 @@ impl ActivityProxy {
   }
 }
 
-static ACTIVITY_PROXY: once_cell::sync::Lazy<Mutex<BTreeMap<ActivityId, ActivityProxy>>> =
-  Lazy::new(|| Mutex::new(BTreeMap::new()));
+static ACTIVITY_PROXY: LazyLock<Mutex<BTreeMap<ActivityId, ActivityProxy>>> =
+  LazyLock::new(|| Mutex::new(BTreeMap::new()));
 
 pub fn activity_proxy(id: ActivityId) -> Option<ActivityProxy> {
   ACTIVITY_PROXY.lock().unwrap().get(&id).cloned()
@@ -298,19 +297,12 @@ impl<'a> MainPipe<'a> {
           &[(&web_chrome_client).into()],
         )?;
 
-        // Add javascript interface (IPC)
+        // Ipc registers itself as `window.ipc`
         let ipc_class = find_class(&mut self.env, &activity, format!("{package}/Ipc"))?;
-        let ipc = self.env.new_object(
+        self.env.new_object(
           ipc_class,
           format!("(L{webview_class_name};L{client_class_name};)V"),
           &[(&webview).into(), (&webview_client).into()],
-        )?;
-        let ipc_str = self.env.new_string("ipc")?;
-        self.env.call_method(
-          &webview,
-          "addJavascriptInterface",
-          "(Ljava/lang/Object;Ljava/lang/String;)V",
-          &[(&ipc).into(), (&ipc_str).into()],
         )?;
 
         // Set content view

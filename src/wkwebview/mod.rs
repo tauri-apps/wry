@@ -25,7 +25,7 @@ use class::{
   wry_download_delegate::WryDownloadDelegate,
   wry_navigation_delegate::WryNavigationDelegate,
   wry_web_view::WryWebViewIvars,
-  wry_web_view_delegate::{WryWebViewDelegate, IPC_MESSAGE_HANDLER_NAME},
+  wry_web_view_delegate::{IPC_MESSAGE_HANDLER_NAME, WryWebViewDelegate},
   wry_web_view_ui_delegate::WryWebViewUIDelegate,
 };
 
@@ -33,9 +33,9 @@ use dpi::{LogicalPosition, LogicalSize};
 #[cfg(target_os = "macos")]
 use objc2::runtime::Bool;
 use objc2::{
+  AllocAnyThread, DeclaredClass, MainThreadOnly, Message,
   rc::Retained,
   runtime::{AnyObject, NSObject, ProtocolObject},
-  AllocAnyThread, DeclaredClass, MainThreadOnly, Message,
 };
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSApplication, NSAutoresizingMaskOptions, NSTitlebarSeparatorStyle, NSView};
@@ -43,11 +43,12 @@ use objc2_app_kit::{NSApplication, NSAutoresizingMaskOptions, NSTitlebarSeparato
 use objc2_core_foundation::CGSize;
 use objc2_core_foundation::{CGPoint, CGRect};
 use objc2_foundation::{
-  ns_string, MainThreadMarker, NSArray, NSBundle, NSDate, NSError, NSHTTPCookie,
-  NSHTTPCookieDomain, NSHTTPCookieExpires, NSHTTPCookieMaximumAge, NSHTTPCookieName,
-  NSHTTPCookiePath, NSHTTPCookiePropertyKey, NSHTTPCookieSecure, NSHTTPCookieValue,
-  NSHTTPCookieVersion, NSJSONSerialization, NSMutableDictionary, NSMutableURLRequest, NSNumber,
-  NSObjectNSKeyValueCoding, NSObjectProtocol, NSString, NSUTF8StringEncoding, NSURL, NSUUID,
+  MainThreadMarker, NSArray, NSBundle, NSDate, NSError, NSHTTPCookie, NSHTTPCookieDomain,
+  NSHTTPCookieExpires, NSHTTPCookieMaximumAge, NSHTTPCookieName, NSHTTPCookiePath,
+  NSHTTPCookiePropertyKey, NSHTTPCookieSecure, NSHTTPCookieValue, NSHTTPCookieVersion,
+  NSJSONSerialization, NSMutableDictionary, NSMutableURLRequest, NSNumber,
+  NSObjectNSKeyValueCoding, NSObjectProtocol, NSString, NSURL, NSUTF8StringEncoding, NSUUID,
+  ns_string,
 };
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::{UIScrollView, UIViewAutoresizing};
@@ -56,7 +57,6 @@ use objc2_ui_kit::{UIScrollView, UIViewAutoresizing};
 use objc2_app_kit::NSWindow;
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::UIView as NSView;
-use once_cell::sync::Lazy;
 // #[cfg(target_os = "ios")]
 // use objc2_ui_kit::UIWindow as NSWindow;
 
@@ -84,7 +84,7 @@ use std::{
   ptr::NonNull,
   rc::Rc,
   str::{self, FromStr},
-  sync::{Arc, Mutex, RwLock},
+  sync::{Arc, LazyLock, Mutex, RwLock},
   time::Duration,
 };
 
@@ -97,7 +97,7 @@ use crate::{
 };
 
 use crate::{
-  BackgroundThrottlingPolicy, Error, Rect, RequestAsyncResponder, Result, WebViewAttributes, RGBA,
+  BackgroundThrottlingPolicy, Error, RGBA, Rect, RequestAsyncResponder, Result, WebViewAttributes,
 };
 
 use http::Request;
@@ -106,7 +106,49 @@ use crate::util::Counter;
 
 static COUNTER: Counter = Counter::new();
 
-static WEBVIEW_STATE: Lazy<RwLock<HashMap<String, WebViewState>>> = Lazy::new(Default::default);
+static WEBVIEW_STATE: LazyLock<RwLock<HashMap<String, WebViewState>>> =
+  LazyLock::new(Default::default);
+
+thread_local! {
+  /// A manual reference count of the live webviews using each `WKUserContentController`, keyed by
+  /// the controller's address.
+  ///
+  /// `InnerWebView::new` increments it and `InnerWebView::drop` decrements it, removing the entry
+  /// at zero. A webview built on its opener's configuration (`NewWindowResponse::Create`) shares
+  /// the opener's controller. When the count is already above zero, the new webview skips its init
+  /// scripts and `ipc` handler: the opener's already serve the controller, and removing the
+  /// handler on drop would remove the opener's.
+  static CONTROLLER_REF_COUNT: RefCell<HashMap<usize, usize>> = RefCell::new(HashMap::new());
+}
+
+/// Increments `controller`'s reference count, returning whether another live webview already uses it.
+fn retain_controller(controller: &WKUserContentController) -> bool {
+  CONTROLLER_REF_COUNT.with(|counts| {
+    let mut counts = counts.borrow_mut();
+    let count = counts.entry(controller as *const _ as usize).or_default();
+    *count += 1;
+    *count > 1
+  })
+}
+
+/// Decrements `controller`'s reference count, returning if this is the last webview using it.
+fn release_controller(controller: &WKUserContentController) -> bool {
+  CONTROLLER_REF_COUNT.with(|counts| {
+    let mut counts = counts.borrow_mut();
+    let key = controller as *const _ as usize;
+    if let Some(count) = counts.get_mut(&key) {
+      *count -= 1;
+      if *count == 0 {
+        counts.remove(&key);
+        true
+      } else {
+        false
+      }
+    } else {
+      false
+    }
+  })
+}
 
 struct WebViewState {
   pub protocol_ptrs:
@@ -549,8 +591,19 @@ impl InnerWebView {
         _preference.setValue_forKey(Some(&_yes), ns_string!("developerExtrasEnabled"));
       }
 
+      // See `CONTROLLER_REF_COUNT`.
+      let shares_controller = retain_controller(&manager);
+      #[cfg(feature = "tracing")]
+      if shares_controller {
+        tracing::debug!(
+          "WebView shares its opener's user content controller; skipping its init scripts and IPC handler"
+        );
+      }
+
       // Message handler
-      let ipc_handler_delegate = if let Some(ipc_handler) = attributes.ipc_handler {
+      let ipc_handler_delegate = if shares_controller {
+        None
+      } else if let Some(ipc_handler) = attributes.ipc_handler {
         let delegate = WryWebViewDelegate::new(manager.clone(), ipc_handler, mtm);
         Some(delegate)
       } else {
@@ -643,8 +696,10 @@ impl InnerWebView {
           true,
         );
       }
-      for init_script in attributes.initialization_scripts {
-        w.init(&init_script.script, init_script.for_main_frame_only);
+      if !shares_controller {
+        for init_script in attributes.initialization_scripts {
+          w.init(&init_script.script, init_script.for_main_frame_only);
+        }
       }
 
       // Set user agent
@@ -686,20 +741,24 @@ impl InnerWebView {
           // Tell the webview receive keyboard events in the window.
           // See https://github.com/tauri-apps/wry/issues/739
           ns_window.setContentView(Some(&parent_view));
-          ns_window.makeFirstResponder(Some(&webview));
+          if attributes.visible && attributes.focused {
+            ns_window.makeFirstResponder(Some(&webview));
+          }
 
           w.parent_view = Some(parent_view);
         }
 
-        // make sure the window is always on top when we create a new webview
-        let app = NSApplication::sharedApplication(mtm);
-        if os_major_version >= 14 {
-          // <https://developer.apple.com/documentation/appkit/nsapplication/activate()>
-          // Available: macOS 14+
-          NSApplication::activate(&app);
-        } else {
-          #[allow(deprecated)]
-          NSApplication::activateIgnoringOtherApps(&app, true);
+        // Hidden or unfocused webviews must not activate their containing application.
+        if attributes.visible && attributes.focused {
+          let app = NSApplication::sharedApplication(mtm);
+          if os_major_version >= 14 {
+            // <https://developer.apple.com/documentation/appkit/nsapplication/activate()>
+            // Available: macOS 14+
+            NSApplication::activate(&app);
+          } else {
+            #[allow(deprecated)]
+            NSApplication::activateIgnoringOtherApps(&app, true);
+          }
         }
       }
 
@@ -735,6 +794,12 @@ impl InnerWebView {
             #[cfg(feature = "tracing")]
             span.lock().unwrap().take();
 
+            #[cfg(feature = "tracing")]
+            if !_err.is_null() {
+              let description = (*_err).localizedDescription().to_string();
+              tracing::debug!("Exception during script eval: {description}");
+            }
+
             let mut result = String::new();
 
             if !val.is_null() {
@@ -762,6 +827,11 @@ impl InnerWebView {
           let handler = Some(block2::RcBlock::new(
             move |_val: *mut AnyObject, _err: *mut NSError| {
               span.lock().unwrap().take();
+              #[cfg(feature = "tracing")]
+              if !_err.is_null() {
+                let description = (*_err).localizedDescription().to_string();
+                tracing::debug!("Exception during script eval: {description}");
+              }
             },
           ));
           #[cfg(not(feature = "tracing"))]
@@ -1140,27 +1210,27 @@ impl InnerWebView {
     let properties: Retained<NSMutableDictionary<NSHTTPCookiePropertyKey, AnyObject>> =
       NSMutableDictionary::from_slices(
         &[
-          NSHTTPCookieName,
-          NSHTTPCookieValue,
-          NSHTTPCookiePath,
-          NSHTTPCookieDomain,
+          unsafe { NSHTTPCookieName },
+          unsafe { NSHTTPCookieValue },
+          unsafe { NSHTTPCookiePath },
+          unsafe { NSHTTPCookieDomain },
         ],
         &[&name, &value, &path, &domain],
       );
 
     if let Some(max_age_) = cookie.max_age() {
       let max_age = NSString::from_str(&max_age_.whole_seconds().to_string());
-      properties.insert(NSHTTPCookieMaximumAge, &*max_age);
-      properties.insert(NSHTTPCookieVersion, nstring_1);
+      properties.insert(unsafe { NSHTTPCookieMaximumAge }, &*max_age);
+      properties.insert(unsafe { NSHTTPCookieVersion }, nstring_1);
     } else if let Some(dt) = cookie.expires_datetime() {
       let expires = NSDate::dateWithTimeIntervalSince1970(dt.unix_timestamp() as f64);
-      properties.insert(NSHTTPCookieExpires, &*expires);
-      properties.insert(NSHTTPCookieVersion, nstring_0);
+      properties.insert(unsafe { NSHTTPCookieExpires }, &*expires);
+      properties.insert(unsafe { NSHTTPCookieVersion }, nstring_0);
     }
 
     if let Some(secure) = cookie.secure() {
       let secure = if secure { nstring_true } else { nstring_false };
-      properties.insert(NSHTTPCookieSecure, secure);
+      properties.insert(unsafe { NSHTTPCookieSecure }, secure);
     }
 
     if let Some(http_only) = cookie.http_only() {
@@ -1191,8 +1261,10 @@ impl InnerWebView {
       };
     }
 
-    NSHTTPCookie::cookieWithProperties(&properties)
-      .expect("failed to create wkwebview cookie, report this as bug to `wry`")
+    unsafe {
+      NSHTTPCookie::cookieWithProperties(&properties)
+        .expect("failed to create wkwebview cookie, report this as bug to `wry`")
+    }
   }
 
   pub fn cookies_for_url(&self, url: &str) -> Result<Vec<cookie::Cookie<'static>>> {
@@ -1417,18 +1489,21 @@ pub fn platform_webview_version() -> Result<String> {
 impl Drop for InnerWebView {
   fn drop(&mut self) {
     WEBVIEW_STATE.write().unwrap().remove(&self.id);
+    let last_webview = release_controller(&self.manager);
 
-    // We need to drop handler closures here
     unsafe {
-      if let Some(ipc_handler) = self.ipc_handler_delegate.take() {
-        let ipc = ns_string!(IPC_MESSAGE_HANDLER_NAME);
-        // this will decrease the retain count of the ipc handler and trigger the drop
-        ipc_handler
-          .ivars()
-          .controller
-          .removeScriptMessageHandlerForName(ipc);
+      // This prevents a segfault on the did_receive hook,
+      // see https://github.com/tauri-apps/wry/pull/700
+      if last_webview {
+        if let Some(ipc_handler) = self.ipc_handler_delegate.take() {
+          let ipc = ns_string!(IPC_MESSAGE_HANDLER_NAME);
+          // this will decrease the retain count of the ipc handler and trigger the drop
+          ipc_handler
+            .ivars()
+            .controller
+            .removeScriptMessageHandlerForName(ipc);
+        }
       }
-
       // Remove webview from window's NSView before dropping.
       self.webview.removeFromSuperview();
       self.webview.retain();

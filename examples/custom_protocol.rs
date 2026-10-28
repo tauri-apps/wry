@@ -10,8 +10,8 @@ use tao::{
   window::WindowBuilder,
 };
 use wry::{
-  http::{header::CONTENT_TYPE, Request, Response},
   WebViewBuilder,
+  http::{Request, Response, header::CONTENT_TYPE},
 };
 
 pub fn main() -> wry::Result<()> {
