@@ -107,8 +107,7 @@ pub fn get_webview(activity_id: ActivityId) -> Option<GlobalRef> {
   ACTIVITY_PROXY
     .lock()
     .unwrap()
-    .get(&activity_id)
-    .unwrap()
+    .get(&activity_id)?
     .webview
     .as_ref()
     .cloned()
