@@ -1224,6 +1224,7 @@ impl InnerWebView {
 
       let mut stream = None;
       if !content.is_empty() {
+        check_response_body_len(content.len())?;
         stream = SHCreateMemStream(Some(content));
       }
 
@@ -2025,9 +2026,29 @@ pub fn platform_webview_version() -> Result<String> {
   Ok(take_pwstr(versioninfo))
 }
 
+/// `SHCreateMemStream` takes the length as a `u32` and panics on larger bodies.
+fn check_response_body_len(len: usize) -> windows::core::Result<()> {
+  u32::try_from(len).map(|_| ()).map_err(|_| {
+    windows::core::Error::new(E_INVALIDARG, "custom protocol response body exceeds 4 GiB")
+  })
+}
+
 #[inline]
 fn is_windows_7() -> bool {
   let v = windows_version::OsVersion::current();
   // windows 7 is 6.1
   v.major == 6 && v.minor == 1
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn response_body_len_limit() {
+    assert!(check_response_body_len(0).is_ok());
+    assert!(check_response_body_len(u32::MAX as usize).is_ok());
+    #[cfg(target_pointer_width = "64")]
+    assert!(check_response_body_len(u32::MAX as usize + 1).is_err());
+  }
 }
