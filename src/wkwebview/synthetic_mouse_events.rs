@@ -1,4 +1,4 @@
-use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSView};
+use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType};
 use objc2_foundation::NSString;
 
 use super::WryWebView;
@@ -53,7 +53,7 @@ pub(crate) fn other_mouse_up(this: &WryWebView, event: &NSEvent) {
 }
 
 unsafe fn create_js_mouse_event(
-  view: &NSView,
+  view: &WryWebView,
   event: &NSEvent,
   down: bool,
   back_button: bool,
@@ -64,14 +64,27 @@ unsafe fn create_js_mouse_event(
   let mods_flags = event.modifierFlags();
   let window_point = event.locationInWindow();
   let view_point = view.convertPoint_fromView(window_point, None);
-  let x = view_point.x as u32;
-  let y = view_point.y as u32;
+  // The page's own coordinates: CSS pixels from the top left. A view that
+  // is not flipped counts `y` from its bottom, and a page zoom scales CSS
+  // pixels against the view's points, so a point read off the view alone
+  // can stand past the page's edge, where `elementFromPoint` finds nothing.
+  let top_down = if view.isFlipped() {
+    view_point.y
+  } else {
+    view.frame().size.height - view_point.y
+  };
+  let zoom = match unsafe { view.pageZoom() } {
+    zoom if zoom > 0.0 => zoom,
+    _ => 1.0,
+  };
+  let x = view_point.x / zoom;
+  let y = top_down / zoom;
   // js equivalent https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/buttons
   let buttons = NSEvent::pressedMouseButtons();
 
   format!(
     r#"(() => {{
-        const el = document.elementFromPoint({x},{y});
+        const el = document.elementFromPoint({x},{y}) ?? document.documentElement;
         const ev = new MouseEvent('{event_name}', {{
           view: window,
           button: {button},
