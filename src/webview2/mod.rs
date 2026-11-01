@@ -2025,11 +2025,19 @@ pub fn platform_webview_version() -> Result<String> {
   Ok(take_pwstr(versioninfo))
 }
 
-/// `SHCreateMemStream` takes the length as a `u32` and panics on larger bodies.
+/// WebView2 crashes on very large response bodies, the real limit is unknown
+/// (https://github.com/MicrosoftEdge/WebView2Feedback/issues/5651), so stay well below the
+/// `u32` length `SHCreateMemStream` takes.
+const MAX_RESPONSE_BODY_LEN: usize = 1 << 30;
+
 fn check_response_body_len(len: usize) -> windows::core::Result<()> {
-  u32::try_from(len).map(|_| ()).map_err(|_| {
-    windows::core::Error::new(E_INVALIDARG, "custom protocol response body exceeds 4 GiB")
-  })
+  if len > MAX_RESPONSE_BODY_LEN {
+    return Err(windows::core::Error::new(
+      E_INVALIDARG,
+      "custom protocol response body exceeds 1 GiB",
+    ));
+  }
+  Ok(())
 }
 
 #[inline]
@@ -2043,11 +2051,10 @@ fn is_windows_7() -> bool {
 mod tests {
   use super::*;
 
+  // Only the constant is checked: building a `windows` error calls into the OS, which miri can't run.
   #[test]
-  fn response_body_len_limit() {
-    assert!(check_response_body_len(0).is_ok());
-    assert!(check_response_body_len(u32::MAX as usize).is_ok());
-    #[cfg(target_pointer_width = "64")]
-    assert!(check_response_body_len(u32::MAX as usize + 1).is_err());
+  fn response_body_limit_fits_u32() {
+    assert!(u32::try_from(MAX_RESPONSE_BODY_LEN).is_ok());
+    assert!(check_response_body_len(MAX_RESPONSE_BODY_LEN).is_ok());
   }
 }
