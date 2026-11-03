@@ -310,6 +310,10 @@ impl InnerWebView {
     // Webview handlers
     Self::attach_handlers(&webview, web_context, &mut attributes);
 
+    if let Some(handler) = pl_attrs.on_web_content_process_terminate_handler {
+      webview.connect_web_process_terminated(move |_, _| handler());
+    }
+
     // IPC handler
     let ipc_enabled = attributes.ipc_handler.is_some();
     if let Some(ipc_handler) = attributes.ipc_handler.take() {
