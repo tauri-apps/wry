@@ -185,15 +185,13 @@ impl WebContextExt for super::WebContext {
               const BUFFER_LEN: usize = 1024;
               let mut result = Vec::new();
               let mut buffer = vec![0; BUFFER_LEN];
+              // A short read is not the end of the stream (a multipart body may
+              // return one part per read): only 0 is.
               while let Ok(count) = s.read(&mut buffer[..], cancellable) {
-                if count == BUFFER_LEN {
-                  result.append(&mut buffer);
-                  buffer.resize(BUFFER_LEN, 0);
-                } else {
-                  buffer.truncate(count);
-                  result.append(&mut buffer);
+                if count == 0 {
                   break;
                 }
+                result.extend_from_slice(&buffer[..count]);
               }
               result
             })
