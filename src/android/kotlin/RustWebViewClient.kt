@@ -8,9 +8,14 @@ import android.net.Uri
 import android.webkit.*
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import androidx.webkit.ServiceWorkerClientCompat
+import androidx.webkit.ServiceWorkerControllerCompat
 import androidx.webkit.WebViewAssetLoader
+import androidx.webkit.WebViewFeature
+import java.io.ByteArrayInputStream
 import java.io.InputStream
 
 class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient() {
@@ -18,6 +23,13 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
     @Volatile var currentUrl: String = "about:blank"
     private var lastInterceptedUrl: Uri? = null
     private var pendingUrlRedirect: String? = null
+    // the URL wry answered for the newest main-frame request, without its fragment; consumed by the next onPageStarted
+    private var servedMainFrameUrl: String? = null
+    private var newestMainFrameRequest: WebResourceRequest? = null
+    // the URL of the page the onPageStarted guard replaced, until the next page starts
+    private var replacedPageUrl: String? = null
+    // the custom protocol host URL to reload once its page commits, so the reload replaces its history entry
+    private var reloadOnCommitUrl: String? = null
 
     private val assetLoader = Rust.assetLoaderDomain(webView.id)?.let { domain ->
         WebViewAssetLoader.Builder()
@@ -26,16 +38,27 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
             .build()
     }
 
+    private val customProtocolHosts = Rust.customProtocolHosts(webView.id)?.toSet().orEmpty()
+
+    init {
+        CustomProtocolHostGuard.blockServiceWorkers(customProtocolHosts)
+    }
+
     override fun shouldInterceptRequest(
         view: WebView,
         request: WebResourceRequest
     ): WebResourceResponse? {
+        if (request.isForMainFrame) {
+            synchronized(this) { newestMainFrameRequest = request }
+        }
         pendingUrlRedirect?.let {
             Handler(Looper.getMainLooper()).post {
               view.loadUrl(it)
             }
             pendingUrlRedirect = null
-            return null
+            val response = forbiddenIfCustomProtocolHost(request.url)
+            recordMainFrameResponse(request, response)
+            return response
         }
 
         lastInterceptedUrl = request.url
@@ -44,6 +67,7 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         } else {
             val rustWebView = view as RustWebView
             val response = Rust.handleRequest(rustWebView.id, request, rustWebView.isDocumentStartScriptEnabled)
+                ?: forbiddenIfCustomProtocolHost(request.url)
             if (response != null) {
                 if (response.responseHeaders != null) {
                     response.responseHeaders["Cache-Control"] = "no-store"
@@ -53,6 +77,7 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
                 wrapPartialContentBody(request, response)
             }
             interceptedState[request.url.toString()] = response != null
+            recordMainFrameResponse(request, response)
             return response
         }
     }
@@ -61,10 +86,27 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         view: WebView,
         request: WebResourceRequest
     ): Boolean {
+        // redirects skip shouldInterceptRequest, so reload the host to serve it locally
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && request.isRedirect && request.isForMainFrame && isCustomProtocolHost(request.url)) {
+            view.loadUrl(request.url.toString())
+            return true
+        }
         return Rust.shouldOverride((view as RustWebView).id, request.url.toString())
     }
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+        // a POST redirected with 307 or 308 skips shouldOverrideUrlLoading and shouldInterceptRequest,
+        // so the real server's response would load on the custom protocol host; reload it locally instead
+        // interceptedState can't tell: it keeps every URL ever served, so a repeated POST to one would pass
+        if (takeServedMainFrameUrl() != url.substringBefore('#') && isCustomProtocolHost(Uri.parse(url))) {
+            // reload once the page commits: for a failed load this runs before its error page commits,
+            // and a reload started now would add an entry after it
+            reloadOnCommitUrl = url
+            replacedPageUrl = url
+            return
+        }
+        reloadOnCommitUrl = null
+        replacedPageUrl = null
         currentUrl = url
         val webView = view as RustWebView
         if (interceptedState[url] == false && !webView.isDocumentStartScriptEnabled) {
@@ -75,7 +117,18 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         return Rust.onPageLoading(webView.id, url)
     }
 
+    override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+        // the page committed (error pages report nothing else), so loading its URL again replaces its entry
+        if (url == reloadOnCommitUrl) {
+            reloadOnCommitUrl = null
+            view.stopLoading()
+            view.loadUrl(url)
+        }
+    }
+
     override fun onPageFinished(view: WebView, url: String) {
+        // the replaced page can still finish before the reload starts; it never reported onPageLoading
+        if (url == replacedPageUrl) return
         Rust.onPageLoaded((view as RustWebView).id, url)
     }
 
@@ -87,7 +140,8 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         // we get a net::ERR_CONNECTION_REFUSED when an external URL redirects to a custom protocol
         // e.g. oauth flow, because shouldInterceptRequest is not called on redirects
         // so we must force retry here with loadUrl() to get a chance of the custom protocol to kick in
-        if (error.errorCode == ERROR_CONNECT && request.isForMainFrame && request.url != lastInterceptedUrl) {
+        // failed custom protocol host loads are left to onPageStarted, which reloads them once their error page commits
+        if (error.errorCode == ERROR_CONNECT && request.isForMainFrame && request.url != lastInterceptedUrl && !isCustomProtocolHost(request.url)) {
             // prevent the default error page from showing
             view.stopLoading()
             // without this initial loadUrl the app is stuck
@@ -98,6 +152,21 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
             super.onReceivedError(view, request, error)
         }
     }
+
+    // shouldInterceptRequest calls run in parallel, so only the newest main-frame request may set servedMainFrameUrl:
+    // one that a newer navigation cancelled can finish later, and must not vouch for a redirect to its URL
+    private fun recordMainFrameResponse(request: WebResourceRequest, response: WebResourceResponse?) = synchronized(this) {
+        if (request === newestMainFrameRequest) {
+            servedMainFrameUrl = if (response != null) request.url.toString().substringBefore('#') else null
+        }
+    }
+
+    private fun takeServedMainFrameUrl() = synchronized(this) { servedMainFrameUrl.also { servedMainFrameUrl = null } }
+
+    private fun isCustomProtocolHost(url: Uri) = CustomProtocolHostGuard.matches(customProtocolHosts, url)
+
+    private fun forbiddenIfCustomProtocolHost(url: Uri) =
+        if (isCustomProtocolHost(url)) CustomProtocolHostGuard.forbiddenResponse() else null
 
     /**
      * Before it reads an intercepted stream, the WebView skips to the first byte of a
@@ -142,6 +211,44 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
     }
 
     {{class-extension}}
+}
+
+private object CustomProtocolHostGuard {
+    @Volatile
+    private var serviceWorkerHosts = emptySet<String>()
+    private var serviceWorkerClientInstalled = false
+
+    fun matches(hosts: Set<String>, url: Uri) =
+        url.host?.lowercase()?.trimEnd('.') in hosts
+
+    fun forbiddenResponse() = WebResourceResponse(
+        "text/plain",
+        null,
+        403,
+        "Forbidden",
+        hashMapOf("Cache-Control" to "no-store"),
+        ByteArrayInputStream(ByteArray(0))
+    )
+
+    // the service worker client is process-wide, so it covers every webview's hosts.
+    // hosts stay blocked after their webview is destroyed, as another webview may still map them
+    @Synchronized
+    fun blockServiceWorkers(hosts: Set<String>) {
+        if (hosts.isEmpty()) return
+        serviceWorkerHosts = serviceWorkerHosts + hosts
+        if (serviceWorkerClientInstalled) return
+        serviceWorkerClientInstalled = true
+
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE) ||
+            !WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_SHOULD_INTERCEPT_REQUEST)) {
+            Logger.warn("WebView can't intercept service worker requests to custom protocol hosts")
+            return
+        }
+        ServiceWorkerControllerCompat.getInstance().setServiceWorkerClient(object : ServiceWorkerClientCompat() {
+            override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? =
+                if (matches(serviceWorkerHosts, request.url)) forbiddenResponse() else null
+        })
+    }
 }
 
 /**
