@@ -69,7 +69,7 @@ macro_rules! define_static_handlers {
 
 define_static_handlers! {
   IPC = UnsafeIpc { handler: Box<dyn Fn(Request<String>)> };
-  REQUEST_HANDLER = UnsafeRequestHandler { handler: Arc<dyn Fn(&str, Request<Vec<u8>>, bool) -> Option<HttpResponse<Cow<'static, [u8]>>> + Send + Sync> };
+  REQUEST_HANDLER = UnsafeRequestHandler { handler: Arc<dyn Fn(&str, Request<Vec<u8>>, bool, bool) -> Option<HttpResponse<Cow<'static, [u8]>>> + Send + Sync> };
   TITLE_CHANGE_HANDLER = UnsafeTitleHandler { handler: Box<dyn Fn(String)> };
   URL_LOADING_OVERRIDE = UnsafeUrlLoadingOverride { handler: Box<dyn Fn(String) -> bool> };
   ON_LOAD_HANDLER = UnsafeOnPageLoadHandler { handler: Box<dyn Fn(PageLoadEvent, String)> };
@@ -228,7 +228,7 @@ impl InnerWebView {
     REQUEST_HANDLER.lock().unwrap().insert(
       id.clone(),
       UnsafeRequestHandler::new(Arc::new(
-        move |webview_id, mut request, is_document_start_script_enabled| {
+        move |webview_id, mut request, is_document_start_script_enabled, is_for_main_frame| {
           let uri = request.uri().to_string();
           let (custom_protocol, custom_protocol_handler) =
             custom_protocols.iter().find(|(protocol, _)| {
@@ -253,6 +253,16 @@ impl InnerWebView {
               if !is_document_start_script_enabled {
                 #[cfg(feature = "tracing")]
                 tracing::info!("`addDocumentStartJavaScript` is not supported; injecting initialization scripts via custom protocol handler");
+                // A subframe could read injected `<script>` elements, so main-frame-only scripts
+                // are left out of subframe documents instead of being guarded.
+                let initialization_scripts = if is_for_main_frame {
+                  initialization_scripts
+                } else {
+                  initialization_scripts
+                    .into_iter()
+                    .filter(|script| !script.for_main_frame_only)
+                    .collect()
+                };
                 response = inject_scripts_into_html(response, &initialization_scripts);
               }
               let _ = tx.send(response);

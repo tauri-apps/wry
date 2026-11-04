@@ -136,6 +136,10 @@ fn handle_request(
 
   request_builder = request_builder.uri(&url);
 
+  let is_for_main_frame = env
+    .call_method(&request, "isForMainFrame", "()Z", &[])?
+    .z()?;
+
   let method = env
     .call_method(&request, "getMethod", "()Ljava/lang/String;", &[])?
     .l()
@@ -182,6 +186,7 @@ fn handle_request(
       webview_id,
       final_request,
       is_document_start_script_enabled != 0,
+      is_for_main_frame,
     )
   };
   let Some(response) = response else {
