@@ -63,7 +63,8 @@ class RustWebView(context: Context, val initScripts: Array<String>, val id: Stri
 
     fun loadHTMLMainThread(html: String) {
         post {
-          super.loadData(html, "text/html", null)
+          // A null base URL gives about:blank, which IPC accepts as a request URI.
+          super.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
         }
     }
 
@@ -89,7 +90,8 @@ class RustWebView(context: Context, val initScripts: Array<String>, val id: Stri
 
     fun getCookies(url: String): String {
         val cookieManager = CookieManager.getInstance()
-        return cookieManager.getCookie(url)
+        // `getCookie` returns null when the URL has no cookies
+        return cookieManager.getCookie(url) ?: ""
     }
 
     {{class-extension}}

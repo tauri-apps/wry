@@ -20,6 +20,9 @@ import androidx.lifecycle.ProcessLifecycleOwner
 
 private const val ACTIVITY_ID_KEY = "__wryActivityId"
 
+private fun Bundle?.activityId(): Int? =
+    this?.takeIf { it.containsKey(ACTIVITY_ID_KEY) }?.getInt(ACTIVITY_ID_KEY)
+
 object WryLifecycleObserver : DefaultLifecycleObserver {
     // This only runs once: https://developer.android.com/reference/androidx/lifecycle/ProcessLifecycleOwner
     override fun onCreate(owner: LifecycleOwner) {
@@ -108,7 +111,7 @@ abstract class WryActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        id = savedInstanceState?.getInt(ACTIVITY_ID_KEY) ?: intent.extras?.getInt(ACTIVITY_ID_KEY) ?: hashCode()
+        id = savedInstanceState.activityId() ?: intent.extras.activityId() ?: hashCode()
 
         permissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions(),
