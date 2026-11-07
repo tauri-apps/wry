@@ -1224,6 +1224,7 @@ impl InnerWebView {
 
       let mut stream = None;
       if !content.is_empty() {
+        check_response_body_len(content.len())?;
         stream = SHCreateMemStream(Some(content));
       }
 
@@ -2025,9 +2026,36 @@ pub fn platform_webview_version() -> Result<String> {
   Ok(take_pwstr(versioninfo))
 }
 
+/// WebView2 crashes on very large response bodies, the real limit is unknown
+/// (https://github.com/MicrosoftEdge/WebView2Feedback/issues/5651), so stay well below the
+/// `u32` length `SHCreateMemStream` takes.
+const MAX_RESPONSE_BODY_LEN: usize = 1 << 30;
+
+fn check_response_body_len(len: usize) -> windows::core::Result<()> {
+  if len > MAX_RESPONSE_BODY_LEN {
+    return Err(windows::core::Error::new(
+      E_INVALIDARG,
+      "custom protocol response body exceeds 1 GiB",
+    ));
+  }
+  Ok(())
+}
+
 #[inline]
 fn is_windows_7() -> bool {
   let v = windows_version::OsVersion::current();
   // windows 7 is 6.1
   v.major == 6 && v.minor == 1
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  // Only the constant is checked: building a `windows` error calls into the OS, which miri can't run.
+  #[test]
+  fn response_body_limit_fits_u32() {
+    assert!(u32::try_from(MAX_RESPONSE_BODY_LEN).is_ok());
+    assert!(check_response_body_len(MAX_RESPONSE_BODY_LEN).is_ok());
+  }
 }
