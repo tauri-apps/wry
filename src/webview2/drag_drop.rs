@@ -20,7 +20,7 @@ use windows::{
     Foundation::{DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINT, POINTL},
     Graphics::Gdi::ScreenToClient,
     System::{
-      Com::{DVASPECT_CONTENT, FORMATETC, IDataObject, TYMED_HGLOBAL},
+      Com::{CoTaskMemFree, DVASPECT_CONTENT, FORMATETC, IDataObject, TYMED_HGLOBAL},
       Ole::{
         CF_HDROP, DROPEFFECT, DROPEFFECT_COPY, DROPEFFECT_NONE, IDropTarget, IDropTarget_Impl,
         RegisterDragDrop, RevokeDragDrop,
@@ -28,7 +28,10 @@ use windows::{
       SystemServices::MODIFIERKEYS_FLAGS,
     },
     UI::{
-      Shell::{DragFinish, DragQueryFileW, HDROP},
+      Shell::{
+        DragFinish, DragQueryFileW, HDROP, IShellItemArray, SHCreateShellItemArrayFromDataObject,
+        SIGDN_FILESYSPATH,
+      },
       WindowsAndMessaging::EnumChildWindows,
     },
   },
@@ -96,10 +99,15 @@ impl DragDropTarget {
     }
   }
 
+  /// Calls `callback` for every dropped file-system path.
+  ///
+  /// Returns `None` when the data holds no file paths. Otherwise returns
+  /// `Some(hdrop)`, where `hdrop` is the `CF_HDROP` handle to release with
+  /// `DragFinish`, or `None` when the paths came from the shell item array.
   unsafe fn iterate_filenames<F>(
     data_obj: windows_core::Ref<'_, IDataObject>,
     mut callback: F,
-  ) -> Option<HDROP>
+  ) -> Option<Option<HDROP>>
   where
     F: FnMut(PathBuf),
   {
@@ -136,8 +144,13 @@ impl DragDropTarget {
             callback(OsString::from_wide(&path_buf[0..character_count]).into());
           }
 
-          Some(hdrop)
+          Some(Some(hdrop))
         }
+        // File Explorer cannot build CF_HDROP when any dragged path is
+        // MAX_PATH (260) characters or longer: GetData fails with
+        // ERROR_INSUFFICIENT_BUFFER (0x8007007A), even with long paths
+        // enabled. The shell item array has no such limit.
+        Err(_) if Self::iterate_shell_items(&data_obj, &mut callback) => Some(None),
         Err(_error) => {
           #[cfg(feature = "tracing")]
           tracing::warn!(
@@ -156,6 +169,41 @@ impl DragDropTarget {
       }
     }
   }
+
+  /// Reads file-system paths from the shell item array in `data_obj`.
+  /// Returns true when at least one path was found.
+  unsafe fn iterate_shell_items<F>(
+    data_obj: &windows_core::Ref<'_, IDataObject>,
+    callback: &mut F,
+  ) -> bool
+  where
+    F: FnMut(PathBuf),
+  {
+    let Some(data_obj) = data_obj.as_ref() else {
+      return false;
+    };
+    unsafe {
+      let Ok(items) = SHCreateShellItemArrayFromDataObject::<_, IShellItemArray>(data_obj) else {
+        return false;
+      };
+      let count = items.GetCount().unwrap_or(0);
+
+      let mut found = false;
+      for i in 0..count {
+        let Ok(item) = items.GetItemAt(i) else {
+          continue;
+        };
+        // Fails for items with no file-system path (virtual or device items).
+        let Ok(name) = item.GetDisplayName(SIGDN_FILESYSPATH) else {
+          continue;
+        };
+        callback(OsString::from_wide(name.as_wide()).into());
+        CoTaskMemFree(Some(name.0 as _));
+        found = true;
+      }
+      found
+    }
+  }
 }
 
 #[allow(non_snake_case)]
@@ -170,12 +218,21 @@ impl IDropTarget_Impl for DragDropTarget_Impl {
     let mut pt = POINT { x: pt.x, y: pt.y };
     let _ = unsafe { ScreenToClient(self.hwnd, &mut pt) };
 
+    // Reset the state left by the previous drag. Otherwise a drag with no
+    // file paths that follows an accepted one keeps `enter_is_valid` set and
+    // still emits `Over` and a `Drop` with no paths.
+    unsafe {
+      *self.enter_is_valid.get() = false;
+      *self.cursor_effect.get() = DROPEFFECT_NONE;
+    }
+
     let mut paths = Vec::new();
     let hdrop = unsafe { DragDropTarget::iterate_filenames(pDataObj, |path| paths.push(path)) };
 
     let enter_is_valid = hdrop.is_some();
 
     if !enter_is_valid {
+      unsafe { *pdwEffect = DROPEFFECT_NONE };
       return Ok(());
     };
 
@@ -245,7 +302,7 @@ impl IDropTarget_Impl for DragDropTarget_Impl {
         position: (pt.x as _, pt.y as _),
       });
 
-      if let Some(hdrop) = hdrop {
+      if let Some(Some(hdrop)) = hdrop {
         unsafe { DragFinish(hdrop) };
       }
     }
