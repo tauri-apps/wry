@@ -26,7 +26,11 @@ use windows::{
     Globalization::*,
     Graphics::Gdi::*,
     System::{Com::*, LibraryLoader::GetModuleHandleW},
-    UI::{Input::KeyboardAndMouse::SetFocus, Shell::*, WindowsAndMessaging::*},
+    UI::{
+      Input::KeyboardAndMouse::{GetFocus, SetFocus},
+      Shell::*,
+      WindowsAndMessaging::*,
+    },
   },
   core::{BOOL, HSTRING, Interface, PCWSTR, PWSTR, s, w},
 };
@@ -46,6 +50,10 @@ const PARENT_DESTROY_MESSAGE: u32 = WM_USER + 0x65;
 const MAIN_THREAD_DISPATCHER_SUBCLASS_ID: u32 = WM_USER + 0x66;
 static EXEC_MSG_ID: LazyLock<u32> =
   LazyLock::new(|| unsafe { RegisterWindowMessageA(s!("Wry::ExecMsg")) });
+/// Posted by the parent window subclass to itself on `WM_SETFOCUS`, see
+/// [`InnerWebView::parent_subclass_proc`].
+static PARENT_FOCUS_MSG_ID: LazyLock<u32> =
+  LazyLock::new(|| unsafe { RegisterWindowMessageA(s!("Wry::ParentSetFocus")) });
 
 impl From<webview2_com::Error> for Error {
   fn from(err: webview2_com::Error) -> Self {
@@ -1359,9 +1367,30 @@ impl InnerWebView {
           }
         }
 
+        // When the hosting window gains focus (Alt+Tab, click on the title bar, programmatic
+        // activation, ...) move the focus into the webview so the keyboard keeps working.
+        //
+        // The call is deferred with a posted message instead of calling `MoveFocus` right
+        // here. `WM_SETFOCUS` arrives while Windows is still in the middle of activating the
+        // window, and calling `MoveFocus` synchronously at that point makes WebView2's text
+        // input (TSF/IME) end up in a broken state when two webviews of the same browser
+        // process live in different top-level windows of the same app: the IME composition
+        // window shows up detached at the top-left corner of the screen and the page never
+        // receives `compositionstart`. Letting the activation finish first avoids this.
+        // See https://github.com/tauri-apps/wry/issues/1908
         WM_SETFOCUS => {
-          let controller = dwrefdata as *mut ICoreWebView2Controller;
-          let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+          let _ = PostMessageW(Some(hwnd), *PARENT_FOCUS_MSG_ID, WPARAM(0), LPARAM(0));
+        }
+
+        _ if msg == *PARENT_FOCUS_MSG_ID => {
+          // Only move the focus if the hosting window itself still owns it. If something else
+          // took the focus in the meantime (for example the user clicked into the webview and
+          // WebView2 focused itself, or another control was focused) leave it alone.
+          if GetFocus() == hwnd {
+            let controller = dwrefdata as *mut ICoreWebView2Controller;
+            let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+          }
+          return LRESULT(0);
         }
 
         WM_MOVE | WM_MOVING => {
