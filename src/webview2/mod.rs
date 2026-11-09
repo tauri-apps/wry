@@ -1378,6 +1378,14 @@ impl InnerWebView {
         // window shows up detached at the top-left corner of the screen and the page never
         // receives `compositionstart`. Letting the activation finish first avoids this.
         // See https://github.com/tauri-apps/wry/issues/1908
+        //
+        // Side effect for clicks on the title bar: the caption press runs `DefWindowProc`'s
+        // `SC_MOVE` modal loop, which does not dispatch posted messages (or timers) until the
+        // button is released or a drag starts. The webview therefore gains focus on mouse-up
+        // instead of mouse-down for that activation path (a few ms after release; Alt+Tab,
+        // programmatic activation and clicks into the webview are not affected). Moving the
+        // focus synchronously for title-bar activation only, or right before the modal loop
+        // starts, brings the IME breakage back, so the delay is accepted.
         WM_SETFOCUS => {
           let _ = PostMessageW(Some(hwnd), *PARENT_FOCUS_MSG_ID, WPARAM(0), LPARAM(0));
         }
