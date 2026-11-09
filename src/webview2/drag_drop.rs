@@ -81,6 +81,11 @@ impl DragDropController {
   }
 }
 
+enum FileDropSource {
+  HDrop(HDROP),
+  ShellItemArray,
+}
+
 #[implement(IDropTarget)]
 pub struct DragDropTarget {
   hwnd: HWND,
@@ -101,13 +106,12 @@ impl DragDropTarget {
 
   /// Calls `callback` for every dropped file-system path.
   ///
-  /// Returns `None` when the data holds no file paths. Otherwise returns
-  /// `Some(hdrop)`, where `hdrop` is the `CF_HDROP` handle to release with
-  /// `DragFinish`, or `None` when the paths came from the shell item array.
+  /// Returns the source of the paths, or `None` when the data holds no file paths.
+  /// A `FileDropSource::HDrop` handle must be released with `DragFinish` on drop.
   unsafe fn iterate_filenames<F>(
     data_obj: windows_core::Ref<'_, IDataObject>,
     mut callback: F,
-  ) -> Option<Option<HDROP>>
+  ) -> Option<FileDropSource>
   where
     F: FnMut(PathBuf),
   {
@@ -144,13 +148,15 @@ impl DragDropTarget {
             callback(OsString::from_wide(&path_buf[0..character_count]).into());
           }
 
-          Some(Some(hdrop))
+          Some(FileDropSource::HDrop(hdrop))
         }
         // File Explorer cannot build CF_HDROP when any dragged path is
         // MAX_PATH (260) characters or longer: GetData fails with
         // ERROR_INSUFFICIENT_BUFFER (0x8007007A), even with long paths
         // enabled. The shell item array has no such limit.
-        Err(_) if Self::iterate_shell_items(&data_obj, &mut callback) => Some(None),
+        Err(_) if Self::iterate_shell_items(&data_obj, &mut callback) => {
+          Some(FileDropSource::ShellItemArray)
+        }
         Err(_error) => {
           #[cfg(feature = "tracing")]
           tracing::warn!(
@@ -227,9 +233,9 @@ impl IDropTarget_Impl for DragDropTarget_Impl {
     }
 
     let mut paths = Vec::new();
-    let hdrop = unsafe { DragDropTarget::iterate_filenames(pDataObj, |path| paths.push(path)) };
+    let source = unsafe { DragDropTarget::iterate_filenames(pDataObj, |path| paths.push(path)) };
 
-    let enter_is_valid = hdrop.is_some();
+    let enter_is_valid = source.is_some();
 
     if !enter_is_valid {
       unsafe { *pdwEffect = DROPEFFECT_NONE };
@@ -296,13 +302,13 @@ impl IDropTarget_Impl for DragDropTarget_Impl {
       let _ = unsafe { ScreenToClient(self.hwnd, &mut pt) };
 
       let mut paths = Vec::new();
-      let hdrop = unsafe { DragDropTarget::iterate_filenames(pDataObj, |path| paths.push(path)) };
+      let source = unsafe { DragDropTarget::iterate_filenames(pDataObj, |path| paths.push(path)) };
       (self.listener)(DragDropEvent::Drop {
         paths,
         position: (pt.x as _, pt.y as _),
       });
 
-      if let Some(Some(hdrop)) = hdrop {
+      if let Some(FileDropSource::HDrop(hdrop)) = source {
         unsafe { DragFinish(hdrop) };
       }
     }
