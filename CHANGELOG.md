@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.57.3]
+
+- [`8d287db`](https://github.com/tauri-apps/wry/commit/8d287db7fb0d3ab5d36b0d94753c9f55b118137c) ([#1890](https://github.com/tauri-apps/wry/pull/1890) by [@OHNope](https://github.com/tauri-apps/wry/../../OHNope)) On macOS and iOS, download responses sent with `Content-Disposition: attachment` even when WebKit can display their MIME type (PDF, images, text). They were committed as an empty page before, so neither the content nor the download handlers appeared. This matches the Windows and Linux backends.
+
 ## [0.57.2]
 
 - [`790ca0d`](https://github.com/tauri-apps/wry/commit/790ca0df48c12a565d0fd88db4ef79104e6edf23) ([#1846](https://github.com/tauri-apps/wry/pull/1846) by [@bbmediaco](https://github.com/tauri-apps/wry/../../bbmediaco)) On Android, fix a crash when the main pipe receives a webview command message after the activity's destroyed
