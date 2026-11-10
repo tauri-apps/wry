@@ -91,7 +91,6 @@ pub(crate) struct InnerWebView {
   #[cfg(any(debug_assertions, feature = "devtools"))]
   is_inspector_open: Arc<AtomicBool>,
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
-  is_in_fixed_parent: bool,
 
   #[cfg(feature = "x11")]
   x11: Option<X11Data>,
@@ -323,7 +322,7 @@ impl InnerWebView {
 
     web_context.register_automation(webview.clone());
 
-    let is_in_fixed_parent = Self::add_to_container(&webview, container, &attributes);
+    Self::add_to_container(&webview, container, &attributes);
 
     #[cfg(any(debug_assertions, feature = "devtools"))]
     let is_inspector_open = Self::attach_inspector_handlers(&webview);
@@ -339,7 +338,6 @@ impl InnerWebView {
       webview,
       pending_scripts: Arc::new(Mutex::new(Some(Vec::new()))),
 
-      is_in_fixed_parent,
       #[cfg(feature = "x11")]
       x11: None,
 
@@ -688,12 +686,10 @@ impl InnerWebView {
     }
   }
 
-  fn add_to_container<W>(webview: &WebView, container: &W, attributes: &WebViewAttributes) -> bool
+  fn add_to_container<W>(webview: &WebView, container: &W, attributes: &WebViewAttributes)
   where
     W: IsA<gtk::Container>,
   {
-    let mut is_in_fixed_parent = false;
-
     let container_type = container.type_().name();
     if container_type == "GtkBox" {
       container
@@ -720,12 +716,10 @@ impl InnerWebView {
         .unwrap()
         .put(webview, x, y);
 
-      is_in_fixed_parent = true;
     } else {
       container.add(webview);
     }
 
-    is_in_fixed_parent
   }
 
   fn attach_ipc_handler(webview: WebView, ipc_handler: Box<dyn Fn(Request<String>)>) {
@@ -967,8 +961,23 @@ impl InnerWebView {
       return Ok(bounds);
     }
 
-    let (size, _) = self.webview.allocated_size();
-    bounds.size = LogicalSize::new(size.width(), size.height()).into();
+    let allocation = self.webview.allocation();
+
+    if let Some(parent) = self
+      .webview
+      .parent()
+      .and_then(|parent| parent.dynamic_cast::<gtk::Fixed>().ok())
+    {
+      let x: i32 = parent.child_property(&self.webview, "x");
+      let y: i32 = parent.child_property(&self.webview, "y");
+
+      bounds.position = dpi::LogicalPosition::new(x, y).into();
+    }
+
+    bounds.size = LogicalSize::new(
+      allocation.width(),
+      allocation.height(),
+    ).into();
 
     Ok(bounds)
   }
@@ -988,10 +997,14 @@ impl InnerWebView {
       window.size_allocate(&gtk::Allocation::new(0, 0, width, height));
     }
 
-    if self.is_in_fixed_parent {
-      self
-        .webview
-        .size_allocate(&gtk::Allocation::new(x, y, width, height));
+    // Determine the current GTK parent, not the creation-time parent.
+    if let Some(parent) = self
+      .webview
+      .parent()
+      .and_then(|parent| parent.dynamic_cast::<gtk::Fixed>().ok())
+    {
+      self.webview.set_size_request(width, height);
+      parent.move_(&self.webview, x, y);
     }
 
     Ok(())
@@ -1237,6 +1250,18 @@ impl InnerWebView {
       .parent()
       .and_then(|p| p.dynamic_cast::<gtk::Container>().ok())
     {
+      // Preserve GtkFixed child coordinates across reparenting.
+      let (previous_x, previous_y) = parent
+        .clone()
+        .dynamic_cast::<gtk::Fixed>()
+        .ok()
+        .map(|fixed| {
+          let x: i32 = fixed.child_property(&self.webview, "x");
+          let y: i32 = fixed.child_property(&self.webview, "y");
+          (x, y)
+        })
+        .unwrap_or((0, 0));
+
       parent.remove(&self.webview);
 
       let container_type = container.type_().name();
@@ -1249,7 +1274,7 @@ impl InnerWebView {
         container
           .dynamic_cast_ref::<gtk::Fixed>()
           .unwrap()
-          .put(&self.webview, 0, 0);
+          .put(&self.webview, previous_x, previous_y);
       } else {
         container.add(&self.webview);
       }
