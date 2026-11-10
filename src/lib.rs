@@ -607,7 +607,7 @@ struct WebViewAttributes<'a> {
   ///
   /// ## Platform-specific
   ///
-  /// - **Windows**: scripts are always injected into sub frames.
+  /// - **Windows**: see [`InitializationScript::for_main_frame_only`].
   /// - **Android:** When [addDocumentStartJavaScript] is not supported,
   ///   we prepend them to each HTML head (implementation only supported on custom protocol URLs).
   ///   For remote URLs, we use [onPageStarted] which is not guaranteed to run before other scripts.
@@ -1001,7 +1001,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific
   ///
-  ///- **Windows:** scripts are always added to subframes.
+  /// - **Windows:** see [`InitializationScript::for_main_frame_only`].
   /// - **Android:** When [addDocumentStartJavaScript] is not supported,
   ///   we prepend them to each HTML head (implementation only supported on custom protocol URLs).
   ///   For remote URLs, we use [onPageStarted] which is not guaranteed to run before other scripts.
@@ -1026,7 +1026,7 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// ## Platform-specific:
   ///
-  /// - **Windows:** scripts are always added to subframes regardless of the `for_main_frame_only` option.
+  /// - **Windows:** see [`InitializationScript::for_main_frame_only`].
   /// - **Android**: When [addDocumentStartJavaScript] is not supported, scripts are always injected into main frame only.
   ///
   /// [addDocumentStartJavaScript]: https://developer.android.com/reference/androidx/webkit/WebViewCompat#addDocumentStartJavaScript(android.webkit.WebView,java.lang.String,java.util.Set%3Cjava.lang.String%3E)
@@ -2617,8 +2617,13 @@ pub struct InitializationScript {
   ///
   /// ## Platform-specific
   ///
-  /// - **Windows**: scripts are always injected into subframes regardless of this option.
-  ///   This will be the case until Webview2 implements a proper API to inject a script only on the main frame.
+  /// - **Windows**: WebView2 injects every script into subframes too and has no API to limit one
+  ///   to the main frame, so wry stops a main-frame-only script in a subframe with a check that
+  ///   throws before its first statement. Nothing in the script runs there, and the main frame runs
+  ///   it unchanged. Its top-level declarations are still created in the subframe: `var` and
+  ///   function names (with the function bodies), and `let`, `const` and `class` names that the
+  ///   subframe's own scripts then cannot declare again. Keep such a script's top-level names to
+  ///   ones a subframe will not use, or wrap the script in a function.
   /// - **Android**: When [addDocumentStartJavaScript] is not supported, scripts are always injected into main frame only.
   ///
   /// [addDocumentStartJavaScript]: https://developer.android.com/reference/androidx/webkit/WebViewCompat#addDocumentStartJavaScript(android.webkit.WebView,java.lang.String,java.util.Set%3Cjava.lang.String%3E)
