@@ -1,5 +1,5 @@
 use objc2::DeclaredClass;
-use objc2_foundation::{NSHTTPURLResponse, NSObjectProtocol, NSString, NSURLResponse};
+use objc2_foundation::{NSHTTPURLResponse, NSObjectProtocol, NSString, NSURLResponse, ns_string};
 use objc2_web_kit::{
   WKNavigation, WKNavigationAction, WKNavigationActionPolicy, WKNavigationResponse,
   WKNavigationResponsePolicy,
@@ -126,24 +126,20 @@ fn is_attachment(response: &NSURLResponse) -> bool {
   let Some(response) = response.downcast_ref::<NSHTTPURLResponse>() else {
     return false;
   };
-  // `valueForHTTPHeaderField:` needs macOS 10.15 / iOS 13, so search `allHeaderFields`,
-  // whose keys are case-sensitive, instead.
+  // `valueForHTTPHeaderField:` needs macOS 10.15 / iOS 13, so search `allHeaderFields` manually.
+  // The URL loading system should normalize the header name but the NSDictionary look-up is also
+  // case-insensitive in obj-c so this matches content-type and Content-Type alike anyway.
   let headers = response.allHeaderFields();
-  headers.keys().any(|name| {
-    name
-      .downcast_ref::<NSString>()
-      .is_some_and(|name| name.to_string().eq_ignore_ascii_case("Content-Disposition"))
-      && headers
-        .objectForKey(&name)
-        .and_then(|value| value.downcast::<NSString>().ok())
-        .is_some_and(|disposition| {
-          disposition
-            .to_string()
-            .split(';')
-            .next()
-            .is_some_and(|kind| kind.trim().eq_ignore_ascii_case("attachment"))
-        })
-  })
+  headers
+    .valueForKey(ns_string!("Content-Disposition"))
+    .and_then(|value| value.downcast::<NSString>().ok())
+    .is_some_and(|disposition| {
+      disposition
+        .to_string()
+        .split(';')
+        .next()
+        .is_some_and(|kind| kind.trim().eq_ignore_ascii_case("attachment"))
+    })
 }
 
 pub(crate) fn web_content_process_did_terminate(
