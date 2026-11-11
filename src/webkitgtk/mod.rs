@@ -1461,14 +1461,12 @@ mod tests {
     window
   }
 
-  // GTK works on the thread that initialized it, so this is the only test that uses it. It does
-  // nothing without a display.
+  // GTK works on the thread that initialized it, so this is the only test that uses it. Run it
+  // with `--ignored` on a machine with a display.
   #[test]
+  #[ignore = "needs a display"]
   fn webview_in_a_gtk_fixed_keeps_its_bounds() {
-    if gtk::init().is_err() {
-      eprintln!("no display for GTK: skipped");
-      return;
-    }
+    gtk::init().expect("GTK needs a display");
 
     let fixed = gtk::Fixed::new();
     let _window = window_with(&fixed);
