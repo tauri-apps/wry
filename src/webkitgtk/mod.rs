@@ -695,7 +695,7 @@ impl InnerWebView {
         .dynamic_cast_ref::<gtk::Box>()
         .unwrap()
         .pack_start(webview, true, true, 0);
-    } else if container_type == "GtkFixed" {
+    } else if let Some(fixed) = container.dynamic_cast_ref::<gtk::Fixed>() {
       let scale_factor = webview.scale_factor() as f64;
       let (width, height) = attributes
         .bounds
@@ -710,10 +710,7 @@ impl InnerWebView {
 
       webview.set_size_request(width, height);
 
-      container
-        .dynamic_cast_ref::<gtk::Fixed>()
-        .unwrap()
-        .put(webview, x, y);
+      fixed.put(webview, x, y);
     } else {
       container.add(webview);
     }
@@ -1259,11 +1256,8 @@ impl InnerWebView {
           .dynamic_cast_ref::<gtk::Box>()
           .unwrap()
           .pack_start(&self.webview, true, true, 0);
-      } else if container_type == "GtkFixed" {
-        container
-          .dynamic_cast_ref::<gtk::Fixed>()
-          .unwrap()
-          .put(&self.webview, x, y);
+      } else if let Some(fixed) = container.dynamic_cast_ref::<gtk::Fixed>() {
+        fixed.put(&self.webview, x, y);
       } else {
         container.add(&self.webview);
       }
