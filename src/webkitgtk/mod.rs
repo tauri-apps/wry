@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-#[cfg(feature = "x11")]
 use dpi::LogicalPosition;
 use dpi::LogicalSize;
 use ffi::CookieManageExt;
