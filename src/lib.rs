@@ -2031,7 +2031,7 @@ pub trait WebViewBuilderExtUnix<'a> {
   /// Consume the builder and create the webview inside a GTK container widget, such as GTK window.
   ///
   /// - If the container is [`gtk::Box`], it is added using [`Box::pack_start(webview, true, true, 0)`](gtk::prelude::BoxExt::pack_start).
-  /// - If the container is [`gtk::Fixed`], its [size request](gtk::prelude::WidgetExt::set_size_request) will be set using the (width, height) bounds passed in
+  /// - If the container is [`gtk::Fixed`], or a type derived from it, its [size request](gtk::prelude::WidgetExt::set_size_request) will be set using the (width, height) bounds passed in
   ///   and will be added to the container using [`Fixed::put`](gtk::prelude::FixedExt::put) using the (x, y) bounds passed in.
   /// - For all other containers, it will be added using [`gtk::prelude::ContainerExt::add`]
   ///
@@ -2415,7 +2415,7 @@ pub trait WebViewExtUnix: Sized {
   /// Create the webview inside a GTK container widget, such as GTK window.
   ///
   /// - If the container is [`gtk::Box`], it is added using [`Box::pack_start(webview, true, true, 0)`](gtk::prelude::BoxExt::pack_start).
-  /// - If the container is [`gtk::Fixed`], its [size request](gtk::prelude::WidgetExt::set_size_request) will be set using the (width, height) bounds passed in
+  /// - If the container is [`gtk::Fixed`], or a type derived from it, its [size request](gtk::prelude::WidgetExt::set_size_request) will be set using the (width, height) bounds passed in
   ///   and will be added to the container using [`Fixed::put`](gtk::prelude::FixedExt::put) using the (x, y) bounds passed in.
   /// - For all other containers, it will be added using [`gtk::prelude::ContainerExt::add`]
   ///
@@ -2430,6 +2430,8 @@ pub trait WebViewExtUnix: Sized {
   fn webview(&self) -> webkit2gtk::WebView;
 
   /// Attaches this webview to the given Widget and removes it from the current one.
+  ///
+  /// A webview that moves from one [`gtk::Fixed`] to another keeps its position.
   fn reparent<W>(&self, widget: &W) -> Result<()>
   where
     W: gtk::prelude::IsA<gtk::Container>;
