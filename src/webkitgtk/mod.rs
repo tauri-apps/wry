@@ -90,7 +90,6 @@ pub(crate) struct InnerWebView {
   #[cfg(any(debug_assertions, feature = "devtools"))]
   is_inspector_open: Arc<AtomicBool>,
   pending_scripts: Arc<Mutex<Option<Vec<String>>>>,
-  is_in_fixed_parent: bool,
 
   #[cfg(feature = "x11")]
   x11: Option<X11Data>,
@@ -322,7 +321,7 @@ impl InnerWebView {
 
     web_context.register_automation(webview.clone());
 
-    let is_in_fixed_parent = Self::add_to_container(&webview, container, &attributes);
+    Self::add_to_container(&webview, container, &attributes);
 
     #[cfg(any(debug_assertions, feature = "devtools"))]
     let is_inspector_open = Self::attach_inspector_handlers(&webview);
@@ -338,7 +337,6 @@ impl InnerWebView {
       webview,
       pending_scripts: Arc::new(Mutex::new(Some(Vec::new()))),
 
-      is_in_fixed_parent,
       #[cfg(feature = "x11")]
       x11: None,
 
@@ -687,12 +685,10 @@ impl InnerWebView {
     }
   }
 
-  fn add_to_container<W>(webview: &WebView, container: &W, attributes: &WebViewAttributes) -> bool
+  fn add_to_container<W>(webview: &WebView, container: &W, attributes: &WebViewAttributes)
   where
     W: IsA<gtk::Container>,
   {
-    let mut is_in_fixed_parent = false;
-
     let container_type = container.type_().name();
     if container_type == "GtkBox" {
       container
@@ -718,13 +714,9 @@ impl InnerWebView {
         .dynamic_cast_ref::<gtk::Fixed>()
         .unwrap()
         .put(webview, x, y);
-
-      is_in_fixed_parent = true;
     } else {
       container.add(webview);
     }
-
-    is_in_fixed_parent
   }
 
   fn attach_ipc_handler(webview: WebView, ipc_handler: Box<dyn Fn(Request<String>)>) {
@@ -966,14 +958,13 @@ impl InnerWebView {
       return Ok(bounds);
     }
 
-    if self.is_in_fixed_parent {
-      if let Some(fixed) = self.fixed_parent() {
-        // the requested geometry, the allocation is only updated on the next layout pass
-        let (width, height) = self.webview.size_request();
-        bounds.position = LogicalPosition::new(fixed.child_x(&self.webview), fixed.child_y(&self.webview)).into();
-        bounds.size = LogicalSize::new(width.max(0), height.max(0)).into();
-        return Ok(bounds);
-      }
+    if let Some(fixed) = self.fixed_parent() {
+      // the requested geometry, the allocation is only updated on the next layout pass
+      let (width, height) = self.webview.size_request();
+      bounds.position =
+        LogicalPosition::new(fixed.child_x(&self.webview), fixed.child_y(&self.webview)).into();
+      bounds.size = LogicalSize::new(width.max(0), height.max(0)).into();
+      return Ok(bounds);
     }
 
     let (size, _) = self.webview.allocated_size();
@@ -1004,13 +995,11 @@ impl InnerWebView {
       window.size_allocate(&gtk::Allocation::new(0, 0, width, height));
     }
 
-    if self.is_in_fixed_parent {
-      if let Some(fixed) = self.fixed_parent() {
-        // let the GtkFixed lay the webview out, so the geometry survives the next layout pass
-        // and is relative to the GtkFixed rather than to its parent GdkWindow
-        self.webview.set_size_request(width, height);
-        fixed.move_(&self.webview, x, y);
-      }
+    if let Some(fixed) = self.fixed_parent() {
+      // let the GtkFixed lay the webview out, so the geometry survives the next layout pass
+      // and is relative to the GtkFixed rather than to its parent GdkWindow
+      self.webview.set_size_request(width, height);
+      fixed.move_(&self.webview, x, y);
     }
 
     Ok(())
@@ -1256,6 +1245,12 @@ impl InnerWebView {
       .parent()
       .and_then(|p| p.dynamic_cast::<gtk::Container>().ok())
     {
+      // `GtkFixed::put` takes the position, so keep the one in the old `GtkFixed`
+      let (x, y) = self
+        .fixed_parent()
+        .map(|fixed| (fixed.child_x(&self.webview), fixed.child_y(&self.webview)))
+        .unwrap_or_default();
+
       parent.remove(&self.webview);
 
       let container_type = container.type_().name();
@@ -1268,7 +1263,7 @@ impl InnerWebView {
         container
           .dynamic_cast_ref::<gtk::Fixed>()
           .unwrap()
-          .put(&self.webview, 0, 0);
+          .put(&self.webview, x, y);
       } else {
         container.add(&self.webview);
       }

@@ -2430,6 +2430,8 @@ pub trait WebViewExtUnix: Sized {
   fn webview(&self) -> webkit2gtk::WebView;
 
   /// Attaches this webview to the given Widget and removes it from the current one.
+  ///
+  /// A webview that moves from one [`gtk::Fixed`] to another keeps its position.
   fn reparent<W>(&self, widget: &W) -> Result<()>
   where
     W: gtk::prelude::IsA<gtk::Container>;
