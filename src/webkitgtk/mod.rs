@@ -1380,3 +1380,137 @@ mod ffi {
     ) -> *mut glib::ffi::GList;
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use crate::{Rect, WebViewBuilder, WebViewBuilderExtUnix, WebViewExtUnix};
+  use dpi::{LogicalPosition, LogicalSize};
+  use gtk::{glib, prelude::*, subclass::prelude::*};
+  use std::time::Duration;
+
+  mod derived {
+    use super::*;
+
+    mod imp {
+      use super::*;
+
+      #[derive(Default)]
+      pub struct DerivedFixed;
+
+      #[glib::object_subclass]
+      impl ObjectSubclass for DerivedFixed {
+        const NAME: &'static str = "WryTestDerivedFixed";
+        type Type = super::DerivedFixed;
+        type ParentType = gtk::Fixed;
+      }
+
+      impl ObjectImpl for DerivedFixed {}
+      impl WidgetImpl for DerivedFixed {}
+      impl ContainerImpl for DerivedFixed {}
+      impl FixedImpl for DerivedFixed {}
+    }
+
+    glib::wrapper! {
+      pub struct DerivedFixed(ObjectSubclass<imp::DerivedFixed>)
+        @extends gtk::Fixed, gtk::Container, gtk::Widget;
+    }
+  }
+  use derived::DerivedFixed;
+
+  impl DerivedFixed {
+    fn new() -> Self {
+      glib::Object::new()
+    }
+  }
+
+  fn rect(x: i32, y: i32, width: i32, height: i32) -> Rect {
+    Rect {
+      position: LogicalPosition::new(x, y).into(),
+      size: LogicalSize::new(width, height).into(),
+    }
+  }
+
+  fn bounds_of(webview: &crate::WebView) -> (i32, i32, i32, i32) {
+    let bounds = webview.bounds().unwrap();
+    let position = bounds.position.to_logical::<i32>(1.0);
+    let size = bounds.size.to_logical::<i32>(1.0);
+    (position.x, position.y, size.width, size.height)
+  }
+
+  /// The allocation of the webview in its `gtk::Fixed`, after the layout of the window.
+  fn allocation_in(fixed: &gtk::Fixed, webview: &crate::WebView) -> (i32, i32, i32, i32) {
+    for _ in 0..30 {
+      while gtk::events_pending() {
+        gtk::main_iteration();
+      }
+      std::thread::sleep(Duration::from_millis(10));
+    }
+    let a = webview.webview().allocation();
+    let f = fixed.allocation();
+    (a.x() - f.x(), a.y() - f.y(), a.width(), a.height())
+  }
+
+  fn window_with(fixed: &impl IsA<gtk::Widget>) -> gtk::Window {
+    // a bar above the container moves it down in the window, as a menu bar does
+    let vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    vbox.pack_start(&gtk::MenuBar::new(), false, false, 0);
+    vbox.pack_start(fixed, true, true, 0);
+    let window = gtk::Window::new(gtk::WindowType::Toplevel);
+    window.add(&vbox);
+    window.show_all();
+    window
+  }
+
+  // GTK works on the thread that initialized it, so this is the only test that uses it. It does
+  // nothing without a display.
+  #[test]
+  fn webview_in_a_gtk_fixed_keeps_its_bounds() {
+    if gtk::init().is_err() {
+      eprintln!("no display for GTK: skipped");
+      return;
+    }
+
+    let fixed = gtk::Fixed::new();
+    let _window = window_with(&fixed);
+    let webview = WebViewBuilder::new()
+      .with_bounds(rect(10, 20, 300, 200))
+      .build_gtk(&fixed)
+      .unwrap();
+    assert_eq!(bounds_of(&webview), (10, 20, 300, 200));
+    assert_eq!(allocation_in(&fixed, &webview), (10, 20, 300, 200));
+
+    // the next layout pass of the `gtk::Fixed` does not undo it
+    webview.set_bounds(rect(40, 50, 120, 90)).unwrap();
+    assert_eq!(bounds_of(&webview), (40, 50, 120, 90));
+    assert_eq!(allocation_in(&fixed, &webview), (40, 50, 120, 90));
+
+    // `reparent` keeps the position
+    let second = gtk::Fixed::new();
+    let _second_window = window_with(&second);
+    webview.reparent(&second).unwrap();
+    assert_eq!(bounds_of(&webview), (40, 50, 120, 90));
+    assert_eq!(allocation_in(&second, &webview), (40, 50, 120, 90));
+
+    // a webview that was not in a `gtk::Fixed` when it was created has bounds when it moves into one
+    let packed = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    let _packed_window = window_with(&packed);
+    let webview = WebViewBuilder::new().build_gtk(&packed).unwrap();
+    webview.reparent(&second).unwrap();
+    webview.set_bounds(rect(5, 6, 70, 80)).unwrap();
+    assert_eq!(bounds_of(&webview), (5, 6, 70, 80));
+    assert_eq!(allocation_in(&second, &webview), (5, 6, 70, 80));
+
+    // a type derived from `gtk::Fixed` is a `gtk::Fixed`
+    let derived = DerivedFixed::new();
+    let _derived_window = window_with(&derived);
+    let webview = WebViewBuilder::new()
+      .with_bounds(rect(10, 20, 300, 200))
+      .build_gtk(&derived)
+      .unwrap();
+    assert_eq!(bounds_of(&webview), (10, 20, 300, 200));
+    assert_eq!(
+      allocation_in(derived.upcast_ref(), &webview),
+      (10, 20, 300, 200)
+    );
+  }
+}
