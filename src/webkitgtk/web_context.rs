@@ -16,10 +16,27 @@ use std::{
   rc::Rc,
 };
 use webkit2gtk::{
-  ApplicationInfo, AutomationSessionExt, CookiePersistentStorage, DownloadExt, SecurityManagerExt,
-  URIRequest, URIRequestExt, URISchemeRequest, URISchemeRequestExt, URISchemeResponse,
-  URISchemeResponseExt, WebContext, WebContextExt as Webkit2gtkContextExt, WebView, WebViewExt,
+  ApplicationInfo, AutomationSessionExt, CookiePersistentStorage, DownloadExt,
+  MemoryPressureSettings, SecurityManagerExt, URIRequest, URIRequestExt, URISchemeRequest,
+  URISchemeRequestExt, URISchemeResponse, URISchemeResponseExt, WebContext, WebContextBuilder,
+  WebContextExt as Webkit2gtkContextExt, WebView, WebViewExt, WebsiteDataManager,
 };
+
+thread_local! {
+  // GTK objects are created on the main thread only, so a thread local is enough.
+  static MEMORY_PRESSURE_SETTINGS: RefCell<Option<MemoryPressureSettings>> = const { RefCell::new(None) };
+}
+
+pub fn set_memory_pressure_settings(settings: Option<MemoryPressureSettings>) {
+  MEMORY_PRESSURE_SETTINGS.set(settings);
+}
+
+fn with_memory_pressure_settings(builder: WebContextBuilder) -> WebContextBuilder {
+  MEMORY_PRESSURE_SETTINGS.with_borrow(|settings| match settings {
+    Some(settings) => builder.memory_pressure_settings(settings),
+    None => builder,
+  })
+}
 
 #[derive(Debug)]
 pub struct WebContextImpl {
@@ -30,8 +47,8 @@ pub struct WebContextImpl {
 
 impl WebContextImpl {
   pub fn new(data_directory: Option<&Path>) -> Self {
-    use webkit2gtk::{CookieManagerExt, WebsiteDataManager, WebsiteDataManagerExt};
-    let mut context_builder = WebContext::builder();
+    use webkit2gtk::{CookieManagerExt, WebsiteDataManagerExt};
+    let mut context_builder = with_memory_pressure_settings(WebContext::builder());
     if let Some(data_directory) = data_directory {
       let data_manager = WebsiteDataManager::builder()
         // TODO: Consider taking a cache_directory so this can be in XDG_CACHE_HOME.
@@ -52,7 +69,11 @@ impl WebContextImpl {
   }
 
   pub fn new_ephemeral() -> Self {
-    let context = WebContext::new_ephemeral();
+    // Same as `WebContext::new_ephemeral`, which has no way to pass memory pressure settings.
+    let data_manager = WebsiteDataManager::new_ephemeral();
+    let context = with_memory_pressure_settings(WebContext::builder())
+      .website_data_manager(&data_manager)
+      .build();
 
     Self::create_context(context)
   }
