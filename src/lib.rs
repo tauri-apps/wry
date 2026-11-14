@@ -1760,6 +1760,10 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   default_context_menus: bool,
   environment: Option<ICoreWebView2Environment>,
   profile_name: Option<String>,
+  /// Physical pixels the webview content keeps from the parent window's
+  /// edges, so a border drawn by the window itself (e.g. the DWM border of an
+  /// undecorated shadowed window) stays visible. `(left, top, right, bottom)`.
+  frame_inset: (i32, i32, i32, i32),
 }
 
 #[cfg(windows)]
@@ -1776,6 +1780,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       extension_path: None,
       environment: None,
       profile_name: None,
+      frame_inset: (0, 0, 0, 0),
     }
   }
 }
@@ -1873,12 +1878,40 @@ pub trait WebViewBuilderExtWindows {
   /// Profile names must follow the WebView2 naming rules (alphanumeric, `.`,
   /// `_`, `-`, ` `, up to 64 chars, not starting/ending with `.` or ` `).
   fn with_profile_name<S: Into<String>>(self, name: S) -> Self;
+
+  /// Sets the physical-pixel inset the webview content keeps from its parent
+  /// window's edges, as `(left, top, right, bottom)`.
+  ///
+  /// Use this to keep the content clear of a border drawn by the window
+  /// itself — for example the DWM-drawn border of an undecorated window with
+  /// a shadow, where `tao`'s `Window::undecorated_frame_inset` reports the
+  /// inset the current window state implies. The webview fills the parent
+  /// minus the inset and re-applies it on every resize. Defaults to zero;
+  /// negative components are clamped to zero.
+  ///
+  /// The inset applies to the fill bounds of a webview that fills its parent
+  /// window and also to
+  /// any explicit [`WebView::set_bounds`] call on it (the requested rect is
+  /// shrunk by the inset and offset by its `left`/`top` components). Child
+  /// webviews are positioned explicitly and are never inset. The inset can
+  /// be updated at runtime through [`WebViewExtWindows::set_frame_inset`].
+  fn with_frame_inset(self, inset: (i32, i32, i32, i32)) -> Self;
 }
 
 #[cfg(windows)]
 impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
   fn with_additional_browser_args<S: Into<String>>(mut self, additional_args: S) -> Self {
     self.platform_specific.additional_browser_args = Some(additional_args.into());
+    self
+  }
+
+  fn with_frame_inset(mut self, inset: (i32, i32, i32, i32)) -> Self {
+    self.platform_specific.frame_inset = (
+      inset.0.max(0),
+      inset.1.max(0),
+      inset.2.max(0),
+      inset.3.max(0),
+    );
     self
   }
 
@@ -2255,14 +2288,33 @@ impl WebView {
     self.webview.clear_all_browsing_data()
   }
 
+  /// Returns the current bounds of the webview.
+  ///
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Reports the fill-request space in parent coordinates —
+  ///   the content rect re-inflated by the frame inset — so the value
+  ///   round-trips through [`Self::set_bounds`] without double-applying the
+  ///   frame inset, whether the webview fills its parent or was positioned
+  ///   explicitly. A rect smaller than the inset collapses the content to
+  ///   zero size, in which case the reported size is the inset sum rather
+  ///   than the requested one. Child webviews report their exact content
+  ///   rect.
   pub fn bounds(&self) -> Result<Rect> {
     self.webview.bounds()
   }
 
   /// Set the webview bounds.
   ///
-  /// This is only effective if the webview was created as a child
-  /// or created using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
+  /// ## Platform-specific
+  ///
+  /// - **Windows**: Effective for a webview created as a child, and also for
+  ///   a webview that fills its parent window (the default) — the frame inset
+  ///   applies to the requested rect (see
+  ///   [`WebViewBuilderExtWindows::with_frame_inset`]) — but the fill geometry
+  ///   is re-applied on the next window resize.
+  /// - **Others**: Only effective if the webview was created as a child or
+  ///   created using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
   pub fn set_bounds(&self, bounds: Rect) -> Result<()> {
     self.webview.set_bounds(bounds)
   }
@@ -2350,6 +2402,23 @@ pub trait WebViewExtWindows {
   /// Webview instance.
   fn webview(&self) -> ICoreWebView2;
 
+  /// Sets the physical-pixel inset the webview content keeps from its parent
+  /// window's edges, and re-applies the geometry currently in place with the
+  /// new inset. Negative components are clamped to zero.
+  ///
+  /// Only non-child webviews are affected: for child webviews this is a
+  /// no-op, since they are positioned explicitly. The geometry currently in
+  /// place is re-applied with the new inset — the fill rect for a webview
+  /// that fills its parent, and the rect previously passed to
+  /// [`WebView::set_bounds`] (inset again) for one positioned explicitly
+  /// (see [`WebViewBuilderExtWindows::with_frame_inset`]).
+  ///
+  /// Use this to keep the content clear of a border drawn by the window
+  /// itself — for example the DWM-drawn border of an undecorated window with
+  /// a shadow, whose inset depends on the window state (maximized and
+  /// fullscreen windows draw no border).
+  fn set_frame_inset(&self, inset: (i32, i32, i32, i32)) -> Result<()>;
+
   /// Changes the webview2 theme.
   ///
   /// Requires WebView2 Runtime version 101.0.1210.39 or higher, returns error on older versions,
@@ -2389,6 +2458,10 @@ impl WebViewExtWindows for WebView {
 
   fn webview(&self) -> ICoreWebView2 {
     self.webview.webview.clone()
+  }
+
+  fn set_frame_inset(&self, inset: (i32, i32, i32, i32)) -> Result<()> {
+    self.webview.set_frame_inset(inset)
   }
 
   fn set_theme(&self, theme: Theme) -> Result<()> {
