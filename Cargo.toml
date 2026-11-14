@@ -2,7 +2,7 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.57.1"
+version = "0.57.2"
 authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2024"
 license = "Apache-2.0 OR MIT"
@@ -155,6 +155,7 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
   "NSValue",
   "NSRange",
   "NSRunLoop",
+  "NSURLResponse",
 ] }
 
 [target.'cfg(target_os = "ios")'.dependencies]

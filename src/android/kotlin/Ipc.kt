@@ -10,6 +10,7 @@ import android.net.Uri
 import android.webkit.*
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import java.util.concurrent.Executors
 
 class Ipc(val webView: RustWebView, val webViewClient: RustWebViewClient) {
     init {
@@ -18,7 +19,11 @@ class Ipc(val webView: RustWebView, val webViewClient: RustWebViewClient) {
                 // getData throws on ArrayBuffer payloads.
                 val body = try { message.data } catch (e: IllegalStateException) { null }
                 body?.let { m ->
-                    Rust.ipc(webView.id, requestUrl(sourceOrigin, isMainFrame), m)
+                    val url = requestUrl(sourceOrigin, isMainFrame)
+                    // Keep the UI thread available for handlers that wait on the main pipe.
+                    // TODO: call the handler on the UI thread once WebView methods called from IPC handlers no longer wait on it,
+                    // as with the event loop on the UI thread in https://github.com/tauri-apps/tao/issues/1402.
+                    dispatcher.execute { Rust.ipc(webView.id, url, m) }
                 }
             }
         } else {
@@ -51,6 +56,10 @@ class Ipc(val webView: RustWebView, val webViewClient: RustWebViewClient) {
             return page.toString()
         }
         return origin.buildUpon().path("/").build().toString()
+    }
+
+    companion object {
+        private val dispatcher = Executors.newSingleThreadExecutor()
     }
 
     {{class-extension}}
