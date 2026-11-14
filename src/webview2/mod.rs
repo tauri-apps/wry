@@ -25,7 +25,13 @@ use windows::{
     Foundation::*,
     Globalization::*,
     Graphics::Gdi::*,
-    System::{Com::*, LibraryLoader::GetModuleHandleW},
+    System::{
+      Com::*,
+      LibraryLoader::{
+        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        GetModuleHandleExW, GetModuleHandleW,
+      },
+    },
     UI::{Input::KeyboardAndMouse::SetFocus, Shell::*, WindowsAndMessaging::*},
   },
   core::{BOOL, HSTRING, Interface, PCWSTR, PWSTR, s, w},
@@ -219,13 +225,31 @@ impl InnerWebView {
 
     let class_name = w!("WRY_WEBVIEW");
 
+    // A window class is local to the module it is registered under, so
+    // register it under the module that holds the window procedure: the
+    // executable for an application, and the DLL when wry is built into one.
+    // Registered under the executable from a DLL, the class would outlive an
+    // unload of the DLL and keep a procedure that is no longer mapped.
+    let hinstance = unsafe {
+      let mut module = HMODULE::default();
+      GetModuleHandleExW(
+        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        PCWSTR(default_window_proc as *const u16),
+        &mut module,
+      )
+      .map(|()| module)
+      .or_else(|_| GetModuleHandleW(PCWSTR::null()))
+      .map(|module| HINSTANCE(module.0))
+      .unwrap_or_default()
+    };
+
     let class = WNDCLASSEXW {
       cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
       style: CS_HREDRAW | CS_VREDRAW,
       lpfnWndProc: Some(default_window_proc),
       cbClsExtra: 0,
       cbWndExtra: 0,
-      hInstance: unsafe { HINSTANCE(GetModuleHandleW(PCWSTR::null()).unwrap_or_default().0) },
+      hInstance: hinstance,
       hIcon: HICON::default(),
       hCursor: HCURSOR::default(),
       hbrBackground: HBRUSH::default(),
@@ -234,7 +258,27 @@ impl InnerWebView {
       hIconSm: HICON::default(),
     };
 
-    unsafe { RegisterClassExW(&class) };
+    // This fails when the class is registered under this module already: by
+    // an earlier WebView, or by a module that was loaded at this address
+    // before and is gone, since a DLL's classes outlive its unload. The
+    // second names a procedure that is not ours, so replace it.
+    if unsafe { RegisterClassExW(&class) } == 0 {
+      let mut registered = WNDCLASSEXW {
+        cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+        ..Default::default()
+      };
+      let stale = unsafe { GetClassInfoExW(Some(hinstance), class_name, &mut registered) }.is_ok()
+        && registered
+          .lpfnWndProc
+          .map(|procedure| procedure as *const ())
+          != Some(default_window_proc as *const ());
+      if stale {
+        unsafe {
+          UnregisterClassW(class_name, Some(hinstance))?;
+          RegisterClassExW(&class);
+        }
+      }
+    }
 
     let mut window_styles = WS_CHILD | WS_CLIPCHILDREN;
     if attributes.visible {
@@ -274,7 +318,7 @@ impl InnerWebView {
         height,
         Some(parent),
         None,
-        GetModuleHandleW(PCWSTR::null()).map(Into::into).ok(),
+        Some(hinstance),
         None,
       )?
     };
