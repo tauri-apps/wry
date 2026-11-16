@@ -7,17 +7,17 @@
 use crate::DragDropEvent;
 
 use std::{
-  cell::UnsafeCell,
+  cell::{RefCell, UnsafeCell},
   ffi::OsString,
   os::{raw::c_void, windows::ffi::OsStringExt},
   path::PathBuf,
   ptr,
-  rc::Rc,
+  rc::{Rc, Weak},
 };
 
 use windows::{
   Win32::{
-    Foundation::{DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINT, POINTL},
+    Foundation::{DRAGDROP_E_INVALIDHWND, HWND, LPARAM, LRESULT, POINT, POINTL, WPARAM},
     Graphics::Gdi::ScreenToClient,
     System::{
       Com::{CoTaskMemFree, DVASPECT_CONTENT, FORMATETC, IDataObject, TYMED_HGLOBAL},
@@ -29,30 +29,43 @@ use windows::{
     },
     UI::{
       Shell::{
-        DragFinish, DragQueryFileW, HDROP, IShellItemArray, SHCreateShellItemArrayFromDataObject,
-        SIGDN_FILESYSPATH,
+        DefSubclassProc, DragFinish, DragQueryFileW, HDROP, IShellItemArray, RemoveWindowSubclass,
+        SHCreateShellItemArrayFromDataObject, SIGDN_FILESYSPATH, SetWindowSubclass,
       },
-      WindowsAndMessaging::EnumChildWindows,
+      WindowsAndMessaging::{EnumChildWindows, IsChild, WM_DESTROY, WM_USER},
     },
   },
   core::{BOOL, implement},
 };
 
-#[derive(Default)]
+const DRAG_DROP_SUBCLASS_ID: u32 = WM_USER + 0x67;
+
 pub(crate) struct DragDropController {
-  drop_targets: Vec<IDropTarget>,
+  /// The webview container window. Its descendants are the windows the drop targets are
+  /// registered on.
+  hwnd: HWND,
+  /// The windows we registered a drop target on, and their targets.
+  ///
+  /// Boxed so its address stays stable: [`Self::subclass_proc`] receives it as reference data.
+  drop_targets: Box<RefCell<Vec<(HWND, IDropTarget)>>>,
+  /// The only strong reference to the handler. The drop targets hold weak ones, because OLE
+  /// can keep a target alive forever: revoking fails with `DRAGDROP_E_NOTREGISTERED` when the
+  /// registration on a window owned by the WebView2 browser process is already gone.
+  handler: Rc<dyn Fn(DragDropEvent) -> bool>,
 }
 
 impl DragDropController {
   #[inline]
   pub(crate) fn new(hwnd: HWND, handler: Box<dyn Fn(DragDropEvent) -> bool>) -> Self {
-    let mut controller = DragDropController::default();
-
-    let handler = Rc::new(handler);
+    let controller = DragDropController {
+      hwnd,
+      drop_targets: Default::default(),
+      handler: Rc::from(handler),
+    };
 
     // Enumerate child windows to find the WebView2 "window" and override!
     {
-      let mut callback = |hwnd| controller.inject_in_hwnd(hwnd, handler.clone());
+      let mut callback = |hwnd| controller.inject_in_hwnd(hwnd);
       let mut trait_obj: &mut dyn FnMut(HWND) -> bool = &mut callback;
       let closure_pointer_pointer: *mut c_void = unsafe { std::mem::transmute(&mut trait_obj) };
       let lparam = LPARAM(closure_pointer_pointer as _);
@@ -65,19 +78,86 @@ impl DragDropController {
       let _ = unsafe { EnumChildWindows(Some(hwnd), Some(enumerate_callback), lparam) };
     }
 
+    // A registered window must be revoked before it is destroyed, otherwise OLE keeps its
+    // reference to the target forever. The container can be destroyed before this controller
+    // is dropped (by destroying its parent window), so revoke from its `WM_DESTROY` too: all
+    // its descendants still exist then.
+    unsafe {
+      let _ = SetWindowSubclass(
+        hwnd,
+        Some(Self::subclass_proc),
+        DRAG_DROP_SUBCLASS_ID as _,
+        &*controller.drop_targets as *const _ as _,
+      );
+    }
+
     controller
   }
 
   #[inline]
-  fn inject_in_hwnd(&mut self, hwnd: HWND, handler: Rc<dyn Fn(DragDropEvent) -> bool>) -> bool {
-    let drag_drop_target: IDropTarget = DragDropTarget::new(hwnd, handler).into();
+  fn inject_in_hwnd(&self, hwnd: HWND) -> bool {
+    let drag_drop_target: IDropTarget =
+      DragDropTarget::new(hwnd, Rc::downgrade(&self.handler)).into();
     if unsafe { RevokeDragDrop(hwnd) } != Err(DRAGDROP_E_INVALIDHWND.into())
       && unsafe { RegisterDragDrop(hwnd, &drag_drop_target) }.is_ok()
     {
-      self.drop_targets.push(drag_drop_target);
+      self
+        .drop_targets
+        .borrow_mut()
+        .push((hwnd, drag_drop_target));
     }
 
     true
+  }
+
+  /// Revokes every drop target registered on a window that is still a descendant of `container`.
+  fn revoke(container: HWND, drop_targets: &RefCell<Vec<(HWND, IDropTarget)>>) {
+    // Take the targets out first so they are released after the borrow ends.
+    let drop_targets = std::mem::take(&mut *drop_targets.borrow_mut());
+    for (hwnd, _) in drop_targets {
+      // A window WebView2 has already destroyed cannot be revoked anymore, and its handle may
+      // have been reused by an unrelated window.
+      if !unsafe { IsChild(container, hwnd) }.as_bool() {
+        continue;
+      }
+      let _ = unsafe { RevokeDragDrop(hwnd) };
+    }
+  }
+
+  unsafe extern "system" fn subclass_proc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+    _uidsubclass: usize,
+    dwrefdata: usize,
+  ) -> LRESULT {
+    unsafe {
+      if msg == WM_DESTROY {
+        let _ = RemoveWindowSubclass(hwnd, Some(Self::subclass_proc), DRAG_DROP_SUBCLASS_ID as _);
+        // SAFETY: the controller owning `drop_targets` removes this subclass before it frees
+        // them, so they are still alive here.
+        Self::revoke(
+          hwnd,
+          &*(dwrefdata as *const RefCell<Vec<(HWND, IDropTarget)>>),
+        );
+      }
+
+      DefSubclassProc(hwnd, msg, wparam, lparam)
+    }
+  }
+}
+
+impl Drop for DragDropController {
+  fn drop(&mut self) {
+    unsafe {
+      let _ = RemoveWindowSubclass(
+        self.hwnd,
+        Some(Self::subclass_proc),
+        DRAG_DROP_SUBCLASS_ID as _,
+      );
+    }
+    Self::revoke(self.hwnd, &self.drop_targets);
   }
 }
 
@@ -89,18 +169,25 @@ enum FileDropSource {
 #[implement(IDropTarget)]
 pub struct DragDropTarget {
   hwnd: HWND,
-  listener: Rc<dyn Fn(DragDropEvent) -> bool>,
+  listener: Weak<dyn Fn(DragDropEvent) -> bool>,
   cursor_effect: UnsafeCell<DROPEFFECT>,
   enter_is_valid: UnsafeCell<bool>, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
 }
 
 impl DragDropTarget {
-  pub fn new(hwnd: HWND, listener: Rc<dyn Fn(DragDropEvent) -> bool>) -> DragDropTarget {
+  pub fn new(hwnd: HWND, listener: Weak<dyn Fn(DragDropEvent) -> bool>) -> DragDropTarget {
     Self {
       hwnd,
       listener,
       cursor_effect: DROPEFFECT_NONE.into(),
       enter_is_valid: false.into(),
+    }
+  }
+
+  /// Calls the handler, unless its webview is already gone.
+  fn emit(&self, event: DragDropEvent) {
+    if let Some(listener) = self.listener.upgrade() {
+      listener(event);
     }
   }
 
@@ -246,7 +333,7 @@ impl IDropTarget_Impl for DragDropTarget_Impl {
       *self.enter_is_valid.get() = enter_is_valid;
     }
 
-    (self.listener)(DragDropEvent::Enter {
+    self.emit(DragDropEvent::Enter {
       paths,
       position: (pt.x as _, pt.y as _),
     });
@@ -274,7 +361,7 @@ impl IDropTarget_Impl for DragDropTarget_Impl {
     if unsafe { *self.enter_is_valid.get() } {
       let mut pt = POINT { x: pt.x, y: pt.y };
       let _ = unsafe { ScreenToClient(self.hwnd, &mut pt) };
-      (self.listener)(DragDropEvent::Over {
+      self.emit(DragDropEvent::Over {
         position: (pt.x as _, pt.y as _),
       });
     }
@@ -285,7 +372,7 @@ impl IDropTarget_Impl for DragDropTarget_Impl {
 
   fn DragLeave(&self) -> windows::core::Result<()> {
     if unsafe { *self.enter_is_valid.get() } {
-      (self.listener)(DragDropEvent::Leave);
+      self.emit(DragDropEvent::Leave);
     }
     Ok(())
   }
@@ -303,7 +390,7 @@ impl IDropTarget_Impl for DragDropTarget_Impl {
 
       let mut paths = Vec::new();
       let source = unsafe { DragDropTarget::iterate_filenames(pDataObj, |path| paths.push(path)) };
-      (self.listener)(DragDropEvent::Drop {
+      self.emit(DragDropEvent::Drop {
         paths,
         position: (pt.x as _, pt.y as _),
       });

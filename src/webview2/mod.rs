@@ -75,6 +75,8 @@ pub(crate) struct InnerWebView {
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
+    // Revoke the drop targets while the windows they are registered on still exist.
+    drop(self.drag_drop_controller.take());
     let _ = unsafe { self.controller.Close() };
     if self.is_child {
       let _ = unsafe { DestroyWindow(self.hwnd) };
