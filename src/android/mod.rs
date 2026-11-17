@@ -534,12 +534,13 @@ pub fn find_class<'a>(
 /// Dispatch a closure to run on the Android context.
 ///
 /// The closure takes the JNI env, the Android activity instance and the possibly null webview.
+/// The activity is null too when there is none, for example after the last one was destroyed.
 pub fn dispatch<F>(func: F)
 where
   F: FnOnce(&mut JNIEnv, &JObject, &JObject) + Send + 'static,
 {
   MainPipe::send(
-    first_activity_id().expect("no available activity"),
+    first_activity_id().unwrap_or_default(),
     WebViewMessage::Jni(Box::new(func)),
   );
 }
