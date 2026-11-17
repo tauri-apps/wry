@@ -43,6 +43,10 @@ abstract class WryActivity : AppCompatActivity() {
 
     open fun onWebViewCreate(webView: WebView) { }
 
+    // The webview's history changed (a navigation, a pushState, back or forward),
+    // so `canGoBack()` may have changed.
+    open fun onWebViewHistoryChanged(webView: WebView) { }
+
     fun requestPermissions(permissions: Array<String>, listener: (Boolean?) -> Unit) {
         permissionListener = listener
         permissionLauncher.launch(permissions)
