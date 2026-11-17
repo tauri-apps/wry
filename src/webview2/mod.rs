@@ -25,13 +25,7 @@ use windows::{
     Foundation::*,
     Globalization::*,
     Graphics::Gdi::*,
-    System::{
-      Com::*,
-      LibraryLoader::{
-        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-        GetModuleHandleExW, GetModuleHandleW,
-      },
-    },
+    System::Com::*,
     UI::{Input::KeyboardAndMouse::SetFocus, Shell::*, WindowsAndMessaging::*},
   },
   core::{BOOL, HSTRING, Interface, PCWSTR, PWSTR, s, w},
@@ -225,23 +219,7 @@ impl InnerWebView {
 
     let class_name = w!("WRY_WEBVIEW");
 
-    // A window class is local to the module it is registered under, so
-    // register it under the module that holds the window procedure: the
-    // executable for an application, and the DLL when wry is built into one.
-    // Registered under the executable from a DLL, the class would outlive an
-    // unload of the DLL and keep a procedure that is no longer mapped.
-    let hinstance = unsafe {
-      let mut module = HMODULE::default();
-      GetModuleHandleExW(
-        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-        PCWSTR(default_window_proc as *const u16),
-        &mut module,
-      )
-      .map(|()| module)
-      .or_else(|_| GetModuleHandleW(PCWSTR::null()))
-      .map(|module| HINSTANCE(module.0))
-      .unwrap_or_default()
-    };
+    let hinstance = util::get_instance_handle();
 
     let class = WNDCLASSEXW {
       cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
