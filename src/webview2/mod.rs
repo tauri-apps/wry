@@ -251,9 +251,12 @@ impl InnerWebView {
           .map(|procedure| procedure as *const ())
           != Some(default_window_proc as *const ());
       if stale {
+        // A class that still has a window is in use cannot be unregistered,
+        // and the window is created on it as before.
         unsafe {
-          UnregisterClassW(class_name, Some(hinstance))?;
-          RegisterClassExW(&class);
+          if UnregisterClassW(class_name, Some(hinstance)).is_ok() {
+            RegisterClassExW(&class);
+          }
         }
       }
     }
