@@ -7,7 +7,7 @@
 use crate::DragDropEvent;
 
 use std::{
-  cell::{RefCell, UnsafeCell},
+  cell::UnsafeCell,
   ffi::OsString,
   os::{raw::c_void, windows::ffi::OsStringExt},
   path::PathBuf,
@@ -17,7 +17,7 @@ use std::{
 
 use windows::{
   Win32::{
-    Foundation::{DRAGDROP_E_INVALIDHWND, HWND, LPARAM, LRESULT, POINT, POINTL, WPARAM},
+    Foundation::{DRAGDROP_E_INVALIDHWND, HWND, LPARAM, POINT, POINTL},
     Graphics::Gdi::ScreenToClient,
     System::{
       Com::{CoTaskMemFree, DVASPECT_CONTENT, FORMATETC, IDataObject, TYMED_HGLOBAL},
@@ -29,25 +29,21 @@ use windows::{
     },
     UI::{
       Shell::{
-        DefSubclassProc, DragFinish, DragQueryFileW, HDROP, IShellItemArray, RemoveWindowSubclass,
-        SHCreateShellItemArrayFromDataObject, SIGDN_FILESYSPATH, SetWindowSubclass,
+        DragFinish, DragQueryFileW, HDROP, IShellItemArray, SHCreateShellItemArrayFromDataObject,
+        SIGDN_FILESYSPATH,
       },
-      WindowsAndMessaging::{EnumChildWindows, IsChild, WM_DESTROY, WM_USER},
+      WindowsAndMessaging::{EnumChildWindows, IsChild},
     },
   },
   core::{BOOL, implement},
 };
-
-const DRAG_DROP_SUBCLASS_ID: u32 = WM_USER + 0x67;
 
 pub(crate) struct DragDropController {
   /// The webview container window. Its descendants are the windows the drop targets are
   /// registered on.
   hwnd: HWND,
   /// The windows we registered a drop target on, and their targets.
-  ///
-  /// Boxed so its address stays stable: [`Self::subclass_proc`] receives it as reference data.
-  drop_targets: Box<RefCell<Vec<(HWND, IDropTarget)>>>,
+  drop_targets: Vec<(HWND, IDropTarget)>,
   /// The only strong reference to the handler. The drop targets hold weak ones, because OLE
   /// can keep a target alive forever: revoking fails with `DRAGDROP_E_NOTREGISTERED` when the
   /// registration on a window owned by the WebView2 browser process is already gone.
@@ -57,9 +53,9 @@ pub(crate) struct DragDropController {
 impl DragDropController {
   #[inline]
   pub(crate) fn new(hwnd: HWND, handler: Box<dyn Fn(DragDropEvent) -> bool>) -> Self {
-    let controller = DragDropController {
+    let mut controller = DragDropController {
       hwnd,
-      drop_targets: Default::default(),
+      drop_targets: Vec::new(),
       handler: Rc::from(handler),
     };
 
@@ -78,86 +74,39 @@ impl DragDropController {
       let _ = unsafe { EnumChildWindows(Some(hwnd), Some(enumerate_callback), lparam) };
     }
 
-    // A registered window must be revoked before it is destroyed, otherwise OLE keeps its
-    // reference to the target forever. The container can be destroyed before this controller
-    // is dropped (by destroying its parent window), so revoke from its `WM_DESTROY` too: all
-    // its descendants still exist then.
-    unsafe {
-      let _ = SetWindowSubclass(
-        hwnd,
-        Some(Self::subclass_proc),
-        DRAG_DROP_SUBCLASS_ID as _,
-        &*controller.drop_targets as *const _ as _,
-      );
-    }
-
     controller
   }
 
   #[inline]
-  fn inject_in_hwnd(&self, hwnd: HWND) -> bool {
+  fn inject_in_hwnd(&mut self, hwnd: HWND) -> bool {
     let drag_drop_target: IDropTarget =
       DragDropTarget::new(hwnd, Rc::downgrade(&self.handler)).into();
     if unsafe { RevokeDragDrop(hwnd) } != Err(DRAGDROP_E_INVALIDHWND.into())
       && unsafe { RegisterDragDrop(hwnd, &drag_drop_target) }.is_ok()
     {
-      self
-        .drop_targets
-        .borrow_mut()
-        .push((hwnd, drag_drop_target));
+      self.drop_targets.push((hwnd, drag_drop_target));
     }
 
     true
   }
+}
 
-  /// Revokes every drop target registered on a window that is still a descendant of `container`.
-  fn revoke(container: HWND, drop_targets: &RefCell<Vec<(HWND, IDropTarget)>>) {
-    // Take the targets out first so they are released after the borrow ends.
-    let drop_targets = std::mem::take(&mut *drop_targets.borrow_mut());
-    for (hwnd, _) in drop_targets {
+impl Drop for DragDropController {
+  /// Revokes every drop target registered on a window that is still a descendant of the
+  /// container.
+  ///
+  /// A registered window must be revoked before it is destroyed, otherwise OLE keeps its
+  /// reference to the target forever. So this must run while the descendants of the container
+  /// still exist: at the latest from the `WM_DESTROY` of the container.
+  fn drop(&mut self) {
+    for (hwnd, _) in self.drop_targets.drain(..) {
       // A window WebView2 has already destroyed cannot be revoked anymore, and its handle may
       // have been reused by an unrelated window.
-      if !unsafe { IsChild(container, hwnd) }.as_bool() {
+      if !unsafe { IsChild(self.hwnd, hwnd) }.as_bool() {
         continue;
       }
       let _ = unsafe { RevokeDragDrop(hwnd) };
     }
-  }
-
-  unsafe extern "system" fn subclass_proc(
-    hwnd: HWND,
-    msg: u32,
-    wparam: WPARAM,
-    lparam: LPARAM,
-    _uidsubclass: usize,
-    dwrefdata: usize,
-  ) -> LRESULT {
-    unsafe {
-      if msg == WM_DESTROY {
-        let _ = RemoveWindowSubclass(hwnd, Some(Self::subclass_proc), DRAG_DROP_SUBCLASS_ID as _);
-        // SAFETY: the controller owning `drop_targets` removes this subclass before it frees
-        // them, so they are still alive here.
-        Self::revoke(
-          hwnd,
-          &*(dwrefdata as *const RefCell<Vec<(HWND, IDropTarget)>>),
-        );
-      }
-
-      DefSubclassProc(hwnd, msg, wparam, lparam)
-    }
-  }
-}
-
-impl Drop for DragDropController {
-  fn drop(&mut self) {
-    unsafe {
-      let _ = RemoveWindowSubclass(
-        self.hwnd,
-        Some(Self::subclass_proc),
-        DRAG_DROP_SUBCLASS_ID as _,
-      );
-    }
-    Self::revoke(self.hwnd, &self.drop_targets);
   }
 }
 
