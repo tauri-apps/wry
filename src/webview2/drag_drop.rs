@@ -169,6 +169,9 @@ enum FileDropSource {
 #[implement(IDropTarget)]
 pub struct DragDropTarget {
   hwnd: HWND,
+  // Held as a `Weak` on purpose: `RevokeDragDrop` can fail (e.g. with
+  // `DRAGDROP_E_NOTREGISTERED` on `Chrome_WidgetWin_1`), in which case this target stays
+  // alive. With an `Rc` the handler and everything it captured would stay alive with it.
   listener: Weak<dyn Fn(DragDropEvent) -> bool>,
   cursor_effect: UnsafeCell<DROPEFFECT>,
   enter_is_valid: UnsafeCell<bool>, /* If the currently hovered item is not valid there must not be any `HoveredFileCancelled` emitted */
