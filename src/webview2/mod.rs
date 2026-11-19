@@ -6,13 +6,18 @@ mod drag_drop;
 mod util;
 
 use std::{
-  borrow::Cow, cell::RefCell, collections::HashSet, fmt::Write, fs, path::PathBuf, rc::Rc,
-  sync::mpsc,
+  borrow::Cow,
+  cell::RefCell,
+  collections::HashSet,
+  fmt::Write,
+  fs,
+  path::PathBuf,
+  rc::Rc,
+  sync::{LazyLock, mpsc},
 };
 
 use dpi::{PhysicalPosition, PhysicalSize};
 use http::{Request, Response as HttpResponse, StatusCode};
-use once_cell::sync::Lazy;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, *};
 use windows::{
@@ -20,7 +25,7 @@ use windows::{
     Foundation::*,
     Globalization::*,
     Graphics::Gdi::*,
-    System::{Com::*, LibraryLoader::GetModuleHandleW},
+    System::Com::*,
     UI::{Input::KeyboardAndMouse::SetFocus, Shell::*, WindowsAndMessaging::*},
   },
   core::{BOOL, HSTRING, Interface, PCWSTR, PWSTR, s, w},
@@ -39,7 +44,8 @@ type EventRegistrationToken = i64;
 const PARENT_SUBCLASS_ID: u32 = WM_USER + 0x64;
 const PARENT_DESTROY_MESSAGE: u32 = WM_USER + 0x65;
 const MAIN_THREAD_DISPATCHER_SUBCLASS_ID: u32 = WM_USER + 0x66;
-static EXEC_MSG_ID: Lazy<u32> = Lazy::new(|| unsafe { RegisterWindowMessageA(s!("Wry::ExecMsg")) });
+static EXEC_MSG_ID: LazyLock<u32> =
+  LazyLock::new(|| unsafe { RegisterWindowMessageA(s!("Wry::ExecMsg")) });
 
 impl From<webview2_com::Error> for Error {
   fn from(err: webview2_com::Error) -> Self {
@@ -72,8 +78,9 @@ impl Drop for InnerWebView {
     let _ = unsafe { self.controller.Close() };
     if self.is_child {
       let _ = unsafe { DestroyWindow(self.hwnd) };
+    } else {
+      unsafe { Self::dettach_parent_subclass(*self.parent.borrow()) }
     }
-    unsafe { Self::dettach_parent_subclass(*self.parent.borrow()) }
   }
 }
 
@@ -212,13 +219,15 @@ impl InnerWebView {
 
     let class_name = w!("WRY_WEBVIEW");
 
+    let hinstance = util::get_instance_handle();
+
     let class = WNDCLASSEXW {
       cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
       style: CS_HREDRAW | CS_VREDRAW,
       lpfnWndProc: Some(default_window_proc),
       cbClsExtra: 0,
       cbWndExtra: 0,
-      hInstance: unsafe { HINSTANCE(GetModuleHandleW(PCWSTR::null()).unwrap_or_default().0) },
+      hInstance: hinstance,
       hIcon: HICON::default(),
       hCursor: HCURSOR::default(),
       hbrBackground: HBRUSH::default(),
@@ -227,7 +236,30 @@ impl InnerWebView {
       hIconSm: HICON::default(),
     };
 
-    unsafe { RegisterClassExW(&class) };
+    // This fails when the class is registered under this module already: by
+    // an earlier WebView, or by a module that was loaded at this address
+    // before and is gone, since a DLL's classes outlive its unload. The
+    // second names a procedure that is not ours, so replace it.
+    if unsafe { RegisterClassExW(&class) } == 0 {
+      let mut registered = WNDCLASSEXW {
+        cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+        ..Default::default()
+      };
+      let stale = unsafe { GetClassInfoExW(Some(hinstance), class_name, &mut registered) }.is_ok()
+        && registered
+          .lpfnWndProc
+          .map(|procedure| procedure as *const ())
+          != Some(default_window_proc as *const ());
+      if stale {
+        // A class that still has a window is in use cannot be unregistered,
+        // and the window is created on it as before.
+        unsafe {
+          if UnregisterClassW(class_name, Some(hinstance)).is_ok() {
+            RegisterClassExW(&class);
+          }
+        }
+      }
+    }
 
     let mut window_styles = WS_CHILD | WS_CLIPCHILDREN;
     if attributes.visible {
@@ -267,7 +299,7 @@ impl InnerWebView {
         height,
         Some(parent),
         None,
-        GetModuleHandleW(PCWSTR::null()).map(Into::into).ok(),
+        Some(hinstance),
         None,
       )?
     };
@@ -1352,7 +1384,7 @@ impl InnerWebView {
           }
         }
 
-        WM_SETFOCUS | WM_ENTERSIZEMOVE => {
+        WM_SETFOCUS => {
           let controller = dwrefdata as *mut ICoreWebView2Controller;
           let _ = (*controller).MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
         }
@@ -1427,15 +1459,58 @@ impl InnerWebView {
       #[cfg(feature = "tracing")]
       let span = tracing::debug_span!("wry::eval").entered();
       let js = HSTRING::from(js);
-      webview.ExecuteScript(
-        &js,
-        &ExecuteScriptCompletedHandler::create(Box::new(|_, res| {
-          #[cfg(feature = "tracing")]
-          drop(span);
-          callback(res);
-          Ok(())
-        })),
-      )
+
+      if let Ok(webview_21) = webview.cast::<ICoreWebView2_21>() {
+        webview_21.ExecuteScriptWithResult(
+          &js,
+          &ExecuteScriptWithResultCompletedHandler::create(Box::new(|error, res| {
+            #[cfg(feature = "tracing")]
+            drop(span);
+
+            let Some(res) = res else {
+              #[cfg(feature = "tracing")]
+              tracing::error!("Failed to eval script: {error:?}");
+              return error;
+            };
+
+            let mut succeeded = FALSE;
+            if res.Succeeded(&mut succeeded).is_ok() && succeeded.as_bool() {
+              let mut pwstr = PWSTR::null();
+              let _ = res.ResultAsJson(&mut pwstr);
+              callback(take_pwstr(pwstr));
+            } else {
+              #[cfg(feature = "tracing")]
+              {
+                let mut pwstr = PWSTR::null();
+                if let Ok(exception) = res.Exception() {
+                  let _ = exception.ToJson(&mut pwstr);
+                }
+                let error_message = take_pwstr(pwstr);
+                tracing::debug!("Exception during script eval: {error_message}");
+              }
+              callback(String::new());
+            }
+
+            Ok(())
+          })),
+        )
+      } else {
+        webview.ExecuteScript(
+          &js,
+          &ExecuteScriptCompletedHandler::create(Box::new(|_error, res| {
+            #[cfg(feature = "tracing")]
+            drop(span);
+
+            #[cfg(feature = "tracing")]
+            if let Err(error) = _error {
+              tracing::debug!("Failed to eval script: {error}");
+            }
+            callback(res);
+
+            Ok(())
+          })),
+        )
+      }
     }
   }
 

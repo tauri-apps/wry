@@ -2,14 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use windows::{
   Win32::{
-    Foundation::{FARPROC, HWND, S_OK},
+    Foundation::{FARPROC, HINSTANCE, HWND, S_OK},
     Graphics::Gdi::{
       GetDC, GetDeviceCaps, HMONITOR, LOGPIXELSX, MONITOR_DEFAULTTONEAREST, MonitorFromWindow,
     },
-    System::LibraryLoader::{GetProcAddress, LoadLibraryW},
+    System::{
+      LibraryLoader::{GetProcAddress, LoadLibraryW},
+      SystemServices::IMAGE_DOS_HEADER,
+    },
     UI::{
       HiDpi::{MDT_EFFECTIVE_DPI, MONITOR_DPI_TYPE},
       WindowsAndMessaging::IsProcessDPIAware,
@@ -31,6 +34,16 @@ fn get_function_impl(library: &str, function: &str) -> FARPROC {
   unsafe { GetProcAddress(module, PCSTR::from_raw(function.as_ptr())) }
 }
 
+pub fn get_instance_handle() -> HINSTANCE {
+  // The address of the pseudo-variable the linker creates is the module's base:
+  // https://devblogs.microsoft.com/oldnewthing/20041025-00/?p=37483
+  unsafe extern "C" {
+    static __ImageBase: IMAGE_DOS_HEADER;
+  }
+
+  HINSTANCE(unsafe { &__ImageBase as *const _ as _ })
+}
+
 macro_rules! get_function {
   ($lib:expr, $func:ident) => {
     crate::webview2::util::get_function_impl($lib, concat!(stringify!($func), '\0'))
@@ -46,10 +59,10 @@ pub type GetDpiForMonitor = unsafe extern "system" fn(
   dpi_y: *mut u32,
 ) -> HRESULT;
 
-static GET_DPI_FOR_WINDOW: Lazy<Option<GetDpiForWindow>> =
-  Lazy::new(|| get_function!("user32.dll", GetDpiForWindow));
-static GET_DPI_FOR_MONITOR: Lazy<Option<GetDpiForMonitor>> =
-  Lazy::new(|| get_function!("shcore.dll", GetDpiForMonitor));
+static GET_DPI_FOR_WINDOW: LazyLock<Option<GetDpiForWindow>> =
+  LazyLock::new(|| get_function!("user32.dll", GetDpiForWindow));
+static GET_DPI_FOR_MONITOR: LazyLock<Option<GetDpiForMonitor>> =
+  LazyLock::new(|| get_function!("shcore.dll", GetDpiForMonitor));
 
 pub const BASE_DPI: u32 = 96;
 pub fn dpi_to_scale_factor(dpi: u32) -> f64 {

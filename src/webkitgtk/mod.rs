@@ -315,6 +315,7 @@ impl InnerWebView {
     Self::attach_handlers(&webview, web_context, &mut attributes);
 
     // IPC handler
+    let ipc_enabled = attributes.ipc_handler.is_some();
     if let Some(ipc_handler) = attributes.ipc_handler.take() {
       Self::attach_ipc_handler(webview.clone(), ipc_handler);
     }
@@ -351,7 +352,9 @@ impl InnerWebView {
     };
 
     // Initialize message handler
-    w.init("Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })", true)?;
+    if ipc_enabled {
+      w.init("Object.defineProperty(window, 'ipc', { value: Object.freeze({ postMessage: function(x) { window.webkit.messageHandlers['ipc'].postMessage(x) } }) })", true)?;
+    }
 
     // Initialize scripts
     for init_script in attributes.initialization_scripts {
@@ -366,7 +369,12 @@ impl InnerWebView {
         if let Some(pending_scripts) = pending_scripts_.take() {
           let cancellable: Option<&Cancellable> = None;
           for script in pending_scripts {
-            webview.run_javascript(&script, cancellable, |_| ());
+            webview.run_javascript(&script, cancellable, |_result| {
+              #[cfg(feature = "tracing")]
+              if let Err(error) = _result {
+                tracing::debug!("Exception during script eval: {error}");
+              }
+            });
           }
         }
       }
@@ -730,12 +738,14 @@ impl InnerWebView {
       .user_content_manager()
       .expect("WebView does not have UserContentManager");
 
+    // The manager belongs to the view: a strong view here would keep both alive forever.
+    let webview = webview.downgrade();
     // Connect before registering as recommended by the docs
     manager.connect_script_message_received(None, move |_m, msg| {
       #[cfg(feature = "tracing")]
       let _span = tracing::info_span!(parent: None, "wry::ipc::handle").entered();
 
-      if let Some(js) = msg.js_value() {
+      if let (Some(webview), Some(js)) = (webview.upgrade(), msg.js_value()) {
         let uri = webview.uri().map(|u| u.to_string()).unwrap_or_default();
         match Request::builder().uri(uri).body(js.to_string()) {
           Ok(request) => ipc_handler(request),
@@ -798,6 +808,11 @@ impl InnerWebView {
       self.webview.run_javascript(js, cancellable, |result| {
         #[cfg(feature = "tracing")]
         drop(span);
+
+        #[cfg(feature = "tracing")]
+        if let Err(error) = &result {
+          tracing::debug!("Exception during script eval: {error}");
+        }
 
         if let Some(callback) = callback {
           let result = result

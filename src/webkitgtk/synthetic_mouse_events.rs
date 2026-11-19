@@ -4,7 +4,7 @@ use gtk::{
   gdk::{EventButton, EventMask, ModifierType},
   prelude::*,
 };
-use webkit2gtk::{WebView, WebViewExt};
+use webkit2gtk::{SettingsExt, WebView, WebViewExt};
 
 pub fn setup(webview: &WebView) {
   webview.add_events(EventMask::BUTTON1_MOTION_MASK | EventMask::BUTTON_PRESS_MASK);
@@ -20,7 +20,7 @@ pub fn setup(webview: &WebView) {
         inhibit = true;
         bf_state_c.set(BACK);
         webview.run_javascript(
-          &create_js_mouse_event(event, true, &bf_state_c),
+          &create_js_mouse_event(webview, event, true, &bf_state_c),
           None::<&gtk::gio::Cancellable>,
           |_| {},
         );
@@ -30,7 +30,7 @@ pub fn setup(webview: &WebView) {
         inhibit = true;
         bf_state_c.set(FORWARD);
         webview.run_javascript(
-          &create_js_mouse_event(event, true, &bf_state_c),
+          &create_js_mouse_event(webview, event, true, &bf_state_c),
           None::<&gtk::gio::Cancellable>,
           |_| {},
         );
@@ -54,7 +54,7 @@ pub fn setup(webview: &WebView) {
         inhibit = true;
         bf_state_c.remove(BACK);
         webview.run_javascript(
-          &create_js_mouse_event(event, false, &bf_state_c),
+          &create_js_mouse_event(webview, event, false, &bf_state_c),
           None::<&gtk::gio::Cancellable>,
           |_| {},
         );
@@ -64,7 +64,7 @@ pub fn setup(webview: &WebView) {
         inhibit = true;
         bf_state_c.remove(FORWARD);
         webview.run_javascript(
-          &create_js_mouse_event(event, false, &bf_state_c),
+          &create_js_mouse_event(webview, event, false, &bf_state_c),
           None::<&gtk::gio::Cancellable>,
           |_| {},
         );
@@ -79,12 +79,25 @@ pub fn setup(webview: &WebView) {
   });
 }
 
-fn create_js_mouse_event(event: &EventButton, pressed: bool, state: &BackForwardState) -> String {
+fn create_js_mouse_event(
+  webview: &WebView,
+  event: &EventButton,
+  pressed: bool,
+  state: &BackForwardState,
+) -> String {
   let event_name = if pressed { "mousedown" } else { "mouseup" };
   // js equivalent https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/button
   let button = if event.button() == 8 { 3 } else { 4 };
+  // The page's own coordinates: CSS pixels. A page zoom scales CSS pixels
+  // against the widget's, so a point read off the widget alone can stand
+  // past the page's edge, where `elementFromPoint` finds nothing.
+  let text_only = WebViewExt::settings(webview).is_some_and(|s| s.is_zoom_text_only());
+  let zoom = match webview.zoom_level() {
+    zoom if zoom > 0.0 && !text_only => zoom,
+    _ => 1.0,
+  };
   let (x, y) = event.position();
-  let (x, y) = (x as i32, y as i32);
+  let (x, y) = (x / zoom, y / zoom);
   let modifers_state = event.state();
   let mut buttons = 0;
   // left button
@@ -115,7 +128,7 @@ fn create_js_mouse_event(event: &EventButton, pressed: bool, state: &BackForward
   // }
   format!(
     r#"(() => {{
-        const el = document.elementFromPoint({x},{y});
+        const el = document.elementFromPoint({x},{y}) ?? document.documentElement;
         const ev = new MouseEvent('{event_name}', {{
           view: window,
           button: {button},
