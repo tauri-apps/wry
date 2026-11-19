@@ -2826,8 +2826,8 @@ dependencies = [
 
 [[package]]
 name = "tao"
-version = "0.37.0"
-source = "git+https://github.com/tauri-apps/tao.git?branch=gtk-0.19#f3862b505d347d9721ea41644c9bc4d2d70600d2"
+version = "0.37.3"
+source = "git+https://github.com/tauri-apps/tao.git#4a66a05a823c690823d4f94f38038f7ec4f72353"
 dependencies = [
  "async-channel",
  "bitflags 2.13.2",
@@ -2852,11 +2852,10 @@ dependencies = [
  "objc2-app-kit 0.3.2",
  "objc2-foundation 0.3.2",
  "objc2-ui-kit 0.3.2",
- "once_cell",
  "parking_lot",
  "percent-encoding",
  "raw-window-handle",
- "tao-macros 0.1.4 (git+https://github.com/tauri-apps/tao.git?branch=gtk-0.19)",
+ "tao-macros 0.1.4 (git+https://github.com/tauri-apps/tao.git)",
  "unicode-segmentation",
  "url",
  "windows 0.62.2",
@@ -2879,7 +2878,7 @@ dependencies = [
 [[package]]
 name = "tao-macros"
 version = "0.1.4"
-source = "git+https://github.com/tauri-apps/tao.git?branch=gtk-0.19#f3862b505d347d9721ea41644c9bc4d2d70600d2"
+source = "git+https://github.com/tauri-apps/tao.git#4a66a05a823c690823d4f94f38038f7ec4f72353"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3399,8 +3398,9 @@ dependencies = [
 
 [[package]]
 name = "webkit2gtk"
-version = "2.0.2"
-source = "git+https://github.com/tauri-apps/webkit2gtk-rs.git?branch=bump-gir#f5c3825c3f21c44ce346a5aa42e8c33a762f9f72"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d10c534cfa5ce140449e4317116730d99f11dad6fbbb9fbd50e12eec44a01570"
 dependencies = [
  "bitflags 2.13.2",
  "cairo-rs",
@@ -3422,8 +3422,9 @@ dependencies = [
 
 [[package]]
 name = "webkit2gtk-sys"
-version = "2.0.2"
-source = "git+https://github.com/tauri-apps/webkit2gtk-rs.git?branch=bump-gir#f5c3825c3f21c44ce346a5aa42e8c33a762f9f72"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b1f9b6c0d50840d7299df258bab498aaac1eb4fe10e0bdd327b9d175dec0f5a"
 dependencies = [
  "bitflags 2.13.2",
  "cairo-sys-rs",
