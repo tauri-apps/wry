@@ -643,9 +643,9 @@ dependencies = [
 
 [[package]]
 name = "dom_query"
-version = "0.29.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "498c698ac51127148a3984450e51fca7f01805a91d7a1f7a24af0a5f761e3385"
+checksum = "b35b4f772a1a8b88e5545a67c2d3a62a93d4edccc5a68f2145fe52e39c96d275"
 dependencies = [
  "bit-set 0.11.1",
  "cssparser",
