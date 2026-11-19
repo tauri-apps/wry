@@ -342,7 +342,8 @@
 // #[macro_use]
 // extern crate objc;
 
-#[cfg(any(target_os = "windows", target_os = "android"))]
+#[cfg(any(target_os = "windows", target_os = "android", test))]
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
 mod custom_protocol_workaround;
 mod error;
 #[cfg(any(target_os = "android", test))]
@@ -633,7 +634,7 @@ struct WebViewAttributes<'a> {
   /// different Origin headers across platforms:
   ///
   /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://path/to/page`).
-  /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page`). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`].
+  /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page`). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`]. On Android, a protocol mapped to a host with [`WebViewBuilderExtAndroid::with_custom_protocol_host`] uses `https://<host>/<path>` instead.
   ///
   /// # Reading assets on mobile
   ///
@@ -1063,7 +1064,7 @@ impl<'a> WebViewBuilder<'a> {
   /// different Origin headers across platforms:
   ///
   /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://path/to/page).
-  /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page`). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`].
+  /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page`). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`]. On Android, a protocol mapped to a host with [`WebViewBuilderExtAndroid::with_custom_protocol_host`] uses `https://<host>/<path>` instead.
   ///
   /// # Reading assets on mobile
   ///
@@ -1120,7 +1121,7 @@ impl<'a> WebViewBuilder<'a> {
   /// different Origin headers across platforms:
   ///
   /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://path/to/page).
-  /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page`). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`].
+  /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page`). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`]. On Android, a protocol mapped to a host with [`WebViewBuilderExtAndroid::with_custom_protocol_host`] uses `https://<host>/<path>` instead.
   ///
   /// # Examples
   ///
@@ -1216,7 +1217,9 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// - **Windows and Android:** if the URL's scheme is a registered custom protocol,
   ///   a work around is used that changes the URL this navigates to
-  ///   from `{protocol}://localhost/abc` to `{http_or_https}://{protocol}.localhost/abc`
+  ///   from `{protocol}://localhost/abc` to `{http_or_https}://{protocol}.localhost/abc`,
+  ///   or to `https://{host}/abc` on Android when the protocol is mapped to a host with
+  ///   [`WebViewBuilderExtAndroid::with_custom_protocol_host`]
   pub fn with_url_and_headers(mut self, url: impl Into<String>, headers: http::HeaderMap) -> Self {
     self.attrs.url = Some(url.into());
     self.attrs.headers = Some(headers);
@@ -1234,7 +1237,9 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// - **Windows and Android:** if the URL's scheme is a registered custom protocol,
   ///   a work around is used that changes the URL this navigates to
-  ///   from `{protocol}://localhost/abc` to `{http_or_https}://{protocol}.localhost/abc`
+  ///   from `{protocol}://localhost/abc` to `{http_or_https}://{protocol}.localhost/abc`,
+  ///   or to `https://{host}/abc` on Android when the protocol is mapped to a host with
+  ///   [`WebViewBuilderExtAndroid::with_custom_protocol_host`]
   pub fn with_url(mut self, url: impl Into<String>) -> Self {
     self.attrs.url = Some(url.into());
     self.attrs.headers = None;
@@ -1941,6 +1946,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   >,
   asset_loader_domain: Option<String>,
   https_scheme: bool,
+  custom_protocol_hosts: Vec<(String, String)>,
 }
 
 #[cfg(target_os = "android")]
@@ -1970,6 +1976,26 @@ pub trait WebViewBuilderExtAndroid {
   ///
   /// The default value is `false`.
   fn with_https_scheme(self, enabled: bool) -> Self;
+
+  /// Serves the custom `protocol` from `https://<host>` instead of `http(s)://<protocol>.localhost`,
+  /// for example to link the host to the app with [Digital Asset Links](https://developers.google.com/digital-asset-links).
+  /// The handler still receives `<protocol>://localhost/<path>` URIs. Requests to the host over `http`, on another port
+  /// or from a service worker get `403 Forbidden`, and setting this replaces the process-wide service worker client.
+  /// Only the initial URL is rewritten, so pass `https://<host>/<path>` to [`WebView::load_url`].
+  ///
+  /// Building fails with [`Error::InvalidCustomProtocolHost`] if `host` isn't a lowercase domain name such as
+  /// `app.example.com`, `protocol` isn't registered, either is already mapped, or [`Self::with_asset_loader`] is set.
+  ///
+  /// ## Warning
+  ///
+  /// Requests redirected to the host and WebSocket connections to it can reach the real server, including the
+  /// body of a form POST redirected to the host with `307` or `308`. The real server's response to that POST is
+  /// rendered at the app's origin, where its scripts can use the app's storage and IPC, before wry replaces it
+  /// with the local page. If the local response isn't a page, such as a download, the real server's page stays.
+  /// So the host's server must answer every request except `GET /.well-known/assetlinks.json` with an empty-body
+  /// error status such as `404` (error pages with a body are rendered too), optionally with
+  /// `Content-Security-Policy: sandbox`.
+  fn with_custom_protocol_host(self, protocol: String, host: String) -> Self;
 }
 
 #[cfg(target_os = "android")]
@@ -2003,6 +2029,14 @@ impl WebViewBuilderExtAndroid for WebViewBuilder<'_> {
 
   fn with_https_scheme(mut self, enabled: bool) -> Self {
     self.platform_specific.https_scheme = enabled;
+    self
+  }
+
+  fn with_custom_protocol_host(mut self, protocol: String, host: String) -> Self {
+    self
+      .platform_specific
+      .custom_protocol_hosts
+      .push((protocol, host));
     self
   }
 }
