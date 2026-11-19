@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.57.4]
+
+- [`259b096`](https://github.com/tauri-apps/wry/commit/259b0969f367b69ee2a54dbdaef033e24719afdd) ([#1942](https://github.com/tauri-apps/wry/pull/1942) by [@renovate](https://github.com/tauri-apps/wry/../../renovate)) Updated dependency `dom_query` to 0.30
+
 ## [0.57.3]
 
 - [`89c4957`](https://github.com/tauri-apps/wry/commit/89c4957799cb98fc803960d2263f01b00fce0aaf) ([#1938](https://github.com/tauri-apps/wry/pull/1938) by [@1eedaegon](https://github.com/tauri-apps/wry/../../1eedaegon)) On Android, fix a panic in `dispatch` when there is no activity, for example after the last one was destroyed. The closure now runs with a null activity and a null webview.
