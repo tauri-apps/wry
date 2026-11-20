@@ -1759,6 +1759,7 @@ pub(crate) struct PlatformSpecificWebViewAttributes {
   extension_path: Option<PathBuf>,
   default_context_menus: bool,
   environment: Option<ICoreWebView2Environment>,
+  controller: Option<ICoreWebView2Controller>,
   profile_name: Option<String>,
 }
 
@@ -1775,6 +1776,7 @@ impl Default for PlatformSpecificWebViewAttributes {
       browser_extensions_enabled: false,
       extension_path: None,
       environment: None,
+      controller: None,
       profile_name: None,
     }
   }
@@ -1861,6 +1863,33 @@ pub trait WebViewBuilderExtWindows {
   /// Useful if you need to share the same environment, for instance when using the [`WebViewBuilder::with_new_window_req_handler`].
   fn with_environment(self, environment: ICoreWebView2Environment) -> Self;
 
+  /// Use a WebView2 controller the application has already created, instead
+  /// of creating one while the webview is built.
+  ///
+  /// Building a webview waits on the calling thread, pumping messages, until
+  /// WebView2 has created the environment and the controller. An application
+  /// that must not wait (a UI that keeps drawing) can create both itself with
+  /// WebView2's asynchronous calls, on a window of its own, and build the
+  /// webview in the controller's completion handler with this and
+  /// [`with_environment`](Self::with_environment); the build then creates
+  /// neither.
+  ///
+  /// The controller is moved into the webview's container window
+  /// (`ICoreWebView2Controller::SetParentWindow`), so the window it was created
+  /// on does not matter.
+  ///
+  /// ## Requirements
+  ///
+  /// - The controller must have been created from the environment given to
+  ///   [`with_environment`](Self::with_environment); building fails without
+  ///   one.
+  /// - Options WebView2 takes when a controller is created are the
+  ///   application's to set: [`with_profile_name`](Self::with_profile_name),
+  ///   [`WebViewBuilder::with_incognito`] and the default background colour
+  ///   ([`WebViewBuilder::with_background_color`],
+  ///   [`WebViewBuilder::with_transparent`]) are not applied to it.
+  fn with_controller(self, controller: ICoreWebView2Controller) -> Self;
+
   /// Set the WebView2 profile name for this webview. Webviews with different
   /// profile names within the same environment have isolated cookies, storage,
   /// IndexedDB, cache, and other site data, while sharing the runtime.
@@ -1919,6 +1948,11 @@ impl WebViewBuilderExtWindows for WebViewBuilder<'_> {
 
   fn with_environment(mut self, environment: ICoreWebView2Environment) -> Self {
     self.platform_specific.environment.replace(environment);
+    self
+  }
+
+  fn with_controller(mut self, controller: ICoreWebView2Controller) -> Self {
+    self.platform_specific.controller.replace(controller);
     self
   }
 
