@@ -142,13 +142,28 @@ impl InnerWebView {
     } else {
       Self::create_environment(&attributes, pl_attrs.clone())?
     };
-    let controller = Self::create_controller(
-      hwnd,
-      &env,
-      attributes.incognito,
-      background_color,
-      pl_attrs.profile_name.as_deref(),
-    )?;
+    let controller = match &pl_attrs.controller {
+      // created by the application; it needs the environment it came from
+      Some(controller) => {
+        if pl_attrs.environment.is_none() {
+          return Err(Error::WebView2Error(webview2_com::Error::WindowsError(
+            windows::core::Error::new(
+              E_INVALIDARG,
+              "with_controller needs the controller's environment (with_environment)",
+            ),
+          )));
+        }
+        unsafe { controller.SetParentWindow(hwnd)? };
+        controller.clone()
+      }
+      None => Self::create_controller(
+        hwnd,
+        &env,
+        attributes.incognito,
+        background_color,
+        pl_attrs.profile_name.as_deref(),
+      )?,
+    };
     let webview = Self::init_webview(
       parent,
       hwnd,
