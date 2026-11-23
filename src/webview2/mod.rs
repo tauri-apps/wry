@@ -25,7 +25,7 @@ use windows::{
     Foundation::*,
     Globalization::*,
     Graphics::Gdi::*,
-    System::{Com::*, LibraryLoader::GetModuleHandleW},
+    System::Com::*,
     UI::{Input::KeyboardAndMouse::SetFocus, Shell::*, WindowsAndMessaging::*},
   },
   core::{BOOL, HSTRING, Interface, PCWSTR, PWSTR, s, w},
@@ -228,13 +228,15 @@ impl InnerWebView {
 
     let class_name = w!("WRY_WEBVIEW");
 
+    let hinstance = util::get_instance_handle();
+
     let class = WNDCLASSEXW {
       cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
       style: CS_HREDRAW | CS_VREDRAW,
       lpfnWndProc: Some(default_window_proc),
       cbClsExtra: 0,
       cbWndExtra: 0,
-      hInstance: unsafe { HINSTANCE(GetModuleHandleW(PCWSTR::null()).unwrap_or_default().0) },
+      hInstance: hinstance,
       hIcon: HICON::default(),
       hCursor: HCURSOR::default(),
       hbrBackground: HBRUSH::default(),
@@ -243,7 +245,30 @@ impl InnerWebView {
       hIconSm: HICON::default(),
     };
 
-    unsafe { RegisterClassExW(&class) };
+    // This fails when the class is registered under this module already: by
+    // an earlier WebView, or by a module that was loaded at this address
+    // before and is gone, since a DLL's classes outlive its unload. The
+    // second names a procedure that is not ours, so replace it.
+    if unsafe { RegisterClassExW(&class) } == 0 {
+      let mut registered = WNDCLASSEXW {
+        cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+        ..Default::default()
+      };
+      let stale = unsafe { GetClassInfoExW(Some(hinstance), class_name, &mut registered) }.is_ok()
+        && registered
+          .lpfnWndProc
+          .map(|procedure| procedure as *const ())
+          != Some(default_window_proc as *const ());
+      if stale {
+        // A class that still has a window is in use cannot be unregistered,
+        // and the window is created on it as before.
+        unsafe {
+          if UnregisterClassW(class_name, Some(hinstance)).is_ok() {
+            RegisterClassExW(&class);
+          }
+        }
+      }
+    }
 
     let mut window_styles = WS_CHILD | WS_CLIPCHILDREN;
     if attributes.visible {
@@ -283,7 +308,7 @@ impl InnerWebView {
         height,
         Some(parent),
         None,
-        GetModuleHandleW(PCWSTR::null()).map(Into::into).ok(),
+        Some(hinstance),
         None,
       )?
     };

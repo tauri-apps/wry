@@ -5,11 +5,14 @@
 use std::sync::LazyLock;
 use windows::{
   Win32::{
-    Foundation::{FARPROC, HWND, S_OK},
+    Foundation::{FARPROC, HINSTANCE, HWND, S_OK},
     Graphics::Gdi::{
       GetDC, GetDeviceCaps, HMONITOR, LOGPIXELSX, MONITOR_DEFAULTTONEAREST, MonitorFromWindow,
     },
-    System::LibraryLoader::{GetProcAddress, LoadLibraryW},
+    System::{
+      LibraryLoader::{GetProcAddress, LoadLibraryW},
+      SystemServices::IMAGE_DOS_HEADER,
+    },
     UI::{
       HiDpi::{MDT_EFFECTIVE_DPI, MONITOR_DPI_TYPE},
       WindowsAndMessaging::IsProcessDPIAware,
@@ -29,6 +32,16 @@ fn get_function_impl(library: &str, function: &str) -> FARPROC {
   }
 
   unsafe { GetProcAddress(module, PCSTR::from_raw(function.as_ptr())) }
+}
+
+pub fn get_instance_handle() -> HINSTANCE {
+  // The address of the pseudo-variable the linker creates is the module's base:
+  // https://devblogs.microsoft.com/oldnewthing/20041025-00/?p=37483
+  unsafe extern "C" {
+    static __ImageBase: IMAGE_DOS_HEADER;
+  }
+
+  HINSTANCE(unsafe { &__ImageBase as *const _ as _ })
 }
 
 macro_rules! get_function {
