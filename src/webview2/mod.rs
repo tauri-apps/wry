@@ -7,7 +7,7 @@ mod util;
 
 use std::{
   borrow::Cow,
-  cell::RefCell,
+  cell::{Cell, RefCell},
   collections::HashSet,
   fmt::Write,
   fs,
@@ -70,14 +70,14 @@ pub(crate) struct InnerWebView {
   // Shared with the subclass of the container window, which drops the controller on
   // `WM_DESTROY`: the container can be destroyed before the webview is dropped (by destroying
   // its parent window), and the drop targets must be revoked before that.
-  drag_drop_controller: Option<Rc<RefCell<Option<DragDropController>>>>,
+  drag_drop_controller: Option<Rc<Cell<Option<DragDropController>>>>,
 }
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
     // Revoke the drop targets while the windows they are registered on still exist.
     if let Some(drag_drop_controller) = &self.drag_drop_controller {
-      let drag_drop_controller = drag_drop_controller.borrow_mut().take();
+      let drag_drop_controller = drag_drop_controller.take();
       drop(drag_drop_controller);
     }
     let _ = unsafe { self.controller.Close() };
@@ -172,8 +172,7 @@ impl InnerWebView {
           .cast::<ICoreWebView2Controller4>()
           .and_then(|c| c.SetAllowExternalDrop(false));
       }
-      let drag_drop_controller =
-        Rc::new(RefCell::new(Some(DragDropController::new(hwnd, handler))));
+      let drag_drop_controller = Rc::new(Cell::new(Some(DragDropController::new(hwnd, handler))));
       unsafe {
         Self::attach_main_thread_dispatcher(hwnd, Rc::into_raw(drag_drop_controller.clone()) as _);
       }
@@ -1312,8 +1311,8 @@ impl InnerWebView {
         // container they are registered on still exist at this point.
         Self::attach_main_thread_dispatcher(hwnd, 0);
         let drag_drop_controller =
-          Rc::from_raw(dwrefdata as *const RefCell<Option<DragDropController>>);
-        let drag_drop_controller = drag_drop_controller.borrow_mut().take();
+          Rc::from_raw(dwrefdata as *const Cell<Option<DragDropController>>);
+        let drag_drop_controller = drag_drop_controller.take();
         drop(drag_drop_controller);
       }
 
@@ -1324,7 +1323,7 @@ impl InnerWebView {
   /// Subclasses the container `hwnd`, or updates the reference data of the subclass if it is
   /// already attached.
   ///
-  /// `drag_drop_controller` is either `0` or a `Rc<RefCell<Option<DragDropController>>>` turned
+  /// `drag_drop_controller` is either `0` or a `Rc<Cell<Option<DragDropController>>>` turned
   /// into a raw pointer, which the subclass releases on `WM_DESTROY`.
   unsafe fn attach_main_thread_dispatcher(hwnd: HWND, drag_drop_controller: usize) {
     unsafe {
