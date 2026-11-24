@@ -1917,16 +1917,12 @@ impl InnerWebView {
 
     unsafe {
       SetParent(self.hwnd, Some(parent))?;
+      let previous_parent = self.parent.replace(parent);
 
       if !self.is_child {
-        Self::dettach_parent_subclass(*self.parent.borrow());
+        Self::dettach_parent_subclass(previous_parent);
         Self::attach_parent_subclass(parent, &self.controller);
-
-        *self.parent.borrow_mut() = parent;
-
-        let parent_bounds = Self::parent_bounds(parent)?;
-
-        self.set_bounds_inner(parent_bounds, (0, 0).into())?;
+        self.resize_to_parent()?;
       }
     }
 
