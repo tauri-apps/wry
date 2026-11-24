@@ -1087,12 +1087,20 @@ impl InnerWebView {
       let parent_frame = parent.frame();
       let webview_frame = self.webview.frame();
 
+      #[cfg(target_os = "macos")]
+      let is_flipped = parent.isFlipped();
+      #[cfg(not(target_os = "macos"))]
+      let is_flipped = false;
+
+      // The inverse of `window_position`.
+      let y = if is_flipped {
+        webview_frame.origin.y
+      } else {
+        parent_frame.size.height - webview_frame.origin.y - webview_frame.size.height
+      };
+
       Ok(Rect {
-        position: LogicalPosition::new(
-          webview_frame.origin.x,
-          parent_frame.size.height - webview_frame.origin.y - webview_frame.size.height,
-        )
-        .into(),
+        position: LogicalPosition::new(webview_frame.origin.x, y).into(),
         size: LogicalSize::new(webview_frame.size.width, webview_frame.size.height).into(),
       })
     }
