@@ -207,7 +207,7 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
 
 [dev-dependencies]
 pollster = "1.0.0"
-tao = "0.37"
+tao = "0.38"
 wgpu = "23"
 winit = "0.30"
 getrandom = "0.3"
@@ -223,6 +223,3 @@ dom_query = { version = "0.29.0", default-features = false }
 [lints.rust.unexpected_cfgs]
 level = "warn"
 check-cfg = ["cfg(linux)", "cfg(gtk)"]
-
-[patch.crates-io]
-tao = { git = "https://github.com/tauri-apps/tao.git" }

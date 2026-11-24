@@ -715,7 +715,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33d852cb9b869c2a9b3df2f71a3074817f01e1844f839a144f5fcef059a4eb5d"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1040,7 +1040,7 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps 9.0.0",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2507,7 +2507,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2840,8 +2840,9 @@ dependencies = [
 
 [[package]]
 name = "tao"
-version = "0.37.3"
-source = "git+https://github.com/tauri-apps/tao.git#4a66a05a823c690823d4f94f38038f7ec4f72353"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "018765afffb658648fbdfa825af8f117ceee0499296811802d8359663932e7b7"
 dependencies = [
  "async-channel",
  "bitflags 2.13.2",
@@ -2869,7 +2870,7 @@ dependencies = [
  "parking_lot",
  "percent-encoding",
  "raw-window-handle",
- "tao-macros 0.1.4 (git+https://github.com/tauri-apps/tao.git)",
+ "tao-macros",
  "unicode-segmentation",
  "url",
  "windows 0.62.2",
@@ -2883,16 +2884,6 @@ name = "tao-macros"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f7eeb6d99155545da6150a1795945f16ac9c178deb2a5f2e74d776107bd5849"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.98",
-]
-
-[[package]]
-name = "tao-macros"
-version = "0.1.4"
-source = "git+https://github.com/tauri-apps/tao.git#4a66a05a823c690823d4f94f38038f7ec4f72353"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3616,7 +3607,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4136,7 +4127,7 @@ dependencies = [
  "sha2",
  "soup3",
  "tao",
- "tao-macros 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tao-macros",
  "thiserror 2.0.11",
  "tracing",
  "url",
