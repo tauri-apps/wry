@@ -1036,6 +1036,8 @@ impl InnerWebView {
 
     if visible {
       self.webview.show_all();
+      // GTK keeps the cached preferred size if the size request changes while the child is hidden.
+      self.webview.queue_resize();
     } else {
       self.webview.hide();
     }
@@ -1478,6 +1480,11 @@ mod tests {
       .unwrap();
     assert_eq!(bounds_of(&webview), (10, 20, 300, 200));
     assert_eq!(allocation_in(&fixed, &webview), (10, 20, 300, 200));
+
+    webview.set_visible(false).unwrap();
+    webview.set_bounds(rect(10, 20, 200, 150)).unwrap();
+    webview.set_visible(true).unwrap();
+    assert_eq!(allocation_in(&fixed, &webview), (10, 20, 200, 150));
 
     // the next layout pass of the `gtk::Fixed` does not undo it
     webview.set_bounds(rect(40, 50, 120, 90)).unwrap();
