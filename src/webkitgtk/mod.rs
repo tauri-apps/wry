@@ -954,11 +954,22 @@ impl InnerWebView {
     }
 
     if let Some(fixed) = self.fixed_parent() {
-      // the requested geometry, the allocation is only updated on the next layout pass
+      // the requested geometry, the allocation is only updated on the next layout pass;
+      // a negative size request means none was set, so GTK allocates the natural size
       let (width, height) = self.webview.size_request();
+      let width = if width < 0 {
+        self.webview.allocated_width()
+      } else {
+        width
+      };
+      let height = if height < 0 {
+        self.webview.allocated_height()
+      } else {
+        height
+      };
       bounds.position =
         LogicalPosition::new(fixed.child_x(&self.webview), fixed.child_y(&self.webview)).into();
-      bounds.size = LogicalSize::new(width.max(0), height.max(0)).into();
+      bounds.size = LogicalSize::new(width, height).into();
       return Ok(bounds);
     }
 
