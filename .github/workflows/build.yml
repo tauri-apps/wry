@@ -66,6 +66,12 @@ jobs:
         if: (!contains(matrix.platform.target, 'android') && !contains(matrix.platform.target, 'ios'))
         run: cargo test --verbose --target ${{ matrix.platform.target }} --features linux-body ${{ matrix.features.args }}
 
+      - name: run tests that need a display (linux only)
+        if: contains(matrix.platform.target, 'gnu')
+        run: |
+          sudo apt-get install -y xvfb
+          xvfb-run -a cargo test --verbose --lib --target ${{ matrix.platform.target }} --features linux-body ${{ matrix.features.args }} -- --ignored
+
       - name: install nightly
         uses: dtolnay/rust-toolchain@nightly
         with:
