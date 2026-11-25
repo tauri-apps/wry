@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.58.1]
+
+### feat
+
+- [`22f3949`](https://github.com/tauri-apps/wry/commit/22f394992776d225d545d75de3e22b26843cbafe) ([#1879](https://github.com/tauri-apps/wry/pull/1879) by [@VityaSchel](https://github.com/tauri-apps/wry/../../VityaSchel)) On Android, add `WebViewBuilderExtAndroid::with_custom_protocol_host` to serve a custom protocol from `https://<host>` instead of `http(s)://<protocol>.localhost`.
+
 ## [0.58.0]
 
 - [`86b1127`](https://github.com/tauri-apps/wry/commit/86b11273c142bdfd69472d4b7dd9cf679a697123) ([#1843](https://github.com/tauri-apps/wry/pull/1843) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) **Breaking change:** On Linux, updated `gtk` and `gdkx11` to 0.19, `webkit2gtk` and `webkit2gtk-sys` to 3, `javascriptcore-rs` to 2 and `soup3` to 0.9. These types are part of wry's Linux API, so `tao` and any other GTK crates you use must be updated to the matching versions.
