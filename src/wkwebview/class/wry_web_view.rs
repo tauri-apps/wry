@@ -141,6 +141,16 @@ impl WryWebView {
       .unwrap()
       .remove(&task_id);
   }
+  /// Removes the task key only if it still maps to `task_uuid`.
+  pub(crate) fn remove_custom_task_key_if_current(&self, task_id: usize, task_uuid: &NSUUID) {
+    let mut task_ids = self.ivars().custom_protocol_task_ids.lock().unwrap();
+    if task_ids
+      .get(&task_id)
+      .is_some_and(|uuid| **uuid == *task_uuid)
+    {
+      task_ids.remove(&task_id);
+    }
+  }
   pub(crate) fn get_custom_task_uuid(&self, task_id: usize) -> Option<Retained<NSUUID>> {
     self
       .ivars()
