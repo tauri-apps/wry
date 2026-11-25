@@ -79,7 +79,10 @@ struct X11Data {
 #[cfg(feature = "x11")]
 impl Drop for X11Data {
   fn drop(&mut self) {
-    unsafe { (self.xlib.XDestroyWindow)(self.x11_display as _, self.x11_window) };
+    // when not a child, `x11_window` is the window we were given, which we do not own
+    if self.is_child {
+      unsafe { (self.xlib.XDestroyWindow)(self.x11_display as _, self.x11_window) };
+    }
     self.gtk_window.close();
   }
 }
