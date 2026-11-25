@@ -4080,6 +4080,7 @@ dependencies = [
  "cookie",
  "crossbeam-channel",
  "dirs",
+ "dispatch2",
  "dom_query",
  "dpi",
  "dunce",
