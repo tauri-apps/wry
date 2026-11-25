@@ -1475,6 +1475,8 @@ impl<'a> WebViewBuilder<'a> {
   /// Specify the webview position relative to its parent if it will be created as a child
   /// or if created using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
   ///
+  /// See [`WebView::set_bounds`] for the Windows and macOS child coordinate space and units.
+  ///
   /// Defaults to `x: 0, y: 0, width: 200, height: 200`.
   pub fn with_bounds(mut self, bounds: Rect) -> Self {
     self.attrs.bounds = Some(bounds);
@@ -2255,14 +2257,34 @@ impl WebView {
     self.webview.clear_all_browsing_data()
   }
 
+  /// Get the webview bounds.
+  ///
+  /// On Windows, a child webview's position is relative to the top-left of its
+  /// parent window's client area. The position and size are returned in physical pixels.
   pub fn bounds(&self) -> Result<Rect> {
     self.webview.bounds()
   }
 
   /// Set the webview bounds.
   ///
-  /// This is only effective if the webview was created as a child
-  /// or created using [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
+  /// Use this method with a webview created using [`WebViewBuilder::build_as_child`]
+  /// or [`WebViewBuilderExtUnix::build_gtk`] with [`gtk::Fixed`].
+  ///
+  /// # Platform-specific:
+  ///
+  /// - **Windows:** For a child webview, the origin is the top-left of the
+  ///   parent window's client area. Logical position and size are converted
+  ///   using the native webview window's DPI scale factor. Physical values
+  ///   are used directly. If the rectangle comes from CSS pixels relative
+  ///   to the parent client area, convert it using the measuring page's
+  ///   `window.devicePixelRatio` and pass physical values.
+  /// - **macOS:** For a child webview, the origin is the top-left of the parent
+  ///   `NSView`. Physical values are converted to points using the window's
+  ///   `backingScaleFactor`. Logical values are in points. This has no effect
+  ///   on other webviews.
+  /// - **Linux:** Physical values are converted to logical values using the
+  ///   GTK scale factor of the webview. For a child webview created on X11, the
+  ///   origin is the top-left of the parent X11 window.
   pub fn set_bounds(&self, bounds: Rect) -> Result<()> {
     self.webview.set_bounds(bounds)
   }
