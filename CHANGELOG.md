@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.58.0]
+
+- [`86b1127`](https://github.com/tauri-apps/wry/commit/86b11273c142bdfd69472d4b7dd9cf679a697123) ([#1843](https://github.com/tauri-apps/wry/pull/1843) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) **Breaking change:** On Linux, updated `gtk` and `gdkx11` to 0.19, `webkit2gtk` and `webkit2gtk-sys` to 3, `javascriptcore-rs` to 2 and `soup3` to 0.9. These types are part of wry's Linux API, so `tao` and any other GTK crates you use must be updated to the matching versions.
+- [`86b1127`](https://github.com/tauri-apps/wry/commit/86b11273c142bdfd69472d4b7dd9cf679a697123) ([#1843](https://github.com/tauri-apps/wry/pull/1843) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Bumped MSRV to 1.92.
+
 ## [0.57.4]
 
 - [`259b096`](https://github.com/tauri-apps/wry/commit/259b0969f367b69ee2a54dbdaef033e24719afdd) ([#1942](https://github.com/tauri-apps/wry/pull/1942) by [@renovate](https://github.com/tauri-apps/wry/../../renovate)) Updated dependency `dom_query` to 0.30
