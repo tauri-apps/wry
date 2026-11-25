@@ -1870,8 +1870,8 @@ pub trait WebViewBuilderExtWindows {
   /// WebView2 has created the environment and the controller. An application
   /// that must not wait (a UI that keeps drawing) can create both itself with
   /// WebView2's asynchronous calls, on a window of its own, and build the
-  /// webview in the controller's completion handler with this and
-  /// [`with_environment`](Self::with_environment); the build then creates
+  /// webview with this and [`with_environment`](Self::with_environment) once
+  /// the controller's completion handler has run; the build then creates
   /// neither.
   ///
   /// The controller is moved into the webview's container window
@@ -1888,6 +1888,60 @@ pub trait WebViewBuilderExtWindows {
   ///   [`WebViewBuilder::with_incognito`] and the default background colour
   ///   ([`WebViewBuilder::with_background_color`],
   ///   [`WebViewBuilder::with_transparent`]) are not applied to it.
+  ///
+  /// ## Example
+  ///
+  /// ```no_run
+  /// # use std::{cell::RefCell, rc::Rc};
+  /// # use tao::{event_loop::EventLoop, platform::windows::WindowExtWindows, window::WindowBuilder};
+  /// use webview2_com::{
+  ///   CreateCoreWebView2ControllerCompletedHandler, CreateCoreWebView2EnvironmentCompletedHandler,
+  ///   Microsoft::Web::WebView2::Win32::{
+  ///     CreateCoreWebView2EnvironmentWithOptions, ICoreWebView2Controller, ICoreWebView2Environment,
+  ///   },
+  /// };
+  /// use windows::{core::PCWSTR, Win32::Foundation::HWND};
+  /// use wry::{WebViewBuilder, WebViewBuilderExtWindows};
+  ///
+  /// # let event_loop = EventLoop::new();
+  /// # let window = WindowBuilder::new().build(&event_loop).unwrap();
+  /// let hwnd = HWND(window.hwnd() as _);
+  /// // filled in by WebView2's completion handlers, which run on this thread
+  /// // while its event loop handles messages
+  /// let made: Rc<RefCell<Option<(ICoreWebView2Environment, ICoreWebView2Controller)>>> =
+  ///   Rc::default();
+  ///
+  /// let made_in_handler = made.clone();
+  /// let on_environment = CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
+  ///   move |result, environment| {
+  ///     result?;
+  ///     let environment = environment.unwrap();
+  ///     let env = environment.clone();
+  ///     let on_controller = CreateCoreWebView2ControllerCompletedHandler::create(Box::new(
+  ///       move |result, controller| {
+  ///         result?;
+  ///         made_in_handler.replace(Some((env, controller.unwrap())));
+  ///         Ok(())
+  ///       },
+  ///     ));
+  ///     // any window will do: the controller is moved into the webview's own
+  ///     unsafe { environment.CreateCoreWebView2Controller(hwnd, &on_controller) }
+  ///   },
+  /// ));
+  /// unsafe {
+  ///   CreateCoreWebView2EnvironmentWithOptions(PCWSTR::null(), PCWSTR::null(), None, &on_environment)?;
+  /// }
+  ///
+  /// // later, once `made` is filled in (the event loop keeps running meanwhile)
+  /// if let Some((environment, controller)) = made.borrow_mut().take() {
+  ///   let _webview = WebViewBuilder::new()
+  ///     .with_environment(environment)
+  ///     .with_controller(controller)
+  ///     .with_url("https://tauri.app")
+  ///     .build(&window)?;
+  /// }
+  /// # Ok::<(), Box<dyn std::error::Error>>(())
+  /// ```
   fn with_controller(self, controller: ICoreWebView2Controller) -> Self;
 
   /// Set the WebView2 profile name for this webview. Webviews with different
