@@ -4,7 +4,7 @@
 
 use std::{
   borrow::Cow,
-  ffi::{CStr, c_char},
+  ffi::{CStr, CString, c_char},
   panic::AssertUnwindSafe,
   ptr::NonNull,
 };
@@ -46,6 +46,7 @@ pub fn create(name: &str) -> &AnyClass {
           objc2::sel!(webView:stopURLSchemeTask:),
           stop_task as extern "C" fn(_, _, _, _),
         );
+        cls.add_method(objc2::sel!(dealloc), dealloc as extern "C" fn(_, _));
         cls.register()
       }
       None => AnyClass::get(scheme_name).expect("Failed to get the class definition"),
@@ -67,14 +68,23 @@ extern "C" fn start_task(
 
   let task_key = task.hash(); // hash by task object address
   let task_uuid = webview.add_custom_task_key(task_key);
+  // Dropped on every exit path, including a responder that is never called.
+  let task_guard = TaskKeyGuard {
+    webview: webview.retain(),
+    task_key,
+    task_uuid: task_uuid.clone(),
+  };
 
   let ivar = this.class().instance_variable(c"webview_id").unwrap();
+  // Owned copy: the handler frees the ivar's string on dealloc, and the responder below may
+  // outlive this call.
   let webview_id = unsafe {
     let webview_id_ptr: *mut c_char = *ivar.load(this);
     CStr::from_ptr(webview_id_ptr)
       .to_str()
       .ok()
       .unwrap_or_default()
+      .to_owned()
   };
 
   let ivar = this.class().instance_variable(c"protocol_index").unwrap();
@@ -83,7 +93,7 @@ extern "C" fn start_task(
   let function = WEBVIEW_STATE
     .read()
     .unwrap()
-    .get(webview_id)
+    .get(&webview_id)
     .and_then(|v| v.protocol_ptrs.get(protocol_index))
     .cloned();
 
@@ -184,14 +194,16 @@ extern "C" fn start_task(
     // send response
     match http_request.body(sent_form_body) {
       Ok(final_request) => {
-        let webview = webview.retain();
         let task = task.retain();
+        let responder_webview_id = webview_id.clone();
         let responder: Box<dyn FnOnce(HttpResponse<Cow<'static, [u8]>>)> =
           Box::new(move |sent_response| {
+            let webview_id = responder_webview_id.as_str();
+            let webview = &*task_guard.webview;
             // Consolidate checks before calling into `did*` methods.
             let validate = || -> crate::Result<()> {
               check_webview_id_valid(webview_id)?;
-              check_task_is_valid(&webview, task_key, task_uuid.clone())?;
+              check_task_is_valid(webview, task_key, task_uuid.clone())?;
               Ok(())
             };
 
@@ -205,8 +217,7 @@ extern "C" fn start_task(
             fn response(
               // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
               task: Retained<ProtocolObject<dyn WKURLSchemeTask>>,
-              // FIXME: though we give it a static lifetime, it's not guaranteed to be valid.
-              webview: Retained<WryWebView>,
+              webview: &WryWebView,
               task_key: usize,
               task_uuid: Retained<NSUUID>,
               webview_id: &str,
@@ -215,7 +226,7 @@ extern "C" fn start_task(
             ) -> crate::Result<()> {
               // Validate
               check_webview_id_valid(webview_id)?;
-              check_task_is_valid(&webview, task_key, task_uuid.clone())?;
+              check_task_is_valid(webview, task_key, task_uuid.clone())?;
 
               let content_len = sent_response.body().len();
               // default: application/octet-stream, but should be provided by the client
@@ -259,7 +270,7 @@ extern "C" fn start_task(
 
               // Re-validate before calling didReceiveResponse
               check_webview_id_valid(webview_id)?;
-              check_task_is_valid(&webview, task_key, task_uuid.clone())?;
+              check_task_is_valid(webview, task_key, task_uuid.clone())?;
 
               // Use map_err to convert Option<Retained<Exception>> to crate::Error
               objc2::exception::catch(AssertUnwindSafe(|| unsafe {
@@ -274,7 +285,7 @@ extern "C" fn start_task(
 
               // Check validity again
               check_webview_id_valid(webview_id)?;
-              check_task_is_valid(&webview, task_key, task_uuid.clone())?;
+              check_task_is_valid(webview, task_key, task_uuid.clone())?;
 
               objc2::exception::catch(AssertUnwindSafe(|| unsafe {
                 task.didReceiveData(&data);
@@ -282,19 +293,15 @@ extern "C" fn start_task(
               .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
               check_webview_id_valid(webview_id)?;
-              check_task_is_valid(&webview, task_key, task_uuid)?;
+              check_task_is_valid(webview, task_key, task_uuid)?;
 
               objc2::exception::catch(AssertUnwindSafe(|| unsafe {
                 task.didFinish();
               }))
               .map_err(|_e| crate::Error::CustomProtocolTaskInvalid)?;
 
-              if WEBVIEW_STATE.read().unwrap().contains_key(webview_id) {
-                webview.remove_custom_task_key(task_key);
-                Ok(())
-              } else {
-                Err(crate::Error::CustomProtocolTaskInvalid)
-              }
+              // The task key is removed by `TaskKeyGuard`.
+              check_webview_id_valid(webview_id)
             }
 
             #[cfg(feature = "tracing")]
@@ -318,7 +325,7 @@ extern "C" fn start_task(
         let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
 
         function(
-          webview_id,
+          &webview_id,
           final_request,
           RequestAsyncResponder { responder },
         );
@@ -333,6 +340,22 @@ extern "C" fn start_task(
   };
 }
 
+/// Removes the task key registered by `start_task` once the task is done with, unless the key
+/// already belongs to a newer task that reused the same address.
+struct TaskKeyGuard {
+  webview: Retained<WryWebView>,
+  task_key: usize,
+  task_uuid: Retained<NSUUID>,
+}
+
+impl Drop for TaskKeyGuard {
+  fn drop(&mut self) {
+    self
+      .webview
+      .remove_custom_task_key_if_current(self.task_key, &self.task_uuid);
+  }
+}
+
 extern "C" fn stop_task(
   _this: &ProtocolObject<dyn WKURLSchemeHandler>,
   _sel: objc2::runtime::Sel,
@@ -340,4 +363,17 @@ extern "C" fn stop_task(
   task: &ProtocolObject<dyn WKURLSchemeTask>,
 ) {
   webview.remove_custom_task_key(task.hash());
+}
+
+extern "C" fn dealloc(this: &AnyObject, _sel: objc2::runtime::Sel) {
+  unsafe {
+    // Zero-initialized by `new`, so it may be null before `new_ns_view` sets it.
+    let ivar = this.class().instance_variable(c"webview_id").unwrap();
+    let webview_id: *mut c_char = *ivar.load(this);
+    if !webview_id.is_null() {
+      drop(CString::from_raw(webview_id));
+    }
+
+    let _: () = objc2::msg_send![super(this, NSObject::class()), dealloc];
+  }
 }

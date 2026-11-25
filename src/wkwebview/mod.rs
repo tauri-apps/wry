@@ -33,7 +33,7 @@ use dpi::{LogicalPosition, LogicalSize};
 #[cfg(target_os = "macos")]
 use objc2::runtime::Bool;
 use objc2::{
-  AllocAnyThread, DeclaredClass, MainThreadOnly, Message,
+  AllocAnyThread, MainThreadOnly, Message,
   rc::Retained,
   runtime::{AnyObject, NSObject, ProtocolObject},
 };
@@ -118,29 +118,52 @@ thread_local! {
   /// the opener's controller. When the count is already above zero, the new webview skips its init
   /// scripts and `ipc` handler: the opener's already serve the controller, and removing the
   /// handler on drop would remove the opener's.
-  static CONTROLLER_REF_COUNT: RefCell<HashMap<usize, usize>> = RefCell::new(HashMap::new());
+  ///
+  /// The entry also records whether Wry installed the `ipc` handler on the controller, so the
+  /// last webview removes it even when the webview that installed it is already gone.
+  static CONTROLLER_REF_COUNT: RefCell<HashMap<usize, ControllerUsers>> = RefCell::new(HashMap::new());
+}
+
+#[derive(Default)]
+struct ControllerUsers {
+  count: usize,
+  has_ipc_handler: bool,
 }
 
 /// Increments `controller`'s reference count, returning whether another live webview already uses it.
 fn retain_controller(controller: &WKUserContentController) -> bool {
   CONTROLLER_REF_COUNT.with(|counts| {
     let mut counts = counts.borrow_mut();
-    let count = counts.entry(controller as *const _ as usize).or_default();
-    *count += 1;
-    *count > 1
+    let users = counts.entry(controller as *const _ as usize).or_default();
+    users.count += 1;
+    users.count > 1
   })
 }
 
-/// Decrements `controller`'s reference count, returning if this is the last webview using it.
+/// Records that Wry installed the `ipc` handler on `controller`.
+fn mark_ipc_handler_installed(controller: &WKUserContentController) {
+  CONTROLLER_REF_COUNT.with(|counts| {
+    if let Some(users) = counts
+      .borrow_mut()
+      .get_mut(&(controller as *const _ as usize))
+    {
+      users.has_ipc_handler = true;
+    }
+  })
+}
+
+/// Decrements `controller`'s reference count, returning whether this was the last webview using
+/// it and Wry's `ipc` handler has to be removed from it.
 fn release_controller(controller: &WKUserContentController) -> bool {
   CONTROLLER_REF_COUNT.with(|counts| {
     let mut counts = counts.borrow_mut();
     let key = controller as *const _ as usize;
-    if let Some(count) = counts.get_mut(&key) {
-      *count -= 1;
-      if *count == 0 {
-        counts.remove(&key);
-        true
+    if let Some(users) = counts.get_mut(&key) {
+      users.count -= 1;
+      if users.count == 0 {
+        counts
+          .remove(&key)
+          .is_some_and(|users| users.has_ipc_handler)
       } else {
         false
       }
@@ -306,26 +329,25 @@ impl InnerWebView {
         }
 
         let url_scheme_handler_cls = url_scheme_handler::create(&name);
-        let handler: *mut AnyObject = objc2::msg_send![url_scheme_handler_cls, new];
+        let handler: Retained<AnyObject> = objc2::msg_send![url_scheme_handler_cls, new];
         let protocol_index = protocol_ptrs.len();
         protocol_ptrs.push(Rc::from(function));
 
-        let ivar = (*handler)
+        let ivar = handler
           .class()
           .instance_variable(c"protocol_index")
           .unwrap();
-        let ivar_delegate: &mut usize = ivar.load_mut(&mut *handler);
-        *ivar_delegate = protocol_index;
+        *ivar.load_ptr::<usize>(&handler) = protocol_index;
 
-        let ivar = (*handler).class().instance_variable(c"webview_id").unwrap();
-        let ivar_delegate: &mut *mut c_char = ivar.load_mut(&mut *handler);
-        *ivar_delegate = CString::new(webview_id.as_bytes()).unwrap().into_raw();
+        let ivar = handler.class().instance_variable(c"webview_id").unwrap();
+        *ivar.load_ptr::<*mut c_char>(&handler) =
+          CString::new(webview_id.as_bytes()).unwrap().into_raw();
 
         let set_result = objc2::exception::catch(AssertUnwindSafe(|| {
           // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/seturlschemehandler(_:forurlscheme:)>
           // Available: macOS 10.13+, iOS 11+
           config.setURLSchemeHandler_forURLScheme(
-            Some(&*(handler.cast::<ProtocolObject<dyn WKURLSchemeHandler>>())),
+            Some(&*(Retained::as_ptr(&handler) as *mut ProtocolObject<dyn WKURLSchemeHandler>)),
             &NSString::from_str(&name),
           );
         }));
@@ -370,17 +392,24 @@ impl InnerWebView {
       if let Some(proxy_config) = attributes.proxy_config {
         let proxy_config = match proxy_config {
           ProxyConfig::Http(endpoint) => {
+            // `nw_*_create_*` return +1 objects, own them so they are released.
             let nw_endpoint = nw_endpoint_t::try_from(endpoint).unwrap();
-            nw_proxy_config_create_http_connect(nw_endpoint, std::ptr::null_mut())
+            let config = nw_proxy_config_create_http_connect(nw_endpoint, std::ptr::null_mut());
+            drop(Retained::from_raw(nw_endpoint));
+            config
           }
           ProxyConfig::Socks5(endpoint) => {
             let nw_endpoint = nw_endpoint_t::try_from(endpoint).unwrap();
-            nw_proxy_config_create_socksv5(nw_endpoint)
+            let config = nw_proxy_config_create_socksv5(nw_endpoint);
+            drop(Retained::from_raw(nw_endpoint));
+            config
           }
         };
 
-        let proxies: Retained<NSArray<NSObject>> = NSArray::arrayWithObject(&*proxy_config);
-        data_store.setValue_forKey(Some(&proxies), ns_string!("proxyConfigurations"));
+        if let Some(proxy_config) = Retained::from_raw(proxy_config) {
+          let proxies: Retained<NSArray<NSObject>> = NSArray::arrayWithObject(&*proxy_config);
+          data_store.setValue_forKey(Some(&proxies), ns_string!("proxyConfigurations"));
+        }
       }
 
       // NOTE: Private API on macOS — `allowsPictureInPictureMediaPlayback` is a private KVC key on WKPreferences.
@@ -605,6 +634,7 @@ impl InnerWebView {
         None
       } else if let Some(ipc_handler) = attributes.ipc_handler {
         let delegate = WryWebViewDelegate::new(manager.clone(), ipc_handler, mtm);
+        mark_ipc_handler_installed(&manager);
         Some(delegate)
       } else {
         None
@@ -1506,25 +1536,22 @@ pub fn platform_webview_version() -> Result<String> {
 impl Drop for InnerWebView {
   fn drop(&mut self) {
     WEBVIEW_STATE.write().unwrap().remove(&self.id);
-    let last_webview = release_controller(&self.manager);
+    let remove_ipc_handler = release_controller(&self.manager);
 
     unsafe {
       // This prevents a segfault on the did_receive hook,
       // see https://github.com/tauri-apps/wry/pull/700
-      if last_webview {
-        if let Some(ipc_handler) = self.ipc_handler_delegate.take() {
-          let ipc = ns_string!(IPC_MESSAGE_HANDLER_NAME);
-          // this will decrease the retain count of the ipc handler and trigger the drop
-          ipc_handler
-            .ivars()
-            .controller
-            .removeScriptMessageHandlerForName(ipc);
-        }
+      //
+      // The handler may have been installed by a webview sharing this controller that was
+      // dropped earlier, so remove it by name instead of through our own delegate.
+      if remove_ipc_handler {
+        // this will decrease the retain count of the ipc handler and trigger the drop
+        self
+          .manager
+          .removeScriptMessageHandlerForName(ns_string!(IPC_MESSAGE_HANDLER_NAME));
       }
       // Remove webview from window's NSView before dropping.
       self.webview.removeFromSuperview();
-      self.webview.retain();
-      self.manager.retain();
     }
   }
 }
