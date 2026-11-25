@@ -81,11 +81,13 @@ impl Drop for InnerWebView {
       drop(drag_drop_controller);
     }
     let _ = unsafe { self.controller.Close() };
-    if self.is_child {
-      let _ = unsafe { DestroyWindow(self.hwnd) };
-    } else {
+    if !self.is_child {
       unsafe { Self::dettach_parent_subclass(*self.parent.borrow()) }
     }
+    // The container is ours in both modes. Left alive it stays as an orphan child of the parent
+    // window, along with its subclass and the reference the subclass holds on the drag drop
+    // controller, until the parent is destroyed.
+    let _ = unsafe { DestroyWindow(self.hwnd) };
   }
 }
 

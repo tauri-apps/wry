@@ -8,6 +8,7 @@ use windows::{
     Foundation::{FARPROC, HINSTANCE, HWND, S_OK},
     Graphics::Gdi::{
       GetDC, GetDeviceCaps, HMONITOR, LOGPIXELSX, MONITOR_DEFAULTTONEAREST, MonitorFromWindow,
+      ReleaseDC,
     },
     System::{
       LibraryLoader::{GetProcAddress, LoadLibraryW},
@@ -104,8 +105,11 @@ pub unsafe fn hwnd_dpi(hwnd: HWND) -> u32 {
       if IsProcessDPIAware().as_bool() {
         // If the process is DPI aware, then scaling must be handled by the application using
         // this DPI value.
-        GetDeviceCaps(Some(hdc), LOGPIXELSX) as u32
+        let dpi = GetDeviceCaps(Some(hdc), LOGPIXELSX) as u32;
+        ReleaseDC(Some(hwnd), hdc);
+        dpi
       } else {
+        ReleaseDC(Some(hwnd), hdc);
         // If the process is DPI unaware, then scaling is performed by the OS; we thus return
         // 96 (scale factor 1.0) to prevent the window from being re-scaled by both the
         // application and the WM.
