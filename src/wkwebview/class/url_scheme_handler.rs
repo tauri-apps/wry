@@ -4,7 +4,7 @@
 
 use std::{
   borrow::Cow,
-  ffi::{CStr, c_char},
+  ffi::{CStr, CString, c_char},
   panic::AssertUnwindSafe,
   ptr::NonNull,
 };
@@ -46,6 +46,7 @@ pub fn create(name: &str) -> &AnyClass {
           objc2::sel!(webView:stopURLSchemeTask:),
           stop_task as extern "C" fn(_, _, _, _),
         );
+        cls.add_method(objc2::sel!(dealloc), dealloc as extern "C" fn(_, _));
         cls.register()
       }
       None => AnyClass::get(scheme_name).expect("Failed to get the class definition"),
@@ -340,4 +341,17 @@ extern "C" fn stop_task(
   task: &ProtocolObject<dyn WKURLSchemeTask>,
 ) {
   webview.remove_custom_task_key(task.hash());
+}
+
+extern "C" fn dealloc(this: &AnyObject, _sel: objc2::runtime::Sel) {
+  unsafe {
+    // Zero-initialized by `new`, so it may be null before `new_ns_view` sets it.
+    let ivar = this.class().instance_variable(c"webview_id").unwrap();
+    let webview_id: *mut c_char = *ivar.load(this);
+    if !webview_id.is_null() {
+      drop(CString::from_raw(webview_id));
+    }
+
+    let _: () = objc2::msg_send![super(this, NSObject::class()), dealloc];
+  }
 }

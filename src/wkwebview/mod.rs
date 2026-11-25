@@ -306,26 +306,25 @@ impl InnerWebView {
         }
 
         let url_scheme_handler_cls = url_scheme_handler::create(&name);
-        let handler: *mut AnyObject = objc2::msg_send![url_scheme_handler_cls, new];
+        let handler: Retained<AnyObject> = objc2::msg_send![url_scheme_handler_cls, new];
         let protocol_index = protocol_ptrs.len();
         protocol_ptrs.push(Rc::from(function));
 
-        let ivar = (*handler)
+        let ivar = handler
           .class()
           .instance_variable(c"protocol_index")
           .unwrap();
-        let ivar_delegate: &mut usize = ivar.load_mut(&mut *handler);
-        *ivar_delegate = protocol_index;
+        *ivar.load_ptr::<usize>(&handler) = protocol_index;
 
-        let ivar = (*handler).class().instance_variable(c"webview_id").unwrap();
-        let ivar_delegate: &mut *mut c_char = ivar.load_mut(&mut *handler);
-        *ivar_delegate = CString::new(webview_id.as_bytes()).unwrap().into_raw();
+        let ivar = handler.class().instance_variable(c"webview_id").unwrap();
+        *ivar.load_ptr::<*mut c_char>(&handler) =
+          CString::new(webview_id.as_bytes()).unwrap().into_raw();
 
         let set_result = objc2::exception::catch(AssertUnwindSafe(|| {
           // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/seturlschemehandler(_:forurlscheme:)>
           // Available: macOS 10.13+, iOS 11+
           config.setURLSchemeHandler_forURLScheme(
-            Some(&*(handler.cast::<ProtocolObject<dyn WKURLSchemeHandler>>())),
+            Some(&*(Retained::as_ptr(&handler) as *mut ProtocolObject<dyn WKURLSchemeHandler>)),
             &NSString::from_str(&name),
           );
         }));
