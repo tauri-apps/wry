@@ -520,13 +520,14 @@ impl InnerWebView {
             let related_webviews = related_webviews.clone();
             let toplevel = webview.toplevel().unwrap();
             let window = toplevel.downcast::<gtk::ApplicationWindow>().unwrap();
-            let id = window.id();
             let app = window.application().unwrap();
 
             let window = gtk::ApplicationWindow::builder()
               .application(&app)
               .title(&url)
               .build();
+            // key by the new window, the opener can have several of them
+            let id = window.id();
             let box_ = gtk::Box::new(gtk::Orientation::Vertical, 0);
             window.add(&box_);
 
