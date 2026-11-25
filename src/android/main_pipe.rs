@@ -358,13 +358,23 @@ impl<'a> MainPipe<'a> {
               }),
             );
 
-          let s = self.env.new_string(script)?;
-          self.env.call_method(
-            webview.as_obj(),
-            "evalScript",
-            "(ILjava/lang/String;)V",
-            &[id.into(), (&s).into()],
-          )?;
+          let sent = self.env.new_string(script).and_then(|s| {
+            self.env.call_method(
+              webview.as_obj(),
+              "evalScript",
+              "(ILjava/lang/String;)V",
+              &[id.into(), (&s).into()],
+            )
+          });
+          // `onEval` is what removes the callback, and it never runs if the call failed.
+          if sent.is_err() {
+            EVAL_CALLBACKS
+              .get_or_init(Default::default)
+              .lock()
+              .unwrap()
+              .remove(&id);
+          }
+          sent?;
         }
       }
       WebViewMessage::SetBackgroundColor(background_color) => {
