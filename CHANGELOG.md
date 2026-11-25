@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.57.4]
+
+- [`259b096`](https://github.com/tauri-apps/wry/commit/259b0969f367b69ee2a54dbdaef033e24719afdd) ([#1942](https://github.com/tauri-apps/wry/pull/1942) by [@renovate](https://github.com/tauri-apps/wry/../../renovate)) Updated dependency `dom_query` to 0.30
+- [`9f398ac`](https://github.com/tauri-apps/wry/commit/9f398acad6e76b01fdbf95761e3bc3ce3e2e9fc5) ([#1954](https://github.com/tauri-apps/wry/pull/1954) by [@TakahiroNago](https://github.com/tauri-apps/wry/../../TakahiroNago)) On macOS, fix `WebView::bounds` returning a wrong `y` position for a child webview whose parent view uses a flipped coordinate system.
+- [`9f4434a`](https://github.com/tauri-apps/wry/commit/9f4434a7145beb129ba8b9e7c64a28240f0ff5d5) ([#1951](https://github.com/tauri-apps/wry/pull/1951) by [@OHNope](https://github.com/tauri-apps/wry/../../OHNope)) On Windows, update the stored parent window when a child webview is reparented so `bounds()` and `focus_parent()` use the new parent.
+- [`5a969d5`](https://github.com/tauri-apps/wry/commit/5a969d5b3ff17ead8ea495bfff5b869be4e604d1) ([#1935](https://github.com/tauri-apps/wry/pull/1935) by [@TakahiroNago](https://github.com/tauri-apps/wry/../../TakahiroNago)) On Windows, revoke the drop targets of a webview with a drag drop handler before its windows are destroyed. They were never revoked, so every closed webview leaked them and its drag drop handler. The drop targets now also hold the handler weakly, so it is released with the webview even when a target cannot be revoked.
+
 ## [0.57.3]
 
 - [`89c4957`](https://github.com/tauri-apps/wry/commit/89c4957799cb98fc803960d2263f01b00fce0aaf) ([#1938](https://github.com/tauri-apps/wry/pull/1938) by [@1eedaegon](https://github.com/tauri-apps/wry/../../1eedaegon)) On Android, fix a panic in `dispatch` when there is no activity, for example after the last one was destroyed. The closure now runs with a null activity and a null webview.
