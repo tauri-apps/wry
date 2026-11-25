@@ -1254,19 +1254,28 @@ impl InnerWebView {
       .and_then(|p| p.dynamic_cast::<gtk::Container>().ok())
     {
       // `GtkFixed::put` takes the position, so keep the one in the old `GtkFixed`
-      let (x, y) = self
-        .fixed_parent()
+      let old_fixed = self.fixed_parent();
+      let (x, y) = old_fixed
+        .as_ref()
         .map(|fixed| (fixed.child_x(&self.webview), fixed.child_y(&self.webview)))
         .unwrap_or_default();
 
       parent.remove(&self.webview);
 
-      if let Some(b) = container.dynamic_cast_ref::<gtk::Box>() {
-        b.pack_start(&self.webview, true, true, 0);
-      } else if let Some(fixed) = container.dynamic_cast_ref::<gtk::Fixed>() {
+      if let Some(fixed) = container.dynamic_cast_ref::<gtk::Fixed>() {
         fixed.put(&self.webview, x, y);
       } else {
-        container.add(&self.webview);
+        // the size request is how a `gtk::Fixed` sizes the webview, anywhere else it is a minimum
+        // size that keeps the webview and its window from shrinking below the old bounds
+        if old_fixed.is_some() {
+          self.webview.set_size_request(-1, -1);
+        }
+
+        if let Some(b) = container.dynamic_cast_ref::<gtk::Box>() {
+          b.pack_start(&self.webview, true, true, 0);
+        } else {
+          container.add(&self.webview);
+        }
       }
     }
 
@@ -1446,15 +1455,20 @@ mod tests {
 
   /// The allocation of the webview in its `gtk::Fixed`, after the layout of the window.
   fn allocation_in(fixed: &gtk::Fixed, webview: &crate::WebView) -> (i32, i32, i32, i32) {
+    layout();
+    let a = webview.webview().allocation();
+    let f = fixed.allocation();
+    (a.x() - f.x(), a.y() - f.y(), a.width(), a.height())
+  }
+
+  /// Lets GTK handle the pending events and lay out the windows.
+  fn layout() {
     for _ in 0..30 {
       while gtk::events_pending() {
         gtk::main_iteration();
       }
       std::thread::sleep(Duration::from_millis(10));
     }
-    let a = webview.webview().allocation();
-    let f = fixed.allocation();
-    (a.x() - f.x(), a.y() - f.y(), a.width(), a.height())
   }
 
   fn window_with(fixed: &impl IsA<gtk::Widget>) -> gtk::Window {
@@ -1521,6 +1535,24 @@ mod tests {
     assert_eq!(
       allocation_in(derived.upcast_ref(), &webview),
       (10, 20, 300, 200)
+    );
+
+    // the size request of the `gtk::Fixed` does not keep the webview from shrinking in a `gtk::Box`
+    // (a popup is not managed by the window manager, which could maximize or tile the window)
+    let packed = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    let popup = gtk::Window::new(gtk::WindowType::Popup);
+    popup.add(&packed);
+    popup.show_all();
+    webview.reparent(&packed).unwrap();
+    assert_eq!(webview.webview().size_request(), (-1, -1));
+    popup.resize(100, 80);
+    layout();
+    let allocation = webview.webview().allocation();
+    assert!(
+      allocation.width() < 300 && allocation.height() < 200,
+      "the webview did not shrink: {}x{}",
+      allocation.width(),
+      allocation.height()
     );
   }
 }
