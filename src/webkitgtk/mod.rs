@@ -689,12 +689,8 @@ impl InnerWebView {
   where
     W: IsA<gtk::Container>,
   {
-    let container_type = container.type_().name();
-    if container_type == "GtkBox" {
-      container
-        .dynamic_cast_ref::<gtk::Box>()
-        .unwrap()
-        .pack_start(webview, true, true, 0);
+    if let Some(b) = container.dynamic_cast_ref::<gtk::Box>() {
+      b.pack_start(webview, true, true, 0);
     } else if let Some(fixed) = container.dynamic_cast_ref::<gtk::Fixed>() {
       let scale_factor = webview.scale_factor() as f64;
       let (width, height) = attributes
@@ -1254,12 +1250,8 @@ impl InnerWebView {
 
       parent.remove(&self.webview);
 
-      let container_type = container.type_().name();
-      if container_type == "GtkBox" {
-        container
-          .dynamic_cast_ref::<gtk::Box>()
-          .unwrap()
-          .pack_start(&self.webview, true, true, 0);
+      if let Some(b) = container.dynamic_cast_ref::<gtk::Box>() {
+        b.pack_start(&self.webview, true, true, 0);
       } else if let Some(fixed) = container.dynamic_cast_ref::<gtk::Fixed>() {
         fixed.put(&self.webview, x, y);
       } else {
