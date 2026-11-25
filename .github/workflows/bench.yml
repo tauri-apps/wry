@@ -36,7 +36,7 @@ jobs:
     runs-on: ${{ matrix.platform.os }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: install Rust ${{ matrix.rust }}
         uses: dtolnay/rust-toolchain@master
@@ -86,7 +86,7 @@ jobs:
 
       - name: clone benchmarks_results
         if: github.repository == 'tauri-apps/wry' && github.ref == 'refs/heads/dev'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           token: ${{ secrets.ORG_TAURI_BOT_PAT }}
           path: gh-pages
@@ -94,15 +94,24 @@ jobs:
 
       - name: push new benchmarks
         if: github.repository == 'tauri-apps/wry' && github.ref == 'refs/heads/dev'
+        shell: bash
         run: |
           cargo run --manifest-path ./bench/Cargo.toml --bin build_benchmark_jsons
+
           cd gh-pages
-          git pull
+
           git config user.name "tauri-bot"
           git config user.email "tauri-bot@tauri.app"
+          git config pull.rebase merges
+
           git add .
           git commit --message "Update WRY benchmarks"
-          git push origin gh-pages
+
+          # Retry 3 times in case we're colliding with other CI runs
+          for _ in {1..3}; do
+            git pull || exit $?
+            git push origin gh-pages && break
+          done
 
       - name: Print worker info
         # TODO: How to print this info on macOS and Windows
