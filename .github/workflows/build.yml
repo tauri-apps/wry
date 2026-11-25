@@ -31,7 +31,7 @@ jobs:
     runs-on: ${{ matrix.platform.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: install stable
         uses: dtolnay/rust-toolchain@1.92
         with:
@@ -79,7 +79,7 @@ jobs:
   doc:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: install nightly
         uses: dtolnay/rust-toolchain@nightly
       - name: install webkit2gtk
