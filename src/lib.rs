@@ -467,6 +467,14 @@ pub enum NewWindowResponse {
   /// **Linux**: The webview must be related to the caller webview. See [`WebViewBuilderExtUnix::with_related_view`].
   /// **Windows**: The webview must use the same environment as the caller webview. See [`WebViewBuilderExtWindows::with_environment`].
   /// **macOS**: The webview must use the same configuration as the caller webview. See [`WebViewBuilderExtMacos::with_webview_configuration`].
+  /// Because of that, the new webview shares the caller webview's state:
+  ///   - The caller's initialization scripts run in the new webview, and its IPC messages go to the caller's IPC handler.
+  ///     The initialization scripts and IPC handler set on the new webview's builder are ignored.
+  ///   - Custom protocols the caller registered are handled by the caller's handlers, which receive the caller's [`WebViewId`].
+  ///     The new webview's own handlers for those schemes are ignored, and requests for them get no response after the caller webview is dropped.
+  ///     Custom protocols for other schemes are registered as usual.
+  ///   - The caller's website data store is used, so [`WebViewBuilder::with_incognito`] and
+  ///     [`WebViewBuilderExtDarwin::with_data_store_identifier`] on the new webview's builder have no effect.
   #[cfg(not(any(target_os = "android", target_os = "ios")))]
   Create {
     #[cfg(any(
@@ -1407,6 +1415,8 @@ impl<'a> WebViewBuilder<'a> {
   /// A new window is requested to be opened by the [window.open] API.
   ///
   /// The closure take the URL to open and the window features object and returns [`NewWindowResponse`] to determine whether the window should open.
+  ///
+  /// A webview returned with [`NewWindowResponse::Create`] may share state with this webview. See its platform-specific notes.
   ///
   /// [window.open]: https://developer.mozilla.org/en-US/docs/Web/API/Window/open
   pub fn with_new_window_req_handler(
