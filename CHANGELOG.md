@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.58.2]
+
+- [`8aa6a5c`](https://github.com/tauri-apps/wry/commit/8aa6a5c4c75a0a2296f9ba81e88c9f86265000c3) ([#1966](https://github.com/tauri-apps/wry/pull/1966) by [@Legend-Master](https://github.com/tauri-apps/wry/../../Legend-Master)) Fix Android code merge conflict in last version (v0.58.1)
+- [`69dfb2a`](https://github.com/tauri-apps/wry/commit/69dfb2ac9d56fac699bbfdbfcfb8cee2d728381b) ([#1962](https://github.com/tauri-apps/wry/pull/1962) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) On Linux, fix a window opened by allowing a new window request losing its webview when the same webview opened or closed another one.
+- [`d503291`](https://github.com/tauri-apps/wry/commit/d503291b2216b34b9c148dbaa441b8c661e4b199) ([#1960](https://github.com/tauri-apps/wry/pull/1960) by [@Tunglies](https://github.com/tauri-apps/wry/../../Tunglies)) Fixed macOS/iOS memory leaks of custom URL scheme handlers and their `webview_id` strings, of the IPC handler on a `WKUserContentController` shared between webviews, of proxy configuration objects and of custom protocol task entries.
+- [`5b52b41`](https://github.com/tauri-apps/wry/commit/5b52b415dc187356a0a18b2333a378dc0bd3e646) ([#1963](https://github.com/tauri-apps/wry/pull/1963) by [@lucasfernog](https://github.com/tauri-apps/wry/../../lucasfernog)) On Linux (X11), fix dropping a webview created with `WebViewBuilder::build` destroying the window it was created for.
+
 ## [0.58.1]
 
 ### feat
