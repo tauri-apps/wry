@@ -636,6 +636,12 @@ struct WebViewAttributes<'a> {
   /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://path/to/page`).
   /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page`). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`]. On Android, a protocol mapped to a host with [`WebViewBuilderExtAndroid::with_custom_protocol_host`] uses `https://<host>/<path>` instead.
   ///
+  /// # Response size limit
+  ///
+  /// - Windows: WebView2 crashes on very large response bodies (the exact limit is unknown, see
+  ///   [WebView2Feedback#5651](https://github.com/MicrosoftEdge/WebView2Feedback/issues/5651)),
+  ///   so bodies larger than 1 GiB are rejected with an error response instead.
+  ///
   /// # Reading assets on mobile
   ///
   /// - Android: Android has `assets` and `resource` path finder to
@@ -1122,6 +1128,12 @@ impl<'a> WebViewBuilder<'a> {
   ///
   /// - macOS, iOS and Linux: `<scheme_name>://<path>` (so it will be `wry://path/to/page).
   /// - Windows and Android: `http://<scheme_name>.<path>` by default (so it will be `http://wry.path/to/page`). To use `https` instead of `http`, use [`WebViewBuilderExtWindows::with_https_scheme`] and [`WebViewBuilderExtAndroid::with_https_scheme`]. On Android, a protocol mapped to a host with [`WebViewBuilderExtAndroid::with_custom_protocol_host`] uses `https://<host>/<path>` instead.
+  ///
+  /// # Response size limit
+  ///
+  /// - Windows: WebView2 crashes on very large response bodies (the exact limit is unknown, see
+  ///   [WebView2Feedback#5651](https://github.com/MicrosoftEdge/WebView2Feedback/issues/5651)),
+  ///   so bodies larger than 1 GiB are rejected with an error response instead.
   ///
   /// # Examples
   ///
