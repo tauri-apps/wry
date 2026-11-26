@@ -1,4 +1,6 @@
 use objc2::DeclaredClass;
+#[cfg(target_os = "macos")]
+use objc2_foundation::NSHTTPURLResponse;
 use objc2_foundation::{NSObjectProtocol, NSString};
 use objc2_web_kit::{
   WKNavigation, WKNavigationAction, WKNavigationActionPolicy, WKNavigationResponse,
@@ -94,10 +96,22 @@ pub(crate) fn navigation_policy_response(
 ) {
   unsafe {
     let can_show_mime_type = response.canShowMIMEType();
+    #[cfg(target_os = "macos")]
+    let resource = response.response();
+    #[cfg(target_os = "macos")]
+    let attachment = {
+      // Displayable attachments can still report canShowMIMEType=true.
+      let disposition = resource
+        .downcast_ref::<NSHTTPURLResponse>()
+        .and_then(|http| http.valueForHTTPHeaderField(&NSString::from_str("Content-Disposition")))
+        .map(|value| value.to_string());
+      response_policy::is_attachment(disposition.as_deref())
+    };
+    #[cfg(not(target_os = "macos"))]
+    let attachment = false;
 
     #[cfg(all(target_os = "macos", feature = "macos-download-pdf"))]
     let force_pdf_download = {
-      let resource = response.response();
       let mime = resource.MIMEType().map(|value| value.to_string());
       let scheme = resource
         .URL()
@@ -115,7 +129,7 @@ pub(crate) fn navigation_policy_response(
     if response_policy::should_download(
       this.ivars().has_download_handler,
       can_show_mime_type,
-      force_pdf_download,
+      force_pdf_download || attachment,
     ) {
       (*handler).call((WKNavigationResponsePolicy::Download,));
       return;

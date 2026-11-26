@@ -20,13 +20,47 @@ pub(super) fn force_pdf_download(
     })
 }
 
-pub(super) fn should_download(has_handler: bool, can_show: bool, force_pdf: bool) -> bool {
-  has_handler && (!can_show || force_pdf)
+#[cfg(target_os = "macos")]
+pub(super) fn is_attachment(disposition: Option<&str>) -> bool {
+  disposition.is_some_and(|value| {
+    value
+      .split(';')
+      .next()
+      .unwrap_or("")
+      .trim()
+      .eq_ignore_ascii_case("attachment")
+  })
+}
+
+pub(super) fn should_download(has_handler: bool, can_show: bool, force_download: bool) -> bool {
+  has_handler && (!can_show || force_download)
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  #[cfg(target_os = "macos")]
+  fn attachment_disposition_is_independent_of_filename() {
+    for value in [
+      "attachment",
+      "ATTACHMENT",
+      " attachment ; filename=fixture.png",
+      "attachment; filename*=UTF-8''fixture.png",
+    ] {
+      assert!(is_attachment(Some(value)));
+    }
+    for value in [
+      None,
+      Some(""),
+      Some("inline"),
+      Some("inline; filename=attachment"),
+      Some("attachment-invalid"),
+    ] {
+      assert!(!is_attachment(value));
+    }
+  }
 
   #[test]
   fn upstream_policy_and_handler_requirement() {

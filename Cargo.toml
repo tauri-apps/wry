@@ -2,7 +2,7 @@ workspace = {}
 
 [package]
 name = "wry"
-version = "0.57.0+patch.1"
+version = "0.57.0+patch.2"
 authors = ["Tauri Programme within The Commons Conservancy"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
@@ -139,6 +139,7 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
   "block2",
   "objc2-core-foundation",
   "NSURLRequest",
+  "NSURLResponse",
   "NSURL",
   "NSString",
   "NSKeyValueCoding",
