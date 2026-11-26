@@ -118,6 +118,9 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
     }
 
     override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+        super.doUpdateVisitedHistory(view, url, isReload)
+        (view.context as? WryActivity)?.onWebViewHistoryChanged(view)
+
         // the page committed (error pages report nothing else), so loading its URL again replaces its entry
         if (url == reloadOnCommitUrl) {
             reloadOnCommitUrl = null
@@ -130,11 +133,6 @@ class RustWebViewClient(webView: RustWebView, context: Context): WebViewClient()
         // the replaced page can still finish before the reload starts; it never reported onPageLoading
         if (url == replacedPageUrl) return
         Rust.onPageLoaded((view as RustWebView).id, url)
-    }
-
-    override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
-        super.doUpdateVisitedHistory(view, url, isReload)
-        (view.context as? WryActivity)?.onWebViewHistoryChanged(view)
     }
 
     override fun onReceivedError(
