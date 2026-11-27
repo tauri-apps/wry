@@ -414,10 +414,16 @@ impl InnerWebView {
 
       // NOTE: Private API on macOS — `allowsPictureInPictureMediaPlayback` is a private KVC key on WKPreferences.
       // On iOS it's public <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/allowspictureinpicturemediaplayback>
-      _preference.setValue_forKey(
-        Some(&_yes),
-        ns_string!("allowsPictureInPictureMediaPlayback"),
-      );
+      // Only set it when WKPreferences has a setter for the key, so an OS without it
+      // skips Picture in Picture instead of raising `NSUnknownKeyException` on every webview.
+      if _preference.respondsToSelector(objc2::sel!(setAllowsPictureInPictureMediaPlayback:))
+        || _preference.respondsToSelector(objc2::sel!(_setAllowsPictureInPictureMediaPlayback:))
+      {
+        _preference.setValue_forKey(
+          Some(&_yes),
+          ns_string!("allowsPictureInPictureMediaPlayback"),
+        );
+      }
 
       if attributes.javascript_disabled {
         // <https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/defaultwebpagepreferences>
